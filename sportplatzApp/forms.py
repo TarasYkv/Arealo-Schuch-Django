@@ -3,80 +3,76 @@
 from django import forms
 from .models import Projekt
 
-# Wir definieren die Auswahlmöglichkeiten einmal zentral für die Wiederverwendung.
+# Auswahlmöglichkeiten zentral definieren
 BELEUCHTUNGSKLASSEN_AUSWAHL = [
-    ('', '---------'),  # Leere Option
+    ('', '---------'),
     ('I', 'Beleuchtungsklasse I'),
     ('II', 'Beleuchtungsklasse II'),
     ('III', 'Beleuchtungsklasse III (75 lx)'),
     ('TRAINING', 'Trainingsbeleuchtung (30 lx)'),
 ]
-# Für Ja/Nein-Fragen, die als Radio-Buttons dargestellt werden sollen.
 JA_NEIN_AUSWAHL = ((True, 'Ja'), (False, 'Nein'))
 
 
 class ProjektForm(forms.ModelForm):
     # ======================================================================
-    # HIER KOMMEN ALLE FELDER AUS DEINER TABELLE HIN
-    # Diese Felder existieren nur im Formular, um die Logik zu steuern.
-    # Sie werden nicht direkt im Projekt-Modell gespeichert.
+    # ALLE FELDER AUS DEINER BESTANDSAUFNAHME-TABELLE
     # ======================================================================
 
     # --- Gewünschte Beleuchtungsklasse ---
     gewuenschte_beleuchtungsklasse = forms.ChoiceField(
         choices=BELEUCHTUNGSKLASSEN_AUSWAHL,
-        label="Gewünschte Beleuchtungsklasse",
-        required=True
+        label="Gewünschte Beleuchtungsklasse"
     )
-    anzahl_maste = forms.IntegerField(label="Anzahl der Maste", initial=6, required=True)
-    masthoehe = forms.FloatField(label="Masthöhe in Meter", initial=16, required=True)
-    mastabstand = forms.FloatField(label="Mastabstand zu Spielfeld in Meter", initial=3, required=True)
+    anzahl_maste = forms.IntegerField(label="Anzahl der Maste", initial=6)
+    masthoehe = forms.FloatField(label="Masthöhe in Meter", initial=16)
+    mastabstand = forms.FloatField(label="Mastabstand zu Spielfeld in Meter", initial=3)
 
     # --- Vorschaltgerät ---
     vorschaltgeraet_in_leuchte = forms.TypedChoiceField(
         choices=JA_NEIN_AUSWAHL, widget=forms.RadioSelect, coerce=lambda x: x == 'True',
-        label="Vorschaltgerät integriert in der Leuchte", required=True
+        label="Vorschaltgerät integriert in der Leuchte"
     )
     vorschaltgeraet_im_mast = forms.TypedChoiceField(
         choices=JA_NEIN_AUSWAHL, widget=forms.RadioSelect, coerce=lambda x: x == 'True',
-        label="Vorschaltgerät Einbau im Mast", required=True
+        label="Vorschaltgerät Einbau im Mast"
     )
-    anzahl_masttueren = forms.IntegerField(label="Anzahl der Masttüren", initial=1, required=True)
+    anzahl_masttueren = forms.IntegerField(label="Anzahl der Masttüren", initial=1)
     vorschaltgeraet_anbau = forms.TypedChoiceField(
         choices=JA_NEIN_AUSWAHL, widget=forms.RadioSelect, coerce=lambda x: x == 'True',
-        label="Vorschaltgerät Anbau", required=True
+        label="Vorschaltgerät Anbau"
     )
 
     # --- IST-Zustand Schaltung ---
     ist_schaltung_alle_zusammen = forms.TypedChoiceField(
         choices=JA_NEIN_AUSWAHL, widget=forms.RadioSelect, coerce=lambda x: x == 'True',
-        label="IST: Schaltung alle Leuchten zusammen", required=True
+        label="IST: Schaltung alle Leuchten zusammen"
     )
     ist_schaltung_je_mast = forms.TypedChoiceField(
         choices=JA_NEIN_AUSWAHL, widget=forms.RadioSelect, coerce=lambda x: x == 'True',
-        label="IST: Schaltung je Mast", required=True
+        label="IST: Schaltung je Mast"
     )
     ist_schaltung_je_leuchte = forms.TypedChoiceField(
         choices=JA_NEIN_AUSWAHL, widget=forms.RadioSelect, coerce=lambda x: x == 'True',
-        label="IST: Schaltung jede Leuchte einzeln", required=True
+        label="IST: Schaltung jede Leuchte einzeln"
     )
 
     # --- Wunsch-Schaltung ---
     wunsch_schaltung_je_mast = forms.TypedChoiceField(
         choices=JA_NEIN_AUSWAHL, widget=forms.RadioSelect, coerce=lambda x: x == 'True',
-        label="Wunsch: Schaltung je Mast", required=True
+        label="Wunsch: Schaltung je Mast"
     )
     wunsch_schaltung_je_leuchte = forms.TypedChoiceField(
         choices=JA_NEIN_AUSWAHL, widget=forms.RadioSelect, coerce=lambda x: x == 'True',
-        label="Wunsch: Schaltung jede Leuchte einzeln", required=True
+        label="Wunsch: Schaltung jede Leuchte einzeln"
     )
     wunsch_dimmbar = forms.TypedChoiceField(
         choices=JA_NEIN_AUSWAHL, widget=forms.RadioSelect, coerce=lambda x: x == 'True',
-        label="Wunsch: Dimmbar (Dali)", required=True
+        label="Wunsch: Dimmbar (Dali)"
     )
     wunsch_steuerung_per_app = forms.TypedChoiceField(
         choices=JA_NEIN_AUSWAHL, widget=forms.RadioSelect, coerce=lambda x: x == 'True',
-        label="Wunsch: Steuerung über Limas AIR", required=True
+        label="Wunsch: Steuerung über Limas AIR"
     )
 
     class Meta:

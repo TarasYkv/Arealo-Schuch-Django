@@ -1,95 +1,129 @@
 # Kompletter, finaler Inhalt für: sportplatzApp/views.py
 
 from django.shortcuts import render, redirect, get_object_or_404
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
+from django.urls import reverse
 from .forms import ProjektForm
 from .models import Projekt, Variante, Komponente
 
 
-# ==============================================================================
-# DIE INTELLIGENZ DEINES TOOLS: DIE ENTSCHEIDUNGSFUNKTION
-# ==============================================================================
+# Die Funktion finde_passende_variante bleibt unverändert
 def finde_passende_variante(form_data):
-    """
-    Diese Funktion enthält die Entscheidungsregeln, um basierend auf den
-    Formulareingaben die beste Variante zu finden. Gibt 'None' zurück,
-    wenn keine exakte Regel zutrifft.
-    """
     try:
-        # Hole alle relevanten Eingaben aus dem Formular
         ist_vg_im_mast = form_data.get('vorschaltgeraet_im_mast')
         ist_vg_anbau = form_data.get('vorschaltgeraet_anbau')
         hat_app_wunsch = form_data.get('wunsch_steuerung_per_app')
         hat_dimm_wunsch = form_data.get('wunsch_dimmbar')
         hat_einzelsteuerung_wunsch = form_data.get('wunsch_schaltung_je_leuchte')
 
-        # === HAUPTENTSCHEIDUNG: INTERNES ODER EXTERNES VORSCHALTGERÄT? ===
-
         if ist_vg_im_mast or ist_vg_anbau:
-            # --- FALL A: EXTERNES VORSCHALTGERÄT (OV-Leuchten -> Varianten 4, 5, 6, 7) ---
-            print("LOGIK: Gehe in den Zweig 'Externes Vorschaltgerät'")
-
             if hat_app_wunsch and hat_einzelsteuerung_wunsch:
                 return Variante.objects.get(name="Variante 7")
             elif hat_app_wunsch:
                 return Variante.objects.get(name="Variante 6")
             else:
-                # ANNAHME: Wir nehmen die günstigste Variante 4, wenn keine spezielle Steuerung gewünscht ist.
-                # Hier könntest du noch zwischen Variante 4 und 5 unterscheiden.
                 return Variante.objects.get(name="Variante 4")
-
         else:
-            # --- FALL B: INTERNES/INTEGRIERTES VORSCHALTGERÄT (Varianten 1, 2, 3) ---
-            print("LOGIK: Gehe in den Zweig 'Internes Vorschaltgerät'")
-
             if hat_app_wunsch:
                 return Variante.objects.get(name="Variante 3")
             elif hat_dimm_wunsch:
                 return Variante.objects.get(name="Variante 2")
             else:
-                # Nur wenn keine speziellen Wünsche bestehen, wird die Standard-Variante gewählt
-                if not hat_einzelsteuerung_wunsch and not hat_app_wunsch and not hat_dimm_wunsch:
+                if not hat_einzelsteuerung_wunsch:
                     return Variante.objects.get(name="Variante 1")
-
-        # Wenn keine der obigen, spezifischen Regeln zutrifft, geben wir None zurück.
-        print("LOGIK: Keine exakte Regel hat zugetroffen.")
         return None
-
-    except Variante.DoesNotExist as e:
-        # Dieser Fehler tritt auf, wenn eine Regel zutrifft, aber die
-        # entsprechende Variante im Admin-Bereich nicht mit exaktem Namen existiert.
-        print(f"WARNUNG: Erwartete Variante konnte nicht gefunden werden: {e}")
+    except Variante.DoesNotExist:
         return None
 
 
-# ==============================================================================
-# DIE HAUPT-VIEWS FÜR DIE WEBSEITEN
-# ==============================================================================
 def projekt_anlegen(request):
     if request.method == 'POST':
         form = ProjektForm(request.POST)
         if form.is_valid():
             form_data = form.cleaned_data
-
-            # --- UNSERE SPIONE ---
-            print("--- DEBUG-START ---")
-            print("Empfangene Formulardaten:", form_data)
-
             passende_variante = finde_passende_variante(form_data)
 
-            print("Von Logik ermittelte Variante:", passende_variante)
-            print("--- DEBUG-ENDE ---")
-            # ---
-
             if passende_variante:
-                # ... (normaler Ablauf)
                 neues_projekt = form.save(commit=False)
                 neues_projekt.ausgewaehlte_variante = passende_variante
                 neues_projekt.save()
-                # ... (E-Mail Code) ...
+
+                # === HIER BEGINNT DIE ÄNDERUNG FÜR DIE VOLLSTÄNDIGE TABELLE ===
+
+                subject = f"Konfiguration für Ihr Projekt: {neues_projekt.projekt_name}"
+                from_email = 'planungstool@schuch.de'
+                recipient_list = [neues_projekt.ansprechpartner_email]
+
+                admin_url = request.build_absolute_uri(
+                    reverse('admin:sportplatzApp_projekt_change', args=(neues_projekt.id,))
+                )
+
+                # HTML-Tabelle für Varianten-Details dynamisch erstellen
+                varianten_details_html = f"""
+                    <tr><th>Leuchtentyp</th><td>{passende_variante.leuchte.name} (Anzahl: {passende_variante.anzahl_leuchten})</td></tr>
+                    <tr><th>Traversentyp</th><td>{passende_variante.traverse.name} (Anzahl: {passende_variante.anzahl_traversen})</td></tr>
+                """
+                if passende_variante.externes_evg:
+                    varianten_details_html += f"<tr><th>Externes EVG</th><td>{passende_variante.externes_evg.name} (Anzahl: {passende_variante.anzahl_externe_evgs})</td></tr>"
+                if passende_variante.verteilerbox:
+                    varianten_details_html += f"<tr><th>Verteilerbox</th><td>{passende_variante.verteilerbox.name} (Anzahl: {passende_variante.anzahl_verteilerboxen})</td></tr>"
+                if passende_variante.steuerbox:
+                    varianten_details_html += f"<tr><th>Steuerbox</th><td>{passende_variante.steuerbox.name} (Anzahl: {passende_variante.anzahl_steuerboxen})</td></tr>"
+                if passende_variante.steuerbaustein:
+                    varianten_details_html += f"<tr><th>Steuerbaustein</th><td>{passende_variante.steuerbaustein.name} (Anzahl: {passende_variante.anzahl_steuerbausteine})</td></tr>"
+
+                # HTML-Tabelle für Bestandsaufnahme-Daten aus ALLEN Formularfeldern erstellen
+                bestandsaufnahme_html = ""
+                for field_name, value in form_data.items():
+                    # Wir holen das Label (den angezeigten Namen) des Feldes aus dem Formular
+                    field_label = form.fields[field_name].label
+                    # Für Ja/Nein-Felder zeigen wir "Ja" oder "Nein" anstatt True/False
+                    display_value = 'Ja' if value is True else 'Nein' if value is False else value
+                    bestandsaufnahme_html += f"<tr><td>{field_label}</td><td>{display_value}</td></tr>"
+
+                html_content = f"""
+                <html>
+                    <head>
+                        <style>
+                            body {{ font-family: sans-serif; color: #333; }}
+                            table {{ border-collapse: collapse; width: 100%; margin-bottom: 20px; }}
+                            th, td {{ border: 1px solid #dddddd; text-align: left; padding: 8px; }}
+                            th {{ background-color: #f2f2f2; }}
+                            h2, h3 {{ color: #0056b3; }}
+                        </style>
+                    </head>
+                    <body>
+                        <h2>Zusammenfassung für Ihr Projekt: {neues_projekt.projekt_name}</h2>
+                        <p>Vielen Dank für Ihre Anfrage. Basierend auf Ihrer Bestandsaufnahme empfehlen wir die folgende Konfiguration.</p>
+
+                        <h3>Empfohlene Variante</h3>
+                        <table>
+                            <tr><th>Variante</th><td>{passende_variante.name}</td></tr>
+                            <tr><th>Beschreibung</th><td>{passende_variante.beschreibung}</td></tr>
+                            <tr><th colspan="2" style="text-align:center;">Komponenten</th></tr>
+                            {varianten_details_html}
+                        </table>
+
+                        <h3>Ihre Angaben zur Bestandsaufnahme</h3>
+                        <table>
+                            {bestandsaufnahme_html}
+                        </table>
+
+                        <p>Sie können Ihr Projekt unter folgendem Link im Admin-Bereich einsehen:<br>
+                        <a href="{admin_url}">{admin_url}</a></p>
+
+                        <p>Mit freundlichen Grüßen,<br>Ihr Planungstool</p>
+                    </body>
+                </html>
+                """
+
+                plain_text_message = f"Vielen Dank. Empfohlene Variante: {passende_variante.name}"
+                msg = EmailMultiAlternatives(subject, plain_text_message, from_email, recipient_list)
+                msg.attach_alternative(html_content, "text/html")
+                msg.send()
+
                 return redirect('danke_seite', projekt_id=neues_projekt.id)
             else:
-                # Fall, wenn keine Variante gefunden wurde
                 return redirect('keine_variante_gefunden')
     else:
         form = ProjektForm()
@@ -98,16 +132,10 @@ def projekt_anlegen(request):
 
 
 def danke_seite(request, projekt_id):
-    """
-    Diese View zeigt die Ergebnisseite mit der Zusammenfassung an.
-    """
     projekt = get_object_or_404(Projekt, pk=projekt_id)
     context = {'projekt': projekt}
     return render(request, 'sportplatzApp/danke.html', context)
 
 
 def keine_variante_gefunden(request):
-    """
-    Diese View zeigt die Seite an, wenn keine passende Konfiguration gefunden wurde.
-    """
     return render(request, 'sportplatzApp/keine_variante_gefunden.html')
