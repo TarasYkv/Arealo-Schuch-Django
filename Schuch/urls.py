@@ -5,5 +5,5 @@ from django.urls import path, include
 urlpatterns = [
     path('admin/', admin.site.urls),
     # Alle Anfragen werden an die App weitergeleitet
-    path('', include('sportplatzApp.url')),
+    path('', include('sportplatzApp.urls')),
 ]
