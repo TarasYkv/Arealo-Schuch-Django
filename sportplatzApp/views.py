@@ -7,9 +7,10 @@ from .forms import ProjektForm
 from .models import Projekt, Variante, Komponente
 
 
-# Die Funktion finde_passende_variante bleibt unverändert
 def finde_passende_variante(form_data):
+    # Diese Funktion bleibt unverändert
     try:
+        # ... (komplette Logik von vorher) ...
         ist_vg_im_mast = form_data.get('vorschaltgeraet_im_mast')
         ist_vg_anbau = form_data.get('vorschaltgeraet_anbau')
         hat_app_wunsch = form_data.get('wunsch_steuerung_per_app')
@@ -48,8 +49,7 @@ def projekt_anlegen(request):
                 neues_projekt.ausgewaehlte_variante = passende_variante
                 neues_projekt.save()
 
-                # === HIER BEGINNT DIE ÄNDERUNG FÜR DIE VOLLSTÄNDIGE TABELLE ===
-
+                # === HIER BEGINNT DIE AKTUALISIERTE E-MAIL-LOGIK ===
                 subject = f"Konfiguration für Ihr Projekt: {neues_projekt.projekt_name}"
                 from_email = 'planungstool@schuch.de'
                 recipient_list = [neues_projekt.ansprechpartner_email]
@@ -61,60 +61,46 @@ def projekt_anlegen(request):
                 # HTML-Tabelle für Varianten-Details dynamisch erstellen
                 varianten_details_html = f"""
                     <tr><th>Leuchtentyp</th><td>{passende_variante.leuchte.name} (Anzahl: {passende_variante.anzahl_leuchten})</td></tr>
+                    <tr><th>Preis Leuchten</th><td>{passende_variante.preis_leuchten or 'N/A'} €</td></tr>
                     <tr><th>Traversentyp</th><td>{passende_variante.traverse.name} (Anzahl: {passende_variante.anzahl_traversen})</td></tr>
+                    <tr><th>Preis Traversen</th><td>{passende_variante.preis_traversen or 'N/A'} €</td></tr>
                 """
                 if passende_variante.externes_evg:
                     varianten_details_html += f"<tr><th>Externes EVG</th><td>{passende_variante.externes_evg.name} (Anzahl: {passende_variante.anzahl_externe_evgs})</td></tr>"
+                    varianten_details_html += f"<tr><th>Preis externe EVGs</th><td>{passende_variante.preis_externe_evgs or 'N/A'} €</td></tr>"
                 if passende_variante.verteilerbox:
                     varianten_details_html += f"<tr><th>Verteilerbox</th><td>{passende_variante.verteilerbox.name} (Anzahl: {passende_variante.anzahl_verteilerboxen})</td></tr>"
+                    varianten_details_html += f"<tr><th>Preis Verteilerboxen</th><td>{passende_variante.preis_verteilerboxen or 'N/A'} €</td></tr>"
                 if passende_variante.steuerbox:
                     varianten_details_html += f"<tr><th>Steuerbox</th><td>{passende_variante.steuerbox.name} (Anzahl: {passende_variante.anzahl_steuerboxen})</td></tr>"
+                    varianten_details_html += f"<tr><th>Preis Steuerboxen</th><td>{passende_variante.preis_steuerboxen or 'N/A'} €</td></tr>"
                 if passende_variante.steuerbaustein:
                     varianten_details_html += f"<tr><th>Steuerbaustein</th><td>{passende_variante.steuerbaustein.name} (Anzahl: {passende_variante.anzahl_steuerbausteine})</td></tr>"
+                    varianten_details_html += f"<tr><th>Preis Steuerbausteine</th><td>{passende_variante.preis_steuerbausteine or 'N/A'} €</td></tr>"
+                if passende_variante.preis_gesamt:
+                    varianten_details_html += f'<tr style="font-weight: bold;"><th>Preis für die gesamte Variante</th><td>{passende_variante.preis_gesamt} €</td></tr>'
 
-                # HTML-Tabelle für Bestandsaufnahme-Daten aus ALLEN Formularfeldern erstellen
-                bestandsaufnahme_html = ""
-                for field_name, value in form_data.items():
-                    # Wir holen das Label (den angezeigten Namen) des Feldes aus dem Formular
-                    field_label = form.fields[field_name].label
-                    # Für Ja/Nein-Felder zeigen wir "Ja" oder "Nein" anstatt True/False
-                    display_value = 'Ja' if value is True else 'Nein' if value is False else value
-                    bestandsaufnahme_html += f"<tr><td>{field_label}</td><td>{display_value}</td></tr>"
+                bestandsaufnahme_html = "".join([
+                                                    f"<tr><td>{field.label}</td><td>{'Ja' if value is True else 'Nein' if value is False else value}</td></tr>"
+                                                    for field_name, value in form_data.items() for field in form if
+                                                    field.name == field_name])
 
                 html_content = f"""
-                <html>
-                    <head>
-                        <style>
-                            body {{ font-family: sans-serif; color: #333; }}
-                            table {{ border-collapse: collapse; width: 100%; margin-bottom: 20px; }}
-                            th, td {{ border: 1px solid #dddddd; text-align: left; padding: 8px; }}
-                            th {{ background-color: #f2f2f2; }}
-                            h2, h3 {{ color: #0056b3; }}
-                        </style>
-                    </head>
-                    <body>
-                        <h2>Zusammenfassung für Ihr Projekt: {neues_projekt.projekt_name}</h2>
-                        <p>Vielen Dank für Ihre Anfrage. Basierend auf Ihrer Bestandsaufnahme empfehlen wir die folgende Konfiguration.</p>
-
-                        <h3>Empfohlene Variante</h3>
-                        <table>
-                            <tr><th>Variante</th><td>{passende_variante.name}</td></tr>
-                            <tr><th>Beschreibung</th><td>{passende_variante.beschreibung}</td></tr>
-                            <tr><th colspan="2" style="text-align:center;">Komponenten</th></tr>
-                            {varianten_details_html}
-                        </table>
-
-                        <h3>Ihre Angaben zur Bestandsaufnahme</h3>
-                        <table>
-                            {bestandsaufnahme_html}
-                        </table>
-
-                        <p>Sie können Ihr Projekt unter folgendem Link im Admin-Bereich einsehen:<br>
-                        <a href="{admin_url}">{admin_url}</a></p>
-
-                        <p>Mit freundlichen Grüßen,<br>Ihr Planungstool</p>
-                    </body>
-                </html>
+                <html><body>
+                    <h2>Zusammenfassung für Ihr Projekt: {neues_projekt.projekt_name}</h2>
+                    <p>Vielen Dank, hier ist die empfohlene Konfiguration:</p>
+                    <h3>Empfohlene Variante</h3>
+                    <table>
+                        <tr><th style="width:30%;">Variante</th><td>{passende_variante.name}</td></tr>
+                        <tr><th>Beschreibung</th><td>{passende_variante.beschreibung}</td></tr>
+                        <tr><th colspan="2" style="text-align:center;">Komponenten & Preise</th></tr>
+                        {varianten_details_html}
+                    </table>
+                    <h3>Ihre Angaben zur Bestandsaufnahme</h3>
+                    <table>{bestandsaufnahme_html}</table>
+                    <p>Link zum Projekt im Admin: <a href="{admin_url}">{admin_url}</a></p>
+                    <p>Mit freundlichen Grüßen,<br>Ihr Planungstool</p>
+                </body></html>
                 """
 
                 plain_text_message = f"Vielen Dank. Empfohlene Variante: {passende_variante.name}"
@@ -131,6 +117,7 @@ def projekt_anlegen(request):
     return render(request, 'sportplatzApp/projekt_anlegen.html', {'form': form})
 
 
+# danke_seite und keine_variante_gefunden bleiben unverändert
 def danke_seite(request, projekt_id):
     projekt = get_object_or_404(Projekt, pk=projekt_id)
     context = {'projekt': projekt}
