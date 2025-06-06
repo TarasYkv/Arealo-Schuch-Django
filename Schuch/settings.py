@@ -26,6 +26,7 @@ SECRET_KEY = 'django-insecure-(kg*xcvmm*p(77-ai*pa5tz1&g(o2x!jyd)f##sf7820y=*yo8
 DEBUG = True
 
 ALLOWED_HOSTS = [
+    'tarasyuzkiv.pythonanywhere.com',
     '10.63.100.139',
     '127.0.0.1',
     'localhost',
@@ -59,6 +60,7 @@ ROOT_URLCONF = 'Schuch.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'DIRS': [],
         'APP_DIRS': True,
         'OPTIONS': {
