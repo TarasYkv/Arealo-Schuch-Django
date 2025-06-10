@@ -139,3 +139,8 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # in Schuch/settings.py
 OPENAI_API_KEY = "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"
+
+
+# Einstellungen für von Benutzern hochgeladene Dateien (Media Files)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
