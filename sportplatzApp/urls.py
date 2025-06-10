@@ -1,9 +1,15 @@
-# Kompletter, finaler Inhalt für: sportplatzApp/urls.py
+# sportplatzApp/urls.py
 
 from django.urls import path
 from . import views
 
+# NEU: Dies registriert den Namespace 'sportplatzApp'
+app_name = 'sportplatzApp'
+
 urlpatterns = [
+    # URL für den Startpunkt des Sportplatz-Konfigurators
+    path('', views.sportplatz_start_view, name='sportplatz_start'),
+
     # URL für Schritt 1: Das Formular zur Bestandsaufnahme
     path('projekt/neu/', views.projekt_anlegen, name='projekt_anlegen'),
 

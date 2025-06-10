@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Wirtschaftlichkeitsberechnung für Beleuchtungssysteme</h1>
+    <p class="lead mb-4">Bitte geben Sie die Daten für die Berechnung ein.</p>
+
+    <form method="post">
+        {% csrf_token %}
+
+        {# Wir nutzen Bootstrap-Klassen für ein schöneres Layout #}
+        {% for field in form %}
+            <div class="mb-3 row">
+                <label for="{{ field.id_for_label }}" class="col-sm-4 col-form-label fw-bold">{{ field.label }}</label>
+                <div class="col-sm-8">
+                    {{ field }}
+                    {% if field.help_text %}
+                        <small class="form-text text-muted">{{ field.help_text }}</small>
+                    {% endif %}
+                    {% for error in field.errors %}
+                        <div class="alert alert-danger mt-1">{{ error }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+
+        <div class="d-grid">
+            <button type="submit" class="btn btn-primary btn-lg">Berechnen</button>
+        </div>
+    </form>
+{% endblock %}
