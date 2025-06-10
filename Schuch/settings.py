@@ -131,3 +131,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # in Schuch/settings.py
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
