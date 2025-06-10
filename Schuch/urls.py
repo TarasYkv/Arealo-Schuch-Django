@@ -1,9 +1,11 @@
-# in Schuch/urls.py
 from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # Alle Anfragen werden an die App weitergeleitet
+    # Die URLs unserer Sportplatz-App
     path('', include('sportplatzApp.urls')),
+
+    # NEU: Die URLs unserer PDF-Sucher-App
+    path('pdf-tool/', include('pdf_sucher.urls')),
 ]
