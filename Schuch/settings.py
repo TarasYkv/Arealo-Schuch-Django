@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'sportplatzApp',
+    'pdf_sucher',
 ]
 
 MIDDLEWARE = [
@@ -62,7 +63,6 @@ TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [os.path.join(BASE_DIR, 'templates')],
-        'DIRS': [],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -136,3 +136,6 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# in Schuch/settings.py
+OPENAI_API_KEY = "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"
