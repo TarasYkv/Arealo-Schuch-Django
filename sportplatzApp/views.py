@@ -7,10 +7,9 @@ from .forms import ProjektForm
 from .models import Projekt, Variante, Komponente
 
 
+# Die Funktion finde_passende_variante bleibt unverändert
 def finde_passende_variante(form_data):
-    # Diese Funktion bleibt unverändert
     try:
-        # ... (komplette Logik von vorher) ...
         ist_vg_im_mast = form_data.get('vorschaltgeraet_im_mast')
         ist_vg_anbau = form_data.get('vorschaltgeraet_anbau')
         hat_app_wunsch = form_data.get('wunsch_steuerung_per_app')
@@ -18,6 +17,7 @@ def finde_passende_variante(form_data):
         hat_einzelsteuerung_wunsch = form_data.get('wunsch_schaltung_je_leuchte')
 
         if ist_vg_im_mast or ist_vg_anbau:
+            # Fall A: Externes Vorschaltgerät
             if hat_app_wunsch and hat_einzelsteuerung_wunsch:
                 return Variante.objects.get(name="Variante 7")
             elif hat_app_wunsch:
@@ -25,6 +25,7 @@ def finde_passende_variante(form_data):
             else:
                 return Variante.objects.get(name="Variante 4")
         else:
+            # Fall B: Internes Vorschaltgerät
             if hat_app_wunsch:
                 return Variante.objects.get(name="Variante 3")
             elif hat_dimm_wunsch:
@@ -50,6 +51,7 @@ def projekt_anlegen(request):
                 neues_projekt.save()
 
                 # === HIER BEGINNT DIE AKTUALISIERTE E-MAIL-LOGIK ===
+
                 subject = f"Konfiguration für Ihr Projekt: {neues_projekt.projekt_name}"
                 from_email = 'planungstool@schuch.de'
                 recipient_list = [neues_projekt.ansprechpartner_email]
@@ -59,6 +61,7 @@ def projekt_anlegen(request):
                 )
 
                 # HTML-Tabelle für Varianten-Details dynamisch erstellen
+                # Diese Logik prüft jetzt jedes Feld und fügt es zur E-Mail hinzu.
                 varianten_details_html = f"""
                     <tr><th>Leuchtentyp</th><td>{passende_variante.leuchte.name} (Anzahl: {passende_variante.anzahl_leuchten})</td></tr>
                     <tr><th>Preis Leuchten</th><td>{passende_variante.preis_leuchten or 'N/A'} €</td></tr>
@@ -80,27 +83,48 @@ def projekt_anlegen(request):
                 if passende_variante.preis_gesamt:
                     varianten_details_html += f'<tr style="font-weight: bold;"><th>Preis für die gesamte Variante</th><td>{passende_variante.preis_gesamt} €</td></tr>'
 
-                bestandsaufnahme_html = "".join([
-                                                    f"<tr><td>{field.label}</td><td>{'Ja' if value is True else 'Nein' if value is False else value}</td></tr>"
-                                                    for field_name, value in form_data.items() for field in form if
-                                                    field.name == field_name])
+                # HTML-Tabelle für Bestandsaufnahme-Daten dynamisch erstellen
+                bestandsaufnahme_html = ""
+                for field in form:
+                    # Wir gehen durch die Felder des Formulars, um die Labels zu bekommen
+                    value = form.cleaned_data.get(field.name)
+                    display_value = 'Ja' if value is True else 'Nein' if value is False else value
+                    bestandsaufnahme_html += f"<tr><td>{field.label}</td><td>{display_value}</td></tr>"
 
                 html_content = f"""
-                <html><body>
-                    <h2>Zusammenfassung für Ihr Projekt: {neues_projekt.projekt_name}</h2>
-                    <p>Vielen Dank, hier ist die empfohlene Konfiguration:</p>
-                    <h3>Empfohlene Variante</h3>
-                    <table>
-                        <tr><th style="width:30%;">Variante</th><td>{passende_variante.name}</td></tr>
-                        <tr><th>Beschreibung</th><td>{passende_variante.beschreibung}</td></tr>
-                        <tr><th colspan="2" style="text-align:center;">Komponenten & Preise</th></tr>
-                        {varianten_details_html}
-                    </table>
-                    <h3>Ihre Angaben zur Bestandsaufnahme</h3>
-                    <table>{bestandsaufnahme_html}</table>
-                    <p>Link zum Projekt im Admin: <a href="{admin_url}">{admin_url}</a></p>
-                    <p>Mit freundlichen Grüßen,<br>Ihr Planungstool</p>
-                </body></html>
+                <html>
+                    <head>
+                        <style>
+                            body {{ font-family: sans-serif; color: #333; }}
+                            table {{ border-collapse: collapse; width: 100%; margin-bottom: 20px; }}
+                            th, td {{ border: 1px solid #dddddd; text-align: left; padding: 8px; }}
+                            th {{ background-color: #f2f2f2; width: 40%; }}
+                            h2, h3 {{ color: #004077; }}
+                        </style>
+                    </head>
+                    <body>
+                        <h2>Zusammenfassung für Ihr Projekt: {neues_projekt.projekt_name}</h2>
+                        <p>Vielen Dank für Ihre Anfrage. Basierend auf Ihrer Bestandsaufnahme empfehlen wir die folgende Konfiguration.</p>
+
+                        <h3>Empfohlene Variante</h3>
+                        <table>
+                            <tr><th>Variante</th><td>{passende_variante.name}</td></tr>
+                            <tr><th>Beschreibung</th><td>{passende_variante.beschreibung}</td></tr>
+                            <tr><th colspan="2" style="text-align:center;">Komponenten & Preise</th></tr>
+                            {varianten_details_html}
+                        </table>
+
+                        <h3>Ihre Angaben zur Bestandsaufnahme</h3>
+                        <table>
+                            {bestandsaufnahme_html}
+                        </table>
+
+                        <p>Sie können Ihr Projekt unter folgendem Link im Admin-Bereich einsehen:<br>
+                        <a href="{admin_url}">{admin_url}</a></p>
+
+                        <p>Mit freundlichen Grüßen,<br>Ihr Planungstool</p>
+                    </body>
+                </html>
                 """
 
                 plain_text_message = f"Vielen Dank. Empfohlene Variante: {passende_variante.name}"
@@ -117,7 +141,6 @@ def projekt_anlegen(request):
     return render(request, 'sportplatzApp/projekt_anlegen.html', {'form': form})
 
 
-# danke_seite und keine_variante_gefunden bleiben unverändert
 def danke_seite(request, projekt_id):
     projekt = get_object_or_404(Projekt, pk=projekt_id)
     context = {'projekt': projekt}
