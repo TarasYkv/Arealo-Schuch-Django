@@ -3,74 +3,143 @@
 
 {% block content %}
 
-<!-- Zusätzliche Stile für ein feineres Design -->
+<!-- ... (style-Block bleibt unverändert) ... -->
 <style>
     .card-header {
-        background-color: rgba(0, 64, 119, 0.05); /* Ein sehr helles Firmenblau */
+        background-color: rgba(0, 64, 119, 0.05);
         font-weight: 500;
     }
-    .list-group-item {
-        transition: background-color 0.2s ease-in-out;
+    .keyword-btn {
+        cursor: pointer;
+        border: 1px solid #0d6efd;
+        color: #0d6efd;
+        background-color: white;
+        transition: all 0.2s ease-in-out;
+    }
+    .keyword-btn.active {
+        background-color: var(--firmen-blau);
+        color: white;
+        border-color: var(--firmen-blau);
+    }
+    .font-monospace {
+        background-color: #f8f9fa;
+        padding: 0.2em 0.4em;
+        border-radius: 3px;
+        white-space: pre-wrap;
+    }
+    .copy-btn {
+        transition: all 0.2s ease-in-out;
     }
 </style>
 
 <div class="row justify-content-center">
     <div class="col-lg-10 col-xl-8">
 
-        <h1 class="text-center mb-4">Intelligente PDF-Suche</h1>
-        <p class="lead text-center text-muted mb-5">Laden Sie ein PDF-Dokument hoch und stellen Sie eine präzise Frage an den Inhalt, um relevante Textstellen zu extrahieren.</p>
+        <h1 class="text-center mb-4">Analyse technischer Ausschreibungen</h1>
 
-        <!-- Formular in einer "Card" für bessere Struktur -->
-        <div class="card shadow-sm mb-5">
-            <div class="card-header">
-                1. Analyse starten
-            </div>
-            <div class="card-body">
-                <form method="post" enctype="multipart/form-data" id="suchFormular">
-                    {% csrf_token %}
-                    <div class="mb-3">
-                        <label for="pdf_datei" class="form-label">PDF-Datei auswählen</label>
-                        <input class="form-control" type="file" id="pdf_datei" name="pdf_datei" accept=".pdf" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="suchanfrage" class="form-label">Suchanfrage oder Frage an das Dokument</label>
-                        <input type="text" class="form-control" id="suchanfrage" name="suchanfrage" placeholder="z.B. 'Fasse die wichtigsten Vertragsstrafen zusammen'" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-lg w-100" id="suchButton">Suche starten</button>
-                </form>
-            </div>
-        </div>
+        {% if step == 'initial' %}
+            <p class="lead text-center text-muted mb-5">Laden Sie eine Ausschreibungs-PDF hoch, um relevante technische Spezifikationen zu extrahieren.</p>
+            <div class="card shadow-sm mb-5">
+                <div class="card-header">1. Analyse starten</div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data" id="getKeywordsForm">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="get_keywords">
+                        <div class="mb-3">
+                            <label for="pdf_datei" class="form-label">Ausschreibungs-PDF auswählen</label>
+                            <input class="form-control" type="file" id="pdf_datei" name="pdf_datei" accept=".pdf" required>
+                        </div>
 
-        <!-- NEU: Der Ladebalken (standardmäßig versteckt) -->
-        <div id="ladeanzeige" class="mt-5 text-center" style="display: none;">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            <h5 class="mt-3">Suche läuft...</h5>
-            <p class="text-muted">Die Analyse größerer Dokumente kann einen Moment dauern.</p>
-        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="seite_von" class="form-label">Seitenbereich durchsuchen (optional)</label>
+                                <input type="number" class="form-control" id="seite_von" name="seite_von" placeholder="Von Seite" min="1">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="seite_bis" class="form-label">&nbsp;</label>
+                                <input type="number" class="form-control" id="seite_bis" name="seite_bis" placeholder="Bis Seite" min="1">
+                            </div>
+                        </div>
 
-        <!-- Ergebnis-Anzeige -->
-        {% if error_message %}
-            <div class="alert alert-danger mt-5">
-                <h4>Fehler</h4>
-                <p>{{ error_message }}</p>
+                        <div class="mb-3">
+                            <label for="suchanfrage" class="form-label">Zentrale Suchanfrage oder Frage</label>
+                            <input type="text" class="form-control" id="suchanfrage" name="suchanfrage" placeholder="z.B. 'IP-Schutzart für Außenleuchten'" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-lg w-100" id="getKeywordsButton">Suchbegriffe vorschlagen lassen</button>
+                    </form>
+                </div>
             </div>
         {% endif %}
 
-        {% if ergebnisse %}
-            <h2 class="mt-5">Gefundene Textstellen</h2>
-            <div class="list-group">
-                {% for ergebnis in ergebnisse %}
-                    <div class="list-group-item list-group-item-action flex-column align-items-start">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h5 class="mb-1">Treffer</h5>
-                            <span class="badge bg-secondary rounded-pill">Seite {{ ergebnis.seitenzahl }}</span>
+        {% if step == 'select_keywords' %}
+            <p class="lead text-center text-muted mb-5">Wir haben relevante Suchbegriffe gefunden. Wählen Sie die Begriffe aus, die in die finale Suche einbezogen werden sollen.</p>
+            <div class="card shadow-sm mb-5">
+                <div class="card-header">2. Suchbegriffe verfeinern</div>
+                <div class="card-body">
+                    <form method="post" id="finalSearchForm">
+                        {% csrf_token %}
+                        <input type="hidden" name="step" value="final_search">
+                        <input type="hidden" name="pdf_filename" value="{{ pdf_filename }}">
+                        <input type="hidden" name="suchanfrage" value="{{ suchanfrage }}">
+                        <input type="hidden" name="seite_von" value="{{ seite_von }}">
+                        <input type="hidden" name="seite_bis" value="{{ seite_bis }}">
+
+                        <h5>Ursprüngliche Anfrage:</h5>
+                        <p><em>{{ suchanfrage }}</em></p>
+                        {% if seite_von or seite_bis %}
+                            <p><strong>Gewählter Seitenbereich:</strong> {{ seite_von|default:"Start" }} - {{ seite_bis|default:"Ende" }}</p>
+                        {% endif %}
+
+                        <h5>Vorgeschlagene Begriffe (anklicken zum Auswählen):</h5>
+                        <div id="keyword-container" class="d-flex flex-wrap gap-2">
+                            {% for keyword in suggested_keywords %}
+                                <div class="keyword-btn p-2 rounded" data-keyword="{{ keyword }}">{{ keyword }}</div>
+                                <input type="checkbox" name="selected_keywords" value="{{ keyword }}" id="cb-{{ forloop.counter }}" class="d-none">
+                            {% endfor %}
                         </div>
-                        <p class="mb-1 mt-2">"<em>{{ ergebnis.textstelle }}</em>"</p>
-                    </div>
-                {% endfor %}
+
+                        <hr class="my-4">
+                        <button type="submit" class="btn btn-primary btn-lg w-100" id="finalSearchButton">Finale Suche starten</button>
+                    </form>
+                </div>
             </div>
+        {% endif %}
+
+        <!-- Ladeanzeige -->
+        <div id="ladeanzeige" class="mt-5 text-center" style="display: none;">
+            <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+            <h5 class="mt-3">Dokument wird analysiert...</h5>
+            <p class="text-muted">Die technische Auswertung kann einen Moment dauern.</p>
+        </div>
+
+        <!-- Ergebnis-Anzeige -->
+        {% if step == 'results' %}
+            {% if ergebnisse %}
+                <h2 class="mt-5">Gefundene technische Spezifikationen</h2>
+                <div class="list-group">
+                    {% for ergebnis in ergebnisse %}
+                        <div class="list-group-item flex-column align-items-start">
+                            <div class="d-flex w-100 justify-content-between align-items-center">
+                                <a href="{% url 'view_pdf' filename=pdf_filename %}#page={{ ergebnis.seitenzahl }}" target="_blank" class="text-decoration-none">
+                                    <span class="badge bg-secondary rounded-pill fs-6">Seite {{ ergebnis.seitenzahl }}</span>
+                                </a>
+                                <button class="btn btn-outline-secondary btn-sm copy-btn" data-text-to-copy="{{ ergebnis.textstelle }}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clipboard" viewBox="0 0 16 16"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zM9 2H7v1h2V2z"/></svg>
+                                    Kopieren
+                                </button>
+                            </div>
+                            <hr class="my-2">
+                            <p class="mb-1 mt-2 font-monospace">"<em>{{ ergebnis.textstelle }}</em>"</p>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                 <div class="alert alert-warning mt-5">Keine exakten Textstellen für Ihre finale Auswahl gefunden.</div>
+            {% endif %}
+        {% endif %}
+
+        {% if error_message %}
+            <div class="alert alert-danger mt-5"><h4>Fehler</h4><p>{{ error_message }}</p></div>
         {% endif %}
 
     </div>
@@ -80,16 +149,78 @@
 
 
 {% block scripts %}
-<!-- Kleines JavaScript am Ende der Seite -->
+<!-- Kombiniertes JavaScript für alle Funktionalitäten -->
 <script>
-    const suchFormular = document.getElementById('suchFormular');
-    const ladeanzeige = document.getElementById('ladeanzeige');
-    const suchButton = document.getElementById('suchButton');
+document.addEventListener('DOMContentLoaded', function() {
 
-    suchFormular.addEventListener('submit', function() {
-        ladeanzeige.style.display = 'block';
-        suchButton.disabled = true;
-        suchButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Analyse läuft...';
+    // --- Logik für Ladeanzeige ---
+    function setupLoadingIndicator(formId, buttonId, buttonText) {
+        const form = document.getElementById(formId);
+        if (form) {
+            const ladeanzeige = document.getElementById('ladeanzeige');
+            const button = document.getElementById(buttonId);
+            form.addEventListener('submit', function() {
+                if (ladeanzeige) ladeanzeige.style.display = 'block';
+                if (button) {
+                    button.disabled = true;
+                    button.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ${buttonText}`;
+                }
+            });
+        }
+    }
+    // An beide Formulare binden
+    setupLoadingIndicator('getKeywordsForm', 'getKeywordsButton', 'Analysiere...');
+    setupLoadingIndicator('finalSearchForm', 'finalSearchButton', 'Suche läuft...');
+
+
+    // --- Logik für klickbare Keywords ---
+    const keywordContainer = document.getElementById('keyword-container');
+    if(keywordContainer) {
+        keywordContainer.addEventListener('click', function(e) {
+            if (e.target && e.target.classList.contains('keyword-btn')) {
+                const button = e.target;
+                const keyword = button.dataset.keyword;
+                const checkbox = document.querySelector(`input[type="checkbox"][value="${keyword}"]`);
+
+                if (checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                    button.classList.toggle('active', checkbox.checked);
+                }
+            }
+        });
+    }
+
+    // --- Logik für Kopier-Button ---
+    document.addEventListener('click', function(event) {
+        const copyButton = event.target.closest('.copy-btn');
+        if (copyButton) {
+            const textToCopy = copyButton.dataset.textToCopy;
+            const textarea = document.createElement('textarea');
+            textarea.value = textToCopy;
+            textarea.style.position = 'absolute';
+            textarea.style.left = '-9999px';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                const originalHTML = copyButton.innerHTML;
+                copyButton.innerHTML = 'Kopiert!';
+                copyButton.classList.add('btn-success');
+                copyButton.classList.remove('btn-outline-secondary');
+
+                setTimeout(() => {
+                    copyButton.innerHTML = originalHTML;
+                    copyButton.classList.remove('btn-success');
+                    copyButton.classList.add('btn-outline-secondary');
+                }, 2000);
+
+            } catch (err) {
+                console.error('Kopieren fehlgeschlagen:', err);
+            }
+            document.body.removeChild(textarea);
+        }
     });
+
+});
 </script>
 {% endblock %}
