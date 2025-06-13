@@ -122,7 +122,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -136,6 +136,7 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+#STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # in Schuch/settings.py
 OPENAI_API_KEY = "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"
