@@ -3,9 +3,10 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # Die URLs unserer Sportplatz-App
+
+    # Die URLs unserer Sportplatz-App (erstmal wie vorher)
     path('', include('sportplatzApp.urls')),
 
-    # NEU: Die URLs unserer PDF-Sucher-App
+    # Die URLs unserer PDF-Sucher-App
     path('pdf-tool/', include('pdf_sucher.urls')),
 ]
