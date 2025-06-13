@@ -7,6 +7,19 @@ from .forms import ProjektForm
 from .models import Projekt, Variante, Komponente
 
 
+# *** NEU: Diese View-Funktion muss hinzugefügt werden ***
+def sportplatz_start_view(request):
+    """
+    Rendert die Startseite des Sportplatz-Konfigurators.
+    Diese View wird von der URL 'sportplatz_start' aufgerufen.
+    """
+    context = {
+        'page_title': 'Sportplatz-Konfigurator: Startseite',
+        # Optional: Fügen Sie hier Daten hinzu, die Sie an das Template übergeben möchten
+    }
+    return render(request, 'sportplatzApp/sportplatz_start.html', context)
+
+
 # Die Funktion finde_passende_variante bleibt unverändert
 def finde_passende_variante(form_data):
     try:
@@ -50,8 +63,6 @@ def projekt_anlegen(request):
                 neues_projekt.ausgewaehlte_variante = passende_variante
                 neues_projekt.save()
 
-                # === HIER BEGINNT DIE AKTUALISIERTE E-MAIL-LOGIK ===
-
                 subject = f"Konfiguration für Ihr Projekt: {neues_projekt.projekt_name}"
                 from_email = 'planungstool@schuch.de'
                 recipient_list = [neues_projekt.ansprechpartner_email]
@@ -60,8 +71,6 @@ def projekt_anlegen(request):
                     reverse('admin:sportplatzApp_projekt_change', args=(neues_projekt.id,))
                 )
 
-                # HTML-Tabelle für Varianten-Details dynamisch erstellen
-                # Diese Logik prüft jetzt jedes Feld und fügt es zur E-Mail hinzu.
                 varianten_details_html = f"""
                     <tr><th>Leuchtentyp</th><td>{passende_variante.leuchte.name} (Anzahl: {passende_variante.anzahl_leuchten})</td></tr>
                     <tr><th>Preis Leuchten</th><td>{passende_variante.preis_leuchten or 'N/A'} €</td></tr>
@@ -83,10 +92,8 @@ def projekt_anlegen(request):
                 if passende_variante.preis_gesamt:
                     varianten_details_html += f'<tr style="font-weight: bold;"><th>Preis für die gesamte Variante</th><td>{passende_variante.preis_gesamt} €</td></tr>'
 
-                # HTML-Tabelle für Bestandsaufnahme-Daten dynamisch erstellen
                 bestandsaufnahme_html = ""
                 for field in form:
-                    # Wir gehen durch die Felder des Formulars, um die Labels zu bekommen
                     value = form.cleaned_data.get(field.name)
                     display_value = 'Ja' if value is True else 'Nein' if value is False else value
                     bestandsaufnahme_html += f"<tr><td>{field.label}</td><td>{display_value}</td></tr>"

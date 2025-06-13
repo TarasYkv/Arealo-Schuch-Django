@@ -1,18 +1,18 @@
-# Schuch/urls.py
-
 from django.contrib import admin
 from django.urls import path, include
 
-# GEÄNDERT: Wir importieren jetzt aus unserer neuen 'core'-App
+# Die View für die Startseite aus der 'core'-App importieren
 from core import views as core_views
 
 urlpatterns = [
-    # GEÄNDERT: Der Pfad verweist jetzt auf die View in der core-App
+    # Die Startseite liegt auf der Haupt-URL
     path('', core_views.startseite_ansicht, name='startseite'),
 
-    # Der Rest bleibt unverändert
+    # Der Admin-Bereich
+    path('admin/', admin.site.urls),
+
+    # --- Alle Apps sind jetzt korrekt mit ihrem eigenen Präfix eingebunden ---
+    path('pdf-tool/', include('pdf_sucher.urls')),
     path('rechner/', include('amortization_calculator.urls')),
     path('sportplatz/', include('sportplatzApp.urls')),
-    path('pdf-tool/', include('pdf_sucher.urls')),
-    path('admin/', admin.site.urls),
 ]

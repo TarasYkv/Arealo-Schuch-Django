@@ -45,6 +45,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'sportplatzApp',
     'pdf_sucher',
+    'amortization_calculator',
+    'core',
 ]
 
 MIDDLEWARE = [
