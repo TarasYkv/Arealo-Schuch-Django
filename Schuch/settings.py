@@ -12,7 +12,9 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+from dotenv import load_dotenv
 
+load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -141,8 +143,8 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 #STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # in Schuch/settings.py
-OPENAI_API_KEY = "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"
-
+# KORREKT:
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Einstellungen für von Benutzern hochgeladene Dateien (Media Files)
 MEDIA_URL = '/media/'
