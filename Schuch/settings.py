@@ -14,9 +14,11 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv()
+print(f"DEBUG: Geladener API-Schlüssel aus .env: '{os.getenv('OPENAI_API_KEY')}'")
 
 
 # Quick-start development settings - unsuitable for production
@@ -143,7 +145,6 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 #STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # in Schuch/settings.py
-# KORREKT:
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Einstellungen für von Benutzern hochgeladene Dateien (Media Files)
