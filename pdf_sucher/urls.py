@@ -3,6 +3,8 @@
 from django.urls import path
 from . import views
 
+app_name = 'pdf_sucher'
+
 urlpatterns = [
     # Wir benennen 'pdf_suche' in 'pdf_tool_start' um, damit es zu den Templates passt.
     path('suche/', views.pdf_suche, name='pdf_tool_start'), # KORRIGIERT

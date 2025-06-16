@@ -137,11 +137,14 @@ def projekt_anlegen(request):
                 plain_text_message = f"Vielen Dank. Empfohlene Variante: {passende_variante.name}"
                 msg = EmailMultiAlternatives(subject, plain_text_message, from_email, recipient_list)
                 msg.attach_alternative(html_content, "text/html")
-                msg.send()
+                try:
+                    msg.send()
+                except Exception as e:
+                    print(f"Email konnte nicht gesendet werden: {e}")
 
-                return redirect('danke_seite', projekt_id=neues_projekt.id)
+                return redirect('sportplatzApp:danke_seite', projekt_id=neues_projekt.id)
             else:
-                return redirect('keine_variante_gefunden')
+                return redirect('sportplatzApp:keine_variante_gefunden')
     else:
         form = ProjektForm()
 
