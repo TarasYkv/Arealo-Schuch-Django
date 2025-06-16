@@ -5,7 +5,7 @@ from django.urls import path
 from . import views # Dies importiert die Views aus amortization_calculator/views.py
 
 # Optional, aber empfohlen für Namespaces (falls Sie es später verwenden möchten)
-# app_name = 'amortization_calculator'
+app_name = 'amortization_calculator'
 
 urlpatterns = [
     # DIESE ZEILE IST KRITISCH, damit 'rechner_start' gefunden wird
