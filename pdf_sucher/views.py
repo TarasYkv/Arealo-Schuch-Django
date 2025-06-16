@@ -1,15 +1,14 @@
-# Kompletter Inhalt für: pdf_sucher/views.py
+# VOLLSTÄNDIGER CODE FÜR: pdf_sucher/views.py
 
 import fitz  # PyMuPDF
 import openai
 import json
 import os
 import uuid
-import re
 from django.conf import settings
 from django.shortcuts import render
 from django.core.files.storage import FileSystemStorage
-from django.http import FileResponse, Http404, HttpResponse
+from django.http import Http404, HttpResponse, FileResponse
 
 
 def text_in_chunks_generieren(text_seiten, chunk_groesse=5, ueberlappung=1):
@@ -18,7 +17,9 @@ def text_in_chunks_generieren(text_seiten, chunk_groesse=5, ueberlappung=1):
 
 
 def pdf_suche(request):
-    openai.api_key = settings.OPENAI_API_KEY
+    # HINWEIS: Diese Zeile ist nicht mehr nötig, da der API-Schlüssel
+    # direkt bei der Client-Erstellung übergeben wird.
+    # openai.api_key = settings.OPENAI_API_KEY
 
     context = {
         'ergebnisse': [],
@@ -43,11 +44,14 @@ def pdf_suche(request):
         context['seite_bis'] = seite_bis_str
 
         if step == 'get_keywords':
-            # === SCHRITT 1: KEYWORDS VORSCHLAGEN ===
             try:
+                if 'pdf_datei' not in request.FILES:
+                    context['error_message'] = "Bitte wählen Sie eine PDF-Datei aus."
+                    return render(request, 'pdf_sucher/suche.html', context)
+
                 pdf_datei = request.FILES['pdf_datei']
-                fs = FileSystemStorage()
-                dateiname = str(uuid.uuid4()) + ".pdf"
+                fs = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, 'pdf_uploads'))
+                dateiname = f"{uuid.uuid4()}.pdf"
                 pdf_filename = fs.save(dateiname, pdf_datei)
                 context['pdf_filename'] = pdf_filename
                 gespeicherte_pdf_pfad = fs.path(pdf_filename)
@@ -62,7 +66,8 @@ def pdf_suche(request):
                     "Beispiel: {\"keywords\": [\"Schutzart IP65\", \"EN 12464-1\", \"DALI-Schnittstelle\"]}"
                 )
 
-                response = openai.chat.completions.create(
+                client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+                response = client.chat.completions.create(
                     model="gpt-3.5-turbo-1106",
                     response_format={"type": "json_object"},
                     messages=[
@@ -76,13 +81,11 @@ def pdf_suche(request):
                 context['suggested_keywords'] = antwort_objekt.get('keywords', [])
                 context['step'] = 'select_keywords'
 
-
             except Exception as e:
-                context['error_message'] = f"Ein Fehler ist aufgetreten: {e}"
+                context['error_message'] = f"Fehler bei der Generierung der Suchbegriffe: {e}"
                 context['step'] = 'initial'
 
         elif step == 'final_search':
-            # === SCHRITT 2: FINALE SUCHE MIT AUSGEWÄHLTEN KEYWORDS ===
             pdf_filename = request.POST.get('pdf_filename', '')
             selected_keywords = request.POST.getlist('selected_keywords')
 
@@ -91,7 +94,8 @@ def pdf_suche(request):
             final_query = suchanfrage + " " + " ".join(selected_keywords)
 
             try:
-                gespeicherte_pdf_pfad = FileSystemStorage().path(pdf_filename)
+                fs = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, 'pdf_uploads'))
+                gespeicherte_pdf_pfad = fs.path(pdf_filename)
                 alle_seiten = []
                 with fitz.open(gespeicherte_pdf_pfad) as doc:
                     for seite_num, seite in enumerate(doc):
@@ -109,17 +113,16 @@ def pdf_suche(request):
                         chunk_text = "\n\n".join([f"--- SEITE {s_num} ---\n{s_text}" for s_num, s_text in chunk])
 
                         system_prompt_final = (
-                            "Du bist ein erfahrener Elektroplaner und Ingenieur für Beleuchtungstechnik. Deine Aufgabe ist es, technische Ausschreibungen (LV-Texte) in PDF-Form zu analysieren. "
-                            "Analysiere den folgenden Textabschnitt. Der Benutzer wird eine technische Frage stellen. "
-                            "Finde die exakten, relevanten Textstellen, die technische Spezifikationen, Normen, Produktanforderungen oder Mengenangaben enthalten. "
-                            "Antworte NUR mit einem validen JSON-Objekt. Das Objekt muss einen einzigen Schlüssel "
-                            "namens 'ergebnisse' haben, der eine Liste (Array) von Objekten enthält. Jedes Objekt in der Liste muss die Schlüssel "
-                            "'seitenzahl' (als Zahl) und 'textstelle' (als String mit dem exakten technischen Zitat) haben. "
-                            "Wenn du nichts findest, gib eine leere Liste für 'ergebnisse' zurück: {\"ergebnisse\": []}"
+                            "Du bist ein erfahrener Elektroplaner. Deine Aufgabe ist es, technische Ausschreibungen zu analysieren. "
+                            "Finde die exakten Textstellen, die technische Spezifikationen, Normen, oder Produktanforderungen enthalten. "
+                            "Antworte NUR mit einem validen JSON-Objekt mit einem Schlüssel 'ergebnisse', der eine Liste von Objekten enthält. "
+                            "Jedes Objekt muss die Schlüssel 'seitenzahl' (Zahl) und 'textstelle' (exaktes Zitat) haben. "
+                            "Wenn du nichts findest, gib eine leere Liste zurück: {\"ergebnisse\": []}"
                         )
 
                         try:
-                            response = openai.chat.completions.create(
+                            client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+                            response = client.chat.completions.create(
                                 model="gpt-3.5-turbo-1106",
                                 response_format={"type": "json_object"},
                                 messages=[
@@ -142,39 +145,44 @@ def pdf_suche(request):
 
 
 def view_pdf(request, filename):
-    fs = FileSystemStorage()
-    if not fs.exists(filename):
-        raise Http404("PDF-Datei nicht gefunden")
+    """
+    Zeigt die hochgeladene PDF-Datei sicher im Browser an.
+    """
+    file_path = os.path.join(settings.MEDIA_ROOT, 'pdf_uploads', filename)
 
-    pdf_file = fs.open(filename, 'rb')
-    response = FileResponse(pdf_file, content_type='application/pdf')
-    response['Content-Disposition'] = f'inline; filename="{filename}"'
-    return response
+    # KORREKTUR: Sicherheitsüberprüfung hinzugefügt
+    if not os.path.normpath(file_path).startswith(os.path.normpath(os.path.join(settings.MEDIA_ROOT, 'pdf_uploads'))):
+        raise Http404("Ungültiger Dateipfad")
+
+    if os.path.exists(file_path):
+        return FileResponse(open(file_path, 'rb'), content_type='application/pdf')
+
+    raise Http404("PDF nicht gefunden")
 
 
 def pdf_page_preview(request, filename, page_num):
     """
-    Öffnet eine gespeicherte PDF, rendert eine spezifische Seite als PNG-Bild
-    und gibt dieses Bild als HTTP-Antwort zurück.
+    Rendert eine spezifische Seite einer PDF als PNG-Bild und gibt es zurück.
     """
-    fs = FileSystemStorage()
-    if not fs.exists(filename):
-        raise Http404("PDF-Datei nicht gefunden")
+    file_path = os.path.join(settings.MEDIA_ROOT, 'pdf_uploads', filename)
 
-    pdf_path = fs.path(filename)
+    # KORREKTUR: Sicherheitsüberprüfung hinzugefügt
+    if not os.path.normpath(file_path).startswith(os.path.normpath(os.path.join(settings.MEDIA_ROOT, 'pdf_uploads'))):
+        raise Http404("Ungültiger Dateipfad")
+
     try:
-        doc = fitz.open(pdf_path)
-        # Seitenzahlen im PDF sind 0-indiziert, daher page_num - 1
-        if 0 <= page_num - 1 < len(doc):
+        doc = fitz.open(file_path)
+        if 0 <= page_num - 1 < doc.page_count:
             page = doc.load_page(page_num - 1)
-            # Rendere die Seite als Bild (Pixmap)
             pix = page.get_pixmap()
-            # Konvertiere das Bild in das PNG-Format
             img_data = pix.tobytes("png")
+            doc.close()
             return HttpResponse(img_data, content_type="image/png")
         else:
+            doc.close()
             raise Http404("Seitenzahl außerhalb des gültigen Bereichs")
+    except FileNotFoundError:
+        raise Http404("PDF nicht gefunden")
     except Exception as e:
         print(f"Fehler beim Rendern der PDF-Seite: {e}")
-        # Optional: Ein Platzhalterbild zurückgeben
         raise Http404("Seite konnte nicht gerendert werden")
