@@ -76,8 +76,9 @@ def pdf_suche(request):
                 context['suggested_keywords'] = antwort_objekt.get('keywords', [])
                 context['step'] = 'select_keywords'
 
+
             except Exception as e:
-                context['error_message'] = f"Fehler bei der Generierung der Suchbegriffe: {e}"
+                context['error_message'] = f"Ein Fehler ist aufgetreten: {e}"
                 context['step'] = 'initial'
 
         elif step == 'final_search':
