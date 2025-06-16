@@ -1,188 +1,192 @@
 # VOLLSTÄNDIGER CODE FÜR: pdf_sucher/views.py
 
+import os
+import io
+from datetime import datetime
+
 import fitz  # PyMuPDF
 import openai
-import json
-import os
-import uuid
+import numpy as np
+from PIL import Image
 from django.conf import settings
-from django.shortcuts import render
 from django.core.files.storage import FileSystemStorage
-from django.http import Http404, HttpResponse, FileResponse
+from django.http import FileResponse, Http404, HttpResponse
+from django.shortcuts import render
+from werkzeug.utils import secure_filename
+
+# Setzen des OpenAI API-Schlüssels
+openai.api_key = settings.OPENAI_API_KEY
 
 
-def text_in_chunks_generieren(text_seiten, chunk_groesse=5, ueberlappung=1):
-    for i in range(0, len(text_seiten), chunk_groesse - ueberlappung):
-        yield text_seiten[i:i + chunk_groesse]
+def cosine_similarity(v1, v2):
+    """Berechnet die Kosinus-Ähnlichkeit zwischen zwei Vektoren."""
+    return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+
+
+def perform_semantic_search(pdf_path, query, page_range, threshold):
+    """Führt eine semantische Suche in der PDF mit einem dynamischen Schwellenwert durch."""
+    ergebnisse = []
+    try:
+        doc = fitz.open(pdf_path)
+        start_page, end_page = page_range
+
+        text_chunks, chunk_metadata = [], []
+        for page_num in range(start_page, end_page):
+            page = doc.load_page(page_num)
+            text = page.get_text("text")
+            if text.strip():
+                text_chunks.append(text)
+                chunk_metadata.append({'seitenzahl': page_num + 1})
+        doc.close()
+
+        if not text_chunks:
+            return []
+
+        chunk_embeddings_response = openai.Embedding.create(
+            model="text-embedding-ada-002",
+            input=text_chunks
+        )
+        chunk_embeddings = [item['embedding'] for item in chunk_embeddings_response['data']]
+
+        query_embedding_response = openai.Embedding.create(
+            model="text-embedding-ada-002",
+            input=[query]
+        )
+        query_embedding = query_embedding_response['data'][0]['embedding']
+
+        similarities = []
+        for i, chunk_emb in enumerate(chunk_embeddings):
+            sim = cosine_similarity(query_embedding, chunk_emb)
+            similarities.append((sim, i))
+
+        similarities.sort(key=lambda x: x[0], reverse=True)
+
+        print(f"DEBUG: Suche mit Schwellenwert: {threshold:.4f}")
+        print("DEBUG: Top 5 similarity scores:",
+              [(round(s, 4), f"Seite {chunk_metadata[i]['seitenzahl']}") for s, i in similarities[:5]])
+
+        for sim, chunk_index in similarities[:5]:
+            if sim > threshold:  # Dynamischer Schwellenwert wird hier verwendet
+                original_text = text_chunks[chunk_index]
+                snippet = original_text[:1000] + ('...' if len(original_text) > 1000 else '')
+                ergebnisse.append({
+                    'seitenzahl': chunk_metadata[chunk_index]['seitenzahl'],
+                    'textstelle': snippet,
+                })
+
+        return ergebnisse
+
+    except Exception as e:
+        print(f"FEHLER bei der semantischen Suche: {e}")
+        return []
+
+
+def search_text_in_pdf(pdf_path, search_terms, page_range):
+    """Durchsucht eine PDF nach einer Liste von exakten Begriffen (Einfache Suche)."""
+    ergebnisse = []
+    try:
+        doc = fitz.open(pdf_path)
+        start_page, end_page = page_range
+        for page_num in range(start_page, end_page):
+            page = doc.load_page(page_num)
+            text = page.get_text("text")
+            found_terms = [term for term in search_terms if term.lower() in text.lower()]
+            if found_terms:
+                first_term = found_terms[0]
+                pos = text.lower().find(first_term.lower())
+                start = max(0, pos - 80)
+                end = min(len(text), pos + len(first_term) + 80)
+                snippet = text[start:end]
+                if start > 0: snippet = "..." + snippet
+                if end < len(text): snippet = snippet + "..."
+                ergebnisse.append({'seitenzahl': page_num + 1, 'textstelle': snippet})
+        doc.close()
+    except Exception as e:
+        print(f"Fehler bei der einfachen PDF-Suche: {e}")
+    return ergebnisse
 
 
 def pdf_suche(request):
-    # HINWEIS: Diese Zeile ist nicht mehr nötig, da der API-Schlüssel
-    # direkt bei der Client-Erstellung übergeben wird.
-    # openai.api_key = settings.OPENAI_API_KEY
+    """Hauptansicht für die PDF-Suche."""
+    if request.method == "POST":
+        search_type = request.POST.get("search_type")
+        suchanfrage = request.POST.get("suchanfrage")
+        pdf_file = request.FILES.get("pdf_datei")
+        seite_von_str = request.POST.get("seite_von")
+        seite_bis_str = request.POST.get("seite_bis")
 
-    context = {
-        'ergebnisse': [],
-        'error_message': None,
-        'pdf_filename': None,
-        'suchanfrage': '',
-        'suggested_keywords': [],
-        'seite_von': '',
-        'seite_bis': '',
-        'step': 'initial'
-    }
+        if not pdf_file:
+            return render(request, "pdf_sucher/suche.html",
+                          {"step": "initial", "error_message": "Bitte eine PDF-Datei hochladen."})
 
-    if request.method == 'POST':
-        step = request.POST.get('step')
+        fs = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, "pdfs"))
+        filename = secure_filename(pdf_file.name)
+        base, extension = os.path.splitext(filename)
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        unique_filename = f"{base}_{timestamp}{extension}"
+        pdf_filename = fs.save(unique_filename, pdf_file)
+        pdf_path = fs.path(pdf_filename)
 
-        suchanfrage = request.POST.get('suchanfrage', '')
-        seite_von_str = request.POST.get('seite_von', '')
-        seite_bis_str = request.POST.get('seite_bis', '')
+        try:
+            doc = fitz.open(pdf_path)
+            start_page = int(seite_von_str) - 1 if seite_von_str.isdigit() else 0
+            end_page = int(seite_bis_str) if seite_bis_str.isdigit() else len(doc)
+            page_range = (max(0, start_page), min(len(doc), end_page))
+            doc.close()
+        except Exception as e:
+            return render(request, "pdf_sucher/suche.html",
+                          {"step": "initial", "error_message": f"PDF konnte nicht verarbeitet werden: {e}"})
 
-        context['suchanfrage'] = suchanfrage
-        context['seite_von'] = seite_von_str
-        context['seite_bis'] = seite_bis_str
-
-        if step == 'get_keywords':
+        ergebnisse = []
+        if search_type == 'ai':
+            strictness_value_str = request.POST.get('ai_strictness', '50')
             try:
-                if 'pdf_datei' not in request.FILES:
-                    context['error_message'] = "Bitte wählen Sie eine PDF-Datei aus."
-                    return render(request, 'pdf_sucher/suche.html', context)
+                strictness_value = float(strictness_value_str)
+            except (ValueError, TypeError):
+                strictness_value = 50.0
 
-                pdf_datei = request.FILES['pdf_datei']
-                fs = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, 'pdf_uploads'))
-                dateiname = f"{uuid.uuid4()}.pdf"
-                pdf_filename = fs.save(dateiname, pdf_datei)
-                context['pdf_filename'] = pdf_filename
-                gespeicherte_pdf_pfad = fs.path(pdf_filename)
+            # Umrechnung des Regler-Wertes (0-100) in einen Schwellenwert (0.65 - 0.85)
+            similarity_threshold = 0.65 + (strictness_value / 100.0) * 0.20
 
-                with fitz.open(gespeicherte_pdf_pfad) as doc:
-                    kontext_text = "".join(doc[i].get_text("text") for i in range(min(5, len(doc))))
+            ergebnisse = perform_semantic_search(pdf_path, suchanfrage, page_range, similarity_threshold)
 
-                system_prompt = (
-                    "Du bist ein Experte für Beleuchtungstechnik. Ein Benutzer hat eine Suchanfrage für eine technische Ausschreibung. "
-                    "Schlage 5 bis 7 relevante, verwandte technische Suchbegriffe oder Synonyme vor. "
-                    "Antworte NUR mit einem validen JSON-Objekt. Das Objekt muss einen einzigen Schlüssel namens 'keywords' haben, der eine Liste (Array) von Strings enthält. "
-                    "Beispiel: {\"keywords\": [\"Schutzart IP65\", \"EN 12464-1\", \"DALI-Schnittstelle\"]}"
-                )
+        elif search_type == 'simple':
+            search_terms = [term.strip() for term in suchanfrage.split(",")]
+            ergebnisse = search_text_in_pdf(pdf_path, search_terms, page_range)
 
-                client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-                response = client.chat.completions.create(
-                    model="gpt-3.5-turbo-1106",
-                    response_format={"type": "json_object"},
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user",
-                         "content": f"Auszug aus der Ausschreibung: '{kontext_text[:2000]}'\n\nUrsprüngliche Suchanfrage: '{suchanfrage}'"}
-                    ]
-                )
-                antwort_text = response.choices[0].message.content
-                antwort_objekt = json.loads(antwort_text)
-                context['suggested_keywords'] = antwort_objekt.get('keywords', [])
-                context['step'] = 'select_keywords'
+        context = {
+            'step': 'results',
+            'ergebnisse': ergebnisse,
+            'pdf_filename': pdf_filename,
+        }
+        return render(request, "pdf_sucher/suche.html", context)
 
-            except Exception as e:
-                context['error_message'] = f"Fehler bei der Generierung der Suchbegriffe: {e}"
-                context['step'] = 'initial'
-
-        elif step == 'final_search':
-            pdf_filename = request.POST.get('pdf_filename', '')
-            selected_keywords = request.POST.getlist('selected_keywords')
-
-            context['pdf_filename'] = pdf_filename
-            context['step'] = 'results'
-            final_query = suchanfrage + " " + " ".join(selected_keywords)
-
-            try:
-                fs = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, 'pdf_uploads'))
-                gespeicherte_pdf_pfad = fs.path(pdf_filename)
-                alle_seiten = []
-                with fitz.open(gespeicherte_pdf_pfad) as doc:
-                    for seite_num, seite in enumerate(doc):
-                        alle_seiten.append((seite_num + 1, seite.get_text("text")))
-
-                seite_von = int(seite_von_str) if seite_von_str.isdigit() else 1
-                seite_bis = int(seite_bis_str) if seite_bis_str.isdigit() else len(alle_seiten)
-
-                zu_durchsuchende_seiten = [s for s in alle_seiten if seite_von <= s[0] <= seite_bis and s[1].strip()]
-
-                if not zu_durchsuchende_seiten:
-                    context['error_message'] = "Der angegebene Seitenbereich ist ungültig oder enthält keinen Text."
-                else:
-                    for chunk in text_in_chunks_generieren(zu_durchsuchende_seiten):
-                        chunk_text = "\n\n".join([f"--- SEITE {s_num} ---\n{s_text}" for s_num, s_text in chunk])
-
-                        system_prompt_final = (
-                            "Du bist ein erfahrener Elektroplaner. Deine Aufgabe ist es, technische Ausschreibungen zu analysieren. "
-                            "Finde die exakten Textstellen, die technische Spezifikationen, Normen, oder Produktanforderungen enthalten. "
-                            "Antworte NUR mit einem validen JSON-Objekt mit einem Schlüssel 'ergebnisse', der eine Liste von Objekten enthält. "
-                            "Jedes Objekt muss die Schlüssel 'seitenzahl' (Zahl) und 'textstelle' (exaktes Zitat) haben. "
-                            "Wenn du nichts findest, gib eine leere Liste zurück: {\"ergebnisse\": []}"
-                        )
-
-                        try:
-                            client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-                            response = client.chat.completions.create(
-                                model="gpt-3.5-turbo-1106",
-                                response_format={"type": "json_object"},
-                                messages=[
-                                    {"role": "system", "content": system_prompt_final},
-                                    {"role": "user",
-                                     "content": f"Textabschnitt: '{chunk_text}'\n\nSuchanfrage: '{final_query}'"}
-                                ]
-                            )
-                            antwort_objekt = json.loads(response.choices[0].message.content)
-                            chunk_ergebnisse = antwort_objekt.get('ergebnisse', [])
-                            if isinstance(chunk_ergebnisse, list):
-                                context['ergebnisse'].extend(chunk_ergebnisse)
-                        except Exception as e:
-                            print(f"Fehler bei finaler Chunk-Verarbeitung: {e}")
-                            continue
-            except Exception as e:
-                context['error_message'] = f"Fehler bei der finalen Suche: {e}"
-
-    return render(request, 'pdf_sucher/suche.html', context)
+    return render(request, "pdf_sucher/suche.html", {"step": "initial"})
 
 
 def view_pdf(request, filename):
-    """
-    Zeigt die hochgeladene PDF-Datei sicher im Browser an.
-    """
-    file_path = os.path.join(settings.MEDIA_ROOT, 'pdf_uploads', filename)
-
-    # KORREKTUR: Sicherheitsüberprüfung hinzugefügt
-    if not os.path.normpath(file_path).startswith(os.path.normpath(os.path.join(settings.MEDIA_ROOT, 'pdf_uploads'))):
-        raise Http404("Ungültiger Dateipfad")
-
-    if os.path.exists(file_path):
-        return FileResponse(open(file_path, 'rb'), content_type='application/pdf')
-
+    pdf_path = os.path.join(settings.MEDIA_ROOT, "pdfs", filename)
+    if os.path.exists(pdf_path):
+        return FileResponse(open(pdf_path, "rb"), content_type="application/pdf")
     raise Http404("PDF nicht gefunden")
 
 
 def pdf_page_preview(request, filename, page_num):
-    """
-    Rendert eine spezifische Seite einer PDF als PNG-Bild und gibt es zurück.
-    """
-    file_path = os.path.join(settings.MEDIA_ROOT, 'pdf_uploads', filename)
-
-    # KORREKTUR: Sicherheitsüberprüfung hinzugefügt
-    if not os.path.normpath(file_path).startswith(os.path.normpath(os.path.join(settings.MEDIA_ROOT, 'pdf_uploads'))):
-        raise Http404("Ungültiger Dateipfad")
-
-    try:
-        doc = fitz.open(file_path)
-        if 0 <= page_num - 1 < doc.page_count:
-            page = doc.load_page(page_num - 1)
-            pix = page.get_pixmap()
-            img_data = pix.tobytes("png")
-            doc.close()
-            return HttpResponse(img_data, content_type="image/png")
-        else:
-            doc.close()
-            raise Http404("Seitenzahl außerhalb des gültigen Bereichs")
-    except FileNotFoundError:
+    pdf_path = os.path.join(settings.MEDIA_ROOT, "pdfs", filename)
+    if not os.path.exists(pdf_path):
         raise Http404("PDF nicht gefunden")
+    try:
+        doc = fitz.open(pdf_path)
+        if 0 < page_num <= len(doc):
+            page = doc.load_page(page_num - 1)
+            pix = page.get_pixmap(dpi=150)
+            img_byte_arr = io.BytesIO()
+            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            img.save(img_byte_arr, format="PNG")
+            img_byte_arr.seek(0)
+            return HttpResponse(img_byte_arr, content_type="image/png")
+        else:
+            raise Http404("Seite nicht gefunden")
     except Exception as e:
-        print(f"Fehler beim Rendern der PDF-Seite: {e}")
-        raise Http404("Seite konnte nicht gerendert werden")
+        print(f"Fehler bei der Vorschauerstellung: {e}")
+        raise Http404("Vorschau konnte nicht erstellt werden")
