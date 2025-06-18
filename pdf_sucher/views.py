@@ -2,6 +2,7 @@
 
 import os
 import io
+import re
 from datetime import datetime
 
 import fitz  # PyMuPDF
@@ -14,8 +15,7 @@ from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import render
 from werkzeug.utils import secure_filename
 
-# Setzen des OpenAI API-Schlüssels
-openai.api_key = settings.OPENAI_API_KEY
+# OpenAI API wird jetzt über den neuen Client verwendet
 
 
 def cosine_similarity(v1, v2):
@@ -145,7 +145,8 @@ def generate_category_keywords_with_ai(category_name):
         """
         
         print(f"DEBUG: Generiere KI-Begriffe für Kategorie '{category_name}'")
-        response = openai.ChatCompletion.create(
+        client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=150,
@@ -427,7 +428,10 @@ def expand_search_terms_with_ai(query, perspective="sales"):
         """
         
         print(f"DEBUG: Sende OpenAI-Anfrage für '{query}' mit Perspektive '{perspective}'")
-        response = openai.ChatCompletion.create(
+        
+        # Neue OpenAI Client Syntax
+        client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": expansion_prompt}],
             max_tokens=200,
@@ -445,7 +449,7 @@ def expand_search_terms_with_ai(query, perspective="sales"):
     except Exception as e:
         print(f"FEHLER bei der Begriffserweiterung: {e}")
         # Fallback: Verwende ursprüngliche Query-Begriffe
-        fallback_terms = [term.strip() for term in query.split() if len(term.strip()) > 1]
+        fallback_terms = [term.strip() for term in query.split(",") if len(term.strip()) > 1]
         print(f"DEBUG: Fallback zu ursprünglichen Begriffen: {fallback_terms}")
         return fallback_terms
 
@@ -459,7 +463,7 @@ def perform_semantic_search(pdf_path, query, page_range, strictness_threshold, p
 
         # 1. Erweitere Suchbegriffe mit KI basierend auf der gewählten Perspektive
         expanded_search_terms = expand_search_terms_with_ai(query, perspective)
-        original_query_terms = [term.strip() for term in query.split() if len(term.strip()) > 1]
+        original_query_terms = [term.strip() for term in query.split(",") if len(term.strip()) > 1]
         
         # Falls KI-Erweiterung fehlschlägt, verwende nur ursprüngliche Begriffe
         if not expanded_search_terms:
@@ -482,14 +486,28 @@ def perform_semantic_search(pdf_path, query, page_range, strictness_threshold, p
             extended_found = []
             
             for term in expanded_search_terms:
-                if term.lower() in text.lower():
-                    found_terms.append(term)
-                    # Klassifiziere: Original oder erweitert?
-                    if any(orig_term.lower() == term.lower() or orig_term.lower() in term.lower() or term.lower() in orig_term.lower() 
-                           for orig_term in original_query_terms):
-                        original_found.append(term)
+                if term.strip():
+                    # Für mehrteilige Begriffe: exakte Suche nach dem ganzen Begriff
+                    term_found = False
+                    if ' ' in term.strip():
+                        # Mehrteiliger Begriff: Suche nach exaktem Vorkommen
+                        pattern = re.escape(term.strip().lower())
+                        if re.search(pattern, text.lower()):
+                            term_found = True
                     else:
-                        extended_found.append(term)
+                        # Einteiliger Begriff: Verwende Word Boundaries
+                        pattern = r'\b' + re.escape(term.strip().lower()) + r'\b'
+                        if re.search(pattern, text.lower()):
+                            term_found = True
+                    
+                    if term_found:
+                        found_terms.append(term)
+                        # Klassifiziere: Original oder erweitert?
+                        if any(orig_term.lower() == term.lower() or orig_term.lower() in term.lower() or term.lower() in orig_term.lower() 
+                               for orig_term in original_query_terms):
+                            original_found.append(term)
+                        else:
+                            extended_found.append(term)
             
             if found_terms:
                 # 3. Berechne Relevanz basierend auf Strenge-Einstellung
@@ -565,7 +583,7 @@ def perform_semantic_search_with_selected_terms(pdf_path, query, page_range, str
         start_page, end_page = page_range
 
         # 1. Verwende ursprüngliche Begriffe plus ausgewählte erweiterte Begriffe
-        original_query_terms = [term.strip() for term in query.split() if len(term.strip()) > 1]
+        original_query_terms = [term.strip() for term in query.split(",") if len(term.strip()) > 1]
         
         # Kombiniere ursprüngliche und ausgewählte erweiterte Begriffe
         if selected_expanded_terms:
@@ -591,14 +609,28 @@ def perform_semantic_search_with_selected_terms(pdf_path, query, page_range, str
             extended_found = []
             
             for term in all_search_terms:
-                if term.lower() in text.lower():
-                    found_terms.append(term)
-                    # Klassifiziere: Original oder erweitert?
-                    if any(orig_term.lower() == term.lower() or orig_term.lower() in term.lower() or term.lower() in orig_term.lower() 
-                           for orig_term in original_query_terms):
-                        original_found.append(term)
+                if term.strip():
+                    # Für mehrteilige Begriffe: exakte Suche nach dem ganzen Begriff
+                    term_found = False
+                    if ' ' in term.strip():
+                        # Mehrteiliger Begriff: Suche nach exaktem Vorkommen
+                        pattern = re.escape(term.strip().lower())
+                        if re.search(pattern, text.lower()):
+                            term_found = True
                     else:
-                        extended_found.append(term)
+                        # Einteiliger Begriff: Verwende Word Boundaries
+                        pattern = r'\b' + re.escape(term.strip().lower()) + r'\b'
+                        if re.search(pattern, text.lower()):
+                            term_found = True
+                    
+                    if term_found:
+                        found_terms.append(term)
+                        # Klassifiziere: Original oder erweitert?
+                        if any(orig_term.lower() == term.lower() or orig_term.lower() in term.lower() or term.lower() in orig_term.lower() 
+                               for orig_term in original_query_terms):
+                            original_found.append(term)
+                        else:
+                            extended_found.append(term)
             
             if found_terms:
                 # 3. Berechne Relevanz basierend auf Strenge-Einstellung
@@ -761,11 +793,22 @@ def search_text_in_pdf(pdf_path, search_terms, page_range):
             if not text.strip():
                 continue
                 
-            # Suche nach jedem Begriff einzeln
+            # Suche nach jedem Begriff einzeln (ganze Begriffe, auch mehrteilig)
             found_terms = []
             for term in search_terms:
-                if term.strip() and term.lower() in text.lower():
-                    found_terms.append(term)
+                if term.strip():
+                    # Für mehrteilige Begriffe: exakte Suche nach dem ganzen Begriff
+                    # Erstelle Regex-Pattern für ganzen Begriff (Word Boundaries für einzelne Wörter)
+                    if ' ' in term.strip():
+                        # Mehrteiliger Begriff: Suche nach exaktem Vorkommen
+                        pattern = re.escape(term.strip().lower())
+                        if re.search(pattern, text.lower()):
+                            found_terms.append(term.strip())
+                    else:
+                        # Einteiliger Begriff: Verwende Word Boundaries
+                        pattern = r'\b' + re.escape(term.strip().lower()) + r'\b'
+                        if re.search(pattern, text.lower()):
+                            found_terms.append(term.strip())
             
             if found_terms:
                 print(f"DEBUG: Seite {page_num + 1}, gefundene Begriffe: {found_terms}")
@@ -850,9 +893,9 @@ def pdf_suche(request):
                               {"step": "initial", "error_message": f"PDF konnte nicht verarbeitet werden: {e}"})
         
         # Überprüfe ob PDF bereits hochgeladen (aus Ampel-Analyse)
-        existing_pdf = request.POST.get("pdf_filename_existing")
+        existing_pdf = request.POST.get("pdf_filename_existing") or request.POST.get("pdf_filename")
         
-        # Schritt 1: Initiale Suche - Zeige erweiterte Begriffe für KI-Suche
+        # Schritt 1: Initiale Suche - Zeige erweiterte Begriffe für KI-Suche oder führe einfache Suche direkt aus
         if step == "initial" and search_type == "ai":
             if not pdf_file and not existing_pdf:
                 return render(request, "pdf_sucher/suche.html",
@@ -893,7 +936,61 @@ def pdf_suche(request):
                 'seite_von': seite_von_str,
                 'seite_bis': seite_bis_str,
                 'expanded_terms': expanded_terms,
-                'original_terms': [term.strip() for term in suchanfrage.split() if len(term.strip()) > 1]
+                'original_terms': [term.strip() for term in suchanfrage.split(",") if len(term.strip()) > 1]
+            }
+            return render(request, "pdf_sucher/suche.html", context)
+        
+        # Schritt 1.5: Einfache Suche direkt ausführen
+        if step == "initial" and search_type == "simple":
+            if not pdf_file and not existing_pdf:
+                return render(request, "pdf_sucher/suche.html",
+                              {"step": "initial", "error_message": "Bitte eine PDF-Datei hochladen."})
+            
+            # Verwende existierende PDF oder speichere neue
+            if existing_pdf:
+                pdf_filename = existing_pdf
+            else:
+                # Speichere PDF temporär
+                fs = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, "pdfs"))
+                filename = secure_filename(pdf_file.name)
+                base, extension = os.path.splitext(filename)
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                unique_filename = f"{base}_{timestamp}{extension}"
+                pdf_filename = fs.save(unique_filename, pdf_file)
+            
+            # Führe einfache Suche direkt aus
+            pdf_path = os.path.join(settings.MEDIA_ROOT, "pdfs", pdf_filename)
+            
+            try:
+                doc = fitz.open(pdf_path)
+                start_page = int(seite_von_str) - 1 if seite_von_str and seite_von_str.isdigit() else 0
+                end_page = int(seite_bis_str) if seite_bis_str and seite_bis_str.isdigit() else len(doc)
+                page_range = (max(0, start_page), min(len(doc), end_page))
+                doc.close()
+            except Exception as e:
+                return render(request, "pdf_sucher/suche.html",
+                              {"step": "initial", "error_message": f"PDF konnte nicht verarbeitet werden: {e}"})
+
+            # Führe einfache Textsuche durch
+            search_terms = [term.strip() for term in suchanfrage.split(",")]
+            ergebnisse = search_text_in_pdf(pdf_path, search_terms, page_range)
+            
+            # Generiere PDF mit Suchergebnissen
+            results_pdf_filename = None
+            if ergebnisse:
+                results_pdf_filename = generate_search_results_pdf(
+                    pdf_path, ergebnisse, suchanfrage, search_type, search_perspective
+                )
+            
+            context = {
+                'step': 'results',
+                'ergebnisse': ergebnisse,
+                'suchanfrage': suchanfrage,
+                'search_type': search_type,
+                'search_perspective': search_perspective,
+                'pdf_filename': pdf_filename,
+                'results_pdf_filename': results_pdf_filename,
+                'search_terms_for_preview': search_terms
             }
             return render(request, "pdf_sucher/suche.html", context)
         
@@ -973,7 +1070,7 @@ def pdf_suche(request):
                 
                 # Fallback: Verwende ursprüngliche Query-Begriffe
                 if not search_terms_for_preview:
-                    search_terms_for_preview = [term.strip() for term in suchanfrage.split() if len(term.strip()) > 2]
+                    search_terms_for_preview = [term.strip() for term in suchanfrage.split(",") if len(term.strip()) > 2]
             
             # Generiere PDF mit Suchergebnissen
             results_pdf_filename = None
@@ -1049,25 +1146,55 @@ def get_ampel_locations(request):
         
         result_data = ampel_results[category]
         
-        # Sammle alle Seiten-Locations für diese Kategorie
-        all_locations = []
+        # Sammle und aggregiere Locations pro Keyword und Seite
         page_locations = result_data.get('page_locations', {})
         
+        # Gruppiere nach Keyword und Seite
+        grouped_locations = {}
         for keyword, locations in page_locations.items():
+            if keyword not in grouped_locations:
+                grouped_locations[keyword] = {}
+            
             for location in locations:
-                all_locations.append({
-                    'keyword': keyword,
-                    'page': location['page'],
-                    'context': location['context'],
-                    'position': location.get('position', 0),
+                page = location['page']
+                if page not in grouped_locations[keyword]:
+                    grouped_locations[keyword][page] = {
+                        'count': 0,
+                        'contexts': [],
+                        'coordinates': []
+                    }
+                
+                grouped_locations[keyword][page]['count'] += 1
+                grouped_locations[keyword][page]['contexts'].append(location['context'])
+                grouped_locations[keyword][page]['coordinates'].append({
                     'x0': location.get('x0', 0),
                     'y0': location.get('y0', 0),
                     'x1': location.get('x1', 0),
                     'y1': location.get('y1', 0)
                 })
         
-        # Sortiere nach Seite
-        all_locations.sort(key=lambda x: x['page'])
+        # Erstelle aggregierte Locations-Liste
+        all_locations = []
+        for keyword, pages in grouped_locations.items():
+            for page, page_data in pages.items():
+                # Verwende den ersten Kontext und die ersten Koordinaten
+                first_context = page_data['contexts'][0] if page_data['contexts'] else f"{keyword} gefunden"
+                first_coords = page_data['coordinates'][0] if page_data['coordinates'] else {'x0': 0, 'y0': 0, 'x1': 0, 'y1': 0}
+                
+                all_locations.append({
+                    'keyword': keyword,
+                    'page': page,
+                    'context': first_context,
+                    'count': page_data['count'],
+                    'position': 0,
+                    'x0': first_coords['x0'],
+                    'y0': first_coords['y0'],
+                    'x1': first_coords['x1'],
+                    'y1': first_coords['y1']
+                })
+        
+        # Sortiere nach Seite, dann nach Keyword
+        all_locations.sort(key=lambda x: (x['page'], x['keyword']))
         
         return JsonResponse({
             'status': result_data['status'],
