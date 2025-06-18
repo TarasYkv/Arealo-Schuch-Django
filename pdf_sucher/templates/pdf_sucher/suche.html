@@ -270,11 +270,8 @@
                                         <div id="modal-content-green" style="display: none;">
                                             <div class="row">
                                                 <div class="col-md-6">
-                                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                                    <div class="mb-3">
                                                         <h6 class="text-success mb-0">Gefundene Begriffe:</h6>
-                                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="restore-all-terms" style="display: none;">
-                                                            <i class="bi bi-arrow-clockwise"></i> Alle wiederherstellen
-                                                        </button>
                                                     </div>
                                                     <div id="modal-found-keywords" class="mb-3"></div>
                                                     <div id="removed-terms-notice" class="alert alert-info small py-2" style="display: none;">
@@ -322,7 +319,7 @@
                                 <form method="post" enctype="multipart/form-data">
                                     {% csrf_token %}
                                     <input type="hidden" name="step" value="initial">
-                                    <input type="hidden" name="pdf_filename_existing" value="{{ pdf_filename }}">
+                                    <input type="hidden" name="pdf_filename" value="{{ pdf_filename }}">
                                     
                                     <div class="mb-4">
                                         <label class="form-label">Suchmethode</label>
@@ -715,14 +712,25 @@ document.addEventListener('DOMContentLoaded', function() {
     if (ampelModal) {
         ampelModal.addEventListener('show.bs.modal', function (event) {
             const card = event.relatedTarget;
+            if (!card) {
+                console.error('No related target found for modal');
+                return;
+            }
+            
             const category = card.getAttribute('data-category');
             const status = card.getAttribute('data-status');
-            const foundKeywords = card.getAttribute('data-found-keywords').split(',').filter(k => k.trim());
-            const aiKeywords = card.getAttribute('data-ai-keywords').split(',').filter(k => k.trim());
-            const contextSnippets = card.getAttribute('data-context-snippets').split('|||').filter(s => s.trim());
+            const foundKeywords = card.getAttribute('data-found-keywords');
+            const aiKeywords = card.getAttribute('data-ai-keywords');
+            const contextSnippets = card.getAttribute('data-context-snippets');
             
-            console.log('Modal opening for category:', category);
-            console.log('Current globalRemovedTerms:', globalRemovedTerms);
+            if (!category) {
+                console.error('No category found on card');
+                return;
+            }
+            
+            const foundKeywordsList = foundKeywords ? foundKeywords.split(',').filter(k => k.trim()) : [];
+            const aiKeywordsList = aiKeywords ? aiKeywords.split(',').filter(k => k.trim()) : [];
+            const contextSnippetsList = contextSnippets ? contextSnippets.split('|||').filter(s => s.trim()) : [];
 
             // Modal-Header aktualisieren
             const modalIcon = document.getElementById('modal-icon');
@@ -731,35 +739,44 @@ document.addEventListener('DOMContentLoaded', function() {
             const modalContentRed = document.getElementById('modal-content-red');
             const modalLoading = document.getElementById('modal-loading');
 
-            modalCategory.textContent = category;
+            // Alle Content-Bereiche zurücksetzen
+            if (modalContentGreen) modalContentGreen.style.display = 'none';
+            if (modalContentRed) modalContentRed.style.display = 'none';
+            if (modalLoading) modalLoading.style.display = 'none';
+
+            if (modalCategory) {
+                modalCategory.textContent = category;
+            } else {
+                console.error('Modal category element not found');
+            }
             
             if (status === 'grün') {
-                modalIcon.textContent = '🟢';
-                modalContentGreen.style.display = 'none';
-                modalContentRed.style.display = 'none';
-                modalLoading.style.display = 'block';
+                if (modalIcon) modalIcon.textContent = '🟢';
+                if (modalLoading) modalLoading.style.display = 'block';
                 
                 // AJAX-Request für detaillierte Locations
                 const pdfFilename = '{{ pdf_filename }}';
                 loadAmpelLocations(category, pdfFilename);
                 
             } else {
-                modalIcon.textContent = '🔴';
-                modalContentGreen.style.display = 'none';
-                modalContentRed.style.display = 'block';
-                modalLoading.style.display = 'none';
+                if (modalIcon) modalIcon.textContent = '🔴';
+                if (modalContentRed) modalContentRed.style.display = 'block';
                 
                 // KI-gesuchte Begriffe anzeigen
                 const aiKeywordsContainer = document.getElementById('modal-ai-keywords');
-                aiKeywordsContainer.innerHTML = '';
-                aiKeywords.forEach(keyword => {
-                    if (keyword.trim()) {
-                        const badge = document.createElement('span');
-                        badge.className = 'badge bg-secondary me-2 mb-2';
-                        badge.textContent = keyword.trim();
-                        aiKeywordsContainer.appendChild(badge);
-                    }
-                });
+                if (aiKeywordsContainer) {
+                    aiKeywordsContainer.innerHTML = '';
+                    aiKeywordsList.forEach(keyword => {
+                        if (keyword.trim()) {
+                            const badge = document.createElement('span');
+                            badge.className = 'badge bg-secondary me-2 mb-2';
+                            badge.textContent = keyword.trim();
+                            aiKeywordsContainer.appendChild(badge);
+                        }
+                    });
+                } else {
+                    console.error('AI keywords container not found');
+                }
             }
         });
     }
@@ -788,16 +805,19 @@ document.addEventListener('DOMContentLoaded', function() {
             
         } catch (error) {
             console.error('Fehler beim Laden der Ampel-Locations:', error);
-            document.getElementById('modal-loading').style.display = 'none';
-            document.getElementById('modal-content-green').innerHTML = 
-                '<div class="alert alert-danger">Fehler beim Laden der Details.</div>';
-            document.getElementById('modal-content-green').style.display = 'block';
+            const modalLoading = document.getElementById('modal-loading');
+            const modalContentGreen = document.getElementById('modal-content-green');
+            
+            if (modalLoading) modalLoading.style.display = 'none';
+            if (modalContentGreen) {
+                modalContentGreen.innerHTML = 
+                    '<div class="alert alert-danger">Fehler beim Laden der Details. Bitte versuchen Sie es erneut.</div>';
+                modalContentGreen.style.display = 'block';
+            }
         }
     }
     
-    // --- Globale Variable für entfernte Begriffe (pro Kategorie) ---
-    let globalRemovedTerms = new Map(); // Struktur: {category: Set(terms)}
-    let originalAmpelData = new Map(); // Struktur: {category: {keywords: [], status: ''}}
+    // --- Globale Variablen für Modal ---
     let currentLocationData = null;
     let currentCategory = null;
     
@@ -810,22 +830,22 @@ document.addEventListener('DOMContentLoaded', function() {
         const locationCountSpan = document.getElementById('modal-location-count');
         const removedTermsNotice = document.getElementById('removed-terms-notice');
         
-        modalLoading.style.display = 'none';
-        modalContentGreen.style.display = 'block';
+        if (modalLoading) modalLoading.style.display = 'none';
+        if (modalContentGreen) {
+            modalContentGreen.style.display = 'block';
+        }
         
         // Setup current category and data
         currentLocationData = data;
         currentCategory = data.category || category;
         
-        // Initialize removed terms for this category if not exists
-        if (!globalRemovedTerms.has(currentCategory)) {
-            globalRemovedTerms.set(currentCategory, new Set());
-        }
+        // Synchronisiere selectedKeywords mit aktueller Textsuche
+        syncSelectedKeywordsWithTextSearch();
         
         // Reset PDF preview
         resetPdfPreview();
         
-        // Gefundene Begriffe anzeigen (clickable)
+        // Gefundene Begriffe anzeigen (clickable für Textsuche)
         foundKeywordsContainer.innerHTML = '';
         data.found_keywords.forEach(keyword => {
             const badge = document.createElement('span');
@@ -835,32 +855,41 @@ document.addEventListener('DOMContentLoaded', function() {
             badge.textContent = keyword;
             badge.dataset.keyword = keyword;
             
-            // Click-Event für Badge
+            // Prüfe ob Begriff bereits ausgewählt ist
+            if (selectedKeywords.has(keyword.trim())) {
+                badge.className = 'badge bg-primary me-2 mb-2 keyword-badge';
+                badge.style.transform = 'scale(1.05)';
+                badge.style.boxShadow = '0 2px 4px rgba(0,123,255,0.3)';
+            }
+            
+            // Click-Event für Badge - Toggle in Textsuche
             badge.addEventListener('click', function() {
-                toggleKeywordFilter(keyword);
+                toggleKeywordInTextSearch(keyword, badge);
             });
             
-            // Hover-Effekt
+            // Hover-Effekt nur wenn nicht ausgewählt
             badge.addEventListener('mouseenter', function() {
-                this.style.transform = 'scale(1.05)';
+                if (!selectedKeywords.has(keyword.trim())) {
+                    this.style.transform = 'scale(1.05)';
+                }
             });
             
             badge.addEventListener('mouseleave', function() {
-                this.style.transform = 'scale(1)';
+                if (!selectedKeywords.has(keyword.trim())) {
+                    this.style.transform = 'scale(1)';
+                } else {
+                    this.style.transform = 'scale(1.05)';
+                }
             });
             
             foundKeywordsContainer.appendChild(badge);
         });
         
-        // Notice anzeigen
-        removedTermsNotice.style.display = 'block';
-        
-        // Setup restore button
-        setupRestoreButton();
-        
-        // Update buttons und locations basierend auf bereits entfernten Begriffen
-        updateKeywordBadges();
-        updateRestoreButton();
+        // Hinweis für Benutzer anzeigen
+        if (removedTermsNotice) {
+            removedTermsNotice.innerHTML = '<i class="bi bi-info-circle"></i> Klicken Sie auf einen Begriff, um ihn zur Textsuche hinzuzufügen/zu entfernen';
+            removedTermsNotice.style.display = 'block';
+        }
         
         // Anzahl der Fundstellen
         locationCountSpan.textContent = data.total_locations;
@@ -873,397 +902,138 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        renderLocationItems();
-    }
-    
-    // --- Funktion zum Rendern der Location-Items ---
-    function renderLocationItems() {
-        if (!currentLocationData || !currentCategory) return;
-        
-        const allLocationsContainer = document.getElementById('modal-all-locations');
-        const locationCountSpan = document.getElementById('modal-location-count');
-        const removedTerms = globalRemovedTerms.get(currentCategory) || new Set();
-        
-        allLocationsContainer.innerHTML = '';
-        
-        // Filter locations based on removed terms
-        const visibleLocations = currentLocationData.locations.filter(location => 
-            !removedTerms.has(location.keyword)
-        );
-        
-        if (visibleLocations.length === 0) {
-            allLocationsContainer.innerHTML = '<p class="text-muted">Alle Fundstellen wurden ausgeblendet.</p>';
-            locationCountSpan.textContent = '0';
-            return;
-        }
-        
-        // Update count
-        locationCountSpan.textContent = visibleLocations.length;
-        
-        visibleLocations.forEach((location, index) => {
+        // Render all locations without filtering
+        data.locations.forEach((location, index) => {
             const locationDiv = document.createElement('div');
-            locationDiv.className = 'border rounded p-3 mb-2 location-item';
+            locationDiv.className = 'border rounded p-2 mb-2 location-item';
             locationDiv.style.cursor = 'pointer';
-            locationDiv.dataset.page = location.page;
-            locationDiv.dataset.keyword = location.keyword;
-            locationDiv.dataset.x0 = location.x0 || 0;
-            locationDiv.dataset.y0 = location.y0 || 0;
-            locationDiv.dataset.x1 = location.x1 || 0;
-            locationDiv.dataset.y1 = location.y1 || 0;
+            locationDiv.style.transition = 'all 0.2s ease';
+            
+            // Zeige Anzahl in Klammern wenn mehr als 1 Vorkommen
+            const countText = location.count && location.count > 1 ? ` (${location.count}x)` : '';
             
             locationDiv.innerHTML = `
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <strong class="text-primary">Seite ${location.page}</strong>
-                    <span class="badge bg-info">${location.keyword}</span>
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <span class="badge bg-primary me-2">${location.keyword}${countText}</span>
+                        <small class="text-muted">Seite ${location.page}</small>
+                    </div>
+                    <i class="bi bi-eye text-muted"></i>
                 </div>
-                <div class="small text-muted">${location.context}</div>
+                <p class="mb-1 mt-2 small text-dark">"${location.context}"</p>
             `;
             
-            // Click-Effekt für PDF-Vorschau (persistent)
-            locationDiv.addEventListener('click', function() {
-                // Entferne active-Klasse von allen anderen Location-Items
-                document.querySelectorAll('.location-item').forEach(item => {
-                    item.classList.remove('active');
-                });
-                
-                // Füge active-Klasse zu aktuellem Item hinzu
-                locationDiv.classList.add('active');
-                
-                showPdfPreview(location.page, location.keyword, '{{ pdf_filename }}', {
-                    x0: location.x0 || 0,
-                    y0: location.y0 || 0, 
-                    x1: location.x1 || 0,
-                    y1: location.y1 || 0
-                });
-            });
-            
-            // Hover-Effekt für visuelles Feedback
+            // Hover-Effekt
             locationDiv.addEventListener('mouseenter', function() {
-                if (!locationDiv.classList.contains('active')) {
-                    locationDiv.style.backgroundColor = '#f8f9fa';
-                }
+                this.style.backgroundColor = '#f8f9fa';
+                this.style.transform = 'translateY(-1px)';
             });
             
             locationDiv.addEventListener('mouseleave', function() {
-                if (!locationDiv.classList.contains('active')) {
-                    locationDiv.style.backgroundColor = '';
-                }
+                this.style.backgroundColor = '';
+                this.style.transform = 'translateY(0)';
+            });
+            
+            // Click-Event für PDF-Vorschau
+            locationDiv.addEventListener('click', function() {
+                showPdfPreview(location.page, location.keyword, '{{ pdf_filename }}', location.coordinates);
             });
             
             allLocationsContainer.appendChild(locationDiv);
         });
     }
     
-    // --- Funktion zum Toggle eines Keywords ---
-    function toggleKeywordFilter(keyword) {
-        if (!currentCategory) {
-            console.error('No currentCategory set');
+    
+    // --- Globaler Set für ausgewählte Keywords ---
+    let selectedKeywords = new Set();
+    
+    // --- Funktion zum Toggle eines Keywords in der Textsuche ---
+    function toggleKeywordInTextSearch(keyword, badgeElement) {
+        const textSearchInput = document.querySelector('input[name="suchanfrage"]');
+        if (!textSearchInput) {
+            console.error('Textsuche-Input nicht gefunden');
             return;
         }
         
-        console.log('Toggling keyword:', keyword, 'for category:', currentCategory);
+        const currentValue = textSearchInput.value.trim();
+        const keywords = currentValue ? currentValue.split(',').map(k => k.trim()).filter(k => k) : [];
         
-        const removedTerms = globalRemovedTerms.get(currentCategory) || new Set();
-        console.log('Current removed terms before toggle:', removedTerms);
-        
-        if (removedTerms.has(keyword)) {
-            removedTerms.delete(keyword);
-            console.log('Removed keyword from removed terms:', keyword);
+        if (selectedKeywords.has(keyword.trim())) {
+            // Begriff entfernen
+            selectedKeywords.delete(keyword.trim());
+            const updatedKeywords = keywords.filter(k => k !== keyword.trim());
+            textSearchInput.value = updatedKeywords.join(', ');
+            
+            // Visuelles Feedback - zurück zu normal
+            badgeElement.className = 'badge bg-success me-2 mb-2 keyword-badge';
+            badgeElement.style.opacity = '1';
+            badgeElement.style.transform = 'scale(1)';
+            badgeElement.style.boxShadow = 'none';
+            
+            console.log('Removed keyword from text search:', keyword);
         } else {
-            removedTerms.add(keyword);
-            console.log('Added keyword to removed terms:', keyword);
+            // Begriff hinzufügen
+            selectedKeywords.add(keyword.trim());
+            if (!keywords.includes(keyword.trim())) {
+                keywords.push(keyword.trim());
+                textSearchInput.value = keywords.join(', ');
+            }
+            
+            // Visuelles Feedback - hervorheben
+            badgeElement.className = 'badge bg-primary me-2 mb-2 keyword-badge';
+            badgeElement.style.opacity = '1';
+            badgeElement.style.transform = 'scale(1.05)';
+            badgeElement.style.boxShadow = '0 2px 4px rgba(0,123,255,0.3)';
+            
+            console.log('Added keyword to text search:', keyword);
         }
         
-        globalRemovedTerms.set(currentCategory, removedTerms);
-        console.log('Updated globalRemovedTerms:', globalRemovedTerms);
-        
-        updateKeywordBadges();
-        renderLocationItems();
-        updateRestoreButton();
-        // updateAmpelCard(); // Entfernt - wird durch updateAllAmpelCards ersetzt
-        updateAllAmpelCards(); // Update main overview
+        // Kurze Bestätigung anzeigen
+        showQuickNotification(selectedKeywords.has(keyword.trim()) ? 'hinzugefügt' : 'entfernt', keyword);
     }
     
-    // --- Funktion zum Aktualisieren der Keyword-Badges ---
-    function updateKeywordBadges() {
-        if (!currentCategory) return;
+    // --- Funktion für kurze Benachrichtigungen ---
+    function showQuickNotification(action, keyword) {
+        const notification = document.createElement('div');
+        notification.className = 'alert position-fixed';
+        notification.className += action === 'hinzugefügt' ? ' alert-success' : ' alert-warning';
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; opacity: 0; transition: opacity 0.2s ease; padding: 8px 12px; font-size: 0.9rem;';
         
-        const foundKeywordsContainer = document.getElementById('modal-found-keywords');
-        const badges = foundKeywordsContainer.querySelectorAll('.keyword-badge');
-        const removedTerms = globalRemovedTerms.get(currentCategory) || new Set();
+        const icon = action === 'hinzugefügt' ? 'check-circle' : 'x-circle';
+        notification.innerHTML = `<i class="bi bi-${icon}"></i> "${keyword}" ${action}`;
+        document.body.appendChild(notification);
         
-        badges.forEach(badge => {
-            const keyword = badge.dataset.keyword;
-            if (removedTerms.has(keyword)) {
-                badge.className = 'badge bg-secondary text-decoration-line-through me-2 mb-2 keyword-badge';
-                badge.style.opacity = '0.6';
-            } else {
-                badge.className = 'badge bg-success me-2 mb-2 keyword-badge';
-                badge.style.opacity = '1';
-            }
+        // Fade in
+        setTimeout(() => {
+            notification.style.opacity = '1';
+        }, 10);
+        
+        // Fade out and remove
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                if (document.body.contains(notification)) {
+                    document.body.removeChild(notification);
+                }
+            }, 200);
+        }, 1500);
+    }
+    
+    // --- Funktion zum Synchronisieren der selectedKeywords mit der aktuellen Textsuche ---
+    function syncSelectedKeywordsWithTextSearch() {
+        const textSearchInput = document.querySelector('input[name="suchanfrage"]');
+        if (!textSearchInput) return;
+        
+        const currentValue = textSearchInput.value.trim();
+        const keywords = currentValue ? currentValue.split(',').map(k => k.trim()).filter(k => k) : [];
+        
+        // Setze selectedKeywords basierend auf aktueller Textsuche
+        selectedKeywords.clear();
+        keywords.forEach(keyword => {
+            selectedKeywords.add(keyword);
         });
     }
     
-    // --- Funktion zum Setup des Restore-Buttons ---
-    function setupRestoreButton() {
-        const restoreButton = document.getElementById('restore-all-terms');
-        restoreButton.addEventListener('click', function() {
-            if (!currentCategory) return;
-            
-            globalRemovedTerms.set(currentCategory, new Set());
-            updateKeywordBadges();
-            renderLocationItems();
-            updateRestoreButton();
-            // updateAmpelCard(); // Entfernt - wird durch updateAllAmpelCards ersetzt
-            updateAllAmpelCards(); // Update main overview
-        });
-    }
-    
-    // --- Funktion zum Aktualisieren des Restore-Buttons ---
-    function updateRestoreButton() {
-        if (!currentCategory) return;
-        
-        const restoreButton = document.getElementById('restore-all-terms');
-        const removedTerms = globalRemovedTerms.get(currentCategory) || new Set();
-        
-        if (removedTerms.size > 0) {
-            restoreButton.style.display = 'inline-block';
-        } else {
-            restoreButton.style.display = 'none';
-        }
-    }
-    
-    // --- Funktion zum Aktualisieren der Ampel-Karte ---
-    function updateAmpelCard() {
-        if (!currentLocationData || !currentCategory) return;
-        
-        // Finde die entsprechende Ampel-Karte
-        const ampelCard = document.querySelector(`[data-category="${currentCategory}"]`);
-        if (!ampelCard) return;
-        
-        const removedTerms = globalRemovedTerms.get(currentCategory) || new Set();
-        
-        // Berechne verbleibende aktive Keywords
-        const activeKeywords = currentLocationData.found_keywords.filter(keyword => 
-            !removedTerms.has(keyword)
-        );
-        
-        // Bestimme neuen Status
-        const newStatus = activeKeywords.length > 0 ? 'grün' : 'rot';
-        const currentStatus = ampelCard.getAttribute('data-status');
-        
-        // Update nur wenn sich Status geändert hat
-        if (newStatus !== currentStatus) {
-            ampelCard.setAttribute('data-status', newStatus);
-            
-            // Update Karten-Styling
-            const cardElement = ampelCard.querySelector('.card');
-            const iconElement = ampelCard.querySelector('.fs-5');
-            const titleElement = ampelCard.querySelector('h6');
-            const badgeContainer = ampelCard.querySelector('.mb-2');
-            const statusText = ampelCard.querySelector('small');
-            
-            if (newStatus === 'grün') {
-                // Grün-Styling
-                cardElement.className = 'card border-success';
-                iconElement.textContent = '🟢';
-                titleElement.className = 'mb-0 text-success';
-                
-                // Update Badges
-                if (badgeContainer) {
-                    badgeContainer.innerHTML = '';
-                    activeKeywords.slice(0, 5).forEach(keyword => {
-                        const badge = document.createElement('span');
-                        badge.className = 'badge bg-success me-1 mb-1 small';
-                        badge.textContent = keyword;
-                        badgeContainer.appendChild(badge);
-                    });
-                    if (activeKeywords.length > 5) {
-                        const moreBadge = document.createElement('span');
-                        moreBadge.className = 'badge bg-secondary small';
-                        moreBadge.textContent = `+${activeKeywords.length - 5}`;
-                        badgeContainer.appendChild(moreBadge);
-                    }
-                }
-                
-                statusText.textContent = `${activeKeywords.length} Begriff${activeKeywords.length !== 1 ? 'e' : ''} gefunden`;
-                statusText.className = 'text-muted';
-            } else {
-                // Rot-Styling
-                cardElement.className = 'card border-danger';
-                iconElement.textContent = '🔴';
-                titleElement.className = 'mb-0 text-danger';
-                
-                // Entferne Badges
-                if (badgeContainer) {
-                    badgeContainer.style.display = 'none';
-                }
-                
-                statusText.textContent = 'Nicht relevant';
-                statusText.className = 'text-muted';
-            }
-        } else if (newStatus === 'grün') {
-            // Status bleibt grün, aber Keywords haben sich geändert - Update Badges
-            const badgeContainer = ampelCard.querySelector('.mb-2');
-            const statusText = ampelCard.querySelector('small');
-            
-            if (badgeContainer) {
-                badgeContainer.innerHTML = '';
-                activeKeywords.slice(0, 5).forEach(keyword => {
-                    const badge = document.createElement('span');
-                    badge.className = 'badge bg-success me-1 mb-1 small';
-                    badge.textContent = keyword;
-                    badgeContainer.appendChild(badge);
-                });
-                if (activeKeywords.length > 5) {
-                    const moreBadge = document.createElement('span');
-                    moreBadge.className = 'badge bg-secondary small';
-                    moreBadge.textContent = `+${activeKeywords.length - 5}`;
-                    badgeContainer.appendChild(moreBadge);
-                }
-            }
-            
-            statusText.textContent = `${activeKeywords.length} Begriff${activeKeywords.length !== 1 ? 'e' : ''} gefunden`;
-        }
-    }
-    
-    // --- Funktion zum Aktualisieren aller Ampel-Karten in der Hauptübersicht ---
-    function updateAllAmpelCards() {
-        console.log('=== updateAllAmpelCards START ===');
-        console.log('globalRemovedTerms:', globalRemovedTerms);
-        console.log('originalAmpelData:', originalAmpelData);
-        
-        // Durchlaufe alle Ampel-Karten
-        const ampelCards = document.querySelectorAll('.ampel-card');
-        console.log('Found', ampelCards.length, 'ampel cards');
-        
-        ampelCards.forEach((ampelCard, index) => {
-            console.log(`\n--- Processing card ${index + 1} ---`);
-            const category = ampelCard.getAttribute('data-category');
-            console.log('Category:', category);
-            if (!category) {
-                console.log('No category found, skipping');
-                return;
-            }
-            
-            const removedTerms = globalRemovedTerms.get(category) || new Set();
-            console.log('Removed terms for', category, ':', Array.from(removedTerms));
-            
-            // Verwende ursprüngliche gespeicherte Daten statt aktueller Attribute
-            const originalData = originalAmpelData.get(category);
-            if (!originalData) {
-                console.log('No original data for', category, ', skipping');
-                return;
-            }
-            console.log('Original data for', category, ':', originalData);
-            
-            const allKeywords = originalData.keywords;
-            const activeKeywords = allKeywords.filter(keyword => !removedTerms.has(keyword));
-            console.log('All keywords:', allKeywords);
-            console.log('Active keywords:', activeKeywords);
-            
-            // Bestimme neuen Status (nur für grüne Karten relevant)
-            const originalStatus = originalData.status;
-            let newStatus = originalStatus;
-            
-            // Nur grüne Karten können zu rot werden durch Keyword-Entfernung
-            if (originalStatus === 'grün') {
-                newStatus = activeKeywords.length > 0 ? 'grün' : 'rot';
-            }
-            console.log('Status change:', originalStatus, '->', newStatus);
-            
-            const currentStatus = ampelCard.getAttribute('data-status');
-            console.log('Current status attribute:', currentStatus);
-            
-            // Update wenn sich etwas geändert hat
-            if (newStatus !== currentStatus || activeKeywords.length !== allKeywords.length || removedTerms.size > 0) {
-                console.log('Updating card for category:', category, 'from', currentStatus, 'to', newStatus);
-                console.log('Active keywords for update:', activeKeywords);
-                
-                ampelCard.setAttribute('data-status', newStatus);
-                
-                // WICHTIG: Aktualisiere auch das data-found-keywords Attribut
-                ampelCard.setAttribute('data-found-keywords', activeKeywords.join(','));
-                
-                // Update Karten-Styling
-                const cardElement = ampelCard; // ampelCard ist bereits das .card Element
-                const iconElement = ampelCard.querySelector('.fs-5');
-                const titleElement = ampelCard.querySelector('h6');
-                const badgeContainer = ampelCard.querySelector('.mb-2');
-                const statusText = ampelCard.querySelector('small');
-                
-                // Null-Check für alle Elemente
-                if (!cardElement || !iconElement || !titleElement || !statusText) {
-                    console.error('Missing elements in ampel card for category:', category);
-                    return;
-                }
-                
-                // Update Ampel-Icon und Rahmen
-                console.log('Updating visual elements...');
-                if (newStatus === 'grün') {
-                    console.log('Setting green styling');
-                    cardElement.className = 'card border-success ampel-card';
-                    iconElement.textContent = '🟢';
-                    titleElement.className = 'mb-0 text-success';
-                } else {
-                    console.log('Setting red styling');
-                    cardElement.className = 'card border-danger ampel-card';
-                    iconElement.textContent = '🔴';
-                    titleElement.className = 'mb-0 text-danger';
-                }
-                console.log('New cardElement className:', cardElement.className);
-                console.log('New iconElement text:', iconElement.textContent);
-                
-                // Update Badges - zeige immer alle Keywords, wenn ursprünglich grün
-                if (originalStatus === 'grün' && badgeContainer) {
-                    console.log('Updating badges for green card...');
-                    badgeContainer.style.display = 'block';
-                    badgeContainer.innerHTML = '';
-                    
-                    console.log('Active keywords to display:', activeKeywords);
-                    
-                    // Zeige nur noch aktive Keywords (entfernte verschwinden komplett)
-                    activeKeywords.slice(0, 5).forEach(keyword => {
-                        console.log('Creating badge for:', keyword);
-                        const badge = document.createElement('span');
-                        badge.className = 'badge bg-success me-1 mb-1 small';
-                        badge.textContent = keyword;
-                        badgeContainer.appendChild(badge);
-                    });
-                    
-                    if (activeKeywords.length > 5) {
-                        const moreBadge = document.createElement('span');
-                        moreBadge.className = 'badge bg-secondary small';
-                        moreBadge.textContent = `+${activeKeywords.length - 5}`;
-                        badgeContainer.appendChild(moreBadge);
-                    }
-                    
-                    console.log('Badge container HTML after update:', badgeContainer.innerHTML);
-                    
-                    // Status-Text basierend auf aktiven Keywords
-                    if (activeKeywords.length > 0) {
-                        statusText.textContent = `${activeKeywords.length} Begriff${activeKeywords.length !== 1 ? 'e' : ''} gefunden`;
-                    } else {
-                        statusText.textContent = 'Alle Begriffe entfernt';
-                    }
-                    console.log('Status text updated to:', statusText.textContent);
-                } else if (originalStatus === 'rot') {
-                    // Ursprünglich rote Karten bleiben unverändert
-                    console.log('Keeping red card unchanged');
-                    if (badgeContainer) {
-                        badgeContainer.style.display = 'none';
-                    }
-                    statusText.textContent = 'Nicht relevant';
-                }
-                
-                statusText.className = 'text-muted';
-                console.log('=== Card update completed ===');
-            } else {
-                console.log('No update needed for', category);
-            }
-        });
-        console.log('=== updateAllAmpelCards END ===');
-    }
     
     // --- PDF-Vorschau Funktionen ---
     function showPdfPreview(pageNum, keyword, pdfFilename, coordinates) {
@@ -1320,36 +1090,36 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // --- Initialisierung beim Laden der Seite ---
     function initializeAmpelCards() {
-        console.log('Initializing ampel cards on page load');
+        console.log('Ampel cards initialized');
+        // Ampel-Karten sind bereits korrekt im Template gerendert
+    }
+    
+    // Initialisierung Formular-Handler für Ladesymbol
+    function initializeFormHandlers() {
+        const mainForm = document.getElementById('mainSearchForm');
+        const loadingIndicator = document.getElementById('ladeanzeige');
+        const searchCard = document.getElementById('search-card');
         
-        // Speichere ursprüngliche Ampel-Daten
-        document.querySelectorAll('.ampel-card').forEach(ampelCard => {
-            const category = ampelCard.getAttribute('data-category');
-            const originalKeywords = ampelCard.getAttribute('data-found-keywords');
-            const originalStatus = ampelCard.getAttribute('data-status');
-            
-            if (category) {
-                let keywords = [];
-                if (originalKeywords && originalKeywords.trim()) {
-                    keywords = originalKeywords.split(',').filter(k => k.trim()).map(k => k.trim());
+        if (mainForm && loadingIndicator) {
+            mainForm.addEventListener('submit', function(e) {
+                console.log('Form submitted - showing loading indicator');
+                loadingIndicator.style.display = 'block';
+                if (searchCard) {
+                    searchCard.style.display = 'none';
                 }
-                originalAmpelData.set(category, {
-                    keywords: keywords,
-                    status: originalStatus
-                });
-                console.log('Stored original data for', category, ':', keywords);
-            }
-        });
-        
-        // Initialisiere beim ersten Laden - falls es gespeicherte entfernte Begriffe gibt
-        updateAllAmpelCards();
+            });
+        }
     }
     
     // Rufe Initialisierung auf, wenn DOM bereit ist
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initializeAmpelCards);
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeAmpelCards();
+            initializeFormHandlers();
+        });
     } else {
         initializeAmpelCards();
+        initializeFormHandlers();
     }
 });
 </script>
