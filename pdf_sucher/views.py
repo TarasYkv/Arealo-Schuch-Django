@@ -23,20 +23,43 @@ def cosine_similarity(v1, v2):
     return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
 
 
-def expand_search_terms_with_ai(query):
+def expand_search_terms_with_ai(query, perspective="sales"):
     """Erweitert Suchbegriffe mit KI um verwandte und interessante Begriffe zu finden."""
     try:
+        # Definiere perspektivspezifische Prompts
+        if perspective == "sales":
+            role_context = """
+            Du bist ein erfahrener Vertriebsmitarbeiter eines Leuchtenherstellers.
+            Erweitere die Suchanfrage um Begriffe, die für den Vertrieb wichtig sind:
+            - Produkteigenschaften und Verkaufsargumente
+            - Preise, Konditionen und Lieferbedingungen
+            - Zertifizierungen und Qualitätsstandards
+            - Kundenanforderungen und Anwendungsbereiche
+            - Marktpositionierung und Wettbewerbsvorteile
+            
+            Beispiel für "LED Beleuchtung":
+            LED, Beleuchtung, Leuchte, Preis, Kosten, Energieeffizienz, Garantie, Lieferzeit, CE-Kennzeichnung, Anwendung, Einsatzbereich, Wartung
+            """
+        else:  # technical
+            role_context = """
+            Du bist ein erfahrener Entwickler/Techniker eines Leuchtenherstellers.
+            Erweitere die Suchanfrage um Begriffe, die für die technische Entwicklung wichtig sind:
+            - Detaillierte technische Spezifikationen
+            - Normen, Standards und Vorschriften
+            - Installationsdetails und Montageanforderungen
+            - Elektrische Parameter und Schaltpläne
+            - Materialien und technische Umsetzung
+            
+            Beispiel für "LED Beleuchtung":
+            LED, Spannung, Strom, Leistung, Lumen, Kelvin, CRI, IP-Schutzart, IK-Schutzklasse, DIN, EN, VDE, Schaltplan, Anschluss, Kabel
+            """
+
         expansion_prompt = f"""
-        Du bist ein Experte für technische Ausschreibungen im Bereich Beleuchtung und Elektrotechnik.
-        Erweitere folgende Suchanfrage um verwandte und interessante Begriffe, die ein Vertriebsmitarbeiter eines Leuchtenherstellers suchen würde:
+        {role_context}
 
         Ursprüngliche Anfrage: "{query}"
 
         Gib eine kommaseparierte Liste von 8-12 verwandten Suchbegriffen zurück, die thematisch relevant sind.
-        Fokussiere auf: technische Spezifikationen, Normen, Produkteigenschaften, Installationsanforderungen.
-        
-        Beispiel für "LED Beleuchtung":
-        LED, Beleuchtung, Leuchte, Lumen, Lichtfarbe, Farbtemperatur, IP-Schutzart, Energieeffizienz, Dimmbarkeit, Anschlussleistung, Abstrahlwinkel, Lebensdauer
 
         Erweiterte Begriffe für "{query}":
         """
@@ -52,7 +75,7 @@ def expand_search_terms_with_ai(query):
         # Bereinige und splitte die Begriffe
         terms = [term.strip() for term in expanded_terms.split(',') if term.strip()]
         
-        print(f"DEBUG: Erweiterte Suchbegriffe: {terms}")
+        print(f"DEBUG: Erweiterte Suchbegriffe ({perspective}): {terms}")
         return terms
         
     except Exception as e:
@@ -61,15 +84,15 @@ def expand_search_terms_with_ai(query):
         return [term.strip() for term in query.split() if len(term.strip()) > 2]
 
 
-def perform_semantic_search(pdf_path, query, page_range, threshold):
+def perform_semantic_search(pdf_path, query, page_range, threshold, perspective="sales"):
     """Führt eine KI-gestützte Suche durch, die verwandte Begriffe findet und danach sucht."""
     ergebnisse = []
     try:
         doc = fitz.open(pdf_path)
         start_page, end_page = page_range
 
-        # Erweitere Suchbegriffe mit KI
-        expanded_search_terms = expand_search_terms_with_ai(query)
+        # Erweitere Suchbegriffe mit KI basierend auf der gewählten Perspektive
+        expanded_search_terms = expand_search_terms_with_ai(query, perspective)
         
         # Suche nach erweiterten Begriffen in jeder Seite
         for page_num in range(start_page, end_page):
@@ -91,8 +114,9 @@ def perform_semantic_search(pdf_path, query, page_range, threshold):
                 # Extrahiere relevanten Kontext um die gefundenen Begriffe
                 context_snippet = extract_context_around_terms(text, found_terms, max_lines=9)
                 
-                # Hervorhebung der gefundenen Begriffe
-                highlighted_snippet = highlight_terms_in_text(context_snippet, found_terms)
+                # Hervorhebung der gefundenen Begriffe mit Unterscheidung zwischen ursprünglich und erweitert
+                original_query_terms = [term.strip() for term in query.split() if len(term.strip()) > 2]
+                highlighted_snippet = highlight_terms_in_text(context_snippet, found_terms, original_query_terms)
                 
                 ergebnisse.append({
                     'seitenzahl': page_num + 1,
@@ -117,19 +141,34 @@ def perform_semantic_search(pdf_path, query, page_range, threshold):
         return []
 
 
-def highlight_terms_in_text(text, search_terms):
+def highlight_terms_in_text(text, search_terms, original_query_terms=None):
     """Hebt Suchbegriffe im Text farblich hervor."""
     import re
     highlighted_text = text
+    
+    # Bestimme welche Begriffe ursprünglich sind und welche KI-erweitert
+    if original_query_terms is None:
+        original_query_terms = []
     
     # Sortiere Suchbegriffe nach Länge (längste zuerst) um Überlappungen zu vermeiden
     sorted_terms = sorted(search_terms, key=len, reverse=True)
     
     for term in sorted_terms:
         if term and len(term.strip()) > 1:  # Nur nicht-leere Begriffe mit mehr als 1 Zeichen
+            # Bestimme Farbe basierend darauf, ob es ein ursprünglicher Begriff ist
+            is_original = any(orig_term.lower() in term.lower() or term.lower() in orig_term.lower() 
+                            for orig_term in original_query_terms)
+            
+            if is_original:
+                # Gelb für ursprüngliche Suchbegriffe
+                color_style = 'background-color: #ffeb3b; padding: 2px 4px; border-radius: 3px;'
+            else:
+                # Orange für KI-erweiterte Begriffe
+                color_style = 'background-color: #ff9800; color: white; padding: 2px 4px; border-radius: 3px;'
+            
             # Case-insensitive Ersetzung mit HTML-Markierung
             pattern = re.compile(re.escape(term.strip()), re.IGNORECASE)
-            highlighted_text = pattern.sub(f'<mark style="background-color: #ffeb3b; padding: 2px 4px; border-radius: 3px;">{term.strip()}</mark>', highlighted_text)
+            highlighted_text = pattern.sub(f'<mark style="{color_style}">{term.strip()}</mark>', highlighted_text)
     
     return highlighted_text
 
@@ -226,8 +265,8 @@ def search_text_in_pdf(pdf_path, search_terms, page_range):
                     if end < len(text): 
                         context_snippet = context_snippet + "..."
                 
-                # Hervorhebung der gefundenen Suchbegriffe
-                highlighted_snippet = highlight_terms_in_text(context_snippet, found_terms)
+                # Hervorhebung der gefundenen Suchbegriffe (bei einfacher Suche sind alle ursprünglich)
+                highlighted_snippet = highlight_terms_in_text(context_snippet, found_terms, found_terms)
                 
                 ergebnisse.append({
                     'seitenzahl': page_num + 1, 
@@ -249,6 +288,7 @@ def pdf_suche(request):
     """Hauptansicht für die PDF-Suche."""
     if request.method == "POST":
         search_type = request.POST.get("search_type")
+        search_perspective = request.POST.get("search_perspective", "sales")
         suchanfrage = request.POST.get("suchanfrage")
         pdf_file = request.FILES.get("pdf_datei")
         seite_von_str = request.POST.get("seite_von")
@@ -287,7 +327,7 @@ def pdf_suche(request):
             # Umrechnung des Regler-Wertes (0-100) in einen Schwellenwert (0.65 - 0.85)
             similarity_threshold = 0.65 + (strictness_value / 100.0) * 0.20
 
-            ergebnisse = perform_semantic_search(pdf_path, suchanfrage, page_range, similarity_threshold)
+            ergebnisse = perform_semantic_search(pdf_path, suchanfrage, page_range, similarity_threshold, search_perspective)
 
         elif search_type == 'simple':
             search_terms = [term.strip() for term in suchanfrage.split(",")]
@@ -316,6 +356,7 @@ def pdf_suche(request):
             'pdf_filename': pdf_filename,
             'search_terms': ','.join(search_terms_for_preview),
             'search_type': search_type,
+            'search_perspective': search_perspective,
             'suchanfrage': suchanfrage,
         }
         return render(request, "pdf_sucher/suche.html", context)

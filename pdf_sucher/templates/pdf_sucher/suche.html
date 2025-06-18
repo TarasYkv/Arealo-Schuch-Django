@@ -92,6 +92,27 @@
                                 </div>
                             </div>
 
+                            <div class="mb-4" id="perspective-container">
+                                <label class="form-label">Suchperspektive</label>
+                                <small class="form-text text-muted mb-2 d-block">
+                                    Wählen Sie die Perspektive, aus der die Ausschreibung analysiert werden soll:
+                                </small>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="search_perspective" id="salesPerspective" value="sales" checked>
+                                    <label class="form-check-label" for="salesPerspective">
+                                        <strong>Vertriebsmitarbeiter:</strong> 
+                                        <small class="text-muted">Fokus auf Produkteigenschaften, Preise, Lieferbedingungen, Zertifizierungen und Kundenanforderungen</small>
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="search_perspective" id="techPerspective" value="technical">
+                                    <label class="form-check-label" for="techPerspective">
+                                        <strong>Entwickler/Techniker:</strong> 
+                                        <small class="text-muted">Fokus auf technische Spezifikationen, Normen, Installationsdetails, Schaltpläne und technische Umsetzung</small>
+                                    </label>
+                                </div>
+                            </div>
+
                             <div class="mb-4" id="ai-strictness-container">
                                 <label for="ai-strictness" class="form-label">Strenge der KI-Suche: <span id="strictness-value">Mittel</span></label>
                                 <div class="d-flex align-items-center">
@@ -122,6 +143,21 @@
                 {% if step == 'results' %}
                     {% if ergebnisse %}
                         <h2 class="mt-5 mb-3">Suchergebnisse</h2>
+                        
+                        <!-- Legende für Hervorhebungen -->
+                        <div class="alert alert-info mb-4">
+                            <h6 class="mb-2"><i class="bi bi-info-circle"></i> Legende der Hervorhebungen:</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <span style="background-color: #ffeb3b; padding: 2px 6px; border-radius: 3px; font-weight: bold;">Gelb</span>
+                                    <small class="ms-2">Ihre ursprünglichen Suchbegriffe</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <span style="background-color: #ff9800; padding: 2px 6px; border-radius: 3px; color: white; font-weight: bold;">Orange</span>
+                                    <small class="ms-2">KI-erweiterte verwandte Begriffe</small>
+                                </div>
+                            </div>
+                        </div>
                         <div class="list-group" id="ergebnis-liste">
                             {% for ergebnis in ergebnisse %}
                                 <div class="list-group-item flex-column align-items-start" data-preview-url="{% url 'pdf_sucher:pdf_page_preview' filename=pdf_filename page_num=ergebnis.seitenzahl %}?search_terms={{ search_terms|urlencode }}&search_type={{ search_type }}&context_text={{ ergebnis.textstelle|urlencode }}">
