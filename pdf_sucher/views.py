@@ -556,55 +556,61 @@ def pdf_suche(request):
                     search_perspective, selected_expanded_terms
                 )
 
-        elif search_type == 'simple':
-            search_terms = [term.strip() for term in suchanfrage.split(",")]
-            ergebnisse = search_text_in_pdf(pdf_path, search_terms, page_range)
+            elif search_type == 'simple':
+                search_terms = [term.strip() for term in suchanfrage.split(",")]
+                ergebnisse = search_text_in_pdf(pdf_path, search_terms, page_range)
 
-        # Suchbegriffe für die Vorschau vorbereiten
-        if search_type == 'simple':
-            search_terms_for_preview = search_terms
-        else:  # AI-Suche - Verwende die erweiterten Begriffe falls verfügbar
-            search_terms_for_preview = []
-            if ergebnisse:
-                # Sammle alle gefundenen Begriffe aus den Ergebnissen
-                for ergebnis in ergebnisse:
-                    if 'found_terms' in ergebnis:
-                        search_terms_for_preview.extend(ergebnis['found_terms'])
-                # Entferne Duplikate
-                search_terms_for_preview = list(set(search_terms_for_preview))
+            # Suchbegriffe für die Vorschau vorbereiten
+            if search_type == 'simple':
+                search_terms_for_preview = search_terms
+            else:  # AI-Suche - Verwende die erweiterten Begriffe falls verfügbar
+                search_terms_for_preview = []
+                if ergebnisse:
+                    # Sammle alle gefundenen Begriffe aus den Ergebnissen
+                    for ergebnis in ergebnisse:
+                        if 'found_terms' in ergebnis:
+                            search_terms_for_preview.extend(ergebnis['found_terms'])
+                    # Entferne Duplikate
+                    search_terms_for_preview = list(set(search_terms_for_preview))
+                
+                # Fallback: Verwende ursprüngliche Query-Begriffe
+                if not search_terms_for_preview:
+                    search_terms_for_preview = [term.strip() for term in suchanfrage.split() if len(term.strip()) > 2]
             
-            # Fallback: Verwende ursprüngliche Query-Begriffe
-            if not search_terms_for_preview:
-                search_terms_for_preview = [term.strip() for term in suchanfrage.split() if len(term.strip()) > 2]
-        
-        # Generiere PDF mit Suchergebnissen
-        results_pdf_filename = None
-        if ergebnisse:
-            results_pdf_filename = generate_search_results_pdf(
-                pdf_path, ergebnisse, suchanfrage, search_type, search_perspective
-            )
-        
-        # Sammle alle erweiterten Begriffe für die Anzeige
-        expanded_terms_for_display = []
-        if search_type == 'ai' and ergebnisse:
-            # Versuche die erweiterten Begriffe aus dem ersten Ergebnis zu holen
-            try:
-                expanded_terms_for_display = expand_search_terms_with_ai(suchanfrage, search_perspective)
-            except:
-                expanded_terms_for_display = []
-        
-        context = {
-            'step': 'results',
-            'ergebnisse': ergebnisse,
-            'pdf_filename': pdf_filename,
-            'results_pdf_filename': results_pdf_filename,
-            'search_terms': ','.join(search_terms_for_preview),
-            'search_type': search_type,
-            'search_perspective': search_perspective,
-            'suchanfrage': suchanfrage,
-            'expanded_terms': expanded_terms_for_display,
-        }
-        return render(request, "pdf_sucher/suche.html", context)
+            # Generiere PDF mit Suchergebnissen
+            results_pdf_filename = None
+            if ergebnisse:
+                print(f"DEBUG: Generiere PDF mit {len(ergebnisse)} Ergebnissen")
+                results_pdf_filename = generate_search_results_pdf(
+                    pdf_path, ergebnisse, suchanfrage, search_type, search_perspective
+                )
+                print(f"DEBUG: PDF erstellt: {results_pdf_filename}")
+            else:
+                print("DEBUG: Keine Ergebnisse für PDF-Generierung")
+            
+            # Sammle alle erweiterten Begriffe für die Anzeige
+            expanded_terms_for_display = []
+            if search_type == 'ai' and ergebnisse:
+                # Versuche die erweiterten Begriffe aus dem ersten Ergebnis zu holen
+                try:
+                    expanded_terms_for_display = expand_search_terms_with_ai(suchanfrage, search_perspective)
+                except:
+                    expanded_terms_for_display = []
+            
+            context = {
+                'step': 'results',
+                'ergebnisse': ergebnisse,
+                'pdf_filename': pdf_filename,
+                'results_pdf_filename': results_pdf_filename,
+                'search_terms': ','.join(search_terms_for_preview),
+                'search_type': search_type,
+                'search_perspective': search_perspective,
+                'suchanfrage': suchanfrage,
+                'expanded_terms': expanded_terms_for_display,
+            }
+            print(f"DEBUG: Context für Template - results_pdf_filename: {results_pdf_filename}")
+            print(f"DEBUG: Context für Template - ergebnisse: {len(ergebnisse) if ergebnisse else 0}")
+            return render(request, "pdf_sucher/suche.html", context)
 
     return render(request, "pdf_sucher/suche.html", {"step": "initial"})
 
@@ -670,6 +676,7 @@ def highlight_context_in_pdf_page(page, context_text, highlight_color=[1, 1, 0])
 def generate_search_results_pdf(original_pdf_path, search_results, search_query, search_type, search_perspective=None):
     """Erstellt eine PDF mit den Suchergebnissen und Links zu den Fundstellen."""
     try:
+        print(f"DEBUG: PDF-Generierung gestartet für {len(search_results)} Ergebnisse")
         # Erstelle temporäre Datei für die Ergebnis-PDF
         temp_filename = f"suchergebnisse_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         temp_path = os.path.join(settings.MEDIA_ROOT, "pdfs", temp_filename)
@@ -681,63 +688,126 @@ def generate_search_results_pdf(original_pdf_path, search_results, search_query,
         result_doc = fitz.open()
         result_doc.insert_pdf(original_doc)
         
-        # Erstelle eine neue Seite für die Suchergebnisse
-        results_page = result_doc.new_page(width=595, height=842)  # A4 Format
+        # Erstelle eine neue Seite für die Suchergebnisse am ANFANG der PDF
+        results_page = result_doc.new_page(0, width=595, height=842)  # A4 Format, Position 0 = am Anfang
         
-        # Text-Inhalt für die Ergebnisseite
-        y_position = 800
+        # Text-Inhalt für die Ergebnisseite (Koordinaten von oben nach unten)
+        y_position = 50  # Start von oben (50pt Abstand vom oberen Rand)
         
         # Titel
         results_page.insert_text((50, y_position), "Suchergebnisse", fontsize=20, color=(0, 0, 0))
-        y_position -= 40
+        y_position += 40
         
         # Suchdetails
         results_page.insert_text((50, y_position), f"Suchanfrage: {search_query}", fontsize=12, color=(0, 0, 0))
-        y_position -= 20
+        y_position += 20
         
         search_type_text = "KI-gestützte Kontextsuche" if search_type == "ai" else "Einfache Textsuche"
         results_page.insert_text((50, y_position), f"Suchmethode: {search_type_text}", fontsize=12, color=(0, 0, 0))
-        y_position -= 20
+        y_position += 20
         
         if search_type == "ai" and search_perspective:
             perspective_text = "Vertriebsmitarbeiter" if search_perspective == "sales" else "Entwickler/Techniker"
             results_page.insert_text((50, y_position), f"Perspektive: {perspective_text}", fontsize=12, color=(0, 0, 0))
-            y_position -= 20
+            y_position += 20
         
         results_page.insert_text((50, y_position), f"Gefundene Ergebnisse: {len(search_results)}", fontsize=12, color=(0, 0, 0))
-        y_position -= 40
+        y_position += 20
         
-        # Ergebnisse auflisten
-        for i, result in enumerate(search_results):  # Alle Ergebnisse
-            if y_position < 150:  # Neue Seite wenn zu wenig Platz
-                results_page = result_doc.new_page(width=595, height=842)
-                y_position = 800
+        # Hinweis für Navigation
+        results_page.insert_text((50, y_position), "Navigation: Nutzen Sie die Seitenzahlen in der Übersicht unten für manuelle Navigation", fontsize=10, color=(0.5, 0.5, 0.5))
+        y_position += 30
+        
+        # Erstelle ein einfaches Inhaltsverzeichnis
+        results_page.insert_text((50, y_position), "Schnellübersicht:", fontsize=14, color=(0, 0, 0))
+        y_position += 25
+        
+        # Liste alle Ergebnisse mit Seitenzahlen auf
+        for i, result in enumerate(search_results[:10]):  # Maximal 10 für Übersicht
+            page_ref = result['seitenzahl']
+            results_page.insert_text((70, y_position), f"• Ergebnis {i+1} → Seite {page_ref}", fontsize=11, color=(0, 0, 0))
+            y_position += 18
+        
+        if len(search_results) > 10:
+            results_page.insert_text((70, y_position), f"... und {len(search_results)-10} weitere Ergebnisse", fontsize=11, color=(0.5, 0.5, 0.5))
+            y_position += 18
             
-            # Ergebnis-Header mit Link
+        y_position += 20
+        
+        # Ergebnisse auflisten mit korrekter Seitenverwaltung
+        print(f"DEBUG: Beginne mit der Erstellung von {len(search_results)} Ergebnissen")
+        
+        for i, result in enumerate(search_results):  # Alle Ergebnisse
+            print(f"DEBUG: Verarbeite Ergebnis {i+1}/{len(search_results)}")
+            
+            # Prüfe ob genug Platz für das gesamte Ergebnis (ca. 100pt benötigt)
+            if y_position > 720:  # Sicherheitsabstand zum Seitenende (842pt - 120pt = 720pt)
+                print(f"DEBUG: Erstelle neue Seite bei y_position {y_position}")
+                results_page = result_doc.new_page(width=595, height=842)
+                y_position = 50  # Wieder von oben anfangen
+            
+            # Ergebnis-Header 
             page_num = result['seitenzahl']
             results_page.insert_text((50, y_position), f"Ergebnis {i+1}: Seite {page_num}", fontsize=14, color=(0, 0, 1))
             
-            # Erstelle Link zur entsprechenden Seite
-            link_rect = fitz.Rect(50, y_position-15, 200, y_position+5)
-            link = results_page.insert_link({
-                "kind": fitz.LINK_GOTO,
-                "page": page_num - 1,  # 0-basiert
-                "to": fitz.Point(0, 0)
-            }, link_rect)
+            # Versuche verschiedene Link-Ansätze
+            header_rect = fitz.Rect(50, y_position-2, 250, y_position+16)
+            target_page = page_num  # Korrekte Seite da wir am Anfang einfügen
             
-            y_position -= 25
+            # Erstelle Lesezeichen für bessere Navigation
+            try:
+                # Erstelle Lesezeichen zur Original-Seite
+                toc_entry = [1, f"Ergebnis {i+1} (Seite {page_num})", target_page]
+                if not hasattr(result_doc, '_bookmarks'):
+                    result_doc._bookmarks = []
+                result_doc._bookmarks.append(toc_entry)
+                print(f"DEBUG: Lesezeichen für Seite {page_num} erstellt")
+            except Exception as bookmark_error:
+                print(f"DEBUG: Lesezeichen-Erstellung fehlgeschlagen: {bookmark_error}")
+            
+            # Versuche robuste Link-Erstellung
+            try:
+                # Einfachster möglicher Link-Ansatz
+                if 0 <= target_page < len(result_doc):
+                    link_dict = {"kind": fitz.LINK_GOTO, "page": target_page}
+                    results_page.insert_link(link_dict, header_rect)
+                    print(f"DEBUG: Einfacher Link zu Seite {page_num} erstellt")
+                    
+                    # Visueller Hinweis für funktionierende Links
+                    results_page.draw_rect(header_rect, color=(0, 0, 1), width=2)
+                    results_page.insert_text(
+                        (255, y_position), 
+                        "📄 ← KLICK", 
+                        fontsize=10, 
+                        color=(0, 0, 1)
+                    )
+                else:
+                    print(f"DEBUG: Ungültige Seitenzahl {target_page}")
+                    
+            except Exception as link_error:
+                print(f"DEBUG: Link-Erstellung fehlgeschlagen: {link_error}")
+                # Fallback: Nur visueller Hinweis
+                results_page.draw_rect(header_rect, color=(0.5, 0.5, 0.5), width=1)
+                results_page.insert_text(
+                    (255, y_position), 
+                    f"(→ Seite {page_num})", 
+                    fontsize=10, 
+                    color=(0.5, 0.5, 0.5)
+                )
+            
+            y_position += 25
             
             # Textausschnitt (ohne HTML-Tags)
             import re
             result_text = result.get('textstelle', '')
             if isinstance(result_text, str):
                 clean_text = re.sub(r'<[^>]+>', '', result_text)
-                clean_text = clean_text[:300] + "..." if len(clean_text) > 300 else clean_text
+                clean_text = clean_text[:400] + "..." if len(clean_text) > 400 else clean_text
             else:
                 clean_text = "Kein Text verfügbar"
             
             # Teile langen Text in mehrere Zeilen auf
-            max_chars_per_line = 80
+            max_chars_per_line = 75
             words = clean_text.split()
             lines = []
             current_line = ""
@@ -752,20 +822,47 @@ def generate_search_results_pdf(original_pdf_path, search_results, search_query,
             if current_line:
                 lines.append(current_line)
             
-            # Zeige maximal 4 Zeilen pro Ergebnis
-            for line in lines[:4]:
-                if y_position < 50:
+            # Zeige maximal 5 Zeilen pro Ergebnis
+            lines_shown = 0
+            for line in lines[:5]:
+                if y_position > 800:  # Notfall-Seitenende
+                    print(f"DEBUG: Seitenende erreicht bei Zeile {lines_shown}")
                     break
                 results_page.insert_text((70, y_position), line, fontsize=10, color=(0.3, 0.3, 0.3))
-                y_position -= 15
+                y_position += 15
+                lines_shown += 1
             
-            y_position -= 10  # Extra Abstand zwischen Ergebnissen
+            y_position += 15  # Extra Abstand zwischen Ergebnissen
+            print(f"DEBUG: Ergebnis {i+1} abgeschlossen, y_position: {y_position}")
         
-        # Speichere die neue PDF
-        result_doc.save(temp_path)
+        print(f"DEBUG: Alle {len(search_results)} Ergebnisse verarbeitet")
+        
+        # Füge Lesezeichen zur PDF hinzu (falls welche erstellt wurden)
+        try:
+            if hasattr(result_doc, '_bookmarks') and result_doc._bookmarks:
+                result_doc.set_toc(result_doc._bookmarks)
+                print(f"DEBUG: {len(result_doc._bookmarks)} Lesezeichen zur PDF hinzugefügt")
+        except Exception as toc_error:
+            print(f"DEBUG: Lesezeichen konnten nicht hinzugefügt werden: {toc_error}")
+        
+        # Speichere die neue PDF mit optimierten Einstellungen
+        result_doc.save(temp_path, 
+                       garbage=4,     # Optimiert die PDF
+                       clean=True,    # Bereinigt die PDF
+                       deflate=True   # Komprimiert die PDF
+                       )
         result_doc.close()
         original_doc.close()
         
+        print(f"DEBUG: PDF erfolgreich erstellt: {temp_filename}")
+        
+        # Überprüfe ob die PDF-Datei tatsächlich erstellt wurde
+        if os.path.exists(temp_path):
+            file_size = os.path.getsize(temp_path)
+            print(f"DEBUG: PDF-Datei existiert, Größe: {file_size} Bytes")
+        else:
+            print(f"DEBUG: WARNUNG - PDF-Datei wurde nicht erstellt!")
+            
         return temp_filename
         
     except Exception as e:
