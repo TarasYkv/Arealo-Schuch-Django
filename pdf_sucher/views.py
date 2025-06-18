@@ -65,13 +65,23 @@ def perform_semantic_search(pdf_path, query, page_range, threshold):
         print("DEBUG: Top 5 similarity scores:",
               [(round(s, 4), f"Seite {chunk_metadata[i]['seitenzahl']}") for s, i in similarities[:5]])
 
+        # Extrahiere relevante Begriffe aus der Query für Hervorhebung
+        query_terms = [term.strip() for term in query.split() if len(term.strip()) > 2]
+
         for sim, chunk_index in similarities[:5]:
             if sim > threshold:  # Dynamischer Schwellenwert wird hier verwendet
                 original_text = text_chunks[chunk_index]
-                snippet = original_text[:1000] + ('...' if len(original_text) > 1000 else '')
+                
+                # Extrahiere relevanten Kontext mit max 9 Zeilen
+                context_snippet = extract_context_around_terms(original_text, query_terms, max_lines=9)
+                
+                # Hervorhebung für AI-Suche basierend auf Query-Begriffen
+                highlighted_snippet = highlight_terms_in_text(context_snippet, query_terms)
+                
                 ergebnisse.append({
                     'seitenzahl': chunk_metadata[chunk_index]['seitenzahl'],
-                    'textstelle': snippet,
+                    'textstelle': context_snippet,
+                    'textstelle_highlighted': highlighted_snippet
                 })
 
         return ergebnisse
@@ -79,6 +89,74 @@ def perform_semantic_search(pdf_path, query, page_range, threshold):
     except Exception as e:
         print(f"FEHLER bei der semantischen Suche: {e}")
         return []
+
+
+def highlight_terms_in_text(text, search_terms):
+    """Hebt Suchbegriffe im Text farblich hervor."""
+    import re
+    highlighted_text = text
+    
+    # Sortiere Suchbegriffe nach Länge (längste zuerst) um Überlappungen zu vermeiden
+    sorted_terms = sorted(search_terms, key=len, reverse=True)
+    
+    for term in sorted_terms:
+        if term and len(term.strip()) > 1:  # Nur nicht-leere Begriffe mit mehr als 1 Zeichen
+            # Case-insensitive Ersetzung mit HTML-Markierung
+            pattern = re.compile(re.escape(term.strip()), re.IGNORECASE)
+            highlighted_text = pattern.sub(f'<mark style="background-color: #ffeb3b; padding: 2px 4px; border-radius: 3px;">{term.strip()}</mark>', highlighted_text)
+    
+    return highlighted_text
+
+
+def extract_context_around_terms(text, search_terms, max_lines=9):
+    """Extrahiert relevanten Kontext um Suchbegriffe herum und limitiert auf max_lines."""
+    import re
+    
+    if not search_terms:
+        lines = text.split('\n')
+        return '\n'.join(lines[:max_lines]) + ('...' if len(lines) > max_lines else '')
+    
+    # Finde alle Positionen der Suchbegriffe
+    positions = []
+    for term in search_terms:
+        if term and len(term.strip()) > 1:
+            for match in re.finditer(re.escape(term.strip()), text, re.IGNORECASE):
+                positions.append(match.start())
+    
+    if not positions:
+        lines = text.split('\n')
+        return '\n'.join(lines[:max_lines]) + ('...' if len(lines) > max_lines else '')
+    
+    # Finde die beste Position für den Kontext (erste Fundstelle)
+    best_pos = min(positions)
+    
+    # Extrahiere Kontext um diese Position
+    context_start = max(0, best_pos - 300)
+    context_end = min(len(text), best_pos + 700)
+    context = text[context_start:context_end]
+    
+    # Auf Zeilenbasis begrenzen
+    lines = context.split('\n')
+    if len(lines) > max_lines:
+        # Versuche die relevanteste Stelle zu finden
+        relevant_lines = []
+        for i, line in enumerate(lines):
+            line_has_term = any(term.lower() in line.lower() for term in search_terms if term and len(term.strip()) > 1)
+            if line_has_term or len(relevant_lines) < max_lines:
+                relevant_lines.append(line)
+            if len(relevant_lines) >= max_lines:
+                break
+        context = '\n'.join(relevant_lines)
+        if len(lines) > max_lines:
+            context += '...'
+    
+    # Präfix/Suffix hinzufügen wenn Text abgeschnitten wurde
+    if context_start > 0:
+        context = '...' + context
+    if context_end < len(text):
+        context = context + '...'
+    
+    return context
 
 
 def search_text_in_pdf(pdf_path, search_terms, page_range):
@@ -99,7 +177,20 @@ def search_text_in_pdf(pdf_path, search_terms, page_range):
                 snippet = text[start:end]
                 if start > 0: snippet = "..." + snippet
                 if end < len(text): snippet = snippet + "..."
-                ergebnisse.append({'seitenzahl': page_num + 1, 'textstelle': snippet})
+                
+                # Extrahiere relevanten Kontext mit max 9 Zeilen für einfache Suche
+                context_snippet = extract_context_around_terms(text, found_terms, max_lines=9)
+                if not context_snippet.strip():
+                    context_snippet = snippet
+                
+                # Hervorhebung der Suchbegriffe im Snippet
+                highlighted_snippet = highlight_terms_in_text(context_snippet, found_terms)
+                
+                ergebnisse.append({
+                    'seitenzahl': page_num + 1, 
+                    'textstelle': context_snippet,
+                    'textstelle_highlighted': highlighted_snippet
+                })
         doc.close()
     except Exception as e:
         print(f"Fehler bei der einfachen PDF-Suche: {e}")
@@ -154,10 +245,19 @@ def pdf_suche(request):
             search_terms = [term.strip() for term in suchanfrage.split(",")]
             ergebnisse = search_text_in_pdf(pdf_path, search_terms, page_range)
 
+        # Suchbegriffe für die Vorschau vorbereiten
+        if search_type == 'simple':
+            search_terms_for_preview = search_terms
+        else:  # AI-Suche
+            search_terms_for_preview = [term.strip() for term in suchanfrage.split() if len(term.strip()) > 2]
+        
         context = {
             'step': 'results',
             'ergebnisse': ergebnisse,
             'pdf_filename': pdf_filename,
+            'search_terms': ','.join(search_terms_for_preview),
+            'search_type': search_type,
+            'suchanfrage': suchanfrage,
         }
         return render(request, "pdf_sucher/suche.html", context)
 
@@ -171,19 +271,97 @@ def view_pdf(request, filename):
     raise Http404("PDF nicht gefunden")
 
 
+def highlight_context_in_pdf_page(page, context_text, highlight_color=[1, 1, 0]):
+    """Hebt den gefundenen Kontext im PDF hervor basierend auf dem extrahierten Text."""
+    import re
+    
+    if not context_text or not context_text.strip():
+        return
+    
+    # Bereinige den Kontext-Text von Markierungen und extrahiere relevante Phrasen
+    clean_context = re.sub(r'<[^>]+>', '', context_text)  # Entferne HTML-Tags
+    clean_context = clean_context.replace('...', '').strip()  # Entferne Ellipsen
+    
+    # Extrahiere bedeutungsvolle Phrasen (mindestens 3 Wörter zusammen)
+    words = clean_context.split()
+    phrases = []
+    
+    # Erstelle Phrasen verschiedener Längen
+    for length in [5, 4, 3]:  # Längere Phrasen zuerst
+        for i in range(len(words) - length + 1):
+            phrase = ' '.join(words[i:i+length])
+            if len(phrase.strip()) > 10:  # Mindestlänge für Phrasen
+                phrases.append(phrase.strip())
+    
+    # Füge auch einzelne wichtige Wörter hinzu (länger als 4 Zeichen)
+    for word in words:
+        if len(word) > 4 and word.isalpha():
+            phrases.append(word)
+    
+    # Entferne Duplikate und sortiere nach Länge
+    phrases = sorted(list(set(phrases)), key=len, reverse=True)
+    
+    highlighted_count = 0
+    max_highlights = 10  # Begrenze die Anzahl der Hervorhebungen
+    
+    for phrase in phrases:
+        if highlighted_count >= max_highlights:
+            break
+            
+        # Suche nach der Phrase im PDF
+        text_instances = page.search_for(phrase)
+        if text_instances:
+            for inst in text_instances:
+                # Orange Hervorhebung für Kontext (unterschiedlich von gelb für Suchbegriffe)
+                highlight = page.add_highlight_annot(inst)
+                highlight.set_colors({"stroke": [1, 0.65, 0]})  # Orange
+                highlight.update()
+                highlighted_count += 1
+                if highlighted_count >= max_highlights:
+                    break
+            break  # Stoppe nach der ersten erfolgreichen Phrase
+
+
 def pdf_page_preview(request, filename, page_num):
     pdf_path = os.path.join(settings.MEDIA_ROOT, "pdfs", filename)
     if not os.path.exists(pdf_path):
         raise Http404("PDF nicht gefunden")
+    
+    # Suchbegriffe aus GET-Parameter extrahieren
+    search_terms = request.GET.get('search_terms', '').split(',') if request.GET.get('search_terms') else []
+    search_terms = [term.strip() for term in search_terms if term.strip()]
+    
+    # Kontext-Text für KI-Suche extrahieren
+    context_text = request.GET.get('context_text', '')
+    search_type = request.GET.get('search_type', 'simple')
+    
     try:
         doc = fitz.open(pdf_path)
         if 0 < page_num <= len(doc):
             page = doc.load_page(page_num - 1)
+            
+            # Hervorhebung der Suchbegriffe auf der PDF-Seite (gelb)
+            if search_terms:
+                for term in search_terms:
+                    if term and len(term.strip()) > 1:  # Nur nicht-leere Begriffe
+                        # Finde alle Vorkommen des Begriffs auf der Seite
+                        text_instances = page.search_for(term.strip())
+                        for inst in text_instances:
+                            # Gelbe Hervorhebung hinzufügen
+                            highlight = page.add_highlight_annot(inst)
+                            highlight.set_colors({"stroke": [1, 1, 0]})  # Gelb
+                            highlight.update()
+            
+            # Zusätzliche Kontext-Hervorhebung für KI-Suche (orange)
+            if search_type == 'ai' and context_text:
+                highlight_context_in_pdf_page(page, context_text)
+            
             pix = page.get_pixmap(dpi=150)
             img_byte_arr = io.BytesIO()
             img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
             img.save(img_byte_arr, format="PNG")
             img_byte_arr.seek(0)
+            doc.close()
             return HttpResponse(img_byte_arr, content_type="image/png")
         else:
             raise Http404("Seite nicht gefunden")
