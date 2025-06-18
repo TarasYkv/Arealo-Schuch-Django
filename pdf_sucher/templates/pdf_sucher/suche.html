@@ -124,7 +124,7 @@
                         <h2 class="mt-5 mb-3">Suchergebnisse</h2>
                         <div class="list-group" id="ergebnis-liste">
                             {% for ergebnis in ergebnisse %}
-                                <div class="list-group-item flex-column align-items-start" data-preview-url="{% url 'pdf_sucher:pdf_page_preview' filename=pdf_filename page_num=ergebnis.seitenzahl %}">
+                                <div class="list-group-item flex-column align-items-start" data-preview-url="{% url 'pdf_sucher:pdf_page_preview' filename=pdf_filename page_num=ergebnis.seitenzahl %}?search_terms={{ search_terms|urlencode }}&search_type={{ search_type }}&context_text={{ ergebnis.textstelle|urlencode }}">
                                     <div class="d-flex w-100 justify-content-between align-items-center">
                                         <a href="{% url 'pdf_sucher:view_pdf' filename=pdf_filename %}#page={{ ergebnis.seitenzahl }}" target="_blank" class="text-decoration-none">
                                             <span class="badge bg-secondary rounded-pill fs-6">Seite {{ ergebnis.seitenzahl }}</span>
@@ -135,7 +135,13 @@
                                         </button>
                                     </div>
                                     <hr class="my-2">
-                                    <p class="mb-1 mt-2 font-monospace">{{ ergebnis.textstelle }}</p>
+                                    <p class="mb-1 mt-2 font-monospace">
+                                        {% if ergebnis.textstelle_highlighted %}
+                                            {{ ergebnis.textstelle_highlighted|safe }}
+                                        {% else %}
+                                            {{ ergebnis.textstelle }}
+                                        {% endif %}
+                                    </p>
                                 </div>
                             {% endfor %}
                         </div>
