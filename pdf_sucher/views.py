@@ -672,63 +672,47 @@ def highlight_context_in_pdf_page(page, context_text, highlight_color=[1, 1, 0])
             break  # Stoppe nach der ersten erfolgreichen Phrase
 
 
-def categorize_search_results(search_results, search_query, search_perspective="sales"):
-    """Kategorisiert Suchergebnisse thematisch basierend auf gefundenen Begriffen."""
+def categorize_search_results_by_terms(search_results, search_query, search_perspective="sales"):
+    """Kategorisiert Suchergebnisse nach gefundenen Suchbegriffen statt nach Kategorien."""
     
-    # Definiere thematische Kategorien basierend auf Perspektive
-    if search_perspective == "sales":
-        categories = {
-            "Preise & Kosten": ["preis", "kosten", "euro", "€", "eur", "angebot", "kalkulation", "wirtschaftlich"],
-            "Technische Daten": ["lumen", "watt", "kelvin", "ip", "ik", "schutzart", "spannung", "strom", "leistung"],
-            "Zertifizierungen": ["ce", "din", "en", "vde", "tuv", "iso", "zertifikat", "norm", "standard"],
-            "Installation": ["montage", "installation", "anschluss", "kabel", "befestigung", "aufbau"],
-            "Steuerung": ["dali", "knx", "steuerung", "dimm", "sensor", "schalter", "regelung"],
-            "Wartung & Service": ["wartung", "service", "garantie", "ersatz", "reparatur", "instandhaltung"]
-        }
-    else:  # technical
-        categories = {
-            "Elektrische Parameter": ["spannung", "strom", "leistung", "watt", "volt", "ampere", "frequenz"],
-            "Lichttechnik": ["lumen", "lux", "kelvin", "cri", "ra", "lichtverteilung", "abstrahlwinkel"],
-            "Schutzarten & Normen": ["ip", "ik", "din", "en", "vde", "schutzart", "schutzklasse"],
-            "Steuerung & Protokolle": ["dali", "knx", "dmx", "zigbee", "bluetooth", "protokoll", "bus"],
-            "Mechanik & Material": ["gehäuse", "material", "aluminium", "kunststoff", "glas", "reflektor"],
-            "Installation & Montage": ["montage", "befestigung", "anschluss", "verkabelung", "installation"]
-        }
+    # Sammle alle einzigartigen gefundenen Suchbegriffe aus allen Ergebnissen
+    all_found_terms = set()
+    for result in search_results:
+        found_terms = result.get('found_terms', [])
+        for term in found_terms:
+            all_found_terms.add(term.lower().strip())
     
-    # Initialisiere Kategorien
-    categorized_results = {category: [] for category in categories.keys()}
+    # Initialisiere Kategorien basierend auf gefundenen Begriffen
+    categorized_results = {}
+    for term in sorted(all_found_terms):
+        categorized_results[term.title()] = []
+    
+    # Sonstige für Ergebnisse ohne spezifische Begriffe
     categorized_results["Sonstige"] = []
     
-    # Kategorisiere jedes Ergebnis
+    # Kategorisiere jedes Ergebnis nach den darin gefundenen Begriffen
     for result in search_results:
-        text = result.get('textstelle', '').lower()
-        found_terms = [term.lower() for term in result.get('found_terms', [])]
+        found_terms = [term.lower().strip() for term in result.get('found_terms', [])]
         
-        # Prüfe welche Kategorie am besten passt
-        category_scores = {}
-        for category, keywords in categories.items():
-            score = 0
-            for keyword in keywords:
-                # Prüfe sowohl in gefundenen Begriffen als auch im Text
-                if any(keyword in term for term in found_terms):
-                    score += 3  # Höhere Gewichtung für gefundene Suchbegriffe
-                if keyword in text:
-                    score += 1  # Grundgewichtung für Textvorkommen
-            category_scores[category] = score
+        # Weise das Ergebnis der ersten gefundenen Begriffskategorie zu
+        assigned = False
+        for term in found_terms:
+            term_title = term.title()
+            if term_title in categorized_results:
+                categorized_results[term_title].append(result)
+                assigned = True
+                break  # Nur einer Kategorie zuweisen
         
-        # Weise der Kategorie mit höchstem Score zu
-        if category_scores and max(category_scores.values()) > 0:
-            best_category = max(category_scores, key=category_scores.get)
-            categorized_results[best_category].append(result)
-        else:
+        # Falls kein spezifischer Begriff gefunden, zu Sonstige
+        if not assigned:
             categorized_results["Sonstige"].append(result)
     
     # Entferne leere Kategorien
     categorized_results = {k: v for k, v in categorized_results.items() if v}
     
-    print(f"DEBUG: Ergebnisse kategorisiert:")
-    for category, results in categorized_results.items():
-        print(f"  {category}: {len(results)} Ergebnisse")
+    print(f"DEBUG: Ergebnisse nach Suchbegriffen kategorisiert:")
+    for term, results in categorized_results.items():
+        print(f"  {term}: {len(results)} Ergebnisse")
     
     return categorized_results
 
@@ -738,8 +722,8 @@ def generate_search_results_pdf(original_pdf_path, search_results, search_query,
     try:
         print(f"DEBUG: PDF-Generierung gestartet für {len(search_results)} Ergebnisse")
         
-        # Kategorisiere Ergebnisse thematisch
-        categorized_results = categorize_search_results(search_results, search_query, search_perspective)
+        # Kategorisiere Ergebnisse nach Suchbegriffen
+        categorized_results = categorize_search_results_by_terms(search_results, search_query, search_perspective)
         
         # Erstelle temporäre Datei für die Ergebnis-PDF
         temp_filename = f"suchergebnisse_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
@@ -783,17 +767,17 @@ def generate_search_results_pdf(original_pdf_path, search_results, search_query,
         results_page.insert_text((50, y_position), "Navigation: Nutzen Sie die Seitenzahlen in der Übersicht unten für manuelle Navigation", fontsize=10, color=(0.5, 0.5, 0.5))
         y_position += 30
         
-        # Erstelle thematisches Inhaltsverzeichnis
-        results_page.insert_text((50, y_position), "Thematische Übersicht:", fontsize=14, color=(0, 0, 0))
+        # Erstelle Übersicht nach Suchbegriffen
+        results_page.insert_text((50, y_position), "Übersicht nach Suchbegriffen:", fontsize=14, color=(0, 0, 0))
         y_position += 25
         
-        # Liste alle Kategorien und deren Ergebnisse auf
-        for category, results in categorized_results.items():
-            if results:  # Nur Kategorien mit Ergebnissen
-                results_page.insert_text((70, y_position), f"📂 {category} ({len(results)} Ergebnisse)", fontsize=12, color=(0, 0, 0.8))
+        # Liste alle Suchbegriffe und deren Ergebnisse auf
+        for search_term, results in categorized_results.items():
+            if results:  # Nur Begriffe mit Ergebnissen
+                results_page.insert_text((70, y_position), f"🔍 {search_term} ({len(results)} Ergebnisse)", fontsize=12, color=(0, 0, 0.8))
                 y_position += 20
                 
-                # Liste ersten 5 Ergebnisse dieser Kategorie
+                # Liste ersten 5 Ergebnisse für diesen Suchbegriff
                 for i, result in enumerate(results[:5]):
                     page_ref = result['seitenzahl']
                     results_page.insert_text((90, y_position), f"• Seite {page_ref}", fontsize=10, color=(0.3, 0.3, 0.3))
@@ -803,50 +787,50 @@ def generate_search_results_pdf(original_pdf_path, search_results, search_query,
                     results_page.insert_text((90, y_position), f"... und {len(results)-5} weitere", fontsize=10, color=(0.5, 0.5, 0.5))
                     y_position += 15
                 
-                y_position += 10  # Extra Abstand zwischen Kategorien
+                y_position += 10  # Extra Abstand zwischen Suchbegriffen
             
         y_position += 10
         
-        # Ergebnisse kategorisiert auflisten
-        print(f"DEBUG: Beginne mit der kategorierten Erstellung von Ergebnissen")
+        # Ergebnisse nach Suchbegriffen auflisten
+        print(f"DEBUG: Beginne mit der Erstellung von Ergebnissen nach Suchbegriffen")
         
         ergebnis_counter = 0
-        for category, category_results in categorized_results.items():
-            if not category_results:
+        for search_term, term_results in categorized_results.items():
+            if not term_results:
                 continue
                 
-            print(f"DEBUG: Erstelle Kategorie '{category}' mit {len(category_results)} Ergebnissen")
+            print(f"DEBUG: Erstelle Suchbegriff '{search_term}' mit {len(term_results)} Ergebnissen")
             
-            # Prüfe ob genug Platz für Kategorie-Header
+            # Prüfe ob genug Platz für Suchbegriff-Header
             if y_position > 720:
                 results_page = result_doc.new_page(width=595, height=842)
                 y_position = 50
-                print(f"DEBUG: Neue Seite für Kategorie '{category}' erstellt")
+                print(f"DEBUG: Neue Seite für Suchbegriff '{search_term}' erstellt")
             
-            # Kategorie-Header
-            results_page.insert_text((50, y_position), f"📂 {category}", fontsize=16, color=(0, 0, 0.8))
+            # Suchbegriff-Header
+            results_page.insert_text((50, y_position), f"🔍 {search_term}", fontsize=16, color=(0, 0, 0.8))
             y_position += 30
             
-            # Erstelle Kategorie-Lesezeichen
+            # Erstelle Suchbegriff-Lesezeichen
             try:
-                category_bookmark = [1, f"{category} ({len(category_results)} Ergebnisse)", len(result_doc)]
+                term_bookmark = [1, f"{search_term} ({len(term_results)} Ergebnisse)", len(result_doc)]
                 if not hasattr(result_doc, '_bookmarks'):
                     result_doc._bookmarks = []
-                result_doc._bookmarks.append(category_bookmark)
-                print(f"DEBUG: Kategorie-Lesezeichen für '{category}' erstellt")
+                result_doc._bookmarks.append(term_bookmark)
+                print(f"DEBUG: Suchbegriff-Lesezeichen für '{search_term}' erstellt")
             except Exception as bookmark_error:
-                print(f"DEBUG: Kategorie-Lesezeichen fehlgeschlagen: {bookmark_error}")
+                print(f"DEBUG: Suchbegriff-Lesezeichen fehlgeschlagen: {bookmark_error}")
             
-            # Ergebnisse in dieser Kategorie
-            for result in category_results:
+            # Ergebnisse für diesen Suchbegriff
+            for result in term_results:
                 ergebnis_counter += 1
-                print(f"DEBUG: Verarbeite Ergebnis {ergebnis_counter} in Kategorie '{category}', y_position: {y_position}")
+                print(f"DEBUG: Verarbeite Ergebnis {ergebnis_counter} für Suchbegriff '{search_term}', y_position: {y_position}")
                 
                 # Prüfe ob genug Platz für Ergebnis
                 if y_position > 700:
                     results_page = result_doc.new_page(width=595, height=842)
                     y_position = 50
-                    print(f"DEBUG: Neue Seite innerhalb Kategorie '{category}' erstellt")
+                    print(f"DEBUG: Neue Seite innerhalb Suchbegriff '{search_term}' erstellt")
                 
                 # Ergebnis-Header
                 page_num = result['seitenzahl']
