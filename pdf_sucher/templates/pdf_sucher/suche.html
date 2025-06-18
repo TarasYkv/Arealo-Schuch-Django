@@ -40,6 +40,14 @@
         max-width: 100%;
         height: auto;
     }
+    .location-item.active {
+        background-color: #e7f3ff !important;
+        border-color: #0d6efd !important;
+        border-width: 2px !important;
+    }
+    .location-item {
+        transition: all 0.2s ease;
+    }
 </style>
 
 <div class="row">
@@ -65,6 +73,7 @@
                                 <label for="pdf_datei" class="form-label">Ausschreibungs-PDF</label>
                                 <input class="form-control" type="file" id="pdf_datei" name="pdf_datei" accept=".pdf" required>
                             </div>
+                            
                              <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label for="seite_von" class="form-label">Seitenbereich (optional)</label>
@@ -76,61 +85,16 @@
                                 </div>
                             </div>
 
-                            <div class="mb-4">
-                                <label class="form-label">Suchmethode</label>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="search_type" id="aiSearch" value="ai" checked>
-                                    <label class="form-check-label" for="aiSearch">
-                                        <strong>KI-gestützte Kontextsuche:</strong> Versteht den Sinn Ihrer Anfrage.
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="search_type" id="simpleSearch" value="simple">
-                                    <label class="form-check-label" for="simpleSearch">
-                                        <strong>Einfache Textsuche:</strong> Findet exakte Wörter (Begriffe mit Komma trennen).
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div class="mb-4" id="perspective-container">
-                                <label class="form-label">Suchperspektive</label>
-                                <small class="form-text text-muted mb-2 d-block">
-                                    Wählen Sie die Perspektive, aus der die Ausschreibung analysiert werden soll:
-                                </small>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="search_perspective" id="salesPerspective" value="sales" checked>
-                                    <label class="form-check-label" for="salesPerspective">
-                                        <strong>Vertriebsmitarbeiter:</strong> 
-                                        <small class="text-muted">Fokus auf Produkteigenschaften, Preise, Lieferbedingungen, Zertifizierungen und Kundenanforderungen</small>
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="search_perspective" id="techPerspective" value="technical">
-                                    <label class="form-check-label" for="techPerspective">
-                                        <strong>Entwickler/Techniker:</strong> 
-                                        <small class="text-muted">Fokus auf technische Spezifikationen, Normen, Installationsdetails, Schaltpläne und technische Umsetzung</small>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div class="mb-4" id="ai-strictness-container">
-                                <label for="ai-strictness" class="form-label">Strenge der KI-Suche: <span id="strictness-value">Mittel</span></label>
-                                <div class="d-flex align-items-center">
-                                    <span class="me-2 small text-muted">Locker</span>
-                                    <input type="range" class="form-range" min="0" max="100" step="5" value="50" id="ai-strictness" name="ai_strictness">
-                                    <span class="ms-2 small text-muted">Streng</span>
-                                </div>
-                                <small class="form-text text-muted">
-                                    "Streng" findet nur sehr genaue Treffer. "Locker" findet auch thematisch entferntere Ergebnisse.
-                                </small>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="suchanfrage" class="form-label">Ihre Anfrage / Suchbegriffe</label>
-                                <input type="text" class="form-control" id="suchanfrage" name="suchanfrage" placeholder="z.B. 'Anforderungen an Notbeleuchtung' oder 'IP65, Leuchte, Mast'" required>
+                            <div class="alert alert-info mb-4">
+                                <h6 class="mb-2"><i class="bi bi-info-circle"></i> Ampel-Analyse</h6>
+                                <p class="mb-0 small">
+                                    Die PDF wird automatisch auf SCHUCH Leuchtenkategorien analysiert. 
+                                    Die KI sucht nach verwandten Begriffen für: Feuchtraumleuchten, Hallenleuchten, 
+                                    Lichtmanagement, EX-Leuchten, Straßenleuchten und Notleuchten.
+                                </p>
                             </div>
                             <input type="hidden" name="step" value="initial">
-                            <button type="submit" class="btn btn-primary btn-lg w-100" id="mainSearchButton">Suche starten</button>
+                            <button type="submit" class="btn btn-primary btn-lg w-100" id="mainSearchButton">🚦 PDF analysieren</button>
                         </form>
                     </div>
                 </div>
@@ -230,6 +194,194 @@
                     </div>
                 {% endif %}
 
+                {% if step == 'ampel_and_search' %}
+                    <div class="mt-5">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2 class="mb-0">🚦 Ampel-Analyse Ergebnisse</h2>
+                            <div class="text-end">
+                                <small class="text-muted">PDF:</small><br>
+                                <strong>{{ pdf_original_name }}</strong>
+                            </div>
+                        </div>
+                        
+                        <!-- Kompakte Ampel-Übersicht -->
+                        <div class="row mb-4">
+                            {% for category, data in ampel_results.items %}
+                                <div class="col-md-6 col-lg-4 mb-3">
+                                    <div class="card {% if data.status == 'grün' %}border-success{% else %}border-danger{% endif %} ampel-card" 
+                                         style="cursor: pointer;" 
+                                         data-bs-toggle="modal" 
+                                         data-bs-target="#ampelModal" 
+                                         data-category="{{ category }}"
+                                         data-status="{{ data.status }}"
+                                         data-found-keywords="{{ data.found_keywords|join:',' }}"
+                                         data-ai-keywords="{{ data.ai_keywords_used|join:',' }}"
+                                         data-context-snippets="{{ data.context_snippets|join:'|||' }}">
+                                        <div class="card-body p-3">
+                                            <div class="d-flex align-items-center mb-2">
+                                                {% if data.status == 'grün' %}
+                                                    <span class="fs-5 me-2">🟢</span>
+                                                    <h6 class="mb-0 text-success">{{ category }}</h6>
+                                                {% else %}
+                                                    <span class="fs-5 me-2">🔴</span>
+                                                    <h6 class="mb-0 text-danger">{{ category }}</h6>
+                                                {% endif %}
+                                                <i class="bi bi-chevron-right ms-auto text-muted"></i>
+                                            </div>
+                                            
+                                            {% if data.status == 'grün' %}
+                                                <div class="mb-2">
+                                                    {% for keyword in data.found_keywords|slice:":5" %}
+                                                        <span class="badge bg-success me-1 mb-1 small">{{ keyword }}</span>
+                                                    {% endfor %}
+                                                    {% if data.found_keywords|length > 5 %}
+                                                        <span class="badge bg-secondary small">+{{ data.found_keywords|length|add:"-5" }}</span>
+                                                    {% endif %}
+                                                </div>
+                                                <small class="text-muted">{{ data.found_keywords|length }} Begriff{{ data.found_keywords|length|pluralize:"e" }} gefunden</small>
+                                            {% else %}
+                                                <small class="text-muted">Nicht relevant</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <!-- Modal für Ampel-Details -->
+                        <div class="modal fade" id="ampelModal" tabindex="-1" aria-labelledby="ampelModalLabel" aria-hidden="true">
+                            <div class="modal-dialog modal-xl">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="ampelModalLabel">
+                                            <span id="modal-icon"></span>
+                                            <span id="modal-category"></span>
+                                        </h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div id="modal-loading" class="text-center py-4" style="display: none;">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Lädt...</span>
+                                            </div>
+                                            <p class="mt-2">Lade Fundstellen...</p>
+                                        </div>
+                                        
+                                        <div id="modal-content-green" style="display: none;">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                                        <h6 class="text-success mb-0">Gefundene Begriffe:</h6>
+                                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="restore-all-terms" style="display: none;">
+                                                            <i class="bi bi-arrow-clockwise"></i> Alle wiederherstellen
+                                                        </button>
+                                                    </div>
+                                                    <div id="modal-found-keywords" class="mb-3"></div>
+                                                    <div id="removed-terms-notice" class="alert alert-info small py-2" style="display: none;">
+                                                        <i class="bi bi-info-circle"></i> Klicken Sie auf einen Begriff, um ihn zu entfernen/wiederherzustellen
+                                                    </div>
+                                                    
+                                                    <h6 class="text-info mb-3">Alle Fundstellen (<span id="modal-location-count">0</span>):</h6>
+                                                    <div id="modal-all-locations" class="mb-4" style="max-height: 400px; overflow-y: auto;"></div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <h6 class="text-info mb-3">PDF-Vorschau:</h6>
+                                                    <div id="modal-pdf-preview" class="border rounded p-2" style="height: 500px; overflow: hidden; text-align: center; background-color: #f8f9fa;">
+                                                        <p class="text-muted mt-5">Klicken Sie auf eine Fundstelle links, um eine Vorschau zu sehen.</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div id="modal-content-red" style="display: none;">
+                                            <div class="alert alert-warning">
+                                                <h6 class="mb-2">Diese Kategorie wurde in der PDF nicht erkannt.</h6>
+                                                <p class="mb-0 small">Die KI hat nach folgenden verwandten Begriffen gesucht, aber keine davon wurden in der PDF gefunden:</p>
+                                            </div>
+                                            <h6 class="text-muted mb-3">Gesuchte Begriffe:</h6>
+                                            <div id="modal-ai-keywords"></div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Suchbereich nach Ampel-Analyse -->
+                        <div class="card mt-5">
+                            <div class="card-header">
+                                <h5 class="mb-0">📝 Zusätzliche Textsuche durchführen</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted mb-4">
+                                    Optional: Führen Sie eine detaillierte Textsuche in der PDF durch.
+                                </p>
+                                
+                                <form method="post" enctype="multipart/form-data">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="step" value="initial">
+                                    <input type="hidden" name="pdf_filename_existing" value="{{ pdf_filename }}">
+                                    
+                                    <div class="mb-4">
+                                        <label class="form-label">Suchmethode</label>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="search_type" id="aiSearch2" value="ai" checked>
+                                            <label class="form-check-label" for="aiSearch2">
+                                                <strong>KI-gestützte Kontextsuche:</strong> Versteht den Sinn Ihrer Anfrage.
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="search_type" id="simpleSearch2" value="simple">
+                                            <label class="form-check-label" for="simpleSearch2">
+                                                <strong>Einfache Textsuche:</strong> Findet exakte Wörter (Begriffe mit Komma trennen).
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-4">
+                                        <label class="form-label">Suchperspektive</label>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="search_perspective" id="salesPerspective2" value="sales" checked>
+                                            <label class="form-check-label" for="salesPerspective2">
+                                                <strong>Vertriebsmitarbeiter:</strong> 
+                                                <small class="text-muted">Fokus auf Produkteigenschaften, Preise, Lieferbedingungen</small>
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="search_perspective" id="techPerspective2" value="technical">
+                                            <label class="form-check-label" for="techPerspective2">
+                                                <strong>Entwickler/Techniker:</strong> 
+                                                <small class="text-muted">Fokus auf technische Spezifikationen, Normen, Installation</small>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="suchanfrage2" class="form-label">Ihre Anfrage / Suchbegriffe</label>
+                                        <input type="text" class="form-control" id="suchanfrage2" name="suchanfrage" placeholder="z.B. 'Anforderungen an Notbeleuchtung' oder 'IP65, Leuchte, Mast'" required>
+                                    </div>
+                                    
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-search"></i> Textsuche starten
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <div class="text-center mt-4">
+                            <a href="{% url 'pdf_sucher:pdf_suche' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left"></i> Neue PDF hochladen
+                            </a>
+                            <a href="{% url 'pdf_sucher:view_pdf' filename=pdf_filename %}" class="btn btn-outline-primary" target="_blank">
+                                <i class="bi bi-file-pdf"></i> PDF öffnen
+                            </a>
+                        </div>
+                    </div>
+                {% endif %}
+                
+
                 {% if step == 'results' %}
                     {% if ergebnisse %}
                         <div class="d-flex justify-content-between align-items-center mt-5 mb-3">
@@ -283,7 +435,8 @@
                         
                         <div class="list-group" id="ergebnis-liste">
                             {% for ergebnis in ergebnisse %}
-                                <div class="list-group-item flex-column align-items-start" data-preview-url="{% url 'pdf_sucher:pdf_page_preview' filename=pdf_filename page_num=ergebnis.seitenzahl %}?search_terms={{ search_terms|urlencode }}&search_type={{ search_type }}&context_text={{ ergebnis.textstelle|urlencode }}">
+                                <div class="list-group-item flex-column align-items-start result-item" 
+                                     data-preview-url="{% url 'pdf_sucher:pdf_page_preview' filename=pdf_filename page_num=ergebnis.seitenzahl %}?search_terms={{ search_terms|urlencode }}&search_type={{ search_type }}&context_text={{ ergebnis.textstelle|urlencode }}">
                                     <div class="d-flex w-100 justify-content-between align-items-center">
                                         <a href="{% url 'pdf_sucher:view_pdf' filename=pdf_filename %}#page={{ ergebnis.seitenzahl }}" target="_blank" class="text-decoration-none">
                                             <span class="badge bg-secondary rounded-pill fs-6">Seite {{ ergebnis.seitenzahl }}</span>
@@ -301,6 +454,7 @@
                                             {{ ergebnis.textstelle }}
                                         {% endif %}
                                     </p>
+                                    
                                 </div>
                             {% endfor %}
                         </div>
@@ -382,35 +536,41 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // --- Logik für Strenge-Regler ---
-    const aiRadio = document.getElementById('aiSearch');
-    const simpleRadio = document.getElementById('simpleSearch');
+    const aiRadio = document.getElementById('aiSearch') || document.getElementById('aiSearch2');
+    const simpleRadio = document.getElementById('simpleSearch') || document.getElementById('simpleSearch2');
     const strictnessContainer = document.getElementById('ai-strictness-container');
     const strictnessSlider = document.getElementById('ai-strictness');
     const strictnessValueSpan = document.getElementById('strictness-value');
 
-    function toggleStrictness() {
-        strictnessContainer.style.display = aiRadio.checked ? 'block' : 'none';
-    }
-
-    function updateStrictnessLabel() {
-        const value = parseInt(strictnessSlider.value);
-        if (value < 25) {
-            strictnessValueSpan.textContent = 'Sehr Locker';
-        } else if (value < 50) {
-            strictnessValueSpan.textContent = 'Locker';
-        } else if (value < 75) {
-            strictnessValueSpan.textContent = 'Mittel';
-        } else {
-            strictnessValueSpan.textContent = 'Streng';
+    if (aiRadio && simpleRadio && strictnessContainer) {
+        function toggleStrictness() {
+            strictnessContainer.style.display = aiRadio.checked ? 'block' : 'none';
         }
+
+        function updateStrictnessLabel() {
+            if (strictnessSlider && strictnessValueSpan) {
+                const value = parseInt(strictnessSlider.value);
+                if (value < 25) {
+                    strictnessValueSpan.textContent = 'Sehr Locker';
+                } else if (value < 50) {
+                    strictnessValueSpan.textContent = 'Locker';
+                } else if (value < 75) {
+                    strictnessValueSpan.textContent = 'Mittel';
+                } else {
+                    strictnessValueSpan.textContent = 'Streng';
+                }
+            }
+        }
+
+        aiRadio.addEventListener('change', toggleStrictness);
+        simpleRadio.addEventListener('change', toggleStrictness);
+        if (strictnessSlider) {
+            strictnessSlider.addEventListener('input', updateStrictnessLabel);
+        }
+
+        toggleStrictness();
+        updateStrictnessLabel();
     }
-
-    aiRadio.addEventListener('change', toggleStrictness);
-    simpleRadio.addEventListener('change', toggleStrictness);
-    strictnessSlider.addEventListener('input', updateStrictnessLabel);
-
-    toggleStrictness();
-    updateStrictnessLabel();
 
 
     // --- Logik für Kopier-Button ---
@@ -439,7 +599,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const perspective = searchTermBtn.dataset.perspective;
             
             // Setze den Begriff in das Suchfeld
-            const suchfeld = document.getElementById('suchanfrage');
+            const suchfeld = document.getElementById('suchanfrage') || document.getElementById('suchanfrage2');
             if (suchfeld) {
                 suchfeld.value = term;
             }
@@ -451,16 +611,19 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // Setze auf KI-Suche
-            const aiRadio = document.getElementById('aiSearch');
+            const aiRadio = document.getElementById('aiSearch') || document.getElementById('aiSearch2');
             if (aiRadio) {
                 aiRadio.checked = true;
             }
             
             // Scrolle zum Suchformular
-            document.getElementById('search-card').scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'start' 
-            });
+            const searchCard = document.getElementById('search-card');
+            if (searchCard) {
+                searchCard.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                });
+            }
             
             // Optional: Markiere das Suchfeld
             if (suchfeld) {
@@ -476,16 +639,25 @@ document.addEventListener('DOMContentLoaded', function() {
     const previewImage = document.getElementById('pdf-preview-image');
     const previewLoader = document.getElementById('preview-loader');
 
+    console.log('PDF Vorschau Elemente:', {
+        ergebnisListe: !!ergebnisListe,
+        previewContainer: !!previewContainer,
+        previewImage: !!previewImage,
+        previewLoader: !!previewLoader
+    });
+
     if (ergebnisListe) {
         ergebnisListe.addEventListener('mouseover', function(e) {
-            const resultItem = e.target.closest('.list-group-item');
+            const resultItem = e.target.closest('.result-item');
+            console.log('Hover über Ergebnis:', resultItem);
             if (resultItem && resultItem.dataset.previewUrl) {
+                console.log('Preview URL gefunden:', resultItem.dataset.previewUrl);
                 if (previewContainer) previewContainer.style.display = 'block';
                 if (previewImage) previewImage.style.display = 'none';
                 if (previewLoader) previewLoader.style.display = 'block';
-                if (previewImage.src !== resultItem.dataset.previewUrl) {
+                if (previewImage && previewImage.src !== resultItem.dataset.previewUrl) {
                     previewImage.src = resultItem.dataset.previewUrl;
-                } else {
+                } else if (previewImage) {
                      if (previewLoader) previewLoader.style.display = 'none';
                      if (previewImage) previewImage.style.display = 'block';
                 }
@@ -494,10 +666,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (previewImage) {
             previewImage.onload = function() {
+                console.log('PDF Vorschau geladen');
                 if (previewLoader) previewLoader.style.display = 'none';
                 previewImage.style.display = 'block';
             };
             previewImage.onerror = function() {
+                console.log('PDF Vorschau Fehler');
                 if (previewLoader) previewLoader.innerHTML = 'Vorschau-Fehler';
             }
         }
@@ -534,6 +708,648 @@ document.addEventListener('DOMContentLoaded', function() {
         
         previewStrictnessSlider.addEventListener('input', updatePreviewStrictnessLabel);
         updatePreviewStrictnessLabel(); // Initial call
+    }
+    
+    // --- Ampel-Modal Logik ---
+    const ampelModal = document.getElementById('ampelModal');
+    if (ampelModal) {
+        ampelModal.addEventListener('show.bs.modal', function (event) {
+            const card = event.relatedTarget;
+            const category = card.getAttribute('data-category');
+            const status = card.getAttribute('data-status');
+            const foundKeywords = card.getAttribute('data-found-keywords').split(',').filter(k => k.trim());
+            const aiKeywords = card.getAttribute('data-ai-keywords').split(',').filter(k => k.trim());
+            const contextSnippets = card.getAttribute('data-context-snippets').split('|||').filter(s => s.trim());
+            
+            console.log('Modal opening for category:', category);
+            console.log('Current globalRemovedTerms:', globalRemovedTerms);
+
+            // Modal-Header aktualisieren
+            const modalIcon = document.getElementById('modal-icon');
+            const modalCategory = document.getElementById('modal-category');
+            const modalContentGreen = document.getElementById('modal-content-green');
+            const modalContentRed = document.getElementById('modal-content-red');
+            const modalLoading = document.getElementById('modal-loading');
+
+            modalCategory.textContent = category;
+            
+            if (status === 'grün') {
+                modalIcon.textContent = '🟢';
+                modalContentGreen.style.display = 'none';
+                modalContentRed.style.display = 'none';
+                modalLoading.style.display = 'block';
+                
+                // AJAX-Request für detaillierte Locations
+                const pdfFilename = '{{ pdf_filename }}';
+                loadAmpelLocations(category, pdfFilename);
+                
+            } else {
+                modalIcon.textContent = '🔴';
+                modalContentGreen.style.display = 'none';
+                modalContentRed.style.display = 'block';
+                modalLoading.style.display = 'none';
+                
+                // KI-gesuchte Begriffe anzeigen
+                const aiKeywordsContainer = document.getElementById('modal-ai-keywords');
+                aiKeywordsContainer.innerHTML = '';
+                aiKeywords.forEach(keyword => {
+                    if (keyword.trim()) {
+                        const badge = document.createElement('span');
+                        badge.className = 'badge bg-secondary me-2 mb-2';
+                        badge.textContent = keyword.trim();
+                        aiKeywordsContainer.appendChild(badge);
+                    }
+                });
+            }
+        });
+    }
+    
+    // --- Funktion zum Laden der Ampel-Locations ---
+    async function loadAmpelLocations(category, pdfFilename) {
+        try {
+            const response = await fetch('{% url "pdf_sucher:ampel_locations" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    category: category,
+                    pdf_filename: pdfFilename
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Netzwerk-Fehler');
+            }
+            
+            const data = await response.json();
+            displayAmpelLocations(data);
+            
+        } catch (error) {
+            console.error('Fehler beim Laden der Ampel-Locations:', error);
+            document.getElementById('modal-loading').style.display = 'none';
+            document.getElementById('modal-content-green').innerHTML = 
+                '<div class="alert alert-danger">Fehler beim Laden der Details.</div>';
+            document.getElementById('modal-content-green').style.display = 'block';
+        }
+    }
+    
+    // --- Globale Variable für entfernte Begriffe (pro Kategorie) ---
+    let globalRemovedTerms = new Map(); // Struktur: {category: Set(terms)}
+    let originalAmpelData = new Map(); // Struktur: {category: {keywords: [], status: ''}}
+    let currentLocationData = null;
+    let currentCategory = null;
+    
+    // --- Funktion zur Anzeige der Ampel-Locations ---
+    function displayAmpelLocations(data) {
+        const modalLoading = document.getElementById('modal-loading');
+        const modalContentGreen = document.getElementById('modal-content-green');
+        const foundKeywordsContainer = document.getElementById('modal-found-keywords');
+        const allLocationsContainer = document.getElementById('modal-all-locations');
+        const locationCountSpan = document.getElementById('modal-location-count');
+        const removedTermsNotice = document.getElementById('removed-terms-notice');
+        
+        modalLoading.style.display = 'none';
+        modalContentGreen.style.display = 'block';
+        
+        // Setup current category and data
+        currentLocationData = data;
+        currentCategory = data.category || category;
+        
+        // Initialize removed terms for this category if not exists
+        if (!globalRemovedTerms.has(currentCategory)) {
+            globalRemovedTerms.set(currentCategory, new Set());
+        }
+        
+        // Reset PDF preview
+        resetPdfPreview();
+        
+        // Gefundene Begriffe anzeigen (clickable)
+        foundKeywordsContainer.innerHTML = '';
+        data.found_keywords.forEach(keyword => {
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-success me-2 mb-2 keyword-badge';
+            badge.style.cursor = 'pointer';
+            badge.style.transition = 'all 0.2s ease';
+            badge.textContent = keyword;
+            badge.dataset.keyword = keyword;
+            
+            // Click-Event für Badge
+            badge.addEventListener('click', function() {
+                toggleKeywordFilter(keyword);
+            });
+            
+            // Hover-Effekt
+            badge.addEventListener('mouseenter', function() {
+                this.style.transform = 'scale(1.05)';
+            });
+            
+            badge.addEventListener('mouseleave', function() {
+                this.style.transform = 'scale(1)';
+            });
+            
+            foundKeywordsContainer.appendChild(badge);
+        });
+        
+        // Notice anzeigen
+        removedTermsNotice.style.display = 'block';
+        
+        // Setup restore button
+        setupRestoreButton();
+        
+        // Update buttons und locations basierend auf bereits entfernten Begriffen
+        updateKeywordBadges();
+        updateRestoreButton();
+        
+        // Anzahl der Fundstellen
+        locationCountSpan.textContent = data.total_locations;
+        
+        // Alle Fundstellen anzeigen
+        allLocationsContainer.innerHTML = '';
+        
+        if (data.locations.length === 0) {
+            allLocationsContainer.innerHTML = '<p class="text-muted">Keine detaillierten Fundstellen verfügbar.</p>';
+            return;
+        }
+        
+        renderLocationItems();
+    }
+    
+    // --- Funktion zum Rendern der Location-Items ---
+    function renderLocationItems() {
+        if (!currentLocationData || !currentCategory) return;
+        
+        const allLocationsContainer = document.getElementById('modal-all-locations');
+        const locationCountSpan = document.getElementById('modal-location-count');
+        const removedTerms = globalRemovedTerms.get(currentCategory) || new Set();
+        
+        allLocationsContainer.innerHTML = '';
+        
+        // Filter locations based on removed terms
+        const visibleLocations = currentLocationData.locations.filter(location => 
+            !removedTerms.has(location.keyword)
+        );
+        
+        if (visibleLocations.length === 0) {
+            allLocationsContainer.innerHTML = '<p class="text-muted">Alle Fundstellen wurden ausgeblendet.</p>';
+            locationCountSpan.textContent = '0';
+            return;
+        }
+        
+        // Update count
+        locationCountSpan.textContent = visibleLocations.length;
+        
+        visibleLocations.forEach((location, index) => {
+            const locationDiv = document.createElement('div');
+            locationDiv.className = 'border rounded p-3 mb-2 location-item';
+            locationDiv.style.cursor = 'pointer';
+            locationDiv.dataset.page = location.page;
+            locationDiv.dataset.keyword = location.keyword;
+            locationDiv.dataset.x0 = location.x0 || 0;
+            locationDiv.dataset.y0 = location.y0 || 0;
+            locationDiv.dataset.x1 = location.x1 || 0;
+            locationDiv.dataset.y1 = location.y1 || 0;
+            
+            locationDiv.innerHTML = `
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <strong class="text-primary">Seite ${location.page}</strong>
+                    <span class="badge bg-info">${location.keyword}</span>
+                </div>
+                <div class="small text-muted">${location.context}</div>
+            `;
+            
+            // Click-Effekt für PDF-Vorschau (persistent)
+            locationDiv.addEventListener('click', function() {
+                // Entferne active-Klasse von allen anderen Location-Items
+                document.querySelectorAll('.location-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                
+                // Füge active-Klasse zu aktuellem Item hinzu
+                locationDiv.classList.add('active');
+                
+                showPdfPreview(location.page, location.keyword, '{{ pdf_filename }}', {
+                    x0: location.x0 || 0,
+                    y0: location.y0 || 0, 
+                    x1: location.x1 || 0,
+                    y1: location.y1 || 0
+                });
+            });
+            
+            // Hover-Effekt für visuelles Feedback
+            locationDiv.addEventListener('mouseenter', function() {
+                if (!locationDiv.classList.contains('active')) {
+                    locationDiv.style.backgroundColor = '#f8f9fa';
+                }
+            });
+            
+            locationDiv.addEventListener('mouseleave', function() {
+                if (!locationDiv.classList.contains('active')) {
+                    locationDiv.style.backgroundColor = '';
+                }
+            });
+            
+            allLocationsContainer.appendChild(locationDiv);
+        });
+    }
+    
+    // --- Funktion zum Toggle eines Keywords ---
+    function toggleKeywordFilter(keyword) {
+        if (!currentCategory) {
+            console.error('No currentCategory set');
+            return;
+        }
+        
+        console.log('Toggling keyword:', keyword, 'for category:', currentCategory);
+        
+        const removedTerms = globalRemovedTerms.get(currentCategory) || new Set();
+        console.log('Current removed terms before toggle:', removedTerms);
+        
+        if (removedTerms.has(keyword)) {
+            removedTerms.delete(keyword);
+            console.log('Removed keyword from removed terms:', keyword);
+        } else {
+            removedTerms.add(keyword);
+            console.log('Added keyword to removed terms:', keyword);
+        }
+        
+        globalRemovedTerms.set(currentCategory, removedTerms);
+        console.log('Updated globalRemovedTerms:', globalRemovedTerms);
+        
+        updateKeywordBadges();
+        renderLocationItems();
+        updateRestoreButton();
+        // updateAmpelCard(); // Entfernt - wird durch updateAllAmpelCards ersetzt
+        updateAllAmpelCards(); // Update main overview
+    }
+    
+    // --- Funktion zum Aktualisieren der Keyword-Badges ---
+    function updateKeywordBadges() {
+        if (!currentCategory) return;
+        
+        const foundKeywordsContainer = document.getElementById('modal-found-keywords');
+        const badges = foundKeywordsContainer.querySelectorAll('.keyword-badge');
+        const removedTerms = globalRemovedTerms.get(currentCategory) || new Set();
+        
+        badges.forEach(badge => {
+            const keyword = badge.dataset.keyword;
+            if (removedTerms.has(keyword)) {
+                badge.className = 'badge bg-secondary text-decoration-line-through me-2 mb-2 keyword-badge';
+                badge.style.opacity = '0.6';
+            } else {
+                badge.className = 'badge bg-success me-2 mb-2 keyword-badge';
+                badge.style.opacity = '1';
+            }
+        });
+    }
+    
+    // --- Funktion zum Setup des Restore-Buttons ---
+    function setupRestoreButton() {
+        const restoreButton = document.getElementById('restore-all-terms');
+        restoreButton.addEventListener('click', function() {
+            if (!currentCategory) return;
+            
+            globalRemovedTerms.set(currentCategory, new Set());
+            updateKeywordBadges();
+            renderLocationItems();
+            updateRestoreButton();
+            // updateAmpelCard(); // Entfernt - wird durch updateAllAmpelCards ersetzt
+            updateAllAmpelCards(); // Update main overview
+        });
+    }
+    
+    // --- Funktion zum Aktualisieren des Restore-Buttons ---
+    function updateRestoreButton() {
+        if (!currentCategory) return;
+        
+        const restoreButton = document.getElementById('restore-all-terms');
+        const removedTerms = globalRemovedTerms.get(currentCategory) || new Set();
+        
+        if (removedTerms.size > 0) {
+            restoreButton.style.display = 'inline-block';
+        } else {
+            restoreButton.style.display = 'none';
+        }
+    }
+    
+    // --- Funktion zum Aktualisieren der Ampel-Karte ---
+    function updateAmpelCard() {
+        if (!currentLocationData || !currentCategory) return;
+        
+        // Finde die entsprechende Ampel-Karte
+        const ampelCard = document.querySelector(`[data-category="${currentCategory}"]`);
+        if (!ampelCard) return;
+        
+        const removedTerms = globalRemovedTerms.get(currentCategory) || new Set();
+        
+        // Berechne verbleibende aktive Keywords
+        const activeKeywords = currentLocationData.found_keywords.filter(keyword => 
+            !removedTerms.has(keyword)
+        );
+        
+        // Bestimme neuen Status
+        const newStatus = activeKeywords.length > 0 ? 'grün' : 'rot';
+        const currentStatus = ampelCard.getAttribute('data-status');
+        
+        // Update nur wenn sich Status geändert hat
+        if (newStatus !== currentStatus) {
+            ampelCard.setAttribute('data-status', newStatus);
+            
+            // Update Karten-Styling
+            const cardElement = ampelCard.querySelector('.card');
+            const iconElement = ampelCard.querySelector('.fs-5');
+            const titleElement = ampelCard.querySelector('h6');
+            const badgeContainer = ampelCard.querySelector('.mb-2');
+            const statusText = ampelCard.querySelector('small');
+            
+            if (newStatus === 'grün') {
+                // Grün-Styling
+                cardElement.className = 'card border-success';
+                iconElement.textContent = '🟢';
+                titleElement.className = 'mb-0 text-success';
+                
+                // Update Badges
+                if (badgeContainer) {
+                    badgeContainer.innerHTML = '';
+                    activeKeywords.slice(0, 5).forEach(keyword => {
+                        const badge = document.createElement('span');
+                        badge.className = 'badge bg-success me-1 mb-1 small';
+                        badge.textContent = keyword;
+                        badgeContainer.appendChild(badge);
+                    });
+                    if (activeKeywords.length > 5) {
+                        const moreBadge = document.createElement('span');
+                        moreBadge.className = 'badge bg-secondary small';
+                        moreBadge.textContent = `+${activeKeywords.length - 5}`;
+                        badgeContainer.appendChild(moreBadge);
+                    }
+                }
+                
+                statusText.textContent = `${activeKeywords.length} Begriff${activeKeywords.length !== 1 ? 'e' : ''} gefunden`;
+                statusText.className = 'text-muted';
+            } else {
+                // Rot-Styling
+                cardElement.className = 'card border-danger';
+                iconElement.textContent = '🔴';
+                titleElement.className = 'mb-0 text-danger';
+                
+                // Entferne Badges
+                if (badgeContainer) {
+                    badgeContainer.style.display = 'none';
+                }
+                
+                statusText.textContent = 'Nicht relevant';
+                statusText.className = 'text-muted';
+            }
+        } else if (newStatus === 'grün') {
+            // Status bleibt grün, aber Keywords haben sich geändert - Update Badges
+            const badgeContainer = ampelCard.querySelector('.mb-2');
+            const statusText = ampelCard.querySelector('small');
+            
+            if (badgeContainer) {
+                badgeContainer.innerHTML = '';
+                activeKeywords.slice(0, 5).forEach(keyword => {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-success me-1 mb-1 small';
+                    badge.textContent = keyword;
+                    badgeContainer.appendChild(badge);
+                });
+                if (activeKeywords.length > 5) {
+                    const moreBadge = document.createElement('span');
+                    moreBadge.className = 'badge bg-secondary small';
+                    moreBadge.textContent = `+${activeKeywords.length - 5}`;
+                    badgeContainer.appendChild(moreBadge);
+                }
+            }
+            
+            statusText.textContent = `${activeKeywords.length} Begriff${activeKeywords.length !== 1 ? 'e' : ''} gefunden`;
+        }
+    }
+    
+    // --- Funktion zum Aktualisieren aller Ampel-Karten in der Hauptübersicht ---
+    function updateAllAmpelCards() {
+        console.log('=== updateAllAmpelCards START ===');
+        console.log('globalRemovedTerms:', globalRemovedTerms);
+        console.log('originalAmpelData:', originalAmpelData);
+        
+        // Durchlaufe alle Ampel-Karten
+        const ampelCards = document.querySelectorAll('.ampel-card');
+        console.log('Found', ampelCards.length, 'ampel cards');
+        
+        ampelCards.forEach((ampelCard, index) => {
+            console.log(`\n--- Processing card ${index + 1} ---`);
+            const category = ampelCard.getAttribute('data-category');
+            console.log('Category:', category);
+            if (!category) {
+                console.log('No category found, skipping');
+                return;
+            }
+            
+            const removedTerms = globalRemovedTerms.get(category) || new Set();
+            console.log('Removed terms for', category, ':', Array.from(removedTerms));
+            
+            // Verwende ursprüngliche gespeicherte Daten statt aktueller Attribute
+            const originalData = originalAmpelData.get(category);
+            if (!originalData) {
+                console.log('No original data for', category, ', skipping');
+                return;
+            }
+            console.log('Original data for', category, ':', originalData);
+            
+            const allKeywords = originalData.keywords;
+            const activeKeywords = allKeywords.filter(keyword => !removedTerms.has(keyword));
+            console.log('All keywords:', allKeywords);
+            console.log('Active keywords:', activeKeywords);
+            
+            // Bestimme neuen Status (nur für grüne Karten relevant)
+            const originalStatus = originalData.status;
+            let newStatus = originalStatus;
+            
+            // Nur grüne Karten können zu rot werden durch Keyword-Entfernung
+            if (originalStatus === 'grün') {
+                newStatus = activeKeywords.length > 0 ? 'grün' : 'rot';
+            }
+            console.log('Status change:', originalStatus, '->', newStatus);
+            
+            const currentStatus = ampelCard.getAttribute('data-status');
+            console.log('Current status attribute:', currentStatus);
+            
+            // Update wenn sich etwas geändert hat
+            if (newStatus !== currentStatus || activeKeywords.length !== allKeywords.length || removedTerms.size > 0) {
+                console.log('Updating card for category:', category, 'from', currentStatus, 'to', newStatus);
+                console.log('Active keywords for update:', activeKeywords);
+                
+                ampelCard.setAttribute('data-status', newStatus);
+                
+                // WICHTIG: Aktualisiere auch das data-found-keywords Attribut
+                ampelCard.setAttribute('data-found-keywords', activeKeywords.join(','));
+                
+                // Update Karten-Styling
+                const cardElement = ampelCard; // ampelCard ist bereits das .card Element
+                const iconElement = ampelCard.querySelector('.fs-5');
+                const titleElement = ampelCard.querySelector('h6');
+                const badgeContainer = ampelCard.querySelector('.mb-2');
+                const statusText = ampelCard.querySelector('small');
+                
+                // Null-Check für alle Elemente
+                if (!cardElement || !iconElement || !titleElement || !statusText) {
+                    console.error('Missing elements in ampel card for category:', category);
+                    return;
+                }
+                
+                // Update Ampel-Icon und Rahmen
+                console.log('Updating visual elements...');
+                if (newStatus === 'grün') {
+                    console.log('Setting green styling');
+                    cardElement.className = 'card border-success ampel-card';
+                    iconElement.textContent = '🟢';
+                    titleElement.className = 'mb-0 text-success';
+                } else {
+                    console.log('Setting red styling');
+                    cardElement.className = 'card border-danger ampel-card';
+                    iconElement.textContent = '🔴';
+                    titleElement.className = 'mb-0 text-danger';
+                }
+                console.log('New cardElement className:', cardElement.className);
+                console.log('New iconElement text:', iconElement.textContent);
+                
+                // Update Badges - zeige immer alle Keywords, wenn ursprünglich grün
+                if (originalStatus === 'grün' && badgeContainer) {
+                    console.log('Updating badges for green card...');
+                    badgeContainer.style.display = 'block';
+                    badgeContainer.innerHTML = '';
+                    
+                    console.log('Active keywords to display:', activeKeywords);
+                    
+                    // Zeige nur noch aktive Keywords (entfernte verschwinden komplett)
+                    activeKeywords.slice(0, 5).forEach(keyword => {
+                        console.log('Creating badge for:', keyword);
+                        const badge = document.createElement('span');
+                        badge.className = 'badge bg-success me-1 mb-1 small';
+                        badge.textContent = keyword;
+                        badgeContainer.appendChild(badge);
+                    });
+                    
+                    if (activeKeywords.length > 5) {
+                        const moreBadge = document.createElement('span');
+                        moreBadge.className = 'badge bg-secondary small';
+                        moreBadge.textContent = `+${activeKeywords.length - 5}`;
+                        badgeContainer.appendChild(moreBadge);
+                    }
+                    
+                    console.log('Badge container HTML after update:', badgeContainer.innerHTML);
+                    
+                    // Status-Text basierend auf aktiven Keywords
+                    if (activeKeywords.length > 0) {
+                        statusText.textContent = `${activeKeywords.length} Begriff${activeKeywords.length !== 1 ? 'e' : ''} gefunden`;
+                    } else {
+                        statusText.textContent = 'Alle Begriffe entfernt';
+                    }
+                    console.log('Status text updated to:', statusText.textContent);
+                } else if (originalStatus === 'rot') {
+                    // Ursprünglich rote Karten bleiben unverändert
+                    console.log('Keeping red card unchanged');
+                    if (badgeContainer) {
+                        badgeContainer.style.display = 'none';
+                    }
+                    statusText.textContent = 'Nicht relevant';
+                }
+                
+                statusText.className = 'text-muted';
+                console.log('=== Card update completed ===');
+            } else {
+                console.log('No update needed for', category);
+            }
+        });
+        console.log('=== updateAllAmpelCards END ===');
+    }
+    
+    // --- PDF-Vorschau Funktionen ---
+    function showPdfPreview(pageNum, keyword, pdfFilename, coordinates) {
+        const previewContainer = document.getElementById('modal-pdf-preview');
+        
+        // Erstelle URL mit Koordinaten für präzisen Zoom
+        let imageUrl = `/pdf-tool/page-image/${encodeURIComponent(pdfFilename)}/${pageNum}/?highlight=${encodeURIComponent(keyword)}`;
+        
+        if (coordinates && coordinates.x0 > 0 && coordinates.y0 > 0) {
+            imageUrl += `&x0=${coordinates.x0}&y0=${coordinates.y0}&x1=${coordinates.x1}&y1=${coordinates.y1}`;
+        }
+        
+        previewContainer.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border spinner-border-sm text-primary mb-2" role="status">
+                    <span class="visually-hidden">Lädt...</span>
+                </div>
+                <p class="small text-muted">Lade Seite ${pageNum}...</p>
+            </div>
+        `;
+        
+        const img = new Image();
+        img.onload = function() {
+            previewContainer.innerHTML = `
+                <div class="position-relative">
+                    <img src="${imageUrl}" class="img-fluid" alt="Seite ${pageNum}" 
+                         style="max-height: 480px; border: 1px solid #ddd; border-radius: 4px;">
+                    <div class="position-absolute top-0 start-0 bg-primary text-white px-2 py-1 small" 
+                         style="border-radius: 0 0 4px 0;">Seite ${pageNum}</div>
+                </div>
+            `;
+        };
+        img.onerror = function() {
+            previewContainer.innerHTML = `
+                <div class="alert alert-warning text-center">
+                    <i class="bi bi-exclamation-triangle"></i><br>
+                    Vorschau für Seite ${pageNum} nicht verfügbar
+                </div>
+            `;
+        };
+        img.src = imageUrl;
+    }
+    
+    function resetPdfPreview() {
+        const previewContainer = document.getElementById('modal-pdf-preview');
+        previewContainer.innerHTML = `
+            <p class="text-muted mt-5">Klicken Sie auf eine Fundstelle links, um eine Vorschau zu sehen.</p>
+        `;
+        // Entferne active-Klasse von allen Location-Items
+        document.querySelectorAll('.location-item').forEach(item => {
+            item.classList.remove('active');
+        });
+    }
+    
+    // --- Initialisierung beim Laden der Seite ---
+    function initializeAmpelCards() {
+        console.log('Initializing ampel cards on page load');
+        
+        // Speichere ursprüngliche Ampel-Daten
+        document.querySelectorAll('.ampel-card').forEach(ampelCard => {
+            const category = ampelCard.getAttribute('data-category');
+            const originalKeywords = ampelCard.getAttribute('data-found-keywords');
+            const originalStatus = ampelCard.getAttribute('data-status');
+            
+            if (category) {
+                let keywords = [];
+                if (originalKeywords && originalKeywords.trim()) {
+                    keywords = originalKeywords.split(',').filter(k => k.trim()).map(k => k.trim());
+                }
+                originalAmpelData.set(category, {
+                    keywords: keywords,
+                    status: originalStatus
+                });
+                console.log('Stored original data for', category, ':', keywords);
+            }
+        });
+        
+        // Initialisiere beim ersten Laden - falls es gespeicherte entfernte Begriffe gibt
+        updateAllAmpelCards();
+    }
+    
+    // Rufe Initialisierung auf, wenn DOM bereit ist
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeAmpelCards);
+    } else {
+        initializeAmpelCards();
     }
 });
 </script>
