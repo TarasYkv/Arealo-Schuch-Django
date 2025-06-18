@@ -757,14 +757,14 @@ def generate_search_results_pdf(original_pdf_path, search_results, search_query,
             
             # Erstelle Lesezeichen für bessere Navigation
             try:
-                # Keine Verschiebung mehr nötig: Suchergebnisse-Seite ist jetzt am Ende
-                # Original-Seite 98 bleibt an Position 98-1=97 (0-basiert)
-                corrected_page = page_num - 1  # Einfach 0-basierte Konvertierung
-                toc_entry = [1, f"Ergebnis {i+1} (Original: Seite {page_num})", corrected_page]
+                # KORREKTUR: PyMuPDF Lesezeichen sind 1-basiert, nicht 0-basiert!
+                # Original-Seite 98 soll zu PDF-Seite 98 führen (1-basiert)
+                corrected_page = page_num  # Direkt die Original-Seitenzahl verwenden
+                toc_entry = [1, f"Ergebnis {i+1} → Seite {page_num}", corrected_page]
                 if not hasattr(result_doc, '_bookmarks'):
                     result_doc._bookmarks = []
                 result_doc._bookmarks.append(toc_entry)
-                print(f"DEBUG: Lesezeichen für Original-Seite {page_num} → PDF-Index {corrected_page} erstellt")
+                print(f"DEBUG: Lesezeichen für Original-Seite {page_num} → PDF-Seite {corrected_page} erstellt (1-basiert)")
             except Exception as bookmark_error:
                 print(f"DEBUG: Lesezeichen-Erstellung fehlgeschlagen: {bookmark_error}")
             
@@ -831,6 +831,22 @@ def generate_search_results_pdf(original_pdf_path, search_results, search_query,
             if hasattr(result_doc, '_bookmarks') and result_doc._bookmarks:
                 result_doc.set_toc(result_doc._bookmarks)
                 print(f"DEBUG: {len(result_doc._bookmarks)} Lesezeichen zur PDF hinzugefügt")
+                print(f"DEBUG: Lesezeichen-Details: {result_doc._bookmarks}")
+                
+                # TESTE VERSCHIEDENE SEITENZAHL-VARIANTEN
+                # Erstelle zusätzliche Test-Lesezeichen mit verschiedenen Berechnungen
+                test_bookmarks = []
+                for bookmark in result_doc._bookmarks[:3]:  # Nur erste 3 testen
+                    orig_page = bookmark[2]
+                    test_bookmarks.append([2, f"TEST: Seite {orig_page} → {orig_page-1} (0-basiert)", orig_page-1])
+                    test_bookmarks.append([2, f"TEST: Seite {orig_page} → {orig_page} (1-basiert)", orig_page])
+                    test_bookmarks.append([2, f"TEST: Seite {orig_page} → {orig_page+1} (+1)", orig_page+1])
+                
+                # Füge Test-Lesezeichen hinzu
+                all_bookmarks = result_doc._bookmarks + test_bookmarks
+                result_doc.set_toc(all_bookmarks)
+                print(f"DEBUG: {len(test_bookmarks)} Test-Lesezeichen hinzugefügt")
+                
         except Exception as toc_error:
             print(f"DEBUG: Lesezeichen konnten nicht hinzugefügt werden: {toc_error}")
         
