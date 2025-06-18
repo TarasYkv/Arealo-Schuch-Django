@@ -672,10 +672,75 @@ def highlight_context_in_pdf_page(page, context_text, highlight_color=[1, 1, 0])
             break  # Stoppe nach der ersten erfolgreichen Phrase
 
 
+def categorize_search_results(search_results, search_query, search_perspective="sales"):
+    """Kategorisiert Suchergebnisse thematisch basierend auf gefundenen Begriffen."""
+    
+    # Definiere thematische Kategorien basierend auf Perspektive
+    if search_perspective == "sales":
+        categories = {
+            "Preise & Kosten": ["preis", "kosten", "euro", "€", "eur", "angebot", "kalkulation", "wirtschaftlich"],
+            "Technische Daten": ["lumen", "watt", "kelvin", "ip", "ik", "schutzart", "spannung", "strom", "leistung"],
+            "Zertifizierungen": ["ce", "din", "en", "vde", "tuv", "iso", "zertifikat", "norm", "standard"],
+            "Installation": ["montage", "installation", "anschluss", "kabel", "befestigung", "aufbau"],
+            "Steuerung": ["dali", "knx", "steuerung", "dimm", "sensor", "schalter", "regelung"],
+            "Wartung & Service": ["wartung", "service", "garantie", "ersatz", "reparatur", "instandhaltung"]
+        }
+    else:  # technical
+        categories = {
+            "Elektrische Parameter": ["spannung", "strom", "leistung", "watt", "volt", "ampere", "frequenz"],
+            "Lichttechnik": ["lumen", "lux", "kelvin", "cri", "ra", "lichtverteilung", "abstrahlwinkel"],
+            "Schutzarten & Normen": ["ip", "ik", "din", "en", "vde", "schutzart", "schutzklasse"],
+            "Steuerung & Protokolle": ["dali", "knx", "dmx", "zigbee", "bluetooth", "protokoll", "bus"],
+            "Mechanik & Material": ["gehäuse", "material", "aluminium", "kunststoff", "glas", "reflektor"],
+            "Installation & Montage": ["montage", "befestigung", "anschluss", "verkabelung", "installation"]
+        }
+    
+    # Initialisiere Kategorien
+    categorized_results = {category: [] for category in categories.keys()}
+    categorized_results["Sonstige"] = []
+    
+    # Kategorisiere jedes Ergebnis
+    for result in search_results:
+        text = result.get('textstelle', '').lower()
+        found_terms = [term.lower() for term in result.get('found_terms', [])]
+        
+        # Prüfe welche Kategorie am besten passt
+        category_scores = {}
+        for category, keywords in categories.items():
+            score = 0
+            for keyword in keywords:
+                # Prüfe sowohl in gefundenen Begriffen als auch im Text
+                if any(keyword in term for term in found_terms):
+                    score += 3  # Höhere Gewichtung für gefundene Suchbegriffe
+                if keyword in text:
+                    score += 1  # Grundgewichtung für Textvorkommen
+            category_scores[category] = score
+        
+        # Weise der Kategorie mit höchstem Score zu
+        if category_scores and max(category_scores.values()) > 0:
+            best_category = max(category_scores, key=category_scores.get)
+            categorized_results[best_category].append(result)
+        else:
+            categorized_results["Sonstige"].append(result)
+    
+    # Entferne leere Kategorien
+    categorized_results = {k: v for k, v in categorized_results.items() if v}
+    
+    print(f"DEBUG: Ergebnisse kategorisiert:")
+    for category, results in categorized_results.items():
+        print(f"  {category}: {len(results)} Ergebnisse")
+    
+    return categorized_results
+
+
 def generate_search_results_pdf(original_pdf_path, search_results, search_query, search_type, search_perspective=None):
     """Erstellt eine PDF mit den Suchergebnissen und Links zu den Fundstellen."""
     try:
         print(f"DEBUG: PDF-Generierung gestartet für {len(search_results)} Ergebnisse")
+        
+        # Kategorisiere Ergebnisse thematisch
+        categorized_results = categorize_search_results(search_results, search_query, search_perspective)
+        
         # Erstelle temporäre Datei für die Ergebnis-PDF
         temp_filename = f"suchergebnisse_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         temp_path = os.path.join(settings.MEDIA_ROOT, "pdfs", temp_filename)
@@ -718,134 +783,139 @@ def generate_search_results_pdf(original_pdf_path, search_results, search_query,
         results_page.insert_text((50, y_position), "Navigation: Nutzen Sie die Seitenzahlen in der Übersicht unten für manuelle Navigation", fontsize=10, color=(0.5, 0.5, 0.5))
         y_position += 30
         
-        # Erstelle ein einfaches Inhaltsverzeichnis
-        results_page.insert_text((50, y_position), "Schnellübersicht:", fontsize=14, color=(0, 0, 0))
+        # Erstelle thematisches Inhaltsverzeichnis
+        results_page.insert_text((50, y_position), "Thematische Übersicht:", fontsize=14, color=(0, 0, 0))
         y_position += 25
         
-        # Liste alle Ergebnisse mit Seitenzahlen auf
-        for i, result in enumerate(search_results[:10]):  # Maximal 10 für Übersicht
-            page_ref = result['seitenzahl']
-            results_page.insert_text((70, y_position), f"• Ergebnis {i+1} → Seite {page_ref}", fontsize=11, color=(0, 0, 0))
-            y_position += 18
-        
-        if len(search_results) > 10:
-            results_page.insert_text((70, y_position), f"... und {len(search_results)-10} weitere Ergebnisse", fontsize=11, color=(0.5, 0.5, 0.5))
-            y_position += 18
+        # Liste alle Kategorien und deren Ergebnisse auf
+        for category, results in categorized_results.items():
+            if results:  # Nur Kategorien mit Ergebnissen
+                results_page.insert_text((70, y_position), f"📂 {category} ({len(results)} Ergebnisse)", fontsize=12, color=(0, 0, 0.8))
+                y_position += 20
+                
+                # Liste ersten 5 Ergebnisse dieser Kategorie
+                for i, result in enumerate(results[:5]):
+                    page_ref = result['seitenzahl']
+                    results_page.insert_text((90, y_position), f"• Seite {page_ref}", fontsize=10, color=(0.3, 0.3, 0.3))
+                    y_position += 15
+                
+                if len(results) > 5:
+                    results_page.insert_text((90, y_position), f"... und {len(results)-5} weitere", fontsize=10, color=(0.5, 0.5, 0.5))
+                    y_position += 15
+                
+                y_position += 10  # Extra Abstand zwischen Kategorien
             
-        y_position += 20
+        y_position += 10
         
-        # Ergebnisse auflisten mit korrekter Seitenverwaltung
-        print(f"DEBUG: Beginne mit der Erstellung von {len(search_results)} Ergebnissen")
+        # Ergebnisse kategorisiert auflisten
+        print(f"DEBUG: Beginne mit der kategorierten Erstellung von Ergebnissen")
         
-        for i, result in enumerate(search_results):  # Alle Ergebnisse
-            print(f"DEBUG: Verarbeite Ergebnis {i+1}/{len(search_results)}, aktuelle y_position: {y_position}")
+        ergebnis_counter = 0
+        for category, category_results in categorized_results.items():
+            if not category_results:
+                continue
+                
+            print(f"DEBUG: Erstelle Kategorie '{category}' mit {len(category_results)} Ergebnissen")
             
-            # Prüfe ob genug Platz für das gesamte Ergebnis (ca. 120pt benötigt)
-            if y_position > 700:  # Früher Seitenwechsel für Sicherheit
-                print(f"DEBUG: Erstelle neue Seite bei y_position {y_position}")
+            # Prüfe ob genug Platz für Kategorie-Header
+            if y_position > 720:
                 results_page = result_doc.new_page(width=595, height=842)
-                y_position = 50  # Wieder von oben anfangen
-                print(f"DEBUG: Neue Seite erstellt, y_position zurückgesetzt auf {y_position}")
+                y_position = 50
+                print(f"DEBUG: Neue Seite für Kategorie '{category}' erstellt")
             
-            # Ergebnis-Header 
-            page_num = result['seitenzahl']
-            results_page.insert_text((50, y_position), f"Ergebnis {i+1}: Seite {page_num}", fontsize=14, color=(0, 0, 1))
+            # Kategorie-Header
+            results_page.insert_text((50, y_position), f"📂 {category}", fontsize=16, color=(0, 0, 0.8))
+            y_position += 30
             
-            # Versuche verschiedene Link-Ansätze
-            header_rect = fitz.Rect(50, y_position-2, 250, y_position+16)
-            target_page = page_num  # Korrekte Seite da wir am Anfang einfügen
-            
-            # Erstelle Lesezeichen für bessere Navigation
+            # Erstelle Kategorie-Lesezeichen
             try:
-                # KORREKTUR: PyMuPDF Lesezeichen sind 1-basiert, nicht 0-basiert!
-                # Original-Seite 98 soll zu PDF-Seite 98 führen (1-basiert)
-                corrected_page = page_num  # Direkt die Original-Seitenzahl verwenden
-                toc_entry = [1, f"Ergebnis {i+1} → Seite {page_num}", corrected_page]
+                category_bookmark = [1, f"{category} ({len(category_results)} Ergebnisse)", len(result_doc)]
                 if not hasattr(result_doc, '_bookmarks'):
                     result_doc._bookmarks = []
-                result_doc._bookmarks.append(toc_entry)
-                print(f"DEBUG: Lesezeichen für Original-Seite {page_num} → PDF-Seite {corrected_page} erstellt (1-basiert)")
+                result_doc._bookmarks.append(category_bookmark)
+                print(f"DEBUG: Kategorie-Lesezeichen für '{category}' erstellt")
             except Exception as bookmark_error:
-                print(f"DEBUG: Lesezeichen-Erstellung fehlgeschlagen: {bookmark_error}")
+                print(f"DEBUG: Kategorie-Lesezeichen fehlgeschlagen: {bookmark_error}")
             
-            # DEAKTIVIERE LINKS TEMPORÄR - sie verursachen "document closed" Fehler
-            # Nur visueller Hinweis ohne Links
-            results_page.draw_rect(header_rect, color=(0, 0, 1), width=1)
-            results_page.insert_text(
-                (255, y_position), 
-                f"→ Seite {page_num}", 
-                fontsize=10, 
-                color=(0, 0, 1)
-            )
-            print(f"DEBUG: Visueller Hinweis für Seite {page_num} erstellt (ohne Link)")
-            
-            y_position += 25
-            
-            # Textausschnitt (ohne HTML-Tags)
-            import re
-            result_text = result.get('textstelle', '')
-            if isinstance(result_text, str):
-                clean_text = re.sub(r'<[^>]+>', '', result_text)
-                clean_text = clean_text[:400] + "..." if len(clean_text) > 400 else clean_text
-            else:
-                clean_text = "Kein Text verfügbar"
-            
-            # Teile langen Text in mehrere Zeilen auf
-            max_chars_per_line = 75
-            words = clean_text.split()
-            lines = []
-            current_line = ""
-            
-            for word in words:
-                if len(current_line + " " + word) <= max_chars_per_line:
-                    current_line += " " + word if current_line else word
+            # Ergebnisse in dieser Kategorie
+            for result in category_results:
+                ergebnis_counter += 1
+                print(f"DEBUG: Verarbeite Ergebnis {ergebnis_counter} in Kategorie '{category}', y_position: {y_position}")
+                
+                # Prüfe ob genug Platz für Ergebnis
+                if y_position > 700:
+                    results_page = result_doc.new_page(width=595, height=842)
+                    y_position = 50
+                    print(f"DEBUG: Neue Seite innerhalb Kategorie '{category}' erstellt")
+                
+                # Ergebnis-Header
+                page_num = result['seitenzahl']
+                results_page.insert_text((70, y_position), f"📄 Ergebnis {ergebnis_counter}: Seite {page_num}", fontsize=14, color=(0, 0, 1))
+                
+                # Lesezeichen für einzelnes Ergebnis
+                try:
+                    corrected_page = page_num
+                    result_bookmark = [2, f"  → Seite {page_num}", corrected_page]
+                    result_doc._bookmarks.append(result_bookmark)
+                    print(f"DEBUG: Ergebnis-Lesezeichen für Seite {page_num} erstellt")
+                except Exception as bookmark_error:
+                    print(f"DEBUG: Ergebnis-Lesezeichen fehlgeschlagen: {bookmark_error}")
+                
+                # Visueller Hinweis
+                header_rect = fitz.Rect(70, y_position-2, 300, y_position+16)
+                results_page.draw_rect(header_rect, color=(0, 0, 1), width=1)
+                results_page.insert_text((305, y_position), f"→ Seite {page_num}", fontsize=10, color=(0, 0, 1))
+                
+                y_position += 25
+                
+                # Textausschnitt
+                import re
+                result_text = result.get('textstelle', '')
+                if isinstance(result_text, str):
+                    clean_text = re.sub(r'<[^>]+>', '', result_text)
+                    clean_text = clean_text[:350] + "..." if len(clean_text) > 350 else clean_text
                 else:
-                    if current_line:
-                        lines.append(current_line)
-                    current_line = word
-            if current_line:
-                lines.append(current_line)
+                    clean_text = "Kein Text verfügbar"
+                
+                # Text in Zeilen aufteilen
+                max_chars_per_line = 70
+                words = clean_text.split()
+                lines = []
+                current_line = ""
+                
+                for word in words:
+                    if len(current_line + " " + word) <= max_chars_per_line:
+                        current_line += " " + word if current_line else word
+                    else:
+                        if current_line:
+                            lines.append(current_line)
+                        current_line = word
+                if current_line:
+                    lines.append(current_line)
+                
+                # Text anzeigen
+                for line in lines[:4]:  # Max 4 Zeilen pro Ergebnis
+                    if y_position > 790:
+                        break
+                    results_page.insert_text((90, y_position), line, fontsize=10, color=(0.3, 0.3, 0.3))
+                    y_position += 15
+                
+                y_position += 20  # Abstand zwischen Ergebnissen
             
-            # Zeige maximal 5 Zeilen pro Ergebnis
-            lines_shown = 0
-            for line in lines[:5]:
-                if y_position > 790:  # Notfall-Seitenende
-                    print(f"DEBUG: Notfall-Seitenende erreicht bei Zeile {lines_shown}")
-                    break
-                results_page.insert_text((70, y_position), line, fontsize=10, color=(0.3, 0.3, 0.3))
-                y_position += 15
-                lines_shown += 1
-                print(f"DEBUG: Zeile {lines_shown} geschrieben, y_position: {y_position}")
-            
-            y_position += 15  # Extra Abstand zwischen Ergebnissen
-            print(f"DEBUG: Ergebnis {i+1} abgeschlossen, finale y_position: {y_position}")
-            
-            # Zwischenspeicherung zur Sicherheit
-            if (i + 1) % 3 == 0:  # Alle 3 Ergebnisse
-                print(f"DEBUG: Zwischenspeicherung nach {i+1} Ergebnissen")
+            y_position += 20  # Extra Abstand zwischen Kategorien
         
-        print(f"DEBUG: Alle {len(search_results)} Ergebnisse verarbeitet")
+        print(f"DEBUG: Alle {ergebnis_counter} Ergebnisse in {len(categorized_results)} Kategorien verarbeitet")
         
-        # Füge Lesezeichen zur PDF hinzu (falls welche erstellt wurden)
+        # Füge thematische Lesezeichen zur PDF hinzu
         try:
             if hasattr(result_doc, '_bookmarks') and result_doc._bookmarks:
                 result_doc.set_toc(result_doc._bookmarks)
-                print(f"DEBUG: {len(result_doc._bookmarks)} Lesezeichen zur PDF hinzugefügt")
-                print(f"DEBUG: Lesezeichen-Details: {result_doc._bookmarks}")
+                print(f"DEBUG: {len(result_doc._bookmarks)} thematische Lesezeichen zur PDF hinzugefügt")
                 
-                # TESTE VERSCHIEDENE SEITENZAHL-VARIANTEN
-                # Erstelle zusätzliche Test-Lesezeichen mit verschiedenen Berechnungen
-                test_bookmarks = []
-                for bookmark in result_doc._bookmarks[:3]:  # Nur erste 3 testen
-                    orig_page = bookmark[2]
-                    test_bookmarks.append([2, f"TEST: Seite {orig_page} → {orig_page-1} (0-basiert)", orig_page-1])
-                    test_bookmarks.append([2, f"TEST: Seite {orig_page} → {orig_page} (1-basiert)", orig_page])
-                    test_bookmarks.append([2, f"TEST: Seite {orig_page} → {orig_page+1} (+1)", orig_page+1])
-                
-                # Füge Test-Lesezeichen hinzu
-                all_bookmarks = result_doc._bookmarks + test_bookmarks
-                result_doc.set_toc(all_bookmarks)
-                print(f"DEBUG: {len(test_bookmarks)} Test-Lesezeichen hinzugefügt")
+                # Debug: Zeige Struktur der Lesezeichen
+                category_count = len([b for b in result_doc._bookmarks if b[0] == 1])
+                result_count = len([b for b in result_doc._bookmarks if b[0] == 2])
+                print(f"DEBUG: Lesezeichen-Struktur: {category_count} Kategorien, {result_count} Ergebnisse")
                 
         except Exception as toc_error:
             print(f"DEBUG: Lesezeichen konnten nicht hinzugefügt werden: {toc_error}")
