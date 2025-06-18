@@ -129,6 +129,7 @@
                                 <label for="suchanfrage" class="form-label">Ihre Anfrage / Suchbegriffe</label>
                                 <input type="text" class="form-control" id="suchanfrage" name="suchanfrage" placeholder="z.B. 'Anforderungen an Notbeleuchtung' oder 'IP65, Leuchte, Mast'" required>
                             </div>
+                            <input type="hidden" name="step" value="initial">
                             <button type="submit" class="btn btn-primary btn-lg w-100" id="mainSearchButton">Suche starten</button>
                         </form>
                     </div>
@@ -139,10 +140,105 @@
                     <h5 class="mt-3">Dokument wird analysiert... Dieser Vorgang kann einen Moment dauern.</h5>
                 </div>
 
+                {% if step == 'preview_terms' %}
+                    <div class="card shadow-sm mb-5" id="preview-terms-card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="bi bi-lightbulb"></i> 
+                                2. Erweiterte Suchbegriffe auswählen
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted mb-4">
+                                Die KI hat basierend auf Ihrer Anfrage "<strong>{{ suchanfrage }}</strong>" zusätzliche verwandte Begriffe gefunden. 
+                                Wählen Sie aus, welche Begriffe in die Suche einbezogen werden sollen:
+                            </p>
+                            
+                            <form method="post" id="expandedTermsForm">
+                                {% csrf_token %}
+                                <input type="hidden" name="step" value="search">
+                                <input type="hidden" name="pdf_filename" value="{{ pdf_filename }}">
+                                <input type="hidden" name="suchanfrage" value="{{ suchanfrage }}">
+                                <input type="hidden" name="search_type" value="{{ search_type }}">
+                                <input type="hidden" name="search_perspective" value="{{ search_perspective }}">
+                                <input type="hidden" name="seite_von" value="{{ seite_von }}">
+                                <input type="hidden" name="seite_bis" value="{{ seite_bis }}">
+                                <input type="hidden" name="ai_strictness" id="hidden_ai_strictness" value="50">
+                                
+                                <!-- Strenge-Einstellung für die Vorschau -->
+                                <div class="mb-4">
+                                    <label for="preview-ai-strictness" class="form-label">Strenge der KI-Suche: <span id="preview-strictness-value">Mittel</span></label>
+                                    <div class="d-flex align-items-center">
+                                        <span class="me-2 small text-muted">Locker</span>
+                                        <input type="range" class="form-range" min="0" max="100" step="5" value="50" id="preview-ai-strictness">
+                                        <span class="ms-2 small text-muted">Streng</span>
+                                    </div>
+                                    <small class="form-text text-muted">
+                                        "Streng" findet nur sehr genaue Treffer. "Locker" findet auch thematisch entferntere Ergebnisse.
+                                    </small>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6 class="text-success mb-3">
+                                            <i class="bi bi-check-circle"></i> 
+                                            Ihre ursprünglichen Suchbegriffe:
+                                        </h6>
+                                        <div class="mb-3">
+                                            {% for term in original_terms %}
+                                                <span class="badge bg-success me-2 mb-2 p-2">{{ term }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6 class="text-primary mb-3">
+                                            <i class="bi bi-plus-circle"></i> 
+                                            KI-erweiterte Begriffe (optional auswählen):
+                                        </h6>
+                                        <div class="mb-3">
+                                            {% for term in expanded_terms %}
+                                                <div class="form-check form-check-inline mb-2">
+                                                    <input class="form-check-input" type="checkbox" 
+                                                           id="expanded_term_{{ forloop.counter }}" 
+                                                           name="expanded_term_{{ forloop.counter }}"
+                                                           value="{{ term }}"
+                                                           checked>
+                                                    <label class="form-check-label btn btn-outline-primary btn-sm" 
+                                                           for="expanded_term_{{ forloop.counter }}">
+                                                        {{ term }}
+                                                    </label>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex justify-content-between align-items-center mt-4">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="toggleAllTerms(false)">
+                                        Alle abwählen
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary" onclick="toggleAllTerms(true)">
+                                        Alle auswählen
+                                    </button>
+                                    <button type="submit" class="btn btn-primary btn-lg">
+                                        <i class="bi bi-search"></i> 
+                                        Jetzt suchen
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                {% endif %}
 
                 {% if step == 'results' %}
                     {% if ergebnisse %}
-                        <h2 class="mt-5 mb-3">Suchergebnisse</h2>
+                        <div class="d-flex justify-content-between align-items-center mt-5 mb-3">
+                            <h2 class="mb-0">Suchergebnisse</h2>
+                            <div class="text-end">
+                                <small class="text-muted">Suchanfrage:</small><br>
+                                <strong>"{{ suchanfrage }}"</strong>
+                            </div>
+                        </div>
                         
                         <!-- Legende für Hervorhebungen -->
                         <div class="alert alert-info mb-4">
@@ -158,6 +254,33 @@
                                 </div>
                             </div>
                         </div>
+                        
+                        <!-- Erweiterte Suchbegriffe anzeigen (nur bei KI-Suche) -->
+                        {% if search_type == 'ai' and expanded_terms %}
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-lightbulb"></i> 
+                                        Erweiterte Suchbegriffe 
+                                        <small class="text-muted">(von KI gefunden)</small>
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <p class="small text-muted mb-2">Klicken Sie auf einen Begriff um eine neue Suche zu starten:</p>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        {% for term in expanded_terms %}
+                                            <button class="btn btn-outline-primary btn-sm search-term-btn" 
+                                                    data-term="{{ term }}" 
+                                                    data-perspective="{{ search_perspective }}"
+                                                    type="button">
+                                                {{ term }}
+                                            </button>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                        
                         <div class="list-group" id="ergebnis-liste">
                             {% for ergebnis in ergebnisse %}
                                 <div class="list-group-item flex-column align-items-start" data-preview-url="{% url 'pdf_sucher:pdf_page_preview' filename=pdf_filename page_num=ergebnis.seitenzahl %}?search_terms={{ search_terms|urlencode }}&search_type={{ search_type }}&context_text={{ ergebnis.textstelle|urlencode }}">
@@ -184,7 +307,17 @@
                     {% else %}
                          <div class="alert alert-warning mt-5">Keine passenden Textstellen für Ihre Anfrage gefunden.</div>
                     {% endif %}
+                
                 <div class="mt-4 text-center">
+                    {% if results_pdf_filename %}
+                        <a href="{% url 'pdf_sucher:view_pdf' filename=results_pdf_filename %}" class="btn btn-success me-3" target="_blank">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download" viewBox="0 0 16 16">
+                                <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                                <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                            </svg>
+                            PDF mit Suchergebnissen herunterladen
+                        </a>
+                    {% endif %}
                     <a href="{% url 'pdf_sucher:pdf_suche' %}" class="btn btn-outline-primary">Neue Suche starten</a>
                 </div>
                 {% endif %}
@@ -269,6 +402,45 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // --- Logik für erweiterte Suchbegriffe ---
+    document.addEventListener('click', function(event) {
+        const searchTermBtn = event.target.closest('.search-term-btn');
+        if (searchTermBtn) {
+            const term = searchTermBtn.dataset.term;
+            const perspective = searchTermBtn.dataset.perspective;
+            
+            // Setze den Begriff in das Suchfeld
+            const suchfeld = document.getElementById('suchanfrage');
+            if (suchfeld) {
+                suchfeld.value = term;
+            }
+            
+            // Setze die richtige Perspektive
+            const perspectiveRadio = document.querySelector(`input[name="search_perspective"][value="${perspective}"]`);
+            if (perspectiveRadio) {
+                perspectiveRadio.checked = true;
+            }
+            
+            // Setze auf KI-Suche
+            const aiRadio = document.getElementById('aiSearch');
+            if (aiRadio) {
+                aiRadio.checked = true;
+            }
+            
+            // Scrolle zum Suchformular
+            document.getElementById('search-card').scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' 
+            });
+            
+            // Optional: Markiere das Suchfeld
+            if (suchfeld) {
+                suchfeld.focus();
+                suchfeld.select();
+            }
+        }
+    });
+
     // --- Logik für die PDF-Vorschau ---
     const ergebnisListe = document.getElementById('ergebnis-liste');
     const previewContainer = document.getElementById('pdf-preview-container');
@@ -300,6 +472,39 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (previewLoader) previewLoader.innerHTML = 'Vorschau-Fehler';
             }
         }
+    }
+    
+    // --- Funktion für Erweiterte Begriffe Auswahl ---
+    window.toggleAllTerms = function(selectAll) {
+        const checkboxes = document.querySelectorAll('input[name^="expanded_term_"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = selectAll;
+        });
+    };
+    
+    // --- Logik für Vorschau-Strenge-Regler ---
+    const previewStrictnessSlider = document.getElementById('preview-ai-strictness');
+    const previewStrictnessValueSpan = document.getElementById('preview-strictness-value');
+    const hiddenStrictnessInput = document.getElementById('hidden_ai_strictness');
+    
+    if (previewStrictnessSlider && previewStrictnessValueSpan && hiddenStrictnessInput) {
+        function updatePreviewStrictnessLabel() {
+            const value = parseInt(previewStrictnessSlider.value);
+            if (value < 25) {
+                previewStrictnessValueSpan.textContent = 'Sehr Locker';
+            } else if (value < 50) {
+                previewStrictnessValueSpan.textContent = 'Locker';
+            } else if (value < 75) {
+                previewStrictnessValueSpan.textContent = 'Mittel';
+            } else {
+                previewStrictnessValueSpan.textContent = 'Streng';
+            }
+            // Sync with hidden input
+            hiddenStrictnessInput.value = value;
+        }
+        
+        previewStrictnessSlider.addEventListener('input', updatePreviewStrictnessLabel);
+        updatePreviewStrictnessLabel(); // Initial call
     }
 });
 </script>

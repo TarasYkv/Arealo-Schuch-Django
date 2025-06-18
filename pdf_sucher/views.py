@@ -59,17 +59,25 @@ def expand_search_terms_with_ai(query, perspective="sales"):
 
         Ursprüngliche Anfrage: "{query}"
 
-        Gib eine kommaseparierte Liste von 8-12 verwandten Suchbegriffen zurück, die thematisch relevant sind.
+        WICHTIG: Erweitere NUR um Begriffe, die thematisch eng verwandt mit der ursprünglichen Anfrage sind.
+        - Verwende Synonyme und Fachbegriffe der ursprünglichen Begriffe
+        - Füge KEINE allgemeinen Beleuchtungsbegriffe hinzu, wenn sie nicht zum Kontext passen
+        - Konzentriere dich auf die spezifische Bedeutung der Anfrage
+        - Wenn die Anfrage sehr spezifisch ist, erweitere nur minimal
+
+        Gib eine kommaseparierte Liste von 12-15 eng verwandten Suchbegriffen zurück.
 
         Erweiterte Begriffe für "{query}":
         """
         
+        print(f"DEBUG: Sende OpenAI-Anfrage für '{query}' mit Perspektive '{perspective}'")
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": expansion_prompt}],
             max_tokens=200,
             temperature=0.3
         )
+        print(f"DEBUG: OpenAI-Antwort erhalten")
         
         expanded_terms = response.choices[0].message.content.strip()
         # Bereinige und splitte die Begriffe
@@ -81,41 +89,179 @@ def expand_search_terms_with_ai(query, perspective="sales"):
     except Exception as e:
         print(f"FEHLER bei der Begriffserweiterung: {e}")
         # Fallback: Verwende ursprüngliche Query-Begriffe
-        return [term.strip() for term in query.split() if len(term.strip()) > 2]
+        fallback_terms = [term.strip() for term in query.split() if len(term.strip()) > 1]
+        print(f"DEBUG: Fallback zu ursprünglichen Begriffen: {fallback_terms}")
+        return fallback_terms
 
 
-def perform_semantic_search(pdf_path, query, page_range, threshold, perspective="sales"):
+def perform_semantic_search(pdf_path, query, page_range, strictness_threshold, perspective="sales"):
     """Führt eine KI-gestützte Suche durch, die verwandte Begriffe findet und danach sucht."""
     ergebnisse = []
     try:
         doc = fitz.open(pdf_path)
         start_page, end_page = page_range
 
-        # Erweitere Suchbegriffe mit KI basierend auf der gewählten Perspektive
+        # 1. Erweitere Suchbegriffe mit KI basierend auf der gewählten Perspektive
         expanded_search_terms = expand_search_terms_with_ai(query, perspective)
+        original_query_terms = [term.strip() for term in query.split() if len(term.strip()) > 1]
         
-        # Suche nach erweiterten Begriffen in jeder Seite
+        # Falls KI-Erweiterung fehlschlägt, verwende nur ursprüngliche Begriffe
+        if not expanded_search_terms:
+            expanded_search_terms = original_query_terms.copy()
+            print(f"DEBUG: KI-Erweiterung fehlgeschlagen, verwende nur ursprüngliche Begriffe: {expanded_search_terms}")
+        
+        print(f"DEBUG: Original-Begriffe: {original_query_terms}")
+        print(f"DEBUG: Erweiterte Begriffe: {expanded_search_terms}")
+        
+        # 2. Durchsuche alle Seiten nach den erweiterten Begriffen
         for page_num in range(start_page, end_page):
             page = doc.load_page(page_num)
             text = page.get_text("text")
             if not text.strip():
                 continue
                 
-            # Finde Begriffe auf dieser Seite
+            # Finde alle Begriffe auf dieser Seite
             found_terms = []
+            original_found = []
+            extended_found = []
+            
             for term in expanded_search_terms:
                 if term.lower() in text.lower():
                     found_terms.append(term)
+                    # Klassifiziere: Original oder erweitert?
+                    if any(orig_term.lower() == term.lower() or orig_term.lower() in term.lower() or term.lower() in orig_term.lower() 
+                           for orig_term in original_query_terms):
+                        original_found.append(term)
+                    else:
+                        extended_found.append(term)
             
             if found_terms:
-                # Berechne Relevanz-Score basierend auf Anzahl gefundener Begriffe
-                relevance_score = len(found_terms) / len(expanded_search_terms)
+                # 3. Berechne Relevanz basierend auf Strenge-Einstellung
+                # Strenge = wie wichtig ursprüngliche vs. erweiterte Begriffe sind
+                original_weight = strictness_threshold  # 0.1 = wenig streng, 0.8 = sehr streng
+                extended_weight = 1 - strictness_threshold
                 
-                # Extrahiere relevanten Kontext um die gefundenen Begriffe
+                # Score basierend auf gefundenen Original- und erweiterten Begriffen
+                original_score = len(original_found) / max(len(original_query_terms), 1) * original_weight
+                extended_score = len(extended_found) / max(len(expanded_search_terms) - len(original_query_terms), 1) * extended_weight
+                
+                relevance_score = original_score + extended_score
+                
+                # Jede Seite mit gefundenen Begriffen wird angezeigt
+                if True:  # Temporär: Zeige alle Fundstellen
+                    print(f"DEBUG: Seite {page_num + 1}")
+                    print(f"  Original gefunden: {original_found} (Score: {original_score:.3f})")
+                    print(f"  Erweitert gefunden: {extended_found} (Score: {extended_score:.3f})")
+                    print(f"  Gesamt-Relevanz: {relevance_score:.3f}")
+                    
+                    # Extrahiere relevanten Kontext
+                    context_snippet = extract_context_around_terms(text, found_terms, max_lines=9)
+                    highlighted_snippet = highlight_terms_in_text(context_snippet, found_terms, original_query_terms)
+                    
+                    ergebnisse.append({
+                        'seitenzahl': page_num + 1,
+                        'textstelle': context_snippet,
+                        'textstelle_highlighted': highlighted_snippet,
+                        'relevance_score': relevance_score,
+                        'found_terms': found_terms,
+                        'original_found': original_found,
+                        'extended_found': extended_found
+                    })
+        
+        doc.close()
+        
+        # 4. Sortiere nach Relevanz und wende Strenge-Filter an
+        ergebnisse.sort(key=lambda x: x['relevance_score'], reverse=True)
+        
+        print(f"DEBUG: {len(ergebnisse)} Gesamtergebnisse gefunden")
+        if ergebnisse:
+            print("DEBUG: Top Relevanz-Scores:", [round(r['relevance_score'], 3) for r in ergebnisse[:5]])
+        
+        # Wende Strenge-basierte Filterung an
+        if ergebnisse:
+            # Bei Strenge > 0.5: Nur Ergebnisse mit ursprünglichen Begriffen
+            if strictness_threshold > 0.5:
+                strict_results = [r for r in ergebnisse if r.get('original_found', [])]
+                if strict_results:
+                    print(f"DEBUG: Strenge Filterung: {len(strict_results)} von {len(ergebnisse)} Ergebnissen (nur mit ursprünglichen Begriffen)")
+                    return strict_results
+                else:
+                    print(f"DEBUG: Strenge Filterung ergab keine Ergebnisse - zeige beste 3")
+                    return ergebnisse[:3]
+            else:
+                # Bei niedriger Strenge: Alle Ergebnisse
+                print(f"DEBUG: Lockere Filterung: Zeige alle {len(ergebnisse)} gefundenen Ergebnisse")
+                return ergebnisse
+        else:
+            print("DEBUG: Keine Ergebnisse gefunden")
+            return []
+
+    except Exception as e:
+        print(f"FEHLER bei der semantischen Suche: {e}")
+        return []
+
+
+def perform_semantic_search_with_selected_terms(pdf_path, query, page_range, strictness_threshold, perspective="sales", selected_expanded_terms=None):
+    """Führt eine KI-gestützte Suche durch mit vorausgewählten erweiterten Begriffen."""
+    ergebnisse = []
+    try:
+        doc = fitz.open(pdf_path)
+        start_page, end_page = page_range
+
+        # 1. Verwende ursprüngliche Begriffe plus ausgewählte erweiterte Begriffe
+        original_query_terms = [term.strip() for term in query.split() if len(term.strip()) > 1]
+        
+        # Kombiniere ursprüngliche und ausgewählte erweiterte Begriffe
+        if selected_expanded_terms:
+            all_search_terms = original_query_terms + selected_expanded_terms
+        else:
+            # Fallback: Verwende automatisch generierte erweiterte Begriffe wenn keine ausgewählt wurden
+            expanded_search_terms = expand_search_terms_with_ai(query, perspective)
+            all_search_terms = original_query_terms + expanded_search_terms
+        
+        print(f"DEBUG: Original-Begriffe: {original_query_terms}")
+        print(f"DEBUG: Alle Suchbegriffe: {all_search_terms}")
+        
+        # 2. Durchsuche alle Seiten nach den kombinierten Begriffen
+        for page_num in range(start_page, end_page):
+            page = doc.load_page(page_num)
+            text = page.get_text("text")
+            if not text.strip():
+                continue
+                
+            # Finde alle Begriffe auf dieser Seite
+            found_terms = []
+            original_found = []
+            extended_found = []
+            
+            for term in all_search_terms:
+                if term.lower() in text.lower():
+                    found_terms.append(term)
+                    # Klassifiziere: Original oder erweitert?
+                    if any(orig_term.lower() == term.lower() or orig_term.lower() in term.lower() or term.lower() in orig_term.lower() 
+                           for orig_term in original_query_terms):
+                        original_found.append(term)
+                    else:
+                        extended_found.append(term)
+            
+            if found_terms:
+                # 3. Berechne Relevanz basierend auf Strenge-Einstellung
+                original_weight = strictness_threshold
+                extended_weight = 1 - strictness_threshold
+                
+                # Score basierend auf gefundenen Original- und erweiterten Begriffen
+                original_score = len(original_found) / max(len(original_query_terms), 1) * original_weight
+                extended_score = len(extended_found) / max(len(all_search_terms) - len(original_query_terms), 1) * extended_weight
+                
+                relevance_score = original_score + extended_score
+                
+                print(f"DEBUG: Seite {page_num + 1}")
+                print(f"  Original gefunden: {original_found} (Score: {original_score:.3f})")
+                print(f"  Erweitert gefunden: {extended_found} (Score: {extended_score:.3f})")
+                print(f"  Gesamt-Relevanz: {relevance_score:.3f}")
+                
+                # Extrahiere relevanten Kontext
                 context_snippet = extract_context_around_terms(text, found_terms, max_lines=9)
-                
-                # Hervorhebung der gefundenen Begriffe mit Unterscheidung zwischen ursprünglich und erweitert
-                original_query_terms = [term.strip() for term in query.split() if len(term.strip()) > 2]
                 highlighted_snippet = highlight_terms_in_text(context_snippet, found_terms, original_query_terms)
                 
                 ergebnisse.append({
@@ -123,21 +269,39 @@ def perform_semantic_search(pdf_path, query, page_range, threshold, perspective=
                     'textstelle': context_snippet,
                     'textstelle_highlighted': highlighted_snippet,
                     'relevance_score': relevance_score,
-                    'found_terms': found_terms
+                    'found_terms': found_terms,
+                    'original_found': original_found,
+                    'extended_found': extended_found
                 })
         
         doc.close()
         
-        # Sortiere Ergebnisse nach Relevanz-Score
+        # 4. Sortiere nach Relevanz und wende Strenge-Filter an
         ergebnisse.sort(key=lambda x: x['relevance_score'], reverse=True)
         
-        print(f"DEBUG: Gefunden {len(ergebnisse)} relevante Seiten")
-        print("DEBUG: Top Ergebnisse:", [(r['seitenzahl'], round(r['relevance_score'], 3), len(r['found_terms'])) for r in ergebnisse[:5]])
+        print(f"DEBUG: {len(ergebnisse)} Gesamtergebnisse gefunden")
+        if ergebnisse:
+            print("DEBUG: Top Relevanz-Scores:", [round(r['relevance_score'], 3) for r in ergebnisse[:5]])
         
-        return ergebnisse[:10]  # Maximal 10 Ergebnisse
+        # Wende Strenge-basierte Filterung an
+        if ergebnisse:
+            if strictness_threshold > 0.5:
+                strict_results = [r for r in ergebnisse if r.get('original_found', [])]
+                if strict_results:
+                    print(f"DEBUG: Strenge Filterung: {len(strict_results)} von {len(ergebnisse)} Ergebnissen")
+                    return strict_results
+                else:
+                    print(f"DEBUG: Strenge Filterung ergab keine Ergebnisse - zeige beste 3")
+                    return ergebnisse[:3]
+            else:
+                print(f"DEBUG: Lockere Filterung: Zeige alle {len(ergebnisse)} gefundenen Ergebnisse")
+                return ergebnisse
+        else:
+            print("DEBUG: Keine Ergebnisse gefunden")
+            return []
 
     except Exception as e:
-        print(f"FEHLER bei der semantischen Suche: {e}")
+        print(f"FEHLER bei der semantischen Suche mit ausgewählten Begriffen: {e}")
         return []
 
 
@@ -287,6 +451,7 @@ def search_text_in_pdf(pdf_path, search_terms, page_range):
 def pdf_suche(request):
     """Hauptansicht für die PDF-Suche."""
     if request.method == "POST":
+        step = request.POST.get("step", "initial")
         search_type = request.POST.get("search_type")
         search_perspective = request.POST.get("search_perspective", "sales")
         suchanfrage = request.POST.get("suchanfrage")
@@ -294,40 +459,102 @@ def pdf_suche(request):
         seite_von_str = request.POST.get("seite_von")
         seite_bis_str = request.POST.get("seite_bis")
 
-        if not pdf_file:
-            return render(request, "pdf_sucher/suche.html",
-                          {"step": "initial", "error_message": "Bitte eine PDF-Datei hochladen."})
-
-        fs = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, "pdfs"))
-        filename = secure_filename(pdf_file.name)
-        base, extension = os.path.splitext(filename)
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        unique_filename = f"{base}_{timestamp}{extension}"
-        pdf_filename = fs.save(unique_filename, pdf_file)
-        pdf_path = fs.path(pdf_filename)
-
-        try:
-            doc = fitz.open(pdf_path)
-            start_page = int(seite_von_str) - 1 if seite_von_str.isdigit() else 0
-            end_page = int(seite_bis_str) if seite_bis_str.isdigit() else len(doc)
-            page_range = (max(0, start_page), min(len(doc), end_page))
-            doc.close()
-        except Exception as e:
-            return render(request, "pdf_sucher/suche.html",
-                          {"step": "initial", "error_message": f"PDF konnte nicht verarbeitet werden: {e}"})
-
-        ergebnisse = []
-        if search_type == 'ai':
-            strictness_value_str = request.POST.get('ai_strictness', '50')
+        # Schritt 1: Initiale Suche - Zeige erweiterte Begriffe für KI-Suche
+        if step == "initial" and search_type == "ai":
+            if not pdf_file:
+                return render(request, "pdf_sucher/suche.html",
+                              {"step": "initial", "error_message": "Bitte eine PDF-Datei hochladen."})
+            
+            # Speichere PDF temporär
+            fs = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, "pdfs"))
+            filename = secure_filename(pdf_file.name)
+            base, extension = os.path.splitext(filename)
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            unique_filename = f"{base}_{timestamp}{extension}"
+            pdf_filename = fs.save(unique_filename, pdf_file)
+            
+            # Validiere Seitenbereich
             try:
-                strictness_value = float(strictness_value_str)
-            except (ValueError, TypeError):
-                strictness_value = 50.0
+                doc = fitz.open(fs.path(pdf_filename))
+                start_page = int(seite_von_str) - 1 if seite_von_str.isdigit() else 0
+                end_page = int(seite_bis_str) if seite_bis_str.isdigit() else len(doc)
+                doc.close()
+            except Exception as e:
+                return render(request, "pdf_sucher/suche.html",
+                              {"step": "initial", "error_message": f"PDF konnte nicht verarbeitet werden: {e}"})
+            
+            # Generiere erweiterte Suchbegriffe
+            expanded_terms = expand_search_terms_with_ai(suchanfrage, search_perspective)
+            
+            context = {
+                'step': 'preview_terms',
+                'pdf_filename': pdf_filename,
+                'suchanfrage': suchanfrage,
+                'search_type': search_type,
+                'search_perspective': search_perspective,
+                'seite_von': seite_von_str,
+                'seite_bis': seite_bis_str,
+                'expanded_terms': expanded_terms,
+                'original_terms': [term.strip() for term in suchanfrage.split() if len(term.strip()) > 1]
+            }
+            return render(request, "pdf_sucher/suche.html", context)
+        
+        # Schritt 2: Führe die eigentliche Suche durch
+        if step == "search" or search_type == "simple":
+            # Für einfache Suche oder wenn erweiterte Begriffe bereits ausgewählt wurden
+            pdf_filename = request.POST.get("pdf_filename")
+            if not pdf_filename:
+                if not pdf_file:
+                    return render(request, "pdf_sucher/suche.html",
+                                  {"step": "initial", "error_message": "Bitte eine PDF-Datei hochladen."})
+                
+                fs = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, "pdfs"))
+                filename = secure_filename(pdf_file.name)
+                base, extension = os.path.splitext(filename)
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                unique_filename = f"{base}_{timestamp}{extension}"
+                pdf_filename = fs.save(unique_filename, pdf_file)
+            
+            pdf_path = os.path.join(settings.MEDIA_ROOT, "pdfs", pdf_filename)
 
-            # Umrechnung des Regler-Wertes (0-100) in einen Schwellenwert (0.65 - 0.85)
-            similarity_threshold = 0.65 + (strictness_value / 100.0) * 0.20
+            try:
+                doc = fitz.open(pdf_path)
+                start_page = int(seite_von_str) - 1 if seite_von_str.isdigit() else 0
+                end_page = int(seite_bis_str) if seite_bis_str.isdigit() else len(doc)
+                page_range = (max(0, start_page), min(len(doc), end_page))
+                doc.close()
+            except Exception as e:
+                return render(request, "pdf_sucher/suche.html",
+                              {"step": "initial", "error_message": f"PDF konnte nicht verarbeitet werden: {e}"})
 
-            ergebnisse = perform_semantic_search(pdf_path, suchanfrage, page_range, similarity_threshold, search_perspective)
+            ergebnisse = []
+            if search_type == 'ai':
+                strictness_value_str = request.POST.get('ai_strictness', '50')
+                try:
+                    strictness_value = float(strictness_value_str)
+                except (ValueError, TypeError):
+                    strictness_value = 50.0
+
+                # Umrechnung des Regler-Wertes (0-100) in einen Schwellenwert (0.1 - 0.8)
+                # Niedrigere Werte = weniger streng, mehr Ergebnisse
+                similarity_threshold = 0.1 + (strictness_value / 100.0) * 0.7
+                print(f"DEBUG: Strenge-Wert: {strictness_value}, Schwellenwert: {similarity_threshold:.3f}")
+
+                # Sammle ausgewählte erweiterte Begriffe
+                selected_expanded_terms = []
+                if step == "search":
+                    # Hole alle ausgewählten erweiterten Begriffe aus den Checkboxes
+                    for key, value in request.POST.items():
+                        if key.startswith('expanded_term_'):
+                            # Der Wert der Checkbox ist der Begriff selbst
+                            selected_expanded_terms.append(value)
+                    
+                    print(f"DEBUG: Ausgewählte erweiterte Begriffe: {selected_expanded_terms}")
+
+                ergebnisse = perform_semantic_search_with_selected_terms(
+                    pdf_path, suchanfrage, page_range, similarity_threshold, 
+                    search_perspective, selected_expanded_terms
+                )
 
         elif search_type == 'simple':
             search_terms = [term.strip() for term in suchanfrage.split(",")]
@@ -350,14 +577,32 @@ def pdf_suche(request):
             if not search_terms_for_preview:
                 search_terms_for_preview = [term.strip() for term in suchanfrage.split() if len(term.strip()) > 2]
         
+        # Generiere PDF mit Suchergebnissen
+        results_pdf_filename = None
+        if ergebnisse:
+            results_pdf_filename = generate_search_results_pdf(
+                pdf_path, ergebnisse, suchanfrage, search_type, search_perspective
+            )
+        
+        # Sammle alle erweiterten Begriffe für die Anzeige
+        expanded_terms_for_display = []
+        if search_type == 'ai' and ergebnisse:
+            # Versuche die erweiterten Begriffe aus dem ersten Ergebnis zu holen
+            try:
+                expanded_terms_for_display = expand_search_terms_with_ai(suchanfrage, search_perspective)
+            except:
+                expanded_terms_for_display = []
+        
         context = {
             'step': 'results',
             'ergebnisse': ergebnisse,
             'pdf_filename': pdf_filename,
+            'results_pdf_filename': results_pdf_filename,
             'search_terms': ','.join(search_terms_for_preview),
             'search_type': search_type,
             'search_perspective': search_perspective,
             'suchanfrage': suchanfrage,
+            'expanded_terms': expanded_terms_for_display,
         }
         return render(request, "pdf_sucher/suche.html", context)
 
@@ -420,6 +665,112 @@ def highlight_context_in_pdf_page(page, context_text, highlight_color=[1, 1, 0])
                 if highlighted_count >= max_highlights:
                     break
             break  # Stoppe nach der ersten erfolgreichen Phrase
+
+
+def generate_search_results_pdf(original_pdf_path, search_results, search_query, search_type, search_perspective=None):
+    """Erstellt eine PDF mit den Suchergebnissen und Links zu den Fundstellen."""
+    try:
+        # Erstelle temporäre Datei für die Ergebnis-PDF
+        temp_filename = f"suchergebnisse_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        temp_path = os.path.join(settings.MEDIA_ROOT, "pdfs", temp_filename)
+        
+        # Öffne das Original-PDF
+        original_doc = fitz.open(original_pdf_path)
+        
+        # Erstelle eine Kopie des Original-PDFs
+        result_doc = fitz.open()
+        result_doc.insert_pdf(original_doc)
+        
+        # Erstelle eine neue Seite für die Suchergebnisse
+        results_page = result_doc.new_page(width=595, height=842)  # A4 Format
+        
+        # Text-Inhalt für die Ergebnisseite
+        y_position = 800
+        
+        # Titel
+        results_page.insert_text((50, y_position), "Suchergebnisse", fontsize=20, color=(0, 0, 0))
+        y_position -= 40
+        
+        # Suchdetails
+        results_page.insert_text((50, y_position), f"Suchanfrage: {search_query}", fontsize=12, color=(0, 0, 0))
+        y_position -= 20
+        
+        search_type_text = "KI-gestützte Kontextsuche" if search_type == "ai" else "Einfache Textsuche"
+        results_page.insert_text((50, y_position), f"Suchmethode: {search_type_text}", fontsize=12, color=(0, 0, 0))
+        y_position -= 20
+        
+        if search_type == "ai" and search_perspective:
+            perspective_text = "Vertriebsmitarbeiter" if search_perspective == "sales" else "Entwickler/Techniker"
+            results_page.insert_text((50, y_position), f"Perspektive: {perspective_text}", fontsize=12, color=(0, 0, 0))
+            y_position -= 20
+        
+        results_page.insert_text((50, y_position), f"Gefundene Ergebnisse: {len(search_results)}", fontsize=12, color=(0, 0, 0))
+        y_position -= 40
+        
+        # Ergebnisse auflisten
+        for i, result in enumerate(search_results):  # Alle Ergebnisse
+            if y_position < 150:  # Neue Seite wenn zu wenig Platz
+                results_page = result_doc.new_page(width=595, height=842)
+                y_position = 800
+            
+            # Ergebnis-Header mit Link
+            page_num = result['seitenzahl']
+            results_page.insert_text((50, y_position), f"Ergebnis {i+1}: Seite {page_num}", fontsize=14, color=(0, 0, 1))
+            
+            # Erstelle Link zur entsprechenden Seite
+            link_rect = fitz.Rect(50, y_position-15, 200, y_position+5)
+            link = results_page.insert_link({
+                "kind": fitz.LINK_GOTO,
+                "page": page_num - 1,  # 0-basiert
+                "to": fitz.Point(0, 0)
+            }, link_rect)
+            
+            y_position -= 25
+            
+            # Textausschnitt (ohne HTML-Tags)
+            import re
+            result_text = result.get('textstelle', '')
+            if isinstance(result_text, str):
+                clean_text = re.sub(r'<[^>]+>', '', result_text)
+                clean_text = clean_text[:300] + "..." if len(clean_text) > 300 else clean_text
+            else:
+                clean_text = "Kein Text verfügbar"
+            
+            # Teile langen Text in mehrere Zeilen auf
+            max_chars_per_line = 80
+            words = clean_text.split()
+            lines = []
+            current_line = ""
+            
+            for word in words:
+                if len(current_line + " " + word) <= max_chars_per_line:
+                    current_line += " " + word if current_line else word
+                else:
+                    if current_line:
+                        lines.append(current_line)
+                    current_line = word
+            if current_line:
+                lines.append(current_line)
+            
+            # Zeige maximal 4 Zeilen pro Ergebnis
+            for line in lines[:4]:
+                if y_position < 50:
+                    break
+                results_page.insert_text((70, y_position), line, fontsize=10, color=(0.3, 0.3, 0.3))
+                y_position -= 15
+            
+            y_position -= 10  # Extra Abstand zwischen Ergebnissen
+        
+        # Speichere die neue PDF
+        result_doc.save(temp_path)
+        result_doc.close()
+        original_doc.close()
+        
+        return temp_filename
+        
+    except Exception as e:
+        print(f"FEHLER bei der PDF-Generierung: {e}")
+        return None
 
 
 def pdf_page_preview(request, filename, page_num):
