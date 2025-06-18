@@ -621,7 +621,6 @@ def view_pdf(request, filename):
         return FileResponse(open(pdf_path, "rb"), content_type="application/pdf")
     raise Http404("PDF nicht gefunden")
 
-
 def highlight_context_in_pdf_page(page, context_text, highlight_color=[1, 1, 0]):
     """Hebt den gefundenen Kontext im PDF hervor basierend auf dem extrahierten Text."""
     import re
@@ -688,8 +687,9 @@ def generate_search_results_pdf(original_pdf_path, search_results, search_query,
         result_doc = fitz.open()
         result_doc.insert_pdf(original_doc)
         
-        # Erstelle eine neue Seite für die Suchergebnisse am ANFANG der PDF
-        results_page = result_doc.new_page(0, width=595, height=842)  # A4 Format, Position 0 = am Anfang
+        # Erstelle eine neue Seite für die Suchergebnisse am ENDE der PDF (keine Verschiebung!)
+        results_page = result_doc.new_page(width=595, height=842)  # A4 Format am Ende
+        print(f"DEBUG: Suchergebnisse-Seite am Ende eingefügt. Original-PDF hatte {len(original_doc)} Seiten, neue PDF hat {len(result_doc)} Seiten")
         
         # Text-Inhalt für die Ergebnisseite (Koordinaten von oben nach unten)
         y_position = 50  # Start von oben (50pt Abstand vom oberen Rand)
@@ -738,13 +738,14 @@ def generate_search_results_pdf(original_pdf_path, search_results, search_query,
         print(f"DEBUG: Beginne mit der Erstellung von {len(search_results)} Ergebnissen")
         
         for i, result in enumerate(search_results):  # Alle Ergebnisse
-            print(f"DEBUG: Verarbeite Ergebnis {i+1}/{len(search_results)}")
+            print(f"DEBUG: Verarbeite Ergebnis {i+1}/{len(search_results)}, aktuelle y_position: {y_position}")
             
-            # Prüfe ob genug Platz für das gesamte Ergebnis (ca. 100pt benötigt)
-            if y_position > 720:  # Sicherheitsabstand zum Seitenende (842pt - 120pt = 720pt)
+            # Prüfe ob genug Platz für das gesamte Ergebnis (ca. 120pt benötigt)
+            if y_position > 700:  # Früher Seitenwechsel für Sicherheit
                 print(f"DEBUG: Erstelle neue Seite bei y_position {y_position}")
                 results_page = result_doc.new_page(width=595, height=842)
                 y_position = 50  # Wieder von oben anfangen
+                print(f"DEBUG: Neue Seite erstellt, y_position zurückgesetzt auf {y_position}")
             
             # Ergebnis-Header 
             page_num = result['seitenzahl']
@@ -756,44 +757,27 @@ def generate_search_results_pdf(original_pdf_path, search_results, search_query,
             
             # Erstelle Lesezeichen für bessere Navigation
             try:
-                # Erstelle Lesezeichen zur Original-Seite
-                toc_entry = [1, f"Ergebnis {i+1} (Seite {page_num})", target_page]
+                # Keine Verschiebung mehr nötig: Suchergebnisse-Seite ist jetzt am Ende
+                # Original-Seite 98 bleibt an Position 98-1=97 (0-basiert)
+                corrected_page = page_num - 1  # Einfach 0-basierte Konvertierung
+                toc_entry = [1, f"Ergebnis {i+1} (Original: Seite {page_num})", corrected_page]
                 if not hasattr(result_doc, '_bookmarks'):
                     result_doc._bookmarks = []
                 result_doc._bookmarks.append(toc_entry)
-                print(f"DEBUG: Lesezeichen für Seite {page_num} erstellt")
+                print(f"DEBUG: Lesezeichen für Original-Seite {page_num} → PDF-Index {corrected_page} erstellt")
             except Exception as bookmark_error:
                 print(f"DEBUG: Lesezeichen-Erstellung fehlgeschlagen: {bookmark_error}")
             
-            # Versuche robuste Link-Erstellung
-            try:
-                # Einfachster möglicher Link-Ansatz
-                if 0 <= target_page < len(result_doc):
-                    link_dict = {"kind": fitz.LINK_GOTO, "page": target_page}
-                    results_page.insert_link(link_dict, header_rect)
-                    print(f"DEBUG: Einfacher Link zu Seite {page_num} erstellt")
-                    
-                    # Visueller Hinweis für funktionierende Links
-                    results_page.draw_rect(header_rect, color=(0, 0, 1), width=2)
-                    results_page.insert_text(
-                        (255, y_position), 
-                        "📄 ← KLICK", 
-                        fontsize=10, 
-                        color=(0, 0, 1)
-                    )
-                else:
-                    print(f"DEBUG: Ungültige Seitenzahl {target_page}")
-                    
-            except Exception as link_error:
-                print(f"DEBUG: Link-Erstellung fehlgeschlagen: {link_error}")
-                # Fallback: Nur visueller Hinweis
-                results_page.draw_rect(header_rect, color=(0.5, 0.5, 0.5), width=1)
-                results_page.insert_text(
-                    (255, y_position), 
-                    f"(→ Seite {page_num})", 
-                    fontsize=10, 
-                    color=(0.5, 0.5, 0.5)
-                )
+            # DEAKTIVIERE LINKS TEMPORÄR - sie verursachen "document closed" Fehler
+            # Nur visueller Hinweis ohne Links
+            results_page.draw_rect(header_rect, color=(0, 0, 1), width=1)
+            results_page.insert_text(
+                (255, y_position), 
+                f"→ Seite {page_num}", 
+                fontsize=10, 
+                color=(0, 0, 1)
+            )
+            print(f"DEBUG: Visueller Hinweis für Seite {page_num} erstellt (ohne Link)")
             
             y_position += 25
             
@@ -825,15 +809,20 @@ def generate_search_results_pdf(original_pdf_path, search_results, search_query,
             # Zeige maximal 5 Zeilen pro Ergebnis
             lines_shown = 0
             for line in lines[:5]:
-                if y_position > 800:  # Notfall-Seitenende
-                    print(f"DEBUG: Seitenende erreicht bei Zeile {lines_shown}")
+                if y_position > 790:  # Notfall-Seitenende
+                    print(f"DEBUG: Notfall-Seitenende erreicht bei Zeile {lines_shown}")
                     break
                 results_page.insert_text((70, y_position), line, fontsize=10, color=(0.3, 0.3, 0.3))
                 y_position += 15
                 lines_shown += 1
+                print(f"DEBUG: Zeile {lines_shown} geschrieben, y_position: {y_position}")
             
             y_position += 15  # Extra Abstand zwischen Ergebnissen
-            print(f"DEBUG: Ergebnis {i+1} abgeschlossen, y_position: {y_position}")
+            print(f"DEBUG: Ergebnis {i+1} abgeschlossen, finale y_position: {y_position}")
+            
+            # Zwischenspeicherung zur Sicherheit
+            if (i + 1) % 3 == 0:  # Alle 3 Ergebnisse
+                print(f"DEBUG: Zwischenspeicherung nach {i+1} Ergebnissen")
         
         print(f"DEBUG: Alle {len(search_results)} Ergebnisse verarbeitet")
         
@@ -845,12 +834,30 @@ def generate_search_results_pdf(original_pdf_path, search_results, search_query,
         except Exception as toc_error:
             print(f"DEBUG: Lesezeichen konnten nicht hinzugefügt werden: {toc_error}")
         
+        # Ermittle Seitenanzahl vor dem Schließen
+        total_pages = len(result_doc)
+        
         # Speichere die neue PDF mit optimierten Einstellungen
-        result_doc.save(temp_path, 
-                       garbage=4,     # Optimiert die PDF
-                       clean=True,    # Bereinigt die PDF
-                       deflate=True   # Komprimiert die PDF
-                       )
+        try:
+            result_doc.save(temp_path, 
+                           garbage=4,     # Optimiert die PDF
+                           clean=True,    # Bereinigt die PDF
+                           deflate=True   # Komprimiert die PDF
+                           )
+            print(f"DEBUG: PDF erfolgreich gespeichert")
+        except Exception as save_error:
+            print(f"DEBUG: FEHLER beim Speichern: {save_error}")
+            # Versuche einfaches Speichern
+            try:
+                result_doc.save(temp_path)
+                print(f"DEBUG: PDF mit einfachen Einstellungen gespeichert")
+            except Exception as simple_save_error:
+                print(f"DEBUG: Auch einfaches Speichern fehlgeschlagen: {simple_save_error}")
+                result_doc.close()
+                original_doc.close()
+                return None
+        
+        # Schließe Dokumente
         result_doc.close()
         original_doc.close()
         
@@ -859,11 +866,12 @@ def generate_search_results_pdf(original_pdf_path, search_results, search_query,
         # Überprüfe ob die PDF-Datei tatsächlich erstellt wurde
         if os.path.exists(temp_path):
             file_size = os.path.getsize(temp_path)
-            print(f"DEBUG: PDF-Datei existiert, Größe: {file_size} Bytes")
+            print(f"DEBUG: PDF-Datei existiert, Größe: {file_size} Bytes, Seiten: {total_pages}")
+            print(f"DEBUG: PDF enthält {len(search_results)} Suchergebnisse auf {total_pages} Seiten")
+            return temp_filename
         else:
             print(f"DEBUG: WARNUNG - PDF-Datei wurde nicht erstellt!")
-            
-        return temp_filename
+            return None
         
     except Exception as e:
         print(f"FEHLER bei der PDF-Generierung: {e}")
