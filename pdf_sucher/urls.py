@@ -13,4 +13,8 @@ urlpatterns = [
     path('preview/<str:filename>/<int:page_num>/', views.pdf_page_preview, name='pdf_page_preview'),
 
     path('view/<str:filename>/', views.view_pdf, name='view_pdf'),
+    
+    # Neue Endpoints für Ampel-Funktionalität
+    path('ampel-locations/', views.get_ampel_locations, name='ampel_locations'),
+    path('page-image/<str:filename>/<int:page_num>/', views.get_pdf_page_image, name='pdf_page_image'),
 ]

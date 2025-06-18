@@ -23,6 +23,362 @@ def cosine_similarity(v1, v2):
     return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
 
 
+def get_category_examples(category_name):
+    """Gibt kategoriespezifische Beispiele für bessere KI-Prompts zurück."""
+    examples = {
+        "Feuchtraumleuchten": """
+        feuchtraumleuchte, feuchtraumlampe, feuchtraumstrahler, feuchtraumarmatur, feuchtraumbeleuchtung,
+        nassraumleuchte, nasszellenlicht, spritzwassergeschützt, wasserdicht, wasserfest,
+        ip65, ip66, ip67, ip68, schutzart, schutzklasse,
+        badleuchte, badlampe, badbeleuchtung, duschleuchte, saunaleuchte,
+        kellerleuchte, garagenleuchte, außenleuchte, terrassenleuchte,
+        wandleuchte feuchtraum, deckenleuchte feuchtraum, aufbauleuchte feuchtraum,
+        led feuchtraum, t8 feuchtraum, wannenleuchte, feuchtraumwanne
+        """,
+        
+        "Hallenleuchten": """
+        hallenleuchte, hallenstrahler, hallenbeleuchtung, hallenlampe, industrieleuchte,
+        highbay, high bay, tiefstrahler, flutlicht, hallenlicht,
+        lagerbeleuchtung, fabrikbeleuchtung, produktionsbeleuchtung, werkstattbeleuchtung,
+        linearleuchte, lichtband, rasterleuchte, pendelleuchte industrie,
+        led hallenstrahler, hql ersatz, hqi ersatz, natriumdampflampe ersatz,
+        hochregalbeleuchtung, güterhallenbeleuchtung, montagehalle, produktionshalle,
+        deckenmontage, abgehängte montage, seilaufhängung, kettenaufhängung,
+        arbeitsplatzbeleuchtung, maschinenbeleuchtung, bandbeleuchtung
+        """,
+        
+        "Lichtmanagement": """
+        lichtsteuerung, lichtregelung, lichtmanagement, beleuchtungssteuerung,
+        bewegungsmelder, präsenzmelder, lichtsensor, helligkeitssensor, dämmerungsschalter,
+        dali, dali-2, knx, eib, lcn, lichtbus, bussystem,
+        dimmer, dimmen, dimmbar, stufendimmer, phasendimmer,
+        tageslichtregelung, tageslichtabhängig, konstantlichtregelung,
+        zeitschaltuhr, astroschaltuhr, wochenzeitschaltuhr,
+        smart lighting, iot beleuchtung, vernetzte beleuchtung,
+        szenensteuerung, lichtszenen, beleuchtungsszenarien,
+        energiemanagement, energieeinsparung, standby, eco modus
+        """,
+        
+        "EX-Leuchten": """
+        ex-leuchte, explosionsgeschützte leuchte, explosionsschutz, ex-schutz,
+        atex, iecex, ex-zone, explosionsgefahr, gasexplosion, staubexplosion,
+        zone 1, zone 2, zone 21, zone 22, zone 0,
+        ex d, ex e, ex i, ex m, ex n, ex p, ex t,
+        druckfeste kapselung, erhöhte sicherheit, eigensicherheit,
+        verguss, überdruckkapselung, sandkapselung,
+        gasex, staubex, chemieanlage, raffinerie, petrochemie,
+        lackiererei, siloanlage, mühle, getreidesilo,
+        ex-zertifizierung, ex-kennzeichnung, ex-prüfung,
+        temperaturklasse, zündgruppe, gießharz, robustes gehäuse
+        """,
+        
+        "Straßenleuchten": """
+        straßenleuchte, straßenlampe, straßenlaterne, mastleuchte, ausleuchte,
+        led straßenleuchte, natriumdampflampe straße, quecksilberdampflampe straße,
+        straßenbeleuchtung, außenbeleuchtung, verkehrswegebeleuchtung,
+        lichtmast, beleuchtungsmast, lichtpunkt, mastaufsatz,
+        parkplatzbeleuchtung, wegbeleuchtung, platzbeleuchtung,
+        ansatzleuchte, aufsatzleuchte, mastansatz, mastaufsatz,
+        lichtverteilung straße, lichtlenkung, asymmetrisch, symmetrisch,
+        blendungsbegrenzung, lichtverschmutzung, upward light ratio,
+        en 13201, straßenbeleuchtungsnorm, beleuchtungsklasse,
+        fernsteuerung straße, dimmung straße, nachtabsenkung
+        """,
+        
+        "Notleuchten": """
+        notleuchte, notlicht, sicherheitsleuchte, sicherheitsbeleuchtung,
+        rettungszeichenleuchte, rettungswegleuchte, fluchtwegleuchte, notausgangsleuchte,
+        antipanikleuchte, sicherheitszeichenleuchte, hinweisleuchte,
+        einzelbatterie, zentralbatterie, zentralbatterieanlage, gruppenbatterie,
+        dauerlicht, bereitschaftslicht, kombinationslicht,
+        selbsttest, funktionstestung, batteriemonitoring,
+        din en 1838, din vde 0108, arbeitsstättenrichtlinie, bauordnung,
+        wandmontage, deckenmontage, pendelleuchte, einbauleuchte,
+        piktogramm, rettungszeichen, fluchtrichtung, sammelstelle,
+        brandfall, stromausfall, evakuierung, fluchtweg,
+        notbeleuchtung, ersatzbeleuchtung, reservebeleuchtung
+        """
+    }
+    return examples.get(category_name, "")
+
+
+def generate_category_keywords_with_ai(category_name):
+    """Generiert verwandte Begriffe für eine Leuchtenkategorie mit OpenAI."""
+    try:
+        prompt = f"""
+        Du bist ein Experte für Beleuchtungstechnik und Elektroinstallation. Generiere eine umfassende Liste von 25-30 verwandten Begriffen, Synonymen und Fachausdrücken für die Kategorie "{category_name}".
+
+        WICHTIG: Finde möglichst viele verschiedene Begriffe, die in technischen Ausschreibungen verwendet werden können:
+        
+        Für "{category_name}" suche Begriffe in folgenden Kategorien:
+        
+        1. DIREKTE SYNONYME UND VARIANTEN:
+        - Alternative Bezeichnungen und Schreibweisen
+        - Umgangssprachliche und fachsprachliche Begriffe
+        - Marken- und Produktbezeichnungen
+        
+        2. TECHNISCHE EIGENSCHAFTEN:
+        - Schutzarten (IP-Klassen, Schutzklassen)
+        - Materialien und Bauformen
+        - Elektrische Parameter
+        - Montagetechniken
+        
+        3. ANWENDUNGSBEREICHE:
+        - Spezifische Einsatzorte und Räume
+        - Industriezweige und Gebäudetypen
+        - Besondere Anforderungen
+        
+        4. NORMEN UND STANDARDS:
+        - DIN/EN Normen
+        - Zertifizierungen
+        - Prüfzeichen
+        
+        5. VERWANDTE KOMPONENTEN:
+        - Zubehör und Ersatzteile
+        - Steuerungs- und Regelungstechnik
+        - Installationsmaterial
+        
+        Beispiele für "{category_name}":
+        {get_category_examples(category_name)}
+        
+        Gib NUR eine kommaseparierte Liste zurück, keine Erklärungen oder zusätzlichen Text:
+        """
+        
+        print(f"DEBUG: Generiere KI-Begriffe für Kategorie '{category_name}'")
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=150,
+            temperature=0.3
+        )
+        
+        keywords_text = response.choices[0].message.content.strip()
+        keywords = [kw.strip().lower() for kw in keywords_text.split(',') if kw.strip()]
+        
+        print(f"DEBUG: KI-generierte Begriffe für '{category_name}': {keywords}")
+        return keywords
+        
+    except Exception as e:
+        print(f"FEHLER bei KI-Begriffsgenerierung für '{category_name}': {e}")
+        # Fallback: Verwende vordefinierte Begriffe
+        fallback_keywords = {
+            "Feuchtraumleuchten": ["feuchtraum", "ip65", "ip66", "wasserdicht", "spritzwasser", "bad", "keller", "schutzart"],
+            "Hallenleuchten": ["halle", "industrie", "lager", "fabrik", "produktion", "hallenstrahler", "linearleuchte"],
+            "Lichtmanagement": ["dali", "knx", "dimmer", "steuerung", "sensor", "bewegungsmelder", "automation", "smart"],
+            "EX-Leuchten": ["ex", "explosion", "atex", "zone", "explosionsschutz", "gasex", "staubex"],
+            "Straßenleuchten": ["straße", "außenbeleuchtung", "mast", "kandelaber", "parkplatz", "verkehr"],
+            "Notleuchten": ["notlicht", "sicherheit", "fluchtweg", "rettungszeichen", "notbeleuchtung", "antipanik"]
+        }
+        fallback_keywords = {
+            "Feuchtraumleuchten": [
+                "feuchtraumleuchte", "feuchtraumlampe", "feuchtraumstrahler", "feuchtraumarmatur", 
+                "nassraumleuchte", "spritzwassergeschützt", "wasserdicht", "wasserfest",
+                "ip65", "ip66", "ip67", "ip68", "schutzart", "schutzklasse",
+                "badleuchte", "badlampe", "duschleuchte", "kellerleuchte", "garagenleuchte",
+                "wannenleuchte", "feuchtraumwanne", "aufbauleuchte", "feuchtraum"
+            ],
+            "Hallenleuchten": [
+                "hallenleuchte", "hallenstrahler", "hallenbeleuchtung", "industrieleuchte",
+                "highbay", "high bay", "tiefstrahler", "lagerbeleuchtung", "fabrikbeleuchtung",
+                "linearleuchte", "lichtband", "rasterleuchte", "pendelleuchte",
+                "led hallenstrahler", "hochregalbeleuchtung", "produktionshalle",
+                "deckenmontage", "arbeitsplatzbeleuchtung", "halle", "industrie"
+            ],
+            "Lichtmanagement": [
+                "lichtsteuerung", "lichtregelung", "lichtmanagement", "beleuchtungssteuerung",
+                "bewegungsmelder", "präsenzmelder", "lichtsensor", "helligkeitssensor",
+                "dali", "knx", "dimmer", "dimmen", "dimmbar", "tageslichtregelung",
+                "zeitschaltuhr", "smart lighting", "szenensteuerung", "lichtszenen",
+                "energiemanagement", "steuerung", "regelung", "automation"
+            ],
+            "EX-Leuchten": [
+                "ex-leuchte", "explosionsgeschützte leuchte", "explosionsschutz", "ex-schutz",
+                "atex", "iecex", "ex-zone", "zone 1", "zone 2", "zone 21", "zone 22",
+                "gasexplosion", "staubexplosion", "druckfeste kapselung", "gasex", "staubex",
+                "chemieanlage", "raffinerie", "ex-zertifizierung", "explosion", "ex"
+            ],
+            "Straßenleuchten": [
+                "straßenleuchte", "straßenlampe", "straßenlaterne", "mastleuchte",
+                "led straßenleuchte", "straßenbeleuchtung", "außenbeleuchtung",
+                "lichtmast", "parkplatzbeleuchtung", "wegbeleuchtung", "ansatzleuchte",
+                "lichtverteilung", "fernsteuerung", "straße", "mast", "aufsatz"
+            ],
+            "Notleuchten": [
+                "notleuchte", "notlicht", "sicherheitsleuchte", "sicherheitsbeleuchtung",
+                "rettungszeichenleuchte", "fluchtwegleuchte", "notausgangsleuchte",
+                "antipanikleuchte", "einzelbatterie", "zentralbatterie", "dauerlicht",
+                "bereitschaftslicht", "selbsttest", "piktogramm", "rettungszeichen",
+                "notbeleuchtung", "fluchtweg", "brandfall", "stromausfall", "sicherheit"
+            ]
+        }
+        return fallback_keywords.get(category_name, [])
+
+
+def analyze_entire_pdf_with_ampel(pdf_path):
+    """Analysiert die gesamte PDF und gibt Ampel-Status für alle Kategorien zurück."""
+    
+    categories = ["Feuchtraumleuchten", "Hallenleuchten", "Lichtmanagement", "EX-Leuchten", "Straßenleuchten", "Notleuchten"]
+    
+    try:
+        # Extrahiere Text aus PDF mit Seitenverweise
+        doc = fitz.open(pdf_path)
+        page_texts = []
+        full_text = ""
+        
+        for page_num in range(len(doc)):
+            page = doc.load_page(page_num)
+            page_text = page.get_text("text")
+            page_texts.append(page_text)
+            full_text += page_text + " "
+        # Dokument erst später schließen
+        
+        full_text_lower = full_text.lower()
+        print(f"DEBUG: PDF-Text extrahiert, Länge: {len(full_text)} Zeichen")
+        
+        results = {}
+        
+        for category in categories:
+            print(f"DEBUG: Analysiere Kategorie '{category}'")
+            
+            # Generiere KI-basierte Schlüsselwörter für diese Kategorie
+            ai_keywords = generate_category_keywords_with_ai(category)
+            
+            # Suche nach Schlüsselwörtern auf jeder Seite
+            found_keywords = []
+            keyword_positions = []
+            page_locations = {}  # Neue Struktur für Seiten-Locations
+            
+            for keyword in ai_keywords:
+                keyword_pages = []
+                for page_num, page_text in enumerate(page_texts):
+                    if keyword.lower() in page_text.lower():
+                        try:
+                            import re
+                            # Finde alle Positionen dieses Keywords auf dieser Seite
+                            # Verwende PyMuPDF für exakte Koordinaten
+                            page_obj = doc.load_page(page_num)
+                            text_instances = page_obj.search_for(keyword)
+                            
+                            if text_instances:
+                                for i, rect in enumerate(text_instances):
+                                    # Extrahiere Kontext um jede Fundstelle 
+                                    matches = list(re.finditer(re.escape(keyword.lower()), page_text.lower()))
+                                    if i < len(matches):
+                                        match = matches[i]
+                                        context_start = max(0, match.start() - 50)
+                                        context_end = min(len(page_text), match.end() + 50)
+                                        context = page_text[context_start:context_end].strip()
+                                        
+                                        keyword_pages.append({
+                                            'page': page_num + 1,
+                                            'context': f"...{context}...",
+                                            'position': match.start(),
+                                            'x0': float(rect.x0),
+                                            'y0': float(rect.y0), 
+                                            'x1': float(rect.x1),
+                                            'y1': float(rect.y1)
+                                        })
+                                    else:
+                                        # Fallback wenn regex nicht mit PyMuPDF übereinstimmt
+                                        keyword_pages.append({
+                                            'page': page_num + 1,
+                                            'context': f"...{keyword} gefunden...",
+                                            'position': 0,
+                                            'x0': float(rect.x0),
+                                            'y0': float(rect.y0),
+                                            'x1': float(rect.x1), 
+                                            'y1': float(rect.y1)
+                                        })
+                            else:
+                                # Fallback: Nur Text-basiert, ohne Koordinaten
+                                matches = list(re.finditer(re.escape(keyword.lower()), page_text.lower()))
+                                for match in matches:
+                                    context_start = max(0, match.start() - 50)
+                                    context_end = min(len(page_text), match.end() + 50)
+                                    context = page_text[context_start:context_end].strip()
+                                    
+                                    keyword_pages.append({
+                                        'page': page_num + 1,
+                                        'context': f"...{context}...",
+                                        'position': match.start(),
+                                        'x0': 0,
+                                        'y0': 0,
+                                        'x1': 0,
+                                        'y1': 0
+                                    })
+                        except Exception as page_error:
+                            print(f"DEBUG: Fehler bei Seite {page_num + 1} für Keyword '{keyword}': {page_error}")
+                            # Fallback: Nur Text-basiert
+                            import re
+                            matches = list(re.finditer(re.escape(keyword.lower()), page_text.lower()))
+                            for match in matches:
+                                context_start = max(0, match.start() - 50)
+                                context_end = min(len(page_text), match.end() + 50)
+                                context = page_text[context_start:context_end].strip()
+                                
+                                keyword_pages.append({
+                                    'page': page_num + 1,
+                                    'context': f"...{context}...",
+                                    'position': match.start(),
+                                    'x0': 0,
+                                    'y0': 0,
+                                    'x1': 0,
+                                    'y1': 0
+                                })
+                
+                if keyword_pages:
+                    found_keywords.append(keyword)
+                    page_locations[keyword] = keyword_pages
+                    
+                    # Globale Positionen für Kompatibilität
+                    for page_match in keyword_pages[:3]:  # Max 3 pro Keyword
+                        keyword_positions.append((keyword, 0, 0))  # Dummy-Positionen
+            
+            # Extrahiere Kontext um gefundene Begriffe (für Kompatibilität)
+            context_snippets = []
+            for keyword in found_keywords[:3]:  # Max 3 Kontexte pro Kategorie
+                if keyword in page_locations:
+                    # Nimm ersten Kontext von jeder Fundstelle
+                    context_snippets.append(page_locations[keyword][0]['context'])
+            
+            # Berechne Bewertung
+            if found_keywords:
+                confidence = min(1.0, len(found_keywords) / 5)  # Normalisiert auf max 5 Keywords
+                status = "grün"
+                print(f"DEBUG: Kategorie '{category}' -> GRÜN, {len(found_keywords)} Begriffe gefunden")
+            else:
+                confidence = 0.0
+                status = "rot"
+                print(f"DEBUG: Kategorie '{category}' -> ROT, keine Begriffe gefunden")
+            
+            results[category] = {
+                "status": status,
+                "found_keywords": found_keywords[:10],  # Limitiere Anzeige
+                "confidence": confidence,
+                "context_snippets": context_snippets,
+                "ai_keywords_used": ai_keywords,
+                "page_locations": page_locations  # Neue Struktur für Seiten-Locations
+            }
+        
+        # Schließe das Dokument erst ganz am Ende
+        doc.close()
+        
+        print(f"DEBUG: Ampel-Analyse abgeschlossen für {len(categories)} Kategorien")
+        return results
+        
+    except Exception as e:
+        print(f"FEHLER bei der PDF-Ampel-Analyse: {e}")
+        # Versuche Dokument zu schließen falls noch offen
+        try:
+            if 'doc' in locals():
+                doc.close()
+        except:
+            pass
+        # Fallback: Alle Kategorien rot
+        return {cat: {"status": "rot", "found_keywords": [], "confidence": 0.0, "context_snippets": [], "ai_keywords_used": [], "page_locations": {}} 
+                for cat in categories}
+
+
 def expand_search_terms_with_ai(query, perspective="sales"):
     """Erweitert Suchbegriffe mit KI um verwandte und interessante Begriffe zu finden."""
     try:
@@ -458,26 +814,68 @@ def pdf_suche(request):
         pdf_file = request.FILES.get("pdf_datei")
         seite_von_str = request.POST.get("seite_von")
         seite_bis_str = request.POST.get("seite_bis")
-
+        
+        # Debug-Ausgaben
+        print(f"DEBUG: step={step}, pdf_file={pdf_file is not None}, search_type={search_type}")
+        print(f"DEBUG: suchanfrage={suchanfrage}")
+        
+        # Schritt 0: Ampel-Analyse immer durchführen wenn PDF hochgeladen
+        if step == "initial" and pdf_file and not search_type:
+            print("DEBUG: Starte Ampel-Analyse")
+            try:
+                # Speichere PDF temporär für Ampel-Analyse
+                fs = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, "pdfs"))
+                filename = secure_filename(pdf_file.name)
+                base, extension = os.path.splitext(filename)
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                unique_filename = f"{base}_{timestamp}{extension}"
+                pdf_filename = fs.save(unique_filename, pdf_file)
+                pdf_path = fs.path(pdf_filename)
+                
+                # Führe Ampel-Analyse für gesamte PDF durch
+                ampel_results = analyze_entire_pdf_with_ampel(pdf_path)
+                
+                context = {
+                    'step': 'ampel_and_search',
+                    'pdf_filename': pdf_filename,
+                    'ampel_results': ampel_results,
+                    'pdf_original_name': pdf_file.name
+                }
+                print(f"DEBUG: Context für Template: {context}")
+                return render(request, "pdf_sucher/suche.html", context)
+                
+            except Exception as e:
+                print(f"FEHLER bei Ampel-Analyse: {e}")
+                return render(request, "pdf_sucher/suche.html",
+                              {"step": "initial", "error_message": f"PDF konnte nicht verarbeitet werden: {e}"})
+        
+        # Überprüfe ob PDF bereits hochgeladen (aus Ampel-Analyse)
+        existing_pdf = request.POST.get("pdf_filename_existing")
+        
         # Schritt 1: Initiale Suche - Zeige erweiterte Begriffe für KI-Suche
         if step == "initial" and search_type == "ai":
-            if not pdf_file:
+            if not pdf_file and not existing_pdf:
                 return render(request, "pdf_sucher/suche.html",
                               {"step": "initial", "error_message": "Bitte eine PDF-Datei hochladen."})
             
-            # Speichere PDF temporär
-            fs = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, "pdfs"))
-            filename = secure_filename(pdf_file.name)
-            base, extension = os.path.splitext(filename)
-            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-            unique_filename = f"{base}_{timestamp}{extension}"
-            pdf_filename = fs.save(unique_filename, pdf_file)
+            # Verwende existierende PDF oder speichere neue
+            if existing_pdf:
+                pdf_filename = existing_pdf
+                fs = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, "pdfs"))
+            else:
+                # Speichere PDF temporär
+                fs = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, "pdfs"))
+                filename = secure_filename(pdf_file.name)
+                base, extension = os.path.splitext(filename)
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                unique_filename = f"{base}_{timestamp}{extension}"
+                pdf_filename = fs.save(unique_filename, pdf_file)
             
             # Validiere Seitenbereich
             try:
                 doc = fitz.open(fs.path(pdf_filename))
-                start_page = int(seite_von_str) - 1 if seite_von_str.isdigit() else 0
-                end_page = int(seite_bis_str) if seite_bis_str.isdigit() else len(doc)
+                start_page = int(seite_von_str) - 1 if seite_von_str and seite_von_str.isdigit() else 0
+                end_page = int(seite_bis_str) if seite_bis_str and seite_bis_str.isdigit() else len(doc)
                 doc.close()
             except Exception as e:
                 return render(request, "pdf_sucher/suche.html",
@@ -519,8 +917,8 @@ def pdf_suche(request):
 
             try:
                 doc = fitz.open(pdf_path)
-                start_page = int(seite_von_str) - 1 if seite_von_str.isdigit() else 0
-                end_page = int(seite_bis_str) if seite_bis_str.isdigit() else len(doc)
+                start_page = int(seite_von_str) - 1 if seite_von_str and seite_von_str.isdigit() else 0
+                end_page = int(seite_bis_str) if seite_bis_str and seite_bis_str.isdigit() else len(doc)
                 page_range = (max(0, start_page), min(len(doc), end_page))
                 doc.close()
             except Exception as e:
@@ -620,6 +1018,190 @@ def view_pdf(request, filename):
     if os.path.exists(pdf_path):
         return FileResponse(open(pdf_path, "rb"), content_type="application/pdf")
     raise Http404("PDF nicht gefunden")
+
+
+def get_ampel_locations(request):
+    """AJAX-Endpunkt für Ampel-Kategorien-Details mit allen Seitenpositionen."""
+    import json
+    from django.http import JsonResponse
+    
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST allowed'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        pdf_filename = data.get('pdf_filename')
+        category = data.get('category')
+        
+        if not pdf_filename or not category:
+            return JsonResponse({'error': 'Missing parameters'}, status=400)
+        
+        # PDF-Pfad erstellen
+        pdf_path = os.path.join(settings.MEDIA_ROOT, "pdfs", pdf_filename)
+        if not os.path.exists(pdf_path):
+            return JsonResponse({'error': 'PDF not found'}, status=404)
+        
+        # Ampel-Analyse erneut durchführen für diese Kategorie
+        ampel_results = analyze_entire_pdf_with_ampel(pdf_path)
+        
+        if category not in ampel_results:
+            return JsonResponse({'error': 'Category not found'}, status=404)
+        
+        result_data = ampel_results[category]
+        
+        # Sammle alle Seiten-Locations für diese Kategorie
+        all_locations = []
+        page_locations = result_data.get('page_locations', {})
+        
+        for keyword, locations in page_locations.items():
+            for location in locations:
+                all_locations.append({
+                    'keyword': keyword,
+                    'page': location['page'],
+                    'context': location['context'],
+                    'position': location.get('position', 0),
+                    'x0': location.get('x0', 0),
+                    'y0': location.get('y0', 0),
+                    'x1': location.get('x1', 0),
+                    'y1': location.get('y1', 0)
+                })
+        
+        # Sortiere nach Seite
+        all_locations.sort(key=lambda x: x['page'])
+        
+        return JsonResponse({
+            'status': result_data['status'],
+            'category': category,
+            'found_keywords': result_data['found_keywords'],
+            'ai_keywords_used': result_data['ai_keywords_used'],
+            'locations': all_locations,
+            'total_locations': len(all_locations)
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        print(f"FEHLER in get_ampel_locations: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+def get_pdf_page_image(request, filename, page_num):
+    """Erzeugt ein Bild der angegebenen PDF-Seite mit optionaler Hervorhebung und Zoom auf die Fundstelle."""
+    import json
+    from django.http import JsonResponse
+    
+    try:
+        pdf_path = os.path.join(settings.MEDIA_ROOT, "pdfs", filename)
+        if not os.path.exists(pdf_path):
+            raise Http404("PDF nicht gefunden")
+        
+        # Hole optionale Suchbegriffe für Hervorhebung
+        highlight_terms = request.GET.get('highlight', '').split(',') if request.GET.get('highlight') else []
+        highlight_terms = [term.strip() for term in highlight_terms if term.strip()]
+        
+        # Hole optionale Koordinaten für gezielten Zoom
+        focus_x0 = float(request.GET.get('x0', 0))
+        focus_y0 = float(request.GET.get('y0', 0))
+        focus_x1 = float(request.GET.get('x1', 0))
+        focus_y1 = float(request.GET.get('y1', 0))
+        
+        doc = fitz.open(pdf_path)
+        if page_num < 1 or page_num > len(doc):
+            doc.close()
+            raise Http404("Seite nicht gefunden")
+        
+        page = doc.load_page(page_num - 1)  # 0-basiert
+        page_rect = page.rect
+        
+        # Finde die erste Fundstelle für Zoom-Bereich
+        zoom_rect = None
+        all_text_instances = []
+        
+        if highlight_terms:
+            for term in highlight_terms:
+                if term:
+                    text_instances = page.search_for(term)
+                    all_text_instances.extend(text_instances)
+                    
+                    # Hervorhebung hinzufügen
+                    for inst in text_instances:
+                        highlight = page.add_highlight_annot(inst)
+                        highlight.set_colors({"stroke": [1, 1, 0]})  # Gelb
+                        highlight.update()
+        
+        # Bestimme Zoom-Bereich basierend auf übergebenen Koordinaten oder gefundenen Textstellen
+        if focus_x0 > 0 and focus_y0 > 0 and focus_x1 > focus_x0 and focus_y1 > focus_y0:
+            # Verwende übergebene Koordinaten für präzisen Zoom
+            zoom_margin = 80  # Kleinerer Rand für präziseren Zoom
+            zoom_rect = fitz.Rect(
+                max(0, focus_x0 - zoom_margin),
+                max(0, focus_y0 - zoom_margin),
+                min(page_rect.width, focus_x1 + zoom_margin),
+                min(page_rect.height, focus_y1 + zoom_margin)
+            )
+        elif all_text_instances:
+            # Fallback: Finde die erste (oberste) Fundstelle
+            first_instance = min(all_text_instances, key=lambda r: r.y0)
+            
+            # Erweitere den Bereich um die Fundstelle für bessere Lesbarkeit
+            zoom_margin = 100  # Rand in Punkten
+            zoom_rect = fitz.Rect(
+                max(0, first_instance.x0 - zoom_margin),
+                max(0, first_instance.y0 - zoom_margin), 
+                min(page_rect.width, first_instance.x1 + zoom_margin),
+                min(page_rect.height, first_instance.y1 + zoom_margin)
+            )
+            
+            # Stelle sicher, dass der Zoom-Bereich mindestens 300x200 Punkte groß ist
+            min_width = 300
+            min_height = 200
+            
+            if zoom_rect.width < min_width:
+                diff = min_width - zoom_rect.width
+                zoom_rect.x0 = max(0, zoom_rect.x0 - diff/2)
+                zoom_rect.x1 = min(page_rect.width, zoom_rect.x1 + diff/2)
+            
+            if zoom_rect.height < min_height:
+                diff = min_height - zoom_rect.height  
+                zoom_rect.y0 = max(0, zoom_rect.y0 - diff/2)
+                zoom_rect.y1 = min(page_rect.height, zoom_rect.y1 + diff/2)
+        
+        # Erzeuge Bild - entweder gezoomt oder ganze Seite
+        if zoom_rect:
+            # Begrenzter Zoom, der die ganze Seitenbreite zeigt
+            # Berechne Zoom-Faktor basierend auf Seitenbreite statt Zoom-Bereich
+            page_width = page_rect.width
+            max_display_width = 600  # Maximale Anzeigebreite
+            zoom_factor = max_display_width / page_width
+            zoom_factor = max(1.2, min(zoom_factor, 2.5))  # Zwischen 1.2x und 2.5x Zoom
+            
+            # Zeige die ganze Seitenbreite, aber fokussiert auf den Fundbereich vertikal
+            display_rect = fitz.Rect(
+                0,  # Ganze Breite von links
+                max(0, zoom_rect.y0 - 150),  # Etwas oberhalb der Fundstelle
+                page_rect.width,  # Ganze Breite bis rechts
+                min(page_rect.height, zoom_rect.y1 + 150)  # Etwas unterhalb der Fundstelle
+            )
+            
+            mat = fitz.Matrix(zoom_factor, zoom_factor)
+            pix = page.get_pixmap(matrix=mat, clip=display_rect)
+        else:
+            # Ganze Seite wenn keine Fundstelle
+            mat = fitz.Matrix(1.5, 1.5)
+            pix = page.get_pixmap(matrix=mat)
+        
+        img_data = pix.tobytes("png")
+        
+        doc.close()
+        
+        # Gib Bild als HTTP-Response zurück
+        response = HttpResponse(img_data, content_type="image/png")
+        response['Cache-Control'] = 'max-age=3600'  # Cache für 1 Stunde
+        return response
+        
+    except Exception as e:
+        print(f"FEHLER in get_pdf_page_image: {e}")
+        raise Http404("Fehler beim Erzeugen des Seitenbildes")
+
 
 def highlight_context_in_pdf_page(page, context_text, highlight_color=[1, 1, 0]):
     """Hebt den gefundenen Kontext im PDF hervor basierend auf dem extrahierten Text."""
@@ -883,6 +1465,29 @@ def generate_search_results_pdf(original_pdf_path, search_results, search_query,
                         break
                     results_page.insert_text((90, y_position), line, fontsize=10, color=(0.3, 0.3, 0.3))
                     y_position += 15
+                
+                # Ampel-Kategorien anzeigen
+                ampel_data = result.get('ampel_categories', {})
+                if ampel_data:
+                    y_position += 10
+                    results_page.insert_text((90, y_position), "🚦 Kategorien-Analyse:", fontsize=10, color=(0, 0, 0.5))
+                    y_position += 15
+                    
+                    # Zeige grüne Kategorien
+                    green_categories = [cat for cat, data in ampel_data.items() if data.get('status') == 'grün']
+                    if green_categories:
+                        green_text = f"🟢 {', '.join(green_categories[:3])}"
+                        if len(green_categories) > 3:
+                            green_text += f" (+{len(green_categories)-3} weitere)"
+                        results_page.insert_text((90, y_position), green_text[:80], fontsize=9, color=(0, 0.6, 0))
+                        y_position += 12
+                    
+                    # Zeige Anzahl roter Kategorien
+                    red_count = len([cat for cat, data in ampel_data.items() if data.get('status') == 'rot'])
+                    if red_count > 0:
+                        red_text = f"🔴 {red_count} weitere Kategorien nicht erkannt"
+                        results_page.insert_text((90, y_position), red_text, fontsize=9, color=(0.6, 0, 0))
+                        y_position += 12
                 
                 y_position += 20  # Abstand zwischen Ergebnissen
             
