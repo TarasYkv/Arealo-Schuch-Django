@@ -23,68 +23,94 @@ def cosine_similarity(v1, v2):
     return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
 
 
+def expand_search_terms_with_ai(query):
+    """Erweitert Suchbegriffe mit KI um verwandte und interessante Begriffe zu finden."""
+    try:
+        expansion_prompt = f"""
+        Du bist ein Experte für technische Ausschreibungen im Bereich Beleuchtung und Elektrotechnik.
+        Erweitere folgende Suchanfrage um verwandte und interessante Begriffe, die ein Vertriebsmitarbeiter eines Leuchtenherstellers suchen würde:
+
+        Ursprüngliche Anfrage: "{query}"
+
+        Gib eine kommaseparierte Liste von 8-12 verwandten Suchbegriffen zurück, die thematisch relevant sind.
+        Fokussiere auf: technische Spezifikationen, Normen, Produkteigenschaften, Installationsanforderungen.
+        
+        Beispiel für "LED Beleuchtung":
+        LED, Beleuchtung, Leuchte, Lumen, Lichtfarbe, Farbtemperatur, IP-Schutzart, Energieeffizienz, Dimmbarkeit, Anschlussleistung, Abstrahlwinkel, Lebensdauer
+
+        Erweiterte Begriffe für "{query}":
+        """
+        
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": expansion_prompt}],
+            max_tokens=200,
+            temperature=0.3
+        )
+        
+        expanded_terms = response.choices[0].message.content.strip()
+        # Bereinige und splitte die Begriffe
+        terms = [term.strip() for term in expanded_terms.split(',') if term.strip()]
+        
+        print(f"DEBUG: Erweiterte Suchbegriffe: {terms}")
+        return terms
+        
+    except Exception as e:
+        print(f"FEHLER bei der Begriffserweiterung: {e}")
+        # Fallback: Verwende ursprüngliche Query-Begriffe
+        return [term.strip() for term in query.split() if len(term.strip()) > 2]
+
+
 def perform_semantic_search(pdf_path, query, page_range, threshold):
-    """Führt eine semantische Suche in der PDF mit einem dynamischen Schwellenwert durch."""
+    """Führt eine KI-gestützte Suche durch, die verwandte Begriffe findet und danach sucht."""
     ergebnisse = []
     try:
         doc = fitz.open(pdf_path)
         start_page, end_page = page_range
 
-        text_chunks, chunk_metadata = [], []
+        # Erweitere Suchbegriffe mit KI
+        expanded_search_terms = expand_search_terms_with_ai(query)
+        
+        # Suche nach erweiterten Begriffen in jeder Seite
         for page_num in range(start_page, end_page):
             page = doc.load_page(page_num)
             text = page.get_text("text")
-            if text.strip():
-                text_chunks.append(text)
-                chunk_metadata.append({'seitenzahl': page_num + 1})
-        doc.close()
-
-        if not text_chunks:
-            return []
-
-        chunk_embeddings_response = openai.Embedding.create(
-            model="text-embedding-ada-002",
-            input=text_chunks
-        )
-        chunk_embeddings = [item['embedding'] for item in chunk_embeddings_response['data']]
-
-        query_embedding_response = openai.Embedding.create(
-            model="text-embedding-ada-002",
-            input=[query]
-        )
-        query_embedding = query_embedding_response['data'][0]['embedding']
-
-        similarities = []
-        for i, chunk_emb in enumerate(chunk_embeddings):
-            sim = cosine_similarity(query_embedding, chunk_emb)
-            similarities.append((sim, i))
-
-        similarities.sort(key=lambda x: x[0], reverse=True)
-
-        print(f"DEBUG: Suche mit Schwellenwert: {threshold:.4f}")
-        print("DEBUG: Top 5 similarity scores:",
-              [(round(s, 4), f"Seite {chunk_metadata[i]['seitenzahl']}") for s, i in similarities[:5]])
-
-        # Extrahiere relevante Begriffe aus der Query für Hervorhebung
-        query_terms = [term.strip() for term in query.split() if len(term.strip()) > 2]
-
-        for sim, chunk_index in similarities[:5]:
-            if sim > threshold:  # Dynamischer Schwellenwert wird hier verwendet
-                original_text = text_chunks[chunk_index]
+            if not text.strip():
+                continue
                 
-                # Extrahiere relevanten Kontext mit max 9 Zeilen
-                context_snippet = extract_context_around_terms(original_text, query_terms, max_lines=9)
+            # Finde Begriffe auf dieser Seite
+            found_terms = []
+            for term in expanded_search_terms:
+                if term.lower() in text.lower():
+                    found_terms.append(term)
+            
+            if found_terms:
+                # Berechne Relevanz-Score basierend auf Anzahl gefundener Begriffe
+                relevance_score = len(found_terms) / len(expanded_search_terms)
                 
-                # Hervorhebung für AI-Suche basierend auf Query-Begriffen
-                highlighted_snippet = highlight_terms_in_text(context_snippet, query_terms)
+                # Extrahiere relevanten Kontext um die gefundenen Begriffe
+                context_snippet = extract_context_around_terms(text, found_terms, max_lines=9)
+                
+                # Hervorhebung der gefundenen Begriffe
+                highlighted_snippet = highlight_terms_in_text(context_snippet, found_terms)
                 
                 ergebnisse.append({
-                    'seitenzahl': chunk_metadata[chunk_index]['seitenzahl'],
+                    'seitenzahl': page_num + 1,
                     'textstelle': context_snippet,
-                    'textstelle_highlighted': highlighted_snippet
+                    'textstelle_highlighted': highlighted_snippet,
+                    'relevance_score': relevance_score,
+                    'found_terms': found_terms
                 })
-
-        return ergebnisse
+        
+        doc.close()
+        
+        # Sortiere Ergebnisse nach Relevanz-Score
+        ergebnisse.sort(key=lambda x: x['relevance_score'], reverse=True)
+        
+        print(f"DEBUG: Gefunden {len(ergebnisse)} relevante Seiten")
+        print("DEBUG: Top Ergebnisse:", [(r['seitenzahl'], round(r['relevance_score'], 3), len(r['found_terms'])) for r in ergebnisse[:5]])
+        
+        return ergebnisse[:10]  # Maximal 10 Ergebnisse
 
     except Exception as e:
         print(f"FEHLER bei der semantischen Suche: {e}")
@@ -165,35 +191,57 @@ def search_text_in_pdf(pdf_path, search_terms, page_range):
     try:
         doc = fitz.open(pdf_path)
         start_page, end_page = page_range
+        
+        print(f"DEBUG: Einfache Suche nach Begriffen: {search_terms}")
+        print(f"DEBUG: Seitenbereich: {start_page+1} bis {end_page}")
+        
         for page_num in range(start_page, end_page):
             page = doc.load_page(page_num)
             text = page.get_text("text")
-            found_terms = [term for term in search_terms if term.lower() in text.lower()]
+            
+            if not text.strip():
+                continue
+                
+            # Suche nach jedem Begriff einzeln
+            found_terms = []
+            for term in search_terms:
+                if term.strip() and term.lower() in text.lower():
+                    found_terms.append(term)
+            
             if found_terms:
-                first_term = found_terms[0]
-                pos = text.lower().find(first_term.lower())
-                start = max(0, pos - 80)
-                end = min(len(text), pos + len(first_term) + 80)
-                snippet = text[start:end]
-                if start > 0: snippet = "..." + snippet
-                if end < len(text): snippet = snippet + "..."
+                print(f"DEBUG: Seite {page_num + 1}, gefundene Begriffe: {found_terms}")
                 
-                # Extrahiere relevanten Kontext mit max 9 Zeilen für einfache Suche
+                # Extrahiere relevanten Kontext um die gefundenen Begriffe
                 context_snippet = extract_context_around_terms(text, found_terms, max_lines=9)
-                if not context_snippet.strip():
-                    context_snippet = snippet
                 
-                # Hervorhebung der Suchbegriffe im Snippet
+                # Falls kein spezifischer Kontext gefunden, verwende Standard-Snippet
+                if not context_snippet.strip():
+                    first_term = found_terms[0]
+                    pos = text.lower().find(first_term.lower())
+                    start = max(0, pos - 100)
+                    end = min(len(text), pos + len(first_term) + 400)
+                    context_snippet = text[start:end]
+                    if start > 0: 
+                        context_snippet = "..." + context_snippet
+                    if end < len(text): 
+                        context_snippet = context_snippet + "..."
+                
+                # Hervorhebung der gefundenen Suchbegriffe
                 highlighted_snippet = highlight_terms_in_text(context_snippet, found_terms)
                 
                 ergebnisse.append({
                     'seitenzahl': page_num + 1, 
                     'textstelle': context_snippet,
-                    'textstelle_highlighted': highlighted_snippet
+                    'textstelle_highlighted': highlighted_snippet,
+                    'found_terms': found_terms
                 })
+        
         doc.close()
+        print(f"DEBUG: Einfache Suche abgeschlossen. {len(ergebnisse)} Ergebnisse gefunden.")
+        
     except Exception as e:
         print(f"Fehler bei der einfachen PDF-Suche: {e}")
+        
     return ergebnisse
 
 
@@ -248,8 +296,19 @@ def pdf_suche(request):
         # Suchbegriffe für die Vorschau vorbereiten
         if search_type == 'simple':
             search_terms_for_preview = search_terms
-        else:  # AI-Suche
-            search_terms_for_preview = [term.strip() for term in suchanfrage.split() if len(term.strip()) > 2]
+        else:  # AI-Suche - Verwende die erweiterten Begriffe falls verfügbar
+            search_terms_for_preview = []
+            if ergebnisse:
+                # Sammle alle gefundenen Begriffe aus den Ergebnissen
+                for ergebnis in ergebnisse:
+                    if 'found_terms' in ergebnis:
+                        search_terms_for_preview.extend(ergebnis['found_terms'])
+                # Entferne Duplikate
+                search_terms_for_preview = list(set(search_terms_for_preview))
+            
+            # Fallback: Verwende ursprüngliche Query-Begriffe
+            if not search_terms_for_preview:
+                search_terms_for_preview = [term.strip() for term in suchanfrage.split() if len(term.strip()) > 2]
         
         context = {
             'step': 'results',
