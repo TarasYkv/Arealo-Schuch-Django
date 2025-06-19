@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card shadow border-danger">
+            <div class="card-header bg-danger text-white">
+                <h4 class="mb-0">
+                    <i class="bi bi-exclamation-triangle"></i> Kategorie löschen
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <h5>Sind Sie sicher?</h5>
+                    <p class="mb-0">
+                        Die Kategorie "<strong>{{ category.name }}</strong>" und alle 
+                        zugehörigen Suchbegriffe ({{ category.keywords.count }}) 
+                        werden unwiderruflich gelöscht.
+                    </p>
+                </div>
+                
+                {% if category.keywords.exists %}
+                    <div class="mb-3">
+                        <h6>Folgende Suchbegriffe werden ebenfalls gelöscht:</h6>
+                        <div class="border rounded p-2 bg-light">
+                            {% for keyword in category.keywords.all|slice:":10" %}
+                                <span class="badge bg-secondary me-1">{{ keyword.keyword }}</span>
+                            {% endfor %}
+                            {% if category.keywords.count > 10 %}
+                                <span class="text-muted">... und {{ category.keywords.count|add:"-10" }} weitere</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <form method="post" class="d-flex justify-content-between">
+                    {% csrf_token %}
+                    <a href="{% url 'accounts:category_detail' category.pk %}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left"></i> Abbrechen
+                    </a>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> Endgültig löschen
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
