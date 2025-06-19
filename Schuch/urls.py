@@ -13,6 +13,7 @@ urlpatterns = [
     path('', core_views.startseite_ansicht, name='startseite'),
 
     # Der Rest bleibt unverändert
+    path('accounts/', include('accounts.urls')),
     path('rechner/', include('amortization_calculator.urls')),
     path('sportplatz/', include('sportplatzApp.urls')),
     path('pdf-tool/', include('pdf_sucher.urls')),
