@@ -23,7 +23,7 @@ class Migration(migrations.Migration):
                 ('alt_anzahl', models.IntegerField(default=0)),
                 ('alt_h_pro_t', models.FloatField(default=0)),
                 ('alt_t_pro_j', models.IntegerField(default=0)),
-                ('neu_hersteller', models.CharField(default='Schuch', max_length=100)),
+                ('neu_hersteller', models.CharField(default='taras_yuzkiv', max_length=100)),
                 ('neu_leistung', models.FloatField(default=0)),
                 ('neu_anzahl', models.IntegerField(default=0)),
                 ('neu_h_pro_t', models.FloatField(default=0)),
