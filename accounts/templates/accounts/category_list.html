@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>
+        <i class="bi bi-tags"></i> Meine Kategorien
+    </h1>
+    <div>
+        <a href="{% url 'accounts:dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Zurück zum Dashboard
+        </a>
+        <a href="{% url 'accounts:category_create' %}" class="btn btn-success">
+            <i class="bi bi-plus"></i> Neue Kategorie
+        </a>
+    </div>
+</div>
+
+{% if categories %}
+    <div class="row">
+        {% for category in categories %}
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card h-100 {% if not category.is_active %}opacity-75{% endif %}">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h5 class="card-title">{{ category.name }}</h5>
+                        {% if category.is_active %}
+                            <span class="badge bg-success">Aktiv</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Inaktiv</span>
+                        {% endif %}
+                    </div>
+                    
+                    {% if category.description %}
+                        <p class="card-text text-muted">{{ category.description|truncatechars:100 }}</p>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <small class="text-muted">
+                            <i class="bi bi-search"></i> {{ category.keywords.count }} Suchbegriffe
+                        </small>
+                        <br>
+                        <small class="text-muted">
+                            <i class="bi bi-calendar"></i> {{ category.created_at|date:"d.m.Y" }}
+                        </small>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'accounts:category_detail' category.pk %}" class="btn btn-primary btn-sm">
+                            <i class="bi bi-eye"></i> Details
+                        </a>
+                        <div class="btn-group" role="group">
+                            <a href="{% url 'accounts:category_edit' category.pk %}" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-pencil"></i> Bearbeiten
+                            </a>
+                            <a href="{% url 'accounts:category_delete' category.pk %}" class="btn btn-outline-danger btn-sm">
+                                <i class="bi bi-trash"></i> Löschen
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="text-center py-5">
+        <div class="text-muted mb-4">
+            <i class="bi bi-inbox" style="font-size: 4rem;"></i>
+        </div>
+        <h3 class="text-muted mb-3">Keine Kategorien vorhanden</h3>
+        <p class="text-muted mb-4">Erstellen Sie Ihre erste benutzerdefinierte Ampel-Kategorie.</p>
+        <a href="{% url 'accounts:category_create' %}" class="btn btn-primary btn-lg">
+            <i class="bi bi-plus-circle"></i> Erste Kategorie erstellen
+        </a>
+    </div>
+{% endif %}
+{% endblock %}

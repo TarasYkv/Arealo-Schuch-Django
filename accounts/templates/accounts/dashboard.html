@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>
+        <i class="bi bi-speedometer2"></i> Dashboard
+    </h1>
+    <div>
+        <span class="badge bg-primary">{{ user.username }}</span>
+        <a href="{% url 'accounts:logout' %}" class="btn btn-outline-secondary btn-sm ms-2">
+            <i class="bi bi-box-arrow-right"></i> Abmelden
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-gear"></i> Ampel-Kategorien Einstellungen
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="useCustomCategories" 
+                               name="use_custom_categories" 
+                               {% if use_custom_categories %}checked{% endif %}
+                               onchange="toggleAiExpansion()">
+                        <label class="form-check-label" for="useCustomCategories">
+                            <strong>Benutzerdefinierte Ampel-Kategorien verwenden</strong>
+                        </label>
+                    </div>
+                    
+                    <div class="form-check form-switch mb-3" id="aiExpansionToggle" 
+                         {% if not use_custom_categories %}style="display: none;"{% endif %}>
+                        <input class="form-check-input" type="checkbox" id="enableAiExpansion" 
+                               name="enable_ai_keyword_expansion" 
+                               {% if enable_ai_keyword_expansion %}checked{% endif %}>
+                        <label class="form-check-label" for="enableAiExpansion">
+                            <strong>KI-Keyword-Erweiterung aktivieren</strong>
+                            <small class="text-muted d-block">Erweitert Ihre Keywords automatisch um verwandte Begriffe</small>
+                        </label>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        {% if use_custom_categories %}
+                            <strong>Aktiv:</strong> Ihre benutzerdefinierten Kategorien werden für die Ampel-Analyse verwendet.
+                            {% if enable_ai_keyword_expansion %}
+                                <br><strong>KI-Erweiterung:</strong> Ihre Keywords werden automatisch um verwandte Begriffe erweitert.
+                            {% else %}
+                                <br><strong>Nur eigene Keywords:</strong> Es werden ausschließlich Ihre manuell hinzugefügten Keywords verwendet.
+                            {% endif %}
+                        {% else %}
+                            <strong>Inaktiv:</strong> Die Standard-Kategorien (Feuchtraumleuchten, Hallenleuchten, etc.) werden verwendet.
+                        {% endif %}
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check"></i> Einstellungen speichern
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-tags"></i> Meine Kategorien ({{ categories.count }})
+                </h5>
+                <div>
+                    <a href="{% url 'accounts:category_create' %}" class="btn btn-success btn-sm">
+                        <i class="bi bi-plus"></i> Neue Kategorie
+                    </a>
+                    <a href="{% url 'accounts:category_list' %}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-list"></i> Alle anzeigen
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if categories %}
+                    <div class="row">
+                        {% for category in categories|slice:":6" %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100 {% if not category.is_active %}opacity-50{% endif %}">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h6 class="card-title mb-0">{{ category.name }}</h6>
+                                        {% if category.is_active %}
+                                            <span class="badge bg-success">Aktiv</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Inaktiv</span>
+                                        {% endif %}
+                                    </div>
+                                    {% if category.description %}
+                                        <p class="card-text small text-muted">{{ category.description|truncatechars:80 }}</p>
+                                    {% endif %}
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-muted">
+                                            <i class="bi bi-search"></i> {{ category.keywords.count }} Begriffe
+                                        </small>
+                                        <a href="{% url 'accounts:category_detail' category.pk %}" class="btn btn-sm btn-outline-primary">
+                                            Details
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    {% if categories.count > 6 %}
+                        <div class="text-center mt-3">
+                            <a href="{% url 'accounts:category_list' %}" class="btn btn-outline-primary">
+                                Alle {{ categories.count }} Kategorien anzeigen
+                            </a>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center py-4">
+                        <div class="text-muted mb-3">
+                            <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                        </div>
+                        <p class="text-muted">Sie haben noch keine benutzerdefinierten Kategorien erstellt.</p>
+                        <a href="{% url 'accounts:category_create' %}" class="btn btn-primary">
+                            <i class="bi bi-plus"></i> Erste Kategorie erstellen
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-info-circle"></i> Quick Links
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'pdf_sucher:pdf_suche' %}" class="btn btn-outline-primary">
+                        <i class="bi bi-file-pdf"></i> PDF-Analyse
+                    </a>
+                    <a href="{% url 'accounts:category_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-tags"></i> Kategorien verwalten
+                    </a>
+                    <a href="{% url 'accounts:category_create' %}" class="btn btn-outline-success">
+                        <i class="bi bi-plus-circle"></i> Neue Kategorie
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-lightbulb"></i> Tipps
+                </h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle text-success"></i>
+                        Erstellen Sie spezifische Kategorien für Ihre Branchen
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle text-success"></i>
+                        Fügen Sie relevante Suchbegriffe hinzu
+                    </li>
+                    <li class="mb-0">
+                        <i class="bi bi-check-circle text-success"></i>
+                        Aktivieren Sie nur benötigte Kategorien
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleAiExpansion() {
+    const useCustomCheckbox = document.getElementById('useCustomCategories');
+    const aiExpansionToggle = document.getElementById('aiExpansionToggle');
+    
+    if (useCustomCheckbox.checked) {
+        aiExpansionToggle.style.display = 'block';
+    } else {
+        aiExpansionToggle.style.display = 'none';
+        // Deaktiviere KI-Erweiterung wenn benutzerdefinierte Kategorien deaktiviert werden
+        document.getElementById('enableAiExpansion').checked = false;
+    }
+}
+</script>
+{% endblock %}

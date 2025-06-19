@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>
+        <i class="bi bi-tag"></i> {{ category.name }}
+        {% if category.is_active %}
+            <span class="badge bg-success">Aktiv</span>
+        {% else %}
+            <span class="badge bg-secondary">Inaktiv</span>
+        {% endif %}
+    </h1>
+    <div>
+        <a href="{% url 'accounts:category_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Zurück
+        </a>
+        <a href="{% url 'accounts:category_edit' category.pk %}" class="btn btn-primary">
+            <i class="bi bi-pencil"></i> Bearbeiten
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-info-circle"></i> Kategorie-Details
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if category.description %}
+                    <p><strong>Beschreibung:</strong> {{ category.description }}</p>
+                {% endif %}
+                <p><strong>Status:</strong> 
+                    {% if category.is_active %}
+                        <span class="text-success">Aktiv</span>
+                    {% else %}
+                        <span class="text-secondary">Inaktiv</span>
+                    {% endif %}
+                </p>
+                <p><strong>Erstellt:</strong> {{ category.created_at|date:"d.m.Y H:i" }}</p>
+                <p><strong>Letzte Änderung:</strong> {{ category.updated_at|date:"d.m.Y H:i" }}</p>
+            </div>
+        </div>
+        
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-search"></i> Suchbegriffe ({{ keywords.count }})
+                </h5>
+                <div>
+                    <a href="{% url 'accounts:keyword_add' category.pk %}" class="btn btn-success btn-sm">
+                        <i class="bi bi-plus"></i> Begriff hinzufügen
+                    </a>
+                    <a href="{% url 'accounts:keyword_bulk_add' category.pk %}" class="btn btn-outline-success btn-sm">
+                        <i class="bi bi-plus-square"></i> Mehrere hinzufügen
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if keywords %}
+                    <div class="row">
+                        {% for keyword in keywords %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card border">
+                                <div class="card-body p-3">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h6 class="card-title mb-1">{{ keyword.keyword }}</h6>
+                                            <small class="text-muted">
+                                                Gewichtung: {{ keyword.weight }}
+                                            </small>
+                                        </div>
+                                        <a href="{% url 'accounts:keyword_delete' keyword.pk %}" 
+                                           class="btn btn-outline-danger btn-sm"
+                                           onclick="return confirm('Suchbegriff löschen?')">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <div class="text-muted mb-3">
+                            <i class="bi bi-search" style="font-size: 3rem;"></i>
+                        </div>
+                        <p class="text-muted">Noch keine Suchbegriffe für diese Kategorie vorhanden.</p>
+                        <a href="{% url 'accounts:keyword_add' category.pk %}" class="btn btn-primary">
+                            <i class="bi bi-plus"></i> Ersten Begriff hinzufügen
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-gear"></i> Aktionen
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'accounts:keyword_add' category.pk %}" class="btn btn-success">
+                        <i class="bi bi-plus"></i> Begriff hinzufügen
+                    </a>
+                    <a href="{% url 'accounts:keyword_bulk_add' category.pk %}" class="btn btn-outline-success">
+                        <i class="bi bi-plus-square"></i> Mehrere Begriffe
+                    </a>
+                    <a href="{% url 'accounts:category_edit' category.pk %}" class="btn btn-outline-primary">
+                        <i class="bi bi-pencil"></i> Kategorie bearbeiten
+                    </a>
+                    <a href="{% url 'accounts:category_delete' category.pk %}" class="btn btn-outline-danger">
+                        <i class="bi bi-trash"></i> Kategorie löschen
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-info-circle"></i> Hinweise
+                </h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <i class="bi bi-lightbulb text-warning"></i>
+                        Verwenden Sie spezifische Begriffe für bessere Suchergebnisse
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-lightbulb text-warning"></i>
+                        Die Gewichtung beeinflusst die Relevanz der Begriffe
+                    </li>
+                    <li class="mb-0">
+                        <i class="bi bi-lightbulb text-warning"></i>
+                        Inaktive Kategorien werden nicht durchsucht
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
