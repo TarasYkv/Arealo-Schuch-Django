@@ -1,5 +1,5 @@
 # amortization_calculator/urls.py
-# (Diese Datei wird von Ihrer Haupt-taras_yuzkiv/urls.py mit include() verwendet)
+# (Diese Datei wird von Ihrer Haupt-Schuch/urls.py mit include() verwendet)
 
 from django.urls import path
 from . import views # Dies importiert die Views aus amortization_calculator/views.py
