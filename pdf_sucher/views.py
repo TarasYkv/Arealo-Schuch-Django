@@ -145,13 +145,25 @@ def generate_category_keywords_with_ai(category_name):
         """
         
         print(f"DEBUG: Generiere KI-Begriffe für Kategorie '{category_name}'")
-        client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=150,
-            temperature=0.3
-        )
+        # Prüfe welche OpenAI Version verfügbar ist
+        try:
+            # Neue OpenAI Version (>= 1.0)
+            client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=150,
+                temperature=0.3
+            )
+        except AttributeError:
+            # Alte OpenAI Version (< 1.0)
+            openai.api_key = settings.OPENAI_API_KEY
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=150,
+                temperature=0.3
+            )
         
         keywords_text = response.choices[0].message.content.strip()
         keywords = [kw.strip().lower() for kw in keywords_text.split(',') if kw.strip()]
@@ -215,10 +227,102 @@ def generate_category_keywords_with_ai(category_name):
         return fallback_keywords.get(category_name, [])
 
 
-def analyze_entire_pdf_with_ampel(pdf_path):
+def expand_user_keywords_with_ai(category_name, user_keywords):
+    """Erweitert benutzerdefinierte Keywords um KI-generierte verwandte Begriffe."""
+    try:
+        # Kombiniere benutzer-keywords für besseren KI-Kontext
+        keywords_context = ", ".join(user_keywords)
+        
+        prompt = f"""
+        Du bist ein Experte für Beleuchtungstechnik. Erweitere die folgenden Suchbegriffe für die Kategorie "{category_name}" um verwandte Begriffe:
+        
+        Vorhandene Begriffe: {keywords_context}
+        
+        WICHTIG: 
+        - Behalte alle ursprünglichen Begriffe bei
+        - Füge 10-15 thematisch verwandte Begriffe hinzu
+        - Verwende Synonyme, alternative Schreibweisen und Fachbegriffe
+        - Orientiere dich am Stil und der Spezifität der vorhandenen Begriffe
+        
+        Gib eine kommaseparierte Liste zurück (ursprüngliche + neue Begriffe):
+        """
+        
+        print(f"DEBUG: Erweitere benutzerdefinierte Keywords für '{category_name}' mit KI")
+        
+        # Prüfe welche OpenAI Version verfügbar ist
+        try:
+            # Neue OpenAI Version (>= 1.0)
+            client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=200,
+                temperature=0.3
+            )
+        except AttributeError:
+            # Alte OpenAI Version (< 1.0)
+            openai.api_key = settings.OPENAI_API_KEY
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=200,
+                temperature=0.3
+            )
+        
+        expanded_keywords_text = response.choices[0].message.content.strip()
+        expanded_keywords = [kw.strip().lower() for kw in expanded_keywords_text.split(',') if kw.strip()]
+        
+        print(f"DEBUG: KI-erweiterte Keywords für '{category_name}': {len(expanded_keywords)} Begriffe")
+        return expanded_keywords
+        
+    except Exception as e:
+        print(f"FEHLER bei KI-Erweiterung für '{category_name}': {e}")
+        # Fallback: Nur ursprüngliche Keywords
+        return user_keywords
+
+
+def get_categories_and_keywords(user=None):
+    """Gibt Kategorien und Keywords zurück - benutzerdefiniert oder Standard."""
+    if user and user.is_authenticated and user.use_custom_categories:
+        # Verwende benutzerdefinierte Kategorien
+        from accounts.models import AmpelCategory
+        custom_categories = AmpelCategory.objects.filter(user=user, is_active=True)
+        categories_data = {}
+        
+        for category in custom_categories:
+            user_keywords = [kw.keyword.lower() for kw in category.keywords.all()]
+            
+            # Prüfe ob KI-Erweiterung aktiviert ist
+            if user.enable_ai_keyword_expansion and user_keywords:
+                # Erweitere Keywords mit KI
+                expanded_keywords = expand_user_keywords_with_ai(category.name, user_keywords)
+                categories_data[category.name] = expanded_keywords
+                print(f"DEBUG: '{category.name}' mit KI erweitert: {len(user_keywords)} -> {len(expanded_keywords)} Keywords")
+            else:
+                # Verwende nur benutzer-definierte Keywords
+                categories_data[category.name] = user_keywords
+                print(f"DEBUG: '{category.name}' nur Benutzer-Keywords: {len(user_keywords)} Keywords")
+            
+        print(f"DEBUG: Verwende benutzerdefinierte Kategorien für User {user.username}: {list(categories_data.keys())}")
+        return categories_data
+    else:
+        # Verwende Standard-Kategorien mit KI-generierten Keywords
+        standard_categories = ["Feuchtraumleuchten", "Hallenleuchten", "Lichtmanagement", "EX-Leuchten", "Straßenleuchten", "Notleuchten"]
+        categories_data = {}
+        
+        for category in standard_categories:
+            ai_keywords = generate_category_keywords_with_ai(category)
+            categories_data[category] = ai_keywords
+            
+        print(f"DEBUG: Verwende Standard-Kategorien mit KI: {list(categories_data.keys())}")
+        return categories_data
+
+
+def analyze_entire_pdf_with_ampel(pdf_path, user=None):
     """Analysiert die gesamte PDF und gibt Ampel-Status für alle Kategorien zurück."""
     
-    categories = ["Feuchtraumleuchten", "Hallenleuchten", "Lichtmanagement", "EX-Leuchten", "Straßenleuchten", "Notleuchten"]
+    # Hole Kategorien und Keywords basierend auf Benutzer-Einstellungen
+    categories_data = get_categories_and_keywords(user)
     
     try:
         # Extrahiere Text aus PDF mit Seitenverweise
@@ -238,11 +342,11 @@ def analyze_entire_pdf_with_ampel(pdf_path):
         
         results = {}
         
-        for category in categories:
-            print(f"DEBUG: Analysiere Kategorie '{category}'")
+        for category, keywords in categories_data.items():
+            print(f"DEBUG: Analysiere Kategorie '{category}' mit {len(keywords)} Keywords")
             
-            # Generiere KI-basierte Schlüsselwörter für diese Kategorie
-            ai_keywords = generate_category_keywords_with_ai(category)
+            # Verwende die bereits vorhandenen Keywords (benutzerdefiniert oder KI-generiert)
+            ai_keywords = keywords
             
             # Suche nach Schlüsselwörtern auf jeder Seite
             found_keywords = []
@@ -364,7 +468,7 @@ def analyze_entire_pdf_with_ampel(pdf_path):
         # Schließe das Dokument erst ganz am Ende
         doc.close()
         
-        print(f"DEBUG: Ampel-Analyse abgeschlossen für {len(categories)} Kategorien")
+        print(f"DEBUG: Ampel-Analyse abgeschlossen für {len(categories_data)} Kategorien")
         return results
         
     except Exception as e:
@@ -376,8 +480,9 @@ def analyze_entire_pdf_with_ampel(pdf_path):
         except:
             pass
         # Fallback: Alle Kategorien rot
+        fallback_categories = list(categories_data.keys()) if 'categories_data' in locals() else ["Feuchtraumleuchten", "Hallenleuchten", "Lichtmanagement", "EX-Leuchten", "Straßenleuchten", "Notleuchten"]
         return {cat: {"status": "rot", "found_keywords": [], "confidence": 0.0, "context_snippets": [], "ai_keywords_used": [], "page_locations": {}} 
-                for cat in categories}
+                for cat in fallback_categories}
 
 
 def expand_search_terms_with_ai(query, perspective="sales"):
@@ -429,14 +534,25 @@ def expand_search_terms_with_ai(query, perspective="sales"):
         
         print(f"DEBUG: Sende OpenAI-Anfrage für '{query}' mit Perspektive '{perspective}'")
         
-        # Neue OpenAI Client Syntax
-        client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": expansion_prompt}],
-            max_tokens=200,
-            temperature=0.3
-        )
+        # Prüfe welche OpenAI Version verfügbar ist
+        try:
+            # Neue OpenAI Version (>= 1.0)
+            client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": expansion_prompt}],
+                max_tokens=200,
+                temperature=0.3
+            )
+        except AttributeError:
+            # Alte OpenAI Version (< 1.0)
+            openai.api_key = settings.OPENAI_API_KEY
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": expansion_prompt}],
+                max_tokens=200,
+                temperature=0.3
+            )
         print(f"DEBUG: OpenAI-Antwort erhalten")
         
         expanded_terms = response.choices[0].message.content.strip()
@@ -876,7 +992,7 @@ def pdf_suche(request):
                 pdf_path = fs.path(pdf_filename)
                 
                 # Führe Ampel-Analyse für gesamte PDF durch
-                ampel_results = analyze_entire_pdf_with_ampel(pdf_path)
+                ampel_results = analyze_entire_pdf_with_ampel(pdf_path, request.user)
                 
                 context = {
                     'step': 'ampel_and_search',
@@ -1139,7 +1255,7 @@ def get_ampel_locations(request):
             return JsonResponse({'error': 'PDF not found'}, status=404)
         
         # Ampel-Analyse erneut durchführen für diese Kategorie
-        ampel_results = analyze_entire_pdf_with_ampel(pdf_path)
+        ampel_results = analyze_entire_pdf_with_ampel(pdf_path, request.user)
         
         if category not in ampel_results:
             return JsonResponse({'error': 'Category not found'}, status=404)
