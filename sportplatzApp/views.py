@@ -64,7 +64,7 @@ def projekt_anlegen(request):
                 neues_projekt.save()
 
                 subject = f"Konfiguration für Ihr Projekt: {neues_projekt.projekt_name}"
-                from_email = 'planungstool@taras-yuzkiv.de'
+                from_email = 'planungstool@schuch.de'
                 recipient_list = [neues_projekt.ansprechpartner_email]
 
                 admin_url = request.build_absolute_uri(

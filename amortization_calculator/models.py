@@ -16,7 +16,7 @@ class Calculation(models.Model):
     # ... etc for all 'alt' fields
 
     # Tab 2: New System (Neue Anlage)
-    neu_hersteller = models.CharField(max_length=100, default="taras_yuzkiv")
+    neu_hersteller = models.CharField(max_length=100, default="Schuch")
     neu_leistung = models.FloatField(default=0)
     neu_anzahl = models.IntegerField(default=0)
     neu_h_pro_t = models.FloatField(default=0) # neuhProT
