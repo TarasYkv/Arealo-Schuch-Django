@@ -648,6 +648,9 @@ def perform_semantic_search(pdf_path, query, page_range, strictness_threshold, p
                     context_snippet = extract_context_around_terms(text, found_terms, max_lines=9)
                     highlighted_snippet = highlight_terms_in_text(context_snippet, found_terms, original_query_terms)
                     
+                    # Analysiere Thema/Produkt und Anzahl
+                    analysis = analyze_product_and_quantity(context_snippet)
+                    
                     ergebnisse.append({
                         'seitenzahl': page_num + 1,
                         'textstelle': context_snippet,
@@ -655,7 +658,9 @@ def perform_semantic_search(pdf_path, query, page_range, strictness_threshold, p
                         'relevance_score': relevance_score,
                         'found_terms': found_terms,
                         'original_found': original_found,
-                        'extended_found': extended_found
+                        'extended_found': extended_found,
+                        'product_category': analysis['category'],
+                        'quantity': analysis['quantity']
                     })
         
         doc.close()
@@ -768,6 +773,9 @@ def perform_semantic_search_with_selected_terms(pdf_path, query, page_range, str
                 context_snippet = extract_context_around_terms(text, found_terms, max_lines=9)
                 highlighted_snippet = highlight_terms_in_text(context_snippet, found_terms, original_query_terms)
                 
+                # Analysiere Thema/Produkt und Anzahl
+                analysis = analyze_product_and_quantity(context_snippet)
+                
                 ergebnisse.append({
                     'seitenzahl': page_num + 1,
                     'textstelle': context_snippet,
@@ -775,7 +783,9 @@ def perform_semantic_search_with_selected_terms(pdf_path, query, page_range, str
                     'relevance_score': relevance_score,
                     'found_terms': found_terms,
                     'original_found': original_found,
-                    'extended_found': extended_found
+                    'extended_found': extended_found,
+                    'product_category': analysis['category'],
+                    'quantity': analysis['quantity']
                 })
         
         doc.close()
@@ -807,6 +817,58 @@ def perform_semantic_search_with_selected_terms(pdf_path, query, page_range, str
     except Exception as e:
         print(f"FEHLER bei der semantischen Suche mit ausgewählten Begriffen: {e}")
         return []
+
+
+def analyze_product_and_quantity(text):
+    """Analysiert Text auf Thema/Produkt und Anzahl."""
+    import re
+    
+    # Kategorien definieren
+    categories = {
+        "Feuchtraumleuchten": ["feuchtraum", "ip65", "ip66", "ip67", "wasserdicht", "spritzwasser", "nassraum", "badleuchte"],
+        "Hallenleuchten": ["halle", "industrial", "highbay", "high bay", "lagerhalle", "produktionshalle", "werkstatt"],
+        "Straßenleuchten": ["straße", "straßen", "außenbeleuchtung", "mastleuchte", "verkehrsweg", "platz"],
+        "Notleuchten": ["not", "sicherheit", "fluchtweg", "rettung", "notausgang", "antipanik"],
+        "EX-Leuchten": ["ex", "explosion", "atex", "zone", "gasexplosion", "staubexplosion"],
+        "Lichtmanagement": ["steuerung", "regelung", "sensor", "dali", "knx", "dimmer", "bewegungsmelder"]
+    }
+    
+    # Thema/Kategorie erkennen
+    found_category = "Sonstiges"
+    for category, keywords in categories.items():
+        if any(keyword.lower() in text.lower() for keyword in keywords):
+            found_category = category
+            break
+    
+    # Anzahl extrahieren
+    quantity_patterns = [
+        r'(\d+)\s*(?:stück|stk|st\.?|x|mal|einheiten?)',
+        r'(\d+)\s*(?:leuchten?|lampen?|strahler?)',
+        r'anzahl:?\s*(\d+)',
+        r'(\d+)\s*(?:mal|x)'
+    ]
+    
+    found_quantity = None
+    for pattern in quantity_patterns:
+        matches = re.findall(pattern, text.lower())
+        if matches:
+            found_quantity = matches[0]
+            break
+    
+    # Fallback: Einzelne Zahlen suchen
+    if not found_quantity:
+        numbers = re.findall(r'\b(\d{1,3})\b', text)
+        if numbers:
+            # Nehme die erste sinnvolle Zahl (zwischen 1 und 999)
+            for num in numbers:
+                if 1 <= int(num) <= 999:
+                    found_quantity = num
+                    break
+    
+    return {
+        'category': found_category,
+        'quantity': found_quantity
+    }
 
 
 def highlight_terms_in_text(text, search_terms, original_query_terms=None):
@@ -947,11 +1009,16 @@ def search_text_in_pdf(pdf_path, search_terms, page_range):
                 # Hervorhebung der gefundenen Suchbegriffe (bei einfacher Suche sind alle ursprünglich)
                 highlighted_snippet = highlight_terms_in_text(context_snippet, found_terms, found_terms)
                 
+                # Analysiere Thema/Produkt und Anzahl
+                analysis = analyze_product_and_quantity(context_snippet)
+                
                 ergebnisse.append({
                     'seitenzahl': page_num + 1, 
                     'textstelle': context_snippet,
                     'textstelle_highlighted': highlighted_snippet,
-                    'found_terms': found_terms
+                    'found_terms': found_terms,
+                    'product_category': analysis['category'],
+                    'quantity': analysis['quantity']
                 })
         
         doc.close()
