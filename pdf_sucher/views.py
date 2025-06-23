@@ -292,6 +292,9 @@ def get_categories_and_keywords(user=None):
         for category in custom_categories:
             user_keywords = [kw.keyword.lower() for kw in category.keywords.all()]
             
+            # Füge Kategorienamen als Suchbegriff hinzu
+            user_keywords.append(category.name.lower())
+            
             # Prüfe ob KI-Erweiterung aktiviert ist
             if user.enable_ai_keyword_expansion and user_keywords:
                 # Erweitere Keywords mit KI
@@ -312,6 +315,10 @@ def get_categories_and_keywords(user=None):
         
         for category in standard_categories:
             ai_keywords = generate_category_keywords_with_ai(category)
+            
+            # Füge Kategorienamen als Suchbegriff hinzu
+            ai_keywords.append(category.lower())
+            
             categories_data[category] = ai_keywords
             
         print(f"DEBUG: Verwende Standard-Kategorien mit KI: {list(categories_data.keys())}")
@@ -356,20 +363,34 @@ def analyze_entire_pdf_with_ampel(pdf_path, user=None):
             for keyword in ai_keywords:
                 keyword_pages = []
                 for page_num, page_text in enumerate(page_texts):
-                    if keyword.lower() in page_text.lower():
+                    # Verwende Wortgrenzen für exakte Suche
+                    import re
+                    pattern = r'\b' + re.escape(keyword.lower()) + r'\b'
+                    regex_matches = list(re.finditer(pattern, page_text.lower()))
+                    
+                    if regex_matches:
                         try:
-                            import re
                             # Finde alle Positionen dieses Keywords auf dieser Seite
-                            # Verwende PyMuPDF für exakte Koordinaten
                             page_obj = doc.load_page(page_num)
+                            
+                            # Versuche zuerst PyMuPDF-Suche für exakte Koordinaten
                             text_instances = page_obj.search_for(keyword)
+                            
+                            # Falls PyMuPDF nichts findet, versuche es mit allen gefundenen Wort-Varianten
+                            if not text_instances:
+                                # Extrahiere die tatsächlich gefundenen Wörter aus dem Regex
+                                found_words = [regex_matches[i].group() for i in range(len(regex_matches))]
+                                text_instances = []  # Initialisiere leere Liste
+                                for found_word in set(found_words):  # Entferne Duplikate
+                                    word_instances = page_obj.search_for(found_word)
+                                    if word_instances:
+                                        text_instances.extend(word_instances)
                             
                             if text_instances:
                                 for i, rect in enumerate(text_instances):
-                                    # Extrahiere Kontext um jede Fundstelle 
-                                    matches = list(re.finditer(re.escape(keyword.lower()), page_text.lower()))
-                                    if i < len(matches):
-                                        match = matches[i]
+                                    # Verwende die ursprünglichen Regex-Matches für besseren Kontext
+                                    if i < len(regex_matches):
+                                        match = regex_matches[i]
                                         context_start = max(0, match.start() - 50)
                                         context_end = min(len(page_text), match.end() + 50)
                                         context = page_text[context_start:context_end].strip()
@@ -384,11 +405,19 @@ def analyze_entire_pdf_with_ampel(pdf_path, user=None):
                                             'y1': float(rect.y1)
                                         })
                                     else:
-                                        # Fallback wenn regex nicht mit PyMuPDF übereinstimmt
+                                        # Fallback: Verwende den ersten Regex-Match für Kontext
+                                        if regex_matches:
+                                            match = regex_matches[0]
+                                            context_start = max(0, match.start() - 50)
+                                            context_end = min(len(page_text), match.end() + 50)
+                                            context = page_text[context_start:context_end].strip()
+                                        else:
+                                            context = f"{keyword} gefunden"
+                                        
                                         keyword_pages.append({
                                             'page': page_num + 1,
-                                            'context': f"...{keyword} gefunden...",
-                                            'position': 0,
+                                            'context': f"...{context}...",
+                                            'position': match.start() if regex_matches else 0,
                                             'x0': float(rect.x0),
                                             'y0': float(rect.y0),
                                             'x1': float(rect.x1), 
@@ -521,21 +550,24 @@ def expand_search_terms_with_ai(query, perspective="sales"):
 
         Ursprüngliche Anfrage: "{query}"
 
-        STRENGE REGELN:
-        - Verwende NUR direkte Synonyme und exakte Varianten der ursprünglichen Begriffe
-        - KEINE allgemeinen Beleuchtungsbegriffe wie "Licht", "Beleuchtung", "Leuchte"
-        - KEINE technischen Parameter außer sie sind explizit gesucht
-        - KEINE Marken, Preise oder Lieferbedingungen
-        - Maximal 5-8 sehr eng verwandte Begriffe
-        - Bei sehr spezifischen Anfragen: Erweitere gar nicht oder minimal
+        SYNONYME REGELN:
+        - Generiere NUR echte Synonyme und alternative Bezeichnungen für die ursprünglichen Begriffe
+        - KEINE Wiederholung der ursprünglichen Begriffe
+        - KEINE allgemeinen Begriffe wie "Licht", "Beleuchtung", "Leuchte"
+        - KEINE technischen Parameter, Marken oder kommerzielle Begriffe
+        - Fokus auf Fachsynonyme und alternative Schreibweisen
+        - Unbegrenzte Anzahl von relevanten Synonymen
 
-        Beispiele:
-        - "Notleuchte" → "Notbeleuchtung, Sicherheitsleuchte, Fluchtwegleuchte"
-        - "IP65" → "IP66, wasserdicht, spritzwassergeschützt"
-        - "DALI" → "DALI-2, Lichtsteuerung, Lichtmanagement"
+        Beispiele für gute Synonyme:
+        - "Notleuchte" → "Sicherheitsleuchte, Fluchtwegleuchte, Rettungszeichenleuchte, Antipanikleuchte, Notausgangsleuchte"
+        - "IP65" → "wasserdicht, spritzwassergeschützt, feuchtigkeitsgeschützt, witterungsbeständig"
+        - "DALI" → "DALI-2, Digitalsteuerung, Lichtbussteuerung, intelligente Lichtsteuerung"
+        - "Hallenleuchte" → "Industrieleuchte, Hallenstrahler, Highbay-Leuchte, Tiefstrahler"
 
-        Gib eine kommaseparierte Liste von maximal 5-8 eng verwandten Begriffen zurück.
-
+        Gib ALLE relevanten Synonyme zurück, ohne die ursprünglichen Begriffe zu wiederholen.
+        
+        WICHTIG: Gib die Begriffe als kommaseparierte Liste zurück (Begriff1, Begriff2, Begriff3, usw.)
+        
         Erweiterte Begriffe für "{query}":
         """
         
@@ -548,7 +580,7 @@ def expand_search_terms_with_ai(query, perspective="sales"):
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": expansion_prompt}],
-                max_tokens=80,
+                max_tokens=150,
                 temperature=0.1
             )
         except AttributeError:
@@ -563,8 +595,21 @@ def expand_search_terms_with_ai(query, perspective="sales"):
         print(f"DEBUG: OpenAI-Antwort erhalten")
         
         expanded_terms = response.choices[0].message.content.strip()
-        # Bereinige und splitte die Begriffe
-        terms = [term.strip() for term in expanded_terms.split(',') if term.strip()]
+        print(f"DEBUG: Rohe OpenAI-Antwort: '{expanded_terms}'")
+        
+        # Bereinige und splitte die Begriffe - unterstütze verschiedene Trennzeichen
+        if ',' in expanded_terms:
+            # Komma-getrennt
+            terms = [term.strip() for term in expanded_terms.split(',') if term.strip()]
+        elif '-' in expanded_terms:
+            # Bindestrich-getrennt
+            terms = [term.strip() for term in expanded_terms.split('-') if term.strip()]
+        elif '\n' in expanded_terms:
+            # Zeilenumbruch-getrennt
+            terms = [term.strip() for term in expanded_terms.split('\n') if term.strip()]
+        else:
+            # Fallback: Leerzeichen-getrennt
+            terms = [term.strip() for term in expanded_terms.split() if term.strip()]
         
         print(f"DEBUG: Rohe erweiterte Begriffe von OpenAI: {terms}")
         
@@ -583,7 +628,7 @@ def expand_search_terms_with_ai(query, perspective="sales"):
 
 
 def filter_expanded_terms(terms, original_query):
-    """Filtert irrelevante erweiterte Begriffe heraus."""
+    """Filtert irrelevante erweiterte Begriffe heraus und entfernt Duplikate mit ursprünglichen Begriffen."""
     
     # Blacklist für zu allgemeine/irrelevante Begriffe
     blacklist = {
@@ -607,35 +652,32 @@ def filter_expanded_terms(terms, original_query):
         "gut", "schlecht", "neu", "alt", "modern", "klassisch", "einfach", "komplex"
     }
     
+    # Normalisiere ursprüngliche Begriffe für Vergleich
     original_words = set(word.lower().strip() for word in original_query.replace(',', ' ').split())
+    original_terms = set(term.lower().strip() for term in original_query.split(',') if term.strip())
     
     filtered_terms = []
     for term in terms:
         term_clean = term.lower().strip()
         
-        # Behalte Begriff wenn:
-        # 1. Er ist in der ursprünglichen Anfrage
-        # 2. Er ist nicht in der Blacklist
-        # 3. Er ist länger als 2 Zeichen
-        # 4. Er enthält relevante Wörter aus der ursprünglichen Anfrage
+        # NEUE REGEL: Überspringe Begriffe die bereits in den ursprünglichen Begriffen sind
+        if term_clean in original_terms or term_clean in original_words:
+            print(f"DEBUG: Überspringe Duplikat: '{term}' (bereits in ursprünglichen Begriffen)")
+            continue
         
-        if term_clean in original_words:
-            filtered_terms.append(term)
-        elif term_clean not in blacklist and len(term_clean) > 2:
-            # Prüfe ob der Begriff thematisch zu den ursprünglichen Begriffen passt
-            is_relevant = False
-            for orig_word in original_words:
-                if (len(orig_word) > 3 and 
-                    (orig_word in term_clean or term_clean in orig_word or
-                     any(char in term_clean for char in orig_word if len(orig_word) > 4))):
-                    is_relevant = True
-                    break
+        # Filtere Blacklist-Begriffe heraus
+        if term_clean in blacklist:
+            print(f"DEBUG: Überspringe Blacklist-Begriff: '{term}'")
+            continue
             
-            if is_relevant:
-                filtered_terms.append(term)
+        # Behalte nur Begriffe mit angemessener Länge
+        if len(term_clean) > 2:
+            filtered_terms.append(term)
     
-    # Entferne Duplikate und begrenze auf maximal 8 Begriffe
-    unique_terms = list(dict.fromkeys(filtered_terms))[:8]
+    # Entferne Duplikate aber KEINE Begrenzung auf 8 Begriffe
+    unique_terms = list(dict.fromkeys(filtered_terms))
+    
+    print(f"DEBUG: Synonyme nach Filterung: {len(unique_terms)} Begriffe: {unique_terms}")
     
     return unique_terms
 
@@ -912,12 +954,16 @@ def analyze_product_category(text):
         "Beleuchtungsplanung": ["planung", "konzept", "design", "lichtplanung", "projekt", "beratung"]
     }
     
-    # Prüfe Fallback-Kategorien
+    # Prüfe Fallback-Kategorien mit Wortgrenzen
+    import re
     text_lower = text.lower()
     for category, keywords in fallback_categories.items():
-        if any(keyword in text_lower for keyword in keywords):
-            print(f"DEBUG: Fallback-Kategorie gefunden: '{category}'")
-            return category
+        # Verwende Wortgrenzen für jedes Keyword
+        for keyword in keywords:
+            pattern = r'\b' + re.escape(keyword.lower()) + r'\b'
+            if re.search(pattern, text_lower):
+                print(f"DEBUG: Fallback-Kategorie gefunden: '{category}' (Keyword: '{keyword}')")
+                return category
     
     # Verwende KI für flexible Themen-Extraktion
     print("DEBUG: Versuche KI-Themen-Extraktion...")
@@ -1031,8 +1077,13 @@ def highlight_terms_in_text(text, search_terms, original_query_terms=None):
                 # Orange für KI-erweiterte Begriffe
                 color_style = 'background-color: #ff9800; color: white; padding: 2px 4px; border-radius: 3px;'
             
-            # Case-insensitive Ersetzung mit HTML-Markierung
-            pattern = re.compile(re.escape(term.strip()), re.IGNORECASE)
+            # Case-insensitive Ersetzung mit HTML-Markierung und Wortgrenzen
+            if ' ' in term.strip():
+                # Mehrteiliger Begriff: exakte Suche ohne Wortgrenzen
+                pattern = re.compile(re.escape(term.strip()), re.IGNORECASE)
+            else:
+                # Einteiliger Begriff: mit Wortgrenzen
+                pattern = re.compile(r'\b' + re.escape(term.strip()) + r'\b', re.IGNORECASE)
             highlighted_text = pattern.sub(f'<mark style="{color_style}">{term.strip()}</mark>', highlighted_text)
     
     return highlighted_text
@@ -1071,7 +1122,21 @@ def extract_context_around_terms(text, search_terms, max_lines=9):
         # Versuche die relevanteste Stelle zu finden
         relevant_lines = []
         for i, line in enumerate(lines):
-            line_has_term = any(term.lower() in line.lower() for term in search_terms if term and len(term.strip()) > 1)
+            # Verwende Wortgrenzen für bessere Zeilen-Relevanz
+            line_has_term = False
+            for term in search_terms:
+                if term and len(term.strip()) > 1:
+                    if ' ' in term.strip():
+                        # Mehrteiliger Begriff: exakte Suche
+                        if term.lower() in line.lower():
+                            line_has_term = True
+                            break
+                    else:
+                        # Einteiliger Begriff: mit Wortgrenzen
+                        pattern = r'\b' + re.escape(term.lower()) + r'\b'
+                        if re.search(pattern, line.lower()):
+                            line_has_term = True
+                            break
             if line_has_term or len(relevant_lines) < max_lines:
                 relevant_lines.append(line)
             if len(relevant_lines) >= max_lines:
