@@ -840,7 +840,13 @@ def analyze_product_and_quantity(text):
             found_category = category
             break
     
-    # Anzahl extrahieren
+    # Falls keine Kategorie gefunden wurde, verwende KI für Kategorisierung
+    if found_category == "Sonstiges" and text.strip():
+        ai_category = extract_category_with_ai(text)
+        if ai_category:
+            found_category = ai_category
+    
+    # Anzahl extrahieren - erst mit Regex-Patterns
     quantity_patterns = [
         r'(\d+)\s*(?:stück|stk|st\.?|x|mal|einheiten?)',
         r'(\d+)\s*(?:leuchten?|lampen?|strahler?)',
@@ -855,7 +861,13 @@ def analyze_product_and_quantity(text):
             found_quantity = matches[0]
             break
     
-    # Fallback: Einzelne Zahlen suchen
+    # Falls keine Anzahl mit Regex gefunden, verwende KI
+    if not found_quantity and text.strip():
+        ai_quantity = extract_quantity_with_ai(text)
+        if ai_quantity:
+            found_quantity = ai_quantity
+    
+    # Letzter Fallback: Einzelne Zahlen suchen
     if not found_quantity:
         numbers = re.findall(r'\b(\d{1,3})\b', text)
         if numbers:
@@ -869,6 +881,125 @@ def analyze_product_and_quantity(text):
         'category': found_category,
         'quantity': found_quantity
     }
+
+
+def extract_category_with_ai(text):
+    """Extrahiert Produktkategorie aus Text mit KI."""
+    try:
+        from django.conf import settings
+        import openai
+        
+        # OpenAI Client initialisieren
+        client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+        
+        prompt = f"""
+Analysiere den folgenden Text aus einer technischen Ausschreibung und bestimme die passende Produktkategorie in maximal 1-2 Wörtern.
+
+Mögliche Kategorien:
+- Innenleuchten
+- Außenleuchten  
+- Deckenleuchten
+- Wandleuchten
+- Strahler
+- Downlights
+- Pendelleuchten
+- Einbauleuchten
+- Scheinwerfer
+- Flutlicht
+- Mastleuchten
+- Pollerleuchten
+- Bodenleuchten
+- Unterbauleuchten
+- Lichtbänder
+- Panels
+- Spots
+- Leuchtstoffröhren
+- LED-Module
+- Treiber
+- Sensoren
+- Schalter
+- Kabel
+- Befestigung
+
+Text: "{text[:300]}"
+
+Antworte nur mit der passendsten Kategorie in 1-2 Wörtern, ohne weitere Erklärung:
+"""
+        
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=20,
+            temperature=0.1
+        )
+        
+        category = response.choices[0].message.content.strip()
+        print(f"DEBUG: KI-Kategorie extrahiert: '{category}' für Text: '{text[:50]}...'")
+        
+        # Validiere die Antwort (nur 1-2 Wörter, keine Sonderzeichen)
+        if category and len(category.split()) <= 2 and category.replace(' ', '').replace('-', '').isalpha():
+            return category
+        else:
+            print(f"DEBUG: KI-Kategorie ungültig: '{category}'")
+            return None
+            
+    except Exception as e:
+        print(f"DEBUG: Fehler bei KI-Kategorisierung: {e}")
+        return None
+
+
+def extract_quantity_with_ai(text):
+    """Extrahiert Anzahl/Menge aus Text mit KI."""
+    try:
+        from django.conf import settings
+        import openai
+        
+        # OpenAI Client initialisieren
+        client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+        
+        prompt = f"""
+Analysiere den folgenden Text aus einer technischen Ausschreibung und extrahiere die benötigte Anzahl/Menge von Produkten.
+
+Suche nach:
+- Direkten Anzahlangaben (z.B. "12 Stück", "5 Leuchten", "10x")
+- Indirekten Mengenangaben (z.B. "je Raum 3", "pro Bereich 8")
+- Zahlen in Verbindung mit Produkten (z.B. "8 Downlights erforderlich")
+
+Ignoriere:
+- Technische Spezifikationen (Watt, Lumen, IP-Werte, Maße)
+- Seitenzahlen, Artikelnummern, Preise
+- Prozentangaben, Temperaturen
+
+Text: "{text[:400]}"
+
+Antworte nur mit der Zahl (ohne Einheit), oder "0" falls keine eindeutige Menge erkennbar ist:
+"""
+        
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=10,
+            temperature=0.1
+        )
+        
+        quantity = response.choices[0].message.content.strip()
+        print(f"DEBUG: KI-Anzahl extrahiert: '{quantity}' für Text: '{text[:50]}...'")
+        
+        # Validiere die Antwort (muss eine Zahl zwischen 1 und 9999 sein)
+        try:
+            num = int(quantity)
+            if 1 <= num <= 9999:
+                return str(num)
+            else:
+                print(f"DEBUG: KI-Anzahl außerhalb des gültigen Bereichs: {num}")
+                return None
+        except ValueError:
+            print(f"DEBUG: KI-Anzahl keine gültige Zahl: '{quantity}'")
+            return None
+            
+    except Exception as e:
+        print(f"DEBUG: Fehler bei KI-Anzahl-Extraktion: {e}")
+        return None
 
 
 def highlight_terms_in_text(text, search_terms, original_query_terms=None):
