@@ -521,13 +521,20 @@ def expand_search_terms_with_ai(query, perspective="sales"):
 
         Ursprüngliche Anfrage: "{query}"
 
-        WICHTIG: Erweitere NUR um Begriffe, die thematisch eng verwandt mit der ursprünglichen Anfrage sind.
-        - Verwende Synonyme und Fachbegriffe der ursprünglichen Begriffe
-        - Füge KEINE allgemeinen Beleuchtungsbegriffe hinzu, wenn sie nicht zum Kontext passen
-        - Konzentriere dich auf die spezifische Bedeutung der Anfrage
-        - Wenn die Anfrage sehr spezifisch ist, erweitere nur minimal
+        STRENGE REGELN:
+        - Verwende NUR direkte Synonyme und exakte Varianten der ursprünglichen Begriffe
+        - KEINE allgemeinen Beleuchtungsbegriffe wie "Licht", "Beleuchtung", "Leuchte"
+        - KEINE technischen Parameter außer sie sind explizit gesucht
+        - KEINE Marken, Preise oder Lieferbedingungen
+        - Maximal 5-8 sehr eng verwandte Begriffe
+        - Bei sehr spezifischen Anfragen: Erweitere gar nicht oder minimal
 
-        Gib eine kommaseparierte Liste von 12-15 eng verwandten Suchbegriffen zurück.
+        Beispiele:
+        - "Notleuchte" → "Notbeleuchtung, Sicherheitsleuchte, Fluchtwegleuchte"
+        - "IP65" → "IP66, wasserdicht, spritzwassergeschützt"
+        - "DALI" → "DALI-2, Lichtsteuerung, Lichtmanagement"
+
+        Gib eine kommaseparierte Liste von maximal 5-8 eng verwandten Begriffen zurück.
 
         Erweiterte Begriffe für "{query}":
         """
@@ -539,10 +546,10 @@ def expand_search_terms_with_ai(query, perspective="sales"):
             # Neue OpenAI Version (>= 1.0)
             client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
             response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
+                model="gpt-4o-mini",
                 messages=[{"role": "user", "content": expansion_prompt}],
-                max_tokens=200,
-                temperature=0.3
+                max_tokens=80,
+                temperature=0.1
             )
         except AttributeError:
             # Alte OpenAI Version (< 1.0)
@@ -559,8 +566,13 @@ def expand_search_terms_with_ai(query, perspective="sales"):
         # Bereinige und splitte die Begriffe
         terms = [term.strip() for term in expanded_terms.split(',') if term.strip()]
         
-        print(f"DEBUG: Erweiterte Suchbegriffe ({perspective}): {terms}")
-        return terms
+        print(f"DEBUG: Rohe erweiterte Begriffe von OpenAI: {terms}")
+        
+        # Intelligente Filterung der erweiterten Begriffe
+        filtered_terms = filter_expanded_terms(terms, query)
+        print(f"DEBUG: Gefilterte erweiterte Begriffe: {filtered_terms}")
+        
+        return filtered_terms
         
     except Exception as e:
         print(f"FEHLER bei der Begriffserweiterung: {e}")
@@ -568,6 +580,64 @@ def expand_search_terms_with_ai(query, perspective="sales"):
         fallback_terms = [term.strip() for term in query.split(",") if len(term.strip()) > 1]
         print(f"DEBUG: Fallback zu ursprünglichen Begriffen: {fallback_terms}")
         return fallback_terms
+
+
+def filter_expanded_terms(terms, original_query):
+    """Filtert irrelevante erweiterte Begriffe heraus."""
+    
+    # Blacklist für zu allgemeine/irrelevante Begriffe
+    blacklist = {
+        # Zu allgemeine Begriffe
+        "beleuchtung", "licht", "leuchte", "lampe", "leuchtmittel", "lichttechnik",
+        
+        # Kommerzielle Begriffe
+        "preis", "kosten", "euro", "eur", "günstig", "teuer", "angebot", "rabatt",
+        "lieferung", "lieferzeit", "versand", "bestellung", "kauf", "verkauf",
+        "hersteller", "marke", "firma", "unternehmen", "händler",
+        
+        # Zu technische Details (außer explizit gesucht)
+        "watt", "volt", "ampere", "hz", "frequenz", "spannung", "strom",
+        "lumen", "lux", "kelvin", "cri", "ra", "farbwiedergabe",
+        
+        # Service-Begriffe
+        "service", "support", "hilfe", "beratung", "information",
+        "garantie", "gewährleistung", "wartung", "reparatur",
+        
+        # Allgemeine Adjektive
+        "gut", "schlecht", "neu", "alt", "modern", "klassisch", "einfach", "komplex"
+    }
+    
+    original_words = set(word.lower().strip() for word in original_query.replace(',', ' ').split())
+    
+    filtered_terms = []
+    for term in terms:
+        term_clean = term.lower().strip()
+        
+        # Behalte Begriff wenn:
+        # 1. Er ist in der ursprünglichen Anfrage
+        # 2. Er ist nicht in der Blacklist
+        # 3. Er ist länger als 2 Zeichen
+        # 4. Er enthält relevante Wörter aus der ursprünglichen Anfrage
+        
+        if term_clean in original_words:
+            filtered_terms.append(term)
+        elif term_clean not in blacklist and len(term_clean) > 2:
+            # Prüfe ob der Begriff thematisch zu den ursprünglichen Begriffen passt
+            is_relevant = False
+            for orig_word in original_words:
+                if (len(orig_word) > 3 and 
+                    (orig_word in term_clean or term_clean in orig_word or
+                     any(char in term_clean for char in orig_word if len(orig_word) > 4))):
+                    is_relevant = True
+                    break
+            
+            if is_relevant:
+                filtered_terms.append(term)
+    
+    # Entferne Duplikate und begrenze auf maximal 8 Begriffe
+    unique_terms = list(dict.fromkeys(filtered_terms))[:8]
+    
+    return unique_terms
 
 
 def perform_semantic_search(pdf_path, query, page_range, strictness_threshold, perspective="sales"):
@@ -648,8 +718,8 @@ def perform_semantic_search(pdf_path, query, page_range, strictness_threshold, p
                     context_snippet = extract_context_around_terms(text, found_terms, max_lines=9)
                     highlighted_snippet = highlight_terms_in_text(context_snippet, found_terms, original_query_terms)
                     
-                    # Analysiere Thema/Produkt und Anzahl
-                    analysis = analyze_product_and_quantity(context_snippet)
+                    # Analysiere Produktkategorie
+                    product_category = analyze_product_category(context_snippet)
                     
                     ergebnisse.append({
                         'seitenzahl': page_num + 1,
@@ -659,8 +729,7 @@ def perform_semantic_search(pdf_path, query, page_range, strictness_threshold, p
                         'found_terms': found_terms,
                         'original_found': original_found,
                         'extended_found': extended_found,
-                        'product_category': analysis['category'],
-                        'quantity': analysis['quantity']
+                        'product_category': product_category
                     })
         
         doc.close()
@@ -773,8 +842,8 @@ def perform_semantic_search_with_selected_terms(pdf_path, query, page_range, str
                 context_snippet = extract_context_around_terms(text, found_terms, max_lines=9)
                 highlighted_snippet = highlight_terms_in_text(context_snippet, found_terms, original_query_terms)
                 
-                # Analysiere Thema/Produkt und Anzahl
-                analysis = analyze_product_and_quantity(context_snippet)
+                # Analysiere Produktkategorie
+                product_category = analyze_product_category(context_snippet)
                 
                 ergebnisse.append({
                     'seitenzahl': page_num + 1,
@@ -784,8 +853,7 @@ def perform_semantic_search_with_selected_terms(pdf_path, query, page_range, str
                     'found_terms': found_terms,
                     'original_found': original_found,
                     'extended_found': extended_found,
-                    'product_category': analysis['category'],
-                    'quantity': analysis['quantity']
+                    'product_category': product_category
                 })
         
         doc.close()
@@ -819,292 +887,123 @@ def perform_semantic_search_with_selected_terms(pdf_path, query, page_range, str
         return []
 
 
-def analyze_product_and_quantity(text):
-    """Analysiert Text auf Thema/Produkt und Anzahl."""
-    import re
+def analyze_product_category(text):
+    """Analysiert Text und extrahiert kontextspezifisches Thema mit KI."""
+    if not text.strip():
+        print("DEBUG: Leerer Text - kein Thema")
+        return None
     
-    # Kategorien definieren
-    categories = {
-        "Feuchtraumleuchten": ["feuchtraum", "ip65", "ip66", "ip67", "wasserdicht", "spritzwasser", "nassraum", "badleuchte"],
-        "Hallenleuchten": ["halle", "industrial", "highbay", "high bay", "lagerhalle", "produktionshalle", "werkstatt"],
-        "Straßenleuchten": ["straße", "straßen", "außenbeleuchtung", "mastleuchte", "verkehrsweg", "platz"],
-        "Notleuchten": ["not", "sicherheit", "fluchtweg", "rettung", "notausgang", "antipanik"],
-        "EX-Leuchten": ["ex", "explosion", "atex", "zone", "gasexplosion", "staubexplosion"],
-        "Lichtmanagement": ["steuerung", "regelung", "sensor", "dali", "knx", "dimmer", "bewegungsmelder"]
+    print(f"DEBUG: Analysiere Thema für Text: '{text[:100]}...'")
+    
+    # Erweiterte Keyword-basierte Kategorien
+    fallback_categories = {
+        "Notbeleuchtung": ["not", "sicherheit", "fluchtweg", "rettung", "notausgang", "antipanik", "evakuierung", "brandschutz", "fluchtwege"],
+        "Feuchtraum": ["feuchtraum", "ip65", "ip66", "ip67", "wasserdicht", "spritzwasser", "nassraum", "bad", "dusche", "feucht"],
+        "Hallenbeleuchtung": ["halle", "industrial", "highbay", "high bay", "lager", "produktion", "werkstatt", "fabrik", "montage"],
+        "Straßenbeleuchtung": ["straße", "straßen", "außenbeleuchtung", "mastleuchte", "verkehrsweg", "parkplatz", "gehweg", "platz"],
+        "Bürobeleuchtung": ["büro", "arbeitsplatz", "office", "verwaltung", "schreibtisch", "meeting", "konferenz"],
+        "Lichtsteuerung": ["steuerung", "regelung", "sensor", "dali", "knx", "dimmer", "bewegungsmelder", "automation", "smart"],
+        "Innenbeleuchtung": ["innen", "indoor", "decke", "wand", "einbau", "aufbau", "pendelleuchte"],
+        "Außenbeleuchtung": ["außen", "outdoor", "fassade", "garten", "terrasse", "balkon", "eingang"],
+        "Arbeitsplatz": ["arbeitsplatz", "computer", "bildschirm", "tisch", "schreibtisch", "monitor"],
+        "Verkabelung": ["kabel", "leitung", "verkabelung", "installation", "elektro", "verdrahtung"],
+        "Wartung": ["wartung", "instandhaltung", "reparatur", "service", "pflege", "reinigung"],
+        "Energieeffizienz": ["energie", "effizienz", "sparen", "verbrauch", "led", "umwelt", "nachhaltig"],
+        "Beleuchtungsplanung": ["planung", "konzept", "design", "lichtplanung", "projekt", "beratung"]
     }
     
-    # Thema/Kategorie erkennen
-    found_category = "Sonstiges"
-    for category, keywords in categories.items():
-        if any(keyword.lower() in text.lower() for keyword in keywords):
-            found_category = category
-            break
+    # Prüfe Fallback-Kategorien
+    text_lower = text.lower()
+    for category, keywords in fallback_categories.items():
+        if any(keyword in text_lower for keyword in keywords):
+            print(f"DEBUG: Fallback-Kategorie gefunden: '{category}'")
+            return category
     
-    # Falls keine Kategorie gefunden wurde, verwende KI für Kategorisierung
-    if found_category == "Sonstiges" and text.strip():
-        ai_category = extract_category_with_ai(text)
-        if ai_category:
-            found_category = ai_category
+    # Verwende KI für flexible Themen-Extraktion
+    print("DEBUG: Versuche KI-Themen-Extraktion...")
+    ai_theme = extract_theme_with_ai(text)
     
-    # Anzahl extrahieren - erst mit erweiterten Regex-Patterns
-    quantity_patterns = [
-        # Direkte Mengenangaben
-        r'(\d+)\s*(?:stück|stk|st\.?|x|mal|einheiten?|stck)',
-        r'(\d+)\s*(?:leuchten?|lampen?|strahler?|spots?|panels?|downlights?)',
-        r'anzahl:?\s*(\d+)',
-        r'(\d+)\s*(?:mal|x)',
-        
-        # Komplexere Patterns
-        r'insgesamt\s+(\d+)',
-        r'gesamt:?\s*(\d+)',
-        r'benötigt:?\s*(\d+)',
-        r'erforderlich:?\s*(\d+)',
-        r'vorgesehen:?\s*(\d+)',
-        r'montiert:?\s*(\d+)',
-        r'installiert:?\s*(\d+)',
-        
-        # Je/Pro Angaben
-        r'je\s+[^0-9]*?(\d+)',
-        r'pro\s+[^0-9]*?(\d+)',
-        r'à\s*(\d+)',
-        r'(\d+)\s*je\s',
-        r'(\d+)\s*pro\s',
-        
-        # Position am Anfang
-        r'^(\d+)\s+(?:leuchten?|lampen?|strahler?|spots?|panels?)',
-        r'^(\d+)x\s',
-        r'^(\d+)\s*stück',
-        
-        # In Klammern oder mit Doppelpunkt
-        r'\((\d+)\s*(?:stück|stk|x)?\)',
-        r':\s*(\d+)\s*(?:stück|stk)?'
-    ]
-    
-    found_quantity = None
-    for pattern in quantity_patterns:
-        matches = re.findall(pattern, text.lower())
-        if matches:
-            found_quantity = matches[0]
-            break
-    
-    # Falls keine Anzahl mit Regex gefunden, verwende KI
-    if not found_quantity and text.strip():
-        ai_quantity = extract_quantity_with_ai(text)
-        if ai_quantity:
-            found_quantity = ai_quantity
-    
-    # Zusätzlicher Fallback: Deutsche Zahlwörter direkt in Text suchen
-    if not found_quantity:
-        german_word_patterns = [
-            r'\b(ein|eine|einer)\s+(?:leuchte|lampe|strahler|spot|panel)',
-            r'\b(zwei|drei|vier|fünf|sechs|sieben|acht|neun|zehn)\s+(?:leuchten?|lampen?|strahler?|spots?|panels?)',
-            r'\b(elf|zwölf|dreizehn|vierzehn|fünfzehn|sechzehn|siebzehn|achtzehn|neunzehn|zwanzig)\s+(?:leuchten?|lampen?|strahler?|spots?|panels?)',
-            r'\b(dutzend|dozen)\s+(?:leuchten?|lampen?|strahler?|spots?|panels?)'
-        ]
-        
-        german_numbers = {
-            'ein': '1', 'eine': '1', 'einer': '1',
-            'zwei': '2', 'drei': '3', 'vier': '4', 'fünf': '5',
-            'sechs': '6', 'sieben': '7', 'acht': '8', 'neun': '9', 'zehn': '10',
-            'elf': '11', 'zwölf': '12', 'dreizehn': '13', 'vierzehn': '14', 'fünfzehn': '15',
-            'sechzehn': '16', 'siebzehn': '17', 'achtzehn': '18', 'neunzehn': '19', 'zwanzig': '20',
-            'dutzend': '12', 'dozen': '12'
-        }
-        
-        for pattern in german_word_patterns:
-            matches = re.findall(pattern, text.lower())
-            if matches:
-                word = matches[0]
-                if word in german_numbers:
-                    found_quantity = german_numbers[word]
-                    print(f"DEBUG: Deutsche Zahlwort erkannt: '{word}' = {found_quantity}")
-                    break
-    
-    # Letzter Fallback: Einzelne Zahlen suchen (nur wenn wirklich nichts anderes gefunden)
-    if not found_quantity:
-        # Suche nach Zahlen, die in einem relevanten Kontext stehen
-        context_patterns = [
-            r'(\d{1,3})\s*(?:für|zur|als|werden|sind|benötigt|erforderlich|vorgesehen|montiert|installiert)',
-            r'(?:insgesamt|gesamt|anzahl|summe|total).*?(\d{1,3})',
-            r'(\d{1,3}).*?(?:leuchten?|lampen?|strahler?|spots?|panels?|downlights?)'
-        ]
-        
-        for pattern in context_patterns:
-            matches = re.findall(pattern, text.lower())
-            if matches:
-                num = int(matches[0])
-                if 1 <= num <= 999:
-                    found_quantity = str(num)
-                    print(f"DEBUG: Kontextuelle Zahl erkannt: {found_quantity}")
-                    break
-        
-        # Allerletzter Fallback: Erste sinnvolle Zahl
-        if not found_quantity:
-            numbers = re.findall(r'\b(\d{1,3})\b', text)
-            if numbers:
-                # Filtere technische Werte heraus
-                for num in numbers:
-                    num_int = int(num)
-                    # Ignoriere typische technische Werte
-                    if (1 <= num_int <= 999 and 
-                        num_int not in [230, 400, 220, 12, 24, 50, 60, 65, 67, 68]):  # Typische Volt/Hz/IP-Werte
-                        found_quantity = num
-                        print(f"DEBUG: Fallback-Zahl verwendet: {found_quantity}")
-                        break
-    
-    return {
-        'category': found_category,
-        'quantity': found_quantity
-    }
+    if ai_theme:
+        print(f"DEBUG: KI-Thema erfolgreich: '{ai_theme}'")
+        return ai_theme
+    else:
+        print("DEBUG: KI-Thema fehlgeschlagen, kein Thema")
+        return None
 
 
-def extract_category_with_ai(text):
-    """Extrahiert Produktkategorie aus Text mit KI."""
+def extract_theme_with_ai(text):
+    """Extrahiert flexibles Thema/Kontext aus Text mit KI."""
     try:
         from django.conf import settings
         import openai
         
+        print("DEBUG: Starte KI-Themen-Extraktion...")
+        
         # OpenAI Client initialisieren
         client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
         
+        # Strenger Prompt für spezifische Themen
         prompt = f"""
-Analysiere den folgenden Text aus einer technischen Ausschreibung und bestimme die passende Produktkategorie in maximal 1-2 Wörtern.
-
-Mögliche Kategorien:
-- Innenleuchten
-- Außenleuchten  
-- Deckenleuchten
-- Wandleuchten
-- Strahler
-- Downlights
-- Pendelleuchten
-- Einbauleuchten
-- Scheinwerfer
-- Flutlicht
-- Mastleuchten
-- Pollerleuchten
-- Bodenleuchten
-- Unterbauleuchten
-- Lichtbänder
-- Panels
-- Spots
-- Leuchtstoffröhren
-- LED-Module
-- Treiber
-- Sensoren
-- Schalter
-- Kabel
-- Befestigung
+Analysiere diesen Ausschreibungstext und bestimme das SPEZIFISCHE Hauptthema. 
+Antworte nur wenn ein klares, spezifisches Thema erkennbar ist.
 
 Text: "{text[:300]}"
 
-Antworte nur mit der passendsten Kategorie in 1-2 Wörtern, ohne weitere Erklärung:
-"""
+Mögliche spezifische Themen:
+- Notbeleuchtung
+- Bürobeleuchtung
+- Hallenbeleuchtung  
+- Straßenbeleuchtung
+- Feuchtraumbeleuchtung
+- Außenbeleuchtung
+- Innenbeleuchtung
+- Arbeitsplatzbeleuchtung
+- Lichtsteuerung
+- Verkabelung
+- Wartung
+- Installation
+- Energieeffizienz
+- Brandschutz
+- Sicherheitsbeleuchtung
+
+Wenn der Text zu allgemein ist oder kein spezifisches Thema erkennbar ist, antworte mit "KEIN_THEMA".
+
+Spezifisches Thema:"""
         
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=20,
+            max_tokens=10,
             temperature=0.1
         )
         
-        category = response.choices[0].message.content.strip()
-        print(f"DEBUG: KI-Kategorie extrahiert: '{category}' für Text: '{text[:50]}...'")
+        theme = response.choices[0].message.content.strip()
+        print(f"DEBUG: KI-Thema roh: '{theme}'")
         
-        # Validiere die Antwort (nur 1-2 Wörter, keine Sonderzeichen)
-        if category and len(category.split()) <= 2 and category.replace(' ', '').replace('-', '').isalpha():
-            return category
+        # Bereinige die Antwort  
+        theme = theme.replace('"', '').replace("'", "").strip()
+        theme = theme.replace("Spezifisches Thema:", "").strip()
+        
+        # Prüfe auf "KEIN_THEMA" oder zu allgemeine Begriffe
+        if theme in ["KEIN_THEMA", "Allgemein", "Beleuchtung", "Leuchte", "Licht", ""]:
+            print(f"DEBUG: KI-Thema zu allgemein oder leer: '{theme}'")
+            return None
+        
+        # Validierung für spezifische Themen
+        if theme and len(theme) > 3 and len(theme) <= 30:
+            print(f"DEBUG: KI-Thema akzeptiert: '{theme}'")
+            return theme
         else:
-            print(f"DEBUG: KI-Kategorie ungültig: '{category}'")
+            print(f"DEBUG: KI-Thema abgelehnt: '{theme}'")
             return None
             
     except Exception as e:
-        print(f"DEBUG: Fehler bei KI-Kategorisierung: {e}")
+        print(f"DEBUG: Fehler bei KI-Themen-Extraktion: {e}")
+        import traceback
+        traceback.print_exc()
         return None
 
 
-def extract_quantity_with_ai(text):
-    """Extrahiert Anzahl/Menge aus Text mit KI."""
-    try:
-        from django.conf import settings
-        import openai
-        
-        # OpenAI Client initialisieren
-        client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-        
-        prompt = f"""
-Du bist ein Experte für technische Ausschreibungen. Analysiere den Text und finde die benötigte ANZAHL von Produkten/Artikeln.
-
-BEISPIELE für korrekte Extraktion:
-- "12 Stück Deckenleuchten" → 12
-- "je Raum 3 Downlights" → 3
-- "insgesamt 25 LED-Panels erforderlich" → 25
-- "pro Bereich werden 8 Strahler benötigt" → 8
-- "Die Anzahl beträgt 15 Einheiten" → 15
-- "Es sind zwölf Leuchten vorgesehen" → 12
-- "4x Notleuchten" → 4
-- "ein Dutzend Spots" → 12
-
-IGNORIERE diese Zahlen:
-- Technische Werte: "30W", "4000K", "3000lm", "IP65", "85cm", "230V"
-- Preise: "€ 150", "125,50 EUR"
-- Prozente: "85%", "CRI>80"
-- Seiten/Artikel-Nr: "Seite 12", "Art. 4711"
-- Jahre/Zeiten: "2024", "5 Jahre Garantie"
-
-TEXT: "{text[:500]}"
-
-Analysiere den Text sorgfältig und antworte NUR mit der Zahl der benötigten Artikel/Produkte.
-Falls keine Anzahl erkennbar ist, antworte mit "0".
-Falls mehrere Mengen genannt werden, nimm die wichtigste/relevanteste.
-
-Antwort (nur die Zahl):"""
-        
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=15,
-            temperature=0.1
-        )
-        
-        quantity = response.choices[0].message.content.strip()
-        print(f"DEBUG: KI-Anzahl extrahiert: '{quantity}' für Text: '{text[:80]}...'")
-        
-        # Verbesserte Validierung
-        try:
-            # Entferne mögliche Zusätze wie "12x" → "12"
-            clean_quantity = quantity.replace('x', '').replace('X', '').strip()
-            
-            # Versuche deutsche Zahlwörter zu konvertieren
-            german_numbers = {
-                'ein': '1', 'eine': '1', 'einer': '1', 'eins': '1',
-                'zwei': '2', 'drei': '3', 'vier': '4', 'fünf': '5',
-                'sechs': '6', 'sieben': '7', 'acht': '8', 'neun': '9', 'zehn': '10',
-                'elf': '11', 'zwölf': '12', 'dreizehn': '13', 'vierzehn': '14', 'fünfzehn': '15',
-                'sechzehn': '16', 'siebzehn': '17', 'achtzehn': '18', 'neunzehn': '19', 'zwanzig': '20',
-                'dutzend': '12', 'dozen': '12'
-            }
-            
-            for word, num in german_numbers.items():
-                if word in clean_quantity.lower():
-                    clean_quantity = num
-                    break
-            
-            num = int(clean_quantity)
-            if 1 <= num <= 9999:
-                print(f"DEBUG: Gültige Anzahl erkannt: {num}")
-                return str(num)
-            else:
-                print(f"DEBUG: KI-Anzahl außerhalb des gültigen Bereichs: {num}")
-                return None
-                
-        except ValueError:
-            print(f"DEBUG: KI-Anzahl keine gültige Zahl: '{quantity}'")
-            return None
-            
-    except Exception as e:
-        print(f"DEBUG: Fehler bei KI-Anzahl-Extraktion: {e}")
-        return None
 
 
 def highlight_terms_in_text(text, search_terms, original_query_terms=None):
@@ -1245,16 +1144,15 @@ def search_text_in_pdf(pdf_path, search_terms, page_range):
                 # Hervorhebung der gefundenen Suchbegriffe (bei einfacher Suche sind alle ursprünglich)
                 highlighted_snippet = highlight_terms_in_text(context_snippet, found_terms, found_terms)
                 
-                # Analysiere Thema/Produkt und Anzahl
-                analysis = analyze_product_and_quantity(context_snippet)
+                # Analysiere Produktkategorie
+                product_category = analyze_product_category(context_snippet)
                 
                 ergebnisse.append({
                     'seitenzahl': page_num + 1, 
                     'textstelle': context_snippet,
                     'textstelle_highlighted': highlighted_snippet,
                     'found_terms': found_terms,
-                    'product_category': analysis['category'],
-                    'quantity': analysis['quantity']
+                    'product_category': product_category
                 })
         
         doc.close()

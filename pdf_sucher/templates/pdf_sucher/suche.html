@@ -49,7 +49,20 @@
         transition: all 0.2s ease;
     }
     .result-item {
-        padding-bottom: 35px !important;
+        padding-bottom: 45px !important;
+        position: relative;
+    }
+    .theme-badge {
+        position: absolute;
+        bottom: 10px;
+        left: 15px;
+        z-index: 10;
+    }
+    .search-term-badge {
+        position: absolute;
+        bottom: 10px;
+        right: 15px;
+        z-index: 10;
     }
 </style>
 
@@ -455,16 +468,25 @@
                                         {% endif %}
                                     </p>
                                     
-                                    <!-- Thema/Kategorie und Anzahl unten links -->
-                                    <div class="position-absolute" style="bottom: 8px; left: 12px;">
-                                        <div class="d-flex align-items-center gap-2">
-                                            {% if ergebnis.product_category and ergebnis.product_category != 'Sonstiges' %}
-                                                <span class="badge bg-info text-white small">{{ ergebnis.product_category }}</span>
-                                            {% endif %}
-                                            {% if ergebnis.quantity %}
-                                                <span class="badge bg-warning text-dark small">{{ ergebnis.quantity }}x</span>
-                                            {% endif %}
-                                        </div>
+                                    <!-- Thema unten links -->
+                                    <div class="theme-badge">
+                                        {% if ergebnis.product_category %}
+                                            <span class="badge bg-info text-white small">{{ ergebnis.product_category }}</span>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <!-- Gefundener Suchbegriff unten rechts -->
+                                    <div class="search-term-badge">
+                                        {% if ergebnis.original_found %}
+                                            <!-- Zeige ersten ursprünglichen Begriff (höchste Priorität) -->
+                                            <span class="badge bg-warning text-dark small">{{ ergebnis.original_found.0 }}</span>
+                                        {% elif ergebnis.extended_found %}
+                                            <!-- Zeige ersten erweiterten Begriff -->
+                                            <span class="badge bg-success text-white small">{{ ergebnis.extended_found.0 }}</span>
+                                        {% elif ergebnis.found_terms %}
+                                            <!-- Fallback: Erster gefundener Begriff -->
+                                            <span class="badge bg-secondary text-white small">{{ ergebnis.found_terms.0 }}</span>
+                                        {% endif %}
                                     </div>
                                 </div>
                             {% endfor %}
