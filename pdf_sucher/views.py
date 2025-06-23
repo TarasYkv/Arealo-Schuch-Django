@@ -846,12 +846,38 @@ def analyze_product_and_quantity(text):
         if ai_category:
             found_category = ai_category
     
-    # Anzahl extrahieren - erst mit Regex-Patterns
+    # Anzahl extrahieren - erst mit erweiterten Regex-Patterns
     quantity_patterns = [
-        r'(\d+)\s*(?:stück|stk|st\.?|x|mal|einheiten?)',
-        r'(\d+)\s*(?:leuchten?|lampen?|strahler?)',
+        # Direkte Mengenangaben
+        r'(\d+)\s*(?:stück|stk|st\.?|x|mal|einheiten?|stck)',
+        r'(\d+)\s*(?:leuchten?|lampen?|strahler?|spots?|panels?|downlights?)',
         r'anzahl:?\s*(\d+)',
-        r'(\d+)\s*(?:mal|x)'
+        r'(\d+)\s*(?:mal|x)',
+        
+        # Komplexere Patterns
+        r'insgesamt\s+(\d+)',
+        r'gesamt:?\s*(\d+)',
+        r'benötigt:?\s*(\d+)',
+        r'erforderlich:?\s*(\d+)',
+        r'vorgesehen:?\s*(\d+)',
+        r'montiert:?\s*(\d+)',
+        r'installiert:?\s*(\d+)',
+        
+        # Je/Pro Angaben
+        r'je\s+[^0-9]*?(\d+)',
+        r'pro\s+[^0-9]*?(\d+)',
+        r'à\s*(\d+)',
+        r'(\d+)\s*je\s',
+        r'(\d+)\s*pro\s',
+        
+        # Position am Anfang
+        r'^(\d+)\s+(?:leuchten?|lampen?|strahler?|spots?|panels?)',
+        r'^(\d+)x\s',
+        r'^(\d+)\s*stück',
+        
+        # In Klammern oder mit Doppelpunkt
+        r'\((\d+)\s*(?:stück|stk|x)?\)',
+        r':\s*(\d+)\s*(?:stück|stk)?'
     ]
     
     found_quantity = None
@@ -867,15 +893,64 @@ def analyze_product_and_quantity(text):
         if ai_quantity:
             found_quantity = ai_quantity
     
-    # Letzter Fallback: Einzelne Zahlen suchen
+    # Zusätzlicher Fallback: Deutsche Zahlwörter direkt in Text suchen
     if not found_quantity:
-        numbers = re.findall(r'\b(\d{1,3})\b', text)
-        if numbers:
-            # Nehme die erste sinnvolle Zahl (zwischen 1 und 999)
-            for num in numbers:
-                if 1 <= int(num) <= 999:
-                    found_quantity = num
+        german_word_patterns = [
+            r'\b(ein|eine|einer)\s+(?:leuchte|lampe|strahler|spot|panel)',
+            r'\b(zwei|drei|vier|fünf|sechs|sieben|acht|neun|zehn)\s+(?:leuchten?|lampen?|strahler?|spots?|panels?)',
+            r'\b(elf|zwölf|dreizehn|vierzehn|fünfzehn|sechzehn|siebzehn|achtzehn|neunzehn|zwanzig)\s+(?:leuchten?|lampen?|strahler?|spots?|panels?)',
+            r'\b(dutzend|dozen)\s+(?:leuchten?|lampen?|strahler?|spots?|panels?)'
+        ]
+        
+        german_numbers = {
+            'ein': '1', 'eine': '1', 'einer': '1',
+            'zwei': '2', 'drei': '3', 'vier': '4', 'fünf': '5',
+            'sechs': '6', 'sieben': '7', 'acht': '8', 'neun': '9', 'zehn': '10',
+            'elf': '11', 'zwölf': '12', 'dreizehn': '13', 'vierzehn': '14', 'fünfzehn': '15',
+            'sechzehn': '16', 'siebzehn': '17', 'achtzehn': '18', 'neunzehn': '19', 'zwanzig': '20',
+            'dutzend': '12', 'dozen': '12'
+        }
+        
+        for pattern in german_word_patterns:
+            matches = re.findall(pattern, text.lower())
+            if matches:
+                word = matches[0]
+                if word in german_numbers:
+                    found_quantity = german_numbers[word]
+                    print(f"DEBUG: Deutsche Zahlwort erkannt: '{word}' = {found_quantity}")
                     break
+    
+    # Letzter Fallback: Einzelne Zahlen suchen (nur wenn wirklich nichts anderes gefunden)
+    if not found_quantity:
+        # Suche nach Zahlen, die in einem relevanten Kontext stehen
+        context_patterns = [
+            r'(\d{1,3})\s*(?:für|zur|als|werden|sind|benötigt|erforderlich|vorgesehen|montiert|installiert)',
+            r'(?:insgesamt|gesamt|anzahl|summe|total).*?(\d{1,3})',
+            r'(\d{1,3}).*?(?:leuchten?|lampen?|strahler?|spots?|panels?|downlights?)'
+        ]
+        
+        for pattern in context_patterns:
+            matches = re.findall(pattern, text.lower())
+            if matches:
+                num = int(matches[0])
+                if 1 <= num <= 999:
+                    found_quantity = str(num)
+                    print(f"DEBUG: Kontextuelle Zahl erkannt: {found_quantity}")
+                    break
+        
+        # Allerletzter Fallback: Erste sinnvolle Zahl
+        if not found_quantity:
+            numbers = re.findall(r'\b(\d{1,3})\b', text)
+            if numbers:
+                # Filtere technische Werte heraus
+                for num in numbers:
+                    num_int = int(num)
+                    # Ignoriere typische technische Werte
+                    if (1 <= num_int <= 999 and 
+                        num_int not in [230, 400, 220, 12, 24, 50, 60, 65, 67, 68]):  # Typische Volt/Hz/IP-Werte
+                        found_quantity = num
+                        print(f"DEBUG: Fallback-Zahl verwendet: {found_quantity}")
+                        break
     
     return {
         'category': found_category,
@@ -958,41 +1033,71 @@ def extract_quantity_with_ai(text):
         client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
         
         prompt = f"""
-Analysiere den folgenden Text aus einer technischen Ausschreibung und extrahiere die benötigte Anzahl/Menge von Produkten.
+Du bist ein Experte für technische Ausschreibungen. Analysiere den Text und finde die benötigte ANZAHL von Produkten/Artikeln.
 
-Suche nach:
-- Direkten Anzahlangaben (z.B. "12 Stück", "5 Leuchten", "10x")
-- Indirekten Mengenangaben (z.B. "je Raum 3", "pro Bereich 8")
-- Zahlen in Verbindung mit Produkten (z.B. "8 Downlights erforderlich")
+BEISPIELE für korrekte Extraktion:
+- "12 Stück Deckenleuchten" → 12
+- "je Raum 3 Downlights" → 3
+- "insgesamt 25 LED-Panels erforderlich" → 25
+- "pro Bereich werden 8 Strahler benötigt" → 8
+- "Die Anzahl beträgt 15 Einheiten" → 15
+- "Es sind zwölf Leuchten vorgesehen" → 12
+- "4x Notleuchten" → 4
+- "ein Dutzend Spots" → 12
 
-Ignoriere:
-- Technische Spezifikationen (Watt, Lumen, IP-Werte, Maße)
-- Seitenzahlen, Artikelnummern, Preise
-- Prozentangaben, Temperaturen
+IGNORIERE diese Zahlen:
+- Technische Werte: "30W", "4000K", "3000lm", "IP65", "85cm", "230V"
+- Preise: "€ 150", "125,50 EUR"
+- Prozente: "85%", "CRI>80"
+- Seiten/Artikel-Nr: "Seite 12", "Art. 4711"
+- Jahre/Zeiten: "2024", "5 Jahre Garantie"
 
-Text: "{text[:400]}"
+TEXT: "{text[:500]}"
 
-Antworte nur mit der Zahl (ohne Einheit), oder "0" falls keine eindeutige Menge erkennbar ist:
-"""
+Analysiere den Text sorgfältig und antworte NUR mit der Zahl der benötigten Artikel/Produkte.
+Falls keine Anzahl erkennbar ist, antworte mit "0".
+Falls mehrere Mengen genannt werden, nimm die wichtigste/relevanteste.
+
+Antwort (nur die Zahl):"""
         
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=10,
+            max_tokens=15,
             temperature=0.1
         )
         
         quantity = response.choices[0].message.content.strip()
-        print(f"DEBUG: KI-Anzahl extrahiert: '{quantity}' für Text: '{text[:50]}...'")
+        print(f"DEBUG: KI-Anzahl extrahiert: '{quantity}' für Text: '{text[:80]}...'")
         
-        # Validiere die Antwort (muss eine Zahl zwischen 1 und 9999 sein)
+        # Verbesserte Validierung
         try:
-            num = int(quantity)
+            # Entferne mögliche Zusätze wie "12x" → "12"
+            clean_quantity = quantity.replace('x', '').replace('X', '').strip()
+            
+            # Versuche deutsche Zahlwörter zu konvertieren
+            german_numbers = {
+                'ein': '1', 'eine': '1', 'einer': '1', 'eins': '1',
+                'zwei': '2', 'drei': '3', 'vier': '4', 'fünf': '5',
+                'sechs': '6', 'sieben': '7', 'acht': '8', 'neun': '9', 'zehn': '10',
+                'elf': '11', 'zwölf': '12', 'dreizehn': '13', 'vierzehn': '14', 'fünfzehn': '15',
+                'sechzehn': '16', 'siebzehn': '17', 'achtzehn': '18', 'neunzehn': '19', 'zwanzig': '20',
+                'dutzend': '12', 'dozen': '12'
+            }
+            
+            for word, num in german_numbers.items():
+                if word in clean_quantity.lower():
+                    clean_quantity = num
+                    break
+            
+            num = int(clean_quantity)
             if 1 <= num <= 9999:
+                print(f"DEBUG: Gültige Anzahl erkannt: {num}")
                 return str(num)
             else:
                 print(f"DEBUG: KI-Anzahl außerhalb des gültigen Bereichs: {num}")
                 return None
+                
         except ValueError:
             print(f"DEBUG: KI-Anzahl keine gültige Zahl: '{quantity}'")
             return None
@@ -1740,6 +1845,99 @@ def categorize_search_results_by_terms(search_results, search_query, search_pers
     return categorized_results
 
 
+def highlight_search_terms_in_pdf(doc, search_results):
+    """Markiert Suchbegriffe farblich in den PDF-Seiten."""
+    try:
+        print(f"DEBUG: Beginne farbliche Markierung für {len(search_results)} Ergebnisse")
+        
+        # Sammle alle Suchbegriffe und ihre Seiten
+        page_highlights = {}
+        for result in search_results:
+            page_num = result.get('seitenzahl', 0) - 1  # PyMuPDF ist 0-basiert
+            found_terms = result.get('found_terms', [])
+            original_found = result.get('original_found', [])
+            
+            if page_num not in page_highlights:
+                page_highlights[page_num] = {'original': set(), 'extended': set()}
+            
+            # Kategorisiere Begriffe
+            for term in found_terms:
+                if term in original_found:
+                    page_highlights[page_num]['original'].add(term.lower())
+                else:
+                    page_highlights[page_num]['extended'].add(term.lower())
+        
+        # Markiere Begriffe auf jeder Seite
+        marked_pages = 0
+        for page_num, highlights in page_highlights.items():
+            if page_num >= len(doc):
+                continue
+                
+            page = doc[page_num]
+            
+            # Markiere ursprüngliche Suchbegriffe (gelb)
+            for term in highlights['original']:
+                # Suche case-insensitive nach allen Varianten des Begriffs
+                text_instances = []
+                # Probiere verschiedene Schreibweisen
+                for search_term in [term, term.lower(), term.upper(), term.capitalize()]:
+                    instances = page.search_for(search_term)
+                    text_instances.extend(instances)
+                
+                # Entferne Duplikate basierend auf Position
+                unique_instances = []
+                for inst in text_instances:
+                    is_duplicate = False
+                    for unique_inst in unique_instances:
+                        if abs(inst.x0 - unique_inst.x0) < 2 and abs(inst.y0 - unique_inst.y0) < 2:
+                            is_duplicate = True
+                            break
+                    if not is_duplicate:
+                        unique_instances.append(inst)
+                
+                for inst in unique_instances:
+                    # Gelbe Markierung für ursprüngliche Begriffe
+                    highlight = page.add_highlight_annot(inst)
+                    highlight.set_colors(stroke=(1, 1, 0))  # Gelb
+                    highlight.update()
+            
+            # Markiere erweiterte Begriffe (orange)
+            for term in highlights['extended']:
+                # Suche case-insensitive nach allen Varianten des Begriffs
+                text_instances = []
+                # Probiere verschiedene Schreibweisen
+                for search_term in [term, term.lower(), term.upper(), term.capitalize()]:
+                    instances = page.search_for(search_term)
+                    text_instances.extend(instances)
+                
+                # Entferne Duplikate basierend auf Position
+                unique_instances = []
+                for inst in text_instances:
+                    is_duplicate = False
+                    for unique_inst in unique_instances:
+                        if abs(inst.x0 - unique_inst.x0) < 2 and abs(inst.y0 - unique_inst.y0) < 2:
+                            is_duplicate = True
+                            break
+                    if not is_duplicate:
+                        unique_instances.append(inst)
+                
+                for inst in unique_instances:
+                    # Orange Markierung für KI-erweiterte Begriffe
+                    highlight = page.add_highlight_annot(inst)
+                    highlight.set_colors(stroke=(1, 0.5, 0))  # Orange
+                    highlight.update()
+            
+            if highlights['original'] or highlights['extended']:
+                marked_pages += 1
+        
+        print(f"DEBUG: {marked_pages} Seiten mit Markierungen versehen")
+        return marked_pages
+        
+    except Exception as e:
+        print(f"DEBUG: Fehler bei farblicher Markierung: {e}")
+        return 0
+
+
 def generate_search_results_pdf(original_pdf_path, search_results, search_query, search_type, search_perspective=None):
     """Erstellt eine PDF mit den Suchergebnissen und Links zu den Fundstellen."""
     try:
@@ -1758,6 +1956,10 @@ def generate_search_results_pdf(original_pdf_path, search_results, search_query,
         # Erstelle eine Kopie des Original-PDFs
         result_doc = fitz.open()
         result_doc.insert_pdf(original_doc)
+        
+        # Markiere Suchbegriffe farblich in den kopierten Seiten
+        marked_pages = highlight_search_terms_in_pdf(result_doc, search_results)
+        print(f"DEBUG: {marked_pages} Seiten wurden farblich markiert")
         
         # Erstelle eine neue Seite für die Suchergebnisse am ENDE der PDF (keine Verschiebung!)
         results_page = result_doc.new_page(width=595, height=842)  # A4 Format am Ende
@@ -1785,6 +1987,23 @@ def generate_search_results_pdf(original_pdf_path, search_results, search_query,
         
         results_page.insert_text((50, y_position), f"Gefundene Ergebnisse: {len(search_results)}", fontsize=12, color=(0, 0, 0))
         y_position += 20
+        
+        # Legende für Farbmarkierungen
+        if marked_pages > 0:
+            results_page.insert_text((50, y_position), f"Farbmarkierungen: {marked_pages} Seiten wurden markiert", fontsize=12, color=(0, 0, 0))
+            y_position += 20
+            
+            # Gelbe Markierung (ursprüngliche Begriffe)
+            yellow_rect = fitz.Rect(70, y_position-3, 90, y_position+8)
+            results_page.draw_rect(yellow_rect, color=(1, 1, 0), fill=(1, 1, 0))
+            results_page.insert_text((95, y_position), "Ihre ursprünglichen Suchbegriffe", fontsize=10, color=(0, 0, 0))
+            y_position += 15
+            
+            # Orange Markierung (KI-erweiterte Begriffe)
+            orange_rect = fitz.Rect(70, y_position-3, 90, y_position+8)
+            results_page.draw_rect(orange_rect, color=(1, 0.5, 0), fill=(1, 0.5, 0))
+            results_page.insert_text((95, y_position), "KI-erweiterte verwandte Begriffe", fontsize=10, color=(0, 0, 0))
+            y_position += 20
         
         # Hinweis für Navigation
         results_page.insert_text((50, y_position), "Navigation: Nutzen Sie die Seitenzahlen in der Übersicht unten für manuelle Navigation", fontsize=10, color=(0.5, 0.5, 0.5))
