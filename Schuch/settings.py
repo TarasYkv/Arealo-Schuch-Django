@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'core',
     'naturmacher',
     'todos',
+    'chat',
 ]
 
 MIDDLEWARE = [
