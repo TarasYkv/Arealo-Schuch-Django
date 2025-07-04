@@ -29,4 +29,7 @@ urlpatterns = [
     
     # Table of contents editing
     path('thema/<int:thema_id>/inhaltsverzeichnis/save/', views.save_inhaltsverzeichnis, name='save_inhaltsverzeichnis'),
+    
+    # API key validation
+    path('api/validate-key/', views.validate_api_key, name='validate_api_key'),
 ]

@@ -562,10 +562,10 @@ def delete_training(request, training_id):
         })
 
 
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_http_methods
 
 @login_required
-@require_POST
+@require_http_methods(["POST"])
 def create_thema(request):
     """AJAX-View zum Erstellen eines neuen Themas"""
     thema_name = request.POST.get('thema_name', '').strip()
@@ -1774,7 +1774,172 @@ def estimate_training_cost(request):
 @login_required
 def api_settings_view(request):
     """Zeigt die API-Einstellungsseite an"""
-    return render(request, 'naturmacher/api_settings.html')
+    return render(request, 'accounts/api_settings.html')
+
+
+@login_required
+def validate_api_key(request):
+    """AJAX-View zum Validieren eines API-Schlüssels"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Nur POST-Anfragen erlaubt'})
+    
+    provider = request.POST.get('provider')
+    api_key = request.POST.get('api_key', '').strip()
+    
+    if not provider or not api_key:
+        return JsonResponse({'success': False, 'error': 'Provider und API-Key sind erforderlich'})
+    
+    # Validiere API-Key je nach Provider
+    is_valid, error_message = test_api_key(provider, api_key)
+    
+    return JsonResponse({
+        'success': True,
+        'is_valid': is_valid,
+        'provider': provider,
+        'error_message': error_message
+    })
+
+
+def test_api_key(provider, api_key):
+    """
+    Testet einen API-Schlüssel durch einen einfachen API-Aufruf
+    
+    Args:
+        provider: str - 'openai', 'anthropic', 'google', oder 'youtube'
+        api_key: str - Der zu testende API-Schlüssel
+    
+    Returns:
+        tuple: (is_valid: bool, error_message: str)
+    """
+    try:
+        if provider == 'openai':
+            return test_openai_key(api_key)
+        elif provider == 'anthropic':
+            return test_anthropic_key(api_key)
+        elif provider == 'google':
+            return test_google_key(api_key)
+        elif provider == 'youtube':
+            return test_youtube_key(api_key)
+        else:
+            return False, f"Unbekannter Provider: {provider}"
+    except Exception as e:
+        return False, f"Validierungsfehler: {str(e)}"
+
+
+def test_openai_key(api_key):
+    """Testet OpenAI API-Schlüssel"""
+    try:
+        import openai
+        client = openai.OpenAI(api_key=api_key)
+        
+        # Einfacher Test-Call zu Models-Endpoint
+        response = client.models.list()
+        if response and hasattr(response, 'data'):
+            return True, "API-Schlüssel ist gültig"
+        else:
+            return False, "Ungültige API-Antwort"
+    except Exception as e:
+        error_msg = str(e)
+        if "Incorrect API key" in error_msg or "invalid api key" in error_msg.lower():
+            return False, "Ungültiger API-Schlüssel"
+        elif "exceeded your current quota" in error_msg.lower():
+            return True, "API-Schlüssel gültig (Quota überschritten)"
+        else:
+            return False, f"API-Fehler: {error_msg}"
+
+
+def test_anthropic_key(api_key):
+    """Testet Anthropic API-Schlüssel"""
+    try:
+        import requests
+        
+        headers = {
+            'x-api-key': api_key,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json'
+        }
+        
+        # Test mit einer minimalen Nachricht
+        data = {
+            'model': 'claude-3-haiku-20240307',
+            'max_tokens': 10,
+            'messages': [
+                {'role': 'user', 'content': 'Hi'}
+            ]
+        }
+        
+        response = requests.post(
+            'https://api.anthropic.com/v1/messages',
+            headers=headers,
+            json=data,
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            return True, "API-Schlüssel ist gültig"
+        elif response.status_code == 401:
+            return False, "Ungültiger API-Schlüssel"
+        elif response.status_code == 429:
+            return True, "API-Schlüssel gültig (Rate Limit erreicht)"
+        else:
+            return False, f"API-Fehler: HTTP {response.status_code}"
+            
+    except Exception as e:
+        return False, f"Verbindungsfehler: {str(e)}"
+
+
+def test_google_key(api_key):
+    """Testet Google AI API-Schlüssel"""
+    try:
+        import requests
+        
+        # Test mit Gemini-API
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+        
+        response = requests.get(url, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if 'models' in data:
+                return True, "API-Schlüssel ist gültig"
+            else:
+                return False, "Ungültige API-Antwort"
+        elif response.status_code == 400:
+            return False, "Ungültiger API-Schlüssel"
+        elif response.status_code == 403:
+            return False, "API-Schlüssel ohne Berechtigung"
+        else:
+            return False, f"API-Fehler: HTTP {response.status_code}"
+            
+    except Exception as e:
+        return False, f"Verbindungsfehler: {str(e)}"
+
+
+def test_youtube_key(api_key):
+    """Testet YouTube Data API-Schlüssel"""
+    try:
+        import requests
+        
+        # Test mit YouTube API
+        url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=test&key={api_key}"
+        
+        response = requests.get(url, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if 'items' in data:
+                return True, "API-Schlüssel ist gültig"
+            else:
+                return False, "Ungültige API-Antwort"
+        elif response.status_code == 400:
+            return False, "Ungültiger API-Schlüssel"
+        elif response.status_code == 403:
+            return False, "API-Schlüssel gesperrt oder ohne Berechtigung"
+        else:
+            return False, f"API-Fehler: HTTP {response.status_code}"
+            
+    except Exception as e:
+        return False, f"Verbindungsfehler: {str(e)}"
 
 
 @login_required
