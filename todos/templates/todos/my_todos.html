@@ -1,0 +1,275 @@
+{% extends 'todos/base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <div id="alert-container"></div>
+    
+    <!-- Header -->
+    <div class="todo-nav">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'todos:home' %}">ToDo-Listen</a>
+                        </li>
+                        <li class="breadcrumb-item active">Meine ToDos</li>
+                    </ol>
+                </nav>
+                
+                <h1 class="mb-1">
+                    <i class="fas fa-user-check text-success"></i>
+                    Meine ToDos
+                </h1>
+                <p class="text-muted mb-0">Alle mir zugeordneten Aufgaben im Überblick</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="{% url 'todos:home' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück zur Übersicht
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Filter Sidebar -->
+        <div class="col-lg-3">
+            <div class="filter-sidebar p-3">
+                <h6><i class="fas fa-filter"></i> Filter</h6>
+                
+                <form method="get" id="filterForm">
+                    <!-- Status Filter -->
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Status</label>
+                        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Aktive ToDos</option>
+                            <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Erledigte ToDos</option>
+                            <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Alle ToDos</option>
+                        </select>
+                    </div>
+                    
+                    <a href="{% url 'todos:my_todos' %}" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-times"></i> Filter zurücksetzen
+                    </a>
+                </form>
+                
+                <!-- Quick Stats -->
+                <div class="mt-4">
+                    <h6><i class="fas fa-chart-pie"></i> Statistiken</h6>
+                    {% with total_todos=todos.paginator.count %}
+                    <div class="small mb-2">
+                        <div class="d-flex justify-content-between">
+                            <span>Gesamt:</span>
+                            <span class="fw-bold">{{ total_todos }}</span>
+                        </div>
+                    </div>
+                    {% endwith %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- ToDo Liste -->
+        <div class="col-lg-9">
+            {% if todos %}
+                <div class="mb-3 d-flex justify-content-between align-items-center">
+                    <span class="text-muted">
+                        {% if status_filter == 'active' %}
+                            Aktive ToDos
+                        {% elif status_filter == 'completed' %}
+                            Erledigte ToDos
+                        {% else %}
+                            Alle ToDos
+                        {% endif %}
+                        ({{ todos.paginator.count }} gesamt)
+                    </span>
+                </div>
+                
+                {% for todo in todos %}
+                <div class="todo-card mb-3 p-3 todo-status-{{ todo.status }} priority-{{ todo.priority }} 
+                     {% if todo.is_overdue %}overdue{% endif %}" data-todo-id="{{ todo.id }}">
+                    
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-start">
+                                <div class="me-3">
+                                    <!-- Status Checkboxen -->
+                                    <div class="btn-group-vertical" role="group">
+                                        <input type="radio" class="btn-check status-checkbox" 
+                                               name="status-{{ todo.id }}" 
+                                               id="pending-{{ todo.id }}" 
+                                               value="pending"
+                                               data-todo-id="{{ todo.id }}"
+                                               {% if todo.status == 'pending' %}checked{% endif %}>
+                                        <label class="btn btn-outline-secondary btn-sm" for="pending-{{ todo.id }}" title="Steht aus">
+                                            <i class="fas fa-clock"></i>
+                                        </label>
+                                        
+                                        <input type="radio" class="btn-check status-checkbox" 
+                                               name="status-{{ todo.id }}" 
+                                               id="progress-{{ todo.id }}" 
+                                               value="in_progress"
+                                               data-todo-id="{{ todo.id }}"
+                                               {% if todo.status == 'in_progress' %}checked{% endif %}>
+                                        <label class="btn btn-outline-warning btn-sm" for="progress-{{ todo.id }}" title="In Bearbeitung">
+                                            <i class="fas fa-spinner"></i>
+                                        </label>
+                                        
+                                        <input type="radio" class="btn-check status-checkbox" 
+                                               name="status-{{ todo.id }}" 
+                                               id="completed-{{ todo.id }}" 
+                                               value="completed"
+                                               data-todo-id="{{ todo.id }}"
+                                               {% if todo.status == 'completed' %}checked{% endif %}>
+                                        <label class="btn btn-outline-success btn-sm" for="completed-{{ todo.id }}" title="Erledigt">
+                                            <i class="fas fa-check"></i>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex-grow-1">
+                                    <h5 class="mb-1">
+                                        <a href="{% url 'todos:todo_detail' todo.pk %}" class="text-decoration-none">
+                                            {{ todo.title }}
+                                        </a>
+                                    </h5>
+                                    
+                                    <!-- Liste -->
+                                    <div class="small text-muted mb-2">
+                                        <i class="fas fa-list"></i>
+                                        <a href="{% url 'todos:list_detail' todo.todo_list.pk %}" class="text-decoration-none text-muted">
+                                            {{ todo.todo_list.title }}
+                                        </a>
+                                    </div>
+                                    
+                                    {% if todo.description %}
+                                        <p class="text-muted mb-2">{{ todo.description|truncatewords:15 }}</p>
+                                    {% endif %}
+                                    
+                                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                                        <!-- Status Badge -->
+                                        <span class="badge {{ todo.get_status_color }} status-badge">
+                                            {{ todo.get_status_display }}
+                                        </span>
+                                        
+                                        <!-- Priorität Badge -->
+                                        <span class="badge bg-secondary {{ todo.get_priority_color }}">
+                                            {{ todo.get_priority_display }}
+                                        </span>
+                                        
+                                        <!-- Fälligkeitsdatum -->
+                                        {% if todo.due_date %}
+                                            <span class="small {% if todo.is_overdue %}text-danger{% else %}text-muted{% endif %}">
+                                                <i class="fas fa-calendar"></i>
+                                                {{ todo.due_date|date:"d.m.Y H:i" }}
+                                                {% if todo.is_overdue %}
+                                                    <span class="badge bg-danger">Überfällig</span>
+                                                {% endif %}
+                                            </span>
+                                        {% endif %}
+                                        
+                                        <!-- Ersteller -->
+                                        <span class="small text-muted">
+                                            <i class="fas fa-user"></i>
+                                            {{ todo.created_by.get_full_name|default:todo.created_by.username }}
+                                        </span>
+                                        
+                                        <!-- Erledigt am -->
+                                        {% if todo.completed_at %}
+                                            <span class="small text-success">
+                                                <i class="fas fa-check-circle"></i>
+                                                Erledigt: {{ todo.completed_at|date:"d.m.Y H:i" }}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <!-- Weitere Zuordnungen -->
+                            {% with other_assignments=todo.get_assigned_users_display %}
+                                {% if other_assignments != "Niemand zugeordnet" %}
+                                    <div class="mb-2">
+                                        <div class="small text-muted mb-1">Auch zugeordnet an:</div>
+                                        <div class="assignment-display small">
+                                            {{ other_assignments }}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endwith %}
+                            
+                            <!-- Aktionen -->
+                            <div class="btn-group">
+                                <a href="{% url 'todos:todo_detail' todo.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye"></i> Details
+                                </a>
+                                <a href="{% url 'todos:list_detail' todo.todo_list.pk %}" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-list"></i> Liste
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                
+                <!-- Pagination -->
+                {% if todos.has_other_pages %}
+                    <nav aria-label="ToDo Pagination">
+                        <ul class="pagination justify-content-center">
+                            {% if todos.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ todos.previous_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">Zurück</a>
+                                </li>
+                            {% endif %}
+                            
+                            {% for num in todos.paginator.page_range %}
+                                {% if todos.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">{{ num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if todos.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ todos.next_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">Weiter</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+                
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-check-circle fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">
+                        {% if status_filter == 'completed' %}
+                            Keine erledigten ToDos
+                        {% elif status_filter == 'active' %}
+                            Keine aktiven ToDos
+                        {% else %}
+                            Keine ToDos gefunden
+                        {% endif %}
+                    </h5>
+                    <p class="text-muted">
+                        {% if status_filter == 'completed' %}
+                            Sie haben noch keine ToDos erledigt.
+                        {% elif status_filter == 'active' %}
+                            Alle Ihre ToDos sind erledigt! 🎉
+                        {% else %}
+                            Ihnen wurden noch keine ToDos zugeordnet.
+                        {% endif %}
+                    </p>
+                    <a href="{% url 'todos:home' %}" class="btn btn-primary">
+                        <i class="fas fa-arrow-left"></i> Zurück zur Übersicht
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

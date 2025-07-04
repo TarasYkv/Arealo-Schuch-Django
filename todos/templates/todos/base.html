@@ -1,0 +1,307 @@
+{% extends 'base.html' %}
+
+{% block title %}ToDo-Listen{% endblock %}
+
+{% block extra_css %}
+<style>
+.todo-card {
+    transition: all 0.2s ease;
+    border: 1px solid #dee2e6;
+}
+
+.todo-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.todo-status-pending {
+    border-left: 4px solid #6c757d;
+}
+
+.todo-status-in_progress {
+    border-left: 4px solid #ffc107;
+}
+
+.todo-status-completed {
+    border-left: 4px solid #28a745;
+    opacity: 0.8;
+}
+
+.priority-urgent {
+    border-top: 3px solid #dc3545;
+}
+
+.priority-high {
+    border-top: 3px solid #fd7e14;
+}
+
+.priority-medium {
+    border-top: 3px solid #007bff;
+}
+
+.priority-low {
+    border-top: 3px solid #6c757d;
+}
+
+.overdue {
+    background-color: #fff5f5;
+    border-color: #dc3545;
+}
+
+.assignment-badge {
+    font-size: 0.75rem;
+    margin-right: 0.25rem;
+}
+
+.todo-progress {
+    height: 8px;
+    border-radius: 4px;
+}
+
+.activity-item {
+    border-left: 3px solid #dee2e6;
+    padding-left: 1rem;
+    margin-bottom: 1rem;
+    position: relative;
+}
+
+.activity-item::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    top: 0.5rem;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #007bff;
+}
+
+.activity-created::before {
+    background-color: #28a745;
+}
+
+.activity-status_changed::before {
+    background-color: #ffc107;
+}
+
+.activity-assigned::before {
+    background-color: #17a2b8;
+}
+
+.activity-commented::before {
+    background-color: #6f42c1;
+}
+
+.filter-sidebar {
+    background-color: #f8f9fa;
+    border-right: 1px solid #dee2e6;
+    min-height: calc(100vh - 200px);
+}
+
+.todo-nav {
+    background-color: #fff;
+    border-bottom: 1px solid #dee2e6;
+    padding: 1rem 0;
+    margin-bottom: 2rem;
+}
+
+.todo-quick-stats {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.todo-quick-stats .stat-card {
+    flex: 1;
+    text-align: center;
+    padding: 1rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 0.5rem;
+    text-decoration: none;
+}
+
+.todo-quick-stats .stat-card:hover {
+    color: white;
+    transform: translateY(-2px);
+}
+
+.drag-handle {
+    cursor: move;
+    color: #6c757d;
+}
+
+.drag-handle:hover {
+    color: #007bff;
+}
+
+@media (max-width: 768px) {
+    .filter-sidebar {
+        border-right: none;
+        border-bottom: 1px solid #dee2e6;
+        margin-bottom: 1rem;
+    }
+    
+    .todo-quick-stats {
+        flex-direction: column;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// CSRF Token für AJAX
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// ToDo-Status aktualisieren
+function updateTodoStatus(todoId, newStatus) {
+    const csrftoken = getCookie('csrftoken');
+    
+    fetch(`/todos/api/todo/${todoId}/status/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify({
+            status: newStatus
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Aktualisiere UI
+            const todoCard = document.querySelector(`[data-todo-id="${todoId}"]`);
+            if (todoCard) {
+                // Status-Klassen aktualisieren
+                todoCard.className = todoCard.className.replace(/todo-status-\w+/, `todo-status-${newStatus}`);
+                
+                // Status-Badge aktualisieren
+                const statusBadge = todoCard.querySelector('.status-badge');
+                if (statusBadge) {
+                    statusBadge.textContent = data.status_display;
+                    statusBadge.className = `badge ${getStatusBadgeClass(newStatus)} status-badge`;
+                }
+                
+                // Checkbox aktualisieren
+                const checkbox = todoCard.querySelector(`input[value="${newStatus}"]`);
+                if (checkbox) {
+                    checkbox.checked = true;
+                }
+            }
+            
+            showAlert('Status erfolgreich aktualisiert', 'success');
+        } else {
+            showAlert('Fehler beim Aktualisieren: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('Verbindungsfehler', 'danger');
+    });
+}
+
+// ToDo zuordnen/entfernen
+function assignTodo(todoId, userId, action) {
+    const csrftoken = getCookie('csrftoken');
+    
+    fetch(`/todos/api/todo/${todoId}/assign/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify({
+            user_id: userId,
+            action: action
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Aktualisiere Zuordnungs-Anzeige
+            const assignmentDisplay = document.querySelector(`[data-todo-id="${todoId}"] .assignment-display`);
+            if (assignmentDisplay) {
+                assignmentDisplay.textContent = data.assigned_users;
+            }
+            
+            const actionText = action === 'assign' ? 'zugeordnet' : 'Zuordnung entfernt';
+            showAlert(`Benutzer erfolgreich ${actionText}`, 'success');
+        } else {
+            showAlert('Fehler: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('Verbindungsfehler', 'danger');
+    });
+}
+
+// Alert anzeigen
+function showAlert(message, type) {
+    const alertContainer = document.getElementById('alert-container') || document.body;
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} alert-dismissible fade show`;
+    alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    alertContainer.insertBefore(alert, alertContainer.firstChild);
+    
+    // Auto-hide nach 5 Sekunden
+    setTimeout(() => {
+        if (alert.parentNode) {
+            alert.remove();
+        }
+    }, 5000);
+}
+
+// Status Badge CSS-Klasse ermitteln
+function getStatusBadgeClass(status) {
+    const classes = {
+        'pending': 'bg-secondary',
+        'in_progress': 'bg-warning',
+        'completed': 'bg-success'
+    };
+    return classes[status] || 'bg-secondary';
+}
+
+// Event Listeners für Status-Checkboxen
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.status-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            if (this.checked) {
+                const todoId = this.dataset.todoId;
+                const newStatus = this.value;
+                updateTodoStatus(todoId, newStatus);
+            }
+        });
+    });
+    
+    // Event Listeners für Zuordnungs-Buttons
+    document.querySelectorAll('.assign-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const todoId = this.dataset.todoId;
+            const userId = this.dataset.userId;
+            const action = this.dataset.action;
+            assignTodo(todoId, userId, action);
+        });
+    });
+});
+</script>
+{% endblock %}

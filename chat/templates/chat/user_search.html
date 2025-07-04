@@ -1,0 +1,222 @@
+{% extends 'chat/base.html' %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item">
+                                <a href="{% url 'chat:home' %}">Chat</a>
+                            </li>
+                            <li class="breadcrumb-item active">Nutzer suchen</li>
+                        </ol>
+                    </nav>
+                    <h4 class="mt-2 mb-0">
+                        <i class="fas fa-search text-primary"></i>
+                        Nutzer suchen
+                    </h4>
+                    <small class="text-muted">Finden Sie Nutzer, um einen Chat zu starten</small>
+                </div>
+                <div class="card-body">
+                    <!-- Search Form -->
+                    <form method="get" class="mb-4">
+                        <div class="input-group">
+                            <input type="text" class="form-control" name="q" value="{{ query }}" 
+                                   placeholder="Name oder Benutzername eingeben..." 
+                                   id="searchInput">
+                            <button class="btn btn-primary" type="submit">
+                                <i class="fas fa-search"></i> Suchen
+                            </button>
+                        </div>
+                        <div class="form-text">
+                            Geben Sie mindestens 2 Zeichen ein, um nach Benutzern zu suchen
+                        </div>
+                    </form>
+                    
+                    <!-- Search Results -->
+                    {% if query %}
+                        <div class="search-results">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0">
+                                    Suchergebnisse für "{{ query }}"
+                                    {% if users %}
+                                        <span class="badge bg-primary">{{ users|length }}</span>
+                                    {% endif %}
+                                </h6>
+                                <a href="{% url 'chat:user_search' %}" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-times"></i> Zurücksetzen
+                                </a>
+                            </div>
+                            
+                            {% if users %}
+                                <div class="list-group">
+                                    {% for user in users %}
+                                    <div class="list-group-item">
+                                        <div class="d-flex align-items-center">
+                                            <div class="user-avatar bg-primary me-3">
+                                                {{ user.get_full_name.0|default:user.username.0|upper }}
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <div class="d-flex justify-content-between align-items-start">
+                                                    <div>
+                                                        <h6 class="mb-1">{{ user.get_full_name|default:user.username }}</h6>
+                                                        <small class="text-muted">
+                                                            <i class="fas fa-user"></i> {{ user.username }}
+                                                        </small>
+                                                    </div>
+                                                    <div class="text-end">
+                                                        {% if user.last_login %}
+                                                            <small class="text-muted">
+                                                                <i class="fas fa-clock"></i>
+                                                                Zuletzt aktiv: {{ user.last_login|timesince }} ago
+                                                            </small>
+                                                        {% else %}
+                                                            <small class="text-muted">
+                                                                <i class="fas fa-clock"></i>
+                                                                Noch nie angemeldet
+                                                            </small>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                                
+                                                {% if user.first_name or user.last_name %}
+                                                    <div class="mt-2">
+                                                        <small class="text-muted">
+                                                            <i class="fas fa-id-card"></i>
+                                                            {{ user.first_name }} {{ user.last_name }}
+                                                        </small>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <div class="ms-3">
+                                                <a href="{% url 'chat:start_chat' user.id %}" 
+                                                   class="btn btn-primary">
+                                                    <i class="fas fa-comment"></i> Chat starten
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4">
+                                    <i class="fas fa-search fa-2x text-muted mb-3"></i>
+                                    <h6 class="text-muted">Keine Nutzer gefunden</h6>
+                                    <p class="text-muted">
+                                        Versuchen Sie es mit einem anderen Suchbegriff
+                                    </p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <!-- Initial State -->
+                        <div class="text-center py-5">
+                            <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Nutzer suchen</h5>
+                            <p class="text-muted">
+                                Geben Sie einen Namen oder Benutzernamen ein, um Nutzer zu finden
+                            </p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-bolt"></i>
+                        Schnellaktionen
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <a href="{% url 'chat:home' %}" class="btn btn-outline-primary w-100">
+                                <i class="fas fa-arrow-left"></i> Zurück zum Chat
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <a href="{% url 'chat:create_group_chat' %}" class="btn btn-outline-success w-100">
+                                <i class="fas fa-users"></i> Gruppenchat erstellen
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    
+    // Auto-focus on search input
+    searchInput.focus();
+    
+    // Search suggestions (could be enhanced with AJAX)
+    let searchTimeout;
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        
+        const query = this.value.trim();
+        if (query.length >= 2) {
+            searchTimeout = setTimeout(() => {
+                // In a real implementation, you could fetch search suggestions via AJAX
+                // For now, we'll just submit the form automatically after a delay
+                // this.form.submit();
+            }, 500);
+        }
+    });
+    
+    // Enhanced search with Enter key
+    searchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            this.form.submit();
+        }
+    });
+    
+    // Search result interactions
+    const chatButtons = document.querySelectorAll('.btn[href*="start_chat"]');
+    chatButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            // Optional: Add loading state
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Wird geladen...';
+            this.disabled = true;
+        });
+    });
+    
+    // Search history (localStorage)
+    const searchHistory = JSON.parse(localStorage.getItem('chatSearchHistory') || '[]');
+    
+    // Add current search to history
+    const currentQuery = '{{ query }}';
+    if (currentQuery && !searchHistory.includes(currentQuery)) {
+        searchHistory.unshift(currentQuery);
+        // Keep only last 5 searches
+        searchHistory.splice(5);
+        localStorage.setItem('chatSearchHistory', JSON.stringify(searchHistory));
+    }
+    
+    // Show search history if input is focused and empty
+    searchInput.addEventListener('focus', function() {
+        if (!this.value && searchHistory.length > 0) {
+            // Could implement dropdown with search history
+            // For now, just show as placeholder
+            this.placeholder = `Letzte Suche: ${searchHistory[0]}`;
+        }
+    });
+    
+    // Clear placeholder on blur
+    searchInput.addEventListener('blur', function() {
+        this.placeholder = "Name oder Benutzername eingeben...";
+    });
+});
+</script>
+{% endblock %}
