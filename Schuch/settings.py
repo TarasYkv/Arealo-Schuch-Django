@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'amortization_calculator',
     'core',
     'naturmacher',
+    'todos',
 ]
 
 MIDDLEWARE = [
