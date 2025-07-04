@@ -12,6 +12,7 @@ from django.urls import reverse
 from django.conf import settings
 from django.db import models
 from .models import Thema, Training, UserTrainingFortschritt, UserTrainingNotizen, APIBalance, APIUsageLog
+from .utils.youtube_search import get_youtube_videos_for_training
 from .api_pricing import calculate_cost, estimate_tokens, get_provider_from_model, get_model_info
 from .utils import get_user_api_key
 
@@ -1030,6 +1031,21 @@ ANTWORTE NUR MIT VOLLSTÄNDIGEM HTML - MINIMUM 15.000 ZEICHEN!
             inhalt=f"KI-generierte Schulung: {training_description}\n\nHTML-Datei: {filename}"
         )
         
+        # Automatisch YouTube-Videos zu AI-generiertem Training hinzufügen
+        try:
+            youtube_urls = get_youtube_videos_for_training(
+                training_title=training_title,
+                training_description=training_description,
+                thema_name=thema.name,
+                user=request.user if request.user.is_authenticated else None
+            )
+            if youtube_urls:
+                new_training.youtube_links = '\n'.join(youtube_urls)
+                new_training.save()
+        except Exception as e:
+            # Fehler bei YouTube-Suche nicht kritisch - Training wurde trotzdem erstellt
+            pass
+        
         # API-Status für Benutzer-Feedback
         api_display_names = {
             'claude-opus-4': 'Claude Opus 4',
@@ -1485,8 +1501,17 @@ def update_api_balance(request):
         currency = request.POST.get('currency', 'USD')
         threshold = request.POST.get('threshold', '5.00')
         api_key = request.POST.get('api_key', '').strip()
+        quota_limit = request.POST.get('quota_limit')  # Für YouTube
         
-        if not provider or balance is None:
+        # YouTube verwendet Quota statt Balance
+        if provider == 'youtube':
+            if not api_key and not quota_limit:
+                return JsonResponse({'success': False, 'error': 'API-Key oder Quota-Limit ist erforderlich'})
+            # Für YouTube: quota_limit als balance verwenden, wenn balance nicht gesetzt
+            if balance is None and quota_limit:
+                balance = quota_limit
+                currency = 'QUOTA'  # Spezielle Währung für YouTube
+        elif not provider or balance is None:
             return JsonResponse({'success': False, 'error': 'Provider und Balance sind erforderlich'})
         
         # Validiere Provider

@@ -188,6 +188,49 @@
                                     </div>
                                 </div>
                             </div>
+                            
+                            <!-- YouTube API -->
+                            <div class="col-md-6 col-lg-3 mb-3">
+                                <div class="card">
+                                    <div class="card-header bg-danger text-white">
+                                        <h6 class="mb-0">YouTube Data API</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-2">
+                                            <label for="youtube_api_key" class="form-label">API-Schlüssel:</label>
+                                            <div class="input-group">
+                                                <input type="password" class="form-control" id="youtube_api_key" 
+                                                       name="youtube_api_key" placeholder="AIzaSy...">
+                                                <button type="button" class="btn btn-outline-secondary toggle-password" 
+                                                        data-target="youtube_api_key">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            </div>
+                                            <small class="text-muted">Aktuell: <span id="youtube_key_status">Nicht konfiguriert</span></small>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label for="youtube_quota_limit" class="form-label">Tägliches Quota-Limit:</label>
+                                            <input type="number" class="form-control" id="youtube_quota_limit" 
+                                                   name="youtube_quota_limit" placeholder="10000" step="1000">
+                                            <small class="text-muted">Standard: 10.000 Einheiten/Tag</small>
+                                        </div>
+                                        <div class="btn-group" role="group">
+                                            <button type="button" class="btn btn-sm btn-primary update-balance-btn" 
+                                                    data-provider="youtube">
+                                                <i class="fas fa-save"></i> Speichern
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-danger remove-key-btn" 
+                                                    data-provider="youtube" title="API-Key entfernen">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                        <a href="https://console.cloud.google.com/apis/credentials" 
+                                           target="_blank" class="btn btn-sm btn-outline-secondary mt-1">
+                                            <i class="fas fa-external-link-alt"></i> Console
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -302,8 +345,17 @@ document.addEventListener('DOMContentLoaded', function() {
                         const thresholdInput = document.getElementById(`${provider}_threshold`);
                         const keyStatusSpan = document.getElementById(`${provider}_key_status`);
                         
-                        if (balanceInput) balanceInput.value = balance.balance.toFixed(2);
-                        if (thresholdInput) thresholdInput.value = balance.threshold.toFixed(2);
+                        // YouTube verwendet Quota statt Balance
+                        if (provider === 'youtube') {
+                            const quotaInput = document.getElementById(`${provider}_quota_limit`);
+                            if (quotaInput && balance.currency === 'QUOTA') {
+                                quotaInput.value = balance.balance.toFixed(0);
+                            }
+                        } else {
+                            if (balanceInput) balanceInput.value = balance.balance.toFixed(2);
+                            if (thresholdInput) thresholdInput.value = balance.threshold.toFixed(2);
+                        }
+                        
                         if (keyStatusSpan) keyStatusSpan.textContent = balance.masked_api_key;
                     }
                 }
@@ -317,13 +369,27 @@ document.addEventListener('DOMContentLoaded', function() {
         const apiKeyInput = document.getElementById(`${provider}_api_key`);
         const button = document.querySelector(`[data-provider="${provider}"]`);
         
-        const balance = balanceInput.value;
-        const threshold = thresholdInput.value;
-        const apiKey = apiKeyInput.value;
+        const balance = balanceInput ? balanceInput.value : null;
+        const threshold = thresholdInput ? thresholdInput.value : null;
+        const apiKey = apiKeyInput ? apiKeyInput.value : '';
         
-        if (!balance || isNaN(balance)) {
-            alert('Bitte geben Sie einen gültigen Kontostand ein.');
-            return;
+        // YouTube-spezifische Felder
+        let quotaLimit = null;
+        if (provider === 'youtube') {
+            const quotaInput = document.getElementById(`${provider}_quota_limit`);
+            quotaLimit = quotaInput ? quotaInput.value : null;
+            
+            // Für YouTube: API-Key oder Quota-Limit erforderlich
+            if (!apiKey && (!quotaLimit || isNaN(quotaLimit))) {
+                alert('Bitte geben Sie einen gültigen API-Key oder ein Quota-Limit ein.');
+                return;
+            }
+        } else {
+            // Für andere Provider: Balance erforderlich
+            if (!balance || isNaN(balance)) {
+                alert('Bitte geben Sie einen gültigen Kontostand ein.');
+                return;
+            }
         }
         
         // Button-Status ändern
@@ -333,11 +399,24 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const formData = new FormData();
         formData.append('provider', provider);
-        formData.append('balance', balance);
-        formData.append('threshold', threshold);
         formData.append('api_key', apiKey);
-        formData.append('currency', 'USD');
         formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+        
+        // YouTube-spezifische Daten
+        if (provider === 'youtube') {
+            if (quotaLimit) {
+                formData.append('quota_limit', quotaLimit);
+            }
+            // Für YouTube: Quota als Balance verwenden, falls gesetzt
+            formData.append('balance', quotaLimit || '10000');
+            formData.append('threshold', '1000');
+            formData.append('currency', 'QUOTA');
+        } else {
+            // Für andere Provider: Standard-Daten
+            formData.append('balance', balance);
+            formData.append('threshold', threshold);
+            formData.append('currency', 'USD');
+        }
         
         fetch('/naturmacher/api/balances/update/', {
             method: 'POST',
@@ -386,7 +465,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const providerNames = {
             'openai': 'OpenAI',
             'anthropic': 'Anthropic (Claude)',
-            'google': 'Google (Gemini)'
+            'google': 'Google (Gemini)',
+            'youtube': 'YouTube Data API'
         };
         
         if (!confirm(`Möchten Sie den API-Key für ${providerNames[provider]} wirklich entfernen?`)) {
