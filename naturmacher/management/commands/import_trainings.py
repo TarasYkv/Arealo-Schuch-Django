@@ -4,6 +4,7 @@ from django.core.management.base import BaseCommand
 from django.conf import settings
 from bs4 import BeautifulSoup
 from naturmacher.models import Thema, Training
+from naturmacher.utils.youtube_search import get_youtube_videos_for_training
 
 
 class Command(BaseCommand):
@@ -119,6 +120,8 @@ class Command(BaseCommand):
                     
                     if created:
                         self.stdout.write(self.style.SUCCESS(f'  Training erstellt'))
+                        # Automatisch YouTube-Videos suchen
+                        self.add_youtube_videos(training, thema_name)
                     else:
                         # Training aktualisieren
                         training.beschreibung = beschreibung
@@ -127,6 +130,10 @@ class Command(BaseCommand):
                         training.dauer_minuten = dauer
                         training.save()
                         self.stdout.write(f'  Training aktualisiert')
+                        
+                        # YouTube-Videos hinzufügen, falls noch keine vorhanden
+                        if not training.youtube_links.strip():
+                            self.add_youtube_videos(training, thema_name)
                         
                 except Exception as e:
                     self.stdout.write(self.style.ERROR(f'  Fehler bei {html_file}'))
@@ -250,3 +257,30 @@ class Command(BaseCommand):
         
         # Standard: 120 Minuten (2 Stunden)
         return 120
+    
+    def add_youtube_videos(self, training, thema_name):
+        """Fügt automatisch YouTube-Videos zu einem Training hinzu"""
+        try:
+            self.stdout.write(f'    Suche YouTube-Videos für "{training.titel}"...')
+            
+            # Suche nach passenden YouTube-Videos
+            youtube_urls = get_youtube_videos_for_training(
+                training_title=training.titel,
+                training_description=training.beschreibung,
+                thema_name=thema_name,
+                user=None  # Management-Commands verwenden Fallback zu Web-Scraping
+            )
+            
+            if youtube_urls:
+                # Videos als mehrzeiligen String speichern
+                training.youtube_links = '\n'.join(youtube_urls)
+                training.save()
+                
+                self.stdout.write(self.style.SUCCESS(f'    {len(youtube_urls)} YouTube-Videos hinzugefügt'))
+                for i, url in enumerate(youtube_urls, 1):
+                    self.stdout.write(f'      {i}. {url}')
+            else:
+                self.stdout.write(self.style.WARNING(f'    Keine YouTube-Videos gefunden'))
+                
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f'    Fehler beim Suchen von YouTube-Videos: {e}'))

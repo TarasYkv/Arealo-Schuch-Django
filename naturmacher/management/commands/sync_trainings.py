@@ -5,6 +5,7 @@ from django.core.management.base import BaseCommand
 from django.conf import settings
 from bs4 import BeautifulSoup
 from naturmacher.models import Thema, Training
+from naturmacher.utils.youtube_search import get_youtube_videos_for_training
 
 
 class Command(BaseCommand):
@@ -112,6 +113,8 @@ class Command(BaseCommand):
                     
                     if created:
                         self.stats['neue_trainings'] += 1
+                        # Automatisch YouTube-Videos suchen für neue Trainings
+                        self.add_youtube_videos(training, thema.name)
                     else:
                         # Training aktualisieren
                         training.beschreibung = beschreibung
@@ -120,6 +123,10 @@ class Command(BaseCommand):
                         training.dauer_minuten = dauer
                         training.save()
                         self.stats['aktualisierte_trainings'] += 1
+                        
+                        # YouTube-Videos hinzufügen, falls noch keine vorhanden
+                        if not training.youtube_links.strip():
+                            self.add_youtube_videos(training, thema.name)
                         
                 except Exception as e:
                     pass  # Silent error handling for web interface
@@ -240,3 +247,22 @@ class Command(BaseCommand):
             return duration
         
         return 120
+    
+    def add_youtube_videos(self, training, thema_name):
+        """Fügt automatisch YouTube-Videos zu einem Training hinzu"""
+        try:
+            # Suche nach passenden YouTube-Videos
+            youtube_urls = get_youtube_videos_for_training(
+                training_title=training.titel,
+                training_description=training.beschreibung,
+                thema_name=thema_name,
+                user=None  # Management-Commands verwenden Fallback zu Web-Scraping
+            )
+            
+            if youtube_urls:
+                # Videos als mehrzeiligen String speichern
+                training.youtube_links = '\n'.join(youtube_urls)
+                training.save()
+                
+        except Exception as e:
+            pass  # Silent error handling for web interface

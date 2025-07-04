@@ -110,12 +110,28 @@ class Thema(models.Model):
             return None
 
     def get_display_image(self):
-        """Gibt das anzuzeigende Bild zurück (eigenes Bild oder Thumbnail aus Ordner)"""
+        """Gibt das anzuzeigende Bild zurück (eigenes Bild, Thumbnail aus Ordner oder zufälliges Training-Bild)"""
         if self.bild:
             return self.bild.url
         thumbnail = self.get_thumbnail_from_folder()
         if thumbnail:
             return thumbnail
+        
+        # Fallback: Zufälliges Bild von den Trainings dieses Themas
+        import random
+        trainings_with_images = self.trainings.exclude(bild='').exclude(bild__isnull=True)
+        if trainings_with_images.exists():
+            random_training = random.choice(trainings_with_images)
+            return random_training.bild.url
+        
+        # Wenn keine Training-Bilder vorhanden, versuche YouTube-Thumbnails
+        trainings_with_youtube = self.trainings.exclude(youtube_links='').exclude(youtube_links__isnull=True)
+        if trainings_with_youtube.exists():
+            random_training = random.choice(trainings_with_youtube)
+            youtube_thumbnail = random_training.get_first_youtube_thumbnail()
+            if youtube_thumbnail:
+                return youtube_thumbnail
+        
         return None
 
     class Meta:
@@ -323,6 +339,7 @@ class APIBalance(models.Model):
         ('openai', 'OpenAI (ChatGPT)'),
         ('anthropic', 'Anthropic (Claude)'),
         ('google', 'Google (Gemini)'),
+        ('youtube', 'YouTube Data API'),
     ]
     
     user = models.ForeignKey(User, on_delete=models.CASCADE)
