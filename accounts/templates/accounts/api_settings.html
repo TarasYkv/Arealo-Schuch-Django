@@ -1,0 +1,507 @@
+{% extends 'base.html' %}
+
+{% block title %}API-Einstellungen - Naturmacher{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'naturmacher:thema_list' %}">Alle Themen</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">API-Einstellungen</li>
+                </ol>
+            </nav>
+            
+            <h1><i class="fas fa-cog"></i> API-Einstellungen</h1>
+            <p class="lead">Verwalten Sie Ihre API-Kontostände und überwachen Sie die Nutzungskosten.</p>
+            
+            <!-- Balance Management -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-wallet"></i> Kontostände verwalten</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        <strong>Hinweis:</strong> Geben Sie Ihre aktuellen Kontostände manuell ein. 
+                        Diese werden automatisch bei jeder API-Nutzung aktualisiert.
+                    </div>
+                    
+                    <form id="balanceForm">
+                        <div class="row">
+                            <!-- OpenAI -->
+                            <div class="col-md-4 mb-3">
+                                <div class="card">
+                                    <div class="card-header bg-success text-white">
+                                        <h6 class="mb-0">OpenAI (ChatGPT)</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-2">
+                                            <label for="openai_api_key" class="form-label">API-Schlüssel:</label>
+                                            <div class="input-group">
+                                                <input type="password" class="form-control" id="openai_api_key" 
+                                                       placeholder="sk-proj-...">
+                                                <button type="button" class="btn btn-outline-secondary toggle-password" 
+                                                        data-target="openai_api_key">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            </div>
+                                            <small class="text-muted">Aktuell: <span id="openai_key_status">Nicht konfiguriert</span></small>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label for="openai_balance" class="form-label">Kontostand:</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">$</span>
+                                                <input type="number" class="form-control" id="openai_balance" 
+                                                       step="0.01" min="0" placeholder="0.00">
+                                            </div>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label for="openai_threshold" class="form-label">Warnschwelle:</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">$</span>
+                                                <input type="number" class="form-control" id="openai_threshold" 
+                                                       step="0.01" min="0" placeholder="5.00" value="5.00">
+                                            </div>
+                                        </div>
+                                        <div class="btn-group" role="group">
+                                            <button type="button" class="btn btn-sm btn-primary update-balance-btn" 
+                                                    data-provider="openai">
+                                                <i class="fas fa-save"></i> Speichern
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-danger remove-key-btn" 
+                                                    data-provider="openai" title="API-Key entfernen">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                        <a href="https://platform.openai.com/settings/organization/billing/overview" 
+                                           target="_blank" class="btn btn-sm btn-outline-secondary mt-1">
+                                            <i class="fas fa-external-link-alt"></i> Dashboard
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Anthropic -->
+                            <div class="col-md-4 mb-3">
+                                <div class="card">
+                                    <div class="card-header bg-warning text-dark">
+                                        <h6 class="mb-0">Anthropic (Claude)</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-2">
+                                            <label for="anthropic_api_key" class="form-label">API-Schlüssel:</label>
+                                            <div class="input-group">
+                                                <input type="password" class="form-control" id="anthropic_api_key" 
+                                                       placeholder="sk-ant-api03-...">
+                                                <button type="button" class="btn btn-outline-secondary toggle-password" 
+                                                        data-target="anthropic_api_key">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            </div>
+                                            <small class="text-muted">Aktuell: <span id="anthropic_key_status">Nicht konfiguriert</span></small>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label for="anthropic_balance" class="form-label">Kontostand:</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">$</span>
+                                                <input type="number" class="form-control" id="anthropic_balance" 
+                                                       step="0.01" min="0" placeholder="0.00">
+                                            </div>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label for="anthropic_threshold" class="form-label">Warnschwelle:</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">$</span>
+                                                <input type="number" class="form-control" id="anthropic_threshold" 
+                                                       step="0.01" min="0" placeholder="5.00" value="5.00">
+                                            </div>
+                                        </div>
+                                        <div class="btn-group" role="group">
+                                            <button type="button" class="btn btn-sm btn-primary update-balance-btn" 
+                                                    data-provider="anthropic">
+                                                <i class="fas fa-save"></i> Speichern
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-danger remove-key-btn" 
+                                                    data-provider="anthropic" title="API-Key entfernen">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                        <a href="https://console.anthropic.com/settings/billing" 
+                                           target="_blank" class="btn btn-sm btn-outline-secondary mt-1">
+                                            <i class="fas fa-external-link-alt"></i> Dashboard
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Google -->
+                            <div class="col-md-4 mb-3">
+                                <div class="card">
+                                    <div class="card-header bg-info text-white">
+                                        <h6 class="mb-0">Google (Gemini)</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-2">
+                                            <label for="google_api_key" class="form-label">API-Schlüssel:</label>
+                                            <div class="input-group">
+                                                <input type="password" class="form-control" id="google_api_key" 
+                                                       placeholder="AIzaSy...">
+                                                <button type="button" class="btn btn-outline-secondary toggle-password" 
+                                                        data-target="google_api_key">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            </div>
+                                            <small class="text-muted">Aktuell: <span id="google_key_status">Nicht konfiguriert</span></small>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label for="google_balance" class="form-label">Kontostand:</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">$</span>
+                                                <input type="number" class="form-control" id="google_balance" 
+                                                       step="0.01" min="0" placeholder="0.00">
+                                            </div>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label for="google_threshold" class="form-label">Warnschwelle:</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">$</span>
+                                                <input type="number" class="form-control" id="google_threshold" 
+                                                       step="0.01" min="0" placeholder="5.00" value="5.00">
+                                            </div>
+                                        </div>
+                                        <div class="btn-group" role="group">
+                                            <button type="button" class="btn btn-sm btn-primary update-balance-btn" 
+                                                    data-provider="google">
+                                                <i class="fas fa-save"></i> Speichern
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-danger remove-key-btn" 
+                                                    data-provider="google" title="API-Key entfernen">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                        <a href="https://console.cloud.google.com/billing" 
+                                           target="_blank" class="btn btn-sm btn-outline-secondary mt-1">
+                                            <i class="fas fa-external-link-alt"></i> Dashboard
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Usage Statistics -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5><i class="fas fa-chart-bar"></i> Nutzungsstatistiken (30 Tage)</h5>
+                    <button class="btn btn-sm btn-outline-primary" id="refreshStatsBtn">
+                        <i class="fas fa-sync-alt"></i> Aktualisieren
+                    </button>
+                </div>
+                <div class="card-body" id="usageStatsContent">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Laden...</span>
+                        </div>
+                        <p class="text-muted">Statistiken werden geladen...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pricing Information -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-info-circle"></i> Preisinformationen</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6>OpenAI</h6>
+                            <ul class="list-unstyled small">
+                                <li><strong>GPT-4.1:</strong> $5.00 / $15.00 (Input/Output per 1M Tokens)</li>
+                                <li><strong>GPT-4o:</strong> $2.50 / $10.00</li>
+                                <li><strong>o3:</strong> $60.00 / $240.00 (Reasoning)</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>Anthropic</h6>
+                            <ul class="list-unstyled small">
+                                <li><strong>Claude Opus 4:</strong> $15.00 / $75.00</li>
+                                <li><strong>Claude Sonnet 4:</strong> $3.00 / $15.00</li>
+                                <li><strong>Claude Haiku 3.5:</strong> $1.00 / $5.00</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>Google</h6>
+                            <ul class="list-unstyled small">
+                                <li><strong>Gemini 2.5 Pro:</strong> $1.25 / $10.00</li>
+                                <li><strong>Gemini 2.5 Flash:</strong> $0.075 / $0.30</li>
+                                <li><strong>Gemini (Standard):</strong> Kostenlos</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Lade initiale Daten
+    loadCurrentBalances();
+    loadUsageStatistics();
+    
+    // Balance Update Buttons
+    document.querySelectorAll('.update-balance-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const provider = this.dataset.provider;
+            updateBalance(provider);
+        });
+    });
+    
+    // Password Toggle Buttons
+    document.querySelectorAll('.toggle-password').forEach(button => {
+        button.addEventListener('click', function() {
+            const targetId = this.dataset.target;
+            const targetInput = document.getElementById(targetId);
+            const icon = this.querySelector('i');
+            
+            if (targetInput.type === 'password') {
+                targetInput.type = 'text';
+                icon.className = 'fas fa-eye-slash';
+            } else {
+                targetInput.type = 'password';
+                icon.className = 'fas fa-eye';
+            }
+        });
+    });
+    
+    // Remove API Key Buttons
+    document.querySelectorAll('.remove-key-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const provider = this.dataset.provider;
+            removeApiKey(provider);
+        });
+    });
+    
+    // Refresh Stats Button
+    document.getElementById('refreshStatsBtn').addEventListener('click', loadUsageStatistics);
+    
+    function loadCurrentBalances() {
+        fetch('/naturmacher/api/balances/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Fülle die Formularfelder mit aktuellen Werten
+                    for (const [provider, balance] of Object.entries(data.balances)) {
+                        const balanceInput = document.getElementById(`${provider}_balance`);
+                        const thresholdInput = document.getElementById(`${provider}_threshold`);
+                        const keyStatusSpan = document.getElementById(`${provider}_key_status`);
+                        
+                        if (balanceInput) balanceInput.value = balance.balance.toFixed(2);
+                        if (thresholdInput) thresholdInput.value = balance.threshold.toFixed(2);
+                        if (keyStatusSpan) keyStatusSpan.textContent = balance.masked_api_key;
+                    }
+                }
+            })
+            .catch(error => console.error('Error loading balances:', error));
+    }
+    
+    function updateBalance(provider) {
+        const balanceInput = document.getElementById(`${provider}_balance`);
+        const thresholdInput = document.getElementById(`${provider}_threshold`);
+        const apiKeyInput = document.getElementById(`${provider}_api_key`);
+        const button = document.querySelector(`[data-provider="${provider}"]`);
+        
+        const balance = balanceInput.value;
+        const threshold = thresholdInput.value;
+        const apiKey = apiKeyInput.value;
+        
+        if (!balance || isNaN(balance)) {
+            alert('Bitte geben Sie einen gültigen Kontostand ein.');
+            return;
+        }
+        
+        // Button-Status ändern
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Speichern...';
+        button.disabled = true;
+        
+        const formData = new FormData();
+        formData.append('provider', provider);
+        formData.append('balance', balance);
+        formData.append('threshold', threshold);
+        formData.append('api_key', apiKey);
+        formData.append('currency', 'USD');
+        formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+        
+        fetch('/naturmacher/api/balances/update/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Erfolgs-Feedback
+                button.innerHTML = '<i class="fas fa-check"></i> Gespeichert';
+                button.classList.remove('btn-primary');
+                button.classList.add('btn-success');
+                
+                // API-Key Status aktualisieren
+                const keyStatusSpan = document.getElementById(`${provider}_key_status`);
+                if (keyStatusSpan && data.masked_api_key) {
+                    keyStatusSpan.textContent = data.masked_api_key;
+                }
+                
+                // API-Key Eingabefeld leeren (aus Sicherheitsgründen)
+                if (apiKeyInput) {
+                    apiKeyInput.value = '';
+                }
+                
+                setTimeout(() => {
+                    button.innerHTML = originalText;
+                    button.classList.remove('btn-success');
+                    button.classList.add('btn-primary');
+                    button.disabled = false;
+                }, 2000);
+            } else {
+                alert('Fehler beim Speichern: ' + data.error);
+                button.innerHTML = originalText;
+                button.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Error updating balance:', error);
+            alert('Netzwerkfehler beim Speichern');
+            button.innerHTML = originalText;
+            button.disabled = false;
+        });
+    }
+    
+    function removeApiKey(provider) {
+        const providerNames = {
+            'openai': 'OpenAI',
+            'anthropic': 'Anthropic (Claude)',
+            'google': 'Google (Gemini)'
+        };
+        
+        if (!confirm(`Möchten Sie den API-Key für ${providerNames[provider]} wirklich entfernen?`)) {
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('provider', provider);
+        formData.append('action', 'remove_key');
+        formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+        
+        fetch('/naturmacher/api/balances/remove-key/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Aktualisiere Status-Anzeige
+                const keyStatusSpan = document.getElementById(`${provider}_key_status`);
+                if (keyStatusSpan) {
+                    keyStatusSpan.textContent = 'Nicht konfiguriert';
+                }
+                
+                // Zeige Erfolgs-Message
+                alert(`API-Key für ${providerNames[provider]} wurde erfolgreich entfernt.`);
+            } else {
+                alert('Fehler beim Entfernen des API-Keys: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error removing API key:', error);
+            alert('Netzwerkfehler beim Entfernen des API-Keys');
+        });
+    }
+    
+    function loadUsageStatistics() {
+        const statsContent = document.getElementById('usageStatsContent');
+        statsContent.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Laden...</span>
+                </div>
+                <p class="text-muted">Statistiken werden geladen...</p>
+            </div>
+        `;
+        
+        fetch('/naturmacher/api/usage/stats/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayUsageStatistics(data);
+                } else {
+                    statsContent.innerHTML = '<div class="alert alert-danger">Fehler beim Laden der Statistiken</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading statistics:', error);
+                statsContent.innerHTML = '<div class="alert alert-danger">Netzwerkfehler</div>';
+            });
+    }
+    
+    function displayUsageStatistics(data) {
+        const statsContent = document.getElementById('usageStatsContent');
+        
+        let html = `
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <div class="alert alert-info">
+                        <h6>Gesamtkosten (${data.period}): <strong>$${data.total_cost.toFixed(4)}</strong></h6>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+        `;
+        
+        for (const [provider, stats] of Object.entries(data.stats)) {
+            const percentage = data.total_cost > 0 ? (stats.total_cost / data.total_cost * 100) : 0;
+            
+            html += `
+                <div class="col-md-4 mb-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6>${stats.name}</h6>
+                            <p class="mb-1"><strong>Kosten:</strong> $${stats.total_cost.toFixed(4)} (${percentage.toFixed(1)}%)</p>
+                            <p class="mb-1"><strong>Anfragen:</strong> ${stats.request_count}</p>
+                            <p class="mb-1"><strong>Tokens:</strong> ${stats.total_tokens.toLocaleString()}</p>
+                            <p class="mb-0"><small class="text-muted">
+                                Zuletzt: ${stats.last_used ? new Date(stats.last_used).toLocaleDateString('de-DE') : 'Nie'}
+                            </small></p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        html += '</div>';
+        statsContent.innerHTML = html;
+    }
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+});
+</script>
+
+{% endblock %}

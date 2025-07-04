@@ -212,6 +212,12 @@ def keyword_delete(request, keyword_pk):
     })
 
 
+@login_required
+def api_settings_view(request):
+    """Zeigt die API-Einstellungsseite an"""
+    return render(request, 'accounts/api_settings.html')
+
+
 def logout_view(request):
     """Benutzer ausloggen."""
     logout(request)

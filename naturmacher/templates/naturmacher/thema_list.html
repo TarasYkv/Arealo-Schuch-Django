@@ -1,0 +1,890 @@
+{% extends 'base.html' %}
+
+{% block title %}Naturmacher - Trainings{% endblock %}
+
+{% block content %}
+<style>
+.search-container {
+    position: relative;
+}
+
+.search-result-item {
+    transition: background-color 0.2s ease;
+    cursor: pointer;
+}
+
+.search-result-item:hover {
+    background-color: #f8f9fa !important;
+}
+
+.search-result-item:last-child {
+    border-bottom: none !important;
+}
+
+#searchResults {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+#themenSuche:focus {
+    border-color: #28a745;
+    box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+}
+
+mark {
+    background-color: #fff3cd;
+    padding: 1px 2px;
+    border-radius: 2px;
+}
+
+.input-group .btn {
+    border-left: none;
+}
+
+.input-group .form-control:focus {
+    z-index: 3;
+}
+
+@media (max-width: 768px) {
+    .d-flex.justify-content-between {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .search-container .input-group {
+        width: 100% !important;
+    }
+    
+    #searchResults {
+        width: 100% !important;
+    }
+}
+</style>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex align-items-center">
+            <h1 class="me-4">Naturmacher Trainings</h1>
+            <div class="search-container">
+                <div class="input-group" style="width: 300px;">
+                    <span class="input-group-text">
+                        <i class="fas fa-search"></i>
+                    </span>
+                    <input type="text" class="form-control" id="themenSuche" placeholder="Themen durchsuchen..." autocomplete="off">
+                    <button class="btn btn-outline-secondary" type="button" id="clearSearch" title="Suche löschen">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="searchResults" class="position-absolute bg-white border rounded-bottom shadow-sm" style="width: 300px; max-height: 200px; overflow-y: auto; z-index: 1000; display: none; margin-top: -1px;">
+                    <!-- Suchergebnisse werden hier angezeigt -->
+                </div>
+            </div>
+        </div>
+        <div class="btn-group" role="group">
+            {% if user.is_authenticated %}
+                <a href="{% url 'naturmacher:upload_trainings' %}" class="btn btn-success btn-sm" title="Training Upload">
+                    <i class="fas fa-upload"></i>
+                </a>
+                <button type="button" class="btn btn-success btn-sm" id="createThemaBtn" title="Neues Thema erstellen">
+                    <i class="fas fa-plus"></i>
+                </button>
+            {% endif %}
+            <a href="{% url 'naturmacher:import_trainings' %}" class="btn btn-primary btn-sm" title="Trainings aktualisieren">
+                <i class="fas fa-sync-alt"></i>
+            </a>
+        </div>
+    </div>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+    
+    <div class="row">
+        {% for thema in themen %}
+        <div class="col-md-4 mb-4">
+            {% if user.is_authenticated and thema.user_komplett_erledigt %}
+                <div class="card h-100 border-success bg-light">
+            {% else %}
+                <div class="card h-100">
+            {% endif %}
+                {% if thema.get_display_image %}
+                    <img src="{{ thema.get_display_image }}" class="card-img-top" alt="{{ thema.name }}" style="height: 200px; object-fit: cover;">
+                {% else %}
+                    <div class="card-img-top bg-success d-flex align-items-center justify-content-center" style="height: 200px;">
+                        <i class="fas fa-leaf text-white fa-3x"></i>
+                    </div>
+                {% endif %}
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="card-title mb-0">{{ thema.name }}</h5>
+                        <div class="d-flex align-items-center">
+                            {% if user.is_authenticated %}
+                                <button class="btn btn-link btn-sm p-0 me-2 thema-notizen-btn" 
+                                        data-thema-id="{{ thema.id }}" 
+                                        data-thema-name="{{ thema.name }}" 
+                                        title="Alle Notizen anzeigen">
+                                    <i class="fas fa-sticky-note text-warning"></i>
+                                </button>
+                            {% endif %}
+                            {% if user.is_authenticated and thema.user_komplett_erledigt %}
+                                <i class="fas fa-check-circle text-success fa-lg" title="Alle Trainings erledigt"></i>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if user.is_authenticated %}
+                        <div class="mb-2">
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: {{ thema.user_fortschritt }}%;" 
+                                     aria-valuenow="{{ thema.user_fortschritt }}" 
+                                     aria-valuemin="0" aria-valuemax="100">
+                                </div>
+                            </div>
+                            <small class="text-muted">{{ thema.user_fortschritt }}% abgeschlossen</small>
+                        </div>
+                    {% endif %}
+                    
+                    <p class="card-text">{{ thema.beschreibung|truncatewords:20 }}</p>
+                    <p class="card-text"><small class="text-muted">{{ thema.trainings.count }} Training{{ thema.trainings.count|pluralize:"s" }}</small></p>
+                    
+                    {% if user.is_authenticated and thema.user_komplett_erledigt %}
+                        <a href="{% url 'naturmacher:thema_detail' thema.pk %}" class="btn btn-success mt-auto">
+                            <i class="fas fa-check"></i> Alle Trainings erledigt
+                        </a>
+                    {% else %}
+                        <a href="{% url 'naturmacher:thema_detail' thema.pk %}" class="btn btn-success mt-auto">
+                            Trainings anzeigen
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info text-center">
+                <h4>Noch keine Trainings verfügbar</h4>
+                <p>Bald werden hier spannende Naturtrainings für Sie bereitstehen!</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Thema Notizen Modal -->
+<div class="modal fade" id="themaNotizenModal" tabindex="-1" aria-labelledby="themaNotizenModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="themaNotizenModalLabel">Alle Notizen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="themaNotizenContent">
+                    <!-- Wird via JavaScript gefüllt -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Suchfunktionalität
+    const searchInput = document.getElementById('themenSuche');
+    const clearSearchBtn = document.getElementById('clearSearch');
+    const searchResults = document.getElementById('searchResults');
+    const themenContainer = document.querySelector('.row');
+    const allThemenCards = Array.from(themenContainer.children);
+    
+    // Originale Themen-Daten sammeln
+    const themenData = allThemenCards.map(card => {
+        const titleElement = card.querySelector('.card-title');
+        const descriptionElement = card.querySelector('.card-text');
+        const trainingCountElement = card.querySelector('small.text-muted');
+        
+        return {
+            element: card,
+            title: titleElement ? titleElement.textContent.trim() : '',
+            description: descriptionElement ? descriptionElement.textContent.trim() : '',
+            trainingCount: trainingCountElement ? trainingCountElement.textContent.trim() : '',
+            searchText: ''
+        };
+    });
+    
+    // Suchtext für jedes Thema erstellen
+    themenData.forEach(thema => {
+        thema.searchText = `${thema.title} ${thema.description} ${thema.trainingCount}`.toLowerCase();
+    });
+    
+    // Live-Suche
+    let searchTimeout;
+    searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.trim();
+        
+        // Debounce für bessere Performance
+        clearTimeout(searchTimeout);
+        
+        if (searchTerm.length === 0) {
+            // Alle Themen anzeigen
+            showAllThemen();
+            hideSearchResults();
+            return;
+        }
+        
+        if (searchTerm.length < 2) {
+            searchResults.innerHTML = '<div class="p-2 text-muted small">Mindestens 2 Zeichen eingeben...</div>';
+            showSearchResults();
+            return;
+        }
+        
+        // Lade-Indikator anzeigen
+        searchResults.innerHTML = '<div class="p-2 text-center"><i class="fas fa-spinner fa-spin"></i> Suche läuft...</div>';
+        showSearchResults();
+        
+        // AJAX-Suche mit Debounce
+        searchTimeout = setTimeout(() => {
+            performAjaxSearch(searchTerm);
+        }, 300);
+    });
+    
+    // Suche löschen
+    clearSearchBtn.addEventListener('click', function() {
+        searchInput.value = '';
+        showAllThemen();
+        hideSearchResults();
+        searchInput.focus();
+    });
+    
+    // Klick außerhalb schließt Suchergebnisse
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.search-container')) {
+            hideSearchResults();
+        }
+    });
+    
+    // ESC-Taste schließt Suche
+    searchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            this.value = '';
+            showAllThemen();
+            hideSearchResults();
+        }
+    });
+    
+    // AJAX-Suche durchführen
+    function performAjaxSearch(searchTerm) {
+        fetch(`/naturmacher/search/?q=${encodeURIComponent(searchTerm)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayAjaxSearchResults(data, searchTerm);
+                } else {
+                    searchResults.innerHTML = `
+                        <div class="p-3 text-center text-muted">
+                            <i class="fas fa-exclamation-triangle mb-2"></i><br>
+                            Fehler bei der Suche: ${data.error}
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Suchfehler:', error);
+                searchResults.innerHTML = `
+                    <div class="p-3 text-center text-muted">
+                        <i class="fas fa-exclamation-triangle mb-2"></i><br>
+                        Verbindungsfehler bei der Suche
+                    </div>
+                `;
+            });
+    }
+    
+    // AJAX-Suchergebnisse anzeigen
+    function displayAjaxSearchResults(data, searchTerm) {
+        if (data.total_count === 0) {
+            searchResults.innerHTML = `
+                <div class="p-3 text-center text-muted">
+                    <i class="fas fa-search mb-2"></i><br>
+                    Keine Ergebnisse für "${searchTerm}"
+                </div>
+            `;
+            hideAllThemen();
+            return;
+        }
+        
+        let html = '';
+        let displayCount = 0;
+        const maxResults = 8;
+        
+        // Themen-Ergebnisse
+        if (data.themen.length > 0) {
+            data.themen.slice(0, maxResults - displayCount).forEach(thema => {
+                const highlightedTitle = highlightText(thema.title, searchTerm);
+                html += `
+                    <div class="search-result-item p-2 border-bottom" data-url="${thema.url}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="fw-bold d-flex align-items-center">
+                                    <i class="fas fa-folder text-success me-2"></i>
+                                    ${highlightedTitle}
+                                </div>
+                                <small class="text-muted">${thema.description}</small>
+                            </div>
+                            <span class="badge bg-success ms-2">${thema.badge}</span>
+                        </div>
+                    </div>
+                `;
+                displayCount++;
+            });
+        }
+        
+        // Trainings-Ergebnisse
+        if (data.trainings.length > 0 && displayCount < maxResults) {
+            data.trainings.slice(0, maxResults - displayCount).forEach(training => {
+                const highlightedTitle = highlightText(training.title, searchTerm);
+                html += `
+                    <div class="search-result-item p-2 border-bottom" data-url="${training.url}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="fw-bold d-flex align-items-center">
+                                    <i class="fas fa-dumbbell text-primary me-2"></i>
+                                    ${highlightedTitle}
+                                </div>
+                                <small class="text-muted">${training.description}</small>
+                            </div>
+                            <span class="badge bg-primary ms-2">${training.badge}</span>
+                        </div>
+                    </div>
+                `;
+                displayCount++;
+            });
+        }
+        
+        // Weitere Ergebnisse Hinweis
+        if (data.total_count > maxResults) {
+            html += `
+                <div class="p-2 text-center text-muted small">
+                    ... und ${data.total_count - maxResults} weitere Ergebnisse
+                </div>
+            `;
+        }
+        
+        // Statistik am Ende
+        html += `
+            <div class="p-2 bg-light border-top text-center small text-muted">
+                ${data.themen.length} Themen, ${data.trainings.length} Trainings gefunden
+            </div>
+        `;
+        
+        searchResults.innerHTML = html;
+        
+        // Click-Handler für Suchergebnisse
+        searchResults.querySelectorAll('.search-result-item[data-url]').forEach(item => {
+            item.addEventListener('click', function() {
+                window.location.href = this.dataset.url;
+            });
+            
+            // Hover-Effekt
+            item.addEventListener('mouseenter', function() {
+                this.style.backgroundColor = '#f8f9fa';
+                this.style.cursor = 'pointer';
+            });
+            
+            item.addEventListener('mouseleave', function() {
+                this.style.backgroundColor = '';
+            });
+        });
+        
+        // Lokale Themen entsprechend filtern
+        filterLocalThemen(data.themen);
+    }
+    
+    function filterLocalThemen(foundThemen) {
+        hideAllThemen();
+        
+        // Zeige nur die gefundenen Themen in der lokalen Ansicht
+        foundThemen.forEach(foundThema => {
+            const matchingCard = themenData.find(localThema => 
+                localThema.title === foundThema.title
+            );
+            if (matchingCard) {
+                matchingCard.element.style.display = 'block';
+            }
+        });
+    }
+    
+    function showAllThemen() {
+        allThemenCards.forEach(card => {
+            card.style.display = 'block';
+        });
+    }
+    
+    function hideAllThemen() {
+        allThemenCards.forEach(card => {
+            card.style.display = 'none';
+        });
+    }
+    
+    function showSearchResults() {
+        searchResults.style.display = 'block';
+    }
+    
+    function hideSearchResults() {
+        searchResults.style.display = 'none';
+    }
+    
+    
+    function highlightText(text, searchTerm) {
+        const regex = new RegExp(`(${searchTerm})`, 'gi');
+        return text.replace(regex, '<mark>$1</mark>');
+    }
+    
+    // Thema Notizen
+    const themaNotizenButtons = document.querySelectorAll('.thema-notizen-btn');
+    const themaNotizenModal = document.getElementById('themaNotizenModal');
+    const themaNotizenContent = document.getElementById('themaNotizenContent');
+    
+    themaNotizenButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const themaId = this.dataset.themaId;
+            const themaName = this.dataset.themaName;
+            
+            document.getElementById('themaNotizenModalLabel').textContent = `Alle Notizen: ${themaName}`;
+            
+            fetch(`/naturmacher/thema/${themaId}/notizen/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (data.notizen.length === 0) {
+                            themaNotizenContent.innerHTML = '<p class="text-muted">Noch keine Notizen vorhanden.</p>';
+                        } else {
+                            let html = '';
+                            data.notizen.forEach(notiz => {
+                                let notizenContent = '';
+                                if (notiz.input_type === 'handwriting') {
+                                    notizenContent = `<img src="${notiz.notizen}" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px;" alt="Handschriftliche Notizen">`;
+                                } else {
+                                    notizenContent = `<p class="card-text">${notiz.notizen.replace(/\n/g, '<br>')}</p>`;
+                                }
+                                
+                                html += `
+                                    <div class="card mb-3">
+                                        <div class="card-header">
+                                            <h6 class="mb-0">${notiz.training_titel}</h6>
+                                            <small class="text-muted">Zuletzt bearbeitet: ${notiz.aktualisiert_am} (${notiz.input_type === 'handwriting' ? 'Handschrift' : 'Text'})</small>
+                                        </div>
+                                        <div class="card-body">
+                                            ${notizenContent}
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            themaNotizenContent.innerHTML = html;
+                        }
+                        
+                        const modal = new bootstrap.Modal(themaNotizenModal);
+                        modal.show();
+                    } else {
+                        alert('Fehler beim Laden der Notizen');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Fehler beim Laden der Notizen');
+                });
+        });
+    });
+
+    function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Suchfunktionalität
+    const searchInput = document.getElementById('themenSuche');
+    const clearSearchBtn = document.getElementById('clearSearch');
+    const searchResults = document.getElementById('searchResults');
+    const themenContainer = document.querySelector('.row');
+    const allThemenCards = Array.from(themenContainer.children);
+    
+    // Originale Themen-Daten sammeln
+    const themenData = allThemenCards.map(card => {
+        const titleElement = card.querySelector('.card-title');
+        const descriptionElement = card.querySelector('.card-text');
+        const trainingCountElement = card.querySelector('small.text-muted');
+        
+        return {
+            element: card,
+            title: titleElement ? titleElement.textContent.trim() : '',
+            description: descriptionElement ? descriptionElement.textContent.trim() : '',
+            trainingCount: trainingCountElement ? trainingCountElement.textContent.trim() : '',
+            searchText: ''
+        };
+    });
+    
+    // Suchtext für jedes Thema erstellen
+    themenData.forEach(thema => {
+        thema.searchText = `${thema.title} ${thema.description} ${thema.trainingCount}`.toLowerCase();
+    });
+    
+    // Live-Suche
+    let searchTimeout;
+    searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.trim();
+        
+        // Debounce für bessere Performance
+        clearTimeout(searchTimeout);
+        
+        if (searchTerm.length === 0) {
+            // Alle Themen anzeigen
+            showAllThemen();
+            hideSearchResults();
+            return;
+        }
+        
+        if (searchTerm.length < 2) {
+            searchResults.innerHTML = '<div class="p-2 text-muted small">Mindestens 2 Zeichen eingeben...</div>';
+            showSearchResults();
+            return;
+        }
+        
+        // Lade-Indikator anzeigen
+        searchResults.innerHTML = '<div class="p-2 text-center"><i class="fas fa-spinner fa-spin"></i> Suche läuft...</div>';
+        showSearchResults();
+        
+        // AJAX-Suche mit Debounce
+        searchTimeout = setTimeout(() => {
+            performAjaxSearch(searchTerm);
+        }, 300);
+    });
+    
+    // Suche löschen
+    clearSearchBtn.addEventListener('click', function() {
+        searchInput.value = '';
+        showAllThemen();
+        hideSearchResults();
+        searchInput.focus();
+    });
+    
+    // Klick außerhalb schließt Suchergebnisse
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.search-container')) {
+            hideSearchResults();
+        }
+    });
+    
+    // ESC-Taste schließt Suche
+    searchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            this.value = '';
+            showAllThemen();
+            hideSearchResults();
+        }
+    });
+    
+    // AJAX-Suche durchführen
+    function performAjaxSearch(searchTerm) {
+        fetch(`/naturmacher/search/?q=${encodeURIComponent(searchTerm)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayAjaxSearchResults(data, searchTerm);
+                } else {
+                    searchResults.innerHTML = `
+                        <div class="p-3 text-center text-muted">
+                            <i class="fas fa-exclamation-triangle mb-2"></i><br>
+                            Fehler bei der Suche: ${data.error}
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Suchfehler:', error);
+                searchResults.innerHTML = `
+                    <div class="p-3 text-center text-muted">
+                        <i class="fas fa-exclamation-triangle mb-2"></i><br>
+                        Verbindungsfehler bei der Suche
+                    </div>
+                `;
+            });
+    }
+    
+    // AJAX-Suchergebnisse anzeigen
+    function displayAjaxSearchResults(data, searchTerm) {
+        if (data.total_count === 0) {
+            searchResults.innerHTML = `
+                <div class="p-3 text-center text-muted">
+                    <i class="fas fa-search mb-2"></i><br>
+                    Keine Ergebnisse für "${searchTerm}"
+                </div>
+            `;
+            hideAllThemen();
+            return;
+        }
+        
+        let html = '';
+        let displayCount = 0;
+        const maxResults = 8;
+        
+        // Themen-Ergebnisse
+        if (data.themen.length > 0) {
+            data.themen.slice(0, maxResults - displayCount).forEach(thema => {
+                const highlightedTitle = highlightText(thema.title, searchTerm);
+                html += `
+                    <div class="search-result-item p-2 border-bottom" data-url="${thema.url}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="fw-bold d-flex align-items-center">
+                                    <i class="fas fa-folder text-success me-2"></i>
+                                    ${highlightedTitle}
+                                </div>
+                                <small class="text-muted">${thema.description}</small>
+                            </div>
+                            <span class="badge bg-success ms-2">${thema.badge}</span>
+                        </div>
+                    </div>
+                `;
+                displayCount++;
+            });
+        }
+        
+        // Trainings-Ergebnisse
+        if (data.trainings.length > 0 && displayCount < maxResults) {
+            data.trainings.slice(0, maxResults - displayCount).forEach(training => {
+                const highlightedTitle = highlightText(training.title, searchTerm);
+                html += `
+                    <div class="search-result-item p-2 border-bottom" data-url="${training.url}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="fw-bold d-flex align-items-center">
+                                    <i class="fas fa-dumbbell text-primary me-2"></i>
+                                    ${highlightedTitle}
+                                </div>
+                                <small class="text-muted">${training.description}</small>
+                            </div>
+                            <span class="badge bg-primary ms-2">${training.badge}</span>
+                        </div>
+                    </div>
+                `;
+                displayCount++;
+            });
+        }
+        
+        // Weitere Ergebnisse Hinweis
+        if (data.total_count > maxResults) {
+            html += `
+                <div class="p-2 text-center text-muted small">
+                    ... und ${data.total_count - maxResults} weitere Ergebnisse
+                </div>
+            `;
+        }
+        
+        // Statistik am Ende
+        html += `
+            <div class="p-2 bg-light border-top text-center small text-muted">
+                ${data.themen.length} Themen, ${data.trainings.length} Trainings gefunden
+            </div>
+        `;
+        
+        searchResults.innerHTML = html;
+        
+        // Click-Handler für Suchergebnisse
+        searchResults.querySelectorAll('.search-result-item[data-url]').forEach(item => {
+            item.addEventListener('click', function() {
+                window.location.href = this.dataset.url;
+            });
+            
+            // Hover-Effekt
+            item.addEventListener('mouseenter', function() {
+                this.style.backgroundColor = '#f8f9fa';
+                this.style.cursor = 'pointer';
+            });
+            
+            item.addEventListener('mouseleave', function() {
+                this.style.backgroundColor = '';
+            });
+        });
+        
+        // Lokale Themen entsprechend filtern
+        filterLocalThemen(data.themen);
+    }
+    
+    function filterLocalThemen(foundThemen) {
+        hideAllThemen();
+        
+        // Zeige nur die gefundenen Themen in der lokalen Ansicht
+        foundThemen.forEach(foundThema => {
+            const matchingCard = themenData.find(localThema => 
+                localThema.title === foundThema.title
+            );
+            if (matchingCard) {
+                matchingCard.element.style.display = 'block';
+            }
+        });
+    }
+    
+    function showAllThemen() {
+        allThemenCards.forEach(card => {
+            card.style.display = 'block';
+        });
+    }
+    
+    function hideAllThemen() {
+        allThemenCards.forEach(card => {
+            card.style.display = 'none';
+        });
+    }
+    
+    function showSearchResults() {
+        searchResults.style.display = 'block';
+    }
+    
+    function hideSearchResults() {
+        searchResults.style.display = 'none';
+    }
+    
+    
+    function highlightText(text, searchTerm) {
+        const regex = new RegExp(`(${searchTerm})`, 'gi');
+        return text.replace(regex, '<mark>$1</mark>');
+    }
+    
+    // Thema Notizen
+    const themaNotizenButtons = document.querySelectorAll('.thema-notizen-btn');
+    const themaNotizenModal = document.getElementById('themaNotizenModal');
+    const themaNotizenContent = document.getElementById('themaNotizenContent');
+    
+    themaNotizenButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const themaId = this.dataset.themaId;
+            const themaName = this.dataset.themaName;
+            
+            document.getElementById('themaNotizenModalLabel').textContent = `Alle Notizen: ${themaName}`;
+            
+            fetch(`/naturmacher/thema/${themaId}/notizen/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (data.notizen.length === 0) {
+                            themaNotizenContent.innerHTML = '<p class="text-muted">Noch keine Notizen vorhanden.</p>';
+                        } else {
+                            let html = '';
+                            data.notizen.forEach(notiz => {
+                                let notizenContent = '';
+                                if (notiz.input_type === 'handwriting') {
+                                    notizenContent = `<img src="${notiz.notizen}" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px;" alt="Handschriftliche Notizen">`;
+                                } else {
+                                    notizenContent = `<p class="card-text">${notiz.notizen.replace(/\n/g, '<br>')}</p>`;
+                                }
+                                
+                                html += `
+                                    <div class="card mb-3">
+                                        <div class="card-header">
+                                            <h6 class="mb-0">${notiz.training_titel}</h6>
+                                            <small class="text-muted">Zuletzt bearbeitet: ${notiz.aktualisiert_am} (${notiz.input_type === 'handwriting' ? 'Handschrift' : 'Text'})</small>
+                                        </div>
+                                        <div class="card-body">
+                                            ${notizenContent}
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            themaNotizenContent.innerHTML = html;
+                        }
+                        
+                        const modal = new bootstrap.Modal(themaNotizenModal);
+                        modal.show();
+                    } else {
+                        alert('Fehler beim Laden der Notizen');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Fehler beim Laden der Notizen');
+                });
+        });
+    });
+
+    // Neues Thema erstellen
+    const createThemaBtn = document.getElementById('createThemaBtn');
+    if (createThemaBtn) {
+        createThemaBtn.addEventListener('click', function() {
+            const themaName = prompt('Bitte geben Sie den Namen des neuen Themas ein:');
+            if (themaName && themaName.trim() !== '') {
+                const csrfToken = getCookie('csrftoken');
+                if (!csrfToken) {
+                    alert('Fehler: CSRF-Token nicht gefunden. Die Seite wird neu geladen.');
+                    location.reload();
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('thema_name', themaName.trim());
+                formData.append('csrfmiddlewaretoken', csrfToken);
+
+                fetch('{% url "naturmacher:create_thema" %}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': csrfToken
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP-Fehler! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert('Fehler beim Erstellen des Themas: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Fetch-Fehler:', error);
+                    alert('Ein unerwarteter Fehler ist aufgetreten. Bitte überprüfen Sie die Browser-Konsole für Details.');
+                });
+            }
+        });
+    }
+});
+});
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+
+{% endblock %}
