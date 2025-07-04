@@ -226,6 +226,60 @@ class Training(models.Model):
             return thumbnail
         return None
     
+    def get_ai_model_display(self):
+        """Formatiert die Anzeige des KI-Modells mit Provider und spezifischem Modellnamen"""
+        if not self.ai_model_used:
+            return None
+        
+        model = self.ai_model_used.lower()
+        
+        # OpenAI Modelle
+        if model.startswith('gpt-') or model.startswith('o'):
+            if model == 'gpt-4.1':
+                return 'OpenAI GPT-4.1'
+            elif model == 'gpt-4o':
+                return 'OpenAI GPT-4o'
+            elif model == 'o3':
+                return 'OpenAI o3'
+            elif model == 'o4-mini':
+                return 'OpenAI o4-mini'
+            else:
+                return f'OpenAI {model.upper()}'
+        
+        # Claude Modelle
+        elif model.startswith('claude'):
+            if model == 'claude-opus-4':
+                return 'Anthropic Claude Opus 4'
+            elif model == 'claude-sonnet-4':
+                return 'Anthropic Claude Sonnet 4'
+            elif model == 'claude-haiku-4':
+                return 'Anthropic Claude Haiku 4'
+            else:
+                return f'Anthropic {model.title()}'
+        
+        # Gemini Modelle
+        elif model.startswith('gemini'):
+            if model == 'gemini-2.5-pro':
+                return 'Google Gemini 2.5 Pro'
+            elif model == 'gemini-2.5-flash':
+                return 'Google Gemini 2.5 Flash'
+            elif model == 'gemini-2.0-pro':
+                return 'Google Gemini 2.0 Pro'
+            elif model == 'gemini-2.0-flash':
+                return 'Google Gemini 2.0 Flash'
+            elif model == 'gemini-1.5-pro':
+                return 'Google Gemini 1.5 Pro'
+            elif model == 'gemini-1.5-flash':
+                return 'Google Gemini 1.5 Flash'
+            elif model == 'gemini':
+                return 'Google Gemini'
+            else:
+                return f'Google {model.title()}'
+        
+        # Fallback für andere Modelle
+        else:
+            return self.ai_model_used
+    
     def get_html_content(self):
         """Lädt den HTML-Inhalt aus der Datei, falls vorhanden"""
         # Überprüfe ob es sich um eine KI-generierte Schulung handelt

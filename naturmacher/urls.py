@@ -13,6 +13,7 @@ urlpatterns = [
     path('training/<int:training_id>/notizen/get/', views.get_training_notizen, name='get_training_notizen'),
     path('training/<int:training_id>/notizen/save/', views.save_training_notizen, name='save_training_notizen'),
     path('training/<int:training_id>/youtube/save/', views.save_youtube_links, name='save_youtube_links'),
+    path('training/<int:training_id>/html/', views.get_training_html_content, name='get_training_html_content'),
     path('thema/<int:thema_id>/notizen/', views.get_thema_notizen, name='get_thema_notizen'),
     path('search/', views.search_themen_und_trainings, name='search'),
     path('ai-training/generate/', views.generate_ai_training, name='generate_ai_training'),
