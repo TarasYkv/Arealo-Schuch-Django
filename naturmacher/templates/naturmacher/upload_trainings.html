@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+
+{% block title %}Trainings hochladen - Naturmacher{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'naturmacher:thema_list' %}">Alle Themen</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Trainings hochladen</li>
+                </ol>
+            </nav>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-upload"></i> Neue Trainings hochladen</h3>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                    
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="thema_name" class="form-label">
+                                <i class="fas fa-tag"></i> Thema-Name
+                            </label>
+                            <input type="text" class="form-control" id="thema_name" name="thema_name" 
+                                   placeholder="z.B. SEO, Content Marketing, etc." required>
+                            <div class="form-text">
+                                Der Name wird automatisch als "X. Web - [Ihr Name]" gespeichert.
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="training_files" class="form-label">
+                                <i class="fas fa-file-code"></i> Training HTML-Dateien
+                            </label>
+                            <input type="file" class="form-control" id="training_files" name="training_files" 
+                                   multiple accept=".html" required>
+                            <div class="form-text">
+                                Wählen Sie alle HTML-Dateien für die Trainings aus. Es werden nur .html Dateien akzeptiert.
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-info-circle"></i> Hinweise zum Upload:</h6>
+                            <ul class="mb-0">
+                                <li>Wählen Sie einen eindeutigen Thema-Namen</li>
+                                <li>Laden Sie nur HTML-Dateien hoch</li>
+                                <li>Ein Inhaltsverzeichnis wird automatisch erstellt</li>
+                                <li>Die Trainings werden automatisch importiert</li>
+                                <li>Sie können mehrere Dateien gleichzeitig auswählen</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'naturmacher:thema_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Zurück
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-upload"></i> Trainings hochladen
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-question-circle"></i> Wie funktioniert der Upload?</h5>
+                </div>
+                <div class="card-body">
+                    <ol>
+                        <li><strong>Thema-Name eingeben:</strong> Geben Sie einen beschreibenden Namen für Ihr Thema ein</li>
+                        <li><strong>HTML-Dateien auswählen:</strong> Wählen Sie alle Training-HTML-Dateien aus</li>
+                        <li><strong>Upload starten:</strong> Die Dateien werden hochgeladen und ein Ordner erstellt</li>
+                        <li><strong>Automatischer Import:</strong> Die Trainings werden sofort in die Datenbank importiert</li>
+                        <li><strong>Fertig:</strong> Die neuen Trainings sind sofort verfügbar</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('training_files').addEventListener('change', function(e) {
+    const files = e.target.files;
+    const fileList = [];
+    
+    for (let i = 0; i < files.length; i++) {
+        if (!files[i].name.endsWith('.html')) {
+            alert('Bitte wählen Sie nur HTML-Dateien aus.');
+            e.target.value = '';
+            return;
+        }
+        fileList.push(files[i].name);
+    }
+    
+    if (files.length > 0) {
+        console.log(`${files.length} HTML-Dateien ausgewählt:`, fileList);
+    }
+});
+</script>
+{% endblock %}

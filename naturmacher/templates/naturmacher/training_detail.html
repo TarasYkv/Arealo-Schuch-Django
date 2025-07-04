@@ -1,0 +1,993 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ training.titel }} - Naturmacher{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'naturmacher:thema_list' %}">Alle Themen</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'naturmacher:thema_detail' training.thema.pk %}">{{ training.thema.name }}</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ training.titel }}</li>
+                </ol>
+            </nav>
+            
+            <h1>{{ training.titel }}</h1>
+            
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <span class="badge badge-{% if training.schwierigkeit == 'anfaenger' %}success{% elif training.schwierigkeit == 'fortgeschritten' %}warning{% else %}danger{% endif %} badge-lg">
+                        {{ training.get_schwierigkeit_display }}
+                    </span>
+                </div>
+                <div class="col-md-6 text-right">
+                    <span class="text-muted">
+                        <i class="fas fa-clock"></i> {{ training.dauer_minuten }} Minuten
+                    </span>
+                </div>
+            </div>
+            
+            <p class="lead">{{ training.beschreibung }}</p>
+            
+            {% if youtube_videos %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="fab fa-youtube text-danger"></i> Training-Videos</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for video in youtube_videos %}
+                        <div class="col-md-6 mb-3">
+                            <div class="ratio ratio-16x9">
+                                <iframe src="{{ video.embed_url }}" 
+                                        title="YouTube video" 
+                                        allowfullscreen></iframe>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="card">
+                <div class="card-header">
+                    {% if html_content %}
+                    <h5><i class="fas fa-magic"></i> Training-Inhalt</h5>
+                    <small class="text-muted">KI-generierte interaktive Schulung</small>
+                    {% else %}
+                    <h5>Training-Inhalt</h5>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if html_content %}
+                    <!-- KI-generierte Schulung mit Standard-Styling -->
+                    <style>
+                        /* Integration der KI-Schulung in das Standard-Layout */
+                        .card-body .header {
+                            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+                            color: white;
+                            padding: 20px;
+                            border-radius: 10px;
+                            text-align: center;
+                            margin-bottom: 20px;
+                        }
+                        .card-body .meta-info {
+                            background: #f8f9fa;
+                            padding: 15px;
+                            border-radius: 8px;
+                            margin-bottom: 20px;
+                            border-left: 4px solid #28a745;
+                        }
+                        .card-body .section {
+                            margin-bottom: 25px;
+                            padding: 15px;
+                            border-radius: 8px;
+                            background: #fff;
+                        }
+                        .card-body .exercise {
+                            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+                            padding: 15px;
+                            border-radius: 8px;
+                            margin: 15px 0;
+                            border-left: 4px solid #2196f3;
+                        }
+                        .card-body .tip {
+                            background: linear-gradient(135deg, #fff3e0 0%, #ffcc80 100%);
+                            padding: 12px;
+                            border-radius: 6px;
+                            margin: 12px 0;
+                            border-left: 4px solid #ff9800;
+                        }
+                        .card-body .important {
+                            background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+                            padding: 12px;
+                            border-radius: 6px;
+                            margin: 12px 0;
+                            border-left: 4px solid #f44336;
+                        }
+                        .card-body .checklist {
+                            background: #f8f9fa;
+                            padding: 12px;
+                            border-radius: 6px;
+                            margin: 12px 0;
+                        }
+                        .card-body h2 {
+                            color: #28a745;
+                            border-bottom: 2px solid #28a745;
+                            padding-bottom: 8px;
+                            margin-top: 25px;
+                        }
+                        .card-body h3 {
+                            color: #20c997;
+                            margin-top: 20px;
+                        }
+                        .card-body table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin: 15px 0;
+                        }
+                        .card-body table th,
+                        .card-body table td {
+                            padding: 8px;
+                            border: 1px solid #ddd;
+                            text-align: left;
+                        }
+                        .card-body table th {
+                            background-color: #28a745;
+                            color: white;
+                        }
+                        .card-body input[type="checkbox"] {
+                            margin-right: 8px;
+                            transform: scale(1.1);
+                        }
+                    </style>
+                    {{ html_content|safe }}
+                    {% else %}
+                    <!-- Standard Training-Inhalt -->
+                    {{ training.inhalt|linebreaks }}
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                {% if user.is_authenticated %}
+                <div class="mb-3">
+                    {% if training_erledigt %}
+                        <button class="btn btn-success btn-lg" onclick="toggleTrainingStatus({{ training.id }})">
+                            <i class="fas fa-check"></i> Training erledigt
+                        </button>
+                    {% else %}
+                        <button class="btn btn-outline-success btn-lg" onclick="toggleTrainingStatus({{ training.id }})">
+                            <i class="fas fa-check"></i> Als erledigt markieren
+                        </button>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                <a href="{% url 'naturmacher:thema_detail' training.thema.pk %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück zu {{ training.thema.name }}
+                </a>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            {% if training.get_display_image %}
+            <img src="{{ training.get_display_image }}" class="img-fluid rounded mb-3" alt="{{ training.titel }}">
+            {% else %}
+            <div class="bg-light rounded mb-3 d-flex align-items-center justify-content-center" style="height: 200px;">
+                <i class="fas fa-dumbbell text-success fa-4x"></i>
+            </div>
+            {% endif %}
+            
+            {% if user.is_authenticated %}
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5><i class="fab fa-youtube"></i> YouTube-Videos</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="youtubeLinks" class="form-label">YouTube-Links (einer pro Zeile):</label>
+                        <textarea class="form-control" id="youtubeLinks" rows="4" placeholder="https://www.youtube.com/watch?v=...">{{ training.youtube_links }}</textarea>
+                    </div>
+                    <button type="button" class="btn btn-danger btn-sm" id="saveYoutubeLinks">
+                        <i class="fab fa-youtube"></i> Videos speichern
+                    </button>
+                    <div id="youtubeStatus" class="mt-2"></div>
+                </div>
+            </div>
+            
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-sticky-note"></i> Ihre Notizen</h5>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-secondary" id="toggleInputMode" title="Eingabemodus wechseln">
+                            <i class="fas fa-keyboard" id="inputModeIcon"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" id="toggleFullscreen" title="Vollbild">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3" id="notizenContainer">
+                        <!-- Tastatur-Eingabe -->
+                        <div id="textInputMode">
+                            <textarea class="form-control" id="trainingNotizen" rows="6" placeholder="Hier können Sie Ihre Notizen zu diesem Training eingeben...">{{ training_notizen }}</textarea>
+                        </div>
+                        
+                        <!-- Handschrift-Eingabe -->
+                        <div id="handwritingInputMode" style="display: none;">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small class="text-muted">Handschrift-Modus - Zeichnen Sie mit der Maus oder dem Finger</small>
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-danger btn-sm" id="clearCanvas" title="Löschen">
+                                        <i class="fas fa-eraser"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="undoCanvas" title="Rückgängig">
+                                        <i class="fas fa-undo"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <canvas id="handwritingCanvas" width="500" height="300" style="border: 1px solid #ddd; width: 100%; background-color: white; border-radius: 4px;"></canvas>
+                            <input type="hidden" id="handwritingData" value="{{ training_notizen|escapejs }}">
+                            
+                            <!-- Info für gespeicherte Handschrift -->
+                            {% if notizen_input_type == 'handwriting' and training_notizen %}
+                            <div class="mt-2">
+                                <small class="text-success">
+                                    <i class="fas fa-check-circle"></i> 
+                                    Gespeicherte Handschrift wurde ins Canvas geladen
+                                </small>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <button type="button" class="btn btn-primary btn-sm" id="saveTrainingNotizen">
+                            <i class="fas fa-save"></i> Notizen speichern
+                        </button>
+                        <span id="currentInputMode" class="text-muted small">Tastatur-Modus</span>
+                    </div>
+                    <div id="notizenStatus" class="mt-2"></div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="card">
+                <div class="card-header">
+                    <h5>Training-Details</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Thema:</strong> {{ training.thema.name }}</p>
+                    <p><strong>Schwierigkeit:</strong> {{ training.get_schwierigkeit_display }}</p>
+                    <p><strong>Dauer:</strong> {{ training.dauer_minuten }} Minuten</p>
+                    <p><strong>Erstellt:</strong> {{ training.erstellt_am|date:"d.m.Y" }}</p>
+                    <p><strong>Aktualisiert:</strong> {{ training.aktualisiert_am|date:"d.m.Y" }}</p>
+                    
+                    {% if user.is_authenticated %}
+                    <hr class="my-3">
+                    <div class="text-center">
+                        <button type="button" class="btn btn-danger btn-sm" id="deleteTrainingBtn" 
+                                data-training-id="{{ training.id }}" 
+                                data-training-title="{{ training.titel }}"
+                                title="Training löschen">
+                            <i class="fas fa-trash"></i> Training löschen
+                        </button>
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                <i class="fas fa-exclamation-triangle"></i> 
+                                Achtung: Alle Daten gehen verloren
+                            </small>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="mt-3">
+                <h6>Weitere Trainings in diesem Thema:</h6>
+                {% for anderes_training in training.thema.trainings.all %}
+                    {% if anderes_training.pk != training.pk %}
+                    <a href="{% url 'naturmacher:training_detail' anderes_training.pk %}" class="btn btn-outline-success btn-sm btn-block mb-2">
+                        {{ anderes_training.titel }}
+                    </a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Vollbild-Modal für Notizen -->
+<div class="modal fade" id="fullscreenNotesModal" tabindex="-1" aria-labelledby="fullscreenNotesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="fullscreenNotesModalLabel">
+                    <i class="fas fa-sticky-note"></i> Notizen: {{ training.titel }}
+                </h5>
+                <div class="btn-group btn-group-sm me-3" role="group">
+                    <button type="button" class="btn btn-outline-secondary" id="toggleInputModeFullscreen" title="Eingabemodus wechseln">
+                        <i class="fas fa-keyboard" id="inputModeIconFullscreen"></i>
+                    </button>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="fullscreenNotizenContainer">
+                    <!-- Tastatur-Eingabe Vollbild -->
+                    <div id="textInputModeFullscreen">
+                        <textarea class="form-control" id="trainingNotizenFullscreen" rows="25" placeholder="Hier können Sie Ihre Notizen zu diesem Training eingeben..." style="font-size: 16px;"></textarea>
+                    </div>
+                    
+                    <!-- Handschrift-Eingabe Vollbild -->
+                    <div id="handwritingInputModeFullscreen" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="text-muted">Handschrift-Modus - Zeichnen Sie mit der Maus oder dem Finger</h6>
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-outline-danger" id="clearCanvasFullscreen" title="Löschen">
+                                    <i class="fas fa-eraser"></i> Löschen
+                                </button>
+                                <button type="button" class="btn btn-outline-primary" id="undoCanvasFullscreen" title="Rückgängig">
+                                    <i class="fas fa-undo"></i> Rückgängig
+                                </button>
+                            </div>
+                        </div>
+                        <canvas id="handwritingCanvasFullscreen" width="1200" height="600" style="border: 2px solid #ddd; width: 100%; background-color: white; border-radius: 8px;"></canvas>
+                        <input type="hidden" id="handwritingDataFullscreen">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span id="currentInputModeFullscreen" class="text-muted me-auto">Tastatur-Modus</span>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                <button type="button" class="btn btn-primary" id="saveTrainingNotizenFullscreen">
+                    <i class="fas fa-save"></i> Notizen speichern
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Löschen-Bestätigungs-Modal -->
+<div class="modal fade" id="deleteTrainingModal" tabindex="-1" aria-labelledby="deleteTrainingModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteTrainingModalLabel">
+                    <i class="fas fa-exclamation-triangle"></i> Training löschen
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Achtung!</strong> Diese Aktion kann nicht rückgängig gemacht werden.
+                </div>
+                
+                <p>Möchten Sie das Training <strong id="trainingTitleToDelete"></strong> wirklich löschen?</p>
+                
+                <p class="text-muted">Folgende Daten gehen dabei verloren:</p>
+                <ul class="text-muted">
+                    <li>Der gesamte Trainingsinhalt</li>
+                    <li>Alle Benutzer-Notizen</li>
+                    <li>Der Fortschritt aller Benutzer</li>
+                    <li>Verknüpfte HTML-Dateien (bei KI-generierten Schulungen)</li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> Abbrechen
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteTraining">
+                    <i class="fas fa-trash"></i> Endgültig löschen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleTrainingStatus(trainingId) {
+    fetch(`/naturmacher/training/${trainingId}/toggle/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Seite neu laden um Button-Status zu aktualisieren
+            location.reload();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Fehler beim Aktualisieren des Status');
+    });
+}
+
+// Handschrift-Canvas Funktionalität
+class HandwritingCanvas {
+    constructor(canvasId, hiddenInputId) {
+        this.canvas = document.getElementById(canvasId);
+        this.hiddenInput = document.getElementById(hiddenInputId);
+        
+        if (!this.canvas) {
+            console.error(`Canvas mit ID '${canvasId}' nicht gefunden`);
+            return;
+        }
+        
+        if (!this.hiddenInput) {
+            console.error(`Hidden Input mit ID '${hiddenInputId}' nicht gefunden`);
+            return;
+        }
+        
+        this.ctx = this.canvas.getContext('2d');
+        this.isDrawing = false;
+        this.strokes = [];
+        this.currentStroke = [];
+        
+        this.setupCanvas();
+        this.setupEventListeners();
+    }
+    
+    setupCanvas() {
+        this.ctx.lineCap = 'round';
+        this.ctx.lineJoin = 'round';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeStyle = '#000000';
+        
+        // Canvas responsive machen
+        this.resizeCanvas();
+    }
+    
+    resizeCanvas() {
+        const rect = this.canvas.getBoundingClientRect();
+        this.canvas.style.width = '100%';
+        this.canvas.style.height = 'auto';
+    }
+    
+    setupEventListeners() {
+        // Maus-Events
+        this.canvas.addEventListener('mousedown', (e) => this.startDrawing(e));
+        this.canvas.addEventListener('mousemove', (e) => this.draw(e));
+        this.canvas.addEventListener('mouseup', () => this.stopDrawing());
+        this.canvas.addEventListener('mouseout', () => this.stopDrawing());
+        
+        // Touch-Events für mobile Geräte
+        this.canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousedown', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            this.canvas.dispatchEvent(mouseEvent);
+        });
+        
+        this.canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousemove', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            this.canvas.dispatchEvent(mouseEvent);
+        });
+        
+        this.canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            const mouseEvent = new MouseEvent('mouseup', {});
+            this.canvas.dispatchEvent(mouseEvent);
+        });
+    }
+    
+    getMousePos(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        
+        return {
+            x: (e.clientX - rect.left) * scaleX,
+            y: (e.clientY - rect.top) * scaleY
+        };
+    }
+    
+    startDrawing(e) {
+        this.isDrawing = true;
+        const pos = this.getMousePos(e);
+        this.currentStroke = [pos];
+        this.ctx.beginPath();
+        this.ctx.moveTo(pos.x, pos.y);
+        
+        // Erste Zeichnung - Info kann entfernt werden
+        this.hideInfoMessage();
+    }
+    
+    hideInfoMessage() {
+        // Entferne Info-Nachricht beim ersten Zeichnen (optional)
+    }
+    
+    draw(e) {
+        if (!this.isDrawing) return;
+        
+        const pos = this.getMousePos(e);
+        this.currentStroke.push(pos);
+        this.ctx.lineTo(pos.x, pos.y);
+        this.ctx.stroke();
+    }
+    
+    stopDrawing() {
+        if (!this.isDrawing) return;
+        
+        this.isDrawing = false;
+        this.strokes.push([...this.currentStroke]);
+        this.currentStroke = [];
+        
+        // Daten sofort speichern nach dem Zeichnen
+        setTimeout(() => this.saveToHiddenInput(), 50);
+    }
+    
+    clear() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.strokes = [];
+        this.saveToHiddenInput();
+        
+        // Canvas wurde geleert
+    }
+    
+    undo() {
+        if (this.strokes.length > 0) {
+            this.strokes.pop();
+            this.redraw();
+            this.saveToHiddenInput();
+            
+            // Alle Striche wurden entfernt
+        }
+    }
+    
+    redraw() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        this.strokes.forEach(stroke => {
+            if (stroke.length > 0) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(stroke[0].x, stroke[0].y);
+                
+                for (let i = 1; i < stroke.length; i++) {
+                    this.ctx.lineTo(stroke[i].x, stroke[i].y);
+                }
+                this.ctx.stroke();
+            }
+        });
+    }
+    
+    saveToHiddenInput() {
+        // Prüfe ob überhaupt etwas gezeichnet wurde
+        const imageData = this.canvas.toDataURL('image/png');
+        this.hiddenInput.value = imageData;
+        console.log('Canvas gespeichert, Datenlänge:', imageData.length, 'Strokes:', this.strokes.length);
+    }
+    
+    loadFromData(imageData) {
+        if (!imageData) return;
+        
+        const img = new Image();
+        img.onload = () => {
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.drawImage(img, 0, 0);
+            
+            // Daten wurden ins Canvas geladen
+        };
+        img.src = imageData;
+    }
+}
+
+// Globale Variablen
+let currentInputMode = 'text'; // 'text' oder 'handwriting'
+let normalCanvas, fullscreenCanvas;
+
+// YouTube-Links und Notizen speichern
+document.addEventListener('DOMContentLoaded', function() {
+    // YouTube-Links speichern
+    const saveYoutubeBtn = document.getElementById('saveYoutubeLinks');
+    const youtubeTextarea = document.getElementById('youtubeLinks');
+    const youtubeStatusDiv = document.getElementById('youtubeStatus');
+    
+    if (saveYoutubeBtn && youtubeTextarea) {
+        saveYoutubeBtn.addEventListener('click', function() {
+            const formData = new FormData();
+            formData.append('youtube_links', youtubeTextarea.value);
+            formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+            
+            fetch(`/naturmacher/training/{{ training.id }}/youtube/save/`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    youtubeStatusDiv.innerHTML = '<div class="alert alert-success alert-sm">YouTube-Links erfolgreich gespeichert!</div>';
+                    setTimeout(() => {
+                        youtubeStatusDiv.innerHTML = '';
+                        // Seite neu laden um Thumbnail zu aktualisieren
+                        location.reload();
+                    }, 2000);
+                } else {
+                    youtubeStatusDiv.innerHTML = '<div class="alert alert-danger alert-sm">Fehler beim Speichern: ' + data.error + '</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                youtubeStatusDiv.innerHTML = '<div class="alert alert-danger alert-sm">Fehler beim Speichern der YouTube-Links</div>';
+            });
+        });
+    }
+    
+    // Notizen speichern
+    const saveBtn = document.getElementById('saveTrainingNotizen');
+    const notizenTextarea = document.getElementById('trainingNotizen');
+    const statusDiv = document.getElementById('notizenStatus');
+    
+    if (saveBtn && notizenTextarea) {
+        saveBtn.addEventListener('click', function() {
+            const formData = new FormData();
+            
+            // Je nach Eingabemodus unterschiedliche Daten senden
+            if (currentInputMode === 'text') {
+                formData.append('notizen', notizenTextarea.value);
+                formData.append('input_type', 'text');
+                console.log('Speichere Text-Notizen:', notizenTextarea.value);
+            } else {
+                // Stelle sicher, dass Canvas-Daten aktuell sind
+                normalCanvas.saveToHiddenInput();
+                const handwritingData = document.getElementById('handwritingData').value;
+                console.log('Speichere Handschrift-Notizen, Datenlänge:', handwritingData ? handwritingData.length : 0);
+                
+                if (!handwritingData || handwritingData.length < 100) {
+                    statusDiv.innerHTML = '<div class="alert alert-warning alert-sm">Keine Handschrift-Daten gefunden. Bitte zeichnen Sie etwas auf die Leinwand.</div>';
+                    return;
+                }
+                
+                formData.append('notizen', handwritingData);
+                formData.append('input_type', 'handwriting');
+            }
+            
+            formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+            
+            fetch(`/naturmacher/training/{{ training.id }}/notizen/save/`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    statusDiv.innerHTML = '<div class="alert alert-success alert-sm">Notizen erfolgreich gespeichert!</div>';
+                    setTimeout(() => {
+                        statusDiv.innerHTML = '';
+                    }, 3000);
+                } else {
+                    statusDiv.innerHTML = '<div class="alert alert-danger alert-sm">Fehler beim Speichern: ' + data.error + '</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                statusDiv.innerHTML = '<div class="alert alert-danger alert-sm">Fehler beim Speichern der Notizen</div>';
+            });
+        });
+    }
+    
+    // Canvas-Instanzen initialisieren
+    try {
+        window.normalCanvas = new HandwritingCanvas('handwritingCanvas', 'handwritingData');
+        normalCanvas = window.normalCanvas;
+        console.log('Normal Canvas initialisiert');
+    } catch (e) {
+        console.error('Fehler bei Normal Canvas:', e);
+    }
+    
+    try {
+        window.fullscreenCanvas = new HandwritingCanvas('handwritingCanvasFullscreen', 'handwritingDataFullscreen');
+        fullscreenCanvas = window.fullscreenCanvas;
+        console.log('Fullscreen Canvas initialisiert');
+    } catch (e) {
+        console.error('Fehler bei Fullscreen Canvas:', e);
+    }
+    
+    // Bestehende Notizen laden und Eingabemodus setzen
+    const savedInputType = '{{ notizen_input_type|default:"text" }}';
+    const savedNotes = '{{ training_notizen|escapejs }}';
+    
+    if (savedInputType === 'handwriting' && savedNotes) {
+        // Handschrift-Modus aktivieren und Daten laden
+        currentInputMode = 'text'; // Setze auf text, damit toggle funktioniert
+        toggleInputMode(false); // Wechsle zu handwriting
+        
+        console.log('Lade gespeicherte Handschrift-Daten:', savedNotes.substring(0, 50) + '...');
+        
+        // Lade Handschrift-Daten ins Canvas
+        setTimeout(() => {
+            document.getElementById('handwritingData').value = savedNotes;
+            normalCanvas.loadFromData(savedNotes);
+        }, 100); // Kurze Verzögerung um sicherzustellen dass Canvas bereit ist
+    } else if (savedInputType === 'text' && savedNotes) {
+        // Text-Notizen sind bereits im Textarea geladen
+        currentInputMode = 'text';
+        console.log('Lade gespeicherte Text-Notizen:', savedNotes.substring(0, 50) + '...');
+    } else {
+        // Keine gespeicherten Notizen, starte im Text-Modus
+        currentInputMode = 'text';
+        console.log('Keine gespeicherten Notizen gefunden');
+    }
+    
+    // Eingabemodus umschalten (Normal)
+    document.getElementById('toggleInputMode').addEventListener('click', function() {
+        toggleInputMode(false);
+    });
+    
+    // Eingabemodus umschalten (Vollbild)
+    document.getElementById('toggleInputModeFullscreen').addEventListener('click', function() {
+        toggleInputMode(true);
+    });
+    
+    // Vollbild-Modal öffnen
+    const fullscreenBtn = document.getElementById('toggleFullscreen');
+    if (fullscreenBtn) {
+        fullscreenBtn.addEventListener('click', function() {
+            console.log('Vollbild-Button geklickt');
+            try {
+                const modal = new bootstrap.Modal(document.getElementById('fullscreenNotesModal'));
+                
+                // Inhalte synchronisieren
+                console.log('Synchronisiere Inhalte...');
+                syncNotesContent(false, true); // von normal zu vollbild
+                
+                console.log('Öffne Modal...');
+                modal.show();
+            } catch (e) {
+                console.error('Fehler beim Öffnen des Vollbild-Modals:', e);
+                alert('Fehler beim Öffnen des Vollbild-Modus: ' + e.message);
+            }
+        });
+        console.log('Vollbild-Button Event-Listener hinzugefügt');
+    } else {
+        console.error('Vollbild-Button nicht gefunden!');
+    }
+    
+    // Canvas-Buttons (Normal)
+    document.getElementById('clearCanvas').addEventListener('click', () => normalCanvas.clear());
+    document.getElementById('undoCanvas').addEventListener('click', () => normalCanvas.undo());
+    
+    // Canvas-Buttons (Vollbild)
+    document.getElementById('clearCanvasFullscreen').addEventListener('click', () => fullscreenCanvas.clear());
+    document.getElementById('undoCanvasFullscreen').addEventListener('click', () => fullscreenCanvas.undo());
+    
+    // Vollbild-Notizen speichern
+    document.getElementById('saveTrainingNotizenFullscreen').addEventListener('click', function() {
+        const formData = new FormData();
+        
+        // Je nach Eingabemodus unterschiedliche Daten senden
+        if (currentInputMode === 'text') {
+            const fullscreenTextarea = document.getElementById('trainingNotizenFullscreen');
+            formData.append('notizen', fullscreenTextarea.value);
+            formData.append('input_type', 'text');
+            console.log('Speichere Vollbild-Text-Notizen:', fullscreenTextarea.value);
+        } else {
+            // Stelle sicher, dass Canvas-Daten aktuell sind
+            fullscreenCanvas.saveToHiddenInput();
+            const handwritingData = document.getElementById('handwritingDataFullscreen').value;
+            console.log('Speichere Vollbild-Handschrift-Notizen, Datenlänge:', handwritingData ? handwritingData.length : 0);
+            
+            if (!handwritingData || handwritingData.length < 100) {
+                alert('Keine Handschrift-Daten gefunden. Bitte zeichnen Sie etwas auf die Leinwand.');
+                return;
+            }
+            
+            formData.append('notizen', handwritingData);
+            formData.append('input_type', 'handwriting');
+        }
+        
+        formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+        
+        fetch(`/naturmacher/training/{{ training.id }}/notizen/save/`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Inhalte zurück synchronisieren
+                syncNotesContent(true, false); // von vollbild zu normal
+                
+                // Erfolg anzeigen und Modal schließen
+                alert('Notizen erfolgreich gespeichert!');
+                setTimeout(() => {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('fullscreenNotesModal'));
+                    modal.hide();
+                    location.reload(); // Seite neu laden um Änderungen zu zeigen
+                }, 500);
+            } else {
+                alert('Fehler beim Speichern: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Fehler beim Speichern der Notizen');
+        });
+    });
+    
+    // Modal-Events
+    document.getElementById('fullscreenNotesModal').addEventListener('hidden.bs.modal', function() {
+        // Inhalte zurück synchronisieren beim Schließen
+        syncNotesContent(true, false);
+    });
+    
+    // Training löschen
+    const deleteTrainingBtn = document.getElementById('deleteTrainingBtn');
+    const deleteTrainingModal = document.getElementById('deleteTrainingModal');
+    const confirmDeleteBtn = document.getElementById('confirmDeleteTraining');
+    let trainingToDeleteId = null;
+    
+    if (deleteTrainingBtn) {
+        deleteTrainingBtn.addEventListener('click', function() {
+            trainingToDeleteId = this.dataset.trainingId;
+            const trainingTitle = this.dataset.trainingTitle;
+            
+            // Modal-Titel setzen
+            document.getElementById('trainingTitleToDelete').textContent = trainingTitle;
+            
+            // Modal anzeigen
+            const modal = new bootstrap.Modal(deleteTrainingModal);
+            modal.show();
+        });
+    }
+    
+    if (confirmDeleteBtn) {
+        confirmDeleteBtn.addEventListener('click', function() {
+            if (!trainingToDeleteId) return;
+            
+            // Button deaktivieren und Loading anzeigen
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Wird gelöscht...';
+            
+            // AJAX-Request zum Löschen
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+            
+            fetch(`/naturmacher/training/${trainingToDeleteId}/delete/`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Erfolg - weiterleiten zum Thema
+                    alert('Training erfolgreich gelöscht!');
+                    
+                    // Modal schließen
+                    const modal = bootstrap.Modal.getInstance(deleteTrainingModal);
+                    modal.hide();
+                    
+                    // Zur Thema-Übersicht weiterleiten
+                    setTimeout(() => {
+                        window.location.href = data.redirect_url;
+                    }, 500);
+                } else {
+                    alert('Fehler beim Löschen: ' + (data.error || 'Unbekannter Fehler'));
+                    
+                    // Button zurücksetzen
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-trash"></i> Endgültig löschen';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Fehler beim Löschen des Trainings: ' + error.message);
+                
+                // Button zurücksetzen
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-trash"></i> Endgültig löschen';
+            });
+        });
+    }
+});
+
+// Eingabemodus umschalten
+function toggleInputMode(isFullscreen) {
+    const suffix = isFullscreen ? 'Fullscreen' : '';
+    const textMode = document.getElementById(`textInputMode${suffix}`);
+    const handwritingMode = document.getElementById(`handwritingInputMode${suffix}`);
+    const modeIcon = document.getElementById(`inputModeIcon${suffix}`);
+    const modeText = document.getElementById(`currentInputMode${suffix}`);
+    
+    if (currentInputMode === 'text') {
+        // Zu Handschrift wechseln
+        currentInputMode = 'handwriting';
+        textMode.style.display = 'none';
+        handwritingMode.style.display = 'block';
+        modeIcon.className = 'fas fa-pen';
+        modeText.textContent = 'Handschrift-Modus';
+    } else {
+        // Zu Text wechseln
+        currentInputMode = 'text';
+        textMode.style.display = 'block';
+        handwritingMode.style.display = 'none';
+        modeIcon.className = 'fas fa-keyboard';
+        modeText.textContent = 'Tastatur-Modus';
+    }
+}
+
+// Notizen-Inhalt zwischen Normal- und Vollbild-Ansicht synchronisieren
+function syncNotesContent(fromFullscreen, toFullscreen) {
+    console.log('syncNotesContent:', { fromFullscreen, toFullscreen, currentInputMode });
+    
+    try {
+        if (currentInputMode === 'text') {
+            const normalTextarea = document.getElementById('trainingNotizen');
+            const fullscreenTextarea = document.getElementById('trainingNotizenFullscreen');
+            
+            if (!normalTextarea || !fullscreenTextarea) {
+                console.error('Textareas nicht gefunden');
+                return;
+            }
+            
+            if (fromFullscreen) {
+                normalTextarea.value = fullscreenTextarea.value;
+                console.log('Text von Vollbild zu Normal synchronisiert');
+            } else if (toFullscreen) {
+                fullscreenTextarea.value = normalTextarea.value;
+                console.log('Text von Normal zu Vollbild synchronisiert');
+            }
+        } else {
+            const normalCanvasData = document.getElementById('handwritingData');
+            const fullscreenCanvasData = document.getElementById('handwritingDataFullscreen');
+            
+            if (!normalCanvasData || !fullscreenCanvasData) {
+                console.error('Canvas-Data-Inputs nicht gefunden');
+                return;
+            }
+            
+            if (fromFullscreen) {
+                normalCanvasData.value = fullscreenCanvasData.value;
+                if (normalCanvasData.value && window.normalCanvas) {
+                    window.normalCanvas.loadFromData(normalCanvasData.value);
+                }
+                console.log('Canvas von Vollbild zu Normal synchronisiert');
+            } else if (toFullscreen) {
+                fullscreenCanvasData.value = normalCanvasData.value;
+                if (fullscreenCanvasData.value && window.fullscreenCanvas) {
+                    window.fullscreenCanvas.loadFromData(fullscreenCanvasData.value);
+                }
+                console.log('Canvas von Normal zu Vollbild synchronisiert');
+            }
+        }
+    } catch (e) {
+        console.error('Fehler beim Synchronisieren:', e);
+    }
+}
+
+// CSRF-Token aus Cookie holen
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

@@ -12,14 +12,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
-from dotenv import load_dotenv
-
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv()
-print(f"DEBUG: Geladener API-Schlüssel aus .env: '{os.getenv('OPENAI_API_KEY')}'")
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -52,6 +46,7 @@ INSTALLED_APPS = [
     'pdf_sucher',
     'amortization_calculator',
     'core',
+    'naturmacher',
 ]
 
 MIDDLEWARE = [
@@ -145,8 +140,13 @@ STATICFILES_DIRS = [
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 #STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# in Schuch/settings.py
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# KI-API Konfiguration für Naturmacher Schulungserstellung
+# Laden der .env Datei für lokale Entwicklung
+# API-Keys werden jetzt über die Datenbank pro User verwaltet
+# Fallback für Kompatibilität (falls alte Funktionen diese noch verwenden)
+OPENAI_API_KEY = None
+ANTHROPIC_API_KEY = None
+GOOGLE_AI_API_KEY = None
 
 # Einstellungen für von Benutzern hochgeladene Dateien (Media Files)
 MEDIA_URL = '/media/'

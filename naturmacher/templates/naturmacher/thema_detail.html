@@ -1,0 +1,927 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ thema.name }} - Naturmacher{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'naturmacher:thema_list' %}">Alle Themen</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ thema.name }}</li>
+                </ol>
+            </nav>
+            
+            <h1>{{ thema.name }}</h1>
+            <p class="lead">{{ thema.beschreibung }}</p>
+            
+            {% if user.is_authenticated %}
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-chart-pie"></i> Ihr Fortschritt</h6>
+                    <div class="progress mb-2" style="height: 20px;">
+                        <div class="progress-bar bg-success" role="progressbar" 
+                             style="width: {{ thema_fortschritt }}%;" 
+                             aria-valuenow="{{ thema_fortschritt }}" 
+                             aria-valuemin="0" aria-valuemax="100">
+                            {{ thema_fortschritt }}%
+                        </div>
+                    </div>
+                    {% if thema_komplett_erledigt %}
+                        <small class="text-success"><i class="fas fa-check"></i> Alle Trainings dieses Themas abgeschlossen!</small>
+                    {% else %}
+                        <small class="text-muted">{{ thema_fortschritt }}% der Trainings abgeschlossen</small>
+                    {% endif %}
+                </div>
+            {% endif %}
+            
+            <h3 class="mt-4">Verfügbare Trainings</h3>
+            
+            <div class="row">
+                {% for training in trainings %}
+                <div class="col-md-6 mb-4">
+                    {% if user.is_authenticated and training.user_erledigt %}
+                        <div class="card border-success bg-light">
+                    {% else %}
+                        <div class="card">
+                    {% endif %}
+                        {% if training.get_display_image %}
+                            <img src="{{ training.get_display_image }}" class="card-img-top" alt="{{ training.titel }}" style="height: 150px; object-fit: cover;">
+                        {% else %}
+                            <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 150px;">
+                                <i class="fas fa-dumbbell text-success fa-2x"></i>
+                            </div>
+                        {% endif %}
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h5 class="card-title mb-0">{{ training.titel }}</h5>
+                                <div class="d-flex align-items-center">
+                                    {% if user.is_authenticated %}
+                                        <button class="btn btn-link btn-sm p-0 me-2 notizen-btn" 
+                                                data-training-id="{{ training.id }}" 
+                                                data-training-titel="{{ training.titel }}" 
+                                                title="Notizen">
+                                            <i class="fas fa-sticky-note text-warning"></i>
+                                        </button>
+                                    {% endif %}
+                                    {% if user.is_authenticated and training.user_erledigt %}
+                                        <i class="fas fa-check-circle text-success fa-lg" title="Training erledigt"></i>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <p class="card-text">{{ training.beschreibung|truncatewords:15 }}</p>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="badge badge-{% if training.schwierigkeit == 'anfaenger' %}success{% elif training.schwierigkeit == 'fortgeschritten' %}warning{% else %}danger{% endif %}">
+                                    {{ training.get_schwierigkeit_display }}
+                                </span>
+                                <small class="text-muted">
+                                    <i class="fas fa-clock"></i> {{ training.dauer_minuten }} Min.
+                                </small>
+                            </div>
+                            {% if user.is_authenticated and training.user_erledigt %}
+                                <a href="{% url 'naturmacher:training_detail' training.pk %}" class="btn btn-success btn-sm">
+                                    <i class="fas fa-check"></i> Training erledigt
+                                </a>
+                            {% else %}
+                                <a href="{% url 'naturmacher:training_detail' training.pk %}" class="btn btn-primary btn-sm">
+                                    Training starten
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        <h5>Noch keine Trainings verfügbar</h5>
+                        <p>Für dieses Thema werden bald Trainings hinzugefügt.</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- KI-Schulungserstellung Button -->
+            <div class="text-center mt-4">
+                <button class="btn btn-outline-primary btn-lg" id="createAITrainingBtn" 
+                        data-thema-id="{{ thema.id }}" 
+                        data-thema-name="{{ thema.name }}"
+                        title="Neue Schulung mit KI erstellen">
+                    <i class="fas fa-magic"></i> Neue Schulung mit KI erstellen
+                </button>
+                <p class="text-muted mt-2">Erstellen Sie eine maßgeschneiderte Schulung für dieses Thema</p>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            {% if thema.get_display_image %}
+            <img src="{{ thema.get_display_image }}" class="img-fluid rounded mb-3" alt="{{ thema.name }}">
+            {% endif %}
+            
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5>Thema-Informationen</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Anzahl Trainings:</strong> {{ trainings|length }}</p>
+                    <p><strong>Erstellt am:</strong> {{ thema.erstellt_am|date:"d.m.Y" }}</p>
+                    {% if user.is_authenticated %}
+                        <hr class="my-3">
+                        <div class="text-center">
+                            <button type="button" class="btn btn-danger btn-sm" id="deleteThemaBtn" 
+                                    data-thema-id="{{ thema.id }}" 
+                                    data-thema-name="{{ thema.name }}"
+                                    {% if trainings|length > 0 %}disabled title="Thema kann nur gelöscht werden, wenn es keine Trainings enthält"{% endif %}>
+                                <i class="fas fa-trash"></i> Thema löschen
+                            </button>
+                            {% if trainings|length > 0 %}
+                                <small class="text-muted d-block mt-1">Löschen nur möglich, wenn keine Trainings vorhanden sind.</small>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if inhaltsverzeichnis %}
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-list"></i> Inhaltsverzeichnis</h5>
+                </div>
+                <div class="card-body">
+                    <pre class="text-muted small">{{ inhaltsverzeichnis }}</pre>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Notizen Modal -->
+<div class="modal fade" id="notizenModal" tabindex="-1" aria-labelledby="notizenModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="notizenModalLabel">Notizen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="notizenText" class="form-label">Ihre Notizen:</label>
+                    <textarea class="form-control" id="notizenText" rows="10" placeholder="Hier können Sie Ihre Notizen eingeben..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                <button type="button" class="btn btn-primary" id="saveNotizenBtn">Notizen speichern</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Thema Notizen Modal -->
+<div class="modal fade" id="themaNotizenModal" tabindex="-1" aria-labelledby="themaNotizenModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="themaNotizenModalLabel">Alle Notizen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="themaNotizenContent">
+                    <!-- Wird via JavaScript gefüllt -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- KI-Schulungserstellung Modal - Schritt 1: Firmeninfos -->
+<div class="modal fade" id="aiTrainingStep1Modal" tabindex="-1" aria-labelledby="aiTrainingStep1ModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="aiTrainingStep1ModalLabel">
+                    <i class="fas fa-magic"></i> KI-Schulung erstellen - Schritt 1: Firmeninfos
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> 
+                    <strong>Wichtig:</strong> Diese Informationen helfen der KI dabei, eine maßgeschneiderte Schulung für Ihr Unternehmen zu erstellen.
+                </div>
+                
+                <form id="aiTrainingInfoForm">
+                    <div class="mb-4">
+                        <label for="companyInfo" class="form-label">
+                            <strong>Firmen- und Geschäftsinformationen:</strong>
+                        </label>
+                        <textarea class="form-control" id="companyInfo" rows="15" placeholder="Beschreiben Sie Ihr Unternehmen, Ihre Produkte, Zielgruppe, etc.">
+# Wer bist du:
+Du bist ein Online Marketing Experte. Ich möchte dass du mich schulst und mich an die Hand nimmst bei der Erstellung von Trainings.
+
+# Wer sind wir
+Wir sind ein Onlineshop namens naturmacher.de. Ein kleines Familienunternehmen, welches natürliche Baby- und Kleinkindspielzeuge verkauft. Des Weiteren verkaufen wir personalisierte Blumentöpfe. Diese Blumentöpfe sind graviert und werden entweder als Einzeltopf oder als Set mit Samen und Bioerde angeboten. Der Preis liegt bei 22,49€ bzw 34,99€ plus 4,95€ Versand. Folgende einzigartige Designer, welche von uns erstellt bzw programmiert wurden haben wir im Onlineshop:
+
+- Wir haben vorgefertigte Designs, bei welchen persönliche Daten eingegeben werden können
+- Designer bei welchen das Design komplett selbst erstellt werden kann. Beim Designer können Texte, Icons und selbstgemalte Bilder eingefügt werden.
+- Designer bei dem es möglich ist auf einem Blatt Papier das eigene gezeichnete Bleistiftbild abzufotografieren und zum Gravieren hochzuladen. Dieses Bild wird automatisch modifiziert (Hintergrund entfernt, Linien als Vektorgrafiken usw.) und bei der Bestellung übertragen.
+- Wir haben noch einen Himmelcreator. Dabei kann der Kunde: Datum, Ort und Zeit eingeben und ihm wird das Himmelsbild passend zu diesem Zeitpunkt erstellt.
+- Designer bei dem es möglich ist einen Ort anzugeben und dieser Ort wird mit Ortsmarkierung leicht vereinfacht ausgegeben und kann auf dem Topf graviert werden.
+- Creator bei dem ein beliebiges Bild hochgeladen werden kann und wir dieses Bild zum Gravieren aufbereiten und gravieren.
+
+## Blog
+Wir sind ein Onlineshop mit einem Blog, über den wir ca 15.000 Besucher im Monat haben. Leider kommen durch die Besucher wenige Käufe zustande.
+
+### Die Gründer
+Wir sind ein Zweiergespann. Frau 36 Jahre alt, gelernte Erzieherin, eher die Kreative. Mann 35 Jahre, gelernter Elektroingenieur mit Programmierkenntnissen. Haben zwei Kinder (Jungs 3 und 6 Jahre) zwei Katzen und einen kleinen Hund.
+
+### Social Media
+Wir haben TikTok, Instagram, Facebook, Pinterest und YouTube. Leider wenig erfolgreich und nicht sehr intensiv betrieben. Für weitere Kanäle sind wir offen.
+
+### Ads
+Wir schalten Ads bei Google und Meta. Leider nicht rentabel stand heute bei Google. Mit Meta haben wir erst angefangen. Werbung über Pinterest haben wir ohne Erfolg eingestellt. Bei Pinterest haben wir über ein Jahr regelmäßig gepostet und hatten monatlich ca. 500.000 Impressionen mit ca 1.000 Klicks auf unsere Website, leider allerdings ohne nennenswerte Erfolge was die Kaufintention betrifft.
+
+### Eigenes Buch
+Die Gründerin (mit technischer Unterstützung des Gründers) hat einen eigenen Babyratgeber (Buch) geschrieben welches wir sowohl als Ebook wie auch als Taschenbuch im Onlineshop anbieten.
+
+### Pflanztagebuch als Set mit Pflanze
+Wir haben ein eigenes Kinderpflanzset für kleine Entdecker mit Tagebuch. Es ist ein Produkt bei dem der Kunde einen gravierten und personalisierten Blumentopf mit Erde und Samen bekommt mit einem Tagebuch in welches die Fortschritte des Pflanzenwachstums notiert werden können. Es sind einige kleine Spiele im Tagebuch zu finden, wie zum Beispiel das Malen der Pflanze, oder interessante Experimente mit Pflanzen. Hier der Link zum Produkt: https://naturmacher.de/products/mein-erstes-pflanzen-set-fur-kleine-entdecker
+
+### Weitere Personalisierte Produkte
+Theoretisch können wir viele weitere Sachen gravieren. Wir haben 40 Watt Lasergravierer mit und ohne Rolle zum Gravieren von runden Objekten. Wir haben zum Beispiel bereits auch Babyspielzeuge mit unserem Laser personalisiert und einige erfolgreich verkauft.
+
+### Weitere Vertriebskanäle
+Mit wenig Erfolg sind wir noch bei Etsy, Amazon Handmade, Otto, Ebay, Idealo, Bing. Hier sehen wir uns immer mehr heraus, da wir den Hauptfokus auf den eigenen Onlineshop und Markenbildung setzen wollen.
+
+## Tools die wir nutzen
+Wir nutzen bei der Entwicklung und Recherche folgende Tools:
+**Fliki** - für die Erstellung von Videos für unsere Blogbeiträge und TikTok
+**Canva** - für Video und Bilderstellung und Bearbeitung
+**Ubersuggest** - für die Recherche von Keywords
+**KI** - Claude und Gemini, als Webchat oder auch als CLI
+**Github** - für die Onlineshop-Programmierung in Shopify
+                        </textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="learningGoals" class="form-label">
+                            <strong>Lernziele und Schwerpunkte:</strong>
+                        </label>
+                        <textarea class="form-control" id="learningGoals" rows="8" placeholder="Was möchten Sie in dieser Schulung lernen?">
+# Ziel
+In diesem Ordner geht es um das Thema "{{ thema.name }}". Es sollen für uns Schulungen sowie Lernmaterial erstellt werden, in welchen:
+- Grundlagen im Fließtext vermittelt werden wie in Lehrbüchern
+- Grundbegriffe erläutert werden, wie in Fachbüchern
+- Erfolgsführende Vorgehensweisen für das Geschäftsmodell Naturmacher
+- Tipps und Tricks passend zu unserem Geschäft
+- Weiterführendes Wissen vermittelt angewendet auf Praxis
+- Übungen geben mit welchen wir angepasst auf Naturmacher die Grundlagen aber auch tiefergreifende Fähigkeiten erlernen
+
+Eine Schulung soll in ca. 2h machbar sein. Es ist immer so, dass beide Gründer sich zusammensetzen und diese Schulung gemeinsam absolvieren. Jede Schulung soll in eine eigene .md Datei gepackt werden. Du kannst gerne buntes Design aber schlicht und dezent verwenden, da wir uns jede Schulung farbig ausdrucken und so durcharbeiten. Sei kreativ, gerne kannst du neue Ansätze vorschlagen und stelle sicher, dass wir nach allen Schulungen bestens mit Fachwissen und Fähigkeiten gerüstet sind um in der E-Commerce Welt erfolgreich zu sein.
+                        </textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="proceedToStep2">
+                    Weiter zu Schritt 2 <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- KI-Schulungserstellung Modal - Schritt 2: Schulungsthema -->
+<div class="modal fade" id="aiTrainingStep2Modal" tabindex="-1" aria-labelledby="aiTrainingStep2ModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="aiTrainingStep2ModalLabel">
+                    <i class="fas fa-magic"></i> KI-Schulung erstellen - Schritt 2: Schulungsthema
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-lightbulb"></i> 
+                    <strong>Schulungsthema:</strong> Definieren Sie das spezifische Thema für Ihre neue Schulung.
+                </div>
+                
+                <!-- API Balance Display -->
+                <div class="card mb-3" id="apiBalanceCard">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="fas fa-wallet"></i> API-Kontostände
+                        </h6>
+                        <button class="btn btn-sm btn-outline-primary" id="refreshBalancesBtn">
+                            <i class="fas fa-sync-alt"></i> Aktualisieren
+                        </button>
+                    </div>
+                    <div class="card-body" id="balanceContent">
+                        <div class="text-center">
+                            <div class="spinner-border spinner-border-sm" role="status">
+                                <span class="visually-hidden">Laden...</span>
+                            </div>
+                            <small class="text-muted">Kontostände werden geladen...</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <form id="aiTrainingTopicForm">
+                    <div class="mb-4">
+                        <label for="trainingTitle" class="form-label">
+                            <strong>Schulungstitel:</strong>
+                        </label>
+                        <input type="text" class="form-control" id="trainingTitle" 
+                               placeholder="z.B. Social Media Marketing für E-Commerce" required>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="trainingDescription" class="form-label">
+                            <strong>Detaillierte Beschreibung des Schulungsthemas:</strong>
+                        </label>
+                        <textarea class="form-control" id="trainingDescription" rows="6" 
+                                  placeholder="Beschreiben Sie detailliert, was in dieser Schulung behandelt werden soll..." required></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="trainingLevel" class="form-label">
+                            <strong>Schwierigkeitsgrad:</strong>
+                        </label>
+                        <select class="form-select" id="trainingLevel" required>
+                            <option value="">Bitte wählen...</option>
+                            <option value="anfaenger">Anfänger</option>
+                            <option value="fortgeschritten">Fortgeschritten</option>
+                            <option value="experte">Experte</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="aiProvider" class="form-label">
+                            <strong>KI-Anbieter auswählen:</strong>
+                        </label>
+                        <select class="form-select" id="aiProvider" required>
+                            <option value="">Bitte wählen...</option>
+                            <optgroup label="Claude (Anthropic) - Empfohlen">
+                                <option value="claude-opus-4">Claude Opus 4 - Höchste Qualität (neuestes Modell)</option>
+                                <option value="claude-sonnet-4">Claude Sonnet 4 - Ausgezeichnete Qualität</option>
+                                <option value="claude-sonnet-3.7">Claude Sonnet 3.7 - Erweiterte Argumentationsfähigkeiten</option>
+                                <option value="claude-sonnet-3.5-new">Claude Sonnet 3.5 (New) - Aktualisierte Version</option>
+                                <option value="claude-sonnet-3.5">Claude Sonnet 3.5 - Bewährt und zuverlässig</option>
+                                <option value="claude-haiku-3.5-new">Claude Haiku 3.5 (New) - Neueste schnelle Version</option>
+                                <option value="claude-haiku-3.5">Claude Haiku 3.5 - Schnell und effizient</option>
+                            </optgroup>
+                            <optgroup label="OpenAI (ChatGPT) - Standard">
+                                <option value="gpt-4.1">GPT-4.1 - Neuestes Flaggschiff (1M Token Context)</option>
+                                <option value="gpt-4.1-mini">GPT-4.1 Mini - Optimierte Version</option>
+                                <option value="gpt-4.1-nano">GPT-4.1 Nano - Kleinste und schnellste Version</option>
+                                <option value="gpt-4o">GPT-4o - Multimodal und leistungsstark</option>
+                                <option value="gpt-4o-mini">GPT-4o Mini - Schnell und kostengünstig</option>
+                                <option value="gpt-4-turbo">GPT-4 Turbo - Erweiterte Kapazitäten</option>
+                                <option value="gpt-4">GPT-4 - Bewährt und zuverlässig</option>
+                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo - Schnell und effizient</option>
+                            </optgroup>
+                            <optgroup label="OpenAI - Reasoning Modelle">
+                                <option value="o3">o3 - Neuestes Reasoning-Modell (sehr langsam, höchste Qualität)</option>
+                                <option value="o4-mini">o4-mini - Schnelles Reasoning für Mathe/Coding</option>
+                            </optgroup>
+                            <optgroup label="Google Gemini">
+                                <option value="gemini-2.5-pro">Gemini 2.5 Pro - Höchste Leistung (Premium)</option>
+                                <option value="gemini-2.5-flash">Gemini 2.5 Flash - Beste Preis-Leistung (neuestes)</option>
+                                <option value="gemini-2.0-flash">Gemini 2.0 Flash - Allgemein verfügbar</option>
+                                <option value="gemini-2.0-pro">Gemini 2.0 Pro - Beste Coding-Performance (experimentell)</option>
+                                <option value="gemini-1.5-flash">Gemini 1.5 Flash - Bewährt und schnell</option>
+                                <option value="gemini-1.5-pro">Gemini 1.5 Pro - Leistungsstark</option>
+                                <option value="gemini">Gemini - Kostenlose Option (Standard)</option>
+                            </optgroup>
+                            <option value="auto">Automatisch (versucht alle APIs)</option>
+                        </select>
+                        <div class="form-text">
+                            <small>
+                                <strong>Tipp:</strong> 
+                                <strong>Claude Opus 4</strong> = Höchste Qualität (weltbestes Coding), 
+                                <strong>GPT-4.1</strong> = Neuestes OpenAI-Flaggschiff (1M Token), 
+                                <strong>o3</strong> = Bestes Reasoning (sehr langsam), 
+                                <strong>Gemini 2.5 Pro</strong> = Googles stärkstes Modell, 
+                                <strong>Gemini 2.5 Flash</strong> = Beste Preis-Leistung.
+                            </small>
+                        </div>
+                    </div>
+                </form>
+                
+                <div id="aiGenerationStatus" class="mt-3" style="display: none;">
+                    <div class="alert alert-info">
+                        <i class="fas fa-spinner fa-spin"></i> 
+                        <strong>KI erstellt Ihre Schulung...</strong>
+                        <div class="progress mt-2" style="height: 5px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" style="width: 100%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="backToStep1">
+                    <i class="fas fa-arrow-left"></i> Zurück
+                </button>
+                <button type="button" class="btn btn-success" id="generateTraining">
+                    <i class="fas fa-magic"></i> Schulung erstellen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Training Notizen
+    const notizenButtons = document.querySelectorAll('.notizen-btn');
+    const notizenModal = document.getElementById('notizenModal');
+    const notizenText = document.getElementById('notizenText');
+    const saveNotizenBtn = document.getElementById('saveNotizenBtn');
+    let currentTrainingId = null;
+    
+    notizenButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            currentTrainingId = this.dataset.trainingId;
+            const trainingTitel = this.dataset.trainingTitel;
+            
+            // Modal-Titel setzen
+            document.getElementById('notizenModalLabel').textContent = `Notizen: ${trainingTitel}`;
+            
+            // Notizen laden
+            fetch(`/naturmacher/training/${currentTrainingId}/notizen/get/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const notizenContainer = notizenModal.querySelector('.modal-body .mb-3');
+                        
+                        if (data.input_type === 'handwriting' && data.notizen) {
+                            // Handschrift als Bild anzeigen
+                            notizenContainer.innerHTML = `
+                                <label class="form-label">Ihre handschriftlichen Notizen:</label>
+                                <div style="border: 1px solid #ddd; border-radius: 4px; padding: 10px; background-color: #f8f9fa;">
+                                    <img src="${data.notizen}" style="max-width: 100%; height: auto;" alt="Handschriftliche Notizen">
+                                </div>
+                            `;
+                            // Textarea verstecken
+                            notizenText.style.display = 'none';
+                        } else {
+                            // Text-Notizen anzeigen
+                            notizenText.value = data.notizen;
+                            notizenText.style.display = 'block';
+                            notizenContainer.innerHTML = `
+                                <label for="notizenText" class="form-label">Ihre Notizen:</label>
+                                <textarea class="form-control" id="notizenText" rows="10" placeholder="Hier können Sie Ihre Notizen eingeben...">${data.notizen}</textarea>
+                            `;
+                        }
+                        
+                        const modal = new bootstrap.Modal(notizenModal);
+                        modal.show();
+                    } else {
+                        alert('Fehler beim Laden der Notizen');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Fehler beim Laden der Notizen');
+                });
+        });
+    });
+    
+    // Notizen speichern
+    saveNotizenBtn.addEventListener('click', function() {
+        if (!currentTrainingId) return;
+        
+        const formData = new FormData();
+        formData.append('notizen', notizenText.value);
+        
+        // CSRF-Token aus Cookie oder Meta-Tag holen
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                         document.querySelector('meta[name=csrf-token]')?.getAttribute('content') ||
+                         getCookie('csrftoken');
+        if (csrfToken) {
+            formData.append('csrfmiddlewaretoken', csrfToken);
+        }
+        
+        fetch(`/naturmacher/training/${currentTrainingId}/notizen/save/`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Notizen erfolgreich gespeichert!');
+                const modal = bootstrap.Modal.getInstance(notizenModal);
+                modal.hide();
+                
+                // Button-Farbe aktualisieren
+                const button = document.querySelector(`[data-training-id="${currentTrainingId}"]`);
+                if (button) {
+                    const icon = button.querySelector('i');
+                    if (data.hat_notizen) {
+                        icon.className = 'fas fa-sticky-note text-success';
+                    } else {
+                        icon.className = 'fas fa-sticky-note text-warning';
+                    }
+                }
+            } else {
+                alert('Fehler beim Speichern: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Fehler beim Speichern der Notizen');
+        });
+    });
+    
+    // Thema Notizen
+    const themaNotizenButtons = document.querySelectorAll('.thema-notizen-btn');
+    const themaNotizenModal = document.getElementById('themaNotizenModal');
+    const themaNotizenContent = document.getElementById('themaNotizenContent');
+    
+    themaNotizenButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const themaId = this.dataset.themaId;
+            const themaName = this.dataset.themaName;
+            
+            document.getElementById('themaNotizenModalLabel').textContent = `Alle Notizen: ${themaName}`;
+            
+            fetch(`/naturmacher/thema/${themaId}/notizen/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (data.notizen.length === 0) {
+                            themaNotizenContent.innerHTML = '<p class="text-muted">Noch keine Notizen vorhanden.</p>';
+                        } else {
+                            let html = '';
+                            data.notizen.forEach(notiz => {
+                                let notizenContent = '';
+                                if (notiz.input_type === 'handwriting') {
+                                    notizenContent = `<img src="${notiz.notizen}" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px;" alt="Handschriftliche Notizen">`;
+                                } else {
+                                    notizenContent = `<p class="card-text">${notiz.notizen.replace(/\n/g, '<br>')}</p>`;
+                                }
+                                
+                                html += `
+                                    <div class="card mb-3">
+                                        <div class="card-header">
+                                            <h6 class="mb-0">${notiz.training_titel}</h6>
+                                            <small class="text-muted">Zuletzt bearbeitet: ${notiz.aktualisiert_am} (${notiz.input_type === 'handwriting' ? 'Handschrift' : 'Text'})</small>
+                                        </div>
+                                        <div class="card-body">
+                                            ${notizenContent}
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            themaNotizenContent.innerHTML = html;
+                        }
+                        
+                        const modal = new bootstrap.Modal(themaNotizenModal);
+                        modal.show();
+                    } else {
+                        alert('Fehler beim Laden der Notizen');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Fehler beim Laden der Notizen');
+                });
+        });
+    });
+    
+    // KI-Schulungserstellung
+    const createAITrainingBtn = document.getElementById('createAITrainingBtn');
+    const aiTrainingStep1Modal = document.getElementById('aiTrainingStep1Modal');
+    const aiTrainingStep2Modal = document.getElementById('aiTrainingStep2Modal');
+    
+    let currentThemaId = null;
+    let currentThemaName = null;
+    
+    // Schritt 1 Modal öffnen
+    if (createAITrainingBtn) {
+        createAITrainingBtn.addEventListener('click', function() {
+            currentThemaId = this.dataset.themaId;
+            currentThemaName = this.dataset.themaName;
+            
+            const modal = new bootstrap.Modal(aiTrainingStep1Modal);
+            modal.show();
+        });
+    }
+    
+    // Zu Schritt 2 wechseln
+    document.getElementById('proceedToStep2').addEventListener('click', function() {
+        // Schritt 1 Modal schließen
+        const step1Modal = bootstrap.Modal.getInstance(aiTrainingStep1Modal);
+        step1Modal.hide();
+        
+        // Schritt 2 Modal öffnen
+        setTimeout(() => {
+            const step2Modal = new bootstrap.Modal(aiTrainingStep2Modal);
+            step2Modal.show();
+        }, 300);
+    });
+    
+    // Zurück zu Schritt 1
+    document.getElementById('backToStep1').addEventListener('click', function() {
+        // Schritt 2 Modal schließen
+        const step2Modal = bootstrap.Modal.getInstance(aiTrainingStep2Modal);
+        step2Modal.hide();
+        
+        // Schritt 1 Modal öffnen
+        setTimeout(() => {
+            const step1Modal = new bootstrap.Modal(aiTrainingStep1Modal);
+            step1Modal.show();
+        }, 300);
+    });
+    
+    // Schulung generieren
+    document.getElementById('generateTraining').addEventListener('click', function() {
+        const trainingTitle = document.getElementById('trainingTitle').value.trim();
+        const trainingDescription = document.getElementById('trainingDescription').value.trim();
+        const trainingLevel = document.getElementById('trainingLevel').value;
+        const aiProvider = document.getElementById('aiProvider').value;
+        const companyInfo = document.getElementById('companyInfo').value.trim();
+        const learningGoals = document.getElementById('learningGoals').value.trim();
+        
+        // Validierung
+        if (!trainingTitle || !trainingDescription || !trainingLevel || !aiProvider) {
+            alert('Bitte füllen Sie alle Pflichtfelder aus.');
+            return;
+        }
+        
+        // Status anzeigen
+        document.getElementById('aiGenerationStatus').style.display = 'block';
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Wird erstellt...';
+        
+        // AJAX-Request an den Server
+        const formData = new FormData();
+        formData.append('thema_id', currentThemaId);
+        formData.append('thema_name', currentThemaName);
+        formData.append('training_title', trainingTitle);
+        formData.append('training_description', trainingDescription);
+        formData.append('training_level', trainingLevel);
+        formData.append('ai_provider', aiProvider);
+        formData.append('company_info', companyInfo);
+        formData.append('learning_goals', learningGoals);
+        formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+        
+        fetch('/naturmacher/ai-training/generate/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // API-Status-Meldung anzeigen
+                let successMessage = data.api_message || 'Schulung erfolgreich erstellt!';
+                successMessage += '\n\nDie Seite wird neu geladen...';
+                
+                alert(successMessage);
+                
+                // Modals schließen und Seite neu laden
+                const step2Modal = bootstrap.Modal.getInstance(aiTrainingStep2Modal);
+                step2Modal.hide();
+                
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            } else {
+                alert('Fehler beim Erstellen der Schulung: ' + (data.error || 'Unbekannter Fehler'));
+                
+                // Button zurücksetzen
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-magic"></i> Schulung erstellen';
+                document.getElementById('aiGenerationStatus').style.display = 'none';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Fehler beim Erstellen der Schulung: ' + error.message);
+            
+            // Button zurücksetzen
+            this.disabled = false;
+            this.innerHTML = '<i class="fas fa-magic"></i> Schulung erstellen';
+            document.getElementById('aiGenerationStatus').style.display = 'none';
+        });
+    });
+    
+    // ============================
+    // API Balance Management
+    // ============================
+    
+    // Lade Kontostände beim Öffnen des Modals
+    document.getElementById('createAITrainingBtn').addEventListener('click', function() {
+        loadAPIBalances();
+    });
+    
+    // Refresh-Button
+    document.getElementById('refreshBalancesBtn').addEventListener('click', function() {
+        loadAPIBalances();
+    });
+    
+    // AI Provider Änderung - zeige Kostenschätzung
+    document.getElementById('aiProvider').addEventListener('change', function() {
+        if (this.value) {
+            estimateTrainingCost();
+        }
+    });
+    
+    function loadAPIBalances() {
+        const balanceContent = document.getElementById('balanceContent');
+        balanceContent.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border spinner-border-sm" role="status">
+                    <span class="visually-hidden">Laden...</span>
+                </div>
+                <small class="text-muted">Kontostände werden geladen...</small>
+            </div>
+        `;
+        
+        fetch('/naturmacher/api/balances/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayBalances(data.balances);
+                } else {
+                    balanceContent.innerHTML = '<div class="alert alert-danger">Fehler beim Laden der Kontostände</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading balances:', error);
+                balanceContent.innerHTML = '<div class="alert alert-danger">Netzwerkfehler beim Laden der Kontostände</div>';
+            });
+    }
+    
+    function displayBalances(balances) {
+        const balanceContent = document.getElementById('balanceContent');
+        let html = '<div class="row">';
+        
+        const providerNames = {
+            'openai': 'OpenAI',
+            'anthropic': 'Claude',
+            'google': 'Gemini'
+        };
+        
+        const statusColors = {
+            'high': 'success',
+            'medium': 'warning',
+            'low': 'warning',
+            'empty': 'danger'
+        };
+        
+        const statusIcons = {
+            'high': 'fas fa-check-circle',
+            'medium': 'fas fa-exclamation-triangle',
+            'low': 'fas fa-exclamation-triangle',
+            'empty': 'fas fa-times-circle'
+        };
+        
+        for (const [provider, balance] of Object.entries(balances)) {
+            const color = statusColors[balance.status] || 'secondary';
+            const icon = statusIcons[balance.status] || 'fas fa-question-circle';
+            
+            html += `
+                <div class="col-md-4 mb-2">
+                    <div class="card border-${color}">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <small class="text-muted">${providerNames[provider]}</small>
+                                    <div class="fw-bold">${balance.balance.toFixed(2)} ${balance.currency}</div>
+                                </div>
+                                <i class="${icon} text-${color}"></i>
+                            </div>
+                            ${balance.is_low ? '<small class="text-danger">⚠️ Niedriger Kontostand</small>' : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        html += '</div>';
+        
+        // Link zu den offiziellen Dashboards
+        html += `
+            <div class="mt-2">
+                <small class="text-muted">
+                    <strong>Kontostände aktualisieren:</strong> 
+                    <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank">OpenAI</a> | 
+                    <a href="https://console.anthropic.com/settings/billing" target="_blank">Claude</a> | 
+                    <a href="https://console.cloud.google.com/billing" target="_blank">Gemini</a>
+                </small>
+            </div>
+        `;
+        
+        balanceContent.innerHTML = html;
+    }
+    
+    function estimateTrainingCost() {
+        const modelName = document.getElementById('aiProvider').value;
+        const companyInfo = document.getElementById('companyInfo').value;
+        const learningGoals = document.getElementById('learningGoals').value;
+        const trainingDescription = document.getElementById('trainingDescription').value;
+        
+        if (!modelName) return;
+        
+        const formData = new FormData();
+        formData.append('model_name', modelName);
+        formData.append('company_info', companyInfo);
+        formData.append('learning_goals', learningGoals);
+        formData.append('training_description', trainingDescription);
+        formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+        
+        fetch('/naturmacher/api/estimate-cost/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showCostEstimate(data);
+            }
+        })
+        .catch(error => {
+            console.error('Error estimating cost:', error);
+        });
+    }
+    
+    function showCostEstimate(data) {
+        const existingEstimate = document.getElementById('costEstimate');
+        if (existingEstimate) {
+            existingEstimate.remove();
+        }
+        
+        const costEstimateHtml = `
+            <div id="costEstimate" class="alert alert-info mt-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-calculator"></i> 
+                        <strong>Geschätzte Kosten:</strong> 
+                        <span class="badge badge-primary">$${data.estimated_cost.toFixed(4)}</span>
+                    </div>
+                    <small class="text-muted">${data.estimated_prompt_tokens + data.estimated_response_tokens} Tokens</small>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('aiProvider').parentElement.insertAdjacentHTML('afterend', costEstimateHtml);
+    }
+    
+    // CSRF-Token aus Cookie holen
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    // Thema löschen
+    const deleteThemaBtn = document.getElementById('deleteThemaBtn');
+    if (deleteThemaBtn) {
+        deleteThemaBtn.addEventListener('click', function() {
+            const themaId = this.dataset.themaId;
+            const themaName = this.dataset.themaName;
+
+            if (confirm(`Möchten Sie das Thema "${themaName}" wirklich löschen? Alle zugehörigen Dateien werden ebenfalls entfernt.`)) {
+                const csrfToken = getCookie('csrftoken');
+                
+                fetch(`/naturmacher/thema/${themaId}/delete/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        window.location.href = '{% url "naturmacher:thema_list" %}'; // Zurück zur Themenliste
+                    } else {
+                        alert('Fehler beim Löschen des Themas: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Ein Fehler ist aufgetreten beim Löschen des Themas.');
+                });
+            }
+        });
+    }
+});
+</script>
+
+{% endblock %}

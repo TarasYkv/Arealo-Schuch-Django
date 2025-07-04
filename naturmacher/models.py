@@ -1,0 +1,390 @@
+import os
+import re
+import requests
+from django.db import models
+from django.urls import reverse
+from django.contrib.auth import get_user_model
+from django.conf import settings
+
+User = get_user_model()
+
+
+class Thema(models.Model):
+    name = models.CharField(max_length=100)
+    beschreibung = models.TextField()
+    bild = models.ImageField(upload_to='naturmacher/themen/', blank=True, null=True)
+    erstellt_am = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+    def get_absolute_url(self):
+        return reverse('naturmacher:thema_detail', kwargs={'pk': self.pk})
+
+    def get_fortschritt(self, user):
+        """Gibt den Fortschritt für einen Benutzer zurück (0-100%)"""
+        if not user.is_authenticated:
+            return 0
+        
+        total_trainings = self.trainings.count()
+        if total_trainings == 0:
+            return 100
+        
+        erledigte_trainings = UserTrainingFortschritt.objects.filter(
+            user=user,
+            training__thema=self,
+            erledigt=True
+        ).count()
+        
+        return int((erledigte_trainings / total_trainings) * 100)
+    
+    def ist_komplett_erledigt(self, user):
+        """Prüft ob alle Trainings eines Themas für einen User erledigt sind"""
+        return self.get_fortschritt(user) == 100
+
+    def get_inhaltsverzeichnis(self):
+        """Liest das Inhaltsverzeichnis aus der entsprechenden Datei"""
+        try:
+            # Finde den passenden Ordner im Trainings-Verzeichnis
+            trainings_path = os.path.join(settings.MEDIA_ROOT, 'naturmacher', 'trainings')
+            if not os.path.exists(trainings_path):
+                return None
+            
+            # Suche nach einem Ordner, der den Thema-Namen enthält
+            for folder_name in os.listdir(trainings_path):
+                folder_path = os.path.join(trainings_path, folder_name)
+                if os.path.isdir(folder_path) and self.name in folder_name:
+                    inhaltsverzeichnis_path = os.path.join(folder_path, 'inhaltsverzeichnis.txt')
+                    if os.path.exists(inhaltsverzeichnis_path):
+                        with open(inhaltsverzeichnis_path, 'r', encoding='utf-8') as f:
+                            return f.read()
+            return None
+        except Exception:
+            return None
+
+    def get_alle_notizen(self, user):
+        """Gibt alle Notizen eines Users für alle Trainings dieses Themas zurück"""
+        if not user.is_authenticated:
+            return []
+        
+        notizen_list = []
+        for training in self.trainings.all().order_by('titel'):
+            try:
+                notizen = UserTrainingNotizen.objects.get(user=user, training=training)
+                if notizen.notizen.strip():
+                    notizen_list.append({
+                        'training': training,
+                        'notizen': notizen.notizen,
+                        'aktualisiert_am': notizen.aktualisiert_am
+                    })
+            except UserTrainingNotizen.DoesNotExist:
+                continue
+        
+        return notizen_list
+
+    def hat_notizen(self, user):
+        """Prüft ob ein User Notizen für Trainings dieses Themas hat"""
+        return len(self.get_alle_notizen(user)) > 0
+
+    def get_thumbnail_from_folder(self):
+        """Sucht nach einer Thumbnail-Datei im Themen-Ordner"""
+        try:
+            trainings_path = os.path.join(settings.MEDIA_ROOT, 'naturmacher', 'trainings')
+            if not os.path.exists(trainings_path):
+                return None
+            
+            # Suche nach einem Ordner, der den Thema-Namen enthält
+            for folder_name in os.listdir(trainings_path):
+                folder_path = os.path.join(trainings_path, folder_name)
+                if os.path.isdir(folder_path) and self.name in folder_name:
+                    # Suche nach Thumbnail-Dateien
+                    for file_name in os.listdir(folder_path):
+                        if file_name.lower().startswith('thumbnail'):
+                            file_path = os.path.join(folder_path, file_name)
+                            if os.path.isfile(file_path):
+                                # Relativen Pfad für Web-Zugriff erstellen
+                                rel_path = os.path.relpath(file_path, settings.MEDIA_ROOT)
+                                return settings.MEDIA_URL + rel_path.replace('\\', '/')
+            return None
+        except Exception:
+            return None
+
+    def get_display_image(self):
+        """Gibt das anzuzeigende Bild zurück (eigenes Bild oder Thumbnail aus Ordner)"""
+        if self.bild:
+            return self.bild.url
+        thumbnail = self.get_thumbnail_from_folder()
+        if thumbnail:
+            return thumbnail
+        return None
+
+    class Meta:
+        verbose_name = 'Thema'
+        verbose_name_plural = 'Themen'
+
+
+class Training(models.Model):
+    SCHWIERIGKEIT_CHOICES = [
+        ('anfaenger', 'Anfänger'),
+        ('fortgeschritten', 'Fortgeschritten'),
+        ('experte', 'Experte'),
+    ]
+
+    titel = models.CharField(max_length=200)
+    beschreibung = models.TextField()
+    thema = models.ForeignKey(Thema, on_delete=models.CASCADE, related_name='trainings')
+    schwierigkeit = models.CharField(max_length=20, choices=SCHWIERIGKEIT_CHOICES, default='anfaenger')
+    dauer_minuten = models.PositiveIntegerField()
+    bild = models.ImageField(upload_to='naturmacher/trainings/', blank=True, null=True)
+    youtube_links = models.TextField(blank=True, help_text="YouTube-Links (einer pro Zeile)")
+    inhalt = models.TextField()
+    erstellt_am = models.DateTimeField(auto_now_add=True)
+    aktualisiert_am = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.titel
+
+    def get_absolute_url(self):
+        return reverse('naturmacher:training_detail', kwargs={'pk': self.pk})
+
+    def ist_erledigt(self, user):
+        """Prüft ob ein Training für einen User erledigt ist"""
+        if not user.is_authenticated:
+            return False
+        
+        try:
+            fortschritt = UserTrainingFortschritt.objects.get(user=user, training=self)
+            return fortschritt.erledigt
+        except UserTrainingFortschritt.DoesNotExist:
+            return False
+
+    def get_notizen(self, user):
+        """Gibt die Notizen eines Users für dieses Training zurück"""
+        if not user.is_authenticated:
+            return ""
+        
+        try:
+            notizen = UserTrainingNotizen.objects.get(user=user, training=self)
+            return notizen.notizen
+        except UserTrainingNotizen.DoesNotExist:
+            return ""
+
+    def hat_notizen(self, user):
+        """Prüft ob ein User Notizen für dieses Training hat"""
+        if not user.is_authenticated:
+            return False
+        
+        try:
+            notizen = UserTrainingNotizen.objects.get(user=user, training=self)
+            return bool(notizen.notizen.strip())
+        except UserTrainingNotizen.DoesNotExist:
+            return False
+
+    def get_youtube_video_id(self, url):
+        """Extrahiert die Video-ID aus einer YouTube-URL"""
+        youtube_regex = r'(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)'
+        match = re.search(youtube_regex, url)
+        return match.group(1) if match else None
+
+    def get_first_youtube_thumbnail(self):
+        """Gibt das Thumbnail des ersten YouTube-Videos zurück"""
+        if not self.youtube_links:
+            return None
+        
+        lines = self.youtube_links.strip().split('\n')
+        for line in lines:
+            line = line.strip()
+            if line:
+                video_id = self.get_youtube_video_id(line)
+                if video_id:
+                    return f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
+        return None
+
+    def get_display_image(self):
+        """Gibt das anzuzeigende Bild zurück (eigenes Bild oder YouTube-Thumbnail)"""
+        if self.bild:
+            return self.bild.url
+        thumbnail = self.get_first_youtube_thumbnail()
+        if thumbnail:
+            return thumbnail
+        return None
+    
+    def get_html_content(self):
+        """Lädt den HTML-Inhalt aus der Datei, falls vorhanden"""
+        # Überprüfe ob es sich um eine KI-generierte Schulung handelt
+        if "HTML-Datei:" not in self.inhalt:
+            return None
+        
+        try:
+            # Extrahiere Dateiname aus dem inhalt Feld
+            lines = self.inhalt.split('\n')
+            filename = None
+            for line in lines:
+                if line.startswith('HTML-Datei:'):
+                    filename = line.replace('HTML-Datei:', '').strip()
+                    break
+            
+            if not filename:
+                return None
+            
+            # Finde den passenden Thema-Ordner
+            trainings_base_path = os.path.join(settings.MEDIA_ROOT, 'naturmacher', 'trainings')
+            if not os.path.exists(trainings_base_path):
+                return None
+            
+            for folder in os.listdir(trainings_base_path):
+                folder_path = os.path.join(trainings_base_path, folder)
+                if os.path.isdir(folder_path) and self.thema.name.lower() in folder.lower():
+                    file_path = os.path.join(folder_path, filename)
+                    if os.path.exists(file_path):
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            html_content = f.read()
+                            # Extrahiere nur den Body-Inhalt für bessere Integration
+                            return self.extract_body_content(html_content)
+                    break
+            
+            return None
+            
+        except Exception as e:
+            print(f"Fehler beim Laden der HTML-Datei: {e}")
+            return None
+    
+    def extract_body_content(self, html_content):
+        """Extrahiert nur den Body-Inhalt aus der HTML-Datei"""
+        try:
+            import re
+            # Extrahiere Inhalt zwischen <body> Tags
+            body_match = re.search(r'<body[^>]*>(.*?)</body>', html_content, re.DOTALL | re.IGNORECASE)
+            if body_match:
+                body_content = body_match.group(1)
+                
+                # Entferne das eigene Styling, da wir Bootstrap verwenden
+                # Aber behalte die inline Styles für Tabellen etc.
+                body_content = re.sub(r'<style[^>]*>.*?</style>', '', body_content, flags=re.DOTALL)
+                
+                return body_content.strip()
+            
+            # Fallback: ganzer Inhalt wenn kein Body-Tag gefunden
+            return html_content
+            
+        except Exception as e:
+            print(f"Fehler beim Extrahieren des Body-Inhalts: {e}")
+            return html_content
+
+    class Meta:
+        verbose_name = 'Training'
+        verbose_name_plural = 'Trainings'
+        ordering = ['-erstellt_am']
+
+
+class UserTrainingFortschritt(models.Model):
+    """Speichert den Fortschritt eines Users bei den Trainings"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    training = models.ForeignKey(Training, on_delete=models.CASCADE)
+    erledigt = models.BooleanField(default=False)
+    erledigt_am = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        status = "Erledigt" if self.erledigt else "Offen"
+        return f"{self.user.username} - {self.training.titel} ({status})"
+
+    class Meta:
+        unique_together = ['user', 'training']
+        verbose_name = 'Training-Fortschritt'
+        verbose_name_plural = 'Training-Fortschritte'
+
+
+class UserTrainingNotizen(models.Model):
+    """Speichert persönliche Notizen eines Users zu Trainings"""
+    INPUT_TYPE_CHOICES = [
+        ('text', 'Text'),
+        ('handwriting', 'Handschrift'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    training = models.ForeignKey(Training, on_delete=models.CASCADE)
+    notizen = models.TextField(blank=True)
+    input_type = models.CharField(max_length=20, choices=INPUT_TYPE_CHOICES, default='text')
+    erstellt_am = models.DateTimeField(auto_now_add=True)
+    aktualisiert_am = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.training.titel} (Notizen)"
+
+    class Meta:
+        unique_together = ['user', 'training']
+        verbose_name = 'Training-Notizen'
+        verbose_name_plural = 'Training-Notizen'
+
+
+class APIBalance(models.Model):
+    """Speichert die API-Kontostände für alle Provider"""
+    PROVIDER_CHOICES = [
+        ('openai', 'OpenAI (ChatGPT)'),
+        ('anthropic', 'Anthropic (Claude)'),
+        ('google', 'Google (Gemini)'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)
+    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Aktueller Kontostand in USD/EUR")
+    currency = models.CharField(max_length=3, default='USD', help_text="Währung (USD, EUR)")
+    api_key = models.CharField(max_length=255, blank=True, help_text="API-Schlüssel (verschlüsselt gespeichert)")
+    last_updated = models.DateTimeField(auto_now=True)
+    auto_warning_threshold = models.DecimalField(max_digits=10, decimal_places=2, default=5.00, help_text="Warnung bei diesem Kontostand")
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.get_provider_display()}: {self.balance} {self.currency}"
+    
+    def is_low_balance(self):
+        """Prüft ob der Kontostand niedrig ist"""
+        return self.balance <= self.auto_warning_threshold
+    
+    def get_balance_status(self):
+        """Gibt den Status des Kontostands zurück"""
+        if self.balance <= 0:
+            return 'empty'
+        elif self.balance <= self.auto_warning_threshold:
+            return 'low'
+        elif self.balance <= self.auto_warning_threshold * 3:
+            return 'medium'
+        else:
+            return 'high'
+    
+    def has_api_key(self):
+        """Prüft ob ein API-Key hinterlegt ist"""
+        return bool(self.api_key.strip())
+    
+    def get_masked_api_key(self):
+        """Gibt den API-Key maskiert zurück für Anzeige"""
+        if not self.api_key:
+            return "Nicht konfiguriert"
+        if len(self.api_key) <= 8:
+            return "*" * len(self.api_key)
+        return self.api_key[:4] + "*" * (len(self.api_key) - 8) + self.api_key[-4:]
+
+    class Meta:
+        unique_together = ['user', 'provider']
+        verbose_name = 'API-Kontostand'
+        verbose_name_plural = 'API-Kontostände'
+
+
+class APIUsageLog(models.Model):
+    """Protokolliert die API-Nutzung für Kostentracking"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    provider = models.CharField(max_length=20, choices=APIBalance.PROVIDER_CHOICES)
+    model_name = models.CharField(max_length=50, help_text="z.B. gpt-4.1, claude-opus-4")
+    prompt_tokens = models.PositiveIntegerField(default=0)
+    completion_tokens = models.PositiveIntegerField(default=0)
+    total_tokens = models.PositiveIntegerField(default=0)
+    estimated_cost = models.DecimalField(max_digits=8, decimal_places=4, default=0.0000)
+    training = models.ForeignKey(Training, on_delete=models.SET_NULL, null=True, blank=True, help_text="Zugehöriges Training falls vorhanden")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.provider} ({self.model_name}): ${self.estimated_cost}"
+    
+    class Meta:
+        verbose_name = 'API-Nutzungsprotokoll'
+        verbose_name_plural = 'API-Nutzungsprotokolle'
+        ordering = ['-created_at']

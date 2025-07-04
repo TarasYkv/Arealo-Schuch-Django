@@ -15,6 +15,9 @@ from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import render
 from werkzeug.utils import secure_filename
 
+# Import für user-spezifische API-Keys
+from naturmacher.utils import get_user_api_key
+
 # OpenAI API wird jetzt über den neuen Client verwendet
 
 
@@ -102,9 +105,14 @@ def get_category_examples(category_name):
     return examples.get(category_name, "")
 
 
-def generate_category_keywords_with_ai(category_name):
+def generate_category_keywords_with_ai(category_name, user=None):
     """Generiert verwandte Begriffe für eine Leuchtenkategorie mit OpenAI."""
     try:
+        # Hole user-spezifischen API-Key
+        api_key = get_user_api_key(user, 'openai')
+        if not api_key:
+            print(f"❌ Keine OpenAI API-Key für User {user} verfügbar")
+            return []
         prompt = f"""
         Du bist ein Experte für Beleuchtungstechnik und Elektroinstallation. Generiere eine umfassende Liste von 25-30 verwandten Begriffen, Synonymen und Fachausdrücken für die Kategorie "{category_name}".
 
@@ -148,7 +156,7 @@ def generate_category_keywords_with_ai(category_name):
         # Prüfe welche OpenAI Version verfügbar ist
         try:
             # Neue OpenAI Version (>= 1.0)
-            client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+            client = openai.OpenAI(api_key=api_key)
             response = client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": prompt}],
@@ -157,7 +165,7 @@ def generate_category_keywords_with_ai(category_name):
             )
         except AttributeError:
             # Alte OpenAI Version (< 1.0)
-            openai.api_key = settings.OPENAI_API_KEY
+            openai.api_key = api_key
             response = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": prompt}],
@@ -227,9 +235,15 @@ def generate_category_keywords_with_ai(category_name):
         return fallback_keywords.get(category_name, [])
 
 
-def expand_user_keywords_with_ai(category_name, user_keywords):
+def expand_user_keywords_with_ai(category_name, user_keywords, user=None):
     """Erweitert benutzerdefinierte Keywords um KI-generierte verwandte Begriffe."""
     try:
+        # Hole user-spezifischen API-Key
+        api_key = get_user_api_key(user, 'openai')
+        if not api_key:
+            print(f"❌ Keine OpenAI API-Key für User {user} verfügbar")
+            return user_keywords  # Gib nur die ursprünglichen Keywords zurück
+        
         # Kombiniere benutzer-keywords für besseren KI-Kontext
         keywords_context = ", ".join(user_keywords)
         
@@ -252,7 +266,7 @@ def expand_user_keywords_with_ai(category_name, user_keywords):
         # Prüfe welche OpenAI Version verfügbar ist
         try:
             # Neue OpenAI Version (>= 1.0)
-            client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+            client = openai.OpenAI(api_key=api_key)
             response = client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": prompt}],
@@ -261,7 +275,7 @@ def expand_user_keywords_with_ai(category_name, user_keywords):
             )
         except AttributeError:
             # Alte OpenAI Version (< 1.0)
-            openai.api_key = settings.OPENAI_API_KEY
+            openai.api_key = api_key
             response = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": prompt}],
@@ -298,7 +312,7 @@ def get_categories_and_keywords(user=None):
             # Prüfe ob KI-Erweiterung aktiviert ist
             if user.enable_ai_keyword_expansion and user_keywords:
                 # Erweitere Keywords mit KI
-                expanded_keywords = expand_user_keywords_with_ai(category.name, user_keywords)
+                expanded_keywords = expand_user_keywords_with_ai(category.name, user_keywords, user)
                 categories_data[category.name] = expanded_keywords
                 print(f"DEBUG: '{category.name}' mit KI erweitert: {len(user_keywords)} -> {len(expanded_keywords)} Keywords")
             else:
@@ -314,7 +328,7 @@ def get_categories_and_keywords(user=None):
         categories_data = {}
         
         for category in standard_categories:
-            ai_keywords = generate_category_keywords_with_ai(category)
+            ai_keywords = generate_category_keywords_with_ai(category, user)
             
             # Füge Kategorienamen als Suchbegriff hinzu
             ai_keywords.append(category.lower())
@@ -514,9 +528,14 @@ def analyze_entire_pdf_with_ampel(pdf_path, user=None):
                 for cat in fallback_categories}
 
 
-def expand_search_terms_with_ai(query, perspective="sales"):
+def expand_search_terms_with_ai(query, perspective="sales", user=None):
     """Erweitert Suchbegriffe mit KI um verwandte und interessante Begriffe zu finden."""
     try:
+        # Hole user-spezifischen API-Key
+        api_key = get_user_api_key(user, 'openai')
+        if not api_key:
+            print(f"❌ Keine OpenAI API-Key für User {user} verfügbar")
+            return [query]  # Gib nur die ursprüngliche Query zurück
         # Definiere perspektivspezifische Prompts
         if perspective == "sales":
             role_context = """
@@ -576,7 +595,7 @@ def expand_search_terms_with_ai(query, perspective="sales"):
         # Prüfe welche OpenAI Version verfügbar ist
         try:
             # Neue OpenAI Version (>= 1.0)
-            client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+            client = openai.OpenAI(api_key=api_key)
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": expansion_prompt}],
@@ -585,7 +604,7 @@ def expand_search_terms_with_ai(query, perspective="sales"):
             )
         except AttributeError:
             # Alte OpenAI Version (< 1.0)
-            openai.api_key = settings.OPENAI_API_KEY
+            openai.api_key = api_key
             response = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": expansion_prompt}],
@@ -682,7 +701,7 @@ def filter_expanded_terms(terms, original_query):
     return unique_terms
 
 
-def perform_semantic_search(pdf_path, query, page_range, strictness_threshold, perspective="sales"):
+def perform_semantic_search(pdf_path, query, page_range, strictness_threshold, perspective="sales", user=None):
     """Führt eine KI-gestützte Suche durch, die verwandte Begriffe findet und danach sucht."""
     ergebnisse = []
     try:
@@ -690,7 +709,7 @@ def perform_semantic_search(pdf_path, query, page_range, strictness_threshold, p
         start_page, end_page = page_range
 
         # 1. Erweitere Suchbegriffe mit KI basierend auf der gewählten Perspektive
-        expanded_search_terms = expand_search_terms_with_ai(query, perspective)
+        expanded_search_terms = expand_search_terms_with_ai(query, perspective, user)
         original_query_terms = [term.strip() for term in query.split(",") if len(term.strip()) > 1]
         
         # Falls KI-Erweiterung fehlschlägt, verwende nur ursprüngliche Begriffe
@@ -761,7 +780,7 @@ def perform_semantic_search(pdf_path, query, page_range, strictness_threshold, p
                     highlighted_snippet = highlight_terms_in_text(context_snippet, found_terms, original_query_terms)
                     
                     # Analysiere Produktkategorie
-                    product_category = analyze_product_category(context_snippet)
+                    product_category = analyze_product_category(context_snippet, user)
                     
                     ergebnisse.append({
                         'seitenzahl': page_num + 1,
@@ -807,7 +826,7 @@ def perform_semantic_search(pdf_path, query, page_range, strictness_threshold, p
         return []
 
 
-def perform_semantic_search_with_selected_terms(pdf_path, query, page_range, strictness_threshold, perspective="sales", selected_expanded_terms=None):
+def perform_semantic_search_with_selected_terms(pdf_path, query, page_range, strictness_threshold, perspective="sales", selected_expanded_terms=None, user=None):
     """Führt eine KI-gestützte Suche durch mit vorausgewählten erweiterten Begriffen."""
     ergebnisse = []
     try:
@@ -822,7 +841,7 @@ def perform_semantic_search_with_selected_terms(pdf_path, query, page_range, str
             all_search_terms = original_query_terms + selected_expanded_terms
         else:
             # Fallback: Verwende automatisch generierte erweiterte Begriffe wenn keine ausgewählt wurden
-            expanded_search_terms = expand_search_terms_with_ai(query, perspective)
+            expanded_search_terms = expand_search_terms_with_ai(query, perspective, user)
             all_search_terms = original_query_terms + expanded_search_terms
         
         print(f"DEBUG: Original-Begriffe: {original_query_terms}")
@@ -885,7 +904,7 @@ def perform_semantic_search_with_selected_terms(pdf_path, query, page_range, str
                 highlighted_snippet = highlight_terms_in_text(context_snippet, found_terms, original_query_terms)
                 
                 # Analysiere Produktkategorie
-                product_category = analyze_product_category(context_snippet)
+                product_category = analyze_product_category(context_snippet, user)
                 
                 ergebnisse.append({
                     'seitenzahl': page_num + 1,
@@ -929,7 +948,7 @@ def perform_semantic_search_with_selected_terms(pdf_path, query, page_range, str
         return []
 
 
-def analyze_product_category(text):
+def analyze_product_category(text, user=None):
     """Analysiert Text und extrahiert kontextspezifisches Thema mit KI."""
     if not text.strip():
         print("DEBUG: Leerer Text - kein Thema")
@@ -967,7 +986,7 @@ def analyze_product_category(text):
     
     # Verwende KI für flexible Themen-Extraktion
     print("DEBUG: Versuche KI-Themen-Extraktion...")
-    ai_theme = extract_theme_with_ai(text)
+    ai_theme = extract_theme_with_ai(text, user)
     
     if ai_theme:
         print(f"DEBUG: KI-Thema erfolgreich: '{ai_theme}'")
@@ -977,16 +996,22 @@ def analyze_product_category(text):
         return None
 
 
-def extract_theme_with_ai(text):
+def extract_theme_with_ai(text, user=None):
     """Extrahiert flexibles Thema/Kontext aus Text mit KI."""
     try:
         from django.conf import settings
         import openai
         
+        # Hole user-spezifischen API-Key
+        api_key = get_user_api_key(user, 'openai')
+        if not api_key:
+            print(f"❌ Keine OpenAI API-Key für User {user} verfügbar")
+            return None
+        
         print("DEBUG: Starte KI-Themen-Extraktion...")
         
         # OpenAI Client initialisieren
-        client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+        client = openai.OpenAI(api_key=api_key)
         
         # Strenger Prompt für spezifische Themen
         prompt = f"""
@@ -1154,7 +1179,7 @@ def extract_context_around_terms(text, search_terms, max_lines=9):
     return context
 
 
-def search_text_in_pdf(pdf_path, search_terms, page_range):
+def search_text_in_pdf(pdf_path, search_terms, page_range, user=None):
     """Durchsucht eine PDF nach einer Liste von exakten Begriffen (Einfache Suche)."""
     ergebnisse = []
     try:
@@ -1210,7 +1235,7 @@ def search_text_in_pdf(pdf_path, search_terms, page_range):
                 highlighted_snippet = highlight_terms_in_text(context_snippet, found_terms, found_terms)
                 
                 # Analysiere Produktkategorie
-                product_category = analyze_product_category(context_snippet)
+                product_category = analyze_product_category(context_snippet, user)
                 
                 ergebnisse.append({
                     'seitenzahl': page_num + 1, 
@@ -1307,7 +1332,7 @@ def pdf_suche(request):
                               {"step": "initial", "error_message": f"PDF konnte nicht verarbeitet werden: {e}"})
             
             # Generiere erweiterte Suchbegriffe
-            expanded_terms = expand_search_terms_with_ai(suchanfrage, search_perspective)
+            expanded_terms = expand_search_terms_with_ai(suchanfrage, search_perspective, request.user)
             
             context = {
                 'step': 'preview_terms',
@@ -1430,12 +1455,12 @@ def pdf_suche(request):
 
                 ergebnisse = perform_semantic_search_with_selected_terms(
                     pdf_path, suchanfrage, page_range, similarity_threshold, 
-                    search_perspective, selected_expanded_terms
+                    search_perspective, selected_expanded_terms, request.user
                 )
 
             elif search_type == 'simple':
                 search_terms = [term.strip() for term in suchanfrage.split(",")]
-                ergebnisse = search_text_in_pdf(pdf_path, search_terms, page_range)
+                ergebnisse = search_text_in_pdf(pdf_path, search_terms, page_range, request.user)
 
             # Suchbegriffe für die Vorschau vorbereiten
             if search_type == 'simple':
@@ -1470,7 +1495,7 @@ def pdf_suche(request):
             if search_type == 'ai' and ergebnisse:
                 # Versuche die erweiterten Begriffe aus dem ersten Ergebnis zu holen
                 try:
-                    expanded_terms_for_display = expand_search_terms_with_ai(suchanfrage, search_perspective)
+                    expanded_terms_for_display = expand_search_terms_with_ai(suchanfrage, search_perspective, request.user)
                 except:
                     expanded_terms_for_display = []
             
