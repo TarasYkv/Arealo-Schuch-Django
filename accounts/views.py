@@ -5,6 +5,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.urls import reverse_lazy
 from django.views.generic import CreateView
+from django.views.decorators.http import require_http_methods
+from django.http import JsonResponse
 from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm
 from .models import CustomUser, AmpelCategory, CategoryKeyword
 
@@ -223,3 +225,289 @@ def logout_view(request):
     logout(request)
     messages.info(request, 'Sie wurden erfolgreich abgemeldet.')
     return redirect('accounts:login')
+
+
+@login_required
+@require_http_methods(["POST"])
+def validate_api_key(request):
+    """AJAX-View zum Validieren eines API-Schlüssels"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Nur POST-Anfragen erlaubt'})
+    
+    provider = request.POST.get('provider')
+    api_key = request.POST.get('api_key', '').strip()
+    
+    if not provider or not api_key:
+        return JsonResponse({'success': False, 'error': 'Provider und API-Key sind erforderlich'})
+    
+    # Validiere API-Key je nach Provider
+    is_valid, error_message = test_api_key(provider, api_key)
+    
+    return JsonResponse({
+        'success': True,
+        'is_valid': is_valid,
+        'provider': provider,
+        'error_message': error_message
+    })
+
+
+def test_api_key(provider, api_key):
+    """
+    Testet einen API-Schlüssel durch einen einfachen API-Aufruf
+    
+    Args:
+        provider: str - 'openai', 'anthropic', 'google', oder 'youtube'
+        api_key: str - Der zu testende API-Schlüssel
+    
+    Returns:
+        tuple: (is_valid: bool, error_message: str)
+    """
+    try:
+        if provider == 'openai':
+            return test_openai_key(api_key)
+        elif provider == 'anthropic':
+            return test_anthropic_key(api_key)
+        elif provider == 'google':
+            return test_google_key(api_key)
+        elif provider == 'youtube':
+            return test_youtube_key(api_key)
+        else:
+            return False, f"Unbekannter Provider: {provider}"
+    except Exception as e:
+        return False, f"Validierungsfehler: {str(e)}"
+
+
+def test_openai_key(api_key):
+    """Testet OpenAI API-Schlüssel"""
+    try:
+        import openai
+        client = openai.OpenAI(api_key=api_key)
+        
+        # Einfacher Test-Call zu Models-Endpoint
+        response = client.models.list()
+        if response and hasattr(response, 'data'):
+            return True, "API-Schlüssel ist gültig"
+        else:
+            return False, "Ungültige API-Antwort"
+    except Exception as e:
+        error_msg = str(e)
+        if "Incorrect API key" in error_msg or "invalid api key" in error_msg.lower():
+            return False, "Ungültiger API-Schlüssel"
+        elif "exceeded your current quota" in error_msg.lower():
+            return True, "API-Schlüssel gültig (Quota überschritten)"
+        else:
+            return False, f"API-Fehler: {error_msg}"
+
+
+def test_anthropic_key(api_key):
+    """Testet Anthropic API-Schlüssel"""
+    try:
+        import requests
+        
+        headers = {
+            'x-api-key': api_key,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json'
+        }
+        
+        # Test mit einer minimalen Nachricht
+        data = {
+            'model': 'claude-3-haiku-20240307',
+            'max_tokens': 10,
+            'messages': [
+                {'role': 'user', 'content': 'Hi'}
+            ]
+        }
+        
+        response = requests.post(
+            'https://api.anthropic.com/v1/messages',
+            headers=headers,
+            json=data,
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            return True, "API-Schlüssel ist gültig"
+        elif response.status_code == 401:
+            return False, "Ungültiger API-Schlüssel"
+        elif response.status_code == 429:
+            return True, "API-Schlüssel gültig (Rate Limit erreicht)"
+        else:
+            return False, f"API-Fehler: HTTP {response.status_code}"
+            
+    except Exception as e:
+        return False, f"Verbindungsfehler: {str(e)}"
+
+
+def test_google_key(api_key):
+    """Testet Google AI API-Schlüssel"""
+    try:
+        import requests
+        
+        # Test mit Gemini-API
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+        
+        response = requests.get(url, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if 'models' in data:
+                return True, "API-Schlüssel ist gültig"
+            else:
+                return False, "Ungültige API-Antwort"
+        elif response.status_code == 400:
+            return False, "Ungültiger API-Schlüssel"
+        elif response.status_code == 403:
+            return False, "API-Schlüssel ohne Berechtigung"
+        else:
+            return False, f"API-Fehler: HTTP {response.status_code}"
+            
+    except Exception as e:
+        return False, f"Verbindungsfehler: {str(e)}"
+
+
+def test_youtube_key(api_key):
+    """Testet YouTube Data API-Schlüssel"""
+    try:
+        import requests
+        
+        # Test mit YouTube API
+        url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=test&key={api_key}"
+        
+        response = requests.get(url, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if 'items' in data:
+                return True, "API-Schlüssel ist gültig"
+            else:
+                return False, "Ungültige API-Antwort"
+        elif response.status_code == 400:
+            return False, "Ungültiger API-Schlüssel"
+        elif response.status_code == 403:
+            return False, "API-Schlüssel gesperrt oder ohne Berechtigung"
+        else:
+            return False, f"API-Fehler: HTTP {response.status_code}"
+            
+    except Exception as e:
+        return False, f"Verbindungsfehler: {str(e)}"
+
+
+@login_required
+@require_http_methods(["GET"])
+def get_api_balances(request):
+    """Lädt die aktuellen API-Kontostände für den Benutzer"""
+    # TODO: Implementierung für API-Kontostände aus der Datenbank
+    # Für jetzt geben wir Mock-Daten zurück
+    mock_balances = {
+        'openai': {
+            'balance': 25.50,
+            'threshold': 5.00,
+            'currency': 'USD',
+            'masked_api_key': 'Nicht konfiguriert'
+        },
+        'anthropic': {
+            'balance': 15.75,
+            'threshold': 3.00,
+            'currency': 'USD',
+            'masked_api_key': 'Nicht konfiguriert'
+        },
+        'google': {
+            'balance': 10.00,
+            'threshold': 2.00,
+            'currency': 'USD',
+            'masked_api_key': 'Nicht konfiguriert'
+        },
+        'youtube': {
+            'balance': 9500,
+            'threshold': 1000,
+            'currency': 'QUOTA',
+            'masked_api_key': 'Nicht konfiguriert'
+        }
+    }
+    
+    return JsonResponse({
+        'success': True,
+        'balances': mock_balances
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def update_api_balance(request):
+    """Aktualisiert einen API-Kontostand"""
+    provider = request.POST.get('provider')
+    api_key = request.POST.get('api_key', '').strip()
+    balance = request.POST.get('balance')
+    threshold = request.POST.get('threshold')
+    currency = request.POST.get('currency', 'USD')
+    
+    if not provider:
+        return JsonResponse({'success': False, 'error': 'Provider ist erforderlich'})
+    
+    # TODO: Speichere die Daten in der Datenbank
+    # Für jetzt geben wir eine Erfolgs-Antwort zurück
+    masked_key = 'Nicht konfiguriert'
+    if api_key:
+        masked_key = f"{api_key[:8]}...{api_key[-4:]}" if len(api_key) > 12 else f"{api_key[:4]}..."
+    
+    return JsonResponse({
+        'success': True,
+        'message': f'Kontostand für {provider} wurde aktualisiert',
+        'masked_api_key': masked_key
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def remove_api_key(request):
+    """Entfernt einen API-Schlüssel"""
+    provider = request.POST.get('provider')
+    
+    if not provider:
+        return JsonResponse({'success': False, 'error': 'Provider ist erforderlich'})
+    
+    # TODO: Entferne den API-Schlüssel aus der Datenbank
+    # Für jetzt geben wir eine Erfolgs-Antwort zurück
+    
+    return JsonResponse({
+        'success': True,
+        'message': f'API-Schlüssel für {provider} wurde entfernt'
+    })
+
+
+@login_required
+@require_http_methods(["GET"])
+def get_usage_stats(request):
+    """Lädt die Nutzungsstatistiken für den Benutzer"""
+    # TODO: Lade echte Statistiken aus der Datenbank
+    # Für jetzt geben wir Mock-Daten zurück
+    mock_stats = {
+        'success': True,
+        'period': 'Letzten 30 Tage',
+        'total_cost': 12.45,
+        'stats': {
+            'openai': {
+                'requests': 150,
+                'cost': 8.20,
+                'tokens': 45000
+            },
+            'anthropic': {
+                'requests': 75,
+                'cost': 3.50,
+                'tokens': 20000
+            },
+            'google': {
+                'requests': 25,
+                'cost': 0.75,
+                'tokens': 8000
+            },
+            'youtube': {
+                'requests': 10,
+                'cost': 0.00,
+                'tokens': 0
+            }
+        }
+    }
+    
+    return JsonResponse(mock_stats)

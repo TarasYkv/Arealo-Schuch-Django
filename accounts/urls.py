@@ -9,6 +9,11 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('api-einstellungen/', views.api_settings_view, name='api_settings'),
+    path('api/validate-key/', views.validate_api_key, name='validate_api_key'),
+    path('api/balances/', views.get_api_balances, name='get_api_balances'),
+    path('api/balances/update/', views.update_api_balance, name='update_api_balance'),
+    path('api/balances/remove-key/', views.remove_api_key, name='remove_api_key'),
+    path('api/usage/stats/', views.get_usage_stats, name='get_usage_stats'),
     
     # Kategorie-Management
     path('kategorien/', views.category_list, name='category_list'),

@@ -3,6 +3,71 @@
 {% block title %}API-Einstellungen - Naturmacher{% endblock %}
 
 {% block content %}
+
+<style>
+.api-status-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.status-light {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+}
+
+.status-light.status-red {
+    background: linear-gradient(135deg, #ff4757, #ff3838);
+    box-shadow: 0 0 8px rgba(255, 71, 87, 0.4);
+}
+
+.status-light.status-green {
+    background: linear-gradient(135deg, #2ed573, #1dd1a1);
+    box-shadow: 0 0 8px rgba(46, 213, 115, 0.4);
+}
+
+.status-light.status-yellow {
+    background: linear-gradient(135deg, #ffa502, #ff6348);
+    box-shadow: 0 0 8px rgba(255, 165, 2, 0.4);
+}
+
+.status-light.status-gray {
+    background: linear-gradient(135deg, #747d8c, #57606f);
+    box-shadow: 0 0 8px rgba(116, 125, 140, 0.3);
+}
+
+.status-light.pulsing {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.7;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.test-api-key-btn {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.test-api-key-btn:disabled {
+    opacity: 0.6;
+}
+</style>
 <div class="container mt-4">
     <div class="row">
         <div class="col-md-8 mx-auto">
@@ -47,7 +112,18 @@
                                                     <i class="fas fa-eye"></i>
                                                 </button>
                                             </div>
-                                            <small class="text-muted">Aktuell: <span id="openai_key_status">Nicht konfiguriert</span></small>
+                                            <div class="d-flex align-items-center mt-1">
+                                                <div class="api-status-indicator" id="openai_status_indicator">
+                                                    <div class="status-light status-gray" title="Nicht getestet"></div>
+                                                </div>
+                                                <small class="text-muted ms-2">
+                                                    Status: <span id="openai_key_status">Nicht konfiguriert</span>
+                                                </small>
+                                                <button type="button" class="btn btn-sm btn-outline-primary ms-auto test-api-key-btn" 
+                                                        data-provider="openai" title="API-Schlüssel testen">
+                                                    <i class="fas fa-vial"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                         <div class="mb-2">
                                             <label for="openai_balance" class="form-label">Kontostand:</label>
@@ -100,7 +176,18 @@
                                                     <i class="fas fa-eye"></i>
                                                 </button>
                                             </div>
-                                            <small class="text-muted">Aktuell: <span id="anthropic_key_status">Nicht konfiguriert</span></small>
+                                            <div class="d-flex align-items-center mt-1">
+                                                <div class="api-status-indicator" id="anthropic_status_indicator">
+                                                    <div class="status-light status-gray" title="Nicht getestet"></div>
+                                                </div>
+                                                <small class="text-muted ms-2">
+                                                    Status: <span id="anthropic_key_status">Nicht konfiguriert</span>
+                                                </small>
+                                                <button type="button" class="btn btn-sm btn-outline-primary ms-auto test-api-key-btn" 
+                                                        data-provider="anthropic" title="API-Schlüssel testen">
+                                                    <i class="fas fa-vial"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                         <div class="mb-2">
                                             <label for="anthropic_balance" class="form-label">Kontostand:</label>
@@ -153,7 +240,18 @@
                                                     <i class="fas fa-eye"></i>
                                                 </button>
                                             </div>
-                                            <small class="text-muted">Aktuell: <span id="google_key_status">Nicht konfiguriert</span></small>
+                                            <div class="d-flex align-items-center mt-1">
+                                                <div class="api-status-indicator" id="google_status_indicator">
+                                                    <div class="status-light status-gray" title="Nicht getestet"></div>
+                                                </div>
+                                                <small class="text-muted ms-2">
+                                                    Status: <span id="google_key_status">Nicht konfiguriert</span>
+                                                </small>
+                                                <button type="button" class="btn btn-sm btn-outline-primary ms-auto test-api-key-btn" 
+                                                        data-provider="google" title="API-Schlüssel testen">
+                                                    <i class="fas fa-vial"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                         <div class="mb-2">
                                             <label for="google_balance" class="form-label">Kontostand:</label>
@@ -206,7 +304,18 @@
                                                     <i class="fas fa-eye"></i>
                                                 </button>
                                             </div>
-                                            <small class="text-muted">Aktuell: <span id="youtube_key_status">Nicht konfiguriert</span></small>
+                                            <div class="d-flex align-items-center mt-1">
+                                                <div class="api-status-indicator" id="youtube_status_indicator">
+                                                    <div class="status-light status-gray" title="Nicht getestet"></div>
+                                                </div>
+                                                <small class="text-muted ms-2">
+                                                    Status: <span id="youtube_key_status">Nicht konfiguriert</span>
+                                                </small>
+                                                <button type="button" class="btn btn-sm btn-outline-primary ms-auto test-api-key-btn" 
+                                                        data-provider="youtube" title="API-Schlüssel testen">
+                                                    <i class="fas fa-vial"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                         <div class="mb-2">
                                             <label for="youtube_quota_limit" class="form-label">Tägliches Quota-Limit:</label>
@@ -334,8 +443,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // Refresh Stats Button
     document.getElementById('refreshStatsBtn').addEventListener('click', loadUsageStatistics);
     
+    // Test API Key Buttons
+    document.querySelectorAll('.test-api-key-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const provider = this.dataset.provider;
+            testApiKey(provider);
+        });
+    });
+    
     function loadCurrentBalances() {
-        fetch('/naturmacher/api/balances/')
+        fetch('/accounts/api/balances/')
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
@@ -356,11 +473,147 @@ document.addEventListener('DOMContentLoaded', function() {
                             if (thresholdInput) thresholdInput.value = balance.threshold.toFixed(2);
                         }
                         
-                        if (keyStatusSpan) keyStatusSpan.textContent = balance.masked_api_key;
+                        if (keyStatusSpan) {
+                            keyStatusSpan.textContent = balance.masked_api_key;
+                            // Update status indicator based on API key presence
+                            updateStatusIndicator(provider, balance.masked_api_key !== 'Nicht konfiguriert' ? 'has_key' : 'no_key');
+                        }
                     }
                 }
             })
             .catch(error => console.error('Error loading balances:', error));
+    }
+    
+    function testApiKey(provider) {
+        const apiKeyInput = document.getElementById(`${provider}_api_key`);
+        const button = document.querySelector(`[data-provider="${provider}"].test-api-key-btn`);
+        const statusSpan = document.getElementById(`${provider}_key_status`);
+        
+        const apiKey = apiKeyInput ? apiKeyInput.value.trim() : '';
+        
+        if (!apiKey) {
+            alert('Bitte geben Sie zuerst einen API-Schlüssel ein.');
+            return;
+        }
+        
+        // Button-Status ändern
+        const originalIcon = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        button.disabled = true;
+        
+        // Status-Indikator auf "Testing" setzen
+        updateStatusIndicator(provider, 'testing');
+        if (statusSpan) statusSpan.textContent = 'Wird getestet...';
+        
+        const formData = new FormData();
+        formData.append('provider', provider);
+        formData.append('api_key', apiKey);
+        formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+        
+        fetch('/accounts/api/validate-key/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            button.innerHTML = originalIcon;
+            button.disabled = false;
+            
+            if (data.success) {
+                if (data.is_valid) {
+                    updateStatusIndicator(provider, 'valid');
+                    if (statusSpan) statusSpan.textContent = 'API-Schlüssel gültig';
+                    showApiMessage(`API-Schlüssel für ${getProviderDisplayName(provider)} ist gültig!`, 'success');
+                } else {
+                    updateStatusIndicator(provider, 'invalid');
+                    if (statusSpan) statusSpan.textContent = 'API-Schlüssel ungültig';
+                    showApiMessage(`API-Schlüssel für ${getProviderDisplayName(provider)} ist ungültig: ${data.error_message}`, 'error');
+                }
+            } else {
+                updateStatusIndicator(provider, 'error');
+                if (statusSpan) statusSpan.textContent = 'Testfehler';
+                showApiMessage(`Fehler beim Testen: ${data.error}`, 'error');
+            }
+        })
+        .catch(error => {
+            button.innerHTML = originalIcon;
+            button.disabled = false;
+            updateStatusIndicator(provider, 'error');
+            if (statusSpan) statusSpan.textContent = 'Verbindungsfehler';
+            showApiMessage('Netzwerkfehler beim Testen des API-Schlüssels', 'error');
+            console.error('Error testing API key:', error);
+        });
+    }
+    
+    function updateStatusIndicator(provider, status) {
+        const indicator = document.getElementById(`${provider}_status_indicator`);
+        if (!indicator) return;
+        
+        const light = indicator.querySelector('.status-light');
+        if (!light) return;
+        
+        // Remove all status classes
+        light.classList.remove('status-red', 'status-green', 'status-yellow', 'status-gray', 'pulsing');
+        
+        switch (status) {
+            case 'valid':
+                light.classList.add('status-green');
+                light.title = 'API-Schlüssel gültig';
+                break;
+            case 'invalid':
+                light.classList.add('status-red');
+                light.title = 'API-Schlüssel ungültig';
+                break;
+            case 'testing':
+                light.classList.add('status-yellow', 'pulsing');
+                light.title = 'Wird getestet...';
+                break;
+            case 'error':
+                light.classList.add('status-red', 'pulsing');
+                light.title = 'Testfehler';
+                break;
+            case 'has_key':
+                light.classList.add('status-gray');
+                light.title = 'API-Schlüssel konfiguriert (nicht getestet)';
+                break;
+            case 'no_key':
+            default:
+                light.classList.add('status-gray');
+                light.title = 'Kein API-Schlüssel konfiguriert';
+                break;
+        }
+    }
+    
+    function getProviderDisplayName(provider) {
+        const names = {
+            'openai': 'OpenAI',
+            'anthropic': 'Anthropic (Claude)',
+            'google': 'Google (Gemini)',
+            'youtube': 'YouTube Data API'
+        };
+        return names[provider] || provider;
+    }
+    
+    function showApiMessage(message, type) {
+        // Create a temporary alert
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+        const alert = document.createElement('div');
+        alert.className = `alert ${alertClass} alert-dismissible fade show mt-2`;
+        alert.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        // Insert after the breadcrumb
+        const breadcrumb = document.querySelector('.breadcrumb').parentElement;
+        breadcrumb.parentNode.insertBefore(alert, breadcrumb.nextSibling);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (alert.parentNode) {
+                alert.remove();
+            }
+        }, 5000);
     }
     
     function updateBalance(provider) {
@@ -418,7 +671,7 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.append('currency', 'USD');
         }
         
-        fetch('/naturmacher/api/balances/update/', {
+        fetch('/accounts/api/balances/update/', {
             method: 'POST',
             body: formData
         })
@@ -478,7 +731,7 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('action', 'remove_key');
         formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
         
-        fetch('/naturmacher/api/balances/remove-key/', {
+        fetch('/accounts/api/balances/remove-key/', {
             method: 'POST',
             body: formData
         })
@@ -514,7 +767,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
         
-        fetch('/naturmacher/api/usage/stats/')
+        fetch('/accounts/api/usage/stats/')
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
