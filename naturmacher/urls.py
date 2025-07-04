@@ -26,4 +26,7 @@ urlpatterns = [
     path('api/balances/remove-key/', views.remove_api_key, name='remove_api_key'),
     path('api/usage/stats/', views.get_usage_statistics, name='get_usage_statistics'),
     path('api/estimate-cost/', views.estimate_training_cost, name='estimate_training_cost'),
+    
+    # Table of contents editing
+    path('thema/<int:thema_id>/inhaltsverzeichnis/save/', views.save_inhaltsverzeichnis, name='save_inhaltsverzeichnis'),
 ]

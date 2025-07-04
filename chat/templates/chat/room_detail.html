@@ -10,13 +10,13 @@
         <div class="col-12">
             <div class="chat-container rounded-3 shadow-sm border-0 bg-white">
                 <!-- Chat Header -->
-                <div class="chat-header bg-white border-bottom p-3">
+                <div class="chat-header bg-white border-bottom py-2 px-3">
                     <div class="d-flex align-items-center">
-                        <a href="{% url 'chat:home' %}" class="text-muted me-3 text-decoration-none">
-                            <i class="fas fa-arrow-left fs-5"></i>
+                        <a href="{% url 'chat:home' %}" class="text-muted me-2 text-decoration-none">
+                            <i class="fas fa-arrow-left"></i>
                         </a>
                         
-                        <div class="user-avatar bg-primary text-white me-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 45px; height: 45px;">
+                        <div class="user-avatar bg-primary text-white me-2 rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; font-size: 0.8rem;">
                             {% if chat_room.is_group_chat %}
                                 <i class="fas fa-users"></i>
                             {% else %}
@@ -31,17 +31,16 @@
                         </div>
                         
                         <div class="flex-grow-1">
-                            <h5 class="mb-0 text-dark fw-semibold">{{ chat_room.name|default:chat_room }}</h5>
+                            <h6 class="mb-0 text-dark fw-semibold">{{ chat_room.name|default:chat_room }}</h6>
                             {% if chat_room.is_group_chat %}
-                                <small class="text-muted">
-                                    <i class="fas fa-users"></i>
+                                <small class="text-muted" style="font-size: 0.75rem;">
                                     {{ participants.count }} Teilnehmer
                                 </small>
                             {% else %}
                                 {% with other_user=chat_room|get_other_participant:request.user %}
                                     {% if other_user %}
-                                        <small class="text-muted">
-                                            <i class="fas fa-circle text-success" style="font-size: 0.6rem;"></i>
+                                        <small class="text-muted" style="font-size: 0.75rem;">
+                                            <i class="fas fa-circle text-success" style="font-size: 0.5rem;"></i>
                                             Online
                                         </small>
                                     {% endif %}
@@ -50,7 +49,7 @@
                         </div>
                         
                         {% if chat_room.is_group_chat %}
-                            <button class="btn btn-sm btn-outline-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#participantsModal">
+                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#participantsModal" style="font-size: 0.75rem;">
                                 <i class="fas fa-users"></i>
                             </button>
                         {% endif %}
@@ -58,7 +57,7 @@
                 </div>
                 
                 <!-- Messages Container -->
-                <div class="messages-container bg-light" id="messagesContainer" style="height: 60vh; overflow-y: auto; padding: 1rem;">
+                <div class="messages-container bg-light" id="messagesContainer" style="height: 65vh; overflow-y: auto; padding: 1rem;">
                     {% for message in messages %}
                         <div class="message mb-3 {% if message.sender == request.user %}message-own{% else %}message-other{% endif %}">
                             <div class="d-flex {% if message.sender == request.user %}justify-content-end{% else %}justify-content-start{% endif %}">

@@ -24,16 +24,24 @@
                     {{ todo.title }}
                 </h1>
                 
-                <!-- Status und Priorität Badges -->
+                <!-- Status und Priorität Bubbles -->
                 <div class="d-flex gap-2 mb-2">
-                    <span class="badge {{ todo.get_status_color }} status-badge">
+                    <span class="badge position-relative {{ todo.get_status_color }} status-badge rounded-pill px-3 py-2" style="font-size: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+                        <i class="fas fa-circle-notch me-1" style="font-size: 0.7rem;"></i>
                         {{ todo.get_status_display }}
+                        <span class="position-absolute top-0 start-100 translate-middle p-1 bg-white border border-2 border-light rounded-circle" style="width: 0.5rem; height: 0.5rem;"></span>
                     </span>
-                    <span class="badge {{ todo.get_priority_color }}">
+                    <span class="badge position-relative {{ todo.get_priority_color }} rounded-pill px-3 py-2" style="font-size: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+                        <i class="fas fa-flag me-1" style="font-size: 0.7rem;"></i>
                         {{ todo.get_priority_display }}
+                        <span class="position-absolute top-0 start-100 translate-middle p-1 bg-white border border-2 border-light rounded-circle" style="width: 0.5rem; height: 0.5rem;"></span>
                     </span>
                     {% if todo.is_overdue %}
-                        <span class="badge bg-danger">Überfällig</span>
+                        <span class="badge position-relative bg-danger rounded-pill px-3 py-2" style="font-size: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+                            <i class="fas fa-exclamation-triangle me-1" style="font-size: 0.7rem;"></i>
+                            Überfällig
+                            <span class="position-absolute top-0 start-100 translate-middle p-1 bg-white border border-2 border-light rounded-circle" style="width: 0.5rem; height: 0.5rem;"></span>
+                        </span>
                     {% endif %}
                 </div>
                 
@@ -54,7 +62,13 @@
         <!-- Hauptinhalt -->
         <div class="col-lg-8">
             <!-- ToDo Details -->
-            <div class="card mb-4">
+            <div class="card mb-4 border-0 shadow-sm" style="background: linear-gradient(145deg, #f0f8ff 0%, #ffffff 100%);">
+                <div class="card-header border-0 py-3" style="background: linear-gradient(145deg, #e3f2fd 0%, #f0f8ff 100%);">
+                    <h5 class="mb-0 fw-semibold">
+                        <i class="fas fa-tasks text-primary me-2"></i>
+                        Aufgaben-Details
+                    </h5>
+                </div>
                 <div class="card-body">
                     <!-- Status Update -->
                     {% if can_edit %}
@@ -184,8 +198,8 @@
             </div>
             
             <!-- Kommentare -->
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card border-0 shadow-sm" style="background: linear-gradient(145deg, #fff8e1 0%, #ffffff 100%);">
+                <div class="card-header border-0 py-3 d-flex justify-content-between align-items-center" style="background: linear-gradient(145deg, #fff3e0 0%, #fff8e1 100%);">
                     <h5 class="mb-0">
                         <i class="fas fa-comments"></i>
                         Kommentare ({{ comments.count }})
@@ -235,8 +249,8 @@
         <!-- Sidebar -->
         <div class="col-lg-4">
             <!-- Aktivitäten -->
-            <div class="card">
-                <div class="card-header">
+            <div class="card border-0 shadow-sm" style="background: linear-gradient(145deg, #e8f5e8 0%, #ffffff 100%);">
+                <div class="card-header border-0 py-3" style="background: linear-gradient(145deg, #d4edda 0%, #e8f5e8 100%);">
                     <h6 class="mb-0">
                         <i class="fas fa-history"></i>
                         Aktivitätsverlauf
@@ -297,6 +311,52 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Status-Update Handling
+    const statusCheckboxes = document.querySelectorAll('.status-checkbox');
+    statusCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const todoId = this.dataset.todoId;
+            const newStatus = this.value;
+            
+            updateTodoStatus(todoId, newStatus);
+        });
+    });
+    
+    function updateTodoStatus(todoId, status) {
+        fetch(`/todos/api/todo/${todoId}/status/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                status: status
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('Status erfolgreich aktualisiert', 'success');
+                // Update the status badge
+                const statusBadge = document.querySelector('.status-badge');
+                if (statusBadge) {
+                    statusBadge.className = `badge ${data.status_color} status-badge`;
+                    statusBadge.textContent = data.status_display;
+                }
+            } else {
+                showAlert('Fehler beim Aktualisieren des Status: ' + data.error, 'danger');
+                // Revert the radio button selection
+                location.reload();
+            }
+        })
+        .catch(error => {
+            showAlert('Fehler beim Aktualisieren des Status', 'danger');
+            console.error('Error:', error);
+            // Revert the radio button selection
+            location.reload();
+        });
+    }
+
     // Kommentar-Formular
     const commentForm = document.getElementById('commentForm');
     if (commentForm) {
@@ -382,6 +442,40 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+    
+    // Helper functions
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    function showAlert(message, type) {
+        const alertContainer = document.getElementById('alert-container');
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-dismissible fade show`;
+        alert.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        alertContainer.appendChild(alert);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (alert.parentNode) {
+                alert.remove();
+            }
+        }, 5000);
+    }
 });
 </script>
 {% endblock %}
