@@ -292,27 +292,95 @@ def test_api_key(provider, api_key):
 def test_openai_key(api_key):
     """Testet OpenAI API-Schlüssel"""
     try:
-        import openai
-        client = openai.OpenAI(api_key=api_key)
+        import requests
         
-        # Einfacher Test-Call zu Models-Endpoint
-        response = client.models.list()
-        if response and hasattr(response, 'data'):
-            return True, "API-Schlüssel ist gültig"
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        # Test mit einem einfachen Modelle-Aufruf
+        response = requests.get(
+            'https://api.openai.com/v1/models',
+            headers=headers,
+            timeout=15
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            if 'data' in data and isinstance(data['data'], list):
+                return True, "API-Schlüssel ist gültig"
+            else:
+                return False, "Ungültige API-Antwort"
+        elif response.status_code == 401:
+            return False, "Ungültiger API-Schlüssel oder Authentifizierungsfehler"
+        elif response.status_code == 429:
+            return True, "API-Schlüssel gültig (Rate Limit erreicht)"
+        elif response.status_code == 403:
+            # Oft bedeutet das, dass der Key gültig ist, aber keine Berechtigung für Models-Endpoint hat
+            # Probiere einen einfachen Chat-Completion Test
+            return test_openai_chat_completion(api_key)
         else:
-            return False, "Ungültige API-Antwort"
+            try:
+                error_data = response.json()
+                error_msg = error_data.get('error', {}).get('message', f'HTTP {response.status_code}')
+                if "exceeded your current quota" in error_msg.lower() or "quota_exceeded" in error_msg.lower():
+                    return True, "API-Schlüssel gültig (Quota überschritten)"
+                else:
+                    return False, f"API-Fehler: {error_msg}"
+            except:
+                return False, f"API-Fehler: HTTP {response.status_code}"
+                
     except Exception as e:
         error_msg = str(e)
-        if "Incorrect API key" in error_msg or "invalid api key" in error_msg.lower() or "authentication_error" in error_msg.lower():
-            return False, "Ungültiger API-Schlüssel"
-        elif "exceeded your current quota" in error_msg.lower() or "quota_exceeded" in error_msg.lower():
-            return True, "API-Schlüssel gültig (Quota überschritten)"
-        elif "rate limit" in error_msg.lower():
-            return True, "API-Schlüssel gültig (Rate Limit erreicht)"
-        elif "connection error" in error_msg.lower() or "network error" in error_msg.lower():
+        if "connection error" in error_msg.lower() or "network error" in error_msg.lower():
             return False, "Verbindungsfehler zur OpenAI API"
         else:
-            return False, f"OpenAI API-Fehler: {error_msg}"
+            return False, f"Verbindungsfehler: {error_msg}"
+
+
+def test_openai_chat_completion(api_key):
+    """Fallback-Test für OpenAI API-Schlüssel mit Chat Completion"""
+    try:
+        import requests
+        
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        data = {
+            'model': 'gpt-3.5-turbo',
+            'messages': [{'role': 'user', 'content': 'Hi'}],
+            'max_tokens': 5
+        }
+        
+        response = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers=headers,
+            json=data,
+            timeout=15
+        )
+        
+        if response.status_code == 200:
+            return True, "API-Schlüssel ist gültig"
+        elif response.status_code == 401:
+            return False, "Ungültiger API-Schlüssel"
+        elif response.status_code == 429:
+            return True, "API-Schlüssel gültig (Rate Limit erreicht)"
+        else:
+            try:
+                error_data = response.json()
+                error_msg = error_data.get('error', {}).get('message', f'HTTP {response.status_code}')
+                if "exceeded your current quota" in error_msg.lower() or "quota_exceeded" in error_msg.lower():
+                    return True, "API-Schlüssel gültig (Quota überschritten)"
+                else:
+                    return False, f"Chat API-Fehler: {error_msg}"
+            except:
+                return False, f"Chat API-Fehler: HTTP {response.status_code}"
+                
+    except Exception as e:
+        return False, f"Chat API Verbindungsfehler: {str(e)}"
 
 
 def test_anthropic_key(api_key):

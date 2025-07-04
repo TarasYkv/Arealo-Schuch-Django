@@ -3,71 +3,10 @@
 {% block title %}{{ training.titel }} - Naturmacher{% endblock %}
 
 {% block content %}
-<style>
-.badge-bubble {
-    display: inline-flex;
-    align-items: center;
-    position: relative;
-    padding: 8px 16px;
-    border-radius: 18px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    transition: all 0.3s ease;
-}
 
-.badge-bubble:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
-}
-
-.badge-accent {
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.7);
-}
-
-.badge-content {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    z-index: 1;
-}
-
-.badge-bubble-success {
-    background: linear-gradient(135deg, #2ed573, #1dd1a1);
-    color: white;
-}
-
-.badge-bubble-warning {
-    background: linear-gradient(135deg, #ffa502, #ff6348);
-    color: white;
-}
-
-.badge-bubble-danger {
-    background: linear-gradient(135deg, #ff4757, #ff3838);
-    color: white;
-}
-
-.badge-bubble-info {
-    background: linear-gradient(135deg, #3742fa, #2f3542);
-    color: white;
-}
-
-.training-info-card {
-    background: linear-gradient(145deg, #e8f5e8 0%, #f0f8f0 100%);
-    border: 1px solid #c3e6c3;
-    box-shadow: 0 3px 10px rgba(40, 167, 69, 0.1);
-}
-</style>
 <div class="container mt-4">
-    <div class="row">
-        <div class="col-md-8">
+    <div class="row d-flex">
+        <div class="col-md-8 flex-grow-1">
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="{% url 'naturmacher:thema_list' %}">Alle Themen</a></li>
@@ -123,101 +62,23 @@
             {% endif %}
 
             <div class="card">
-                <div class="card-header">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        {% if html_content %}
+                        <h5><i class="fas fa-magic"></i> Training-Inhalt</h5>
+                        <small class="text-muted">KI-generierte interaktive Schulung</small>
+                        {% else %}
+                        <h5>Training-Inhalt</h5>
+                        {% endif %}
+                    </div>
                     {% if html_content %}
-                    <h5><i class="fas fa-magic"></i> Training-Inhalt</h5>
-                    <small class="text-muted">KI-generierte interaktive Schulung</small>
-                    {% else %}
-                    <h5>Training-Inhalt</h5>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="copyHtmlBtn" title="HTML-Code kopieren">
+                        <i class="fas fa-copy"></i> HTML kopieren
+                    </button>
                     {% endif %}
                 </div>
                 <div class="card-body">
                     {% if html_content %}
-                    <!-- KI-generierte Schulung mit Standard-Styling -->
-                    <style>
-                        /* Integration der KI-Schulung in das Standard-Layout */
-                        .card-body .header {
-                            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-                            color: white;
-                            padding: 20px;
-                            border-radius: 10px;
-                            text-align: center;
-                            margin-bottom: 20px;
-                        }
-                        .card-body .meta-info {
-                            background: #f8f9fa;
-                            padding: 15px;
-                            border-radius: 8px;
-                            margin-bottom: 20px;
-                            border-left: 4px solid #28a745;
-                        }
-                        .card-body .section {
-                            margin-bottom: 25px;
-                            padding: 15px;
-                            border-radius: 8px;
-                            background: #fff;
-                        }
-                        .card-body .exercise {
-                            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-                            padding: 15px;
-                            border-radius: 8px;
-                            margin: 15px 0;
-                            border-left: 4px solid #2196f3;
-                        }
-                        .card-body .tip {
-                            background: linear: linear-gradient(135deg, #fff3e0 0%, #ffcc80 100%);
-                            padding: 12px;
-                            border-radius: 6px;
-                            margin: 12px 0;
-                            border-left: 4px solid #ff9800;
-                        }
-                        .card-body .important {
-                            background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
-                            padding: 12px;
-                            border-radius: 6px;
-                            margin: 12px 0;
-                            border-left: 4px solid #f44336;
-                        }
-                        .card-body .checklist {
-                            background: #f8f9fa;
-                            padding: 12px;
-                            border-radius: 6px;
-                            margin: 12px 0;
-                        }
-                        .card-body h2 {
-                            color: #28a745;
-                            border-bottom: 2px solid #28a745;
-                            padding-bottom: 8px;
-                            margin-top: 25px;
-                        }
-                        .card-body h3 {
-                            color: #20c997;
-                            margin-top: 20px;
-                        }
-                        .card-body table {
-                            width: 100%;
-                            border-collapse: collapse;
-                            margin: 15px 0;
-                        }
-                        .card-body table th,
-                        .card-body table td {
-                            padding: 8px;
-                            border: 1px solid #ddd;
-                            text-align: left;
-                        }
-                        .card-body table th {
-                            background-color: #28a745;
-                            color: white;
-                        }
-                        .card-body input[type="checkbox"] {
-                            margin-right: 8px;
-                            transform: scale(1.1);
-                        }
-                        .training-content-wrapper {
-                            overflow-x: auto;
-                            max-width: 100%;
-                        }
-                    </style>
                     <div class="training-content-wrapper">
                         {{ html_content|safe }}
                     </div>
@@ -249,7 +110,7 @@
             </div>
         </div>
         
-        <div class="col-md-4">
+        <div class="col-md-4 d-flex flex-column">
             {% if training.get_display_image %}
             <img src="{{ training.get_display_image }}" class="img-fluid rounded mb-3" alt="{{ training.titel }}">
             {% else %}
@@ -344,7 +205,7 @@
                     <p><strong>Erstellt:</strong> {{ training.erstellt_am|date:"d.m.Y" }}</p>
                     <p><strong>Aktualisiert:</strong> {{ training.aktualisiert_am|date:"d.m.Y" }}</p>
                     {% if training.ai_model_used %}
-                    <p><strong>Erstellt mit KI-Modell:</strong> {{ training.ai_model_used }}</p>
+                    <p><strong>Erstellt mit KI-Modell:</strong> {{ training.get_ai_model_display }}</p>
                     {% endif %}
                     
                     {% if user.is_authenticated %}
@@ -1067,6 +928,135 @@ function getCookie(name) {
         }
     }
     return cookieValue;
+}
+
+// HTML Copy Functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const copyHtmlBtn = document.getElementById('copyHtmlBtn');
+    if (copyHtmlBtn) {
+        copyHtmlBtn.addEventListener('click', function() {
+            copyTrainingHtml();
+        });
+    }
+});
+
+function copyTrainingHtml() {
+    const button = document.getElementById('copyHtmlBtn');
+    const originalText = button.innerHTML;
+    
+    // Button-Status ändern
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Lade...';
+    button.disabled = true;
+    
+    // HTML-Inhalt vom Server abrufen
+    fetch(`/naturmacher/training/{{ training.id }}/html/`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // HTML-Inhalt in die Zwischenablage kopieren
+            copyToClipboard(data.html_content).then(() => {
+                // Erfolg anzeigen
+                button.innerHTML = '<i class="fas fa-check"></i> Kopiert!';
+                button.classList.remove('btn-outline-secondary');
+                button.classList.add('btn-success');
+                
+                // Status nach 2 Sekunden zurücksetzen
+                setTimeout(() => {
+                    button.innerHTML = originalText;
+                    button.classList.remove('btn-success');
+                    button.classList.add('btn-outline-secondary');
+                    button.disabled = false;
+                }, 2000);
+                
+                // Erfolgsmeldung anzeigen
+                showToast('HTML-Code wurde in die Zwischenablage kopiert!', 'success');
+            }).catch(err => {
+                console.error('Fehler beim Kopieren:', err);
+                showError('Fehler beim Kopieren in die Zwischenablage');
+            });
+        } else {
+            showError(data.error || 'Fehler beim Laden des HTML-Inhalts');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showError('Netzwerkfehler beim Laden des HTML-Inhalts');
+    })
+    .finally(() => {
+        // Button zurücksetzen falls nicht bereits durch Erfolg gemacht
+        if (button.disabled && !button.classList.contains('btn-success')) {
+            button.innerHTML = originalText;
+            button.disabled = false;
+        }
+    });
+}
+
+async function copyToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        // Moderne Clipboard API
+        await navigator.clipboard.writeText(text);
+    } else {
+        // Fallback für ältere Browser
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            document.execCommand('copy');
+        } catch (err) {
+            throw new Error('Kopieren nicht unterstützt');
+        } finally {
+            textArea.remove();
+        }
+    }
+}
+
+function showToast(message, type = 'info') {
+    // Erstelle Toast-Nachricht
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type === 'success' ? 'success' : 'info'} alert-dismissible fade show`;
+    toast.style.position = 'fixed';
+    toast.style.top = '20px';
+    toast.style.right = '20px';
+    toast.style.zIndex = '9999';
+    toast.style.minWidth = '300px';
+    toast.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Auto-remove nach 3 Sekunden
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.remove();
+        }
+    }, 3000);
+}
+
+function showError(message) {
+    console.error(message);
+    showToast(message, 'error');
+    
+    // Button-Status zurücksetzen
+    const button = document.getElementById('copyHtmlBtn');
+    if (button) {
+        button.innerHTML = '<i class="fas fa-copy"></i> HTML kopieren';
+        button.classList.remove('btn-success');
+        button.classList.add('btn-outline-secondary');
+        button.disabled = false;
+    }
 }
 </script>
 {% endblock %}

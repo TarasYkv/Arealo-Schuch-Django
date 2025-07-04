@@ -67,6 +67,108 @@
 .test-api-key-btn:disabled {
     opacity: 0.6;
 }
+
+/* API Key Input Styling */
+.api-key-input {
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    word-break: break-all;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* API Key Status Container */
+.api-key-status-container {
+    min-height: 20px;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.api-key-status-text {
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    word-break: break-all;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 150px;
+    display: inline-block;
+}
+
+/* Responsive API Card Layout */
+.api-provider-card {
+    min-height: 320px;
+}
+
+.api-provider-card .card-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.api-provider-card .btn-group {
+    margin-top: auto;
+}
+
+/* Input Group Fixes for Long Content */
+.input-group .form-control {
+    min-width: 0;
+    flex: 1;
+}
+
+.status-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.status-row .api-status-indicator {
+    flex-shrink: 0;
+}
+
+.status-row .test-api-key-btn {
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.status-row .api-key-status-text-wrapper {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .api-key-status-text {
+        max-width: 120px;
+        font-size: 0.7rem;
+    }
+    
+    .status-row {
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+    
+    .status-row .test-api-key-btn {
+        margin-left: 0;
+        margin-top: 0.25rem;
+    }
+    
+    .api-provider-card {
+        min-height: 280px;
+    }
+}
+
+@media (max-width: 576px) {
+    .api-key-input {
+        font-size: 0.75rem;
+    }
+    
+    .api-key-status-text {
+        max-width: 100px;
+        font-size: 0.65rem;
+    }
+}
 </style>
 <div class="container mt-4">
     <div class="row">
@@ -97,7 +199,7 @@
                         <div class="row">
                             <!-- OpenAI -->
                             <div class="col-md-4 mb-3">
-                                <div class="card">
+                                <div class="card api-provider-card">
                                     <div class="card-header bg-success text-white">
                                         <h6 class="mb-0">OpenAI (ChatGPT)</h6>
                                     </div>
@@ -105,21 +207,23 @@
                                         <div class="mb-2">
                                             <label for="openai_api_key" class="form-label">API-Schlüssel:</label>
                                             <div class="input-group">
-                                                <input type="password" class="form-control" id="openai_api_key" 
+                                                <input type="password" class="form-control api-key-input" id="openai_api_key" 
                                                        placeholder="sk-proj-...">
                                                 <button type="button" class="btn btn-outline-secondary toggle-password" 
                                                         data-target="openai_api_key">
                                                     <i class="fas fa-eye"></i>
                                                 </button>
                                             </div>
-                                            <div class="d-flex align-items-center mt-1">
+                                            <div class="status-row mt-1 api-key-status-container">
                                                 <div class="api-status-indicator" id="openai_status_indicator">
                                                     <div class="status-light status-gray" title="Nicht getestet"></div>
                                                 </div>
-                                                <small class="text-muted ms-2">
-                                                    Status: <span id="openai_key_status">Nicht konfiguriert</span>
-                                                </small>
-                                                <button type="button" class="btn btn-sm btn-outline-primary ms-auto test-api-key-btn" 
+                                                <div class="api-key-status-text-wrapper">
+                                                    <small class="text-muted">
+                                                        Status: <span id="openai_key_status" class="api-key-status-text">Nicht konfiguriert</span>
+                                                    </small>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-outline-primary test-api-key-btn" 
                                                         data-provider="openai" title="API-Schlüssel testen">
                                                     <i class="fas fa-vial"></i>
                                                 </button>
@@ -161,7 +265,7 @@
                             
                             <!-- Anthropic -->
                             <div class="col-md-4 mb-3">
-                                <div class="card">
+                                <div class="card api-provider-card">
                                     <div class="card-header bg-warning text-dark">
                                         <h6 class="mb-0">Anthropic (Claude)</h6>
                                     </div>
@@ -169,21 +273,23 @@
                                         <div class="mb-2">
                                             <label for="anthropic_api_key" class="form-label">API-Schlüssel:</label>
                                             <div class="input-group">
-                                                <input type="password" class="form-control" id="anthropic_api_key" 
+                                                <input type="password" class="form-control api-key-input" id="anthropic_api_key" 
                                                        placeholder="sk-ant-api03-...">
                                                 <button type="button" class="btn btn-outline-secondary toggle-password" 
                                                         data-target="anthropic_api_key">
                                                     <i class="fas fa-eye"></i>
                                                 </button>
                                             </div>
-                                            <div class="d-flex align-items-center mt-1">
+                                            <div class="status-row mt-1 api-key-status-container">
                                                 <div class="api-status-indicator" id="anthropic_status_indicator">
                                                     <div class="status-light status-gray" title="Nicht getestet"></div>
                                                 </div>
-                                                <small class="text-muted ms-2">
-                                                    Status: <span id="anthropic_key_status">Nicht konfiguriert</span>
-                                                </small>
-                                                <button type="button" class="btn btn-sm btn-outline-primary ms-auto test-api-key-btn" 
+                                                <div class="api-key-status-text-wrapper">
+                                                    <small class="text-muted">
+                                                        Status: <span id="anthropic_key_status" class="api-key-status-text">Nicht konfiguriert</span>
+                                                    </small>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-outline-primary test-api-key-btn" 
                                                         data-provider="anthropic" title="API-Schlüssel testen">
                                                     <i class="fas fa-vial"></i>
                                                 </button>
@@ -225,7 +331,7 @@
                             
                             <!-- Google -->
                             <div class="col-md-4 mb-3">
-                                <div class="card">
+                                <div class="card api-provider-card">
                                     <div class="card-header bg-info text-white">
                                         <h6 class="mb-0">Google (Gemini)</h6>
                                     </div>
@@ -233,21 +339,23 @@
                                         <div class="mb-2">
                                             <label for="google_api_key" class="form-label">API-Schlüssel:</label>
                                             <div class="input-group">
-                                                <input type="password" class="form-control" id="google_api_key" 
+                                                <input type="password" class="form-control api-key-input" id="google_api_key" 
                                                        placeholder="AIzaSy...">
                                                 <button type="button" class="btn btn-outline-secondary toggle-password" 
                                                         data-target="google_api_key">
                                                     <i class="fas fa-eye"></i>
                                                 </button>
                                             </div>
-                                            <div class="d-flex align-items-center mt-1">
+                                            <div class="status-row mt-1 api-key-status-container">
                                                 <div class="api-status-indicator" id="google_status_indicator">
                                                     <div class="status-light status-gray" title="Nicht getestet"></div>
                                                 </div>
-                                                <small class="text-muted ms-2">
-                                                    Status: <span id="google_key_status">Nicht konfiguriert</span>
-                                                </small>
-                                                <button type="button" class="btn btn-sm btn-outline-primary ms-auto test-api-key-btn" 
+                                                <div class="api-key-status-text-wrapper">
+                                                    <small class="text-muted">
+                                                        Status: <span id="google_key_status" class="api-key-status-text">Nicht konfiguriert</span>
+                                                    </small>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-outline-primary test-api-key-btn" 
                                                         data-provider="google" title="API-Schlüssel testen">
                                                     <i class="fas fa-vial"></i>
                                                 </button>
@@ -289,7 +397,7 @@
                             
                             <!-- YouTube API -->
                             <div class="col-md-6 col-lg-3 mb-3">
-                                <div class="card">
+                                <div class="card api-provider-card">
                                     <div class="card-header bg-danger text-white">
                                         <h6 class="mb-0">YouTube Data API</h6>
                                     </div>
@@ -297,21 +405,23 @@
                                         <div class="mb-2">
                                             <label for="youtube_api_key" class="form-label">API-Schlüssel:</label>
                                             <div class="input-group">
-                                                <input type="password" class="form-control" id="youtube_api_key" 
+                                                <input type="password" class="form-control api-key-input" id="youtube_api_key" 
                                                        name="youtube_api_key" placeholder="AIzaSy...">
                                                 <button type="button" class="btn btn-outline-secondary toggle-password" 
                                                         data-target="youtube_api_key">
                                                     <i class="fas fa-eye"></i>
                                                 </button>
                                             </div>
-                                            <div class="d-flex align-items-center mt-1">
+                                            <div class="status-row mt-1 api-key-status-container">
                                                 <div class="api-status-indicator" id="youtube_status_indicator">
                                                     <div class="status-light status-gray" title="Nicht getestet"></div>
                                                 </div>
-                                                <small class="text-muted ms-2">
-                                                    Status: <span id="youtube_key_status">Nicht konfiguriert</span>
-                                                </small>
-                                                <button type="button" class="btn btn-sm btn-outline-primary ms-auto test-api-key-btn" 
+                                                <div class="api-key-status-text-wrapper">
+                                                    <small class="text-muted">
+                                                        Status: <span id="youtube_key_status" class="api-key-status-text">Nicht konfiguriert</span>
+                                                    </small>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-outline-primary test-api-key-btn" 
                                                         data-provider="youtube" title="API-Schlüssel testen">
                                                     <i class="fas fa-vial"></i>
                                                 </button>
@@ -452,12 +562,18 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     function loadCurrentBalances() {
+        console.log('Lade API-Kontostände...');
         fetch('/accounts/api/balances/')
-            .then(response => response.json())
+            .then(response => {
+                console.log('Balance API Response Status:', response.status);
+                return response.json();
+            })
             .then(data => {
+                console.log('Balance API Response Data:', data);
                 if (data.success) {
                     // Fülle die Formularfelder mit aktuellen Werten
                     for (const [provider, balance] of Object.entries(data.balances)) {
+                        console.log(`Verarbeite Provider: ${provider}`, balance);
                         const balanceInput = document.getElementById(`${provider}_balance`);
                         const thresholdInput = document.getElementById(`${provider}_threshold`);
                         const keyStatusSpan = document.getElementById(`${provider}_key_status`);
@@ -476,12 +592,22 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (keyStatusSpan) {
                             keyStatusSpan.textContent = balance.masked_api_key;
                             // Update status indicator based on API key presence
-                            updateStatusIndicator(provider, balance.masked_api_key !== 'Nicht konfiguriert' ? 'has_key' : 'no_key');
+                            const hasKey = balance.masked_api_key !== 'Nicht konfiguriert';
+                            console.log(`Provider ${provider}: hasKey = ${hasKey}, masked_key = "${balance.masked_api_key}"`);
+                            updateStatusIndicator(provider, hasKey ? 'has_key' : 'no_key');
                         }
                     }
+                } else {
+                    console.error('Balance API Error:', data.error);
                 }
             })
-            .catch(error => console.error('Error loading balances:', error));
+            .catch(error => {
+                console.error('Error loading balances:', error);
+                // Set all providers to error state
+                ['openai', 'anthropic', 'google', 'youtube'].forEach(provider => {
+                    updateStatusIndicator(provider, 'error');
+                });
+            });
     }
     
     function testApiKey(provider) {
@@ -546,11 +672,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function updateStatusIndicator(provider, status) {
+        console.log(`updateStatusIndicator: Provider=${provider}, Status=${status}`);
         const indicator = document.getElementById(`${provider}_status_indicator`);
-        if (!indicator) return;
+        if (!indicator) {
+            console.error(`Status indicator not found for provider: ${provider}`);
+            return;
+        }
         
         const light = indicator.querySelector('.status-light');
-        if (!light) return;
+        if (!light) {
+            console.error(`Status light not found for provider: ${provider}`);
+            return;
+        }
         
         // Remove all status classes
         light.classList.remove('status-red', 'status-green', 'status-yellow', 'status-gray', 'pulsing');
@@ -559,27 +692,33 @@ document.addEventListener('DOMContentLoaded', function() {
             case 'valid':
                 light.classList.add('status-green');
                 light.title = 'API-Schlüssel gültig';
+                console.log(`${provider}: Set to GREEN (valid)`);
                 break;
             case 'invalid':
                 light.classList.add('status-red');
                 light.title = 'API-Schlüssel ungültig';
+                console.log(`${provider}: Set to RED (invalid)`);
                 break;
             case 'testing':
                 light.classList.add('status-yellow', 'pulsing');
                 light.title = 'Wird getestet...';
+                console.log(`${provider}: Set to YELLOW (testing)`);
                 break;
             case 'error':
                 light.classList.add('status-red', 'pulsing');
                 light.title = 'Testfehler';
+                console.log(`${provider}: Set to RED (error)`);
                 break;
             case 'has_key':
                 light.classList.add('status-gray');
                 light.title = 'API-Schlüssel konfiguriert (nicht getestet)';
+                console.log(`${provider}: Set to GRAY (has_key)`);
                 break;
             case 'no_key':
             default:
                 light.classList.add('status-gray');
                 light.title = 'Kein API-Schlüssel konfiguriert';
+                console.log(`${provider}: Set to GRAY (no_key/default)`);
                 break;
         }
     }

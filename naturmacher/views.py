@@ -7,7 +7,7 @@ from django.views.generic import ListView, DetailView
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.management import call_command
-from django.http import HttpResponseRedirect, JsonResponse
+from django.http import HttpResponseRedirect, JsonResponse, HttpResponse
 from django.urls import reverse
 from django.conf import settings
 from django.db import models
@@ -1028,7 +1028,8 @@ ANTWORTE NUR MIT VOLLSTÄNDIGEM HTML - MINIMUM 15.000 ZEICHEN!
             beschreibung=training_description,
             schwierigkeit=training_level,
             dauer_minuten=120,  # Standard 2 Stunden
-            inhalt=f"KI-generierte Schulung: {training_description}\n\nHTML-Datei: {filename}"
+            inhalt=f"KI-generierte Schulung: {training_description}\n\nHTML-Datei: {filename}",
+            ai_model_used=api_used
         )
         
         # Automatisch YouTube-Videos zu AI-generiertem Training hinzufügen
@@ -1988,5 +1989,80 @@ def save_inhaltsverzeichnis(request, thema_id):
         
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def get_training_html_content(request, training_id):
+    """
+    Gibt den rohen HTML-Inhalt eines KI-generierten Trainings zurück
+    """
+    try:
+        training = get_object_or_404(Training, id=training_id)
+        
+        # Hole den HTML-Inhalt
+        html_content = training.get_html_content()
+        
+        if not html_content:
+            return JsonResponse({
+                'success': False,
+                'error': 'Dieses Training hat keinen KI-generierten HTML-Inhalt'
+            })
+        
+        # Versuche auch den ursprünglichen HTML-Code aus der Datei zu lesen
+        raw_html_content = get_raw_html_from_file(training)
+        
+        return JsonResponse({
+            'success': True,
+            'html_content': raw_html_content or html_content,
+            'training_title': training.titel,
+            'ai_model_used': training.ai_model_used
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Laden des HTML-Inhalts: {str(e)}'
+        })
+
+
+def get_raw_html_from_file(training):
+    """
+    Lädt den ursprünglichen HTML-Inhalt direkt aus der Datei
+    """
+    try:
+        # Überprüfe ob es sich um eine KI-generierte Schulung handelt
+        if "HTML-Datei:" not in training.inhalt:
+            return None
+        
+        # Extrahiere Dateiname aus dem inhalt Feld
+        lines = training.inhalt.split('\n')
+        filename = None
+        for line in lines:
+            if line.startswith('HTML-Datei:'):
+                filename = line.replace('HTML-Datei:', '').strip()
+                break
+        
+        if not filename:
+            return None
+        
+        # Finde den passenden Thema-Ordner
+        trainings_base_path = os.path.join(settings.MEDIA_ROOT, 'naturmacher', 'trainings')
+        if not os.path.exists(trainings_base_path):
+            return None
+        
+        for folder in os.listdir(trainings_base_path):
+            folder_path = os.path.join(trainings_base_path, folder)
+            if os.path.isdir(folder_path) and training.thema.name.lower() in folder.lower():
+                file_path = os.path.join(folder_path, filename)
+                if os.path.exists(file_path):
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        return f.read()
+                break
+        
+        return None
+        
+    except Exception as e:
+        print(f"Fehler beim Laden der HTML-Datei: {e}")
+        return None
 
 
