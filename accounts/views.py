@@ -310,10 +310,10 @@ def test_anthropic_key(api_key):
             'content-type': 'application/json'
         }
         
-        # Test mit einer minimalen Nachricht
+        # Test mit einer minimalen Nachricht an die neueste Claude-Version
         data = {
-            'model': 'claude-3-haiku-20240307',
-            'max_tokens': 10,
+            'model': 'claude-3-5-haiku-20241022',
+            'max_tokens': 5,
             'messages': [
                 {'role': 'user', 'content': 'Hi'}
             ]
@@ -323,17 +323,50 @@ def test_anthropic_key(api_key):
             'https://api.anthropic.com/v1/messages',
             headers=headers,
             json=data,
-            timeout=10
+            timeout=15
         )
         
         if response.status_code == 200:
             return True, "API-Schlüssel ist gültig"
+        elif response.status_code == 400:
+            # Prüfe auf spezifische Fehlermeldungen
+            try:
+                error_data = response.json()
+                error_msg = error_data.get('error', {}).get('message', '')
+                if 'authentication' in error_msg.lower() or 'api key' in error_msg.lower():
+                    return False, "Ungültiger API-Schlüssel"
+                elif 'model' in error_msg.lower():
+                    # Falls das Modell nicht verfügbar ist, probiere ein älteres
+                    data['model'] = 'claude-3-haiku-20240307'
+                    response2 = requests.post(
+                        'https://api.anthropic.com/v1/messages',
+                        headers=headers,
+                        json=data,
+                        timeout=15
+                    )
+                    if response2.status_code == 200:
+                        return True, "API-Schlüssel ist gültig"
+                    elif response2.status_code == 401:
+                        return False, "Ungültiger API-Schlüssel"
+                    else:
+                        return False, f"API-Fehler: {error_msg}"
+                else:
+                    return False, f"API-Fehler: {error_msg}"
+            except:
+                return False, f"API-Fehler: HTTP {response.status_code}"
         elif response.status_code == 401:
             return False, "Ungültiger API-Schlüssel"
         elif response.status_code == 429:
             return True, "API-Schlüssel gültig (Rate Limit erreicht)"
+        elif response.status_code == 403:
+            return False, "API-Schlüssel ohne Berechtigung"
         else:
-            return False, f"API-Fehler: HTTP {response.status_code}"
+            try:
+                error_data = response.json()
+                error_msg = error_data.get('error', {}).get('message', f'HTTP {response.status_code}')
+                return False, f"API-Fehler: {error_msg}"
+            except:
+                return False, f"API-Fehler: HTTP {response.status_code}"
             
     except Exception as e:
         return False, f"Verbindungsfehler: {str(e)}"
@@ -344,23 +377,80 @@ def test_google_key(api_key):
     try:
         import requests
         
-        # Test mit Gemini-API
-        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+        # Test mit Gemini-API - verwende Content Generation API
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
         
-        response = requests.get(url, timeout=10)
+        headers = {
+            'Content-Type': 'application/json',
+        }
+        
+        # Minimaler Test-Request
+        data = {
+            'contents': [{
+                'parts': [{
+                    'text': 'Hi'
+                }]
+            }],
+            'generationConfig': {
+                'maxOutputTokens': 5
+            }
+        }
+        
+        response = requests.post(url, headers=headers, json=data, timeout=15)
         
         if response.status_code == 200:
-            data = response.json()
-            if 'models' in data:
-                return True, "API-Schlüssel ist gültig"
-            else:
+            try:
+                result = response.json()
+                if 'candidates' in result and len(result['candidates']) > 0:
+                    return True, "API-Schlüssel ist gültig"
+                else:
+                    return False, "Ungültige API-Antwort"
+            except:
                 return False, "Ungültige API-Antwort"
         elif response.status_code == 400:
-            return False, "Ungültiger API-Schlüssel"
+            try:
+                error_data = response.json()
+                error_msg = error_data.get('error', {}).get('message', '')
+                if 'API_KEY_INVALID' in error_msg or 'invalid api key' in error_msg.lower():
+                    return False, "Ungültiger API-Schlüssel"
+                else:
+                    # Fallback: Teste mit Models-Endpoint
+                    models_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+                    models_response = requests.get(models_url, timeout=10)
+                    
+                    if models_response.status_code == 200:
+                        models_data = models_response.json()
+                        if 'models' in models_data and len(models_data['models']) > 0:
+                            return True, "API-Schlüssel ist gültig"
+                        else:
+                            return False, "Ungültige API-Antwort"
+                    elif models_response.status_code == 400:
+                        return False, "Ungültiger API-Schlüssel"
+                    elif models_response.status_code == 403:
+                        return False, "API-Schlüssel ohne Berechtigung"
+                    else:
+                        return False, f"API-Fehler: {error_msg}"
+            except:
+                return False, f"API-Fehler: HTTP {response.status_code}"
         elif response.status_code == 403:
-            return False, "API-Schlüssel ohne Berechtigung"
+            try:
+                error_data = response.json()
+                error_msg = error_data.get('error', {}).get('message', 'Keine Berechtigung')
+                if 'API_KEY_INVALID' in error_msg:
+                    return False, "Ungültiger API-Schlüssel"
+                else:
+                    return False, f"API-Schlüssel ohne Berechtigung: {error_msg}"
+            except:
+                return False, "API-Schlüssel ohne Berechtigung"
+        elif response.status_code == 429:
+            return True, "API-Schlüssel gültig (Rate Limit erreicht)"
         else:
-            return False, f"API-Fehler: HTTP {response.status_code}"
+            try:
+                error_data = response.json()
+                error_msg = error_data.get('error', {}).get('message', f'HTTP {response.status_code}')
+                return False, f"API-Fehler: {error_msg}"
+            except:
+                return False, f"API-Fehler: HTTP {response.status_code}"
             
     except Exception as e:
         return False, f"Verbindungsfehler: {str(e)}"

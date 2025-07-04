@@ -3,6 +3,67 @@
 {% block title %}{{ thema.name }} - Naturmacher{% endblock %}
 
 {% block content %}
+<style>
+.badge-bubble {
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.badge-bubble:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.badge-accent {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.6);
+}
+
+.badge-content {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    z-index: 1;
+}
+
+.badge-bubble-success {
+    background: linear-gradient(135deg, #2ed573, #1dd1a1);
+    color: white;
+}
+
+.badge-bubble-warning {
+    background: linear-gradient(135deg, #ffa502, #ff6348);
+    color: white;
+}
+
+.badge-bubble-danger {
+    background: linear-gradient(135deg, #ff4757, #ff3838);
+    color: white;
+}
+
+.badge-bubble-info {
+    background: linear-gradient(135deg, #3742fa, #2f3542);
+    color: white;
+}
+
+.badge-bubble-primary {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+}
+</style>
 <div class="container mt-4">
     <div class="row">
         <div class="col-md-8">
@@ -17,21 +78,23 @@
             <p class="lead">{{ thema.beschreibung }}</p>
             
             {% if user.is_authenticated %}
-                <div class="alert alert-info">
-                    <h6><i class="fas fa-chart-pie"></i> Ihr Fortschritt</h6>
-                    <div class="progress mb-2" style="height: 20px;">
-                        <div class="progress-bar bg-success" role="progressbar" 
-                             style="width: {{ thema_fortschritt }}%;" 
-                             aria-valuenow="{{ thema_fortschritt }}" 
-                             aria-valuemin="0" aria-valuemax="100">
-                            {{ thema_fortschritt }}%
+                <div class="card mb-4" style="background: linear-gradient(145deg, #e8f5e8 0%, #f0f8f0 100%); border: 1px solid #c3e6c3; box-shadow: 0 2px 8px rgba(40, 167, 69, 0.1);">
+                    <div class="card-body">
+                        <h6><i class="fas fa-chart-pie text-success"></i> Ihr Fortschritt</h6>
+                        <div class="progress mb-2" style="height: 20px;">
+                            <div class="progress-bar bg-success" role="progressbar" 
+                                 style="width: {{ thema_fortschritt }}%;" 
+                                 aria-valuenow="{{ thema_fortschritt }}" 
+                                 aria-valuemin="0" aria-valuemax="100">
+                                {{ thema_fortschritt }}%
+                            </div>
                         </div>
+                        {% if thema_komplett_erledigt %}
+                            <small class="text-success"><i class="fas fa-check"></i> Alle Trainings dieses Themas abgeschlossen!</small>
+                        {% else %}
+                            <small class="text-muted">{{ thema_fortschritt }}% der Trainings abgeschlossen</small>
+                        {% endif %}
                     </div>
-                    {% if thema_komplett_erledigt %}
-                        <small class="text-success"><i class="fas fa-check"></i> Alle Trainings dieses Themas abgeschlossen!</small>
-                    {% else %}
-                        <small class="text-muted">{{ thema_fortschritt }}% der Trainings abgeschlossen</small>
-                    {% endif %}
                 </div>
             {% endif %}
             
@@ -71,12 +134,20 @@
                             </div>
                             <p class="card-text">{{ training.beschreibung|truncatewords:15 }}</p>
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="badge badge-{% if training.schwierigkeit == 'anfaenger' %}success{% elif training.schwierigkeit == 'fortgeschritten' %}warning{% else %}danger{% endif %}">
-                                    {{ training.get_schwierigkeit_display }}
+                                <span class="badge-bubble {% if training.schwierigkeit == 'anfaenger' %}badge-bubble-success{% elif training.schwierigkeit == 'fortgeschritten' %}badge-bubble-warning{% else %}badge-bubble-danger{% endif %}">
+                                    <span class="badge-accent"></span>
+                                    <span class="badge-content">
+                                        <i class="fas {% if training.schwierigkeit == 'anfaenger' %}fa-seedling{% elif training.schwierigkeit == 'fortgeschritten' %}fa-leaf{% else %}fa-tree{% endif %}"></i>
+                                        {{ training.get_schwierigkeit_display }}
+                                    </span>
                                 </span>
-                                <small class="text-muted">
-                                    <i class="fas fa-clock"></i> {{ training.dauer_minuten }} Min.
-                                </small>
+                                <span class="badge-bubble badge-bubble-info">
+                                    <span class="badge-accent"></span>
+                                    <span class="badge-content">
+                                        <i class="fas fa-clock"></i>
+                                        {{ training.dauer_minuten }} Min.
+                                    </span>
+                                </span>
                             </div>
                             {% if user.is_authenticated and training.user_erledigt %}
                                 <a href="{% url 'naturmacher:training_detail' training.pk %}" class="btn btn-success btn-sm">
