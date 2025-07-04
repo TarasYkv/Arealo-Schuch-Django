@@ -19,6 +19,7 @@ urlpatterns = [
     path('pdf-tool/', include('pdf_sucher.urls')),
     path('naturmacher/', include('naturmacher.urls')),
     path('todos/', include('todos.urls')),
+    path('chat/', include('chat.urls')),
     path('admin/', admin.site.urls),
 ]
 
