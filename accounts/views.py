@@ -9,6 +9,7 @@ from django.views.decorators.http import require_http_methods
 from django.http import JsonResponse
 from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm
 from .models import CustomUser, AmpelCategory, CategoryKeyword
+from naturmacher.models import APIBalance
 
 
 class CustomLoginView(LoginView):
@@ -237,8 +238,19 @@ def validate_api_key(request):
     provider = request.POST.get('provider')
     api_key = request.POST.get('api_key', '').strip()
     
-    if not provider or not api_key:
+    if not provider:
         return JsonResponse({'success': False, 'error': 'Provider und API-Key sind erforderlich'})
+
+    # If API key is not provided in the request, try to get it from the database
+    if not api_key:
+        try:
+            api_balance = APIBalance.objects.get(user=request.user, provider=provider)
+            api_key = api_balance.api_key
+        except APIBalance.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'API-Key nicht gefunden und nicht in der Datenbank gespeichert'})
+
+    if not api_key:
+        return JsonResponse({'success': False, 'error': 'API-Key ist leer'})
     
     # Validiere API-Key je nach Provider
     is_valid, error_message = test_api_key(provider, api_key)
@@ -291,12 +303,16 @@ def test_openai_key(api_key):
             return False, "Ungültige API-Antwort"
     except Exception as e:
         error_msg = str(e)
-        if "Incorrect API key" in error_msg or "invalid api key" in error_msg.lower():
+        if "Incorrect API key" in error_msg or "invalid api key" in error_msg.lower() or "authentication_error" in error_msg.lower():
             return False, "Ungültiger API-Schlüssel"
-        elif "exceeded your current quota" in error_msg.lower():
+        elif "exceeded your current quota" in error_msg.lower() or "quota_exceeded" in error_msg.lower():
             return True, "API-Schlüssel gültig (Quota überschritten)"
+        elif "rate limit" in error_msg.lower():
+            return True, "API-Schlüssel gültig (Rate Limit erreicht)"
+        elif "connection error" in error_msg.lower() or "network error" in error_msg.lower():
+            return False, "Verbindungsfehler zur OpenAI API"
         else:
-            return False, f"API-Fehler: {error_msg}"
+            return False, f"OpenAI API-Fehler: {error_msg}"
 
 
 def test_anthropic_key(api_key):
@@ -487,38 +503,39 @@ def test_youtube_key(api_key):
 @require_http_methods(["GET"])
 def get_api_balances(request):
     """Lädt die aktuellen API-Kontostände für den Benutzer"""
-    # TODO: Implementierung für API-Kontostände aus der Datenbank
-    # Für jetzt geben wir Mock-Daten zurück
-    mock_balances = {
-        'openai': {
-            'balance': 25.50,
-            'threshold': 5.00,
+    user_balances = APIBalance.objects.filter(user=request.user)
+    balances_data = {}
+    
+    # Initialize with default structure for all providers
+    all_providers = [
+        'openai', 'anthropic', 'google', 'youtube'
+    ]
+    
+    for provider_key in all_providers:
+        balances_data[provider_key] = {
+            'balance': 0.00,
+            'threshold': 5.00, # Default threshold
             'currency': 'USD',
-            'masked_api_key': 'Nicht konfiguriert'
-        },
-        'anthropic': {
-            'balance': 15.75,
-            'threshold': 3.00,
-            'currency': 'USD',
-            'masked_api_key': 'Nicht konfiguriert'
-        },
-        'google': {
-            'balance': 10.00,
-            'threshold': 2.00,
-            'currency': 'USD',
-            'masked_api_key': 'Nicht konfiguriert'
-        },
-        'youtube': {
-            'balance': 9500,
-            'threshold': 1000,
-            'currency': 'QUOTA',
             'masked_api_key': 'Nicht konfiguriert'
         }
-    }
+
+    for balance_obj in user_balances:
+        provider = balance_obj.provider
+        balances_data[provider] = {
+            'balance': float(balance_obj.balance),
+            'threshold': float(balance_obj.auto_warning_threshold),
+            'currency': balance_obj.currency,
+            'masked_api_key': balance_obj.get_masked_api_key()
+        }
+        # Special handling for YouTube quota
+        if provider == 'youtube':
+            balances_data[provider]['balance'] = int(balance_obj.balance) # Quota is integer
+            balances_data[provider]['threshold'] = int(balance_obj.auto_warning_threshold) # Quota threshold is integer
+            balances_data[provider]['currency'] = 'QUOTA'
     
     return JsonResponse({
         'success': True,
-        'balances': mock_balances
+        'balances': balances_data
     })
 
 
@@ -528,18 +545,39 @@ def update_api_balance(request):
     """Aktualisiert einen API-Kontostand"""
     provider = request.POST.get('provider')
     api_key = request.POST.get('api_key', '').strip()
-    balance = request.POST.get('balance')
-    threshold = request.POST.get('threshold')
+    balance_str = request.POST.get('balance')
+    threshold_str = request.POST.get('threshold')
     currency = request.POST.get('currency', 'USD')
     
     if not provider:
         return JsonResponse({'success': False, 'error': 'Provider ist erforderlich'})
     
-    # TODO: Speichere die Daten in der Datenbank
-    # Für jetzt geben wir eine Erfolgs-Antwort zurück
-    masked_key = 'Nicht konfiguriert'
-    if api_key:
-        masked_key = f"{api_key[:8]}...{api_key[-4:]}" if len(api_key) > 12 else f"{api_key[:4]}..."
+    try:
+        balance = float(balance_str) if balance_str else 0.00
+        threshold = float(threshold_str) if threshold_str else 5.00
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Ungültiger Wert für Kontostand oder Warnschwelle'})
+
+    api_balance, created = APIBalance.objects.get_or_create(
+        user=request.user,
+        provider=provider,
+        defaults={
+            'balance': balance,
+            'currency': currency,
+            'api_key': api_key,
+            'auto_warning_threshold': threshold
+        }
+    )
+
+    if not created:
+        api_balance.balance = balance
+        api_balance.currency = currency
+        api_balance.auto_warning_threshold = threshold
+        if api_key: # Only update API key if a new one is provided
+            api_balance.api_key = api_key
+        api_balance.save()
+    
+    masked_key = api_balance.get_masked_api_key()
     
     return JsonResponse({
         'success': True,
@@ -557,13 +595,17 @@ def remove_api_key(request):
     if not provider:
         return JsonResponse({'success': False, 'error': 'Provider ist erforderlich'})
     
-    # TODO: Entferne den API-Schlüssel aus der Datenbank
-    # Für jetzt geben wir eine Erfolgs-Antwort zurück
-    
-    return JsonResponse({
-        'success': True,
-        'message': f'API-Schlüssel für {provider} wurde entfernt'
-    })
+    try:
+        api_balance = APIBalance.objects.get(user=request.user, provider=provider)
+        api_balance.delete()
+        return JsonResponse({
+            'success': True,
+            'message': f'API-Schlüssel für {provider} wurde entfernt'
+        })
+    except APIBalance.DoesNotExist:
+        return JsonResponse({'success': False, 'error': f'Kein API-Schlüssel für {provider} gefunden'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Fehler beim Entfernen des API-Schlüssels: {str(e)}'})
 
 
 @login_required

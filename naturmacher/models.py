@@ -154,6 +154,7 @@ class Training(models.Model):
     bild = models.ImageField(upload_to='naturmacher/trainings/', blank=True, null=True)
     youtube_links = models.TextField(blank=True, help_text="YouTube-Links (einer pro Zeile)")
     inhalt = models.TextField()
+    ai_model_used = models.CharField(max_length=100, blank=True, null=True, help_text="KI-Modell, das zum Erstellen dieses Trainings verwendet wurde")
     erstellt_am = models.DateTimeField(auto_now_add=True)
     aktualisiert_am = models.DateTimeField(auto_now=True)
 
