@@ -1777,3 +1777,51 @@ def api_settings_view(request):
     return render(request, 'naturmacher/api_settings.html')
 
 
+@login_required
+def save_inhaltsverzeichnis(request, thema_id):
+    """Speichert das bearbeitete Inhaltsverzeichnis"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Nur POST-Anfragen erlaubt'})
+    
+    try:
+        thema = get_object_or_404(Thema, id=thema_id)
+        content = request.POST.get('content', '').strip()
+        
+        # Finde den passenden Ordner im Trainings-Verzeichnis
+        trainings_path = os.path.join(settings.MEDIA_ROOT, 'naturmacher', 'trainings')
+        if not os.path.exists(trainings_path):
+            return JsonResponse({'success': False, 'error': 'Trainings-Verzeichnis nicht gefunden'})
+        
+        # Suche nach einem Ordner, der den Thema-Namen enthält
+        target_folder = None
+        for folder_name in os.listdir(trainings_path):
+            folder_path = os.path.join(trainings_path, folder_name)
+            if os.path.isdir(folder_path) and thema.name in folder_name:
+                target_folder = folder_path
+                break
+        
+        if not target_folder:
+            return JsonResponse({'success': False, 'error': 'Ordner für dieses Thema nicht gefunden'})
+        
+        # Inhaltsverzeichnis-Datei speichern
+        inhaltsverzeichnis_path = os.path.join(target_folder, 'inhaltsverzeichnis.txt')
+        
+        # Backup erstellen falls die Datei bereits existiert
+        if os.path.exists(inhaltsverzeichnis_path):
+            backup_path = inhaltsverzeichnis_path + '.backup'
+            import shutil
+            shutil.copy2(inhaltsverzeichnis_path, backup_path)
+        
+        # Neue Inhalte schreiben
+        with open(inhaltsverzeichnis_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        
+        return JsonResponse({
+            'success': True, 
+            'message': 'Inhaltsverzeichnis erfolgreich gespeichert'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+

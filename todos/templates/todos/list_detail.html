@@ -4,130 +4,145 @@
 <div class="container-fluid">
     <div id="alert-container"></div>
     
-    <!-- Liste Header -->
-    <div class="todo-nav">
-        <div class="row align-items-center">
-            <div class="col-md-8">
-                <nav aria-label="breadcrumb">
-                    <ol class="breadcrumb">
-                        <li class="breadcrumb-item">
-                            <a href="{% url 'todos:home' %}">ToDo-Listen</a>
-                        </li>
-                        <li class="breadcrumb-item active">{{ todo_list.title }}</li>
-                    </ol>
-                </nav>
-                
-                <h1 class="mb-1">
-                    <i class="fas fa-list text-primary"></i>
-                    {{ todo_list.title }}
-                    {% if todo_list.is_public %}
-                        <span class="badge bg-info ms-2">
-                            <i class="fas fa-globe"></i> Öffentlich
-                        </span>
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm" style="background: linear-gradient(145deg, #f8f9ff 0%, #ffffff 100%);">
+                <div class="card-body">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'todos:home' %}" class="text-decoration-none">
+                            <i class="fas fa-home me-1"></i>ToDo-Listen
+                        </a>
+                    </li>
+                    <li class="breadcrumb-item active">{{ todo_list.title }}</li>
+                </ol>
+            </nav>
+            
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    <h1 class="h3 mb-2 text-dark fw-bold">
+                        <i class="fas fa-list text-primary me-2"></i>
+                        {{ todo_list.title }}
+                        {% if todo_list.is_public %}
+                            <span class="badge bg-info ms-2">
+                                <i class="fas fa-globe"></i> Öffentlich
+                            </span>
+                        {% endif %}
+                    </h1>
+                    
+                    {% if todo_list.description %}
+                        <p class="text-muted mb-2">{{ todo_list.description }}</p>
                     {% endif %}
-                </h1>
+                    
+                    <div class="small text-muted">
+                        <i class="fas fa-user me-1"></i>
+                        Erstellt von {{ todo_list.created_by.get_full_name|default:todo_list.created_by.username }}
+                        <span class="ms-3">
+                            <i class="fas fa-calendar me-1"></i>
+                            {{ todo_list.created_at|date:"d.m.Y H:i" }}
+                        </span>
+                    </div>
+                    
+                    <!-- Progress Bar -->
+                    {% with progress=todo_list.get_progress %}
+                    <div class="mt-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="small text-muted">Gesamtfortschritt</span>
+                            <span class="small fw-semibold">{{ progress }}%</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-success rounded" style="width: {{ progress }}%"></div>
+                        </div>
+                    </div>
+                    {% endwith %}
+                </div>
                 
-                {% if todo_list.description %}
-                    <p class="text-muted mb-0">{{ todo_list.description }}</p>
-                {% endif %}
-                
-                <div class="small text-muted mt-1">
-                    Erstellt von {{ todo_list.created_by.get_full_name|default:todo_list.created_by.username }}
-                    am {{ todo_list.created_at|date:"d.m.Y H:i" }}
+                <div class="d-flex gap-2">
+                    {% if can_edit %}
+                        <a href="{% url 'todos:create_todo' todo_list.pk %}" class="btn btn-primary rounded-pill">
+                            <i class="fas fa-plus me-1"></i> Neues ToDo
+                        </a>
+                    {% endif %}
                 </div>
-            </div>
-            <div class="col-md-4 text-end">
-                {% if can_edit %}
-                    <a href="{% url 'todos:create_todo' todo_list.pk %}" class="btn btn-primary">
-                        <i class="fas fa-plus"></i> Neues ToDo
-                    </a>
-                {% endif %}
-                <div class="btn-group mt-2">
-                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#shareModal">
-                        <i class="fas fa-share"></i> Teilen
-                    </button>
-                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#filterModal">
-                        <i class="fas fa-filter"></i> Filter
-                    </button>
                 </div>
-            </div>
-        </div>
-        
-        <!-- Fortschrittsbalken -->
-        <div class="row mt-3">
-            <div class="col-md-12">
-                {% with progress=todo_list.get_progress %}
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="small text-muted">Gesamtfortschritt</span>
-                    <span class="small text-muted">{{ progress }}%</span>
-                </div>
-                <div class="progress todo-progress">
-                    <div class="progress-bar bg-success" style="width: {{ progress }}%"></div>
-                </div>
-                {% endwith %}
             </div>
         </div>
     </div>
     
     <div class="row">
         <!-- Filter Sidebar -->
-        <div class="col-lg-3">
-            <div class="filter-sidebar p-3">
-                <h6><i class="fas fa-filter"></i> Filter & Sortierung</h6>
-                
-                <form method="get" id="filterForm">
-                    <!-- Status Filter -->
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold">Status</label>
-                        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
-                            <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Alle</option>
-                            <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Steht aus</option>
-                            <option value="in_progress" {% if status_filter == 'in_progress' %}selected{% endif %}>In Bearbeitung</option>
-                            <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Erledigt</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Priorität Filter -->
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold">Priorität</label>
-                        <select name="priority" class="form-select form-select-sm" onchange="this.form.submit()">
-                            <option value="all" {% if priority_filter == 'all' %}selected{% endif %}>Alle</option>
-                            <option value="urgent" {% if priority_filter == 'urgent' %}selected{% endif %}>Dringend</option>
-                            <option value="high" {% if priority_filter == 'high' %}selected{% endif %}>Hoch</option>
-                            <option value="medium" {% if priority_filter == 'medium' %}selected{% endif %}>Mittel</option>
-                            <option value="low" {% if priority_filter == 'low' %}selected{% endif %}>Niedrig</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Zuordnung Filter -->
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold">Zuordnung</label>
-                        <select name="assigned" class="form-select form-select-sm" onchange="this.form.submit()">
-                            <option value="all" {% if assigned_filter == 'all' %}selected{% endif %}>Alle</option>
-                            <option value="me" {% if assigned_filter == 'me' %}selected{% endif %}>Mir zugeordnet</option>
-                            <option value="unassigned" {% if assigned_filter == 'unassigned' %}selected{% endif %}>Nicht zugeordnet</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Sortierung -->
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold">Sortierung</label>
-                        <select name="sort" class="form-select form-select-sm" onchange="this.form.submit()">
-                            <option value="priority" {% if sort_by == 'priority' %}selected{% endif %}>Priorität</option>
-                            <option value="due_date" {% if sort_by == 'due_date' %}selected{% endif %}>Fälligkeitsdatum</option>
-                            <option value="created" {% if sort_by == 'created' %}selected{% endif %}>Erstellungsdatum</option>
-                            <option value="status" {% if sort_by == 'status' %}selected{% endif %}>Status</option>
-                        </select>
-                    </div>
-                    
-                    <a href="{% url 'todos:list_detail' todo_list.pk %}" class="btn btn-sm btn-outline-secondary">
-                        <i class="fas fa-times"></i> Filter zurücksetzen
-                    </a>
-                </form>
-                
-                <!-- Teamitglieder -->
-                <div class="mt-4">
-                    <h6><i class="fas fa-users"></i> Teamitglieder</h6>
+        <div class="col-lg-3 mb-4">
+            <div class="card border-0 shadow-sm" style="background: linear-gradient(145deg, #e8f5e8 0%, #ffffff 100%);">
+                <div class="card-header border-0 py-3" style="background: linear-gradient(145deg, #d4edda 0%, #e8f5e8 100%);">
+                    <h6 class="mb-0 fw-semibold">
+                        <i class="fas fa-filter text-primary me-2"></i>
+                        Filter & Sortierung
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" id="filterForm">
+                        <!-- Status Filter -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Status</label>
+                            <select name="status" class="form-select form-select-sm rounded-pill" onchange="this.form.submit()">
+                                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Alle</option>
+                                <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Steht aus</option>
+                                <option value="in_progress" {% if status_filter == 'in_progress' %}selected{% endif %}>In Bearbeitung</option>
+                                <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Erledigt</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Priority Filter -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Priorität</label>
+                            <select name="priority" class="form-select form-select-sm rounded-pill" onchange="this.form.submit()">
+                                <option value="all" {% if priority_filter == 'all' %}selected{% endif %}>Alle</option>
+                                <option value="urgent" {% if priority_filter == 'urgent' %}selected{% endif %}>Dringend</option>
+                                <option value="high" {% if priority_filter == 'high' %}selected{% endif %}>Hoch</option>
+                                <option value="medium" {% if priority_filter == 'medium' %}selected{% endif %}>Mittel</option>
+                                <option value="low" {% if priority_filter == 'low' %}selected{% endif %}>Niedrig</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Assignment Filter -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Zuordnung</label>
+                            <select name="assigned" class="form-select form-select-sm rounded-pill" onchange="this.form.submit()">
+                                <option value="all" {% if assigned_filter == 'all' %}selected{% endif %}>Alle</option>
+                                <option value="me" {% if assigned_filter == 'me' %}selected{% endif %}>Mir zugeordnet</option>
+                                <option value="unassigned" {% if assigned_filter == 'unassigned' %}selected{% endif %}>Nicht zugeordnet</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Sort -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Sortierung</label>
+                            <select name="sort" class="form-select form-select-sm rounded-pill" onchange="this.form.submit()">
+                                <option value="priority" {% if sort_by == 'priority' %}selected{% endif %}>Priorität</option>
+                                <option value="due_date" {% if sort_by == 'due_date' %}selected{% endif %}>Fälligkeitsdatum</option>
+                                <option value="created" {% if sort_by == 'created' %}selected{% endif %}>Erstellungsdatum</option>
+                                <option value="status" {% if sort_by == 'status' %}selected{% endif %}>Status</option>
+                            </select>
+                        </div>
+                        
+                        <a href="{% url 'todos:list_detail' todo_list.pk %}" class="btn btn-sm btn-outline-secondary rounded-pill w-100">
+                            <i class="fas fa-times me-1"></i> Filter zurücksetzen
+                        </a>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Team Members -->
+            <div class="card border-0 shadow-sm mt-3" style="background: linear-gradient(145deg, #fff3cd 0%, #ffffff 100%);">
+                <div class="card-header border-0 py-3" style="background: linear-gradient(145deg, #ffeaa7 0%, #fff3cd 100%);">
+                    <h6 class="mb-0 fw-semibold">
+                        <i class="fas fa-users text-primary me-2"></i>
+                        Teamitglieder
+                    </h6>
+                </div>
+                <div class="card-body">
                     {% for user in available_users %}
                         <div class="d-flex align-items-center mb-2">
                             <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" 
@@ -137,7 +152,7 @@
                             <div class="ms-2 small">
                                 {{ user.get_full_name|default:user.username }}
                                 {% if user == todo_list.created_by %}
-                                    <span class="badge bg-warning">Ersteller</span>
+                                    <span class="badge bg-warning text-dark">Ersteller</span>
                                 {% endif %}
                             </div>
                         </div>
@@ -146,197 +161,195 @@
             </div>
         </div>
         
-        <!-- ToDo Liste -->
+        <!-- ToDo List -->
         <div class="col-lg-9">
-            {% if todos %}
-                {% for todo in todos %}
-                <div class="todo-card mb-3 p-3 todo-status-{{ todo.status }} priority-{{ todo.priority }} 
-                     {% if todo.is_overdue %}overdue{% endif %}" data-todo-id="{{ todo.id }}">
-                    
-                    <div class="row align-items-center">
-                        <div class="col-md-8">
-                            <div class="d-flex align-items-start">
-                                <div class="me-3">
-                                    <!-- Status Checkboxen -->
-                                    <div class="btn-group-vertical" role="group">
-                                        <input type="radio" class="btn-check status-checkbox" 
-                                               name="status-{{ todo.id }}" 
-                                               id="pending-{{ todo.id }}" 
-                                               value="pending"
-                                               data-todo-id="{{ todo.id }}"
-                                               {% if todo.status == 'pending' %}checked{% endif %}>
-                                        <label class="btn btn-outline-secondary btn-sm" for="pending-{{ todo.id }}" title="Steht aus">
-                                            <i class="fas fa-clock"></i>
-                                        </label>
-                                        
-                                        <input type="radio" class="btn-check status-checkbox" 
-                                               name="status-{{ todo.id }}" 
-                                               id="progress-{{ todo.id }}" 
-                                               value="in_progress"
-                                               data-todo-id="{{ todo.id }}"
-                                               {% if todo.status == 'in_progress' %}checked{% endif %}>
-                                        <label class="btn btn-outline-warning btn-sm" for="progress-{{ todo.id }}" title="In Bearbeitung">
-                                            <i class="fas fa-spinner"></i>
-                                        </label>
-                                        
-                                        <input type="radio" class="btn-check status-checkbox" 
-                                               name="status-{{ todo.id }}" 
-                                               id="completed-{{ todo.id }}" 
-                                               value="completed"
-                                               data-todo-id="{{ todo.id }}"
-                                               {% if todo.status == 'completed' %}checked{% endif %}>
-                                        <label class="btn btn-outline-success btn-sm" for="completed-{{ todo.id }}" title="Erledigt">
-                                            <i class="fas fa-check"></i>
-                                        </label>
-                                    </div>
-                                </div>
-                                
-                                <div class="flex-grow-1">
-                                    <h5 class="mb-1">
-                                        <a href="{% url 'todos:todo_detail' todo.pk %}" class="text-decoration-none">
-                                            {{ todo.title }}
-                                        </a>
-                                    </h5>
-                                    
-                                    {% if todo.description %}
-                                        <p class="text-muted mb-2">{{ todo.description|truncatewords:20 }}</p>
-                                    {% endif %}
-                                    
-                                    <div class="d-flex flex-wrap gap-2 align-items-center">
-                                        <!-- Status Badge -->
-                                        <span class="badge {{ todo.get_status_color }} status-badge">
-                                            {{ todo.get_status_display }}
-                                        </span>
-                                        
-                                        <!-- Priorität Badge -->
-                                        <span class="badge bg-secondary {{ todo.get_priority_color }}">
-                                            {{ todo.get_priority_display }}
-                                        </span>
-                                        
-                                        <!-- Fälligkeitsdatum -->
-                                        {% if todo.due_date %}
-                                            <span class="small {% if todo.is_overdue %}text-danger{% else %}text-muted{% endif %}">
-                                                <i class="fas fa-calendar"></i>
-                                                {{ todo.due_date|date:"d.m.Y H:i" }}
-                                                {% if todo.is_overdue %}
-                                                    <span class="badge bg-danger">Überfällig</span>
-                                                {% endif %}
-                                            </span>
-                                        {% endif %}
-                                        
-                                        <!-- Ersteller -->
-                                        <span class="small text-muted">
-                                            <i class="fas fa-user"></i>
-                                            {{ todo.created_by.get_full_name|default:todo.created_by.username }}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-4">
-                            <!-- Zuordnungen -->
-                            <div class="mb-2">
-                                <div class="small text-muted mb-1">Zugeordnet an:</div>
-                                <div class="assignment-display">
-                                    {{ todo.get_assigned_users_display }}
-                                </div>
-                            </div>
-                            
-                            <!-- Aktionen -->
-                            {% if can_edit %}
-                                <div class="btn-group">
-                                    <button class="btn btn-sm btn-outline-primary" 
-                                            data-bs-toggle="modal" 
-                                            data-bs-target="#assignModal"
-                                            data-todo-id="{{ todo.id }}"
-                                            data-todo-title="{{ todo.title }}">
-                                        <i class="fas fa-user-plus"></i>
-                                    </button>
-                                    <a href="{% url 'todos:todo_detail' todo.pk %}" class="btn btn-sm btn-outline-secondary">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                </div>
-                            {% endif %}
-                        </div>
+            <div class="card border-0 shadow-sm" style="background: linear-gradient(145deg, #f0f8ff 0%, #ffffff 100%);">
+                <div class="card-header border-0 py-3" style="background: linear-gradient(145deg, #e3f2fd 0%, #f0f8ff 100%);">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 fw-semibold">
+                            <i class="fas fa-tasks text-primary me-2"></i>
+                            Aufgaben
+                        </h5>
+                        <span class="badge bg-light text-dark">{{ todos.paginator.count }} Gesamt</span>
                     </div>
                 </div>
-                {% endfor %}
-                
-                <!-- Pagination -->
-                {% if todos.has_other_pages %}
-                    <nav aria-label="ToDo Pagination">
-                        <ul class="pagination justify-content-center">
-                            {% if todos.has_previous %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ todos.previous_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.priority %}&priority={{ request.GET.priority }}{% endif %}{% if request.GET.assigned %}&assigned={{ request.GET.assigned }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}">Zurück</a>
-                                </li>
-                            {% endif %}
-                            
-                            {% for num in todos.paginator.page_range %}
-                                {% if todos.number == num %}
-                                    <li class="page-item active">
-                                        <span class="page-link">{{ num }}</span>
-                                    </li>
-                                {% else %}
-                                    <li class="page-item">
-                                        <a class="page-link" href="?page={{ num }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.priority %}&priority={{ request.GET.priority }}{% endif %}{% if request.GET.assigned %}&assigned={{ request.GET.assigned }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}">{{ num }}</a>
-                                    </li>
-                                {% endif %}
+                <div class="card-body p-0">
+                    {% if todos %}
+                        <div class="list-group list-group-flush">
+                            {% for todo in todos %}
+                                <div class="list-group-item border-0 py-3 
+                                    {% if todo.status == 'pending' %}border-start border-warning border-3{% endif %}
+                                    {% if todo.status == 'in_progress' %}border-start border-primary border-3{% endif %}
+                                    {% if todo.status == 'completed' %}border-start border-success border-3{% endif %}
+                                    {% if todo.priority == 'urgent' %}bg-danger bg-opacity-10{% endif %}
+                                    {% if todo.priority == 'high' %}bg-warning bg-opacity-10{% endif %}">
+                                    
+                                    <div class="d-flex align-items-start">
+                                        <!-- Status Checkbox -->
+                                        <div class="form-check me-3 mt-1">
+                                            <input class="form-check-input todo-status-checkbox" 
+                                                   type="checkbox" 
+                                                   data-todo-id="{{ todo.id }}"
+                                                   {% if todo.status == 'completed' %}checked{% endif %}>
+                                        </div>
+                                        
+                                        <!-- Todo Content -->
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <h6 class="mb-1 fw-semibold {% if todo.status == 'completed' %}text-decoration-line-through text-muted{% endif %}">
+                                                    <a href="{% url 'todos:todo_detail' todo.pk %}" class="text-decoration-none">
+                                                        {{ todo.title }}
+                                                    </a>
+                                                </h6>
+                                                
+                                                <!-- Status Bubble -->
+                                                <div class="dropdown">
+                                                    <button class="btn btn-sm dropdown-toggle rounded-pill px-3 py-2
+                                                        {% if todo.status == 'pending' %}btn-outline-warning
+                                                        {% elif todo.status == 'in_progress' %}btn-outline-primary
+                                                        {% elif todo.status == 'completed' %}btn-outline-success
+                                                        {% endif %}" 
+                                                            data-bs-toggle="dropdown" aria-expanded="false" 
+                                                            style="box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-width: 2px;">
+                                                        <span class="status-display position-relative">
+                                                            {% if todo.status == 'pending' %}
+                                                                <i class="fas fa-clock text-warning"></i> Steht aus
+                                                                <span class="position-absolute top-0 start-100 translate-middle p-1 bg-warning border border-2 border-light rounded-circle" style="width: 0.5rem; height: 0.5rem;"></span>
+                                                            {% elif todo.status == 'in_progress' %}
+                                                                <i class="fas fa-play text-primary"></i> In Bearbeitung
+                                                                <span class="position-absolute top-0 start-100 translate-middle p-1 bg-primary border border-2 border-light rounded-circle" style="width: 0.5rem; height: 0.5rem;"></span>
+                                                            {% elif todo.status == 'completed' %}
+                                                                <i class="fas fa-check text-success"></i> Erledigt
+                                                                <span class="position-absolute top-0 start-100 translate-middle p-1 bg-success border border-2 border-light rounded-circle" style="width: 0.5rem; height: 0.5rem;"></span>
+                                                            {% endif %}
+                                                        </span>
+                                                    </button>
+                                                    <ul class="dropdown-menu">
+                                                        <li><a class="dropdown-item status-option" href="#" data-todo-id="{{ todo.id }}" data-status="pending">
+                                                            <i class="fas fa-clock text-warning me-2"></i>Steht aus
+                                                        </a></li>
+                                                        <li><a class="dropdown-item status-option" href="#" data-todo-id="{{ todo.id }}" data-status="in_progress">
+                                                            <i class="fas fa-play text-primary me-2"></i>In Bearbeitung
+                                                        </a></li>
+                                                        <li><a class="dropdown-item status-option" href="#" data-todo-id="{{ todo.id }}" data-status="completed">
+                                                            <i class="fas fa-check text-success me-2"></i>Erledigt
+                                                        </a></li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                            
+                                            {% if todo.description %}
+                                                <p class="mb-2 text-muted small">{{ todo.description|truncatewords:20 }}</p>
+                                            {% endif %}
+                                            
+                                            <div class="d-flex align-items-center flex-wrap gap-2">
+                                                <!-- Priority Bubble -->
+                                                <span class="badge position-relative
+                                                    {% if todo.priority == 'urgent' %}bg-danger
+                                                    {% elif todo.priority == 'high' %}bg-warning text-dark
+                                                    {% elif todo.priority == 'medium' %}bg-info
+                                                    {% else %}bg-secondary
+                                                    {% endif %} 
+                                                    rounded-pill px-3 py-2" style="font-size: 0.75rem; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+                                                    <i class="fas fa-flag me-1" style="font-size: 0.7rem;"></i>
+                                                    {{ todo.get_priority_display }}
+                                                    <span class="position-absolute top-0 start-100 translate-middle p-1 bg-white border border-2 border-light rounded-circle" style="width: 0.5rem; height: 0.5rem;"></span>
+                                                </span>
+                                                
+                                                <!-- Due Date -->
+                                                {% if todo.due_date %}
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-calendar me-1"></i>
+                                                        {{ todo.due_date|date:"d.m.Y" }}
+                                                        {% if todo.due_date < today %}
+                                                            <span class="text-danger fw-semibold">(Überfällig)</span>
+                                                        {% endif %}
+                                                    </small>
+                                                {% endif %}
+                                                
+                                                <!-- Assigned Users -->
+                                                {% if todo.assigned_to.all %}
+                                                    <div class="d-flex align-items-center">
+                                                        <small class="text-muted me-1">
+                                                            <i class="fas fa-user"></i>
+                                                        </small>
+                                                        {% for user in todo.assigned_to.all %}
+                                                            <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center me-1" 
+                                                                 style="width: 20px; height: 20px; font-size: 0.65rem;" 
+                                                                 title="{{ user.get_full_name|default:user.username }}">
+                                                                {{ user.get_full_name.0|default:user.username.0|upper }}
+                                                            </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                {% endif %}
+                                                
+                                                <!-- Created Info -->
+                                                <small class="text-muted">
+                                                    <i class="fas fa-user-plus me-1"></i>
+                                                    {{ todo.created_by.get_full_name|default:todo.created_by.username }}
+                                                </small>
+                                                
+                                                <small class="text-muted">
+                                                    <i class="fas fa-clock me-1"></i>
+                                                    {{ todo.created_at|date:"d.m.Y H:i" }}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             {% endfor %}
-                            
-                            {% if todos.has_next %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ todos.next_page_number }}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.priority %}&priority={{ request.GET.priority }}{% endif %}{% if request.GET.assigned %}&assigned={{ request.GET.assigned }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}">Weiter</a>
-                                </li>
-                            {% endif %}
-                        </ul>
-                    </nav>
-                {% endif %}
-                
-            {% else %}
-                <div class="text-center py-5">
-                    <i class="fas fa-tasks fa-3x text-muted mb-3"></i>
-                    <h5 class="text-muted">Keine ToDos gefunden</h5>
-                    <p class="text-muted">
-                        {% if status_filter != 'all' or priority_filter != 'all' or assigned_filter != 'all' %}
-                            Versuchen Sie andere Filtereinstellungen oder erstellen Sie ein neues ToDo.
-                        {% else %}
-                            Erstellen Sie Ihr erstes ToDo für diese Liste.
-                        {% endif %}
-                    </p>
-                    {% if can_edit %}
-                        <a href="{% url 'todos:create_todo' todo_list.pk %}" class="btn btn-primary">
-                            <i class="fas fa-plus"></i> Erstes ToDo erstellen
-                        </a>
-                    {% endif %}
-                </div>
-            {% endif %}
-        </div>
-    </div>
-</div>
-
-<!-- Zuordnungsmodal -->
-<div class="modal fade" id="assignModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">ToDo zuordnen</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>ToDo: <strong id="assignModalTodoTitle"></strong></p>
-                <div id="assignModalUsers">
-                    {% for user in available_users %}
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span>{{ user.get_full_name|default:user.username }}</span>
-                            <button class="btn btn-sm btn-outline-primary assign-btn" 
-                                    data-user-id="{{ user.id }}" 
-                                    data-action="assign">
-                                <i class="fas fa-plus"></i> Zuordnen
-                            </button>
                         </div>
-                    {% endfor %}
+                        
+                        <!-- Pagination -->
+                        {% if todos.has_other_pages %}
+                            <div class="card-footer bg-light border-0">
+                                <nav aria-label="Todo pagination">
+                                    <ul class="pagination pagination-sm justify-content-center mb-0">
+                                        {% if todos.has_previous %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?page={{ todos.previous_page_number }}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if priority_filter != 'all' %}&priority={{ priority_filter }}{% endif %}{% if assigned_filter != 'all' %}&assigned={{ assigned_filter }}{% endif %}{% if sort_by != 'priority' %}&sort={{ sort_by }}{% endif %}">Zurück</a>
+                                            </li>
+                                        {% endif %}
+                                        
+                                        {% for num in todos.paginator.page_range %}
+                                            {% if num == todos.number %}
+                                                <li class="page-item active">
+                                                    <span class="page-link">{{ num }}</span>
+                                                </li>
+                                            {% elif num > todos.number|add:'-3' and num < todos.number|add:'3' %}
+                                                <li class="page-item">
+                                                    <a class="page-link" href="?page={{ num }}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if priority_filter != 'all' %}&priority={{ priority_filter }}{% endif %}{% if assigned_filter != 'all' %}&assigned={{ assigned_filter }}{% endif %}{% if sort_by != 'priority' %}&sort={{ sort_by }}{% endif %}">{{ num }}</a>
+                                                </li>
+                                            {% endif %}
+                                        {% endfor %}
+                                        
+                                        {% if todos.has_next %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?page={{ todos.next_page_number }}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if priority_filter != 'all' %}&priority={{ priority_filter }}{% endif %}{% if assigned_filter != 'all' %}&assigned={{ assigned_filter }}{% endif %}{% if sort_by != 'priority' %}&sort={{ sort_by }}{% endif %}">Weiter</a>
+                                            </li>
+                                        {% endif %}
+                                    </ul>
+                                </nav>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Keine ToDos gefunden</h5>
+                            <p class="text-muted">
+                                {% if status_filter != 'all' or priority_filter != 'all' or assigned_filter != 'all' %}
+                                    Keine ToDos entsprechen den aktuellen Filterkriterien.
+                                {% else %}
+                                    Diese Liste enthält noch keine Aufgaben.
+                                {% endif %}
+                            </p>
+                            {% if can_edit %}
+                                <a href="{% url 'todos:create_todo' todo_list.pk %}" class="btn btn-primary rounded-pill">
+                                    <i class="fas fa-plus me-1"></i> Erste Aufgabe erstellen
+                                </a>
+                            {% endif %}
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -345,20 +358,136 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Assign Modal Setup
-    const assignModal = document.getElementById('assignModal');
-    assignModal.addEventListener('show.bs.modal', function(event) {
-        const button = event.relatedTarget;
-        const todoId = button.getAttribute('data-todo-id');
-        const todoTitle = button.getAttribute('data-todo-title');
-        
-        document.getElementById('assignModalTodoTitle').textContent = todoTitle;
-        
-        // Update assign buttons with current todo id
-        assignModal.querySelectorAll('.assign-btn').forEach(btn => {
-            btn.setAttribute('data-todo-id', todoId);
+    // Todo status checkbox handling
+    const checkboxes = document.querySelectorAll('.todo-status-checkbox');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const todoId = this.dataset.todoId;
+            const isCompleted = this.checked;
+            const newStatus = isCompleted ? 'completed' : 'pending';
+            
+            updateTodoStatus(todoId, newStatus, this);
         });
     });
+    
+    // Status dropdown handling
+    const statusOptions = document.querySelectorAll('.status-option');
+    
+    statusOptions.forEach(option => {
+        option.addEventListener('click', function(e) {
+            e.preventDefault();
+            const todoId = this.dataset.todoId;
+            const newStatus = this.dataset.status;
+            
+            updateTodoStatus(todoId, newStatus, null, this);
+        });
+    });
+    
+    function updateTodoStatus(todoId, status, checkbox, statusButton) {
+        fetch(`/todos/api/todo/${todoId}/status/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                status: status
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update UI
+                const todoItem = (checkbox || statusButton).closest('.list-group-item');
+                const titleElement = todoItem.querySelector('h6');
+                const checkboxElement = todoItem.querySelector('.todo-status-checkbox');
+                const statusDisplay = todoItem.querySelector('.status-display');
+                
+                // Update checkbox
+                if (checkboxElement) {
+                    checkboxElement.checked = status === 'completed';
+                }
+                
+                // Update title styling
+                if (status === 'completed') {
+                    titleElement.classList.add('text-decoration-line-through', 'text-muted');
+                } else {
+                    titleElement.classList.remove('text-decoration-line-through', 'text-muted');
+                }
+                
+                // Update status display with bubble style
+                if (statusDisplay) {
+                    let statusHTML = '';
+                    const statusButton = statusDisplay.closest('button');
+                    if (status === 'pending') {
+                        statusHTML = '<i class="fas fa-clock text-warning"></i> Steht aus<span class="position-absolute top-0 start-100 translate-middle p-1 bg-warning border border-2 border-light rounded-circle" style="width: 0.5rem; height: 0.5rem;"></span>';
+                        todoItem.className = todoItem.className.replace(/border-start border-\w+ border-3/g, '') + ' border-start border-warning border-3';
+                        statusButton.className = statusButton.className.replace(/btn-outline-(warning|primary|success)/g, 'btn-outline-warning');
+                    } else if (status === 'in_progress') {
+                        statusHTML = '<i class="fas fa-play text-primary"></i> In Bearbeitung<span class="position-absolute top-0 start-100 translate-middle p-1 bg-primary border border-2 border-light rounded-circle" style="width: 0.5rem; height: 0.5rem;"></span>';
+                        todoItem.className = todoItem.className.replace(/border-start border-\w+ border-3/g, '') + ' border-start border-primary border-3';
+                        statusButton.className = statusButton.className.replace(/btn-outline-(warning|primary|success)/g, 'btn-outline-primary');
+                    } else if (status === 'completed') {
+                        statusHTML = '<i class="fas fa-check text-success"></i> Erledigt<span class="position-absolute top-0 start-100 translate-middle p-1 bg-success border border-2 border-light rounded-circle" style="width: 0.5rem; height: 0.5rem;"></span>';
+                        todoItem.className = todoItem.className.replace(/border-start border-\w+ border-3/g, '') + ' border-start border-success border-3';
+                        statusButton.className = statusButton.className.replace(/btn-outline-(warning|primary|success)/g, 'btn-outline-success');
+                    }
+                    statusDisplay.innerHTML = statusHTML;
+                }
+                
+                // Show success message
+                showAlert('Status erfolgreich aktualisiert', 'success');
+            } else {
+                // Revert checkbox state if applicable
+                if (checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                }
+                showAlert('Fehler beim Aktualisieren des Status: ' + data.error, 'danger');
+            }
+        })
+        .catch(error => {
+            // Revert checkbox state if applicable
+            if (checkbox) {
+                checkbox.checked = !checkbox.checked;
+            }
+            showAlert('Fehler beim Aktualisieren des Status', 'danger');
+            console.error('Error:', error);
+        });
+    }
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    function showAlert(message, type) {
+        const alertContainer = document.getElementById('alert-container');
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-dismissible fade show`;
+        alert.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        alertContainer.appendChild(alert);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (alert.parentNode) {
+                alert.remove();
+            }
+        }, 5000);
+    }
 });
 </script>
 {% endblock %}

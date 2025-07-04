@@ -144,10 +144,30 @@
             {% if inhaltsverzeichnis %}
             <div class="card">
                 <div class="card-header">
-                    <h5><i class="fas fa-list"></i> Inhaltsverzeichnis</h5>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-list"></i> Inhaltsverzeichnis</h5>
+                        {% if user.is_authenticated %}
+                            <button class="btn btn-sm btn-outline-primary" id="editInhaltsverzeichnisBtn" title="Inhaltsverzeichnis bearbeiten">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        {% endif %}
+                    </div>
                 </div>
                 <div class="card-body">
-                    <pre class="text-muted small">{{ inhaltsverzeichnis }}</pre>
+                    <div id="inhaltsverzeichnisView">
+                        <pre class="text-muted small">{{ inhaltsverzeichnis }}</pre>
+                    </div>
+                    <div id="inhaltsverzeichnisEdit" style="display: none;">
+                        <textarea class="form-control" id="inhaltsverzeichnisTextarea" rows="15">{{ inhaltsverzeichnis }}</textarea>
+                        <div class="mt-3">
+                            <button class="btn btn-success btn-sm" id="saveInhaltsverzeichnisBtn">
+                                <i class="fas fa-save"></i> Speichern
+                            </button>
+                            <button class="btn btn-secondary btn-sm ms-2" id="cancelInhaltsverzeichnisBtn">
+                                <i class="fas fa-times"></i> Abbrechen
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
             {% endif %}
@@ -919,6 +939,104 @@ document.addEventListener('DOMContentLoaded', function() {
                     alert('Ein Fehler ist aufgetreten beim Löschen des Themas.');
                 });
             }
+        });
+    }
+    
+    // ============================
+    // Inhaltsverzeichnis Bearbeitung
+    // ============================
+    
+    const editInhaltsverzeichnisBtn = document.getElementById('editInhaltsverzeichnisBtn');
+    const saveInhaltsverzeichnisBtn = document.getElementById('saveInhaltsverzeichnisBtn');
+    const cancelInhaltsverzeichnisBtn = document.getElementById('cancelInhaltsverzeichnisBtn');
+    const inhaltsverzeichnisView = document.getElementById('inhaltsverzeichnisView');
+    const inhaltsverzeichnisEdit = document.getElementById('inhaltsverzeichnisEdit');
+    const inhaltsverzeichnisTextarea = document.getElementById('inhaltsverzeichnisTextarea');
+    
+    let originalContent = '';
+    
+    // Edit-Button Klick
+    if (editInhaltsverzeichnisBtn) {
+        editInhaltsverzeichnisBtn.addEventListener('click', function() {
+            // Speichere ursprünglichen Inhalt
+            originalContent = inhaltsverzeichnisTextarea.value;
+            
+            // UI umschalten
+            inhaltsverzeichnisView.style.display = 'none';
+            inhaltsverzeichnisEdit.style.display = 'block';
+            this.style.display = 'none';
+            
+            // Focus auf Textarea
+            inhaltsverzeichnisTextarea.focus();
+        });
+    }
+    
+    // Cancel-Button Klick
+    if (cancelInhaltsverzeichnisBtn) {
+        cancelInhaltsverzeichnisBtn.addEventListener('click', function() {
+            // Ursprünglichen Inhalt wiederherstellen
+            inhaltsverzeichnisTextarea.value = originalContent;
+            
+            // UI zurückschalten
+            inhaltsverzeichnisEdit.style.display = 'none';
+            inhaltsverzeichnisView.style.display = 'block';
+            editInhaltsverzeichnisBtn.style.display = 'inline-block';
+        });
+    }
+    
+    // Save-Button Klick
+    if (saveInhaltsverzeichnisBtn) {
+        saveInhaltsverzeichnisBtn.addEventListener('click', function() {
+            const content = inhaltsverzeichnisTextarea.value;
+            const themaId = {{ thema.id }};
+            
+            // Loading state
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Speichert...';
+            
+            // AJAX Request
+            const formData = new FormData();
+            formData.append('content', content);
+            formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+            
+            fetch(`/naturmacher/thema/${themaId}/inhaltsverzeichnis/save/`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Erfolg - UI aktualisieren
+                    const preElement = inhaltsverzeichnisView.querySelector('pre');
+                    preElement.textContent = content;
+                    
+                    // UI zurückschalten
+                    inhaltsverzeichnisEdit.style.display = 'none';
+                    inhaltsverzeichnisView.style.display = 'block';
+                    editInhaltsverzeichnisBtn.style.display = 'inline-block';
+                    
+                    // Erfolgs-Benachrichtigung
+                    alert('Inhaltsverzeichnis erfolgreich gespeichert!');
+                    
+                    // Button zurücksetzen
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-save"></i> Speichern';
+                } else {
+                    alert('Fehler beim Speichern: ' + data.error);
+                    
+                    // Button zurücksetzen
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-save"></i> Speichern';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Fehler beim Speichern des Inhaltsverzeichnisses');
+                
+                // Button zurücksetzen
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-save"></i> Speichern';
+            });
         });
     }
 });
