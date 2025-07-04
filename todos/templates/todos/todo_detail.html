@@ -1,0 +1,387 @@
+{% extends 'todos/base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <div id="alert-container"></div>
+    
+    <!-- Header -->
+    <div class="todo-nav">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'todos:home' %}">ToDo-Listen</a>
+                        </li>
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'todos:list_detail' todo.todo_list.pk %}">{{ todo.todo_list.title }}</a>
+                        </li>
+                        <li class="breadcrumb-item active">{{ todo.title }}</li>
+                    </ol>
+                </nav>
+                
+                <h1 class="mb-1">
+                    {{ todo.title }}
+                </h1>
+                
+                <!-- Status und Priorität Badges -->
+                <div class="d-flex gap-2 mb-2">
+                    <span class="badge {{ todo.get_status_color }} status-badge">
+                        {{ todo.get_status_display }}
+                    </span>
+                    <span class="badge {{ todo.get_priority_color }}">
+                        {{ todo.get_priority_display }}
+                    </span>
+                    {% if todo.is_overdue %}
+                        <span class="badge bg-danger">Überfällig</span>
+                    {% endif %}
+                </div>
+                
+                <div class="small text-muted">
+                    Erstellt von {{ todo.created_by.get_full_name|default:todo.created_by.username }}
+                    am {{ todo.created_at|date:"d.m.Y H:i" }}
+                </div>
+            </div>
+            <div class="col-md-4 text-end">
+                <a href="{% url 'todos:list_detail' todo.todo_list.pk %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück zur Liste
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Hauptinhalt -->
+        <div class="col-lg-8">
+            <!-- ToDo Details -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <!-- Status Update -->
+                    {% if can_edit %}
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Status ändern</label>
+                        <div class="btn-group" role="group" data-todo-id="{{ todo.id }}">
+                            <input type="radio" class="btn-check status-checkbox" 
+                                   name="status-{{ todo.id }}" 
+                                   id="pending-detail" 
+                                   value="pending"
+                                   data-todo-id="{{ todo.id }}"
+                                   {% if todo.status == 'pending' %}checked{% endif %}>
+                            <label class="btn btn-outline-secondary" for="pending-detail">
+                                <i class="fas fa-clock"></i> Steht aus
+                            </label>
+                            
+                            <input type="radio" class="btn-check status-checkbox" 
+                                   name="status-{{ todo.id }}" 
+                                   id="progress-detail" 
+                                   value="in_progress"
+                                   data-todo-id="{{ todo.id }}"
+                                   {% if todo.status == 'in_progress' %}checked{% endif %}>
+                            <label class="btn btn-outline-warning" for="progress-detail">
+                                <i class="fas fa-spinner"></i> In Bearbeitung
+                            </label>
+                            
+                            <input type="radio" class="btn-check status-checkbox" 
+                                   name="status-{{ todo.id }}" 
+                                   id="completed-detail" 
+                                   value="completed"
+                                   data-todo-id="{{ todo.id }}"
+                                   {% if todo.status == 'completed' %}checked{% endif %}>
+                            <label class="btn btn-outline-success" for="completed-detail">
+                                <i class="fas fa-check"></i> Erledigt
+                            </label>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Beschreibung -->
+                    {% if todo.description %}
+                    <div class="mb-4">
+                        <h5>Beschreibung</h5>
+                        <div class="p-3 bg-light rounded">
+                            {{ todo.description|linebreaks }}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Details Grid -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Zeitinformationen</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><i class="fas fa-plus text-muted"></i> Erstellt:</td>
+                                    <td>{{ todo.created_at|date:"d.m.Y H:i" }}</td>
+                                </tr>
+                                <tr>
+                                    <td><i class="fas fa-edit text-muted"></i> Aktualisiert:</td>
+                                    <td>{{ todo.updated_at|date:"d.m.Y H:i" }}</td>
+                                </tr>
+                                {% if todo.due_date %}
+                                <tr>
+                                    <td><i class="fas fa-calendar text-muted"></i> Fällig:</td>
+                                    <td class="{% if todo.is_overdue %}text-danger{% endif %}">
+                                        {{ todo.due_date|date:"d.m.Y H:i" }}
+                                        {% if todo.is_overdue %}
+                                            <span class="badge bg-danger ms-1">Überfällig</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% if todo.completed_at %}
+                                <tr>
+                                    <td><i class="fas fa-check-circle text-success"></i> Erledigt:</td>
+                                    <td class="text-success">{{ todo.completed_at|date:"d.m.Y H:i" }}</td>
+                                </tr>
+                                {% endif %}
+                            </table>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h6>Zuordnungen</h6>
+                            {% if todo.assignments.exists %}
+                                {% for assignment in todo.assignments.all %}
+                                <div class="d-flex align-items-center mb-2">
+                                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" 
+                                         style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                        {{ assignment.user.get_full_name.0|default:assignment.user.username.0|upper }}
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div class="small fw-bold">{{ assignment.user.get_full_name|default:assignment.user.username }}</div>
+                                        <div class="small text-muted">
+                                            Zugeordnet {{ assignment.assigned_at|timesince }} ago
+                                            von {{ assignment.assigned_by.get_full_name|default:assignment.assigned_by.username }}
+                                        </div>
+                                    </div>
+                                    {% if can_edit %}
+                                    <button class="btn btn-sm btn-outline-danger assign-btn" 
+                                            data-todo-id="{{ todo.id }}"
+                                            data-user-id="{{ assignment.user.id }}"
+                                            data-action="unassign"
+                                            title="Zuordnung entfernen">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted">Niemandem zugeordnet</p>
+                            {% endif %}
+                            
+                            <!-- Benutzer hinzufügen -->
+                            {% if can_edit %}
+                            <div class="mt-3">
+                                <button class="btn btn-sm btn-outline-primary" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#assignModal">
+                                    <i class="fas fa-user-plus"></i> Benutzer hinzufügen
+                                </button>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Kommentare -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-comments"></i>
+                        Kommentare ({{ comments.count }})
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Kommentar hinzufügen -->
+                    {% if can_edit %}
+                    <form id="commentForm" class="mb-4">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <textarea class="form-control" id="commentContent" name="content" 
+                                      rows="3" placeholder="Kommentar hinzufügen..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-comment"></i> Kommentar hinzufügen
+                        </button>
+                    </form>
+                    {% endif %}
+                    
+                    <!-- Kommentare anzeigen -->
+                    <div id="commentsList">
+                        {% for comment in comments %}
+                        <div class="border-bottom pb-3 mb-3">
+                            <div class="d-flex align-items-start">
+                                <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center me-3" 
+                                     style="width: 40px; height: 40px; font-size: 0.9rem;">
+                                    {{ comment.user.get_full_name.0|default:comment.user.username.0|upper }}
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <strong>{{ comment.user.get_full_name|default:comment.user.username }}</strong>
+                                        <small class="text-muted">{{ comment.created_at|date:"d.m.Y H:i" }}</small>
+                                    </div>
+                                    <div>{{ comment.content|linebreaks }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p class="text-muted">Noch keine Kommentare vorhanden.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Aktivitäten -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-history"></i>
+                        Aktivitätsverlauf
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% for activity in activities %}
+                    <div class="activity-item activity-{{ activity.activity_type }}">
+                        <div class="d-flex justify-content-between align-items-start mb-1">
+                            <strong class="small">{{ activity.user.get_full_name|default:activity.user.username }}</strong>
+                            <small class="text-muted">{{ activity.created_at|timesince }} ago</small>
+                        </div>
+                        <div class="small text-muted">{{ activity.description }}</div>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted small">Keine Aktivitäten verfügbar.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Zuordnungsmodal -->
+<div class="modal fade" id="assignModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Benutzer zuordnen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                {% for user in available_users %}
+                    {% if user not in todo.assigned_to.all %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" 
+                                 style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                {{ user.get_full_name.0|default:user.username.0|upper }}
+                            </div>
+                            <span>{{ user.get_full_name|default:user.username }}</span>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary assign-btn" 
+                                data-todo-id="{{ todo.id }}"
+                                data-user-id="{{ user.id }}" 
+                                data-action="assign">
+                            <i class="fas fa-plus"></i> Zuordnen
+                        </button>
+                    </div>
+                    {% endif %}
+                {% empty %}
+                    <p class="text-muted">Alle verfügbaren Benutzer sind bereits zugeordnet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Kommentar-Formular
+    const commentForm = document.getElementById('commentForm');
+    if (commentForm) {
+        commentForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const content = document.getElementById('commentContent').value.trim();
+            if (!content) return;
+            
+            const formData = new FormData();
+            formData.append('content', content);
+            formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+            
+            fetch(`/todos/api/todo/{{ todo.id }}/comment/`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Kommentar zur Liste hinzufügen
+                    const commentsList = document.getElementById('commentsList');
+                    const newComment = document.createElement('div');
+                    newComment.className = 'border-bottom pb-3 mb-3';
+                    newComment.innerHTML = `
+                        <div class="d-flex align-items-start">
+                            <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center me-3" 
+                                 style="width: 40px; height: 40px; font-size: 0.9rem;">
+                                ${data.user_name.charAt(0).toUpperCase()}
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <strong>${data.user_name}</strong>
+                                    <small class="text-muted">${data.created_at}</small>
+                                </div>
+                                <div>${data.content.replace(/\n/g, '<br>')}</div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Entferne "Keine Kommentare" Nachricht
+                    const noComments = commentsList.querySelector('.text-muted');
+                    if (noComments && noComments.textContent.includes('Noch keine Kommentare')) {
+                        noComments.remove();
+                    }
+                    
+                    commentsList.insertBefore(newComment, commentsList.firstChild);
+                    
+                    // Formular zurücksetzen
+                    document.getElementById('commentContent').value = '';
+                    
+                    showAlert('Kommentar hinzugefügt', 'success');
+                } else {
+                    showAlert('Fehler: ' + data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('Verbindungsfehler', 'danger');
+            });
+        });
+    }
+    
+    // Assign Modal schließen nach Zuordnung
+    document.addEventListener('click', function(e) {
+        if (e.target.matches('.assign-btn') || e.target.closest('.assign-btn')) {
+            const button = e.target.closest('.assign-btn');
+            const action = button.dataset.action;
+            
+            if (action === 'assign') {
+                // Modal nach erfolgreicher Zuordnung schließen
+                setTimeout(() => {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('assignModal'));
+                    if (modal) {
+                        modal.hide();
+                        // Seite nach kurzer Verzögerung neu laden
+                        setTimeout(() => location.reload(), 500);
+                    }
+                }, 1000);
+            } else if (action === 'unassign') {
+                // Seite nach Entfernung neu laden
+                setTimeout(() => location.reload(), 1000);
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

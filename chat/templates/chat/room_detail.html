@@ -1,0 +1,311 @@
+{% extends 'chat/base.html' %}
+{% load chat_extras %}
+
+{% block content %}
+<div class="container-fluid h-100">
+    <div id="alert-container"></div>
+    
+    <div class="row h-100">
+        <!-- Chat Messages -->
+        <div class="col-12">
+            <div class="chat-container rounded-3 shadow-sm border-0 bg-white">
+                <!-- Chat Header -->
+                <div class="chat-header bg-white border-bottom p-3">
+                    <div class="d-flex align-items-center">
+                        <a href="{% url 'chat:home' %}" class="text-muted me-3 text-decoration-none">
+                            <i class="fas fa-arrow-left fs-5"></i>
+                        </a>
+                        
+                        <div class="user-avatar bg-primary text-white me-3 rounded-circle d-flex align-items-center justify-content-center" style="width: 45px; height: 45px;">
+                            {% if chat_room.is_group_chat %}
+                                <i class="fas fa-users"></i>
+                            {% else %}
+                                {% with other_user=chat_room|get_other_participant:request.user %}
+                                    {% if other_user %}
+                                        {{ other_user.get_full_name.0|default:other_user.username.0|upper }}
+                                    {% else %}
+                                        {{ chat_room.created_by.get_full_name.0|default:chat_room.created_by.username.0|upper }}
+                                    {% endif %}
+                                {% endwith %}
+                            {% endif %}
+                        </div>
+                        
+                        <div class="flex-grow-1">
+                            <h5 class="mb-0 text-dark fw-semibold">{{ chat_room.name|default:chat_room }}</h5>
+                            {% if chat_room.is_group_chat %}
+                                <small class="text-muted">
+                                    <i class="fas fa-users"></i>
+                                    {{ participants.count }} Teilnehmer
+                                </small>
+                            {% else %}
+                                {% with other_user=chat_room|get_other_participant:request.user %}
+                                    {% if other_user %}
+                                        <small class="text-muted">
+                                            <i class="fas fa-circle text-success" style="font-size: 0.6rem;"></i>
+                                            Online
+                                        </small>
+                                    {% endif %}
+                                {% endwith %}
+                            {% endif %}
+                        </div>
+                        
+                        {% if chat_room.is_group_chat %}
+                            <button class="btn btn-sm btn-outline-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#participantsModal">
+                                <i class="fas fa-users"></i>
+                            </button>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Messages Container -->
+                <div class="messages-container bg-light" id="messagesContainer" style="height: 60vh; overflow-y: auto; padding: 1rem;">
+                    {% for message in messages %}
+                        <div class="message mb-3 {% if message.sender == request.user %}message-own{% else %}message-other{% endif %}">
+                            <div class="d-flex {% if message.sender == request.user %}justify-content-end{% else %}justify-content-start{% endif %}">
+                                {% if message.sender != request.user %}
+                                    <div class="user-avatar bg-secondary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" style="width: 35px; height: 35px; font-size: 0.8rem;">
+                                        {{ message.sender.get_full_name.0|default:message.sender.username.0|upper }}
+                                    </div>
+                                {% endif %}
+                                
+                                <div class="message-content" style="max-width: 75%;">
+                                    {% if message.reply_to %}
+                                        <div class="message-reply bg-white p-2 rounded mb-2 border-start border-3 border-primary">
+                                            <small class="text-muted d-block">{{ message.reply_to.sender.get_full_name|default:message.reply_to.sender.username }}</small>
+                                            <p class="mb-0 small">{{ message.reply_to.content|truncatewords:10 }}</p>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    <div class="message-bubble p-3 rounded-3 {% if message.sender == request.user %}bg-primary text-white{% else %}bg-white{% endif %} shadow-sm">
+                                        {% if message.message_type == 'system' %}
+                                            <em class="text-muted">{{ message.content }}</em>
+                                        {% else %}
+                                            {{ message.content|linebreaks }}
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="message-time mt-1">
+                                        <small class="text-muted">
+                                            {% if message.sender != request.user %}
+                                                {{ message.sender.get_full_name|default:message.sender.username }} • 
+                                            {% endif %}
+                                            {{ message.get_formatted_time }}
+                                            {% if message.is_edited %}
+                                                <span class="text-muted">(bearbeitet)</span>
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                </div>
+                                
+                                {% if message.sender == request.user %}
+                                    <div class="user-avatar bg-primary text-white rounded-circle ms-2 d-flex align-items-center justify-content-center" style="width: 35px; height: 35px; font-size: 0.8rem;">
+                                        {{ message.sender.get_full_name.0|default:message.sender.username.0|upper }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% empty %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-comments fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Noch keine Nachrichten</h5>
+                            <p class="text-muted">Starten Sie die Unterhaltung mit einer Nachricht</p>
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Typing Indicator -->
+                <div class="typing-indicator px-3" id="typingIndicator" style="display: none;">
+                    <small class="text-muted">
+                        <span id="typingText"></span>
+                    </small>
+                </div>
+                
+                <!-- Message Input -->
+                <div class="chat-input bg-white border-top p-3">
+                    <form id="messageForm">
+                        {% csrf_token %}
+                        <div class="input-group">
+                            <textarea class="form-control border-0 shadow-sm" 
+                                      id="messageInput" 
+                                      name="content" 
+                                      placeholder="Nachricht schreiben..."
+                                      rows="1"
+                                      maxlength="2000"
+                                      style="resize: none; border-radius: 25px;"></textarea>
+                            <button type="submit" class="btn btn-primary rounded-circle ms-2 d-flex align-items-center justify-content-center" id="sendBtn" style="width: 45px; height: 45px;">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Participants Modal -->
+{% if chat_room.is_group_chat %}
+<div class="modal fade" id="participantsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Teilnehmer ({{ participants.count }})</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                {% for participant in participants %}
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="user-avatar bg-primary me-3">
+                            {{ participant.get_full_name.0|default:participant.username.0|upper }}
+                        </div>
+                        <div>
+                            <strong>{{ participant.get_full_name|default:participant.username }}</strong>
+                            {% if participant == chat_room.created_by %}
+                                <span class="badge bg-success">Admin</span>
+                            {% endif %}
+                        </div>
+                        {% if participant != request.user %}
+                            <a href="{% url 'chat:start_chat' participant.id %}" class="btn btn-sm btn-outline-primary ms-auto">
+                                <i class="fas fa-comment"></i>
+                            </a>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const messageForm = document.getElementById('messageForm');
+    const messageInput = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const messagesContainer = document.getElementById('messagesContainer');
+    const typingIndicator = document.getElementById('typingIndicator');
+    
+    let lastMessageId = {{ messages.last.id|default:0 }};
+    let isTyping = false;
+    let typingTimeout;
+    
+    // Auto-scroll to bottom
+    function scrollToBottom() {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    
+    // Initial scroll
+    scrollToBottom();
+    
+    // Send message
+    messageForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const content = messageInput.value.trim();
+        if (!content) return;
+        
+        // Disable send button
+        sendBtn.disabled = true;
+        
+        const formData = new FormData();
+        formData.append('content', content);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        
+        fetch(`/chat/api/room/{{ chat_room.id }}/send/`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                messageInput.value = '';
+                loadNewMessages();
+            } else {
+                alert('Fehler beim Senden der Nachricht: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Fehler beim Senden der Nachricht');
+        })
+        .finally(() => {
+            sendBtn.disabled = false;
+        });
+    });
+    
+    // Load new messages
+    function loadNewMessages() {
+        fetch(`/chat/api/room/{{ chat_room.id }}/messages/?since_id=${lastMessageId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.messages && data.messages.length > 0) {
+                data.messages.forEach(message => {
+                    addMessageToContainer(message);
+                    lastMessageId = Math.max(lastMessageId, message.id);
+                });
+                scrollToBottom();
+            }
+        })
+        .catch(error => {
+            console.error('Error loading messages:', error);
+        });
+    }
+    
+    // Add message to container
+    function addMessageToContainer(message) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message mb-3 ${message.sender_id === {{ request.user.id }} ? 'message-own' : 'message-other'}`;
+        
+        const isOwn = message.sender_id === {{ request.user.id }};
+        
+        messageDiv.innerHTML = `
+            <div class="d-flex ${isOwn ? 'justify-content-end' : 'justify-content-start'}">
+                ${!isOwn ? `
+                    <div class="user-avatar bg-secondary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" style="width: 35px; height: 35px; font-size: 0.8rem;">
+                        ${message.sender.charAt(0).toUpperCase()}
+                    </div>
+                ` : ''}
+                
+                <div class="message-content" style="max-width: 75%;">
+                    <div class="message-bubble p-3 rounded-3 ${isOwn ? 'bg-primary text-white' : 'bg-white'} shadow-sm">
+                        ${message.content.replace(/\n/g, '<br>')}
+                    </div>
+                    
+                    <div class="message-time mt-1">
+                        <small class="text-muted">
+                            ${!isOwn ? message.sender + ' • ' : ''}
+                            ${message.created_at}
+                        </small>
+                    </div>
+                </div>
+                
+                ${isOwn ? `
+                    <div class="user-avatar bg-primary text-white rounded-circle ms-2 d-flex align-items-center justify-content-center" style="width: 35px; height: 35px; font-size: 0.8rem;">
+                        ${message.sender.charAt(0).toUpperCase()}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+        
+        messagesContainer.appendChild(messageDiv);
+    }
+    
+    // Auto-resize textarea
+    messageInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+    });
+    
+    // Poll for new messages every 2 seconds
+    setInterval(loadNewMessages, 2000);
+    
+    // Enter to send (Shift+Enter for new line)
+    messageInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            messageForm.dispatchEvent(new Event('submit'));
+        }
+    });
+});
+</script>
+{% endblock %}

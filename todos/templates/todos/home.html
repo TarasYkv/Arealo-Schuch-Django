@@ -1,0 +1,306 @@
+{% extends 'todos/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <div id="alert-container"></div>
+    
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-1 text-dark fw-bold">
+                        <i class="fas fa-tasks text-primary me-2"></i>
+                        ToDo-Listen
+                    </h1>
+                    <p class="text-muted mb-0">Verwalten Sie Ihre Aufgaben und arbeiten Sie im Team</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'todos:my_todos' %}" class="btn btn-outline-primary rounded-pill">
+                        <i class="fas fa-user me-1"></i> Meine ToDos
+                    </a>
+                    <a href="{% url 'todos:create_list' %}" class="btn btn-primary rounded-pill">
+                        <i class="fas fa-plus me-1"></i> Neue Liste
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="card-body text-white">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h3 class="mb-1 fw-bold">{{ my_todos.count }}</h3>
+                            <p class="mb-0 opacity-75">Aktive ToDos</p>
+                        </div>
+                        <div class="bg-white bg-opacity-25 rounded-circle p-3">
+                            <i class="fas fa-list-check fa-lg"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="card-body text-white">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h3 class="mb-1 fw-bold">{{ overdue_todos }}</h3>
+                            <p class="mb-0 opacity-75">Überfällig</p>
+                        </div>
+                        <div class="bg-white bg-opacity-25 rounded-circle p-3">
+                            <i class="fas fa-exclamation-triangle fa-lg"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="card-body text-white">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h3 class="mb-1 fw-bold">{{ my_lists.count }}</h3>
+                            <p class="mb-0 opacity-75">Meine Listen</p>
+                        </div>
+                        <div class="bg-white bg-opacity-25 rounded-circle p-3">
+                            <i class="fas fa-folder fa-lg"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Meine Listen -->
+        <div class="col-lg-8 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom-0 py-3">
+                    <h5 class="mb-0 fw-semibold">
+                        <i class="fas fa-folder-open text-primary me-2"></i>
+                        Meine Listen
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if my_lists %}
+                        <div class="list-group list-group-flush">
+                            {% for list in my_lists %}
+                                <a href="{% url 'todos:list_detail' list.pk %}" 
+                                   class="list-group-item list-group-item-action border-0 py-3">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1 fw-semibold">{{ list.title }}</h6>
+                                            {% if list.description %}
+                                                <p class="mb-1 text-muted small">{{ list.description|truncatewords:15 }}</p>
+                                            {% endif %}
+                                            <small class="text-muted">
+                                                <i class="fas fa-user me-1"></i>
+                                                {% if list.created_by == request.user %}
+                                                    Erstellt von Ihnen
+                                                {% else %}
+                                                    Erstellt von {{ list.created_by.get_full_name|default:list.created_by.username }}
+                                                {% endif %}
+                                                <span class="ms-2">
+                                                    <i class="fas fa-calendar me-1"></i>
+                                                    {{ list.created_at|date:"d.m.Y" }}
+                                                </span>
+                                            </small>
+                                        </div>
+                                        <div class="text-end">
+                                            <div class="d-flex align-items-center mb-1">
+                                                <span class="badge bg-primary rounded-pill me-2">
+                                                    {{ list.todo_count }} ToDos
+                                                </span>
+                                                {% if list.todo_count > 0 %}
+                                                    <div class="progress" style="width: 80px; height: 6px;">
+                                                        <div class="progress-bar bg-success" 
+                                                             style="width: {% widthratio list.completed_count list.todo_count 100 %}%"></div>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                            <small class="text-muted">
+                                                {{ list.completed_count }} von {{ list.todo_count }} erledigt
+                                            </small>
+                                        </div>
+                                    </div>
+                                </a>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-folder-plus fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Keine Listen vorhanden</h5>
+                            <p class="text-muted">Erstellen Sie Ihre erste ToDo-Liste, um loszulegen.</p>
+                            <a href="{% url 'todos:create_list' %}" class="btn btn-primary rounded-pill">
+                                <i class="fas fa-plus me-1"></i> Erste Liste erstellen
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Aktuelle ToDos -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom-0 py-3">
+                    <h5 class="mb-0 fw-semibold">
+                        <i class="fas fa-clock text-warning me-2"></i>
+                        Aktuelle ToDos
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if my_todos %}
+                        <div class="list-group list-group-flush">
+                            {% for todo in my_todos %}
+                                <div class="list-group-item border-0 py-3">
+                                    <div class="d-flex align-items-start">
+                                        <div class="form-check me-3 mt-1">
+                                            <input class="form-check-input todo-status-checkbox" 
+                                                   type="checkbox" 
+                                                   data-todo-id="{{ todo.id }}"
+                                                   {% if todo.status == 'completed' %}checked{% endif %}>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1 fw-semibold {% if todo.status == 'completed' %}text-decoration-line-through text-muted{% endif %}">
+                                                {{ todo.title }}
+                                            </h6>
+                                            <p class="mb-1 text-muted small">
+                                                <i class="fas fa-folder me-1"></i>
+                                                {{ todo.todo_list.title }}
+                                            </p>
+                                            <div class="d-flex align-items-center">
+                                                <span class="badge 
+                                                    {% if todo.priority == 'high' %}bg-danger
+                                                    {% elif todo.priority == 'medium' %}bg-warning
+                                                    {% else %}bg-secondary
+                                                    {% endif %} 
+                                                    rounded-pill me-2">
+                                                    {{ todo.get_priority_display }}
+                                                </span>
+                                                {% if todo.due_date %}
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-calendar me-1"></i>
+                                                        {{ todo.due_date|date:"d.m.Y" }}
+                                                    </small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <div class="card-footer bg-light border-0">
+                            <a href="{% url 'todos:my_todos' %}" class="btn btn-sm btn-outline-primary w-100 rounded-pill">
+                                Alle meine ToDos anzeigen
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                            <p class="text-muted mb-0">Keine offenen ToDos</p>
+                            <small class="text-muted">Alle Aufgaben erledigt!</small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Todo status checkbox handling
+    const checkboxes = document.querySelectorAll('.todo-status-checkbox');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const todoId = this.dataset.todoId;
+            const isCompleted = this.checked;
+            const newStatus = isCompleted ? 'completed' : 'pending';
+            
+            updateTodoStatus(todoId, newStatus, this);
+        });
+    });
+    
+    function updateTodoStatus(todoId, status, checkbox) {
+        fetch(`/todos/api/todo/${todoId}/status/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                status: status
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update UI
+                const todoItem = checkbox.closest('.list-group-item');
+                const titleElement = todoItem.querySelector('h6');
+                
+                if (status === 'completed') {
+                    titleElement.classList.add('text-decoration-line-through', 'text-muted');
+                } else {
+                    titleElement.classList.remove('text-decoration-line-through', 'text-muted');
+                }
+                
+                // Show success message
+                showAlert('Status erfolgreich aktualisiert', 'success');
+            } else {
+                // Revert checkbox state
+                checkbox.checked = !checkbox.checked;
+                showAlert('Fehler beim Aktualisieren des Status: ' + data.error, 'danger');
+            }
+        })
+        .catch(error => {
+            // Revert checkbox state
+            checkbox.checked = !checkbox.checked;
+            showAlert('Fehler beim Aktualisieren des Status', 'danger');
+            console.error('Error:', error);
+        });
+    }
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    function showAlert(message, type) {
+        const alertContainer = document.getElementById('alert-container');
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-dismissible fade show`;
+        alert.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        alertContainer.appendChild(alert);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (alert.parentNode) {
+                alert.remove();
+            }
+        }, 5000);
+    }
+});
+</script>
+{% endblock %}

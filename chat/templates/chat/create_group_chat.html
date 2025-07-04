@@ -1,0 +1,348 @@
+{% extends 'chat/base.html' %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item">
+                                <a href="{% url 'chat:home' %}">Chat</a>
+                            </li>
+                            <li class="breadcrumb-item active">Gruppenchat erstellen</li>
+                        </ol>
+                    </nav>
+                    <h4 class="mt-2 mb-0">
+                        <i class="fas fa-users text-success"></i>
+                        Gruppenchat erstellen
+                    </h4>
+                    <small class="text-muted">Erstellen Sie einen neuen Gruppenchat mit mehreren Teilnehmern</small>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <!-- Group Name -->
+                        <div class="mb-4">
+                            <label for="name" class="form-label">Gruppenname *</label>
+                            <input type="text" class="form-control" id="name" name="name" 
+                                   required maxlength="200" 
+                                   placeholder="z.B. Projektteam, Familie, Freunde...">
+                            <div class="form-text">
+                                Geben Sie einen aussagekräftigen Namen für den Gruppenchat ein
+                            </div>
+                        </div>
+                        
+                        <!-- Participants Selection -->
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class="fas fa-users"></i>
+                                Teilnehmer auswählen *
+                                <span id="selectedCount" class="badge bg-primary ms-2">0 ausgewählt</span>
+                            </label>
+                            <div class="form-text mb-3">
+                                Wählen Sie mindestens 2 Personen für den Gruppenchat aus
+                            </div>
+                            
+                            <!-- Search Users -->
+                            <div class="mb-3">
+                                <input type="text" class="form-control" id="userSearch" 
+                                       placeholder="Nutzer suchen...">
+                            </div>
+                            
+                            <!-- Users List -->
+                            {% if users %}
+                                <div class="users-list" style="max-height: 400px; overflow-y: auto;">
+                                    {% for user in users %}
+                                    <div class="user-item border rounded p-3 mb-2" data-user-name="{{ user.get_full_name|default:user.username|lower }}">
+                                        <div class="form-check">
+                                            <input class="form-check-input participant-checkbox" 
+                                                   type="checkbox" 
+                                                   id="user-{{ user.id }}" 
+                                                   name="participants" 
+                                                   value="{{ user.id }}">
+                                            <label class="form-check-label d-flex align-items-center w-100" 
+                                                   for="user-{{ user.id }}">
+                                                <div class="user-avatar bg-primary me-3">
+                                                    {{ user.get_full_name.0|default:user.username.0|upper }}
+                                                </div>
+                                                <div class="flex-grow-1">
+                                                    <div class="fw-bold">{{ user.get_full_name|default:user.username }}</div>
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-user"></i> {{ user.username }}
+                                                        {% if user.last_login %}
+                                                            • Zuletzt aktiv: {{ user.last_login|timesince }} ago
+                                                        {% endif %}
+                                                    </small>
+                                                </div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4">
+                                    <i class="fas fa-users fa-2x text-muted mb-3"></i>
+                                    <h6 class="text-muted">Keine anderen Nutzer verfügbar</h6>
+                                    <p class="text-muted">
+                                        Es sind keine anderen Nutzer im System registriert
+                                    </p>
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Selected Participants Preview -->
+                        <div class="mb-4" id="selectedParticipants" style="display: none;">
+                            <label class="form-label">Ausgewählte Teilnehmer</label>
+                            <div class="selected-users d-flex flex-wrap gap-2" id="selectedUsersList">
+                                <!-- Selected users will be added here via JavaScript -->
+                            </div>
+                        </div>
+                        
+                        <!-- Group Settings -->
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class="fas fa-cog"></i>
+                                Gruppeneinstellungen
+                            </label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="isPublic" name="is_public">
+                                <label class="form-check-label" for="isPublic">
+                                    Öffentliche Gruppe
+                                    <div class="form-text">
+                                        Öffentliche Gruppen können von anderen Nutzern gefunden werden
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Buttons -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'chat:home' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Zurück
+                            </a>
+                            <button type="submit" class="btn btn-success" id="createBtn" disabled>
+                                <i class="fas fa-plus"></i> Gruppenchat erstellen
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const nameInput = document.getElementById('name');
+    const userSearch = document.getElementById('userSearch');
+    const participantCheckboxes = document.querySelectorAll('.participant-checkbox');
+    const selectedCount = document.getElementById('selectedCount');
+    const createBtn = document.getElementById('createBtn');
+    const selectedParticipants = document.getElementById('selectedParticipants');
+    const selectedUsersList = document.getElementById('selectedUsersList');
+    const userItems = document.querySelectorAll('.user-item');
+    
+    // Auto-focus on name input
+    nameInput.focus();
+    
+    // Character counter for group name
+    const maxLength = 200;
+    const counterDiv = document.createElement('div');
+    counterDiv.className = 'form-text';
+    nameInput.parentNode.appendChild(counterDiv);
+    
+    function updateNameCounter() {
+        const remaining = maxLength - nameInput.value.length;
+        counterDiv.textContent = `${remaining} Zeichen übrig`;
+        counterDiv.className = remaining < 20 ? 'form-text text-warning' : 'form-text text-muted';
+    }
+    
+    nameInput.addEventListener('input', updateNameCounter);
+    updateNameCounter();
+    
+    // User search functionality
+    userSearch.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase().trim();
+        
+        userItems.forEach(item => {
+            const userName = item.dataset.userName;
+            if (userName.includes(searchTerm)) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+    
+    // Participant selection
+    function updateParticipantSelection() {
+        const selectedUsers = [];
+        const checked = document.querySelectorAll('.participant-checkbox:checked');
+        
+        checked.forEach(checkbox => {
+            const userItem = checkbox.closest('.user-item');
+            const label = userItem.querySelector('.form-check-label');
+            const userName = label.querySelector('.fw-bold').textContent;
+            const userAvatar = label.querySelector('.user-avatar').textContent;
+            
+            selectedUsers.push({
+                id: checkbox.value,
+                name: userName,
+                avatar: userAvatar
+            });
+        });
+        
+        // Update counter
+        selectedCount.textContent = `${selectedUsers.length} ausgewählt`;
+        selectedCount.className = selectedUsers.length > 0 ? 'badge bg-success ms-2' : 'badge bg-primary ms-2';
+        
+        // Update selected users list
+        selectedUsersList.innerHTML = '';
+        if (selectedUsers.length > 0) {
+            selectedParticipants.style.display = 'block';
+            
+            selectedUsers.forEach(user => {
+                const userBadge = document.createElement('span');
+                userBadge.className = 'badge bg-primary p-2';
+                userBadge.innerHTML = `
+                    <span class="me-2">${user.avatar}</span>
+                    ${user.name}
+                    <button type="button" class="btn-close btn-close-white ms-2" 
+                            data-user-id="${user.id}" style="font-size: 0.7rem;"></button>
+                `;
+                selectedUsersList.appendChild(userBadge);
+            });
+            
+            // Add remove functionality
+            selectedUsersList.querySelectorAll('.btn-close').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const userId = this.dataset.userId;
+                    const checkbox = document.querySelector(`input[value="${userId}"]`);
+                    if (checkbox) {
+                        checkbox.checked = false;
+                        updateParticipantSelection();
+                    }
+                });
+            });
+        } else {
+            selectedParticipants.style.display = 'none';
+        }
+        
+        // Update create button
+        const hasName = nameInput.value.trim().length > 0;
+        const hasParticipants = selectedUsers.length >= 2;
+        
+        createBtn.disabled = !(hasName && hasParticipants);
+        
+        if (!hasName) {
+            createBtn.innerHTML = '<i class="fas fa-plus"></i> Gruppenname eingeben';
+        } else if (!hasParticipants) {
+            createBtn.innerHTML = '<i class="fas fa-plus"></i> Mindestens 2 Teilnehmer auswählen';
+        } else {
+            createBtn.innerHTML = '<i class="fas fa-plus"></i> Gruppenchat erstellen';
+        }
+    }
+    
+    // Listen for checkbox changes
+    participantCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateParticipantSelection);
+    });
+    
+    // Listen for name input changes
+    nameInput.addEventListener('input', updateParticipantSelection);
+    
+    // Initial update
+    updateParticipantSelection();
+    
+    // Form validation
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        const selectedUsers = document.querySelectorAll('.participant-checkbox:checked');
+        const groupName = nameInput.value.trim();
+        
+        if (!groupName) {
+            e.preventDefault();
+            nameInput.focus();
+            showAlert('Bitte geben Sie einen Gruppennamen ein', 'warning');
+            return;
+        }
+        
+        if (selectedUsers.length < 2) {
+            e.preventDefault();
+            showAlert('Bitte wählen Sie mindestens 2 Teilnehmer aus', 'warning');
+            return;
+        }
+        
+        // Show loading state
+        createBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Wird erstellt...';
+        createBtn.disabled = true;
+    });
+    
+    // Select/Deselect all functionality
+    const selectAllBtn = document.createElement('button');
+    selectAllBtn.type = 'button';
+    selectAllBtn.className = 'btn btn-sm btn-outline-primary me-2';
+    selectAllBtn.innerHTML = '<i class="fas fa-check-double"></i> Alle auswählen';
+    
+    const deselectAllBtn = document.createElement('button');
+    deselectAllBtn.type = 'button';
+    deselectAllBtn.className = 'btn btn-sm btn-outline-secondary';
+    deselectAllBtn.innerHTML = '<i class="fas fa-times"></i> Alle abwählen';
+    
+    // Insert buttons after search input
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'mb-3';
+    buttonContainer.appendChild(selectAllBtn);
+    buttonContainer.appendChild(deselectAllBtn);
+    userSearch.parentNode.insertBefore(buttonContainer, userSearch.nextSibling);
+    
+    selectAllBtn.addEventListener('click', function() {
+        const visibleCheckboxes = Array.from(participantCheckboxes).filter(cb => 
+            cb.closest('.user-item').style.display !== 'none'
+        );
+        visibleCheckboxes.forEach(cb => cb.checked = true);
+        updateParticipantSelection();
+    });
+    
+    deselectAllBtn.addEventListener('click', function() {
+        participantCheckboxes.forEach(cb => cb.checked = false);
+        updateParticipantSelection();
+    });
+});
+</script>
+
+<style>
+.user-item {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.user-item:hover {
+    background-color: #f8f9fa;
+}
+
+.user-item .form-check-input:checked + .form-check-label {
+    background-color: #e3f2fd;
+    border-radius: 0.375rem;
+}
+
+.selected-users .badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.9rem;
+}
+
+.btn-close-white {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+.users-list {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 1rem;
+}
+</style>
+{% endblock %}

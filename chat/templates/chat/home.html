@@ -1,0 +1,329 @@
+{% extends 'chat/base.html' %}
+{% load chat_extras %}
+
+{% block content %}
+<div class="container-fluid">
+    <div id="alert-container"></div>
+    
+    <!-- Header -->
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="mb-1">
+                        <i class="fas fa-comments text-primary"></i>
+                        Chat
+                    </h1>
+                    <p class="text-muted mb-0">Kommunizieren Sie mit anderen Nutzern</p>
+                </div>
+                <div>
+                    <a href="{% url 'chat:user_search' %}" class="btn btn-outline-primary me-2">
+                        <i class="fas fa-search"></i> Nutzer suchen
+                    </a>
+                    <a href="{% url 'chat:create_group_chat' %}" class="btn btn-primary">
+                        <i class="fas fa-users"></i> Gruppenchat erstellen
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Chat Rooms List -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list"></i>
+                        Ihre Chats ({{ chat_rooms|length }})
+                    </h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary active" data-filter="all">
+                            Alle
+                        </button>
+                        <button class="btn btn-outline-secondary" data-filter="unread">
+                            Ungelesen
+                        </button>
+                        <button class="btn btn-outline-secondary" data-filter="groups">
+                            Gruppen
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    {% if chat_rooms %}
+                        <div class="list-group list-group-flush">
+                            {% for room in chat_rooms %}
+                            <div class="list-group-item list-group-item-action chat-room-item 
+                                        {% if room.is_group_chat %}group-chat{% else %}private-chat{% endif %}
+                                        {% if room.unread_count > 0 %}has-unread{% endif %}"
+                                 data-room-id="{{ room.id }}"
+                                 data-filter-type="{% if room.is_group_chat %}group{% else %}private{% endif %}">
+                                
+                                <div class="d-flex align-items-center">
+                                    <!-- Avatar -->
+                                    <div class="position-relative me-3">
+                                        <div class="user-avatar {% if room.is_group_chat %}bg-success{% else %}bg-primary{% endif %}">
+                                            {% if room.is_group_chat %}
+                                                <i class="fas fa-users"></i>
+                                            {% else %}
+                                                {% with other_user=room|get_other_participant:request.user %}
+                                                    {% if other_user %}
+                                                        {{ other_user.get_full_name.0|default:other_user.username.0|upper }}
+                                                    {% else %}
+                                                        {{ room.created_by.get_full_name.0|default:room.created_by.username.0|upper }}
+                                                    {% endif %}
+                                                {% endwith %}
+                                            {% endif %}
+                                        </div>
+                                        {% if room.unread_count > 0 %}
+                                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                                {{ room.unread_count }}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <!-- Chat Info -->
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <h6 class="mb-1 fw-bold">
+                                                    {{ room.name|default:room }}
+                                                </h6>
+                                                {% if room.is_group_chat %}
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-users"></i>
+                                                        {{ room.participants.count }} Teilnehmer
+                                                    </small>
+                                                {% else %}
+                                                    {% with other_user=room|get_other_participant:request.user %}
+                                                        {% if other_user %}
+                                                            <small class="text-muted">
+                                                                <i class="fas fa-user"></i>
+                                                                {{ other_user.get_full_name|default:other_user.username }}
+                                                            </small>
+                                                        {% endif %}
+                                                    {% endwith %}
+                                                {% endif %}
+                                            </div>
+                                            <small class="text-muted chat-room-time">
+                                                {{ room.last_message_at|timesince }} ago
+                                            </small>
+                                        </div>
+                                        
+                                        {% with last_message=room.get_last_message %}
+                                            {% if last_message %}
+                                                <div class="chat-room-preview">
+                                                    <strong>{{ last_message.sender.get_full_name|default:last_message.sender.username }}:</strong>
+                                                    {{ last_message.content|truncatewords:8 }}
+                                                </div>
+                                            {% else %}
+                                                <div class="chat-room-preview text-muted">
+                                                    Noch keine Nachrichten
+                                                </div>
+                                            {% endif %}
+                                        {% endwith %}
+                                    </div>
+                                    
+                                    <!-- Actions -->
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                                data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'chat:room_detail' room.id %}">
+                                                    <i class="fas fa-eye"></i> Öffnen
+                                                </a>
+                                            </li>
+                                            {% if room.unread_count > 0 %}
+                                            <li>
+                                                <a class="dropdown-item mark-read-btn" 
+                                                   href="#" data-room-id="{{ room.id }}">
+                                                    <i class="fas fa-check"></i> Als gelesen markieren
+                                                </a>
+                                            </li>
+                                            {% endif %}
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <a class="dropdown-item text-danger" href="#">
+                                                    <i class="fas fa-trash"></i> Löschen
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-comments fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Noch keine Chats vorhanden</h5>
+                            <p class="text-muted">Starten Sie einen neuen Chat mit anderen Nutzern</p>
+                            <a href="{% url 'chat:user_search' %}" class="btn btn-primary">
+                                <i class="fas fa-search"></i> Nutzer suchen
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Quick Actions -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-bolt"></i>
+                        Schnellaktionen
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'chat:user_search' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-search"></i> Nutzer suchen
+                        </a>
+                        <a href="{% url 'chat:create_group_chat' %}" class="btn btn-outline-success">
+                            <i class="fas fa-users"></i> Gruppenchat erstellen
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Users -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-clock"></i>
+                        Kürzlich aktive Nutzer
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if recent_users %}
+                        <div class="list-group list-group-flush">
+                            {% for user in recent_users %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <div class="d-flex align-items-center">
+                                    <div class="user-avatar bg-secondary me-2">
+                                        {{ user.get_full_name.0|default:user.username.0|upper }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold">{{ user.get_full_name|default:user.username }}</div>
+                                        <small class="text-muted">
+                                            {% if user.last_login %}
+                                                Zuletzt: {{ user.last_login|timesince }} ago
+                                            {% else %}
+                                                Noch nie angemeldet
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                </div>
+                                <a href="{% url 'chat:start_chat' user.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-comment"></i>
+                                </a>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">Keine anderen Nutzer gefunden</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Filter functionality
+    const filterButtons = document.querySelectorAll('[data-filter]');
+    const chatRoomItems = document.querySelectorAll('.chat-room-item');
+    
+    filterButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const filter = this.dataset.filter;
+            
+            // Update active button
+            filterButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Filter chat rooms
+            chatRoomItems.forEach(item => {
+                let show = true;
+                
+                switch(filter) {
+                    case 'unread':
+                        show = item.classList.contains('has-unread');
+                        break;
+                    case 'groups':
+                        show = item.classList.contains('group-chat');
+                        break;
+                    case 'all':
+                    default:
+                        show = true;
+                        break;
+                }
+                
+                item.style.display = show ? 'block' : 'none';
+            });
+        });
+    });
+    
+    // Chat room click handler
+    chatRoomItems.forEach(item => {
+        item.addEventListener('click', function(e) {
+            // Don't trigger if clicking on dropdown
+            if (e.target.closest('.dropdown')) return;
+            
+            const roomId = this.dataset.roomId;
+            window.location.href = `/chat/room/${roomId}/`;
+        });
+    });
+    
+    // Mark as read functionality
+    const markReadButtons = document.querySelectorAll('.mark-read-btn');
+    markReadButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const roomId = this.dataset.roomId;
+            
+            fetch(`/chat/api/room/${roomId}/mark_read/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Remove unread badge
+                    const roomItem = document.querySelector(`[data-room-id="${roomId}"]`);
+                    if (roomItem) {
+                        roomItem.classList.remove('has-unread');
+                        const badge = roomItem.querySelector('.badge');
+                        if (badge) badge.remove();
+                    }
+                    showAlert('Als gelesen markiert', 'success');
+                } else {
+                    showAlert('Fehler: ' + data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('Verbindungsfehler', 'danger');
+            });
+        });
+    });
+    
+    // Auto-refresh unread counts every 30 seconds
+    setInterval(() => {
+        // In a real implementation, you might want to fetch updated counts
+        // For now, we'll just refresh the page if there are changes
+        // This could be improved with WebSockets
+    }, 30000);
+});
+</script>
+{% endblock %}
