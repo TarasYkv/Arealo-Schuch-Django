@@ -3,6 +3,68 @@
 {% block title %}{{ training.titel }} - Naturmacher{% endblock %}
 
 {% block content %}
+<style>
+.badge-bubble {
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+    padding: 8px 16px;
+    border-radius: 18px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.badge-bubble:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+.badge-accent {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.7);
+}
+
+.badge-content {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    z-index: 1;
+}
+
+.badge-bubble-success {
+    background: linear-gradient(135deg, #2ed573, #1dd1a1);
+    color: white;
+}
+
+.badge-bubble-warning {
+    background: linear-gradient(135deg, #ffa502, #ff6348);
+    color: white;
+}
+
+.badge-bubble-danger {
+    background: linear-gradient(135deg, #ff4757, #ff3838);
+    color: white;
+}
+
+.badge-bubble-info {
+    background: linear-gradient(135deg, #3742fa, #2f3542);
+    color: white;
+}
+
+.training-info-card {
+    background: linear-gradient(145deg, #e8f5e8 0%, #f0f8f0 100%);
+    border: 1px solid #c3e6c3;
+    box-shadow: 0 3px 10px rgba(40, 167, 69, 0.1);
+}
+</style>
 <div class="container mt-4">
     <div class="row">
         <div class="col-md-8">
@@ -17,22 +79,30 @@
             <h1>{{ training.titel }}</h1>
             
             <div class="row mb-4">
-                <div class="col-md-6">
-                    <span class="badge badge-{% if training.schwierigkeit == 'anfaenger' %}success{% elif training.schwierigkeit == 'fortgeschritten' %}warning{% else %}danger{% endif %} badge-lg">
-                        {{ training.get_schwierigkeit_display }}
-                    </span>
-                </div>
-                <div class="col-md-6 text-right">
-                    <span class="text-muted">
-                        <i class="fas fa-clock"></i> {{ training.dauer_minuten }} Minuten
-                    </span>
+                <div class="col-md-12">
+                    <div class="d-flex gap-3 align-items-center flex-wrap">
+                        <span class="badge-bubble {% if training.schwierigkeit == 'anfaenger' %}badge-bubble-success{% elif training.schwierigkeit == 'fortgeschritten' %}badge-bubble-warning{% else %}badge-bubble-danger{% endif %}">
+                            <span class="badge-accent"></span>
+                            <span class="badge-content">
+                                <i class="fas {% if training.schwierigkeit == 'anfaenger' %}fa-seedling{% elif training.schwierigkeit == 'fortgeschritten' %}fa-leaf{% else %}fa-tree{% endif %}"></i>
+                                {{ training.get_schwierigkeit_display }}
+                            </span>
+                        </span>
+                        <span class="badge-bubble badge-bubble-info">
+                            <span class="badge-accent"></span>
+                            <span class="badge-content">
+                                <i class="fas fa-clock"></i>
+                                {{ training.dauer_minuten }} Minuten
+                            </span>
+                        </span>
+                    </div>
                 </div>
             </div>
             
             <p class="lead">{{ training.beschreibung }}</p>
             
             {% if youtube_videos %}
-            <div class="card mb-4">
+            <div class="card mb-4 training-info-card">
                 <div class="card-header">
                     <h5><i class="fab fa-youtube text-danger"></i> Training-Videos</h5>
                 </div>
