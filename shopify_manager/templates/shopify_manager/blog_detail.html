@@ -1,0 +1,269 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}{{ blog.title }} - Blog Detail{% endblock %}
+
+{% block shopify_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-blog text-primary"></i> {{ blog.title }}
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{% url 'shopify_manager:blog_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Zurück zu Blogs
+            </a>
+            <button class="btn btn-success" onclick="importBlogPosts()">
+                <i class="fas fa-download"></i> Beiträge importieren
+            </button>
+            <a href="{{ blog.get_shopify_admin_url }}" target="_blank" class="btn btn-outline-primary">
+                <i class="fas fa-external-link-alt"></i> In Shopify öffnen
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Blog Info -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Blog Information</h5>
+                <table class="table table-borderless">
+                    <tr>
+                        <td><strong>Titel:</strong></td>
+                        <td>{{ blog.title }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Handle:</strong></td>
+                        <td><code>{{ blog.handle }}</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Store:</strong></td>
+                        <td>{{ blog.store.name }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Shopify URL:</strong></td>
+                        <td><a href="{{ blog.get_storefront_url }}" target="_blank">{{ blog.get_storefront_url }}</a></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Erstellt:</strong></td>
+                        <td>{{ blog.shopify_created_at|date:"d.m.Y H:i" }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Aktualisiert:</strong></td>
+                        <td>{{ blog.shopify_updated_at|date:"d.m.Y H:i" }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Statistiken</h5>
+                <div class="row text-center">
+                    <div class="col-4">
+                        <div class="border rounded p-2">
+                            <h4 class="text-primary">{{ stats.total_posts }}</h4>
+                            <small class="text-muted">Gesamt</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="border rounded p-2">
+                            <h4 class="text-success">{{ stats.published_posts }}</h4>
+                            <small class="text-muted">Veröffentlicht</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="border rounded p-2">
+                            <h4 class="text-warning">{{ stats.draft_posts }}</h4>
+                            <small class="text-muted">Entwürfe</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Blog Posts -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-newspaper"></i> Blog-Beiträge
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if posts %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Titel</th>
+                            <th>Autor</th>
+                            <th>Status</th>
+                            <th>SEO</th>
+                            <th>Veröffentlicht</th>
+                            <th>Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for post in posts %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'shopify_manager:blog_post_detail' post.pk %}" class="text-decoration-none">
+                                    <strong>{{ post.title|truncatechars:50 }}</strong>
+                                </a>
+                                {% if post.featured_image_url %}
+                                    <i class="fas fa-image text-info ms-1" title="Hat Beitragsbild"></i>
+                                {% endif %}
+                            </td>
+                            <td>{{ post.author|default:"Unbekannt" }}</td>
+                            <td>
+                                {% if post.status == 'published' %}
+                                    <span class="badge bg-success">Veröffentlicht</span>
+                                {% elif post.status == 'draft' %}
+                                    <span class="badge bg-warning">Entwurf</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ post.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% with seo_status=post.get_seo_status %}
+                                    {% if seo_status == 'good' %}
+                                        <span class="badge bg-success"><i class="fas fa-circle"></i> Gut</span>
+                                    {% elif seo_status == 'warning' %}
+                                        <span class="badge bg-warning"><i class="fas fa-circle"></i> Warnung</span>
+                                    {% else %}
+                                        <span class="badge bg-danger"><i class="fas fa-circle"></i> Schlecht</span>
+                                    {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td>
+                                {% if post.published_at %}
+                                    {{ post.published_at|date:"d.m.Y" }}
+                                {% else %}
+                                    <span class="text-muted">Nicht veröffentlicht</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'shopify_manager:blog_post_detail' post.pk %}" class="btn btn-outline-primary" title="Details">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{{ post.get_shopify_admin_url }}" target="_blank" class="btn btn-outline-secondary" title="In Shopify bearbeiten">
+                                        <i class="fas fa-external-link-alt"></i>
+                                    </a>
+                                    {% if post.get_storefront_url %}
+                                        <a href="{{ post.get_storefront_url }}" target="_blank" class="btn btn-outline-info" title="Im Shop ansehen">
+                                            <i class="fas fa-globe"></i>
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination für Posts -->
+            {% if posts.has_other_pages %}
+            <nav aria-label="Blog Posts Pagination">
+                <ul class="pagination justify-content-center">
+                    {% if posts.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1">&laquo; Erste</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ posts.previous_page_number }}">Zurück</a>
+                        </li>
+                    {% endif %}
+                    
+                    <li class="page-item active">
+                        <span class="page-link">
+                            Seite {{ posts.number }} von {{ posts.paginator.num_pages }}
+                        </span>
+                    </li>
+                    
+                    {% if posts.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ posts.next_page_number }}">Weiter</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ posts.paginator.num_pages }}">Letzte &raquo;</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                Keine Blog-Beiträge gefunden. Klicken Sie auf "Beiträge importieren" um Beiträge von Shopify zu laden.
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function importBlogPosts() {
+    if (!confirm('Blog-Posts für diesen Blog importieren?')) return;
+    
+    const formData = new FormData();
+    formData.append('blog_id', {{ blog.id }});
+    formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+    
+    fetch('/shopify/api/import-blog-posts/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', `${data.imported} Blog-Posts erfolgreich importiert!`);
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showAlert('danger', `Import fehlgeschlagen: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        showAlert('danger', 'Fehler beim Import: ' + error);
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.querySelector('.container-fluid');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+</script>
+{% endblock %}

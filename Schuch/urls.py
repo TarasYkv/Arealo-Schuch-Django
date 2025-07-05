@@ -20,6 +20,7 @@ urlpatterns = [
     path('naturmacher/', include('naturmacher.urls')),
     path('todos/', include('todos.urls')),
     path('chat/', include('chat.urls')),
+    path('shopify/', include('shopify_manager.urls')),
     path('admin/', admin.site.urls),
 ]
 

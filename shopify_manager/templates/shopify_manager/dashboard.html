@@ -1,0 +1,270 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}Dashboard - Shopify Manager{% endblock %}
+
+{% block shopify_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Dashboard</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{% url 'shopify_manager:product_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-box"></i> Alle Produkte
+            </a>
+            <a href="{% url 'shopify_manager:store_add' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Store hinzufügen
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Statistiken -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">{{ stats.stores_count }}</h5>
+                        <p class="card-text">Stores</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-store fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">{{ stats.products_count }}</h5>
+                        <p class="card-text">Produkte</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-box fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">{{ stats.needs_sync_count }}</h5>
+                        <p class="card-text">Benötigen Sync</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-sync fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-danger">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">{{ stats.sync_errors_count }}</h5>
+                        <p class="card-text">Sync-Fehler</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Stores -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Meine Stores</h5>
+                <a href="{% url 'shopify_manager:store_add' %}" class="btn btn-sm btn-primary">
+                    <i class="fas fa-plus"></i> Hinzufügen
+                </a>
+            </div>
+            <div class="card-body">
+                {% if stores %}
+                    {% for store in stores %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <strong>{{ store.name }}</strong><br>
+                            <small class="text-muted">{{ store.shop_domain }}</small>
+                        </div>
+                        <div>
+                            <span class="badge bg-{% if store.is_active %}success{% else %}secondary{% endif %}">
+                                {% if store.is_active %}Aktiv{% else %}Inaktiv{% endif %}
+                            </span>
+                            <button class="btn btn-sm btn-outline-primary ms-1" 
+                                    onclick="testConnection({{ store.id }})" 
+                                    title="Verbindung testen">
+                                <i class="fas fa-vial"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% if not forloop.last %}<hr>{% endif %}
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">Noch keine Stores konfiguriert.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Letzte Sync-Logs -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Letzte Synchronisationen</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_logs %}
+                    {% for log in recent_logs %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <strong>{{ log.get_action_display }}</strong><br>
+                            <small class="text-muted">{{ log.store.name }} - {{ log.started_at|date:"d.m.Y H:i" }}</small>
+                        </div>
+                        <span class="badge bg-{% if log.status == 'success' %}success{% elif log.status == 'error' %}danger{% else %}warning{% endif %}">
+                            {{ log.get_status_display }}
+                        </span>
+                    </div>
+                    {% if not forloop.last %}<hr>{% endif %}
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">Noch keine Synchronisationen durchgeführt.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Produkte mit Problemen -->
+{% if problem_products %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Produkte mit Problemen</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Produkt</th>
+                                <th>Store</th>
+                                <th>Problem</th>
+                                <th>Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in problem_products %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'shopify_manager:product_detail' product.pk %}">
+                                        {{ product.title|truncatechars:30 }}
+                                    </a>
+                                </td>
+                                <td>{{ product.store.name }}</td>
+                                <td>
+                                    {% if product.sync_error %}
+                                        <span class="badge bg-danger">Sync-Fehler</span>
+                                    {% elif product.needs_sync %}
+                                        <span class="badge bg-warning">Benötigt Sync</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'shopify_manager:product_edit' product.pk %}" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <button class="btn btn-sm btn-outline-success" 
+                                            onclick="syncProduct({{ product.id }})" 
+                                            title="Synchronisieren">
+                                        <i class="fas fa-sync"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function testConnection(storeId) {
+    fetch(`/shopify/stores/${storeId}/test/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Verbindung erfolgreich: ' + data.message);
+        } else {
+            alert('Verbindung fehlgeschlagen: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Fehler beim Testen der Verbindung');
+    });
+}
+
+function syncProduct(productId) {
+    if (!confirm('Produkt zu Shopify synchronisieren?')) return;
+    
+    fetch(`/shopify/api/products/${productId}/sync/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Synchronisation erfolgreich!');
+            location.reload();
+        } else {
+            alert('Synchronisation fehlgeschlagen: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Fehler bei der Synchronisation');
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

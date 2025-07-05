@@ -1,0 +1,409 @@
+{% extends 'shopify_manager/base.html' %}
+{% load static %}
+
+{% block title %}Blog-Beiträge - Shopify Manager{% endblock %}
+
+{% block shopify_content %}
+{% csrf_token %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-newspaper text-primary"></i> Blog-Beiträge
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{% url 'shopify_manager:blog_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-blog"></i> Zu Blogs
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Statistiken -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Beiträge gesamt</h6>
+                        <h3 class="mb-0">{{ stats.total_posts }}</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-newspaper fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Veröffentlicht</h6>
+                        <h3 class="mb-0">{{ stats.published_posts }}</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-check-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Entwürfe</h6>
+                        <h3 class="mb-0">{{ stats.draft_posts }}</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-edit fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">SEO-Probleme</h6>
+                        <h3 class="mb-0">{{ stats.seo_issues }}</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h6 class="mb-0">Filter</h6>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Suche</label>
+                <input type="text" class="form-control" name="search" value="{{ request.GET.search }}" placeholder="Titel, Inhalt, Tags...">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Status</label>
+                <select class="form-select" name="status">
+                    <option value="">Alle</option>
+                    <option value="published" {% if request.GET.status == 'published' %}selected{% endif %}>Veröffentlicht</option>
+                    <option value="draft" {% if request.GET.status == 'draft' %}selected{% endif %}>Entwurf</option>
+                    <option value="hidden" {% if request.GET.status == 'hidden' %}selected{% endif %}>Versteckt</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Blog</label>
+                <select class="form-select" name="blog">
+                    <option value="">Alle Blogs</option>
+                    {% for blog in user_blogs %}
+                        <option value="{{ blog.id }}" {% if request.GET.blog == blog.id|stringformat:"s" %}selected{% endif %}>
+                            {{ blog.title }} ({{ blog.store.name }})
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Sortierung</label>
+                <select class="form-select" name="sort">
+                    <option value="-published_at" {% if request.GET.sort == '-published_at' %}selected{% endif %}>Neueste zuerst</option>
+                    <option value="published_at" {% if request.GET.sort == 'published_at' %}selected{% endif %}>Älteste zuerst</option>
+                    <option value="title" {% if request.GET.sort == 'title' %}selected{% endif %}>Titel A-Z</option>
+                    <option value="-title" {% if request.GET.sort == '-title' %}selected{% endif %}>Titel Z-A</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter"></i> Filtern
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Blog Posts Liste -->
+<div class="card">
+    <div class="card-body">
+        {% if posts %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Titel</th>
+                            <th>Blog</th>
+                            <th>Autor</th>
+                            <th>Status</th>
+                            <th>SEO</th>
+                            <th>Alt-Text</th>
+                            <th>Veröffentlicht</th>
+                            <th>Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for post in posts %}
+                        <tr{% if post.is_grayed_out %} class="opacity-50"{% endif %}>
+                            <td>
+                                <a href="{% url 'shopify_manager:blog_post_detail' post.pk %}" class="text-decoration-none">
+                                    <strong>{{ post.title|truncatechars:40 }}</strong>
+                                </a>
+                                {% if post.featured_image_url %}
+                                    <i class="fas fa-image text-info ms-1" title="Hat Beitragsbild"></i>
+                                {% endif %}
+                                
+                                <!-- SEO Title & Description -->
+                                <div class="mt-1">
+                                    <small class="text-muted d-block">
+                                        <strong>SEO-Titel:</strong> 
+                                        {% if post.seo_title %}
+                                            <span class="text-success">{{ post.seo_title|truncatechars:50 }}</span>
+                                        {% else %}
+                                            <span class="text-danger">Nicht gesetzt</span>
+                                        {% endif %}
+                                    </small>
+                                    <small class="text-muted d-block">
+                                        <strong>SEO-Beschreibung:</strong> 
+                                        {% if post.seo_description %}
+                                            <span class="text-success">{{ post.seo_description|truncatechars:60 }}</span>
+                                        {% else %}
+                                            <span class="text-danger">Nicht gesetzt</span>
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                
+                                {% if post.tags %}
+                                    <small class="text-muted">Tags: {{ post.tags|truncatechars:30 }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'shopify_manager:blog_detail' post.blog.pk %}" class="text-decoration-none">
+                                    {{ post.blog.title }}
+                                </a>
+                                <br><small class="text-muted">{{ post.blog.store.name }}</small>
+                            </td>
+                            <td>{{ post.author|default:"Unbekannt" }}</td>
+                            <td>
+                                {% if post.status == 'published' %}
+                                    <span class="badge bg-success">Veröffentlicht</span>
+                                {% elif post.status == 'draft' %}
+                                    <span class="badge bg-warning">Entwurf</span>
+                                {% elif post.status == 'hidden' %}
+                                    <span class="badge bg-secondary">Versteckt</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ post.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% with seo_status=post.get_seo_status %}
+                                    {% if seo_status == 'good' %}
+                                        <span class="badge bg-success" title="SEO-Titel und -Beschreibung vorhanden">
+                                            <i class="fas fa-circle"></i> Gut
+                                        </span>
+                                    {% elif seo_status == 'warning' %}
+                                        <span class="badge bg-warning" title="SEO-Titel oder -Beschreibung fehlt">
+                                            <i class="fas fa-circle"></i> Warnung
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-danger" title="SEO-Titel und -Beschreibung fehlen">
+                                            <i class="fas fa-circle"></i> Schlecht
+                                        </span>
+                                    {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td>
+                                {% with alt_status=post.get_alt_text_status %}
+                                    {% if alt_status == 'good' %}
+                                        <span class="badge bg-success" title="Alt-Text vorhanden">
+                                            <i class="fas fa-circle"></i> Gut
+                                        </span>
+                                    {% elif alt_status == 'warning' %}
+                                        <span class="badge bg-warning" title="Bild ohne Alt-Text">
+                                            <i class="fas fa-circle"></i> Warnung
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-danger" title="Kein Bild oder Alt-Text">
+                                            <i class="fas fa-circle"></i> Schlecht
+                                        </span>
+                                    {% endif %}
+                                {% endwith %}
+                            </td>
+                            <td>
+                                {% if post.published_at %}
+                                    {{ post.published_at|date:"d.m.Y" }}
+                                    <br><small class="text-muted">{{ post.published_at|date:"H:i" }}</small>
+                                {% else %}
+                                    <span class="text-muted">Nicht veröffentlicht</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex flex-column gap-1">
+                                    <!-- Haupt-Aktionen -->
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'shopify_manager:blog_post_seo_optimization' post.pk %}" class="btn btn-warning" title="SEO optimieren">
+                                            <i class="fas fa-robot"></i> SEO
+                                        </a>
+                                        <a href="{% url 'shopify_manager:blog_post_detail' post.pk %}" class="btn btn-outline-primary" title="Details">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{{ post.get_shopify_admin_url }}" target="_blank" class="btn btn-outline-secondary" title="In Shopify bearbeiten">
+                                            <i class="fas fa-external-link-alt"></i>
+                                        </a>
+                                        {% if post.status == 'published' and post.get_storefront_url %}
+                                            <a href="{{ post.get_storefront_url }}" target="_blank" class="btn btn-outline-info" title="Im Shop ansehen">
+                                                <i class="fas fa-globe"></i>
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <!-- Sync-Aktionen -->
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-success" onclick="syncBlogPost({{ post.id }})" title="Synchronisieren">
+                                            <i class="fas fa-sync"></i>
+                                        </button>
+                                        <button class="btn btn-outline-warning" onclick="syncAndGrayoutBlogPost({{ post.id }})" title="Synchronisieren & Ausgrauen">
+                                            <i class="fas fa-sync"></i> <i class="fas fa-moon"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger" onclick="deleteBlogPostLocal({{ post.id }})" title="Lokal löschen">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                Keine Blog-Beiträge gefunden. 
+                {% if request.GET.search or request.GET.status or request.GET.blog %}
+                    <a href="{% url 'shopify_manager:blog_post_list' %}" class="alert-link">Filter zurücksetzen</a>
+                {% else %}
+                    Gehen Sie zu <a href="{% url 'shopify_manager:blog_list' %}" class="alert-link">Blogs</a> um Inhalte zu importieren.
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<nav aria-label="Blog Posts Pagination" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?{% if get_params %}{{ get_params }}&{% endif %}page=1">&laquo; Erste</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?{% if get_params %}{{ get_params }}&{% endif %}page={{ page_obj.previous_page_number }}">Zurück</a>
+            </li>
+        {% endif %}
+        
+        <li class="page-item active">
+            <span class="page-link">
+                Seite {{ page_obj.number }} von {{ page_obj.paginator.num_pages }}
+            </span>
+        </li>
+        
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?{% if get_params %}{{ get_params }}&{% endif %}page={{ page_obj.next_page_number }}">Weiter</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?{% if get_params %}{{ get_params }}&{% endif %}page={{ page_obj.paginator.num_pages }}">Letzte &raquo;</a>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+<script>
+// Blog Post Sync Functions
+function syncBlogPost(blogPostId) {
+    if (!confirm('Blog-Post zu Shopify synchronisieren?')) return;
+    
+    fetch(`{% url 'shopify_manager:sync_blog_post' 0 %}`.replace('0', blogPostId), {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Netzwerkfehler: ' + error);
+    });
+}
+
+function syncAndGrayoutBlogPost(blogPostId) {
+    if (!confirm('Blog-Post synchronisieren und ausgrauen?')) return;
+    
+    fetch(`{% url 'shopify_manager:sync_and_grayout_blog_post' 0 %}`.replace('0', blogPostId), {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Netzwerkfehler: ' + error);
+    });
+}
+
+function deleteBlogPostLocal(blogPostId) {
+    if (!confirm('Blog-Post lokal löschen? Dies entfernt den Blog-Post nur aus der lokalen Datenbank, nicht aus Shopify.')) return;
+    
+    fetch(`{% url 'shopify_manager:delete_blog_post_local' 0 %}`.replace('0', blogPostId), {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Netzwerkfehler: ' + error);
+    });
+}
+</script>
+
+{% endblock %}

@@ -1,0 +1,250 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}{{ post.title }} - Blog Post Detail{% endblock %}
+
+{% block shopify_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-newspaper text-primary"></i> {{ post.title|truncatechars:50 }}
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{% url 'shopify_manager:blog_post_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Zurück zur Liste
+            </a>
+            <a href="{% url 'shopify_manager:blog_detail' post.blog.pk %}" class="btn btn-outline-info">
+                <i class="fas fa-blog"></i> Zum Blog
+            </a>
+            <a href="{% url 'shopify_manager:blog_post_seo_optimization' post.pk %}" class="btn btn-outline-warning">
+                <i class="fas fa-robot"></i> SEO optimieren
+            </a>
+            <a href="{{ post.get_shopify_admin_url }}" target="_blank" class="btn btn-outline-primary">
+                <i class="fas fa-external-link-alt"></i> In Shopify bearbeiten
+            </a>
+            {% if post.status == 'published' and post.get_storefront_url %}
+                <a href="{{ post.get_storefront_url }}" target="_blank" class="btn btn-outline-success">
+                    <i class="fas fa-globe"></i> Im Shop ansehen
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Status Banner -->
+<div class="row mb-4">
+    <div class="col-12">
+        {% if post.status == 'published' %}
+            <div class="alert alert-success" role="alert">
+                <i class="fas fa-check-circle"></i>
+                Dieser Beitrag ist <strong>veröffentlicht</strong> 
+                {% if post.published_at %}am {{ post.published_at|date:"d.m.Y H:i" }}{% endif %}
+            </div>
+        {% elif post.status == 'draft' %}
+            <div class="alert alert-warning" role="alert">
+                <i class="fas fa-edit"></i>
+                Dieser Beitrag ist ein <strong>Entwurf</strong> und noch nicht veröffentlicht
+            </div>
+        {% elif post.status == 'hidden' %}
+            <div class="alert alert-secondary" role="alert">
+                <i class="fas fa-eye-slash"></i>
+                Dieser Beitrag ist <strong>versteckt</strong>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Blog Post Info -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">{{ post.title }}</h5>
+                
+                {% if post.featured_image_url %}
+                <div class="mb-3">
+                    <img src="{{ post.featured_image_url }}" alt="{{ post.featured_image_alt }}" class="img-fluid rounded" style="max-height: 300px;">
+                    {% if post.featured_image_alt %}
+                        <small class="text-muted d-block mt-1">Alt-Text: {{ post.featured_image_alt }}</small>
+                    {% else %}
+                        <small class="text-danger d-block mt-1"><i class="fas fa-exclamation-triangle"></i> Kein Alt-Text vorhanden</small>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                {% if post.summary %}
+                <div class="mb-3">
+                    <h6>Zusammenfassung:</h6>
+                    <p class="text-muted">{{ post.summary }}</p>
+                </div>
+                {% endif %}
+                
+                <div class="mb-3">
+                    <h6>Inhalt:</h6>
+                    <div class="border rounded p-3">
+                        {{ post.content|safe }}
+                    </div>
+                </div>
+                
+                {% if post.tags %}
+                <div class="mb-3">
+                    <h6>Tags:</h6>
+                    {% for tag in post.get_tags_list %}
+                        <span class="badge bg-light text-dark me-1">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <!-- SEO Status -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-search"></i> SEO-Status
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row mb-2">
+                    <div class="col-12">
+                        <small class="text-muted d-block">Gesamt-Status</small>
+                        {% if seo_status == 'good' %}
+                            <span class="badge bg-success"><i class="fas fa-circle"></i> Gut</span>
+                            <small class="text-muted d-block">SEO-Titel und -Beschreibung vorhanden</small>
+                        {% elif seo_status == 'warning' %}
+                            <span class="badge bg-warning"><i class="fas fa-circle"></i> Warnung</span>
+                            <small class="text-muted d-block">SEO-Titel oder -Beschreibung fehlt</small>
+                        {% else %}
+                            <span class="badge bg-danger"><i class="fas fa-circle"></i> Schlecht</span>
+                            <small class="text-muted d-block">SEO-Titel und -Beschreibung fehlen</small>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="mb-2">
+                    <small class="text-muted">SEO-Titel</small>
+                    {% if post.seo_title %}
+                        <div class="small">{{ post.seo_title }}</div>
+                        <small class="text-success">{{ post.seo_title|length }}/70 Zeichen</small>
+                    {% else %}
+                        <div class="text-danger small">Nicht gesetzt</div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-2">
+                    <small class="text-muted">SEO-Beschreibung</small>
+                    {% if post.seo_description %}
+                        <div class="small">{{ post.seo_description|truncatechars:80 }}</div>
+                        <small class="text-success">{{ post.seo_description|length }}/160 Zeichen</small>
+                    {% else %}
+                        <div class="text-danger small">Nicht gesetzt</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Alt-Text Status -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-image"></i> Bild & Alt-Text
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if post.featured_image_url %}
+                    {% if post.featured_image_alt %}
+                        <span class="badge bg-success"><i class="fas fa-circle"></i> Gut</span>
+                        <small class="text-muted d-block">Bild mit Alt-Text vorhanden</small>
+                    {% else %}
+                        <span class="badge bg-warning"><i class="fas fa-circle"></i> Warnung</span>
+                        <small class="text-muted d-block">Bild ohne Alt-Text</small>
+                    {% endif %}
+                {% else %}
+                    <span class="badge bg-secondary"><i class="fas fa-circle"></i> Kein Bild</span>
+                    <small class="text-muted d-block">Kein Beitragsbild vorhanden</small>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Meta-Informationen -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-info-circle"></i> Meta-Informationen
+                </h6>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-borderless">
+                    <tr>
+                        <td><strong>Blog:</strong></td>
+                        <td>
+                            <a href="{% url 'shopify_manager:blog_detail' post.blog.pk %}">{{ post.blog.title }}</a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>Store:</strong></td>
+                        <td>{{ post.blog.store.name }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Handle:</strong></td>
+                        <td><code>{{ post.handle }}</code></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Autor:</strong></td>
+                        <td>{{ post.author|default:"Unbekannt" }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Status:</strong></td>
+                        <td>
+                            {% if post.status == 'published' %}
+                                <span class="badge bg-success">Veröffentlicht</span>
+                            {% elif post.status == 'draft' %}
+                                <span class="badge bg-warning">Entwurf</span>
+                            {% elif post.status == 'hidden' %}
+                                <span class="badge bg-secondary">Versteckt</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% if post.published_at %}
+                    <tr>
+                        <td><strong>Veröffentlicht:</strong></td>
+                        <td>{{ post.published_at|date:"d.m.Y H:i" }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <td><strong>Erstellt:</strong></td>
+                        <td>{{ post.shopify_created_at|date:"d.m.Y H:i" }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Aktualisiert:</strong></td>
+                        <td>{{ post.shopify_updated_at|date:"d.m.Y H:i" }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JSON Debug (optional, für Entwicklung) -->
+{% if user.is_superuser and post.raw_shopify_data %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h6 class="mb-0">
+            <i class="fas fa-code"></i> Raw Shopify Data
+            <button class="btn btn-sm btn-outline-secondary float-end" type="button" data-bs-toggle="collapse" data-bs-target="#rawData">
+                Anzeigen/Verbergen
+            </button>
+        </h6>
+    </div>
+    <div class="collapse" id="rawData">
+        <div class="card-body">
+            <pre><code>{{ post.raw_shopify_data|pprint }}</code></pre>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
