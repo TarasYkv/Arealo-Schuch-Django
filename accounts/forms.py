@@ -26,6 +26,16 @@ class CustomAuthenticationForm(AuthenticationForm):
         self.fields['password'].widget.attrs.update({'class': 'form-control'})
 
 
+class ApiKeyForm(forms.ModelForm):
+    class Meta:
+        model = CustomUser
+        fields = ['openai_api_key', 'anthropic_api_key']
+        widgets = {
+            'openai_api_key': forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Ihr OpenAI API Key'}),
+            'anthropic_api_key': forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Ihr Anthropic API Key'}),
+        }
+
+
 class AmpelCategoryForm(forms.ModelForm):
     class Meta:
         model = AmpelCategory

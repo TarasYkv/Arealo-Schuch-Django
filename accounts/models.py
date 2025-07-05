@@ -1,11 +1,15 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from encrypted_model_fields.fields import EncryptedCharField
 
 
 class CustomUser(AbstractUser):
     """Erweiterte User-Model für benutzerdefinierte Ampel-Kategorien."""
     use_custom_categories = models.BooleanField(default=False, verbose_name="Benutzerdefinierte Kategorien verwenden")
     enable_ai_keyword_expansion = models.BooleanField(default=False, verbose_name="KI-Keyword-Erweiterung aktivieren")
+    
+    openai_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="OpenAI API Key")
+    anthropic_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Anthropic API Key")
     
     def __str__(self):
         return self.username

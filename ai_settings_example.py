@@ -39,4 +39,4 @@ GOOGLE_AI_API_KEY = 'AIza...'
 # - API-Keys NIEMALS in den Code committen
 # - Verwenden Sie Umgebungsvariablen oder separate Konfigurationsdateien
 # - Beispiel mit Umgebungsvariablen:
-#   ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
+#   ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')FIELD_ENCRYPTION_KEY = '79aa1b704e2b5114658443300270c4d5'

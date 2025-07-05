@@ -1410,42 +1410,46 @@ def get_api_balances(request):
         
         balances = {}
         
+        # Initialize with default structure for all providers
+        provider_choices = [
+            ('openai', 'OpenAI (ChatGPT)'),
+            ('anthropic', 'Anthropic (Claude)'),
+            ('google', 'Google (Gemini)'),
+            ('youtube', 'YouTube Data API'),
+        ]
+        
+        for provider_key, provider_name in provider_choices:
+            masked_api_key = 'Nicht konfiguriert'
+            if provider_key == 'openai' and request.user.openai_api_key:
+                masked_api_key = request.user.openai_api_key[:4] + "*" * (len(request.user.openai_api_key) - 8) + request.user.openai_api_key[-4:]
+            elif provider_key == 'anthropic' and request.user.anthropic_api_key:
+                masked_api_key = request.user.anthropic_api_key[:4] + "*" * (len(request.user.anthropic_api_key) - 8) + request.user.anthropic_api_key[-4:]
+
+            balances[provider_key] = {
+                'balance': 0.00,
+                'currency': 'USD',
+                'status': 'empty',
+                'is_low': True,
+                'threshold': 5.00,
+                'last_updated': None,
+                'has_api_key': False,
+                'masked_api_key': masked_api_key
+            }
+
         try:
             # Hole alle Kontostände für den aktuellen User
             user_balances = APIBalance.objects.filter(user=request.user)
             
             for balance in user_balances:
-                balances[balance.provider] = {
-                    'balance': float(balance.balance),
-                    'currency': balance.currency,
-                    'status': balance.get_balance_status(),
-                    'is_low': balance.is_low_balance(),
-                    'threshold': float(balance.auto_warning_threshold),
-                    'last_updated': balance.last_updated.isoformat(),
-                    'has_api_key': balance.has_api_key(),
-                    'masked_api_key': balance.get_masked_api_key()
-                }
-            
-            # Füge leere Einträge für nicht vorhandene Provider hinzu
-            provider_choices = [
-                ('openai', 'OpenAI (ChatGPT)'),
-                ('anthropic', 'Anthropic (Claude)'),
-                ('google', 'Google (Gemini)'),
-            ]
-            
-            for provider_key, provider_name in provider_choices:
-                if provider_key not in balances:
-                    balances[provider_key] = {
-                        'balance': 0.00,
-                        'currency': 'USD',
-                        'status': 'empty',
-                        'is_low': True,
-                        'threshold': 5.00,
-                        'last_updated': None,
-                        'has_api_key': False,
-                        'masked_api_key': 'Nicht konfiguriert'
-                    }
-            
+                balances[balance.provider]['balance'] = float(balance.balance)
+                balances[balance.provider]['currency'] = balance.currency
+                balances[balance.provider]['status'] = balance.get_balance_status()
+                balances[balance.provider]['is_low'] = balance.is_low_balance()
+                balances[balance.provider]['threshold'] = float(balance.auto_warning_threshold)
+                balances[balance.provider]['last_updated'] = balance.last_updated.isoformat()
+                balances[balance.provider]['has_api_key'] = balance.has_api_key()
+                # Masked API key is already set from CustomUser, no need to re-set from APIBalance
+
             return JsonResponse({
                 'success': True,
                 'balances': balances
@@ -1501,13 +1505,12 @@ def update_api_balance(request):
         balance = request.POST.get('balance')
         currency = request.POST.get('currency', 'USD')
         threshold = request.POST.get('threshold', '5.00')
-        api_key = request.POST.get('api_key', '').strip()
         quota_limit = request.POST.get('quota_limit')  # Für YouTube
         
         # YouTube verwendet Quota statt Balance
         if provider == 'youtube':
-            if not api_key and not quota_limit:
-                return JsonResponse({'success': False, 'error': 'API-Key oder Quota-Limit ist erforderlich'})
+            if not quota_limit:
+                return JsonResponse({'success': False, 'error': 'Quota-Limit ist erforderlich'})
             # Für YouTube: quota_limit als balance verwenden, wenn balance nicht gesetzt
             if balance is None and quota_limit:
                 balance = quota_limit
@@ -1537,7 +1540,6 @@ def update_api_balance(request):
                     'balance': balance_decimal,
                     'currency': currency,
                     'auto_warning_threshold': threshold_decimal,
-                    'api_key': api_key
                 }
             )
             
@@ -1545,9 +1547,6 @@ def update_api_balance(request):
                 api_balance.balance = balance_decimal
                 api_balance.currency = currency
                 api_balance.auto_warning_threshold = threshold_decimal
-                # Nur API-Key aktualisieren wenn er angegeben wurde
-                if api_key:
-                    api_balance.api_key = api_key
                 api_balance.save()
             
             return JsonResponse({
@@ -1602,10 +1601,9 @@ def remove_api_key(request):
             return JsonResponse({'success': False, 'error': 'Ungültiger Provider'})
         
         try:
-            # Versuche API-Balance zu finden und Key zu entfernen
+            # Versuche API-Balance zu finden und zu löschen
             api_balance = APIBalance.objects.get(user=request.user, provider=provider)
-            api_balance.api_key = ''  # Leeren Key setzen
-            api_balance.save()
+            api_balance.delete()
             
             provider_name = dict(APIBalance.PROVIDER_CHOICES)[provider]
             
@@ -1660,12 +1658,20 @@ def get_usage_statistics(request):
         provider_cost = sum(float(log.estimated_cost) for log in provider_logs)
         provider_tokens = sum(log.total_tokens for log in provider_logs)
         
+        # Get masked API key from CustomUser model
+        masked_api_key = 'Nicht konfiguriert'
+        if provider_key == 'openai' and request.user.openai_api_key:
+            masked_api_key = request.user.openai_api_key[:4] + "*" * (len(request.user.openai_api_key) - 8) + request.user.openai_api_key[-4:]
+        elif provider_key == 'anthropic' and request.user.anthropic_api_key:
+            masked_api_key = request.user.anthropic_api_key[:4] + "*" * (len(request.user.anthropic_api_key) - 8) + request.user.anthropic_api_key[-4:]
+
         stats[provider_key] = {
             'name': provider_name,
             'total_cost': provider_cost,
             'total_tokens': provider_tokens,
             'request_count': provider_logs.count(),
-            'last_used': provider_logs.first().created_at.isoformat() if provider_logs.exists() else None
+            'last_used': provider_logs.first().created_at.isoformat() if provider_logs.exists() else None,
+            'masked_api_key': masked_api_key
         }
         
         total_cost += provider_cost
@@ -1775,7 +1781,7 @@ def estimate_training_cost(request):
 @login_required
 def api_settings_view(request):
     """Zeigt die API-Einstellungsseite an"""
-    return render(request, 'accounts/api_settings.html')
+    return redirect('accounts:manage_api_keys')
 
 
 @login_required
@@ -1785,10 +1791,20 @@ def validate_api_key(request):
         return JsonResponse({'success': False, 'error': 'Nur POST-Anfragen erlaubt'})
     
     provider = request.POST.get('provider')
-    api_key = request.POST.get('api_key', '').strip()
     
-    if not provider or not api_key:
-        return JsonResponse({'success': False, 'error': 'Provider und API-Key sind erforderlich'})
+    if not provider:
+        return JsonResponse({'success': False, 'error': 'Provider ist erforderlich'})
+
+    # Get API key from CustomUser model
+    api_key = None
+    if provider == 'openai':
+        api_key = request.user.openai_api_key
+    elif provider == 'anthropic':
+        api_key = request.user.anthropic_api_key
+    # Add other providers if they are stored in CustomUser
+
+    if not api_key:
+        return JsonResponse({'success': False, 'error': 'API-Key nicht im Benutzerprofil gespeichert'})
     
     # Validiere API-Key je nach Provider
     is_valid, error_message = test_api_key(provider, api_key)

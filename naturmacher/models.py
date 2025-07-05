@@ -401,7 +401,6 @@ class APIBalance(models.Model):
     provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES)
     balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Aktueller Kontostand in USD/EUR")
     currency = models.CharField(max_length=3, default='USD', help_text="Währung (USD, EUR)")
-    api_key = models.CharField(max_length=255, blank=True, help_text="API-Schlüssel (verschlüsselt gespeichert)")
     last_updated = models.DateTimeField(auto_now=True)
     auto_warning_threshold = models.DecimalField(max_digits=10, decimal_places=2, default=5.00, help_text="Warnung bei diesem Kontostand")
     
@@ -424,16 +423,19 @@ class APIBalance(models.Model):
             return 'high'
     
     def has_api_key(self):
-        """Prüft ob ein API-Key hinterlegt ist"""
-        return bool(self.api_key.strip())
+        """Prüft ob ein API-Key hinterlegt ist (aus dem User-Profil)"""
+        from naturmacher.utils.api_helpers import get_user_api_key
+        return bool(get_user_api_key(self.user, self.provider))
     
     def get_masked_api_key(self):
-        """Gibt den API-Key maskiert zurück für Anzeige"""
-        if not self.api_key:
+        """Gibt den API-Key maskiert zurück für Anzeige (aus dem User-Profil)"""
+        from naturmacher.utils.api_helpers import get_user_api_key
+        api_key = get_user_api_key(self.user, self.provider)
+        if not api_key:
             return "Nicht konfiguriert"
-        if len(self.api_key) <= 8:
-            return "*" * len(self.api_key)
-        return self.api_key[:4] + "*" * (len(self.api_key) - 8) + self.api_key[-4:]
+        if len(api_key) <= 8:
+            return "*" * len(api_key)
+        return api_key[:4] + "*" * (len(api_key) - 8) + api_key[-4:]
 
     class Meta:
         unique_together = ['user', 'provider']
