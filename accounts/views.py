@@ -7,7 +7,7 @@ from django.urls import reverse_lazy
 from django.views.generic import CreateView
 from django.views.decorators.http import require_http_methods
 from django.http import JsonResponse
-from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm
+from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm, ApiKeyForm
 from .models import CustomUser, AmpelCategory, CategoryKeyword
 from naturmacher.models import APIBalance
 
@@ -63,6 +63,19 @@ def dashboard(request):
         'enable_ai_keyword_expansion': request.user.enable_ai_keyword_expansion,
     }
     return render(request, 'accounts/dashboard.html', context)
+
+
+@login_required
+def manage_api_keys(request):
+    if request.method == 'POST':
+        form = ApiKeyForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'API Keys erfolgreich gespeichert.')
+            return redirect('accounts:manage_api_keys')
+    else:
+        form = ApiKeyForm(instance=request.user)
+    return render(request, 'accounts/manage_api_keys.html', {'form': form})
 
 
 @login_required
@@ -218,7 +231,7 @@ def keyword_delete(request, keyword_pk):
 @login_required
 def api_settings_view(request):
     """Zeigt die API-Einstellungsseite an"""
-    return render(request, 'accounts/api_settings.html')
+    return redirect('accounts:manage_api_keys')
 
 
 def logout_view(request):
@@ -241,17 +254,17 @@ def validate_api_key(request):
     if not provider:
         return JsonResponse({'success': False, 'error': 'Provider und API-Key sind erforderlich'})
 
-    # If API key is not provided in the request, try to get it from the database
-    if not api_key:
-        try:
-            api_balance = APIBalance.objects.get(user=request.user, provider=provider)
-            api_key = api_balance.api_key
-        except APIBalance.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'API-Key nicht gefunden und nicht in der Datenbank gespeichert'})
+    # Get API key from CustomUser model
+    api_key = None
+    if provider == 'openai':
+        api_key = request.user.openai_api_key
+    elif provider == 'anthropic':
+        api_key = request.user.anthropic_api_key
+    # Add other providers if they are stored in CustomUser
 
     if not api_key:
-        return JsonResponse({'success': False, 'error': 'API-Key ist leer'})
-    
+        return JsonResponse({'success': False, 'error': 'API-Key nicht im Benutzerprofil gespeichert'})
+
     # Validiere API-Key je nach Provider
     is_valid, error_message = test_api_key(provider, api_key)
     
@@ -580,21 +593,24 @@ def get_api_balances(request):
     ]
     
     for provider_key in all_providers:
+        masked_api_key = 'Nicht konfiguriert'
+        if provider_key == 'openai' and request.user.openai_api_key:
+            masked_api_key = request.user.openai_api_key[:4] + "*" * (len(request.user.openai_api_key) - 8) + request.user.openai_api_key[-4:]
+        elif provider_key == 'anthropic' and request.user.anthropic_api_key:
+            masked_api_key = request.user.anthropic_api_key[:4] + "*" * (len(request.user.anthropic_api_key) - 8) + request.user.anthropic_api_key[-4:]
+
         balances_data[provider_key] = {
             'balance': 0.00,
             'threshold': 5.00, # Default threshold
             'currency': 'USD',
-            'masked_api_key': 'Nicht konfiguriert'
+            'masked_api_key': masked_api_key
         }
 
     for balance_obj in user_balances:
         provider = balance_obj.provider
-        balances_data[provider] = {
-            'balance': float(balance_obj.balance),
-            'threshold': float(balance_obj.auto_warning_threshold),
-            'currency': balance_obj.currency,
-            'masked_api_key': balance_obj.get_masked_api_key()
-        }
+        balances_data[provider]['balance'] = float(balance_obj.balance)
+        balances_data[provider]['threshold'] = float(balance_obj.auto_warning_threshold)
+        balances_data[provider]['currency'] = balance_obj.currency
         # Special handling for YouTube quota
         if provider == 'youtube':
             balances_data[provider]['balance'] = int(balance_obj.balance) # Quota is integer
@@ -632,7 +648,6 @@ def update_api_balance(request):
         defaults={
             'balance': balance,
             'currency': currency,
-            'api_key': api_key,
             'auto_warning_threshold': threshold
         }
     )
@@ -641,8 +656,6 @@ def update_api_balance(request):
         api_balance.balance = balance
         api_balance.currency = currency
         api_balance.auto_warning_threshold = threshold
-        if api_key: # Only update API key if a new one is provided
-            api_balance.api_key = api_key
         api_balance.save()
     
     masked_key = api_balance.get_masked_api_key()
@@ -664,14 +677,17 @@ def remove_api_key(request):
         return JsonResponse({'success': False, 'error': 'Provider ist erforderlich'})
     
     try:
-        api_balance = APIBalance.objects.get(user=request.user, provider=provider)
-        api_balance.delete()
+        if provider == 'openai':
+            request.user.openai_api_key = None
+        elif provider == 'anthropic':
+            request.user.anthropic_api_key = None
+        else:
+            return JsonResponse({'success': False, 'error': f'Entfernen des API-Schlüssels für {provider} nicht unterstützt'})
+        request.user.save()
         return JsonResponse({
             'success': True,
             'message': f'API-Schlüssel für {provider} wurde entfernt'
         })
-    except APIBalance.DoesNotExist:
-        return JsonResponse({'success': False, 'error': f'Kein API-Schlüssel für {provider} gefunden'})
     except Exception as e:
         return JsonResponse({'success': False, 'error': f'Fehler beim Entfernen des API-Schlüssels: {str(e)}'})
 

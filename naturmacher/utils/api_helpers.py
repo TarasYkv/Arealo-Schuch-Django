@@ -1,33 +1,33 @@
 import os
 from django.conf import settings
-from naturmacher.models import APIBalance
+from accounts.models import CustomUser # Import CustomUser
 
 
-def get_user_api_key(user, provider):
+def get_user_api_key(user: CustomUser, provider: str):
     """
-    Holt den API-Key für einen User und Provider aus der Datenbank.
-    Falls nicht vorhanden, wird als Fallback der .env-Key verwendet.
+    Holt den API-Key für einen User und Provider.
+    Priorisiert Keys aus dem CustomUser-Modell, fällt auf .env-Keys zurück.
     
     Args:
-        user: Django User object
+        user: CustomUser object
         provider: str - 'openai', 'anthropic', oder 'google'
     
     Returns:
         str: API-Key oder None falls nicht verfügbar
     """
     if not user or not user.is_authenticated:
-        # Fallback für nicht authentifizierte Requests
+        # Fallback für nicht authentifizierte Requests oder wenn kein User-Objekt vorhanden ist
         return get_env_api_key(provider)
     
-    try:
-        # Versuche Key aus Datenbank zu holen
-        api_balance = APIBalance.objects.get(user=user, provider=provider)
-        if api_balance.api_key and api_balance.api_key.strip():
-            return api_balance.api_key.strip()
-    except APIBalance.DoesNotExist:
-        pass
+    # 1. Versuche Key aus CustomUser-Modell zu holen
+    if provider == 'openai':
+        if user.openai_api_key and user.openai_api_key.strip():
+            return user.openai_api_key.strip()
+    elif provider == 'anthropic':
+        if user.anthropic_api_key and user.anthropic_api_key.strip():
+            return user.anthropic_api_key.strip()
     
-    # Fallback zu .env-Key
+    # 2. Fallback zu .env-Key (für Google und andere, die nicht im User-Modell sind)
     return get_env_api_key(provider)
 
 
@@ -36,7 +36,7 @@ def get_env_api_key(provider):
     Holt API-Key aus Environment-Variablen (.env-Datei).
     
     Args:
-        provider: str - 'openai', 'anthropic', oder 'google'
+        provider: str - 'openai', 'anthropic', 'google', oder 'youtube'
     
     Returns:
         str: API-Key oder None falls nicht verfügbar

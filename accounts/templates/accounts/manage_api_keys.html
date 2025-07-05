@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}API Keys verwalten{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>API Keys verwalten</h1>
+    <p>Geben Sie hier Ihre API-Schlüssel ein. Diese werden sicher und verschlüsselt gespeichert.</p>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="{{ form.openai_api_key.id_for_label }}" class="form-label">{{ form.openai_api_key.label }}</label>
+            {{ form.openai_api_key }}
+            {% if form.openai_api_key.errors %}
+                <div class="invalid-feedback d-block">
+                    {{ form.openai_api_key.errors.0 }}
+                </div>
+            {% endif %}
+        </div>
+        <div class="mb-3">
+            <label for="{{ form.anthropic_api_key.id_for_label }}" class="form-label">{{ form.anthropic_api_key.label }}</label>
+            {{ form.anthropic_api_key }}
+            {% if form.anthropic_api_key.errors %}
+                <div class="invalid-feedback d-block">
+                    {{ form.anthropic_api_key.errors.0 }}
+                </div>
+            {% endif %}
+        </div>
+        <button type="submit" class="btn btn-primary">Speichern</button>
+    </form>
+</div>
+{% endblock %}
