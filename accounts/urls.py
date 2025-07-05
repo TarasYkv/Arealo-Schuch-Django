@@ -10,6 +10,7 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
     path('api-keys/', views.manage_api_keys, name='manage_api_keys'),
     path('api-einstellungen/', views.api_settings_view, name='api_settings'),
+    path('neue-api-einstellungen/', views.neue_api_einstellungen_view, name='neue_api_einstellungen'),
     path('api/validate-key/', views.validate_api_key, name='validate_api_key'),
     path('api/balances/', views.get_api_balances, name='get_api_balances'),
     path('api/balances/update/', views.update_api_balance, name='update_api_balance'),

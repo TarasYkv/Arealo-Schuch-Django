@@ -26,6 +26,12 @@ def get_user_api_key(user: CustomUser, provider: str):
     elif provider == 'anthropic':
         if user.anthropic_api_key and user.anthropic_api_key.strip():
             return user.anthropic_api_key.strip()
+    elif provider == 'google':
+        if user.google_api_key and user.google_api_key.strip():
+            return user.google_api_key.strip()
+    elif provider == 'youtube':
+        if user.youtube_api_key and user.youtube_api_key.strip():
+            return user.youtube_api_key.strip()
     
     # 2. Fallback zu .env-Key (für Google und andere, die nicht im User-Modell sind)
     return get_env_api_key(provider)

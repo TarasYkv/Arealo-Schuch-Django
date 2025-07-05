@@ -234,6 +234,12 @@ def api_settings_view(request):
     return redirect('accounts:manage_api_keys')
 
 
+@login_required
+def neue_api_einstellungen_view(request):
+    """Zeigt die neue API-Einstellungsseite an"""
+    return render(request, 'accounts/api_einstellungen.html')
+
+
 def logout_view(request):
     """Benutzer ausloggen."""
     logout(request)
@@ -251,19 +257,8 @@ def validate_api_key(request):
     provider = request.POST.get('provider')
     api_key = request.POST.get('api_key', '').strip()
     
-    if not provider:
+    if not provider or not api_key:
         return JsonResponse({'success': False, 'error': 'Provider und API-Key sind erforderlich'})
-
-    # Get API key from CustomUser model
-    api_key = None
-    if provider == 'openai':
-        api_key = request.user.openai_api_key
-    elif provider == 'anthropic':
-        api_key = request.user.anthropic_api_key
-    # Add other providers if they are stored in CustomUser
-
-    if not api_key:
-        return JsonResponse({'success': False, 'error': 'API-Key nicht im Benutzerprofil gespeichert'})
 
     # Validiere API-Key je nach Provider
     is_valid, error_message = test_api_key(provider, api_key)
@@ -658,6 +653,18 @@ def update_api_balance(request):
         api_balance.auto_warning_threshold = threshold
         api_balance.save()
     
+    # Save API key to user profile if provided
+    if api_key:
+        if provider == 'openai':
+            request.user.openai_api_key = api_key
+        elif provider == 'anthropic':
+            request.user.anthropic_api_key = api_key
+        elif provider == 'google':
+            request.user.google_api_key = api_key
+        elif provider == 'youtube':
+            request.user.youtube_api_key = api_key
+        request.user.save()
+    
     masked_key = api_balance.get_masked_api_key()
     
     return JsonResponse({
@@ -681,6 +688,10 @@ def remove_api_key(request):
             request.user.openai_api_key = None
         elif provider == 'anthropic':
             request.user.anthropic_api_key = None
+        elif provider == 'google':
+            request.user.google_api_key = None
+        elif provider == 'youtube':
+            request.user.youtube_api_key = None
         else:
             return JsonResponse({'success': False, 'error': f'Entfernen des API-Schlüssels für {provider} nicht unterstützt'})
         request.user.save()

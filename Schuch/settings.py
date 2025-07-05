@@ -165,4 +165,5 @@ AUTH_USER_MODEL = 'accounts.CustomUser'
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/accounts/dashboard/'
 LOGOUT_REDIRECT_URL = '/'
+
 FIELD_ENCRYPTION_KEY = 'JFkYsizDtDsUc1MTl5RogD_uPnyRB0wWFAZ5VtKRqow='
