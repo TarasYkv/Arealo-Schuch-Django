@@ -1,0 +1,397 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}{{ product.title }} bearbeiten - Shopify Manager{% endblock %}
+
+{% block shopify_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Produkt bearbeiten</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{% url 'shopify_manager:product_detail' product.pk %}" class="btn btn-outline-secondary">
+                <i class="fas fa-eye"></i> Ansehen
+            </a>
+            <a href="{% url 'shopify_manager:product_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-list"></i> Zur Liste
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <form method="post" class="needs-validation" novalidate>
+            {% csrf_token %}
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Grundinformationen</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="{{ form.title.id_for_label }}" class="form-label">
+                                {{ form.title.label }} *
+                            </label>
+                            {{ form.title }}
+                            {% if form.title.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.title.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-12 mb-3">
+                            <label for="{{ form.body_html.id_for_label }}" class="form-label">
+                                {{ form.body_html.label }}
+                            </label>
+                            {{ form.body_html }}
+                            {% if form.body_html.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.body_html.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.vendor.id_for_label }}" class="form-label">
+                                {{ form.vendor.label }}
+                            </label>
+                            {{ form.vendor }}
+                            {% if form.vendor.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.vendor.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.product_type.id_for_label }}" class="form-label">
+                                {{ form.product_type.label }}
+                            </label>
+                            {{ form.product_type }}
+                            {% if form.product_type.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.product_type.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.status.id_for_label }}" class="form-label">
+                                {{ form.status.label }}
+                            </label>
+                            {{ form.status }}
+                            {% if form.status.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.status.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.tags.id_for_label }}" class="form-label">
+                                {{ form.tags.label }}
+                            </label>
+                            {{ form.tags }}
+                            {% if form.tags.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.tags.errors.0 }}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted">Komma-getrennte Tags</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">SEO-Einstellungen</h5>
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="generateSEO()">
+                        <i class="fas fa-magic"></i> SEO generieren
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="{{ form.seo_title.id_for_label }}" class="form-label">
+                                {{ form.seo_title.label }}
+                            </label>
+                            {{ form.seo_title }}
+                            {% if form.seo_title.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.seo_title.errors.0 }}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted">
+                                <span id="seo-title-count">{{ form.seo_title.value|length|default:0 }}</span>/70 Zeichen
+                            </small>
+                        </div>
+                        
+                        <div class="col-md-12 mb-3">
+                            <label for="{{ form.seo_description.id_for_label }}" class="form-label">
+                                {{ form.seo_description.label }}
+                            </label>
+                            {{ form.seo_description }}
+                            {% if form.seo_description.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.seo_description.errors.0 }}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted">
+                                <span id="seo-desc-count">{{ form.seo_description.value|length|default:0 }}</span>/160 Zeichen
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Synchronisation</h5>
+                </div>
+                <div class="card-body">
+                    {% if product.sync_error %}
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Sync-Fehler:</strong> {{ product.sync_error }}
+                        </div>
+                    {% endif %}
+                    
+                    {% if product.needs_sync %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-clock"></i>
+                            Dieses Produkt benötigt eine Synchronisation zu Shopify.
+                        </div>
+                    {% endif %}
+                    
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-success" onclick="syncProduct({{ product.id }})">
+                            <i class="fas fa-sync"></i> Jetzt synchronisieren
+                        </button>
+                        <button type="button" class="btn btn-outline-warning" onclick="markNeedsSync()">
+                            <i class="fas fa-clock"></i> Sync erforderlich markieren
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Speichern
+                </button>
+                <a href="{% url 'shopify_manager:product_detail' product.pk %}" class="btn btn-secondary">
+                    Abbrechen
+                </a>
+            </div>
+        </form>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Produktbild</h5>
+            </div>
+            <div class="card-body text-center">
+                {% if product.image_url %}
+                    <img src="{{ product.image_url }}" class="img-fluid rounded mb-3" 
+                         alt="{{ product.title }}" style="max-height: 300px;">
+                {% else %}
+                    <div class="bg-light rounded p-4 mb-3">
+                        <i class="fas fa-image text-muted fa-3x"></i>
+                        <p class="mt-2 text-muted">Kein Bild verfügbar</p>
+                    </div>
+                {% endif %}
+                
+                <small class="text-muted">
+                    Bilder werden über Shopify verwaltet
+                </small>
+            </div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Produktdetails</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-5">Shopify ID:</dt>
+                    <dd class="col-sm-7">{{ product.shopify_id|default:"—" }}</dd>
+                    
+                    <dt class="col-sm-5">Handle:</dt>
+                    <dd class="col-sm-7">{{ product.handle|default:"—" }}</dd>
+                    
+                    <dt class="col-sm-5">Store:</dt>
+                    <dd class="col-sm-7">{{ product.store.name }}</dd>
+                    
+                    <dt class="col-sm-5">Erstellt:</dt>
+                    <dd class="col-sm-7">{{ product.created_at|date:"d.m.Y H:i" }}</dd>
+                    
+                    <dt class="col-sm-5">Aktualisiert:</dt>
+                    <dd class="col-sm-7">{{ product.updated_at|date:"d.m.Y H:i" }}</dd>
+                    
+                    <dt class="col-sm-5">Letzter Sync:</dt>
+                    <dd class="col-sm-7">{{ product.last_synced|date:"d.m.Y H:i"|default:"Noch nie" }}</dd>
+                </dl>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">SEO-Bewertung</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong>SEO-Titel:</strong>
+                    <span id="seo-title-status" class="badge">
+                        {% if product.seo_title %}
+                            <span class="badge bg-success">OK</span>
+                        {% else %}
+                            <span class="badge bg-danger">Fehlt</span>
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>SEO-Beschreibung:</strong>
+                    <span id="seo-desc-status" class="badge">
+                        {% if product.seo_description %}
+                            <span class="badge bg-success">OK</span>
+                        {% else %}
+                            <span class="badge bg-danger">Fehlt</span>
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <div class="progress mb-2">
+                    <div class="progress-bar" role="progressbar" 
+                         style="width: {% if product.seo_title and product.seo_description %}100{% elif product.seo_title or product.seo_description %}50{% else %}0{% endif %}%">
+                    </div>
+                </div>
+                
+                <small class="text-muted">
+                    SEO-Vollständigkeit: 
+                    {% if product.seo_title and product.seo_description %}100%{% elif product.seo_title or product.seo_description %}50%{% else %}0%{% endif %}
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// SEO Zeichenzähler
+document.getElementById('{{ form.seo_title.id_for_label }}').addEventListener('input', function() {
+    const count = this.value.length;
+    const counter = document.getElementById('seo-title-count');
+    counter.textContent = count;
+    counter.className = count > 70 ? 'text-danger' : 'text-muted';
+});
+
+document.getElementById('{{ form.seo_description.id_for_label }}').addEventListener('input', function() {
+    const count = this.value.length;
+    const counter = document.getElementById('seo-desc-count');
+    counter.textContent = count;
+    counter.className = count > 160 ? 'text-danger' : 'text-muted';
+});
+
+// SEO generieren
+function generateSEO() {
+    const title = document.getElementById('{{ form.title.id_for_label }}').value;
+    const description = document.getElementById('{{ form.body_html.id_for_label }}').value;
+    
+    if (!title) {
+        alert('Bitte erst einen Titel eingeben');
+        return;
+    }
+    
+    // Einfache SEO-Generierung
+    if (!document.getElementById('{{ form.seo_title.id_for_label }}').value) {
+        document.getElementById('{{ form.seo_title.id_for_label }}').value = 
+            title.substring(0, 70);
+    }
+    
+    if (!document.getElementById('{{ form.seo_description.id_for_label }}').value && description) {
+        const plainDesc = description.replace(/<[^>]*>/g, '').substring(0, 160);
+        document.getElementById('{{ form.seo_description.id_for_label }}').value = plainDesc;
+    }
+    
+    // Trigger input events to update counters
+    document.getElementById('{{ form.seo_title.id_for_label }}').dispatchEvent(new Event('input'));
+    document.getElementById('{{ form.seo_description.id_for_label }}').dispatchEvent(new Event('input'));
+}
+
+// Produkt synchronisieren
+function syncProduct(productId) {
+    if (!confirm('Produkt zu Shopify synchronisieren?')) return;
+    
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Synchronisiere...';
+    
+    fetch(`/shopify/api/products/${productId}/sync/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Synchronisation erfolgreich!');
+            location.reload();
+        } else {
+            alert('Synchronisation fehlgeschlagen: ' + (data.error || data.message));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Fehler bei der Synchronisation');
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sync"></i> Jetzt synchronisieren';
+    });
+}
+
+// Sync erforderlich markieren
+function markNeedsSync() {
+    fetch(`/shopify/api/products/{{ product.id }}/sync/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({mark_needs_sync: true})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Produkt als "Sync erforderlich" markiert');
+            location.reload();
+        } else {
+            alert('Fehler beim Markieren');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Fehler beim Markieren');
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

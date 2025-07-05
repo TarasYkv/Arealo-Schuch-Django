@@ -1,0 +1,545 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}SEO-Optimierung: {{ blog_post.title }} - Shopify Manager{% endblock %}
+
+{% block shopify_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-robot text-primary"></i> Blog-Post SEO-Optimierung
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{% url 'shopify_manager:blog_post_seo_optimization' blog_post.pk %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Zurück
+            </a>
+            <a href="{% url 'shopify_manager:blog_post_detail' blog_post.pk %}" class="btn btn-outline-secondary">
+                <i class="fas fa-eye"></i> Blog-Post ansehen
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-7 col-md-12">
+        <!-- Eingabe-Daten -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">📝 Eingabedaten für KI-Optimierung</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="form-label"><strong>Keywords:</strong></label>
+                        <div class="form-control-plaintext border rounded p-2 bg-light">
+                            {% if seo_optimization.keywords %}
+                                {% for keyword in seo_optimization.get_keywords_list %}
+                                    <span class="badge bg-primary me-1">{{ keyword }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <em class="text-muted">Keine Keywords definiert</em>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label"><strong>KI-Modell:</strong></label>
+                        <div class="form-control-plaintext border rounded p-2 bg-light">
+                            <span class="badge bg-info">{{ seo_optimization.get_ai_model_display }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <label class="form-label"><strong>Original Blog-Post Titel:</strong></label>
+                    <div class="form-control-plaintext border rounded p-2 bg-light">
+                        {{ seo_optimization.original_title }}
+                    </div>
+                </div>
+                
+                {% if seo_optimization.original_summary %}
+                <div class="mt-3">
+                    <label class="form-label"><strong>Original Zusammenfassung:</strong></label>
+                    <div class="form-control-plaintext border rounded p-2 bg-light" style="max-height: 120px; overflow-y: auto;">
+                        {{ seo_optimization.original_summary|truncatewords:30 }}
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="mt-3">
+                    <label class="form-label"><strong>Original Inhalt:</strong></label>
+                    <div class="form-control-plaintext border rounded p-2 bg-light" style="max-height: 120px; overflow-y: auto;">
+                        {% if seo_optimization.original_content %}
+                            {{ seo_optimization.original_content|safe|truncatewords:30 }}
+                        {% else %}
+                            <em class="text-muted">Kein Inhalt vorhanden</em>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- KI-Generierung -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">🤖 KI-generierte SEO-Inhalte</h5>
+                <button class="btn btn-primary" onclick="generateSEO({{ seo_optimization.pk }})">
+                    <i class="fas fa-magic"></i> Mit KI generieren
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="generation-status" class="alert alert-info" style="display: none;">
+                    <i class="fas fa-spinner fa-spin"></i> KI generiert SEO-Inhalte...
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-12 mb-4">
+                        <label class="form-label fs-5"><strong><i class="fas fa-heading text-primary"></i> Generierter SEO-Titel:</strong></label>
+                        <div id="generated-seo-title" class="border rounded p-3 bg-white shadow-sm">
+                            {% if seo_optimization.generated_seo_title %}
+                                <div class="position-relative">
+                                    <div id="seo-title-display" class="fs-4 fw-bold text-dark mb-2">{{ seo_optimization.generated_seo_title }}</div>
+                                    <textarea id="seo-title-edit" class="form-control fs-4 fw-bold d-none" 
+                                              style="resize: none; height: auto; min-height: 60px;" 
+                                              maxlength="100" 
+                                              oninput="updateTitleCharCount(this)">{{ seo_optimization.generated_seo_title }}</textarea>
+                                    <button class="btn btn-sm btn-outline-primary position-absolute top-0 end-0" 
+                                            id="edit-title-btn" onclick="toggleTitleEdit()">
+                                        <i class="fas fa-edit"></i> Bearbeiten
+                                    </button>
+                                    <button class="btn btn-sm btn-success position-absolute top-0 end-0 d-none" 
+                                            id="save-title-btn" onclick="saveTitleEdit()">
+                                        <i class="fas fa-save"></i> Speichern
+                                    </button>
+                                    <div class="d-flex justify-content-between align-items-center mt-2">
+                                        <small class="text-muted">KI-generierter SEO-Titel</small>
+                                        <span id="title-char-count" class="badge bg-{% if seo_optimization.generated_seo_title|length <= 70 %}success{% else %}warning{% endif %} fs-6">
+                                            {{ seo_optimization.generated_seo_title|length }}/70 Zeichen
+                                        </span>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4">
+                                    <i class="fas fa-magic fa-2x text-muted mb-2"></i>
+                                    <p class="text-muted mb-0">Noch kein SEO-Titel generiert</p>
+                                    <small class="text-muted">Klicken Sie auf "Mit KI generieren"</small>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-12 mb-4">
+                        <label class="form-label fs-5"><strong><i class="fas fa-align-left text-success"></i> Generierte SEO-Beschreibung:</strong></label>
+                        <div id="generated-seo-description" class="border rounded p-3 bg-white shadow-sm">
+                            {% if seo_optimization.generated_seo_description %}
+                                <div class="position-relative">
+                                    <div id="seo-description-display" class="fs-5 text-dark mb-2 lh-base">{{ seo_optimization.generated_seo_description }}</div>
+                                    <textarea id="seo-description-edit" class="form-control fs-5 d-none" 
+                                              style="resize: none; height: auto; min-height: 80px;" 
+                                              maxlength="200" 
+                                              oninput="updateDescriptionCharCount(this)">{{ seo_optimization.generated_seo_description }}</textarea>
+                                    <button class="btn btn-sm btn-outline-primary position-absolute top-0 end-0" 
+                                            id="edit-description-btn" onclick="toggleDescriptionEdit()">
+                                        <i class="fas fa-edit"></i> Bearbeiten
+                                    </button>
+                                    <button class="btn btn-sm btn-success position-absolute top-0 end-0 d-none" 
+                                            id="save-description-btn" onclick="saveDescriptionEdit()">
+                                        <i class="fas fa-save"></i> Speichern
+                                    </button>
+                                    <div class="d-flex justify-content-between align-items-center mt-2">
+                                        <small class="text-muted">KI-generierte Meta-Beschreibung</small>
+                                        <span id="description-char-count" class="badge bg-{% if seo_optimization.generated_seo_description|length <= 160 %}success{% else %}warning{% endif %} fs-6">
+                                            {{ seo_optimization.generated_seo_description|length }}/160 Zeichen
+                                        </span>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4">
+                                    <i class="fas fa-magic fa-2x text-muted mb-2"></i>
+                                    <p class="text-muted mb-0">Noch keine SEO-Beschreibung generiert</p>
+                                    <small class="text-muted">Klicken Sie auf "Mit KI generieren"</small>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Anwenden Button -->
+                {% if seo_optimization.generated_seo_title or seo_optimization.generated_seo_description %}
+                <div class="text-center">
+                    <button class="btn btn-success btn-lg" onclick="applySEO({{ seo_optimization.pk }})">
+                        <i class="fas fa-check"></i> SEO-Optimierung auf Blog-Post anwenden
+                    </button>
+                    {% if seo_optimization.is_applied %}
+                        <div class="mt-2">
+                            <span class="badge bg-success fs-6">
+                                <i class="fas fa-check-circle"></i> Bereits angewendet
+                            </span>
+                        </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-5 col-md-12">
+        <!-- Blog-Post Info -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">📝 Blog-Post Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-3">
+                    {% if blog_post.featured_image_url %}
+                        <img src="{{ blog_post.featured_image_url }}" class="img-fluid rounded mb-3" 
+                             alt="{{ blog_post.title }}" style="max-height: 200px;">
+                    {% else %}
+                        <div class="bg-light rounded p-3 mb-3">
+                            <i class="fas fa-image text-muted fa-2x"></i>
+                            <p class="mt-2 text-muted mb-0">Kein Bild verfügbar</p>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <dl class="row">
+                    <dt class="col-sm-5">Titel:</dt>
+                    <dd class="col-sm-7">{{ blog_post.title|truncatechars:30 }}</dd>
+                    
+                    <dt class="col-sm-5">Blog:</dt>
+                    <dd class="col-sm-7">{{ blog_post.blog.title }}</dd>
+                    
+                    <dt class="col-sm-5">Status:</dt>
+                    <dd class="col-sm-7">
+                        <span class="badge bg-{% if blog_post.status == 'published' %}success{% else %}secondary{% endif %}">
+                            {{ blog_post.get_status_display }}
+                        </span>
+                    </dd>
+                    
+                    <dt class="col-sm-5">Autor:</dt>
+                    <dd class="col-sm-7">{{ blog_post.author|default:"—" }}</dd>
+                    
+                    <dt class="col-sm-5">Veröffentlicht:</dt>
+                    <dd class="col-sm-7">
+                        {% if blog_post.published_at %}
+                            {{ blog_post.published_at|date:"d.m.Y" }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </dd>
+                </dl>
+            </div>
+        </div>
+        
+        <!-- Original SEO Daten -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">📊 Aktuelle SEO-Daten</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label"><strong>Aktueller SEO-Titel:</strong></label>
+                    <div class="border rounded p-2 bg-light">
+                        {% if seo_optimization.original_seo_title %}
+                            {{ seo_optimization.original_seo_title }}
+                            <small class="d-block text-muted">{{ seo_optimization.original_seo_title|length }}/70 Zeichen</small>
+                        {% else %}
+                            <em class="text-muted">Nicht gesetzt</em>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label"><strong>Aktuelle SEO-Beschreibung:</strong></label>
+                    <div class="border rounded p-2 bg-light">
+                        {% if seo_optimization.original_seo_description %}
+                            {{ seo_optimization.original_seo_description }}
+                            <small class="d-block text-muted">{{ seo_optimization.original_seo_description|length }}/160 Zeichen</small>
+                        {% else %}
+                            <em class="text-muted">Nicht gesetzt</em>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- SEO-Tipps -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">💡 SEO-Tipps</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success"></i>
+                        <strong>Titel:</strong> Keyword am Anfang, max. 70 Zeichen
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success"></i>
+                        <strong>Beschreibung:</strong> Neugierig machend, max. 160 Zeichen
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success"></i>
+                        <strong>Keywords:</strong> Natürlich einbinden, nicht übertreiben
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success"></i>
+                        <strong>Content:</strong> Wertvoller, informativer Inhalt
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function generateSEO(optimizationId) {
+    const statusDiv = document.getElementById('generation-status');
+    const button = event.target;
+    
+    statusDiv.style.display = 'block';
+    button.disabled = true;
+    
+    fetch(`/shopify/api/blog-post-seo-optimization/${optimizationId}/generate/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        statusDiv.style.display = 'none';
+        button.disabled = false;
+        
+        if (data.success) {
+            // Update SEO-Titel
+            if (data.generated_title) {
+                document.getElementById('seo-title-display').textContent = data.generated_title;
+                document.getElementById('seo-title-edit').value = data.generated_title;
+                updateTitleCharCount(document.getElementById('seo-title-edit'));
+                
+                const titleContainer = document.getElementById('generated-seo-title');
+                titleContainer.innerHTML = `
+                    <div class="position-relative">
+                        <div id="seo-title-display" class="fs-4 fw-bold text-dark mb-2">${data.generated_title}</div>
+                        <textarea id="seo-title-edit" class="form-control fs-4 fw-bold d-none" 
+                                  style="resize: none; height: auto; min-height: 60px;" 
+                                  maxlength="100" 
+                                  oninput="updateTitleCharCount(this)">${data.generated_title}</textarea>
+                        <button class="btn btn-sm btn-outline-primary position-absolute top-0 end-0" 
+                                id="edit-title-btn" onclick="toggleTitleEdit()">
+                            <i class="fas fa-edit"></i> Bearbeiten
+                        </button>
+                        <button class="btn btn-sm btn-success position-absolute top-0 end-0 d-none" 
+                                id="save-title-btn" onclick="saveTitleEdit()">
+                            <i class="fas fa-save"></i> Speichern
+                        </button>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <small class="text-muted">KI-generierter SEO-Titel</small>
+                            <span id="title-char-count" class="badge bg-${data.generated_title.length <= 70 ? 'success' : 'warning'} fs-6">
+                                ${data.generated_title.length}/70 Zeichen
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Update SEO-Beschreibung
+            if (data.generated_description) {
+                const descContainer = document.getElementById('generated-seo-description');
+                descContainer.innerHTML = `
+                    <div class="position-relative">
+                        <div id="seo-description-display" class="fs-5 text-dark mb-2 lh-base">${data.generated_description}</div>
+                        <textarea id="seo-description-edit" class="form-control fs-5 d-none" 
+                                  style="resize: none; height: auto; min-height: 80px;" 
+                                  maxlength="200" 
+                                  oninput="updateDescriptionCharCount(this)">${data.generated_description}</textarea>
+                        <button class="btn btn-sm btn-outline-primary position-absolute top-0 end-0" 
+                                id="edit-description-btn" onclick="toggleDescriptionEdit()">
+                            <i class="fas fa-edit"></i> Bearbeiten
+                        </button>
+                        <button class="btn btn-sm btn-success position-absolute top-0 end-0 d-none" 
+                                id="save-description-btn" onclick="saveDescriptionEdit()">
+                            <i class="fas fa-save"></i> Speichern
+                        </button>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <small class="text-muted">KI-generierte Meta-Beschreibung</small>
+                            <span id="description-char-count" class="badge bg-${data.generated_description.length <= 160 ? 'success' : 'warning'} fs-6">
+                                ${data.generated_description.length}/160 Zeichen
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Anwenden Button anzeigen wenn noch nicht vorhanden
+            if (data.generated_title || data.generated_description) {
+                const cardBody = document.querySelector('.card-body');
+                if (!document.querySelector('[onclick*="applySEO"]')) {
+                    const applyDiv = document.createElement('div');
+                    applyDiv.className = 'text-center';
+                    applyDiv.innerHTML = `
+                        <button class="btn btn-success btn-lg" onclick="applySEO(${optimizationId})">
+                            <i class="fas fa-check"></i> SEO-Optimierung auf Blog-Post anwenden
+                        </button>
+                    `;
+                    cardBody.appendChild(applyDiv);
+                }
+            }
+            
+            showAlert('success', 'SEO-Inhalte erfolgreich generiert!');
+        } else {
+            showAlert('danger', `Fehler bei der Generierung: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        statusDiv.style.display = 'none';
+        button.disabled = false;
+        showAlert('danger', 'Fehler bei der KI-Generierung: ' + error);
+    });
+}
+
+function applySEO(optimizationId) {
+    if (!confirm('Möchten Sie die generierten SEO-Daten auf den Blog-Post anwenden?')) {
+        return;
+    }
+    
+    fetch(`/shopify/api/blog-post-seo-optimization/${optimizationId}/apply/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message);
+            // Optional: Weiterleitung zum Blog-Post
+            if (data.blog_post_url) {
+                setTimeout(() => {
+                    window.location.href = data.blog_post_url;
+                }, 2000);
+            }
+        } else {
+            showAlert('danger', `Fehler beim Anwenden: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        showAlert('danger', 'Fehler beim Anwenden der SEO-Optimierung: ' + error);
+    });
+}
+
+// Helper functions for editing
+function toggleTitleEdit() {
+    const display = document.getElementById('seo-title-display');
+    const edit = document.getElementById('seo-title-edit');
+    const editBtn = document.getElementById('edit-title-btn');
+    const saveBtn = document.getElementById('save-title-btn');
+    
+    display.classList.toggle('d-none');
+    edit.classList.toggle('d-none');
+    editBtn.classList.toggle('d-none');
+    saveBtn.classList.toggle('d-none');
+    
+    if (!edit.classList.contains('d-none')) {
+        edit.focus();
+        edit.style.height = 'auto';
+        edit.style.height = edit.scrollHeight + 'px';
+    }
+}
+
+function saveTitleEdit() {
+    const display = document.getElementById('seo-title-display');
+    const edit = document.getElementById('seo-title-edit');
+    const editBtn = document.getElementById('edit-title-btn');
+    const saveBtn = document.getElementById('save-title-btn');
+    
+    display.textContent = edit.value;
+    display.classList.remove('d-none');
+    edit.classList.add('d-none');
+    editBtn.classList.remove('d-none');
+    saveBtn.classList.add('d-none');
+    
+    updateTitleCharCount(edit);
+}
+
+function toggleDescriptionEdit() {
+    const display = document.getElementById('seo-description-display');
+    const edit = document.getElementById('seo-description-edit');
+    const editBtn = document.getElementById('edit-description-btn');
+    const saveBtn = document.getElementById('save-description-btn');
+    
+    display.classList.toggle('d-none');
+    edit.classList.toggle('d-none');
+    editBtn.classList.toggle('d-none');
+    saveBtn.classList.toggle('d-none');
+    
+    if (!edit.classList.contains('d-none')) {
+        edit.focus();
+        edit.style.height = 'auto';
+        edit.style.height = edit.scrollHeight + 'px';
+    }
+}
+
+function saveDescriptionEdit() {
+    const display = document.getElementById('seo-description-display');
+    const edit = document.getElementById('seo-description-edit');
+    const editBtn = document.getElementById('edit-description-btn');
+    const saveBtn = document.getElementById('save-description-btn');
+    
+    display.textContent = edit.value;
+    display.classList.remove('d-none');
+    edit.classList.add('d-none');
+    editBtn.classList.remove('d-none');
+    saveBtn.classList.add('d-none');
+    
+    updateDescriptionCharCount(edit);
+}
+
+function updateTitleCharCount(textarea) {
+    const counter = document.getElementById('title-char-count');
+    const length = textarea.value.length;
+    counter.textContent = `${length}/70 Zeichen`;
+    counter.className = `badge ${length <= 70 ? 'bg-success' : 'bg-warning'} fs-6`;
+}
+
+function updateDescriptionCharCount(textarea) {
+    const counter = document.getElementById('description-char-count');
+    const length = textarea.value.length;
+    counter.textContent = `${length}/160 Zeichen`;
+    counter.className = `badge ${length <= 160 ? 'bg-success' : 'bg-warning'} fs-6`;
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.querySelector('.container-fluid');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+</script>
+{% endblock %}

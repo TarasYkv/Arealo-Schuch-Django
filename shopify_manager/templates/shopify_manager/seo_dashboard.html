@@ -1,0 +1,574 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}SEO Dashboard - Shopify Manager{% endblock %}
+
+{% block shopify_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-chart-line text-primary"></i> SEO Dashboard
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button class="btn btn-secondary" id="analyzeBtn" onclick="runSeoAnalysis()" disabled>
+                <i class="fas fa-search"></i> SEO-Analyse starten
+            </button>
+            <button class="btn btn-outline-warning" id="refreshBtn" onclick="runSeoAnalysis(true)" disabled style="display: none;">
+                <i class="fas fa-redo"></i> Neu analysieren
+            </button>
+            <a href="{% url 'shopify_manager:product_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Zu Produkten
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Store-Auswahl -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-store text-info"></i> Store auswählen
+                </h5>
+                <select class="form-select" id="storeSelect" onchange="onStoreSelected()">
+                    <option value="">Bitte Store auswählen...</option>
+                    {% for store in user_stores %}
+                        <option value="{{ store.id }}">{{ store.name }}</option>
+                    {% endfor %}
+                </select>
+                <div class="form-text">Wählen Sie einen Store für die SEO-Analyse aus</div>
+                <!-- Cache-Info wird hier angezeigt -->
+                <div id="cacheInfo" style="display: none;" class="mt-2"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center">
+                <h5 class="card-title">
+                    <i class="fas fa-info-circle text-primary"></i> SEO-Analyse
+                </h5>
+                <p class="card-text">Analysieren Sie alle Produkte Ihres Stores auf SEO-Vollständigkeit und erhalten Sie detaillierte Berichte.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SEO Overview Cards -->
+<div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card border-success">
+            <div class="card-body text-center">
+                <div class="display-4 text-success mb-2">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h5 class="card-title text-success">SEO Gut</h5>
+                <p class="card-text" id="optimizedCount">-</p>
+                <small class="text-muted">Produkte mit gutem SEO</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card border-warning">
+            <div class="card-body text-center">
+                <div class="display-4 text-warning mb-2">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <h5 class="card-title text-warning">SEO Schlecht</h5>
+                <p class="card-text" id="partialCount">-</p>
+                <small class="text-muted">Produkte mit schlechtem SEO</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card border-danger">
+            <div class="card-body text-center">
+                <div class="display-4 text-danger mb-2">
+                    <i class="fas fa-times-circle"></i>
+                </div>
+                <h5 class="card-title text-danger">Keine Alt-Texte</h5>
+                <p class="card-text" id="noSeoCount">-</p>
+                <small class="text-muted">Produkte ohne Alt-Texte</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card border-info">
+            <div class="card-body text-center">
+                <div class="display-4 text-info mb-2">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <h5 class="card-title text-info">Mit Alt-Texten</h5>
+                <p class="card-text" id="aiGeneratedCount">-</p>
+                <small class="text-muted">Produkte mit guten Alt-Texten</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SEO Score -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-tachometer-alt text-primary"></i> 
+                    Gesamter SEO-Score
+                </h5>
+            </div>
+            <div class="card-body text-center">
+                <div class="row">
+                    <div class="col-md-4">
+                        <canvas id="seoScoreChart" width="200" height="200"></canvas>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="d-flex align-items-center h-100">
+                            <div class="w-100">
+                                <h2 class="display-3 mb-3" id="overallScore">-</h2>
+                                <h4 id="scoreLabel" class="mb-3">Analyse läuft...</h4>
+                                <div class="progress mb-3" style="height: 20px;">
+                                    <div class="progress-bar" id="scoreProgressBar" style="width: 0%"></div>
+                                </div>
+                                <p class="text-muted" id="scoreDescription">Führen Sie eine SEO-Analyse durch, um Ihren Score zu sehen</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SEO Tips and Best Practices -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-lightbulb"></i> 
+                    SEO Best Practices
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item border-0 px-0 py-2">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-heading text-primary me-3 mt-1"></i>
+                            <div>
+                                <strong>SEO-Titel optimieren</strong>
+                                <p class="mb-1 small text-muted">50-70 Zeichen, Hauptkeyword am Anfang</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="list-group-item border-0 px-0 py-2">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-align-left text-success me-3 mt-1"></i>
+                            <div>
+                                <strong>Meta-Beschreibung</strong>
+                                <p class="mb-1 small text-muted">120-160 Zeichen, überzeugend und relevant</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="list-group-item border-0 px-0 py-2">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-tags text-warning me-3 mt-1"></i>
+                            <div>
+                                <strong>Keywords strategisch nutzen</strong>
+                                <p class="mb-1 small text-muted">Natürlich einbauen, nicht übertreiben</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="list-group-item border-0 px-0 py-2">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-image text-info me-3 mt-1"></i>
+                            <div>
+                                <strong>Bilder optimieren</strong>
+                                <p class="mb-1 small text-muted">Alt-Texte mit Keywords, komprimierte Dateien</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-rocket"></i> 
+                    Erweiterte SEO-Tipps
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item border-0 px-0 py-2">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-link text-primary me-3 mt-1"></i>
+                            <div>
+                                <strong>URL-Struktur</strong>
+                                <p class="mb-1 small text-muted">Kurze, beschreibende URLs mit Keywords</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="list-group-item border-0 px-0 py-2">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-mobile-alt text-success me-3 mt-1"></i>
+                            <div>
+                                <strong>Mobile Optimierung</strong>
+                                <p class="mb-1 small text-muted">Responsive Design und schnelle Ladezeiten</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="list-group-item border-0 px-0 py-2">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-star text-warning me-3 mt-1"></i>
+                            <div>
+                                <strong>Bewertungen nutzen</strong>
+                                <p class="mb-1 small text-muted">Rich Snippets für bessere Klickraten</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="list-group-item border-0 px-0 py-2">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-chart-line text-info me-3 mt-1"></i>
+                            <div>
+                                <strong>Leistung überwachen</strong>
+                                <p class="mb-1 small text-muted">Google Search Console für Insights</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Analysis Results -->
+<div class="row" id="analysisResults" style="display: none;">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-table text-primary"></i> 
+                    Detaillierte Analyse-Ergebnisse
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped" id="analysisTable">
+                        <thead>
+                            <tr>
+                                <th>Produkt</th>
+                                <th>SEO-Titel</th>
+                                <th>Meta-Beschreibung</th>
+                                <th>Score</th>
+                                <th>Status</th>
+                                <th>Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="analysisTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading State -->
+<div id="loadingState" style="display: none;">
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div>
+        <h4 class="mt-3">SEO-Analyse läuft...</h4>
+        <p class="text-muted">Analysiere alle lokal importierten Produkte des Stores</p>
+        <div class="alert alert-info mt-3 mx-auto" style="max-width: 500px;">
+            <i class="fas fa-info-circle"></i> 
+            <strong>Hinweis:</strong> Nur bereits importierte Produkte werden analysiert. Bei vielen Produkten kann die Analyse einige Zeit dauern.
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let seoChart;
+
+function initChart() {
+    const ctx = document.getElementById('seoScoreChart').getContext('2d');
+    seoChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['SEO Gut', 'SEO Schlecht', 'Ohne Alt-Texte'],
+            datasets: [{
+                data: [0, 0, 0],
+                backgroundColor: ['#28a745', '#ffc107', '#dc3545'],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+function onStoreSelected() {
+    const storeSelect = document.getElementById('storeSelect');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    
+    if (storeSelect && storeSelect.value) {
+        // Store ausgewählt - Button aktivieren
+        analyzeBtn.disabled = false;
+        analyzeBtn.classList.remove('btn-secondary');
+        analyzeBtn.classList.add('btn-primary');
+        
+        // Refresh-Button vorbereiten (wird nach erster Analyse angezeigt)
+        refreshBtn.disabled = false;
+    } else {
+        // Kein Store ausgewählt - Buttons deaktivieren
+        analyzeBtn.disabled = true;
+        analyzeBtn.classList.remove('btn-primary');
+        analyzeBtn.classList.add('btn-secondary');
+        
+        refreshBtn.disabled = true;
+        refreshBtn.style.display = 'none';
+    }
+}
+
+function runSeoAnalysis(forceRefresh = false) {
+    // Prüfe Store-Auswahl
+    const storeSelect = document.getElementById('storeSelect');
+    if (!storeSelect || !storeSelect.value) {
+        alert('Bitte wählen Sie zuerst einen Store aus der Dropdown-Liste aus.');
+        return;
+    }
+    
+    const storeId = storeSelect.value;
+    
+    // Show loading state
+    document.getElementById('loadingState').style.display = 'block';
+    document.getElementById('analysisResults').style.display = 'none';
+    
+    // Button während Analyse deaktivieren
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    analyzeBtn.disabled = true;
+    refreshBtn.disabled = true;
+    
+    if (forceRefresh) {
+        analyzeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Neu analysiere...';
+    } else {
+        analyzeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Lade Analyse...';
+    }
+    
+    const requestBody = `store_id=${storeId}` + (forceRefresh ? '&force_refresh=true' : '');
+    
+    fetch('/shopify/api/bulk-seo-analysis/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: requestBody
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('loadingState').style.display = 'none';
+        
+        if (data.success) {
+            displayAnalysisResults(data.analysis_results);
+            
+            // Zeige Cache-Information und Refresh-Button
+            const refreshBtn = document.getElementById('refreshBtn');
+            if (data.from_cache) {
+                const cacheDate = new Date(data.cache_date).toLocaleString('de-DE');
+                showCacheInfo(`Letzte Analyse: ${cacheDate}`, 'info');
+                refreshBtn.style.display = 'inline-block';
+            } else {
+                showCacheInfo('Neue Analyse durchgeführt', 'success');
+                refreshBtn.style.display = 'inline-block';
+            }
+        } else {
+            alert('SEO-Analyse fehlgeschlagen: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('loadingState').style.display = 'none';
+        alert('Fehler bei der SEO-Analyse');
+    })
+    .finally(() => {
+        // Buttons wieder aktivieren
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const refreshBtn = document.getElementById('refreshBtn');
+        analyzeBtn.disabled = false;
+        refreshBtn.disabled = false;
+        analyzeBtn.innerHTML = '<i class="fas fa-search"></i> SEO-Analyse starten';
+    });
+}
+
+function displayAnalysisResults(results) {
+    const total = results.total_products;
+    const goodSeo = results.products_with_good_seo || 0;
+    const poorSeo = results.products_with_poor_seo || 0;
+    const withAltTexts = results.products_with_alt_texts || 0;
+    const withoutAltTexts = results.products_without_alt_texts || 0;
+    
+    // Update cards
+    document.getElementById('optimizedCount').textContent = goodSeo;
+    document.getElementById('partialCount').textContent = poorSeo;
+    document.getElementById('noSeoCount').textContent = withoutAltTexts;
+    document.getElementById('aiGeneratedCount').textContent = withAltTexts;
+    
+    // Calculate overall score based on good SEO products
+    const score = total > 0 ? Math.round((goodSeo / total) * 100) : 0;
+    document.getElementById('overallScore').textContent = score + '%';
+    
+    // Update score styling
+    const scoreElement = document.getElementById('overallScore');
+    const labelElement = document.getElementById('scoreLabel');
+    const progressBar = document.getElementById('scoreProgressBar');
+    const descriptionElement = document.getElementById('scoreDescription');
+    
+    if (score >= 80) {
+        scoreElement.className = 'display-3 mb-3 text-success';
+        labelElement.className = 'mb-3 text-success';
+        labelElement.textContent = 'Hervorragend!';
+        progressBar.className = 'progress-bar bg-success';
+        descriptionElement.textContent = 'Ihre SEO-Optimierung ist ausgezeichnet!';
+    } else if (score >= 60) {
+        scoreElement.className = 'display-3 mb-3 text-warning';
+        labelElement.className = 'mb-3 text-warning';
+        labelElement.textContent = 'Gut';
+        progressBar.className = 'progress-bar bg-warning';
+        descriptionElement.textContent = 'Gute SEO-Basis, noch Verbesserungspotential.';
+    } else {
+        scoreElement.className = 'display-3 mb-3 text-danger';
+        labelElement.className = 'mb-3 text-danger';
+        labelElement.textContent = 'Verbesserung nötig';
+        progressBar.className = 'progress-bar bg-danger';
+        descriptionElement.textContent = 'Ihre SEO benötigt dringend Optimierung.';
+    }
+    
+    progressBar.style.width = score + '%';
+    
+    // Update chart with new data
+    if (seoChart) {
+        seoChart.data.labels = ['SEO Gut', 'SEO Schlecht', 'Ohne Alt-Texte'];
+        seoChart.data.datasets[0].data = [goodSeo, poorSeo, withoutAltTexts];
+        seoChart.update();
+    }
+    
+    // Show results table
+    if (results.detailed_results && results.detailed_results.length > 0) {
+        displayDetailedResults(results.detailed_results);
+        document.getElementById('analysisResults').style.display = 'block';
+    }
+}
+
+function displayDetailedResults(products) {
+    const tbody = document.getElementById('analysisTableBody');
+    tbody.innerHTML = '';
+    
+    products.forEach(product => {
+        const row = tbody.insertRow();
+        
+        // Product name
+        const nameCell = row.insertCell();
+        nameCell.innerHTML = `<strong>${product.title}</strong><br><small class="text-muted">ID: ${product.shopify_id}</small>`;
+        
+        // SEO Title
+        const titleCell = row.insertCell();
+        const titleLength = product.current_seo_title ? product.current_seo_title.length : 0;
+        const titleClass = titleLength >= 50 && titleLength <= 70 ? 'text-success' : 'text-warning';
+        titleCell.innerHTML = product.current_seo_title ? 
+            `${product.current_seo_title.substring(0, 50)}...<br><small class="${titleClass}">${titleLength}/70 Zeichen</small>` :
+            '<span class="text-muted">Nicht gesetzt</span>';
+        
+        // Meta Description
+        const descCell = row.insertCell();
+        const descLength = product.current_seo_description ? product.current_seo_description.length : 0;
+        const descClass = descLength >= 120 && descLength <= 160 ? 'text-success' : 'text-warning';
+        descCell.innerHTML = product.current_seo_description ? 
+            `${product.current_seo_description.substring(0, 50)}...<br><small class="${descClass}">${descLength}/160 Zeichen</small>` :
+            '<span class="text-muted">Nicht gesetzt</span>';
+        
+        // Score
+        const scoreCell = row.insertCell();
+        let productScore = 0;
+        if (product.current_seo_title) productScore += 50;
+        if (product.current_seo_description) productScore += 50;
+        
+        const scoreClass = productScore >= 80 ? 'success' : productScore >= 50 ? 'warning' : 'danger';
+        scoreCell.innerHTML = `<span class="badge bg-${scoreClass}">${productScore}%</span>`;
+        
+        // Status
+        const statusCell = row.insertCell();
+        if (product.has_global_seo) {
+            statusCell.innerHTML = '<span class="badge bg-success">Optimiert</span>';
+        } else if (product.metafields_count > 0) {
+            statusCell.innerHTML = '<span class="badge bg-warning">Teilweise</span>';
+        } else {
+            statusCell.innerHTML = '<span class="badge bg-danger">Kein SEO</span>';
+        }
+        
+        // Actions
+        const actionsCell = row.insertCell();
+        actionsCell.innerHTML = `
+            <a href="/shopify/products/${product.shopify_id}/seo-optimization/" class="btn btn-sm btn-primary">
+                <i class="fas fa-robot"></i> Optimieren
+            </a>
+        `;
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function showCacheInfo(message, type) {
+    const cacheInfo = document.getElementById('cacheInfo');
+    let alertClass = 'alert-info';
+    
+    if (type === 'success') {
+        alertClass = 'alert-success';
+    } else if (type === 'warning') {
+        alertClass = 'alert-warning';
+    }
+    
+    cacheInfo.innerHTML = `
+        <div class="alert ${alertClass} py-2 mb-0">
+            <small><i class="fas fa-clock"></i> ${message}</small>
+        </div>
+    `;
+    cacheInfo.style.display = 'block';
+}
+
+// Initialize chart when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    initChart();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,362 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}Stores - Shopify Manager{% endblock %}
+
+{% block shopify_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Meine Stores</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{% url 'shopify_manager:store_add' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Store hinzufügen
+            </a>
+        </div>
+    </div>
+</div>
+
+{% if stores %}
+<div class="row">
+    {% for store in stores %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{{ store.name }}</h5>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                            type="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'shopify_manager:store_edit' store.pk %}">
+                            <i class="fas fa-edit"></i> Bearbeiten
+                        </a></li>
+                        <li><button class="dropdown-item" onclick="testConnection({{ store.id }})">
+                            <i class="fas fa-vial"></i> Verbindung testen
+                        </button></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><button class="dropdown-item" onclick="importProducts({{ store.id }})">
+                            <i class="fas fa-download"></i> Produkte importieren
+                        </button></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><button class="dropdown-item text-danger" onclick="deleteStore({{ store.id }})">
+                            <i class="fas fa-trash"></i> Löschen
+                        </button></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong>Domain:</strong><br>
+                    <small class="text-muted">{{ store.shop_domain }}</small>
+                </div>
+                
+                {% if store.description %}
+                <div class="mb-3">
+                    <strong>Beschreibung:</strong><br>
+                    <small class="text-muted">{{ store.description }}</small>
+                </div>
+                {% endif %}
+                
+                <div class="mb-3">
+                    <strong>Status:</strong>
+                    <span class="badge bg-{% if store.is_active %}success{% else %}secondary{% endif %}">
+                        {% if store.is_active %}Aktiv{% else %}Inaktiv{% endif %}
+                    </span>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>Produkte:</strong>
+                    <span class="badge bg-info">{{ store.products_count }}</span>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>Letzte Synchronisation:</strong><br>
+                    <small class="text-muted">
+                        {% if store.last_sync %}
+                            {{ store.last_sync|date:"d.m.Y H:i" }}
+                        {% else %}
+                            Noch nie
+                        {% endif %}
+                    </small>
+                </div>
+            </div>
+            
+            <div class="card-footer">
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'shopify_manager:product_list' %}?store={{ store.id }}" 
+                       class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-box"></i> Produkte
+                    </a>
+                    
+                    <button class="btn btn-sm btn-outline-success" 
+                            onclick="testConnection({{ store.id }})" 
+                            title="Verbindung testen">
+                        <i class="fas fa-vial"></i>
+                    </button>
+                    
+                    <button class="btn btn-sm btn-outline-info" 
+                            onclick="importProducts({{ store.id }})" 
+                            title="Produkte importieren">
+                        <i class="fas fa-download"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Store-Statistiken -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Store-Übersicht</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Store</th>
+                                <th>Domain</th>
+                                <th>Status</th>
+                                <th>Produkte</th>
+                                <th>Sync-Probleme</th>
+                                <th>Letzte Sync</th>
+                                <th>Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for store in stores %}
+                            <tr>
+                                <td>
+                                    <strong>{{ store.name }}</strong>
+                                    {% if store.description %}
+                                        <br><small class="text-muted">{{ store.description|truncatechars:50 }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small>{{ store.shop_domain }}</small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{% if store.is_active %}success{% else %}secondary{% endif %}">
+                                        {% if store.is_active %}Aktiv{% else %}Inaktiv{% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="{% url 'shopify_manager:product_list' %}?store={{ store.id }}" 
+                                       class="badge bg-info text-decoration-none">
+                                        {{ store.products_count }}
+                                    </a>
+                                </td>
+                                <td>
+                                    {% if store.sync_problems_count > 0 %}
+                                        <span class="badge bg-warning">{{ store.sync_problems_count }}</span>
+                                    {% else %}
+                                        <span class="badge bg-success">0</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small class="text-muted">
+                                        {% if store.last_sync %}
+                                            {{ store.last_sync|date:"d.m.Y H:i" }}
+                                        {% else %}
+                                            Noch nie
+                                        {% endif %}
+                                    </small>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'shopify_manager:store_edit' store.pk %}" 
+                                           class="btn btn-outline-primary" title="Bearbeiten">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button class="btn btn-outline-success" 
+                                                onclick="testConnection({{ store.id }})" 
+                                                title="Verbindung testen">
+                                            <i class="fas fa-vial"></i>
+                                        </button>
+                                        <button class="btn btn-outline-info" 
+                                                onclick="importProducts({{ store.id }})" 
+                                                title="Produkte importieren">
+                                            <i class="fas fa-download"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-info text-center">
+            <i class="fas fa-store fa-3x mb-3"></i>
+            <h4>Noch keine Stores konfiguriert</h4>
+            <p>Fügen Sie Ihren ersten Shopify Store hinzu, um mit der Produktverwaltung zu beginnen.</p>
+            <a href="{% url 'shopify_manager:store_add' %}" class="btn btn-primary btn-lg">
+                <i class="fas fa-plus"></i> Ersten Store hinzufügen
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Produkte importieren</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="importForm">
+                {% csrf_token %}
+                <input type="hidden" id="importStoreId" name="store_id">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="importLimit" class="form-label">Anzahl Produkte (max. 250)</label>
+                        <input type="number" class="form-control" id="importLimit" name="limit" 
+                               min="1" max="250" value="50" required>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        Dieser Vorgang kann einige Zeit dauern. Bitte warten Sie nach dem Klicken auf "Importieren".
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Importieren</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function testConnection(storeId) {
+    const button = event.target;
+    const originalContent = button.innerHTML;
+    
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    
+    fetch(`/shopify/stores/${storeId}/test/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Verbindung erfolgreich: ' + data.message);
+        } else {
+            alert('Verbindung fehlgeschlagen: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Fehler beim Testen der Verbindung');
+    })
+    .finally(() => {
+        button.disabled = false;
+        button.innerHTML = originalContent;
+    });
+}
+
+function importProducts(storeId) {
+    document.getElementById('importStoreId').value = storeId;
+    new bootstrap.Modal(document.getElementById('importModal')).show();
+}
+
+function deleteStore(storeId) {
+    if (!confirm('Store wirklich löschen? Alle zugehörigen Produkte werden ebenfalls gelöscht.')) {
+        return;
+    }
+    
+    fetch(`/shopify/stores/${storeId}/delete/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Store erfolgreich gelöscht');
+            location.reload();
+        } else {
+            alert('Fehler beim Löschen: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Fehler beim Löschen des Stores');
+    });
+}
+
+// Import Form Handler
+document.getElementById('importForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const submitBtn = this.querySelector('button[type="submit"]');
+    
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importiere...';
+    
+    fetch('/shopify/api/import/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Import erfolgreich: ${data.message}`);
+            location.reload();
+        } else {
+            alert('Import fehlgeschlagen: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Fehler beim Import');
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Importieren';
+        bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
+    });
+});
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,670 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}Produkte - Shopify Manager{% endblock %}
+
+{% block shopify_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Produkte</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#importModal">
+                <i class="fas fa-download"></i> Importieren
+            </button>
+            <button type="button" class="btn btn-outline-primary" onclick="bulkAction()">
+                <i class="fas fa-tasks"></i> Bulk-Aktionen
+            </button>
+            <button type="button" class="btn btn-outline-info" onclick="bulkSeoAnalysis()">
+                <i class="fas fa-chart-line"></i> SEO-Analyse
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Statistiken -->
+<div class="row mb-3">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">{{ stats.total_products }}</h5>
+                <p class="card-text text-muted">Produkte gesamt</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-warning">{{ stats.needs_sync }}</h5>
+                <p class="card-text text-muted">Benötigen Sync</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-danger">{{ stats.sync_errors }}</h5>
+                <p class="card-text text-muted">Sync-Fehler</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-info">{{ stats.seo_issues }}</h5>
+                <p class="card-text text-muted">SEO-Probleme</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                {{ filter_form.search.label_tag }}
+                {{ filter_form.search }}
+            </div>
+            <div class="col-md-2">
+                {{ filter_form.status.label_tag }}
+                {{ filter_form.status }}
+            </div>
+            <div class="col-md-2">
+                {{ filter_form.sync_status.label_tag }}
+                {{ filter_form.sync_status }}
+            </div>
+            <div class="col-md-2">
+                {{ filter_form.vendor.label_tag }}
+                {{ filter_form.vendor }}
+            </div>
+            <div class="col-md-2">
+                {{ filter_form.sort.label_tag }}
+                {{ filter_form.sort }}
+            </div>
+            <div class="col-md-1">
+                <label>&nbsp;</label>
+                <button type="submit" class="btn btn-primary w-100">Filter</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Bulk-Aktionen Form -->
+<form id="bulkForm" method="post" action="{% url 'shopify_manager:bulk_action' %}">
+    {% csrf_token %}
+    {{ bulk_form.action.as_hidden }}
+    
+    <!-- Produktliste -->
+    <div class="row">
+        {% for product in products %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card product-card h-100{% if product.status == 'archived' %} opacity-50 border-secondary{% endif %}">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="form-check">
+                        <input class="form-check-input product-checkbox" type="checkbox" 
+                               name="selected_products" value="{{ product.id }}" 
+                               id="product{{ product.id }}">
+                        <label class="form-check-label" for="product{{ product.id }}">
+                            Auswählen
+                        </label>
+                    </div>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                type="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'shopify_manager:product_edit' product.pk %}">
+                                <i class="fas fa-edit"></i> Bearbeiten
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'shopify_manager:seo_optimization' product.pk %}">
+                                <i class="fas fa-robot text-primary"></i> Do-SEO
+                            </a></li>
+                            <li><button class="dropdown-item" onclick="syncProduct({{ product.id }})">
+                                <i class="fas fa-sync"></i> Synchronisieren
+                            </button></li>
+                            <li><a class="dropdown-item" href="{% url 'shopify_manager:product_detail' product.pk %}">
+                                <i class="fas fa-eye"></i> Details
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><button class="dropdown-item text-danger" onclick="deleteProductLocal({{ product.id }})">
+                                <i class="fas fa-trash-alt"></i> Lokal löschen
+                            </button></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                {% if product.image_url %}
+                <img src="{{ product.image_url }}" class="card-img-top" style="height: 200px; object-fit: cover;" alt="{{ product.title }}">
+                {% else %}
+                <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
+                    <i class="fas fa-image text-muted fa-3x"></i>
+                </div>
+                {% endif %}
+                
+                <div class="card-body">
+                    <h5 class="card-title">{{ product.title|truncatechars:50 }}</h5>
+                    <p class="card-text text-muted small">{{ product.body_html|striptags|truncatechars:100 }}</p>
+                    
+                    <div class="mb-2">
+                        <strong>Store:</strong> {{ product.store.name }}<br>
+                        <strong>Vendor:</strong> {{ product.vendor|default:"—" }}<br>
+                        <strong>Typ:</strong> {{ product.product_type|default:"—" }}
+                    </div>
+                    
+                    <!-- SEO und Alt-Text Ampelsystem -->
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <small class="text-muted d-block">SEO-Status</small>
+                            {% with seo_status=product.get_seo_status %}
+                                {% if seo_status == 'good' %}
+                                    <span class="badge bg-success"><i class="fas fa-circle"></i> Gut</span>
+                                {% elif seo_status == 'warning' %}
+                                    <span class="badge bg-warning"><i class="fas fa-circle"></i> Warnung</span>
+                                {% else %}
+                                    <span class="badge bg-danger"><i class="fas fa-circle"></i> Schlecht</span>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">Alt-Texte</small>
+                            {% with alt_status=product.get_alt_text_status %}
+                                {% if alt_status == 'good' %}
+                                    <span class="badge bg-success"><i class="fas fa-circle"></i> Gut</span>
+                                {% elif alt_status == 'warning' %}
+                                    <span class="badge bg-warning"><i class="fas fa-circle"></i> Warnung</span>
+                                {% else %}
+                                    <span class="badge bg-danger"><i class="fas fa-circle"></i> Schlecht</span>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                    
+                    <!-- Detaillierte SEO/Alt-Text Info bei Hover -->
+                    {% with seo_details=product.get_seo_details alt_details=product.get_alt_text_details %}
+                    <div class="status-details" style="display: none;">
+                        <div class="card mt-2">
+                            <div class="card-body p-2">
+                                <h6 class="card-title mb-2">SEO & Alt-Text Details</h6>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <strong>SEO:</strong><br>
+                                        <small>
+                                            Titel: {{ seo_details.title_length }}/70 Zeichen<br>
+                                            Beschreibung: {{ seo_details.description_length }}/160 Zeichen
+                                        </small>
+                                    </div>
+                                    <div class="col-6">
+                                        <strong>Alt-Texte:</strong><br>
+                                        <small>
+                                            {{ alt_details.images_with_alt }}/{{ alt_details.total_images }} Bilder<br>
+                                            {{ alt_details.percentage }}% vollständig
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endwith %}
+                </div>
+                
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge bg-{% if product.status == 'active' %}success{% elif product.status == 'archived' %}dark{% else %}secondary{% endif %}">
+                            {% if product.status == 'archived' %}
+                                ✅ Erledigt
+                            {% else %}
+                                {{ product.get_status_display }}
+                            {% endif %}
+                        </span>
+                        
+                        <div class="sync-status">
+                            {% if product.sync_error %}
+                                <span class="sync-error">
+                                    <i class="fas fa-exclamation-triangle"></i> Sync-Fehler
+                                </span>
+                            {% elif product.needs_sync %}
+                                <span class="needs-sync">
+                                    <i class="fas fa-clock"></i> Benötigt Sync
+                                </span>
+                            {% else %}
+                                <span class="synced">
+                                    <i class="fas fa-check"></i> Synchronisiert
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Do-SEO Button -->
+                    <div class="d-grid gap-2 mb-2">
+                        <a href="{% url 'shopify_manager:seo_optimization' product.pk %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-robot"></i> Do-SEO
+                        </a>
+                    </div>
+                    
+                    <small class="text-muted">
+                        Aktualisiert: {{ product.updated_at|date:"d.m.Y H:i" }}
+                    </small>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> Keine Produkte gefunden. 
+                <a href="#" data-bs-toggle="modal" data-bs-target="#importModal">Jetzt importieren</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</form>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<nav aria-label="Produkte Navigation">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?{% if get_params %}{{ get_params }}&{% endif %}page=1">Erste</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?{% if get_params %}{{ get_params }}&{% endif %}page={{ page_obj.previous_page_number }}">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+            </li>
+        {% endif %}
+        
+        <li class="page-item active">
+            <span class="page-link">
+                {{ page_obj.number }} von {{ page_obj.paginator.num_pages }}
+            </span>
+        </li>
+        
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?{% if get_params %}{{ get_params }}&{% endif %}page={{ page_obj.next_page_number }}">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?{% if get_params %}{{ get_params }}&{% endif %}page={{ page_obj.paginator.num_pages }}">Letzte</a>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Produkte importieren</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="importForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="storeSelect" class="form-label">Store auswählen</label>
+                        <select class="form-select" id="storeSelect" name="store_id" required>
+                            <option value="">Bitte wählen...</option>
+                            {% for store in user_stores %}
+                                <option value="{{ store.id }}">{{ store.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label">Import-Modus</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="import_mode" 
+                                   id="importModeNew" value="new_only" checked>
+                            <label class="form-check-label" for="importModeNew">
+                                <strong>Nur neue Produkte</strong>
+                                <small class="text-muted d-block">Überspringt bereits vorhandene Produkte</small>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="import_mode" 
+                                   id="importModeAll" value="all">
+                            <label class="form-check-label" for="importModeAll">
+                                <strong>Alle Produkte</strong>
+                                <small class="text-muted d-block">Überschreibt bereits vorhandene Produkte</small>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3" id="limitSection">
+                        <label for="limitInput" class="form-label">Anzahl Produkte (max. 250)</label>
+                        <input type="number" class="form-control" id="limitInput" name="limit" 
+                               min="1" max="250" value="50" required>
+                        <div class="form-text">Nur relevant bei "Nur neue Produkte"</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="overwrite_existing" 
+                                   id="overwriteExisting" checked>
+                            <label class="form-check-label" for="overwriteExisting">
+                                Bestehende Produkte überschreiben (nur bei "Alle Produkte")
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="import_images" 
+                                   id="importImages" checked>
+                            <label class="form-check-label" for="importImages">
+                                Produktbilder mit importieren
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        <strong>Hinweis:</strong> Bei "Alle Produkte" werden wirklich alle Produkte importiert (kann bei vielen Produkten länger dauern).
+                        Bei "Nur neue Produkte" wird das angegebene Limit berücksichtigt.
+                    </div>
+                    
+                    <div id="importProgress" class="d-none">
+                        <div class="alert alert-primary">
+                            <i class="fas fa-spinner fa-spin"></i> 
+                            <span id="importStatus">Import läuft...</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 style="width: 100%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Importieren</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Import Mode Handler
+document.addEventListener('DOMContentLoaded', function() {
+    const importModeRadios = document.querySelectorAll('input[name="import_mode"]');
+    const limitSection = document.getElementById('limitSection');
+    const limitInput = document.getElementById('limitInput');
+    
+    function toggleLimitSection() {
+        const selectedMode = document.querySelector('input[name="import_mode"]:checked').value;
+        if (selectedMode === 'all') {
+            limitSection.style.opacity = '0.5';
+            limitInput.disabled = true;
+            limitInput.required = false;
+        } else {
+            limitSection.style.opacity = '1';
+            limitInput.disabled = false;
+            limitInput.required = true;
+        }
+    }
+    
+    importModeRadios.forEach(radio => {
+        radio.addEventListener('change', toggleLimitSection);
+    });
+    
+    // Initial state
+    toggleLimitSection();
+});
+
+function syncProduct(productId) {
+    if (!confirm('Produkt zu Shopify synchronisieren?')) return;
+    
+    fetch(`/shopify/api/products/${productId}/sync/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Synchronisation erfolgreich!');
+            location.reload();
+        } else {
+            alert('Synchronisation fehlgeschlagen: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Fehler bei der Synchronisation');
+    });
+}
+
+function bulkAction() {
+    const checkboxes = document.querySelectorAll('.product-checkbox:checked');
+    if (checkboxes.length === 0) {
+        alert('Bitte wählen Sie mindestens ein Produkt aus.');
+        return;
+    }
+    
+    const action = prompt('Aktion auswählen:\n1. sync_to_shopify\n2. mark_needs_sync\n3. clear_sync_errors\n4. update_status_active\n5. update_status_archived');
+    if (!action) return;
+    
+    const actions = {
+        '1': 'sync_to_shopify',
+        '2': 'mark_needs_sync', 
+        '3': 'clear_sync_errors',
+        '4': 'update_status_active',
+        '5': 'update_status_archived'
+    };
+    
+    const selectedAction = actions[action];
+    if (!selectedAction) {
+        alert('Ungültige Aktion');
+        return;
+    }
+    
+    document.querySelector('input[name="action"]').value = selectedAction;
+    document.getElementById('bulkForm').submit();
+}
+
+// Import Form Handler
+document.getElementById('importForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const importMode = formData.get('import_mode');
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const progressDiv = document.getElementById('importProgress');
+    const statusSpan = document.getElementById('importStatus');
+    
+    // Show different messages based on import mode
+    if (importMode === 'all') {
+        statusSpan.textContent = 'Importiere alle Produkte... (kann länger dauern)';
+    } else {
+        statusSpan.textContent = 'Importiere neue Produkte...';
+    }
+    
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importiere...';
+    progressDiv.classList.remove('d-none');
+    
+    const startTime = Date.now();
+    
+    fetch('/shopify/api/import/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        const duration = Math.round((Date.now() - startTime) / 1000);
+        
+        if (data.success) {
+            const message = `Import erfolgreich in ${duration}s: ${data.message}`;
+            if (data.products_imported > 0) {
+                alert(`✅ ${message}\n\n${data.products_imported} Produkte importiert`);
+                location.reload();
+            } else {
+                alert(`ℹ️ ${message}\n\nKeine neuen Produkte gefunden.`);
+            }
+        } else {
+            alert(`❌ Import fehlgeschlagen nach ${duration}s: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        const duration = Math.round((Date.now() - startTime) / 1000);
+        console.error('Error:', error);
+        alert(`❌ Fehler beim Import nach ${duration}s: ${error.message || 'Unbekannter Fehler'}`);
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Importieren';
+        progressDiv.classList.add('d-none');
+    });
+});
+
+function bulkSeoAnalysis() {
+    const storeSelect = document.getElementById('storeSelect');
+    if (!storeSelect || !storeSelect.value) {
+        // Verwende den ersten verfügbaren Store
+        const firstStore = document.querySelector('#storeSelect option[value]:not([value=""])');
+        if (!firstStore) {
+            alert('Kein Store verfügbar für die Analyse');
+            return;
+        }
+        var storeId = firstStore.value;
+    } else {
+        var storeId = storeSelect.value;
+    }
+    
+    if (!confirm(`SEO-Analyse für alle Produkte des Stores starten?\nDies kann einige Zeit dauern.`)) return;
+    
+    fetch('/shopify/api/bulk-seo-analysis/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `store_id=${storeId}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const results = data.analysis_results;
+            let report = `SEO-ANALYSE ERGEBNIS:\n\n`;
+            report += `=== ÜBERSICHT ===\n`;
+            report += `Analysierte Produkte: ${results.total_products}\n`;
+            report += `Produkte mit Global SEO: ${results.products_with_global_seo}\n`;
+            report += `Produkte mit WooCommerce Daten: ${results.products_with_woo_data}\n`;
+            report += `Produkte mit Webrex Daten: ${results.products_with_webrex_data}\n`;
+            report += `Produkte ohne Metafields: ${results.products_with_no_metafields}\n\n`;
+            
+            report += `=== DETAILANALYSE ===\n`;
+            results.detailed_results.forEach(product => {
+                report += `\nProdukt: "${product.title}"\n`;
+                report += `  Shopify ID: ${product.shopify_id}\n`;
+                report += `  Metafields: ${product.metafields_count}\n`;
+                report += `  Namespaces: ${product.namespaces.join(', ')}\n`;
+                report += `  Global SEO: ${product.has_global_seo ? '✅' : '❌'}\n`;
+                report += `  SEO-Felder: ${product.seo_fields_found.join(', ')}\n`;
+                report += `  Aktuell SEO-Titel: "${product.current_seo_title}"\n`;
+                report += `  Aktuell SEO-Beschreibung: "${product.current_seo_description}"\n`;
+            });
+            
+            report += `\n=== JSON DATEN ===\n`;
+            report += JSON.stringify(data, null, 2);
+            
+            // Zeige Ergebnis in Alert (könnte später in Modal gezeigt werden)
+            const resultWindow = window.open('', '_blank', 'width=800,height=600');
+            resultWindow.document.write(`<pre style="font-family: monospace; white-space: pre-wrap; padding: 20px;">${report}</pre>`);
+            resultWindow.document.title = 'SEO-Analyse Ergebnis';
+            
+        } else {
+            alert('SEO-Analyse fehlgeschlagen: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Fehler bei der SEO-Analyse');
+    });
+}
+
+function deleteProductLocal(productId) {
+    if (!confirm('⚠️ Produkt lokal aus der App löschen?\n\nDas Produkt bleibt in Shopify bestehen und kann später wieder importiert werden.')) return;
+    
+    fetch(`/shopify/api/products/${productId}/delete-local/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ ' + data.message);
+            location.reload(); // Seite neu laden um gelöschtes Produkt zu entfernen
+        } else {
+            alert('❌ Fehler beim lokalen Löschen: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Fehler beim lokalen Löschen');
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Status-Details bei Hover anzeigen
+document.addEventListener('DOMContentLoaded', function() {
+    const productCards = document.querySelectorAll('.product-card');
+    
+    productCards.forEach(card => {
+        const statusDetails = card.querySelector('.status-details');
+        
+        if (statusDetails) {
+            // Hover-Events für SEO/Alt-Text Badges
+            const badges = card.querySelectorAll('.badge');
+            
+            badges.forEach(badge => {
+                badge.addEventListener('mouseenter', function() {
+                    statusDetails.style.display = 'block';
+                });
+                
+                badge.addEventListener('mouseleave', function() {
+                    statusDetails.style.display = 'none';
+                });
+            });
+            
+            // Hover-Events für Details-Card selbst
+            statusDetails.addEventListener('mouseenter', function() {
+                statusDetails.style.display = 'block';
+            });
+            
+            statusDetails.addEventListener('mouseleave', function() {
+                statusDetails.style.display = 'none';
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

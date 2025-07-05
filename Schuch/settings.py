@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'naturmacher',
     'todos',
     'chat',
+    'shopify_manager',
 ]
 
 MIDDLEWARE = [

@@ -1,0 +1,610 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}Alt-Text Manager - Shopify Manager{% endblock %}
+
+{% block shopify_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-image text-primary"></i> Alt-Text Manager
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button class="btn btn-primary" onclick="bulkUpdateAltTexts()">
+                <i class="fas fa-magic"></i> Bulk Alt-Text Generierung
+            </button>
+            <button class="btn btn-outline-secondary" onclick="exportAltTexts()">
+                <i class="fas fa-download"></i> Exportieren
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Store-Auswahl -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-store text-info"></i> Store auswählen
+                </h5>
+                <select class="form-select" id="storeSelect" onchange="loadStoreData()">
+                    <option value="">Bitte Store auswählen...</option>
+                    {% for store in user_stores %}
+                        <option value="{{ store.id }}">{{ store.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-chart-pie text-success"></i> Alt-Text Statistiken
+                </h5>
+                <div class="row text-center">
+                    <div class="col-4">
+                        <div class="h4 text-success" id="altTextComplete">-</div>
+                        <small class="text-muted">Vollständig</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="h4 text-warning" id="altTextPartial">-</div>
+                        <small class="text-muted">Unvollständig</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="h4 text-danger" id="altTextMissing">-</div>
+                        <small class="text-muted">Fehlend</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Kategorien-Tabs -->
+<ul class="nav nav-tabs" id="altTextTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="products-tab" data-bs-toggle="tab" data-bs-target="#products" 
+                type="button" role="tab">
+            <i class="fas fa-box"></i> Produktbilder <span class="badge bg-secondary" id="productCount">0</span>
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="collections-tab" data-bs-toggle="tab" data-bs-target="#collections" 
+                type="button" role="tab">
+            <i class="fas fa-layer-group"></i> Kollektionen <span class="badge bg-secondary" id="collectionCount">0</span>
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="blog-tab" data-bs-toggle="tab" data-bs-target="#blog" 
+                type="button" role="tab">
+            <i class="fas fa-blog"></i> Blog <span class="badge bg-secondary" id="blogCount">0</span>
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="pages-tab" data-bs-toggle="tab" data-bs-target="#pages" 
+                type="button" role="tab">
+            <i class="fas fa-file-alt"></i> Seiten <span class="badge bg-secondary" id="pageCount">0</span>
+        </button>
+    </li>
+</ul>
+
+<!-- Tab-Inhalt -->
+<div class="tab-content" id="altTextTabContent">
+    <!-- Produktbilder Tab -->
+    <div class="tab-pane fade show active" id="products" role="tabpanel">
+        <div class="card mt-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-box text-primary"></i> Produktbilder Alt-Texte
+                </h5>
+                <div class="btn-group" role="group">
+                    <button class="btn btn-sm btn-outline-primary" onclick="filterProducts('missing')">
+                        Nur fehlende anzeigen
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="filterProducts('all')">
+                        Alle anzeigen
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="productAltTexts">
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-store fa-3x mb-3"></i>
+                        <p>Bitte wählen Sie einen Store aus, um Produktbilder zu laden</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kollektionen Tab -->
+    <div class="tab-pane fade" id="collections" role="tabpanel">
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-layer-group text-success"></i> Kollektionen Alt-Texte
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="collectionAltTexts">
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-layer-group fa-3x mb-3"></i>
+                        <p>Kollektions-Alt-Texte werden hier angezeigt</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Blog Tab -->
+    <div class="tab-pane fade" id="blog" role="tabpanel">
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-blog text-info"></i> Blog-Bilder Alt-Texte
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="blogAltTexts">
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-blog fa-3x mb-3"></i>
+                        <p>Blog-Alt-Texte werden hier angezeigt</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seiten Tab -->
+    <div class="tab-pane fade" id="pages" role="tabpanel">
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-file-alt text-warning"></i> Seiten-Bilder Alt-Texte
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="pageAltTexts">
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-file-alt fa-3x mb-3"></i>
+                        <p>Seiten-Alt-Texte werden hier angezeigt</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading State -->
+<div id="loadingState" style="display: none;">
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div>
+        <h4 class="mt-3">Lade Alt-Text Daten...</h4>
+        <p class="text-muted">Bitte warten Sie, während wir die Bilder analysieren</p>
+    </div>
+</div>
+
+<!-- Alt-Text Edit Modal -->
+<div class="modal fade" id="altTextModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Alt-Text bearbeiten</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <img id="modalImage" src="" alt="" class="img-fluid rounded" style="max-height: 200px;">
+                        <div class="mt-2">
+                            <small class="text-muted" id="modalImageInfo"></small>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <form id="altTextForm">
+                            <div class="mb-3">
+                                <label for="altTextInput" class="form-label">Alt-Text</label>
+                                <textarea class="form-control" id="altTextInput" rows="3" 
+                                          placeholder="Beschreiben Sie das Bild für Screenreader und SEO..."></textarea>
+                                <div class="form-text">
+                                    <span id="altTextLength">0</span> / 125 Zeichen empfohlen
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">SEO-Empfehlungen</label>
+                                <div class="alert alert-info py-2">
+                                    <small>
+                                        <i class="fas fa-lightbulb"></i> 
+                                        <strong>Tipps:</strong> Verwenden Sie relevante Keywords, beschreiben Sie den Inhalt präzise und halten Sie es unter 125 Zeichen.
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="generateAltText()">
+                                    <i class="fas fa-magic"></i> KI-Vorschlag generieren
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="saveAltText()">
+                    <i class="fas fa-save"></i> Speichern
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentEditingItem = null;
+let currentStoreId = null;
+
+function loadStoreData() {
+    const storeId = document.getElementById('storeSelect').value;
+    if (!storeId) {
+        clearAllData();
+        return;
+    }
+    
+    currentStoreId = storeId;
+    showLoading(true);
+    
+    fetch(`/shopify/api/alt-text-data/${storeId}/`, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        showLoading(false);
+        if (data.success) {
+            displayAltTextData(data.data);
+            updateStatistics(data.statistics);
+        } else {
+            alert('Fehler beim Laden der Alt-Text Daten: ' + data.error);
+        }
+    })
+    .catch(error => {
+        showLoading(false);
+        console.error('Error:', error);
+        alert('Fehler beim Laden der Daten');
+    });
+}
+
+function displayAltTextData(data) {
+    // Produktbilder anzeigen
+    displayProductAltTexts(data.products || []);
+    
+    // Blog-Bilder anzeigen
+    displayBlogAltTexts(data.blog || []);
+    
+    // Zähler aktualisieren
+    document.getElementById('productCount').textContent = (data.products || []).length;
+    document.getElementById('collectionCount').textContent = (data.collections || []).length;
+    document.getElementById('blogCount').textContent = (data.blog || []).length;
+    document.getElementById('pageCount').textContent = (data.pages || []).length;
+}
+
+function displayProductAltTexts(products) {
+    const container = document.getElementById('productAltTexts');
+    
+    if (products.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-image fa-3x mb-3"></i>
+                <p>Keine Produktbilder gefunden</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    products.forEach(product => {
+        html += `
+            <div class="product-alt-section mb-4">
+                <div class="d-flex align-items-center mb-3">
+                    <h6 class="mb-0">${product.title}</h6>
+                    <small class="text-muted ms-2">(${product.images.length} Bilder)</small>
+                </div>
+                <div class="row">
+        `;
+        
+        product.images.forEach(image => {
+            const hasAltText = image.alt_text && image.alt_text.trim();
+            const statusClass = hasAltText ? 'border-success' : 'border-danger';
+            const statusIcon = hasAltText ? 'fa-check text-success' : 'fa-times text-danger';
+            
+            html += `
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card ${statusClass}" style="border-width: 2px;">
+                        <img src="${image.src}" alt="${image.alt_text || ''}" 
+                             class="card-img-top" style="height: 150px; object-fit: cover;">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <small class="text-muted">ID: ${image.id}</small>
+                                <i class="fas ${statusIcon}"></i>
+                            </div>
+                            <div class="mb-2">
+                                <strong>Alt-Text:</strong><br>
+                                <small class="${hasAltText ? 'text-dark' : 'text-muted'}">
+                                    ${hasAltText ? image.alt_text : 'Nicht gesetzt'}
+                                </small>
+                            </div>
+                            <button class="btn btn-sm btn-primary w-100" 
+                                    onclick="editAltText('product', '${product.id}', '${image.id}', '${image.src}', '${(image.alt_text || '').replace(/'/g, '&apos;').replace(/"/g, '&quot;')}')" 
+                                    data-bs-toggle="modal" data-bs-target="#altTextModal">
+                                <i class="fas fa-edit"></i> Bearbeiten
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
+            </div>
+            <hr>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function displayBlogAltTexts(blogs) {
+    const container = document.getElementById('blogAltTexts');
+    
+    if (blogs.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-blog fa-3x mb-3"></i>
+                <p>Keine Blog-Bilder gefunden</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    blogs.forEach(blog => {
+        const hasAltText = blog.alt_text && blog.alt_text.trim();
+        const statusClass = hasAltText ? 'border-success' : 'border-danger';
+        const statusIcon = hasAltText ? 'fa-check text-success' : 'fa-times text-danger';
+        const statusBadge = blog.status === 'published' ? 'bg-success' : blog.status === 'draft' ? 'bg-warning' : 'bg-secondary';
+        
+        html += `
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card ${statusClass}" style="border-width: 2px;">
+                    <img src="${blog.image_url}" alt="${blog.alt_text || ''}" 
+                         class="card-img-top" style="height: 150px; object-fit: cover;">
+                    <div class="card-body p-2">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <small class="text-muted">ID: ${blog.id}</small>
+                            <i class="fas ${statusIcon}"></i>
+                        </div>
+                        <h6 class="card-title small">${blog.title}</h6>
+                        <p class="card-text small text-muted">
+                            Blog: ${blog.blog_title}<br>
+                            <span class="badge ${statusBadge} mt-1">${blog.status}</span>
+                        </p>
+                        <div class="mb-2">
+                            <strong>Alt-Text:</strong><br>
+                            <small class="${hasAltText ? 'text-dark' : 'text-muted'}">
+                                ${hasAltText ? blog.alt_text : 'Nicht gesetzt'}
+                            </small>
+                        </div>
+                        <button class="btn btn-sm btn-primary w-100" 
+                                onclick="editBlogAltText('${blog.id}', '${blog.image_url}', '${(blog.alt_text || '').replace(/'/g, '&apos;').replace(/"/g, '&quot;')}')" 
+                                data-bs-toggle="modal" data-bs-target="#altTextModal">
+                            <i class="fas fa-edit"></i> Bearbeiten
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = `<div class="row">${html}</div>`;
+}
+
+function editBlogAltText(blogPostId, imageSrc, currentAltText) {
+    currentEditingItem = {
+        type: 'blog',
+        blogPostId: blogPostId,
+        imageSrc: imageSrc
+    };
+    
+    document.getElementById('modalImage').src = imageSrc || '';
+    document.getElementById('modalImageInfo').textContent = `Blog-Post ID: ${blogPostId}`;
+    document.getElementById('altTextInput').value = currentAltText || '';
+    updateCharCount();
+}
+
+function updateStatistics(stats) {
+    document.getElementById('altTextComplete').textContent = stats.complete || 0;
+    document.getElementById('altTextPartial').textContent = stats.partial || 0;
+    document.getElementById('altTextMissing').textContent = stats.missing || 0;
+}
+
+function editAltText(type, productId, imageId, imageSrc, currentAltText) {
+    currentEditingItem = {
+        type: type,
+        productId: productId,
+        imageId: imageId,
+        imageSrc: imageSrc
+    };
+    
+    document.getElementById('modalImage').src = imageSrc || '';
+    document.getElementById('modalImageInfo').textContent = `${type} ID: ${productId}, Bild ID: ${imageId}`;
+    document.getElementById('altTextInput').value = currentAltText || '';
+    updateCharCount();
+}
+
+function updateCharCount() {
+    const input = document.getElementById('altTextInput');
+    const length = input.value.length;
+    document.getElementById('altTextLength').textContent = length;
+    
+    const lengthElement = document.getElementById('altTextLength');
+    lengthElement.className = length > 125 ? 'text-danger' : length > 100 ? 'text-warning' : 'text-success';
+}
+
+function generateAltText() {
+    if (!currentEditingItem) return;
+    
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generiere...';
+    button.disabled = true;
+    
+    fetch('/shopify/api/generate-alt-text/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `image_url=${encodeURIComponent(currentEditingItem.imageSrc)}&product_id=${currentEditingItem.productId}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('altTextInput').value = data.alt_text;
+            updateCharCount();
+        } else {
+            alert('Fehler bei der Alt-Text Generierung: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Fehler bei der Alt-Text Generierung');
+    })
+    .finally(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
+}
+
+function saveAltText() {
+    if (!currentEditingItem) return;
+    
+    const altText = document.getElementById('altTextInput').value;
+    let requestBody = '';
+    let requestUrl = '';
+    
+    if (currentEditingItem.type === 'blog') {
+        // Blog-Post Alt-Text Update
+        requestUrl = '/shopify/api/update-blog-alt-text/';
+        requestBody = `store_id=${currentStoreId}&blog_post_id=${currentEditingItem.blogPostId}&alt_text=${encodeURIComponent(altText)}`;
+    } else {
+        // Produkt Alt-Text Update
+        requestUrl = '/shopify/api/update-alt-text/';
+        requestBody = `store_id=${currentStoreId}&product_id=${currentEditingItem.productId}&image_id=${currentEditingItem.imageId}&alt_text=${encodeURIComponent(altText)}`;
+    }
+    
+    fetch(requestUrl, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: requestBody
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Modal schließen
+            const modal = bootstrap.Modal.getInstance(document.getElementById('altTextModal'));
+            modal.hide();
+            
+            // Daten neu laden
+            loadStoreData();
+            
+            alert('Alt-Text erfolgreich gespeichert!');
+        } else {
+            alert('Fehler beim Speichern: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Fehler beim Speichern');
+    });
+}
+
+function filterProducts(filter) {
+    // TODO: Implementiere Filterlogik
+    console.log('Filter:', filter);
+}
+
+function bulkUpdateAltTexts() {
+    if (!currentStoreId) {
+        alert('Bitte wählen Sie zuerst einen Store aus');
+        return;
+    }
+    
+    if (!confirm('Möchten Sie Alt-Texte für alle Bilder ohne Alt-Text automatisch generieren?\nDies kann einige Zeit dauern.')) {
+        return;
+    }
+    
+    // TODO: Implementiere Bulk-Update
+    console.log('Bulk update for store:', currentStoreId);
+}
+
+function exportAltTexts() {
+    if (!currentStoreId) {
+        alert('Bitte wählen Sie zuerst einen Store aus');
+        return;
+    }
+    
+    // TODO: Implementiere Export
+    console.log('Export alt texts for store:', currentStoreId);
+}
+
+function showLoading(show) {
+    document.getElementById('loadingState').style.display = show ? 'block' : 'none';
+}
+
+function clearAllData() {
+    document.getElementById('productAltTexts').innerHTML = `
+        <div class="text-center py-5 text-muted">
+            <i class="fas fa-store fa-3x mb-3"></i>
+            <p>Bitte wählen Sie einen Store aus, um Produktbilder zu laden</p>
+        </div>
+    `;
+    updateStatistics({});
+    document.getElementById('productCount').textContent = '0';
+    document.getElementById('collectionCount').textContent = '0';
+    document.getElementById('blogCount').textContent = '0';
+    document.getElementById('pageCount').textContent = '0';
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Character count listener
+document.addEventListener('DOMContentLoaded', function() {
+    const altTextInput = document.getElementById('altTextInput');
+    if (altTextInput) {
+        altTextInput.addEventListener('input', updateCharCount);
+    }
+});
+</script>
+{% endblock %}

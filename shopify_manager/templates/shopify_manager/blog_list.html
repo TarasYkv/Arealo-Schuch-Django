@@ -1,0 +1,428 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}Blogs - Shopify Manager{% endblock %}
+
+{% block shopify_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-blog text-primary"></i> Blogs
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button class="btn btn-success" onclick="importBlogs()">
+                <i class="fas fa-download"></i> Blogs importieren
+            </button>
+            <button class="btn btn-outline-success" onclick="importAllBlogPosts()">
+                <i class="fas fa-download"></i> Alle Blog-Beiträge importieren
+            </button>
+            <a href="{% url 'shopify_manager:blog_post_list' %}" class="btn btn-outline-primary">
+                <i class="fas fa-newspaper"></i> Alle Beiträge
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Statistiken -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Blogs</h6>
+                        <h3 class="mb-0">{{ stats.total_blogs }}</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-blog fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Beiträge gesamt</h6>
+                        <h3 class="mb-0">{{ stats.total_posts }}</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-newspaper fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Veröffentlicht</h6>
+                        <h3 class="mb-0">{{ stats.published_posts }}</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-check-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Entwürfe</h6>
+                        <h3 class="mb-0">{{ stats.draft_posts|default:0 }}</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-edit fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Blogs importieren</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="importForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Store auswählen</label>
+                        <select class="form-select" name="store_id" required>
+                            <option value="">Bitte wählen...</option>
+                            {% for store in user_stores %}
+                                <option value="{{ store.id }}">{{ store.name }} ({{ store.shop_domain }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-success" onclick="executeImport()">
+                    <i class="fas fa-download"></i> Importieren
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Blog-Posts Import Modal -->
+<div class="modal fade" id="blogPostImportModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Blog-Beiträge importieren</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="blogPostImportForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Store auswählen</label>
+                        <select class="form-select" id="storeSelectBlogPosts" name="store_id" onchange="loadBlogsForStore()" required>
+                            <option value="">Bitte wählen...</option>
+                            {% for store in user_stores %}
+                                <option value="{{ store.id }}">{{ store.name }} ({{ store.shop_domain }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Blog auswählen</label>
+                        <select class="form-select" id="blogSelect" name="blog_id" required>
+                            <option value="">Zuerst Store auswählen...</option>
+                        </select>
+                        <div class="form-text">
+                            Wählen Sie "Alle Blogs" um Posts von allen Blogs zu importieren
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-success" onclick="executeBlogPostImport()">
+                    <i class="fas fa-download"></i> Importieren
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Blogs Liste -->
+<div class="row">
+    {% for blog in blogs %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <a href="{% url 'shopify_manager:blog_detail' blog.pk %}" class="text-decoration-none">
+                        {{ blog.title }}
+                    </a>
+                </h5>
+                <h6 class="card-subtitle mb-2 text-muted">
+                    {{ blog.store.name }}
+                </h6>
+                <p class="card-text">
+                    <strong>{{ blog.posts_count }}</strong> Beiträge
+                </p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">
+                        {{ blog.updated_at|date:"d.m.Y H:i" }}
+                    </small>
+                    <div class="btn-group">
+                        <a href="{% url 'shopify_manager:blog_detail' blog.pk %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <button class="btn btn-sm btn-outline-success" onclick="importBlogPosts({{ blog.id }})" title="Blog-Posts importieren">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        <a href="{{ blog.get_shopify_admin_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-external-link-alt"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i>
+            Keine Blogs gefunden. Klicken Sie auf "Blogs importieren" um Blogs von Shopify zu laden.
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<nav aria-label="Blog Pagination">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1">&laquo; Erste</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Zurück</a>
+            </li>
+        {% endif %}
+        
+        <li class="page-item active">
+            <span class="page-link">
+                Seite {{ page_obj.number }} von {{ page_obj.paginator.num_pages }}
+            </span>
+        </li>
+        
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Weiter</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Letzte &raquo;</a>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+<script>
+function importBlogs() {
+    const modal = new bootstrap.Modal(document.getElementById('importModal'));
+    modal.show();
+}
+
+function executeImport() {
+    const form = document.getElementById('importForm');
+    const formData = new FormData(form);
+    
+    fetch('/shopify/api/import-blogs/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', `${data.imported} Blogs erfolgreich importiert!`);
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showAlert('danger', `Import fehlgeschlagen: ${data.error}`);
+        }
+        bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
+    })
+    .catch(error => {
+        showAlert('danger', 'Fehler beim Import: ' + error);
+        bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
+    });
+}
+
+function importAllBlogPosts() {
+    const modal = new bootstrap.Modal(document.getElementById('blogPostImportModal'));
+    modal.show();
+}
+
+function loadBlogsForStore() {
+    const storeId = document.getElementById('storeSelectBlogPosts').value;
+    const blogSelect = document.getElementById('blogSelect');
+    
+    // Reset Blog-Auswahl
+    blogSelect.innerHTML = '<option value="">Lade Blogs...</option>';
+    
+    if (!storeId) {
+        blogSelect.innerHTML = '<option value="">Zuerst Store auswählen...</option>';
+        return;
+    }
+    
+    // Lade Blogs für den ausgewählten Store
+    fetch(`/shopify/api/get-blogs-for-store/${storeId}/`, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            let html = '<option value="all">🌟 Alle Blogs (alle Blog-Posts importieren)</option>';
+            
+            if (data.blogs.length === 0) {
+                html += '<option value="">Keine Blogs gefunden - zuerst Blogs importieren</option>';
+            } else {
+                data.blogs.forEach(blog => {
+                    html += `<option value="${blog.id}">${blog.title} (${blog.posts_count} Posts)</option>`;
+                });
+            }
+            
+            blogSelect.innerHTML = html;
+        } else {
+            blogSelect.innerHTML = '<option value="">Fehler beim Laden der Blogs</option>';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        blogSelect.innerHTML = '<option value="">Fehler beim Laden</option>';
+    });
+}
+
+function executeBlogPostImport() {
+    const form = document.getElementById('blogPostImportForm');
+    const formData = new FormData(form);
+    
+    const storeId = formData.get('store_id');
+    const blogId = formData.get('blog_id');
+    
+    if (!storeId || !blogId) {
+        alert('Bitte wählen Sie Store und Blog aus.');
+        return;
+    }
+    
+    let url, body;
+    
+    if (blogId === 'all') {
+        // Alle Blog-Posts für alle Blogs des Stores importieren
+        url = '/shopify/api/import-all-blog-posts/';
+        body = `store_id=${storeId}&csrfmiddlewaretoken=${getCookie('csrftoken')}`;
+    } else {
+        // Blog-Posts für einen spezifischen Blog importieren
+        url = '/shopify/api/import-blog-posts/';
+        body = `blog_id=${blogId}&csrfmiddlewaretoken=${getCookie('csrftoken')}`;
+    }
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: body
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', `${data.imported} Blog-Posts erfolgreich importiert!`);
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showAlert('danger', `Import fehlgeschlagen: ${data.error}`);
+        }
+        bootstrap.Modal.getInstance(document.getElementById('blogPostImportModal')).hide();
+    })
+    .catch(error => {
+        showAlert('danger', 'Fehler beim Import: ' + error);
+        bootstrap.Modal.getInstance(document.getElementById('blogPostImportModal')).hide();
+    });
+}
+
+function importBlogPosts(blogId) {
+    if (!confirm('Blog-Posts für diesen Blog importieren?')) return;
+    
+    const formData = new FormData();
+    formData.append('blog_id', blogId);
+    formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+    
+    fetch('/shopify/api/import-blog-posts/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', `${data.imported} Blog-Posts erfolgreich importiert!`);
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showAlert('danger', `Import fehlgeschlagen: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        showAlert('danger', 'Fehler beim Import: ' + error);
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.querySelector('.container-fluid');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+</script>
+{% endblock %}

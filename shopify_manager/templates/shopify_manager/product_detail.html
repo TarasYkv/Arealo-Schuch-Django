@@ -1,0 +1,473 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}{{ product.title }} - Shopify Manager{% endblock %}
+
+{% block shopify_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ product.title }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{% url 'shopify_manager:product_edit' product.pk %}" class="btn btn-primary">
+                <i class="fas fa-edit"></i> Bearbeiten
+            </a>
+            <a href="{% url 'shopify_manager:product_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-list"></i> Zur Liste
+            </a>
+            <button class="btn btn-outline-success" onclick="syncProduct({{ product.id }})">
+                <i class="fas fa-sync"></i> Synchronisieren
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8{% if product.status == 'archived' %} opacity-50{% endif %}">
+        <!-- Produktinformationen -->
+        <div class="card mb-4{% if product.status == 'archived' %} border-secondary{% endif %}">
+            <div class="card-header">
+                <h5 class="mb-0">Produktinformationen</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-4">Titel:</dt>
+                            <dd class="col-sm-8">{{ product.title }}</dd>
+                            
+                            <dt class="col-sm-4">Handle:</dt>
+                            <dd class="col-sm-8">{{ product.handle|default:"—" }}</dd>
+                            
+                            <dt class="col-sm-4">Vendor:</dt>
+                            <dd class="col-sm-8">{{ product.vendor|default:"—" }}</dd>
+                            
+                            <dt class="col-sm-4">Produkttyp:</dt>
+                            <dd class="col-sm-8">{{ product.product_type|default:"—" }}</dd>
+                            
+                            <dt class="col-sm-4">Status:</dt>
+                            <dd class="col-sm-8">
+                                <span class="badge bg-{% if product.status == 'active' %}success{% elif product.status == 'draft' %}warning{% elif product.status == 'archived' %}dark{% else %}secondary{% endif %}">
+                                    {% if product.status == 'archived' %}
+                                        ✅ Erledigt (Ausgegraut)
+                                    {% else %}
+                                        {{ product.get_status_display }}
+                                    {% endif %}
+                                </span>
+                            </dd>
+                        </dl>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-4">Preis:</dt>
+                            <dd class="col-sm-8">
+                                {% if product.price %}
+                                    €{{ product.price }}
+                                    {% if product.compare_at_price %}
+                                        <small class="text-muted"><s>€{{ product.compare_at_price }}</s></small>
+                                    {% endif %}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </dd>
+                            
+                            <dt class="col-sm-4">Store:</dt>
+                            <dd class="col-sm-8">{{ product.store.name }}</dd>
+                            
+                            <dt class="col-sm-4">Shopify ID:</dt>
+                            <dd class="col-sm-8">{{ product.shopify_id }}</dd>
+                            
+                            <dt class="col-sm-4">Tags:</dt>
+                            <dd class="col-sm-8">
+                                {% if product.tags %}
+                                    {% for tag in product.get_tags_list %}
+                                        <span class="badge bg-light text-dark me-1">{{ tag }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+                
+                {% if product.body_html %}
+                <div class="mt-3">
+                    <h6>Beschreibung:</h6>
+                    <div class="border rounded p-3 bg-light">
+                        {{ product.body_html|safe }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- SEO-Informationen -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">SEO-Informationen</h5>
+                <div>
+                    {% with issues=product.has_seo_issues %}
+                        {% if issues.missing_seo_title or issues.missing_seo_description %}
+                            <span class="badge bg-warning">SEO unvollständig</span>
+                        {% else %}
+                            <span class="badge bg-success">SEO OK</span>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label class="form-label"><strong>SEO Titel:</strong></label>
+                        <div class="form-control-plaintext border rounded p-2 bg-light">
+                            {% if product.seo_title %}
+                                {{ product.seo_title }}
+                                <small class="text-muted">({{ product.seo_title|length }}/70 Zeichen)</small>
+                            {% else %}
+                                <em class="text-muted">Nicht gesetzt</em>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-12 mb-3">
+                        <label class="form-label"><strong>SEO Beschreibung:</strong></label>
+                        <div class="form-control-plaintext border rounded p-2 bg-light">
+                            {% if product.seo_description %}
+                                {{ product.seo_description }}
+                                <small class="text-muted">({{ product.seo_description|length }}/160 Zeichen)</small>
+                            {% else %}
+                                <em class="text-muted">Nicht gesetzt</em>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Synchronisations-Status -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Synchronisations-Status</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-6">Status:</dt>
+                            <dd class="col-sm-6">
+                                {% if product.sync_error %}
+                                    <span class="badge bg-danger">Sync-Fehler</span>
+                                {% elif product.needs_sync %}
+                                    <span class="badge bg-warning">Benötigt Sync</span>
+                                {% else %}
+                                    <span class="badge bg-success">Synchronisiert</span>
+                                {% endif %}
+                            </dd>
+                            
+                            <dt class="col-sm-6">Letzte Sync:</dt>
+                            <dd class="col-sm-6">
+                                {% if product.last_synced_at %}
+                                    {{ product.last_synced_at|date:"d.m.Y H:i" }}
+                                {% else %}
+                                    <em class="text-muted">Noch nie</em>
+                                {% endif %}
+                            </dd>
+                        </dl>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-6">Erstellt:</dt>
+                            <dd class="col-sm-6">{{ product.created_at|date:"d.m.Y H:i" }}</dd>
+                            
+                            <dt class="col-sm-6">Aktualisiert:</dt>
+                            <dd class="col-sm-6">{{ product.updated_at|date:"d.m.Y H:i" }}</dd>
+                        </dl>
+                    </div>
+                </div>
+                
+                {% if product.sync_error %}
+                <div class="alert alert-danger mt-3">
+                    <h6 class="alert-heading">Sync-Fehler:</h6>
+                    {{ product.sync_error }}
+                </div>
+                {% endif %}
+                
+                <div class="mt-3">
+                    <div class="btn-group me-2" role="group">
+                        <button class="btn btn-success" onclick="syncProduct({{ product.id }})">
+                            <i class="fas fa-sync"></i> Jetzt synchronisieren
+                        </button>
+                        <button class="btn btn-warning" onclick="syncAndGrayoutProduct({{ product.id }})">
+                            <i class="fas fa-sync"></i> Synchronisieren & Ausgrauen
+                        </button>
+                    </div>
+                    <button class="btn btn-outline-warning" onclick="markNeedsSync({{ product.id }})">
+                        <i class="fas fa-clock"></i> Sync erforderlich markieren
+                    </button>
+                    {% if product.sync_error %}
+                    <button class="btn btn-outline-danger" onclick="clearSyncError({{ product.id }})">
+                        <i class="fas fa-eraser"></i> Sync-Fehler löschen
+                    </button>
+                    {% endif %}
+                    <a href="{% url 'shopify_manager:seo_optimization' product.id %}" class="btn btn-primary">
+                        <i class="fas fa-robot"></i> Do-SEO
+                    </a>
+                    <button class="btn btn-outline-danger" onclick="deleteProductLocal({{ product.id }})">
+                        <i class="fas fa-trash-alt"></i> Lokal löschen
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4{% if product.status == 'archived' %} opacity-50{% endif %}">
+        <!-- Produktbild -->
+        <div class="card mb-4{% if product.status == 'archived' %} border-secondary{% endif %}">
+            <div class="card-header">
+                <h5 class="mb-0">Produktbild</h5>
+            </div>
+            <div class="card-body text-center">
+                {% if product.image_url %}
+                    <img src="{{ product.image_url }}" class="img-fluid rounded mb-3" 
+                         alt="{{ product.featured_image_alt|default:product.title }}" 
+                         style="max-height: 400px;">
+                    {% if product.featured_image_alt %}
+                        <p class="text-muted small">{{ product.featured_image_alt }}</p>
+                    {% endif %}
+                {% else %}
+                    <div class="bg-light rounded p-4 mb-3">
+                        <i class="fas fa-image text-muted fa-4x"></i>
+                        <p class="mt-3 text-muted">Kein Bild verfügbar</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Externe Links -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Externe Links</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ product.get_shopify_admin_url }}" target="_blank" class="btn btn-outline-primary">
+                        <i class="fas fa-external-link-alt"></i> In Shopify Admin öffnen
+                    </a>
+                    {% if product.handle %}
+                    <a href="{{ product.get_storefront_url }}" target="_blank" class="btn btn-outline-secondary">
+                        <i class="fas fa-store"></i> Im Shop ansehen
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Metadaten -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Metadaten</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row small">
+                    <dt class="col-sm-6">Shopify erstellt:</dt>
+                    <dd class="col-sm-6">
+                        {% if product.shopify_created_at %}
+                            {{ product.shopify_created_at|date:"d.m.Y H:i" }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </dd>
+                    
+                    <dt class="col-sm-6">Shopify aktualisiert:</dt>
+                    <dd class="col-sm-6">
+                        {% if product.shopify_updated_at %}
+                            {{ product.shopify_updated_at|date:"d.m.Y H:i" }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </dd>
+                    
+                    <dt class="col-sm-6">Lokal erstellt:</dt>
+                    <dd class="col-sm-6">{{ product.created_at|date:"d.m.Y H:i" }}</dd>
+                    
+                    <dt class="col-sm-6">Lokal aktualisiert:</dt>
+                    <dd class="col-sm-6">{{ product.updated_at|date:"d.m.Y H:i" }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+function syncProduct(productId) {
+    if (!confirm('Produkt zu Shopify synchronisieren?')) return;
+    
+    const btn = event.target;
+    const originalContent = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Synchronisiere...';
+    
+    fetch(`/shopify/api/products/${productId}/sync/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Synchronisation erfolgreich!');
+            location.reload();
+        } else {
+            alert('Synchronisation fehlgeschlagen: ' + (data.error || data.message));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Fehler bei der Synchronisation');
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
+    });
+}
+
+function markNeedsSync(productId) {
+    fetch(`/shopify/api/products/${productId}/mark-sync/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Produkt als "Sync erforderlich" markiert');
+            location.reload();
+        } else {
+            alert('Fehler beim Markieren');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Fehler beim Markieren');
+    });
+}
+
+function clearSyncError(productId) {
+    if (!confirm('Sync-Fehler löschen?')) return;
+    
+    fetch(`/shopify/api/products/${productId}/clear-error/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Sync-Fehler gelöscht');
+            location.reload();
+        } else {
+            alert('Fehler beim Löschen des Sync-Fehlers');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Fehler beim Löschen des Sync-Fehlers');
+    });
+}
+
+
+function syncAndGrayoutProduct(productId) {
+    if (!confirm('Produkt zu Shopify synchronisieren und anschließend ausgrauen (deaktivieren)?')) return;
+    
+    const btn = event.target;
+    const originalContent = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Synchronisiere & Graue aus...';
+    
+    fetch(`/shopify/api/products/${productId}/sync-and-grayout/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Produkt erfolgreich synchronisiert und ausgegraut!\n\n' + 
+                  'Synchronisation: ' + (data.sync_success ? 'Erfolgreich' : 'Fehlgeschlagen') + '\n' +
+                  'Ausgrauen: ' + (data.grayout_success ? 'Erfolgreich' : 'Fehlgeschlagen'));
+            location.reload();
+        } else {
+            alert('❌ Fehler beim Synchronisieren & Ausgrauen: ' + (data.error || data.message));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Fehler beim Synchronisieren & Ausgrauen');
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
+    });
+}
+
+function deleteProductLocal(productId) {
+    if (!confirm('⚠️ Produkt lokal aus der App löschen?\n\nDas Produkt bleibt in Shopify bestehen und kann später wieder importiert werden.')) return;
+    
+    const btn = event.target;
+    const originalContent = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Lösche...';
+    
+    fetch(`/shopify/api/products/${productId}/delete-local/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ ' + data.message);
+            // Weiterleitung zur Produktliste
+            window.location.href = '/shopify/products/';
+        } else {
+            alert('❌ Fehler beim lokalen Löschen: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Fehler beim lokalen Löschen');
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}
