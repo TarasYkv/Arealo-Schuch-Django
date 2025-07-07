@@ -1725,10 +1725,17 @@ def import_blogs_view(request):
         })
 
 
+import threading
+import queue
+import uuid
+
+# Globaler Dict für Import-Progress tracking
+import_progress = {}
+
 @login_required
 @require_http_methods(["POST"])
 def import_blog_posts_view(request):
-    """Importiert Blog-Posts für einen bestimmten Blog"""
+    """Startet den Import von Blog-Posts für einen bestimmten Blog"""
     blog_id = request.POST.get('blog_id')
     import_mode = request.POST.get('import_mode', 'new_only')  # new_only oder all
     
@@ -1740,28 +1747,213 @@ def import_blog_posts_view(request):
     
     blog = get_object_or_404(ShopifyBlog, id=blog_id, store__user=request.user)
     
+    # Erstelle eine eindeutige Import-ID
+    import_id = str(uuid.uuid4())
+    
+    # Initialisiere Progress-Tracking
+    import_progress[import_id] = {
+        'status': 'running',
+        'current': 0,
+        'total': 0,
+        'message': 'Import wird gestartet...',
+        'success': True,
+        'error': None,
+        'log': None
+    }
+    
+    # Starte Import in separatem Thread
+    import_thread = threading.Thread(
+        target=_run_blog_import,
+        args=(blog, import_mode, import_id)
+    )
+    import_thread.start()
+    
+    return JsonResponse({
+        'success': True,
+        'import_id': import_id,
+        'message': 'Import gestartet'
+    })
+
+def _run_blog_import(blog, import_mode, import_id):
+    """Führt den Blog-Import in einem separaten Thread aus"""
     try:
-        blog_sync = ShopifyBlogSync(blog.store)
+        # Erstelle Custom Blog Sync mit Progress-Callback
+        blog_sync = ShopifyBlogSyncWithProgress(blog.store, import_id)
         log = blog_sync.import_blog_posts(blog, import_mode=import_mode)
         
-        message = f'{log.products_success} Blog-Posts importiert'
-        if import_mode == 'all':
-            message += ' (alle lokalen Blog-Posts wurden überschrieben)'
+        # Detailliertere Erfolgsprüfung
+        is_successful = log.status in ['success', 'partial']
         
-        return JsonResponse({
-            'success': log.status in ['success', 'partial'],
+        if is_successful:
+            message = f'{log.products_success} Blog-Posts erfolgreich importiert'
+            if log.products_failed > 0:
+                message += f', {log.products_failed} fehlgeschlagen'
+            if import_mode == 'all':
+                message += ' (alle lokalen Blog-Posts wurden überschrieben)'
+        else:
+            message = f'Import fehlgeschlagen: {log.error_message or "Unbekannter Fehler"}'
+        
+        # Update final status
+        import_progress[import_id].update({
+            'status': 'completed',
+            'success': is_successful,
             'message': message,
+            'error': message if not is_successful else None,
             'imported': log.products_success,
             'failed': log.products_failed,
-            'status': log.status,
+            'log_status': log.status,
             'import_mode': import_mode
         })
         
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Exception in blog import: {error_details}")
+        
+        import_progress[import_id].update({
+            'status': 'error',
+            'success': False,
+            'error': f'Fehler beim Blog-Post-Import: {str(e)}',
+            'message': f'Fehler beim Blog-Post-Import: {str(e)}'
+        })
+
+@login_required
+def import_blog_posts_progress_view(request, import_id):
+    """Gibt den aktuellen Import-Fortschritt zurück"""
+    if import_id not in import_progress:
         return JsonResponse({
             'success': False,
-            'error': f'Fehler beim Blog-Post-Import: {str(e)}'
+            'error': 'Import-ID nicht gefunden'
         })
+    
+    progress = import_progress[import_id]
+    
+    # Cleanup abgeschlossene Imports nach einer Weile
+    if progress['status'] in ['completed', 'error']:
+        # Optionales Cleanup nach 5 Minuten
+        pass
+    
+    return JsonResponse({
+        'success': True,
+        'progress': progress
+    })
+
+# Erweiterte ShopifyBlogSync Klasse mit Progress-Callbacks
+class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
+    def __init__(self, store: ShopifyStore, import_id: str):
+        super().__init__(store)
+        self.import_id = import_id
+    
+    def _update_progress(self, current, total, message):
+        """Aktualisiert den Import-Fortschritt"""
+        if self.import_id in import_progress:
+            import_progress[self.import_id].update({
+                'current': current,
+                'total': total,
+                'message': message
+            })
+    
+    def import_blog_posts(self, blog: ShopifyBlog, import_mode: str = 'new_only') -> ShopifySyncLog:
+        """Importiert Blog-Posts mit Progress-Updates"""
+        log = ShopifySyncLog.objects.create(
+            store=self.store,
+            action='import_blog_posts',
+            status='success'
+        )
+        
+        try:
+            self._update_progress(0, 0, 'Lösche alte Blog-Posts...' if import_mode == 'all' else 'Starte Import...')
+            
+            # Bei "Alle Posts" - alle lokalen Blog-Posts für diesen Blog löschen
+            if import_mode == 'all':
+                deleted_count = self._delete_all_local_blog_posts(blog)
+                print(f"🗑️ {deleted_count} lokale Blog-Posts gelöscht vor Neuimport für Blog {blog.title}")
+                self._update_progress(0, 0, f'{deleted_count} alte Blog-Posts gelöscht')
+            
+            self._update_progress(0, 0, 'Hole Blog-Posts von Shopify...')
+            success, articles, message = self._fetch_all_blog_posts(blog.shopify_id)
+            
+            if not success:
+                log.status = 'error'
+                log.error_message = message
+                log.completed_at = django_timezone.now()
+                log.save()
+                return log
+            
+            log.products_processed = len(articles)
+            success_count = 0
+            failed_count = 0
+            total = len(articles)
+            
+            self._update_progress(0, total, f'Importiere {total} Blog-Posts...')
+            
+            for i, article_data in enumerate(articles):
+                try:
+                    shopify_id = str(article_data.get('id'))
+                    
+                    # Bei "new_only" prüfen ob Post bereits existiert
+                    if import_mode == 'new_only':
+                        try:
+                            from .models import ShopifyBlogPost
+                            existing_post = ShopifyBlogPost.objects.get(
+                                shopify_id=shopify_id,
+                                blog=blog
+                            )
+                            # Post existiert bereits - überspringen
+                            print(f"Blog-Post {shopify_id} bereits vorhanden - überspringe (new_only Modus)")
+                            self._update_progress(i + 1, total, f'Überspringe existierenden Post ({i + 1}/{total})')
+                            continue
+                        except ShopifyBlogPost.DoesNotExist:
+                            # Post existiert noch nicht - kann importiert werden
+                            pass
+                    
+                    article_title = article_data.get('title', 'Unbekannt')
+                    self._update_progress(i + 1, total, f'Importiere: {article_title[:50]}... ({i + 1}/{total})')
+                    
+                    post, created = self._create_or_update_blog_post(blog, article_data)
+                    success_count += 1
+                    if created:
+                        print(f"Blog-Post {post.shopify_id} erstellt: {post.title}")
+                    else:
+                        print(f"Blog-Post {post.shopify_id} aktualisiert: {post.title}")
+                        
+                except Exception as e:
+                    failed_count += 1
+                    import traceback
+                    error_details = traceback.format_exc()
+                    article_title = article_data.get('title', 'Unknown')
+                    article_id = article_data.get('id', 'Unknown')
+                    
+                    print(f"❌ Fehler beim Importieren von Blog-Post '{article_title}' (ID: {article_id}): {e}")
+                    print(f"Vollständiger Fehler: {error_details}")
+                    
+                    # Sammle detaillierte Fehlerinformationen
+                    error_info = {
+                        'article_id': article_id,
+                        'article_title': article_title,
+                        'error_type': type(e).__name__,
+                        'error_message': str(e),
+                        'error_details': error_details
+                    }
+                    
+                    # Speichere den Fehler im Log für spätere Analyse
+                    if not hasattr(log, '_errors'):
+                        log._errors = []
+                    log._errors.append(error_info)
+            
+            log.products_success = success_count
+            log.products_failed = failed_count
+            log.status = 'success' if failed_count == 0 else 'partial'
+            log.completed_at = django_timezone.now()
+            log.save()
+            
+        except Exception as e:
+            log.status = 'error'
+            log.error_message = str(e)
+            log.completed_at = django_timezone.now()
+            log.save()
+        
+        return log
 
 
 @login_required

@@ -62,6 +62,7 @@ urlpatterns = [
     # Blog API Endpoints
     path('api/import-blogs/', views.import_blogs_view, name='import_blogs'),
     path('api/import-blog-posts/', views.import_blog_posts_view, name='import_blog_posts'),
+    path('api/import-blog-posts-progress/<str:import_id>/', views.import_blog_posts_progress_view, name='import_blog_posts_progress'),
     path('api/import-all-blog-posts/', views.import_all_blog_posts_view, name='import_all_blog_posts'),
     path('api/get-blogs-for-store/<int:store_id>/', views.get_blogs_for_store_view, name='get_blogs_for_store'),
     path('api/update-blog-alt-text/', views.update_blog_alt_text_view, name='update_blog_alt_text'),

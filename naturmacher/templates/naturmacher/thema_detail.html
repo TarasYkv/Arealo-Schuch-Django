@@ -74,8 +74,40 @@
                 </ol>
             </nav>
             
-            <h1>{{ thema.name }}</h1>
-            <p class="lead">{{ thema.beschreibung }}</p>
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                    <h1>{{ thema.name }}</h1>
+                    <p class="lead mb-2">{{ thema.beschreibung }}</p>
+                    <!-- Sichtbarkeits-Status -->
+                    {% if thema.sichtbarkeit == 'public' %}
+                        <span class="badge bg-success">
+                            <i class="fas fa-globe"></i> Öffentliches Thema
+                        </span>
+                    {% elif thema.sichtbarkeit == 'private' %}
+                        <span class="badge bg-secondary">
+                            <i class="fas fa-lock"></i> Privates Thema
+                        </span>
+                    {% elif thema.sichtbarkeit == 'shared' %}
+                        <span class="badge bg-info">
+                            <i class="fas fa-users"></i> Thema mit Freigaben
+                        </span>
+                    {% endif %}
+                    {% if thema.ersteller %}
+                        <small class="text-muted d-block mt-1">
+                            Erstellt von: {{ thema.ersteller.username }}
+                        </small>
+                    {% endif %}
+                </div>
+                
+                <!-- Creator-Aktionen -->
+                {% if user.is_authenticated and thema.ist_creator %}
+                    <div class="btn-group">
+                        <a href="{% url 'naturmacher:thema_freigaben' thema.pk %}" class="btn btn-outline-primary">
+                            <i class="fas fa-share-alt"></i> Freigaben verwalten
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
             
             {% if user.is_authenticated %}
                 <div class="card mb-4" style="background: linear-gradient(145deg, #e8f5e8 0%, #f0f8f0 100%); border: 1px solid #c3e6c3; box-shadow: 0 2px 8px rgba(40, 167, 69, 0.1);">
@@ -238,6 +270,63 @@
                                 <i class="fas fa-times"></i> Abbrechen
                             </button>
                         </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Sichtbarkeits-Einstellungen -->
+            {% if user.is_authenticated and thema.ist_creator %}
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-eye"></i> Sichtbarkeits-Einstellungen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Wer kann dieses Thema sehen?</strong></label>
+                        <div class="row">
+                            <div class="col-12 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="sichtbarkeit" id="sichtbarkeit-public" value="public" 
+                                           {% if thema.sichtbarkeit == 'public' %}checked{% endif %}>
+                                    <label class="form-check-label" for="sichtbarkeit-public">
+                                        <i class="fas fa-globe text-success"></i> <strong>Öffentlich</strong>
+                                        <small class="text-muted d-block">Alle Benutzer können dieses Thema sehen</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-12 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="sichtbarkeit" id="sichtbarkeit-private" value="private" 
+                                           {% if thema.sichtbarkeit == 'private' %}checked{% endif %}>
+                                    <label class="form-check-label" for="sichtbarkeit-private">
+                                        <i class="fas fa-lock text-warning"></i> <strong>Privat</strong>
+                                        <small class="text-muted d-block">Nur Sie können dieses Thema sehen</small>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-12 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="sichtbarkeit" id="sichtbarkeit-shared" value="shared" 
+                                           {% if thema.sichtbarkeit == 'shared' %}checked{% endif %}>
+                                    <label class="form-check-label" for="sichtbarkeit-shared">
+                                        <i class="fas fa-users text-info"></i> <strong>Für ausgewählte Nutzer</strong>
+                                        <small class="text-muted d-block">Sie + bestimmte Benutzer</small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="saveSichtbarkeit()">
+                            <i class="fas fa-save"></i> Sichtbarkeit speichern
+                        </button>
+                        <a href="{% url 'naturmacher:thema_freigaben' thema.pk %}" class="btn btn-outline-info btn-sm">
+                            <i class="fas fa-users"></i> Benutzer verwalten
+                        </a>
                     </div>
                 </div>
             </div>
@@ -1070,7 +1159,116 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+    
+    // ============================
+    // Sichtbarkeits-Einstellungen
+    // ============================
+    
+    function saveSichtbarkeit() {
+        const selectedSichtbarkeit = document.querySelector('input[name="sichtbarkeit"]:checked');
+        
+        if (!selectedSichtbarkeit) {
+            alert('Bitte wählen Sie eine Sichtbarkeits-Option aus');
+            return;
+        }
+        
+        if (!confirm('Möchten Sie die Sichtbarkeits-Einstellungen wirklich ändern?')) {
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('sichtbarkeit', selectedSichtbarkeit.value);
+        formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+
+        fetch(`/schulungen/thema/{{ thema.pk }}/sichtbarkeit-update/`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                // Aktualisiere die Anzeige der Sichtbarkeit im Hauptbereich
+                updateVisibilityDisplay(selectedSichtbarkeit.value);
+            } else {
+                alert('Fehler: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Ein Fehler ist aufgetreten');
+        });
+    }
+    
+    function updateVisibilityDisplay(sichtbarkeit) {
+        // Aktualisiere den Badge im Hauptbereich
+        const visibilitySection = document.querySelector('.lead').nextElementSibling;
+        let badgeHtml = '';
+        
+        if (sichtbarkeit === 'public') {
+            badgeHtml = '<span class="badge bg-success"><i class="fas fa-globe"></i> Öffentliches Thema</span>';
+        } else if (sichtbarkeit === 'private') {
+            badgeHtml = '<span class="badge bg-secondary"><i class="fas fa-lock"></i> Privates Thema</span>';
+        } else if (sichtbarkeit === 'shared') {
+            badgeHtml = '<span class="badge bg-info"><i class="fas fa-users"></i> Thema mit Freigaben</span>';
+        }
+        
+        visibilitySection.innerHTML = badgeHtml + visibilitySection.innerHTML.substring(visibilitySection.innerHTML.indexOf('</span>') + 7);
+    }
 });
+
+// Globale Funktion für Sichtbarkeit speichern (wegen onclick)
+function saveSichtbarkeit() {
+    const selectedSichtbarkeit = document.querySelector('input[name="sichtbarkeit"]:checked');
+    
+    if (!selectedSichtbarkeit) {
+        alert('Bitte wählen Sie eine Sichtbarkeits-Option aus');
+        return;
+    }
+    
+    if (!confirm('Möchten Sie die Sichtbarkeits-Einstellungen wirklich ändern?')) {
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('sichtbarkeit', selectedSichtbarkeit.value);
+    
+    // CSRF Token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+
+    fetch(`/schulungen/thema/{{ thema.pk }}/sichtbarkeit-update/`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload(); // Seite neu laden um Änderungen zu zeigen
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ein Fehler ist aufgetreten');
+    });
+}
 </script>
 
 {% endblock %}

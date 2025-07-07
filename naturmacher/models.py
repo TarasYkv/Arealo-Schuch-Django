@@ -10,9 +10,27 @@ User = get_user_model()
 
 
 class Thema(models.Model):
+    SICHTBARKEIT_CHOICES = [
+        ('public', 'Öffentlich - Alle Benutzer'),
+        ('private', 'Privat - Nur Ersteller'),
+        ('shared', 'Privat mit Freigaben - Ersteller + freigegebene Benutzer'),
+    ]
+    
     name = models.CharField(max_length=100)
     beschreibung = models.TextField()
     bild = models.ImageField(upload_to='naturmacher/themen/', blank=True, null=True)
+    ersteller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='erstellte_themen', null=True, blank=True)
+    
+    # Neues Feld für erweiterte Sichtbarkeits-Modi
+    sichtbarkeit = models.CharField(
+        max_length=10, 
+        choices=SICHTBARKEIT_CHOICES, 
+        default='private',
+        help_text="Bestimmt wer dieses Thema sehen kann"
+    )
+    
+    # Altes Feld bleibt erstmal für Kompatibilität
+    oeffentlich = models.BooleanField(default=False, help_text="Thema für alle Benutzer sichtbar")
     erstellt_am = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -134,9 +152,59 @@ class Thema(models.Model):
         
         return None
 
+    def kann_anzeigen(self, user):
+        """Prüft ob ein User dieses Thema anzeigen kann"""
+        # Ersteller kann immer anzeigen
+        if user.is_authenticated and self.ersteller == user:
+            return True
+        
+        # Prüfe neues Sichtbarkeits-System
+        if hasattr(self, 'sichtbarkeit') and self.sichtbarkeit:
+            if self.sichtbarkeit == 'public':
+                return True
+            elif self.sichtbarkeit == 'private':
+                return user.is_authenticated and self.ersteller == user
+            elif self.sichtbarkeit == 'shared':
+                if not user.is_authenticated:
+                    return False
+                # Ersteller oder explizit freigegebene Benutzer
+                return (self.ersteller == user or 
+                        self.freigaben.filter(benutzer=user).exists())
+        
+        # Fallback: Altes System für Kompatibilität
+        if not user.is_authenticated:
+            return self.oeffentlich
+        
+        # Öffentliche Themen kann jeder anzeigen
+        if self.oeffentlich:
+            return True
+        
+        # Prüfe spezifische Benutzerfreigaben
+        return self.freigaben.filter(benutzer=user).exists()
+    
+    def ist_ersteller(self, user):
+        """Prüft ob der User der Ersteller ist"""
+        return self.ersteller == user if user.is_authenticated else False
+
     class Meta:
         verbose_name = 'Thema'
         verbose_name_plural = 'Themen'
+
+
+class ThemaFreigabe(models.Model):
+    """Ermöglicht spezifische Freigabe von Themen für einzelne Benutzer"""
+    thema = models.ForeignKey(Thema, on_delete=models.CASCADE, related_name='freigaben')
+    benutzer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='thema_freigaben')
+    freigegeben_von = models.ForeignKey(User, on_delete=models.CASCADE, related_name='gegebene_freigaben')
+    freigegeben_am = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.thema.name} -> {self.benutzer.username}"
+    
+    class Meta:
+        unique_together = ['thema', 'benutzer']
+        verbose_name = 'Thema-Freigabe'
+        verbose_name_plural = 'Thema-Freigaben'
 
 
 class Training(models.Model):

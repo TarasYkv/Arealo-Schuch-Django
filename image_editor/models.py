@@ -13,6 +13,7 @@ class ImageProject(models.Model):
         ('upload', 'Hochgeladen'),
         ('ai_generated', 'KI-generiert'),
         ('canva_import', 'Canva Import'),
+        ('shopify_import', 'Shopify Import'),
     ]
     
     STATUS_CHOICES = [
