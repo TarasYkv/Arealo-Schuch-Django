@@ -1,0 +1,261 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h2">
+                <i class="fas fa-images text-primary"></i> Meine Projekte
+            </h1>
+            <div class="btn-group">
+                <a href="{% url 'image_editor:project_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Neues Projekt
+                </a>
+                <a href="{% url 'image_editor:ai_generation' %}" class="btn btn-success">
+                    <i class="fas fa-robot"></i> AI-Generierung
+                </a>
+                <a href="{% url 'image_editor:dashboard' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter und Suche -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <form method="get" class="d-flex">
+            <input type="text" name="q" class="form-control" 
+                   placeholder="Projekte durchsuchen..." 
+                   value="{{ request.GET.q }}">
+            <button type="submit" class="btn btn-outline-primary ms-2">
+                <i class="fas fa-search"></i>
+            </button>
+        </form>
+    </div>
+    <div class="col-md-4">
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" 
+                    data-bs-toggle="dropdown">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+            <ul class="dropdown-menu w-100">
+                <li><a class="dropdown-item" href="?status=all">Alle Status</a></li>
+                <li><a class="dropdown-item" href="?status=draft">Entwürfe</a></li>
+                <li><a class="dropdown-item" href="?status=processing">In Bearbeitung</a></li>
+                <li><a class="dropdown-item" href="?status=completed">Abgeschlossen</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="?source=upload">Hochgeladen</a></li>
+                <li><a class="dropdown-item" href="?source=ai_generated">AI-Generiert</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        {% if object_list %}
+        <div class="row">
+            {% for project in object_list %}
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100">
+                    {% if project.original_image %}
+                    <div class="card-img-top position-relative" style="height: 200px; overflow: hidden;">
+                        <img src="{{ project.original_image.url }}" 
+                             class="w-100 h-100" 
+                             style="object-fit: cover;" 
+                             alt="{{ project.name }}">
+                        
+                        <!-- Status Badge -->
+                        <span class="position-absolute top-0 end-0 m-2">
+                            {% if project.status == 'completed' %}
+                                <span class="badge bg-success">Abgeschlossen</span>
+                            {% elif project.status == 'processing' %}
+                                <span class="badge bg-warning">In Bearbeitung</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Entwurf</span>
+                            {% endif %}
+                        </span>
+                        
+                        <!-- Source Type Badge -->
+                        <span class="position-absolute top-0 start-0 m-2">
+                            {% if project.source_type == 'ai_generated' %}
+                                <span class="badge bg-info">
+                                    <i class="fas fa-robot"></i> AI
+                                </span>
+                            {% else %}
+                                <span class="badge bg-primary">
+                                    <i class="fas fa-upload"></i> Upload
+                                </span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% else %}
+                    <div class="card-img-top d-flex align-items-center justify-content-center bg-light" 
+                         style="height: 200px;">
+                        <i class="fas fa-image fa-3x text-muted"></i>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="card-body d-flex flex-column">
+                        <h6 class="card-title">{{ project.name }}</h6>
+                        
+                        <div class="mb-2">
+                            {% if project.original_width and project.original_height %}
+                            <small class="text-muted">
+                                <i class="fas fa-expand-arrows-alt"></i> 
+                                {{ project.original_width }} × {{ project.original_height }}
+                                {% if project.original_width and project.original_height %}
+                                    {% widthratio project.original_width project.original_height 1 as ratio_float %}
+                                    {% if project.original_width == project.original_height %}
+                                        (1:1 Quadrat)
+                                    {% elif project.original_width == 1792 and project.original_height == 1024 %}
+                                        (16:9 Breitbild)
+                                    {% elif project.original_width == 1024 and project.original_height == 1792 %}
+                                        (9:16 Hochformat)
+                                    {% elif project.original_width == 1152 and project.original_height == 896 %}
+                                        (9:7 Querformat)
+                                    {% elif project.original_width == 896 and project.original_height == 1152 %}
+                                        (7:9 Hochformat)
+                                    {% elif ratio_float > 1.5 %}
+                                        (Querformat)
+                                    {% elif ratio_float < 0.7 %}
+                                        (Hochformat)
+                                    {% else %}
+                                        ({{ ratio_float|floatformat:1 }}:1)
+                                    {% endif %}
+                                {% endif %}
+                            </small>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-2">
+                            <small class="text-muted">
+                                <i class="fas fa-clock"></i> 
+                                Erstellt: {{ project.created_at|date:"d.m.Y H:i" }}
+                            </small>
+                        </div>
+                        
+                        {% if project.get_processing_steps_count > 0 %}
+                        <div class="mb-2">
+                            <small class="text-muted">
+                                <i class="fas fa-cogs"></i> 
+                                {{ project.get_processing_steps_count }} Bearbeitungsschritt{{ project.get_processing_steps_count|pluralize:"e" }}
+                            </small>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Aktionen -->
+                        <div class="mt-auto">
+                            <div class="btn-group w-100" role="group">
+                                <a href="{% url 'image_editor:project_detail' project.pk %}" 
+                                   class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{% url 'image_editor:image_editor' project.pk %}" 
+                                   class="btn btn-outline-success btn-sm">
+                                    <i class="fas fa-edit"></i> Bearbeiten
+                                </a>
+                                <div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" 
+                                            data-bs-toggle="dropdown">
+                                        <i class="fas fa-ellipsis-h"></i>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'image_editor:project_edit' project.pk %}">
+                                                <i class="fas fa-pencil-alt"></i> Umbenennen
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'image_editor:download_image' project.pk 'PNG' %}">
+                                                <i class="fas fa-download"></i> Download PNG
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'image_editor:download_image' project.pk 'JPEG' %}">
+                                                <i class="fas fa-download"></i> Download JPEG
+                                            </a>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <a class="dropdown-item text-danger" 
+                                               href="{% url 'image_editor:project_delete' project.pk %}">
+                                                <i class="fas fa-trash"></i> Löschen
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <nav aria-label="Pagination" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                            <i class="fas fa-angle-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                            <i class="fas fa-angle-left"></i>
+                        </a>
+                    </li>
+                {% endif %}
+
+                {% for num in paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                            <i class="fas fa-angle-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                            <i class="fas fa-angle-double-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+        {% else %}
+        <!-- Kein Projekte vorhanden -->
+        <div class="text-center py-5">
+            <i class="fas fa-images fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">Noch keine Projekte vorhanden</h5>
+            <p class="text-muted">Erstellen Sie Ihr erstes Bildbearbeitungsprojekt!</p>
+            <div class="d-flex justify-content-center gap-2">
+                <a href="{% url 'image_editor:project_create' %}" class="btn btn-primary">
+                    <i class="fas fa-upload"></i> Bild hochladen
+                </a>
+                <a href="{% url 'image_editor:ai_generation' %}" class="btn btn-success">
+                    <i class="fas fa-robot"></i> AI-Bild generieren
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

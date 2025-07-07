@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block title %}Firmeninfo - Naturmacher{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'accounts:dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Firmeninfo</li>
+                </ol>
+            </nav>
+            
+            <h1><i class="fas fa-building"></i> Firmeninfo</h1>
+            <p class="lead">Verwalten Sie Ihre Standard-Firmeninformationen für KI-Schulungen.</p>
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{% if message.tags %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+            
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-info-circle"></i> Firmeninformationen</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-lightbulb"></i> 
+                        <strong>Hinweis:</strong> Diese Informationen werden automatisch in die KI-Schulung Erstellung übernommen, 
+                        sodass Sie nicht jedes Mal alles neu eingeben müssen.
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <label for="{{ form.company_info.id_for_label }}" class="form-label">
+                                <i class="fas fa-building"></i> {{ form.company_info.label }}
+                            </label>
+                            {{ form.company_info }}
+                            {% if form.company_info.help_text %}
+                                <div class="form-text">{{ form.company_info.help_text }}</div>
+                            {% endif %}
+                            {% if form.company_info.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.company_info.errors %}
+                                        <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="{{ form.learning_goals.id_for_label }}" class="form-label">
+                                <i class="fas fa-target"></i> {{ form.learning_goals.label }}
+                            </label>
+                            {{ form.learning_goals }}
+                            {% if form.learning_goals.help_text %}
+                                <div class="form-text">{{ form.learning_goals.help_text }}</div>
+                            {% endif %}
+                            {% if form.learning_goals.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.learning_goals.errors %}
+                                        <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'accounts:dashboard' %}" class="btn btn-secondary me-md-2">
+                                <i class="fas fa-arrow-left"></i> Zurück
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Speichern
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Vorschau -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-eye"></i> Verwendung in KI-Schulungen</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        Diese Informationen werden automatisch in das Formular "KI-Schulung erstellen - Schritt 1: Firmeninfos" 
+                        übernommen, wenn Sie eine neue Schulung in der Naturmacher App erstellen.
+                    </p>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Firmeninformationen</h6>
+                            <div class="bg-light p-2 rounded" style="max-height: 200px; overflow-y: auto;">
+                                {% if user.company_info %}
+                                    {{ user.company_info|linebreaks }}
+                                {% else %}
+                                    <em class="text-muted">Noch keine Firmeninformationen hinterlegt</em>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Standard-Lernziele</h6>
+                            <div class="bg-light p-2 rounded" style="max-height: 200px; overflow-y: auto;">
+                                {% if user.learning_goals %}
+                                    {{ user.learning_goals|linebreaks }}
+                                {% else %}
+                                    <em class="text-muted">Noch keine Lernziele hinterlegt</em>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

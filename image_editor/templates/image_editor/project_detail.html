@@ -1,0 +1,395 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h2">
+                <i class="fas fa-image text-primary"></i> {{ object.name }}
+            </h1>
+            <div class="btn-group">
+                <a href="{% url 'image_editor:image_editor' object.pk %}" class="btn btn-success">
+                    <i class="fas fa-edit"></i> Bearbeiten
+                </a>
+                <a href="{% url 'image_editor:project_edit' object.pk %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-pencil-alt"></i> Umbenennen
+                </a>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-primary dropdown-toggle" 
+                            data-bs-toggle="dropdown">
+                        <i class="fas fa-download"></i> Download
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'image_editor:download_image' object.pk 'PNG' %}">
+                            <i class="fas fa-file-image"></i> PNG (verlustfrei)
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'image_editor:download_image' object.pk 'JPEG' %}">
+                            <i class="fas fa-file-image"></i> JPEG (komprimiert)
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'image_editor:download_image' object.pk 'WEBP' %}">
+                            <i class="fas fa-file-image"></i> WebP (modern)
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'image_editor:download_image' object.pk 'TIFF' %}">
+                            <i class="fas fa-file-image"></i> TIFF (professionell)
+                        </a></li>
+                    </ul>
+                </div>
+                <a href="{% url 'image_editor:project_list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück zur Liste
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Bildanzeige -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-image"></i> Vorschau
+                </h6>
+            </div>
+            <div class="card-body text-center">
+                {% if object.original_image %}
+                <div class="position-relative d-inline-block">
+                    <img src="{{ object.original_image.url }}" 
+                         class="img-fluid border rounded shadow-sm" 
+                         style="max-height: 600px; max-width: 100%;" 
+                         alt="{{ object.name }}">
+                    
+                    <!-- Status Badge auf Bild -->
+                    <span class="position-absolute top-0 end-0 m-2">
+                        {% if object.status == 'completed' %}
+                            <span class="badge bg-success">Abgeschlossen</span>
+                        {% elif object.status == 'processing' %}
+                            <span class="badge bg-warning">In Bearbeitung</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Entwurf</span>
+                        {% endif %}
+                    </span>
+                    
+                    <!-- Source Type Badge -->
+                    <span class="position-absolute top-0 start-0 m-2">
+                        {% if object.source_type == 'ai_generated' %}
+                            <span class="badge bg-info">
+                                <i class="fas fa-robot"></i> AI-Generiert
+                            </span>
+                        {% else %}
+                            <span class="badge bg-primary">
+                                <i class="fas fa-upload"></i> Hochgeladen
+                            </span>
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <!-- Bildinfo unter dem Bild -->
+                <div class="mt-3">
+                    {% if object.original_width and object.original_height %}
+                    <div class="d-flex justify-content-center gap-4 text-muted small">
+                        <span>
+                            <i class="fas fa-expand-arrows-alt"></i> 
+                            {{ object.original_width }} × {{ object.original_height }} Pixel
+                        </span>
+                        <span>
+                            {% if object.original_width == object.original_height %}
+                                <i class="fas fa-square"></i> 1:1 Quadrat
+                            {% elif object.original_width == 1792 and object.original_height == 1024 %}
+                                <i class="fas fa-rectangle-landscape"></i> 16:9 Breitbild
+                            {% elif object.original_width == 1024 and object.original_height == 1792 %}
+                                <i class="fas fa-rectangle-portrait"></i> 9:16 Hochformat
+                            {% elif object.original_width == 1152 and object.original_height == 896 %}
+                                <i class="fas fa-rectangle-landscape"></i> 9:7 Querformat
+                            {% elif object.original_width == 896 and object.original_height == 1152 %}
+                                <i class="fas fa-rectangle-portrait"></i> 7:9 Hochformat
+                            {% else %}
+                                {% widthratio object.original_width object.original_height 1 as ratio %}
+                                <i class="fas fa-rectangle-landscape"></i> {{ ratio|floatformat:1 }}:1
+                            {% endif %}
+                        </span>
+                        {% if object.get_file_size %}
+                        <span>
+                            <i class="fas fa-hdd"></i> {{ object.get_file_size|filesizeformat }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                {% else %}
+                <div class="d-flex align-items-center justify-content-center bg-light rounded" 
+                     style="height: 300px;">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-image fa-3x mb-3"></i>
+                        <p>Kein Bild verfügbar</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Schnellaktionen -->
+        <div class="row mt-4">
+            <div class="col-6">
+                <a href="{% url 'image_editor:image_editor' object.pk %}" 
+                   class="btn btn-success w-100">
+                    <i class="fas fa-edit"></i> Jetzt bearbeiten
+                </a>
+            </div>
+            <div class="col-6">
+                <button class="btn btn-outline-info w-100" 
+                        onclick="window.open('{{ object.original_image.url }}', '_blank')">
+                    <i class="fas fa-external-link-alt"></i> In neuem Fenster öffnen
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Projekt-Informationen -->
+    <div class="col-md-4">
+        <!-- Allgemeine Informationen -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-info-circle"></i> Projekt-Details
+                </h6>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-5">Name:</dt>
+                    <dd class="col-sm-7">{{ object.name }}</dd>
+                    
+                    <dt class="col-sm-5">Status:</dt>
+                    <dd class="col-sm-7">
+                        {% if object.status == 'completed' %}
+                            <span class="badge bg-success">Abgeschlossen</span>
+                        {% elif object.status == 'processing' %}
+                            <span class="badge bg-warning">In Bearbeitung</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Entwurf</span>
+                        {% endif %}
+                    </dd>
+                    
+                    <dt class="col-sm-5">Quelle:</dt>
+                    <dd class="col-sm-7">{{ object.get_source_type_display }}</dd>
+                    
+                    <dt class="col-sm-5">Erstellt:</dt>
+                    <dd class="col-sm-7">{{ object.created_at|date:"d.m.Y H:i" }}</dd>
+                    
+                    <dt class="col-sm-5">Bearbeitet:</dt>
+                    <dd class="col-sm-7">{{ object.updated_at|date:"d.m.Y H:i" }}</dd>
+                    
+                    {% if object.original_width and object.original_height %}
+                    <dt class="col-sm-5">Abmessungen:</dt>
+                    <dd class="col-sm-7">{{ object.original_width }} × {{ object.original_height }}</dd>
+                    {% endif %}
+                    
+                    {% if object.get_file_size %}
+                    <dt class="col-sm-5">Dateigröße:</dt>
+                    <dd class="col-sm-7">{{ object.get_file_size|filesizeformat }}</dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+        
+        <!-- Bearbeitungsschritte -->
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">
+                    <i class="fas fa-history"></i> Bearbeitungsschritte
+                </h6>
+                <span class="badge bg-secondary">{{ object.get_processing_steps_count }}</span>
+            </div>
+            <div class="card-body">
+                {% if object.processingstep_set.all %}
+                <div class="timeline">
+                    {% for step in object.processingstep_set.all|slice:":10" %}
+                    <div class="timeline-item mb-3">
+                        <div class="d-flex">
+                            <div class="flex-shrink-0">
+                                <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" 
+                                     style="width: 30px; height: 30px;">
+                                    <i class="fas fa-cog text-white small"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="mb-1">{{ step.get_operation_display }}</h6>
+                                <small class="text-muted d-block">
+                                    {{ step.applied_at|date:"d.m.Y H:i:s" }}
+                                    {% if step.processing_time %}
+                                        ({{ step.processing_time|floatformat:2 }}s)
+                                    {% endif %}
+                                </small>
+                                {% if step.parameters %}
+                                <small class="text-muted">
+                                    {% for key, value in step.parameters.items %}
+                                        {{ key }}: {{ value }}{% if not forloop.last %}, {% endif %}
+                                    {% endfor %}
+                                </small>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    
+                    {% if object.get_processing_steps_count > 10 %}
+                    <small class="text-muted">... und {{ object.get_processing_steps_count|add:"-10" }} weitere Schritte</small>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="text-center text-muted">
+                    <i class="fas fa-clock fa-2x mb-2"></i>
+                    <p class="mb-0">Noch keine Bearbeitungsschritte</p>
+                    <small>Starten Sie die Bildbearbeitung!</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- AI-Generierung Details (falls AI-generiert) -->
+        {% if object.source_type == 'ai_generated' %}
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-robot"></i> AI-Generierung
+                </h6>
+            </div>
+            <div class="card-body">
+                {% with object.aigenerationhistory_set.first as ai_gen %}
+                {% if ai_gen %}
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Prompt:</dt>
+                    <dd class="col-sm-8">
+                        <small>{{ ai_gen.prompt|truncatechars:100 }}</small>
+                    </dd>
+                    
+                    <dt class="col-sm-4">Modell:</dt>
+                    <dd class="col-sm-8">{{ ai_gen.ai_model }}</dd>
+                    
+                    <dt class="col-sm-4">Qualität:</dt>
+                    <dd class="col-sm-8">{{ ai_gen.quality }}</dd>
+                    
+                    <dt class="col-sm-4">Größe:</dt>
+                    <dd class="col-sm-8">{{ ai_gen.size }}</dd>
+                    
+                    {% if ai_gen.generation_time %}
+                    <dt class="col-sm-4">Dauer:</dt>
+                    <dd class="col-sm-8">{{ ai_gen.generation_time|floatformat:2 }}s</dd>
+                    {% endif %}
+                </dl>
+                
+                {% if ai_gen.prompt|length > 100 %}
+                <div class="mt-2">
+                    <button class="btn btn-outline-info btn-sm" type="button" 
+                            data-bs-toggle="collapse" data-bs-target="#fullPrompt">
+                        Vollständigen Prompt anzeigen
+                    </button>
+                    <div class="collapse mt-2" id="fullPrompt">
+                        <div class="card card-body">
+                            <small>{{ ai_gen.prompt }}</small>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Aktionen -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-tools"></i> Aktionen
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'image_editor:image_editor' object.pk %}" 
+                       class="btn btn-success">
+                        <i class="fas fa-edit"></i> Bearbeiten
+                    </a>
+                    
+                    <a href="{% url 'image_editor:project_edit' object.pk %}" 
+                       class="btn btn-outline-secondary">
+                        <i class="fas fa-pencil-alt"></i> Projekt umbenennen
+                    </a>
+                    
+                    <button class="btn btn-outline-info" 
+                            onclick="copyToClipboard('{{ object.original_image.url }}')">
+                        <i class="fas fa-link"></i> Bild-URL kopieren
+                    </button>
+                    
+                    <hr class="my-2">
+                    
+                    <a href="{% url 'image_editor:project_delete' object.pk %}" 
+                       class="btn btn-outline-danger"
+                       onclick="return confirm('Sind Sie sicher, dass Sie dieses Projekt löschen möchten?')">
+                        <i class="fas fa-trash"></i> Projekt löschen
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(window.location.origin + text).then(function() {
+        // Bootstrap Toast für Feedback
+        const toastHtml = `
+            <div class="toast align-items-center text-white bg-success border-0" role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="fas fa-check"></i> Bild-URL wurde in die Zwischenablage kopiert!
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+        
+        // Toast Container erstellen falls nicht vorhanden
+        let toastContainer = document.getElementById('toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toast-container';
+            toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+            document.body.appendChild(toastContainer);
+        }
+        
+        // Toast hinzufügen und anzeigen
+        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+        const toastElement = toastContainer.lastElementChild;
+        const toast = new bootstrap.Toast(toastElement);
+        toast.show();
+        
+        // Toast nach dem Verstecken entfernen
+        toastElement.addEventListener('hidden.bs.toast', () => {
+            toastElement.remove();
+        });
+    }).catch(function(err) {
+        alert('Fehler beim Kopieren: ' + err);
+    });
+}
+</script>
+
+<style>
+.timeline-item:last-child::before {
+    display: none;
+}
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    top: 30px;
+    height: calc(100% + 1rem);
+    width: 2px;
+    background-color: #dee2e6;
+}
+.timeline {
+    position: relative;
+}
+</style>
+{% endblock %}

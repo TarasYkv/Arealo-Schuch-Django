@@ -1,0 +1,297 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h2">
+                <i class="fas fa-robot text-success"></i> KI-Bildgenerierung
+            </h1>
+            <a href="{% url 'image_editor:dashboard' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Zurück zum Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-magic"></i> Neues Bild generieren
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="ai-generation-form">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="prompt" class="form-label">
+                            Beschreibung des gewünschten Bildes <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control" id="prompt" name="prompt" rows="4" 
+                                  placeholder="Beschreiben Sie detailliert, was auf dem Bild zu sehen sein soll...&#10;&#10;Beispiel: Ein realistisches Foto eines goldenen Retrievers, der in einem sonnigen Park spielt, mit grünen Bäumen im Hintergrund, hochauflösend, professionelle Fotografie"
+                                  required></textarea>
+                        <div class="form-text">
+                            Je detaillierter Ihre Beschreibung, desto besser wird das Ergebnis. Beschreiben Sie Stil, Farben, Beleuchtung und andere wichtige Details.
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="ai-model" class="form-label">KI-Modell</label>
+                                <select class="form-select" id="ai-model" name="model">
+                                    <option value="dall-e-3">DALL-E 3 (Empfohlen)</option>
+                                    <option value="dall-e-2">DALL-E 2</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="quality" class="form-label">Qualität</label>
+                                <select class="form-select" id="quality" name="quality">
+                                    <option value="standard">Standard</option>
+                                    <option value="hd">HD (nur DALL-E 3)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="size" class="form-label">Bildgröße</label>
+                                <select class="form-select" id="size" name="size">
+                                    <option value="1024x1024">1024x1024 (1:1 Quadrat)</option>
+                                    <option value="1152x896">1152x896 (9:7 Querformat)</option>
+                                    <option value="896x1152">896x1152 (7:9 Hochformat)</option>
+                                    <option value="1792x1024">1792x1024 (16:9 Breitbild)</option>
+                                    <option value="1024x1792">1024x1792 (9:16 Hochformat)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success btn-lg" id="generate-btn">
+                            <i class="fas fa-magic"></i> Bild generieren
+                        </button>
+                    </div>
+                </form>
+                
+                <!-- Generierungs-Status -->
+                <div id="generation-status" class="mt-3" style="display: none;">
+                    <div class="alert alert-info">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                            <span>Ihr Bild wird generiert... Dies kann bis zu 30 Sekunden dauern.</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Ergebnis -->
+                <div id="generation-result" class="mt-3" style="display: none;"></div>
+            </div>
+        </div>
+        
+        <!-- Tipps -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-lightbulb text-warning"></i> Tipps für bessere Ergebnisse
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-check text-success"></i> Beschreiben Sie den Stil (realistisch, Cartoon, Ölgemälde)</li>
+                            <li><i class="fas fa-check text-success"></i> Nennen Sie spezifische Details (Farben, Beleuchtung)</li>
+                            <li><i class="fas fa-check text-success"></i> Verwenden Sie beschreibende Adjektive</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-times text-danger"></i> Vermeiden Sie zu vage Beschreibungen</li>
+                            <li><i class="fas fa-times text-danger"></i> Keine urheberrechtlich geschützten Charaktere</li>
+                            <li><i class="fas fa-times text-danger"></i> Keine problematischen Inhalte</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <!-- Letzte Generierungen -->
+        {% if recent_generations %}
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">
+                    <i class="fas fa-history"></i> Letzte Generierungen
+                </h6>
+                <a href="{% url 'image_editor:ai_history' %}" class="btn btn-sm btn-outline-primary">
+                    Alle anzeigen
+                </a>
+            </div>
+            <div class="card-body">
+                {% for generation in recent_generations %}
+                <div class="mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
+                    <div class="small text-muted">{{ generation.created_at|date:"d.m.Y H:i" }}</div>
+                    <div class="fw-bold small">{{ generation.prompt|truncatechars:80 }}</div>
+                    <div class="d-flex justify-content-between align-items-center mt-1">
+                        <span class="badge bg-{% if generation.success %}success{% else %}danger{% endif %} rounded-pill">
+                            {% if generation.success %}Erfolg{% else %}Fehler{% endif %}
+                        </span>
+                        {% if generation.project %}
+                        <a href="{% url 'image_editor:project_detail' generation.project.pk %}" class="btn btn-sm btn-outline-primary">
+                            Öffnen
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Kosten-Info -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-info-circle text-info"></i> Kosten-Information
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="small">
+                    <p><strong>DALL-E 3:</strong> ~$0.040 pro Bild (1024x1024)</p>
+                    <p><strong>DALL-E 2:</strong> ~$0.020 pro Bild (1024x1024)</p>
+                    <p class="text-muted mb-0">
+                        Die tatsächlichen Kosten hängen von Ihren API-Einstellungen ab.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('ai-generation-form');
+    const generateBtn = document.getElementById('generate-btn');
+    const statusDiv = document.getElementById('generation-status');
+    const resultDiv = document.getElementById('generation-result');
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(form);
+        const data = {
+            prompt: formData.get('prompt'),
+            model: formData.get('model'),
+            quality: formData.get('quality'),
+            size: formData.get('size'),
+        };
+        
+        // UI-Updates
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generiere...';
+        statusDiv.style.display = 'block';
+        resultDiv.style.display = 'none';
+        
+        // API-Aufruf
+        fetch('{% url "image_editor:generate_ai_image" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            statusDiv.style.display = 'none';
+            resultDiv.style.display = 'block';
+            
+            if (result.success) {
+                if (result.redirect_url) {
+                    // Direkter Redirect zum generierten Projekt
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <h6><i class="fas fa-check-circle"></i> Erfolgreich generiert!</h6>
+                            <p class="mb-2">${result.message}</p>
+                            <div class="d-flex gap-2">
+                                <a href="${result.redirect_url}" class="btn btn-success">
+                                    <i class="fas fa-eye"></i> Bild ansehen
+                                </a>
+                                <a href="/images/projects/${result.project_id}/editor/" class="btn btn-outline-success">
+                                    <i class="fas fa-edit"></i> Bearbeiten
+                                </a>
+                                <a href="{% url 'image_editor:ai_history' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-history"></i> Galerie
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Fallback für alte API-Responses
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <h6><i class="fas fa-check-circle"></i> Erfolgreich generiert!</h6>
+                            <p class="mb-2">${result.message}</p>
+                            <a href="{% url 'image_editor:ai_history' %}" class="btn btn-success">
+                                Zur Galerie
+                            </a>
+                        </div>
+                    `;
+                }
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h6><i class="fas fa-exclamation-triangle"></i> Fehler</h6>
+                        <p class="mb-0">${result.error}</p>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            statusDiv.style.display = 'none';
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <h6><i class="fas fa-exclamation-triangle"></i> Netzwerkfehler</h6>
+                    <p class="mb-0">Es gab ein Problem bei der Kommunikation mit dem Server.</p>
+                </div>
+            `;
+        })
+        .finally(() => {
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = '<i class="fas fa-magic"></i> Bild generieren';
+        });
+    });
+    
+    // Prompt-Beispiele
+    const promptExamples = [
+        "Ein realistisches Foto eines Sonnenuntergangs über einem ruhigen See, mit Spiegelungen im Wasser, warme Farben",
+        "Eine moderne Küche im skandinavischen Stil, weiße Schränke, Holzarbeitsplatte, natürliches Licht",
+        "Ein niedlicher Cartoon-Roboter mit großen Augen, der freundlich winkt, bunte Farben, kindgerecht",
+        "Ein abstraktes Kunstwerk mit fließenden Formen in Blau- und Grüntönen, moderne Kunst",
+        "Ein professionelles Porträt einer lächelnden Geschäftsfrau, Studio-Beleuchtung, schwarz-weißer Hintergrund"
+    ];
+    
+    // Zufälliges Beispiel als Placeholder alle 5 Sekunden wechseln
+    let exampleIndex = 0;
+    const promptTextarea = document.getElementById('prompt');
+    
+    function updatePlaceholder() {
+        if (promptTextarea.value === '') {
+            promptTextarea.placeholder = promptExamples[exampleIndex];
+            exampleIndex = (exampleIndex + 1) % promptExamples.length;
+        }
+    }
+    
+    setInterval(updatePlaceholder, 5000);
+});
+</script>
+
+{% endblock %}

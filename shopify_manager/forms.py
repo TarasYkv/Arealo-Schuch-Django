@@ -184,6 +184,13 @@ class ProductFilterForm(forms.Form):
         ('synced', 'Synchronisiert'),
     ]
     
+    SEO_SCORE_CHOICES = [
+        ('', 'Alle SEO-Scores'),
+        ('good', 'Gut (≥80 Punkte)'),
+        ('warning', 'Warnung (40-79 Punkte)'),
+        ('poor', 'Schlecht (<40 Punkte)'),
+    ]
+    
     search = forms.CharField(
         required=False,
         widget=forms.TextInput(attrs={
@@ -224,6 +231,92 @@ class ProductFilterForm(forms.Form):
         choices=SORT_CHOICES,
         required=False,
         initial='-updated_at',
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    
+    seo_score = forms.ChoiceField(
+        choices=SEO_SCORE_CHOICES,
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    
+    seo_issues_only = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+    )
+
+
+class BlogPostFilterForm(forms.Form):
+    """Form für Blog-Post Filter"""
+    
+    SORT_CHOICES = [
+        ('-updated_at', 'Zuletzt bearbeitet'),
+        ('title', 'Titel A-Z'),
+        ('-title', 'Titel Z-A'),
+        ('-published_at', 'Zuletzt veröffentlicht'),
+        ('published_at', 'Zuerst veröffentlicht'),
+        ('-shopify_updated_at', 'Zuletzt in Shopify geändert'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('', 'Alle Status'),
+        ('published', 'Sichtbar'),
+        ('draft', 'Ausgeblendet'),
+        ('hidden', 'Versteckt'),
+    ]
+    
+    SYNC_STATUS_CHOICES = [
+        ('', 'Alle'),
+        ('needs_sync', 'Benötigt Sync'),
+        ('sync_error', 'Sync-Fehler'),
+        ('synced', 'Synchronisiert'),
+    ]
+    
+    SEO_SCORE_CHOICES = [
+        ('', 'Alle SEO-Scores'),
+        ('good', 'Gut (≥80 Punkte)'),
+        ('warning', 'Warnung (40-79 Punkte)'),
+        ('poor', 'Schlecht (<40 Punkte)'),
+    ]
+    
+    search = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Suche nach Titel, Inhalt, Tags...'
+        })
+    )
+    
+    status = forms.ChoiceField(
+        choices=STATUS_CHOICES,
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    
+    sync_status = forms.ChoiceField(
+        choices=SYNC_STATUS_CHOICES,
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    
+    author = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Autor'
+        })
+    )
+    
+    sort = forms.ChoiceField(
+        choices=SORT_CHOICES,
+        required=False,
+        initial='-updated_at',
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    
+    seo_score = forms.ChoiceField(
+        choices=SEO_SCORE_CHOICES,
+        required=False,
         widget=forms.Select(attrs={'class': 'form-select'})
     )
     

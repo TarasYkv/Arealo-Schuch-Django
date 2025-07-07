@@ -1,0 +1,264 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h2 text-danger">
+                <i class="fas fa-trash"></i> Projekt löschen
+            </h1>
+            <div class="btn-group">
+                <a href="{% url 'image_editor:project_detail' object.pk %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück zum Projekt
+                </a>
+                <a href="{% url 'image_editor:project_list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-list"></i> Zur Liste
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-exclamation-triangle"></i> Projekt dauerhaft löschen
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-danger" role="alert">
+                    <h6 class="alert-heading">
+                        <i class="fas fa-exclamation-triangle"></i> Achtung: Diese Aktion kann nicht rückgängig gemacht werden!
+                    </h6>
+                    <p class="mb-0">
+                        Sie sind dabei, das Projekt <strong>"{{ object.name }}"</strong> dauerhaft zu löschen. 
+                        Alle Daten, einschließlich des ursprünglichen Bildes und aller Bearbeitungsschritte, 
+                        werden unwiderruflich entfernt.
+                    </p>
+                </div>
+                
+                <h6 class="text-danger mb-3">Folgende Daten werden gelöscht:</h6>
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-times text-danger"></i> Das ursprüngliche Bild</li>
+                    <li><i class="fas fa-times text-danger"></i> Alle Bearbeitungsschritte ({{ object.get_processing_steps_count }})</li>
+                    <li><i class="fas fa-times text-danger"></i> Projektmetadaten und -beschreibung</li>
+                    {% if object.source_type == 'ai_generated' %}
+                    <li><i class="fas fa-times text-danger"></i> AI-Generierungshistorie</li>
+                    {% endif %}
+                </ul>
+                
+                <div class="border-top pt-3 mt-4">
+                    <h6>Bestätigung erforderlich:</h6>
+                    <form method="post" id="delete-form">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="confirm-name" class="form-label">
+                                Geben Sie den Projektnamen zur Bestätigung ein:
+                            </label>
+                            <input type="text" class="form-control" id="confirm-name" 
+                                   placeholder="{{ object.name }}" required>
+                            <div class="form-text">
+                                Projekt-Name: <strong>{{ object.name }}</strong>
+                            </div>
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="confirm-checkbox" required>
+                            <label class="form-check-label" for="confirm-checkbox">
+                                Ich verstehe, dass diese Aktion nicht rückgängig gemacht werden kann
+                            </label>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'image_editor:project_detail' object.pk %}" 
+                               class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i> Abbrechen
+                            </a>
+                            <button type="submit" class="btn btn-danger" id="delete-btn" disabled>
+                                <i class="fas fa-trash"></i> Projekt endgültig löschen
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Projekt-Übersicht -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-info-circle"></i> Projekt-Details
+                </h6>
+            </div>
+            <div class="card-body">
+                <!-- Bildvorschau -->
+                {% if object.original_image %}
+                <div class="text-center mb-3">
+                    <img src="{{ object.original_image.url }}" 
+                         class="img-fluid rounded border" 
+                         style="max-height: 200px; opacity: 0.7;" 
+                         alt="{{ object.name }}">
+                    <div class="text-center mt-2">
+                        <small class="text-muted">Wird gelöscht</small>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <dl class="row small">
+                    <dt class="col-sm-5">Name:</dt>
+                    <dd class="col-sm-7">{{ object.name }}</dd>
+                    
+                    <dt class="col-sm-5">Status:</dt>
+                    <dd class="col-sm-7">
+                        {% if object.status == 'completed' %}
+                            <span class="badge bg-success">Abgeschlossen</span>
+                        {% elif object.status == 'processing' %}
+                            <span class="badge bg-warning">In Bearbeitung</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Entwurf</span>
+                        {% endif %}
+                    </dd>
+                    
+                    <dt class="col-sm-5">Quelle:</dt>
+                    <dd class="col-sm-7">
+                        {% if object.source_type == 'ai_generated' %}
+                            <span class="badge bg-info">
+                                <i class="fas fa-robot"></i> AI-Generiert
+                            </span>
+                        {% else %}
+                            <span class="badge bg-primary">
+                                <i class="fas fa-upload"></i> Hochgeladen
+                            </span>
+                        {% endif %}
+                    </dd>
+                    
+                    <dt class="col-sm-5">Erstellt:</dt>
+                    <dd class="col-sm-7">{{ object.created_at|date:"d.m.Y H:i" }}</dd>
+                    
+                    <dt class="col-sm-5">Bearbeitet:</dt>
+                    <dd class="col-sm-7">{{ object.updated_at|date:"d.m.Y H:i" }}</dd>
+                    
+                    {% if object.original_width and object.original_height %}
+                    <dt class="col-sm-5">Abmessungen:</dt>
+                    <dd class="col-sm-7">{{ object.original_width }} × {{ object.original_height }}</dd>
+                    {% endif %}
+                    
+                    {% if object.get_file_size %}
+                    <dt class="col-sm-5">Dateigröße:</dt>
+                    <dd class="col-sm-7">{{ object.get_file_size|filesizeformat }}</dd>
+                    {% endif %}
+                    
+                    <dt class="col-sm-5">Bearbeitungsschritte:</dt>
+                    <dd class="col-sm-7">{{ object.get_processing_steps_count }}</dd>
+                </dl>
+                
+                {% if object.description %}
+                <div class="border-top pt-3 mt-3">
+                    <dt class="small">Beschreibung:</dt>
+                    <dd class="small text-muted">{{ object.description|truncatechars:100 }}</dd>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Alternative Aktionen -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-download"></i> Vor dem Löschen: Backup erstellen
+                </h6>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    Möchten Sie das Bild vor dem Löschen herunterladen?
+                </p>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'image_editor:download_image' object.pk 'PNG' %}" 
+                       class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-download"></i> Als PNG herunterladen
+                    </a>
+                    <a href="{% url 'image_editor:download_image' object.pk 'JPEG' %}" 
+                       class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-download"></i> Als JPEG herunterladen
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Hilfe -->
+        <div class="card mt-3 border-info">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0">
+                    <i class="fas fa-question-circle"></i> Alternativen
+                </h6>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">
+                    Anstatt das Projekt zu löschen, können Sie:
+                </p>
+                <ul class="list-unstyled small">
+                    <li><i class="fas fa-edit text-info"></i> Den Status auf "Archiviert" setzen</li>
+                    <li><i class="fas fa-copy text-info"></i> Das Bild herunterladen und neu hochladen</li>
+                    <li><i class="fas fa-folder text-info"></i> Das Projekt einfach in der Liste belassen</li>
+                </ul>
+                <a href="{% url 'image_editor:project_edit' object.pk %}" 
+                   class="btn btn-info btn-sm w-100">
+                    <i class="fas fa-edit"></i> Stattdessen bearbeiten
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const confirmInput = document.getElementById('confirm-name');
+    const confirmCheckbox = document.getElementById('confirm-checkbox');
+    const deleteBtn = document.getElementById('delete-btn');
+    const form = document.getElementById('delete-form');
+    const expectedName = '{{ object.name|escapejs }}';
+    
+    function checkCanDelete() {
+        const nameMatches = confirmInput.value.trim() === expectedName;
+        const checkboxChecked = confirmCheckbox.checked;
+        
+        deleteBtn.disabled = !(nameMatches && checkboxChecked);
+        
+        if (nameMatches && checkboxChecked) {
+            deleteBtn.classList.remove('btn-outline-danger');
+            deleteBtn.classList.add('btn-danger');
+        } else {
+            deleteBtn.classList.remove('btn-danger');
+            deleteBtn.classList.add('btn-outline-danger');
+        }
+    }
+    
+    confirmInput.addEventListener('input', checkCanDelete);
+    confirmCheckbox.addEventListener('change', checkCanDelete);
+    
+    // Form submission mit finaler Bestätigung
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const finalConfirm = confirm(
+            `Sind Sie absolut sicher, dass Sie das Projekt "${expectedName}" dauerhaft löschen möchten?\n\n` +
+            'Diese Aktion kann NICHT rückgängig gemacht werden!'
+        );
+        
+        if (finalConfirm) {
+            deleteBtn.disabled = true;
+            deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Wird gelöscht...';
+            form.submit();
+        }
+    });
+    
+    // Initial check
+    checkCanDelete();
+});
+</script>
+{% endblock %}

@@ -66,3 +66,21 @@ class KeywordBulkForm(forms.Form):
         }),
         help_text="Mehrere Begriffe können durch Kommas oder neue Zeilen getrennt werden."
     )
+
+
+class CompanyInfoForm(forms.ModelForm):
+    class Meta:
+        model = CustomUser
+        fields = ['company_info', 'learning_goals']
+        widgets = {
+            'company_info': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 15,
+                'placeholder': 'Beschreiben Sie Ihr Unternehmen, Ihre Produkte, Zielgruppe, etc.'
+            }),
+            'learning_goals': forms.Textarea(attrs={
+                'class': 'form-control', 
+                'rows': 8,
+                'placeholder': 'Was möchten Sie standardmäßig in Schulungen lernen?'
+            }),
+        }

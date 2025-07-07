@@ -7,7 +7,7 @@ from django.urls import reverse_lazy
 from django.views.generic import CreateView
 from django.views.decorators.http import require_http_methods
 from django.http import JsonResponse
-from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm, ApiKeyForm
+from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm, ApiKeyForm, CompanyInfoForm
 from .models import CustomUser, AmpelCategory, CategoryKeyword
 from naturmacher.models import APIBalance
 
@@ -75,7 +75,110 @@ def manage_api_keys(request):
             return redirect('accounts:manage_api_keys')
     else:
         form = ApiKeyForm(instance=request.user)
-    return render(request, 'accounts/manage_api_keys.html', {'form': form})
+    
+    # Canva-Einstellungen laden oder erstellen
+    from naturmacher.models import CanvaAPISettings
+    canva_settings, created = CanvaAPISettings.objects.get_or_create(user=request.user)
+    
+    return render(request, 'accounts/manage_api_keys.html', {
+        'form': form,
+        'canva_settings': canva_settings
+    })
+
+
+@login_required
+def canva_settings_view(request):
+    """Verwaltet Canva API-Einstellungen"""
+    from naturmacher.models import CanvaAPISettings
+    
+    canva_settings, created = CanvaAPISettings.objects.get_or_create(user=request.user)
+    
+    if request.method == 'POST':
+        canva_settings.client_id = request.POST.get('client_id', '').strip()
+        canva_settings.client_secret = request.POST.get('client_secret', '').strip()
+        canva_settings.brand_template_id = request.POST.get('brand_template_id', '').strip()
+        canva_settings.folder_id = request.POST.get('folder_id', '').strip()
+        canva_settings.save()
+        
+        messages.success(request, 'Canva-Einstellungen wurden erfolgreich gespeichert.')
+        return redirect('accounts:canva_settings')
+    
+    return render(request, 'accounts/canva_settings.html', {
+        'canva_settings': canva_settings
+    })
+
+
+@login_required
+def canva_oauth_start(request):
+    """Startet den Canva OAuth-Prozess"""
+    from naturmacher.canva_service import CanvaAPIService
+    
+    try:
+        canva_service = CanvaAPIService(request.user)
+        redirect_uri = request.build_absolute_uri('/accounts/canva-oauth-callback/')
+        auth_url = canva_service.get_authorization_url(redirect_uri)
+        return redirect(auth_url)
+    except Exception as e:
+        messages.error(request, f'Fehler beim Starten der Canva-Autorisierung: {str(e)}')
+        return redirect('accounts:canva_settings')
+
+
+@login_required
+def canva_oauth_callback(request):
+    """Verarbeitet den Canva OAuth-Callback"""
+    from naturmacher.canva_service import CanvaAPIService
+    
+    code = request.GET.get('code')
+    state = request.GET.get('state')
+    error = request.GET.get('error')
+    
+    if error:
+        messages.error(request, f'Canva-Autorisierung fehlgeschlagen: {error}')
+        return redirect('accounts:canva_settings')
+    
+    if not code:
+        messages.error(request, 'Kein Autorisierungscode von Canva erhalten.')
+        return redirect('accounts:canva_settings')
+    
+    # Sicherheitscheck: State validieren
+    expected_state = f'user_{request.user.id}'
+    if state != expected_state:
+        messages.error(request, 'Sicherheitsfehler: Ungültiger State-Parameter.')
+        return redirect('accounts:canva_settings')
+    
+    try:
+        canva_service = CanvaAPIService(request.user)
+        redirect_uri = request.build_absolute_uri('/accounts/canva-oauth-callback/')
+        
+        if canva_service.exchange_code_for_token(code, redirect_uri):
+            messages.success(request, 'Canva-Autorisierung erfolgreich! Sie können jetzt Designs importieren.')
+        else:
+            messages.error(request, 'Fehler beim Austausch des Autorisierungscodes.')
+    
+    except Exception as e:
+        messages.error(request, f'Fehler bei der Canva-Autorisierung: {str(e)}')
+    
+    return redirect('accounts:canva_settings')
+
+
+@login_required
+def canva_disconnect(request):
+    """Trennt die Canva-Verbindung"""
+    from naturmacher.models import CanvaAPISettings
+    
+    if request.method == 'POST':
+        try:
+            canva_settings = CanvaAPISettings.objects.get(user=request.user)
+            canva_settings.access_token = ''
+            canva_settings.refresh_token = ''
+            canva_settings.token_expires_at = None
+            canva_settings.save()
+            
+            messages.success(request, 'Canva-Verbindung wurde getrennt.')
+        except CanvaAPISettings.DoesNotExist:
+            pass
+    
+    return redirect('accounts:canva_settings')
 
 
 @login_required
@@ -238,6 +341,23 @@ def api_settings_view(request):
 def neue_api_einstellungen_view(request):
     """Zeigt die neue API-Einstellungsseite an"""
     return render(request, 'accounts/api_einstellungen.html')
+
+
+@login_required
+def company_info_view(request):
+    """Verwaltet die Firmeninformationen des Benutzers"""
+    if request.method == 'POST':
+        form = CompanyInfoForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Firmeninformationen wurden erfolgreich gespeichert.')
+            return redirect('accounts:company_info')
+    else:
+        form = CompanyInfoForm(instance=request.user)
+    
+    return render(request, 'accounts/company_info.html', {
+        'form': form
+    })
 
 
 def logout_view(request):
@@ -589,10 +709,25 @@ def get_api_balances(request):
     
     for provider_key in all_providers:
         masked_api_key = 'Nicht konfiguriert'
+        api_key = None
+        
+        # Get API key from user profile
         if provider_key == 'openai' and request.user.openai_api_key:
-            masked_api_key = request.user.openai_api_key[:4] + "*" * (len(request.user.openai_api_key) - 8) + request.user.openai_api_key[-4:]
+            api_key = request.user.openai_api_key
         elif provider_key == 'anthropic' and request.user.anthropic_api_key:
-            masked_api_key = request.user.anthropic_api_key[:4] + "*" * (len(request.user.anthropic_api_key) - 8) + request.user.anthropic_api_key[-4:]
+            api_key = request.user.anthropic_api_key
+        elif provider_key == 'google' and request.user.google_api_key:
+            api_key = request.user.google_api_key
+        elif provider_key == 'youtube' and request.user.youtube_api_key:
+            api_key = request.user.youtube_api_key
+        
+        # Mask the API key if it exists
+        if api_key and len(api_key.strip()) > 0:
+            api_key = api_key.strip()
+            if len(api_key) <= 8:
+                masked_api_key = "*" * len(api_key)
+            else:
+                masked_api_key = api_key[:4] + "*" * (len(api_key) - 8) + api_key[-4:]
 
         balances_data[provider_key] = {
             'balance': 0.00,
@@ -715,24 +850,32 @@ def get_usage_stats(request):
         'total_cost': 12.45,
         'stats': {
             'openai': {
-                'requests': 150,
-                'cost': 8.20,
-                'tokens': 45000
+                'name': 'OpenAI (ChatGPT)',
+                'request_count': 150,
+                'total_cost': 8.20,
+                'total_tokens': 45000,
+                'last_used': '2025-01-02T10:30:00Z'
             },
             'anthropic': {
-                'requests': 75,
-                'cost': 3.50,
-                'tokens': 20000
+                'name': 'Anthropic (Claude)',
+                'request_count': 75,
+                'total_cost': 3.50,
+                'total_tokens': 20000,
+                'last_used': '2025-01-01T15:20:00Z'
             },
             'google': {
-                'requests': 25,
-                'cost': 0.75,
-                'tokens': 8000
+                'name': 'Google (Gemini)',
+                'request_count': 25,
+                'total_cost': 0.75,
+                'total_tokens': 8000,
+                'last_used': '2024-12-30T09:15:00Z'
             },
             'youtube': {
-                'requests': 10,
-                'cost': 0.00,
-                'tokens': 0
+                'name': 'YouTube Data API',
+                'request_count': 10,
+                'total_cost': 0.00,
+                'total_tokens': 0,
+                'last_used': null
             }
         }
     }

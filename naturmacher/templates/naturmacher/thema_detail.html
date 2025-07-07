@@ -309,70 +309,30 @@
                         <label for="companyInfo" class="form-label">
                             <strong>Firmen- und Geschäftsinformationen:</strong>
                         </label>
-                        <textarea class="form-control" id="companyInfo" rows="15" placeholder="Beschreiben Sie Ihr Unternehmen, Ihre Produkte, Zielgruppe, etc.">
-# Wer bist du:
-Du bist ein Online Marketing Experte. Ich möchte dass du mich schulst und mich an die Hand nimmst bei der Erstellung von Trainings.
-
-# Wer sind wir
-Wir sind ein Onlineshop namens naturmacher.de. Ein kleines Familienunternehmen, welches natürliche Baby- und Kleinkindspielzeuge verkauft. Des Weiteren verkaufen wir personalisierte Blumentöpfe. Diese Blumentöpfe sind graviert und werden entweder als Einzeltopf oder als Set mit Samen und Bioerde angeboten. Der Preis liegt bei 22,49€ bzw 34,99€ plus 4,95€ Versand. Folgende einzigartige Designer, welche von uns erstellt bzw programmiert wurden haben wir im Onlineshop:
-
-- Wir haben vorgefertigte Designs, bei welchen persönliche Daten eingegeben werden können
-- Designer bei welchen das Design komplett selbst erstellt werden kann. Beim Designer können Texte, Icons und selbstgemalte Bilder eingefügt werden.
-- Designer bei dem es möglich ist auf einem Blatt Papier das eigene gezeichnete Bleistiftbild abzufotografieren und zum Gravieren hochzuladen. Dieses Bild wird automatisch modifiziert (Hintergrund entfernt, Linien als Vektorgrafiken usw.) und bei der Bestellung übertragen.
-- Wir haben noch einen Himmelcreator. Dabei kann der Kunde: Datum, Ort und Zeit eingeben und ihm wird das Himmelsbild passend zu diesem Zeitpunkt erstellt.
-- Designer bei dem es möglich ist einen Ort anzugeben und dieser Ort wird mit Ortsmarkierung leicht vereinfacht ausgegeben und kann auf dem Topf graviert werden.
-- Creator bei dem ein beliebiges Bild hochgeladen werden kann und wir dieses Bild zum Gravieren aufbereiten und gravieren.
-
-## Blog
-Wir sind ein Onlineshop mit einem Blog, über den wir ca 15.000 Besucher im Monat haben. Leider kommen durch die Besucher wenige Käufe zustande.
-
-### Die Gründer
-Wir sind ein Zweiergespann. Frau 36 Jahre alt, gelernte Erzieherin, eher die Kreative. Mann 35 Jahre, gelernter Elektroingenieur mit Programmierkenntnissen. Haben zwei Kinder (Jungs 3 und 6 Jahre) zwei Katzen und einen kleinen Hund.
-
-### Social Media
-Wir haben TikTok, Instagram, Facebook, Pinterest und YouTube. Leider wenig erfolgreich und nicht sehr intensiv betrieben. Für weitere Kanäle sind wir offen.
-
-### Ads
-Wir schalten Ads bei Google und Meta. Leider nicht rentabel stand heute bei Google. Mit Meta haben wir erst angefangen. Werbung über Pinterest haben wir ohne Erfolg eingestellt. Bei Pinterest haben wir über ein Jahr regelmäßig gepostet und hatten monatlich ca. 500.000 Impressionen mit ca 1.000 Klicks auf unsere Website, leider allerdings ohne nennenswerte Erfolge was die Kaufintention betrifft.
-
-### Eigenes Buch
-Die Gründerin (mit technischer Unterstützung des Gründers) hat einen eigenen Babyratgeber (Buch) geschrieben welches wir sowohl als Ebook wie auch als Taschenbuch im Onlineshop anbieten.
-
-### Pflanztagebuch als Set mit Pflanze
-Wir haben ein eigenes Kinderpflanzset für kleine Entdecker mit Tagebuch. Es ist ein Produkt bei dem der Kunde einen gravierten und personalisierten Blumentopf mit Erde und Samen bekommt mit einem Tagebuch in welches die Fortschritte des Pflanzenwachstums notiert werden können. Es sind einige kleine Spiele im Tagebuch zu finden, wie zum Beispiel das Malen der Pflanze, oder interessante Experimente mit Pflanzen. Hier der Link zum Produkt: https://naturmacher.de/products/mein-erstes-pflanzen-set-fur-kleine-entdecker
-
-### Weitere Personalisierte Produkte
-Theoretisch können wir viele weitere Sachen gravieren. Wir haben 40 Watt Lasergravierer mit und ohne Rolle zum Gravieren von runden Objekten. Wir haben zum Beispiel bereits auch Babyspielzeuge mit unserem Laser personalisiert und einige erfolgreich verkauft.
-
-### Weitere Vertriebskanäle
-Mit wenig Erfolg sind wir noch bei Etsy, Amazon Handmade, Otto, Ebay, Idealo, Bing. Hier sehen wir uns immer mehr heraus, da wir den Hauptfokus auf den eigenen Onlineshop und Markenbildung setzen wollen.
-
-## Tools die wir nutzen
-Wir nutzen bei der Entwicklung und Recherche folgende Tools:
-**Fliki** - für die Erstellung von Videos für unsere Blogbeiträge und TikTok
-**Canva** - für Video und Bilderstellung und Bearbeitung
-**Ubersuggest** - für die Recherche von Keywords
-**KI** - Claude und Gemini, als Webchat oder auch als CLI
-**Github** - für die Onlineshop-Programmierung in Shopify
-                        </textarea>
+                        <textarea class="form-control" id="companyInfo" rows="15" placeholder="Beschreiben Sie Ihr Unternehmen, Ihre Produkte, Zielgruppe, etc.">{{ user.company_info|default:"" }}</textarea>
+                        {% if not user.company_info %}
+                        <div class="form-text">
+                            <i class="fas fa-info-circle"></i> 
+                            Sie können Ihre Standard-Firmeninformationen in den 
+                            <a href="{% url 'accounts:company_info' %}" target="_blank">Profil-Einstellungen</a> 
+                            hinterlegen, um sie automatisch hier zu verwenden.
+                        </div>
+                        {% endif %}
                     </div>
                     
                     <div class="mb-3">
                         <label for="learningGoals" class="form-label">
                             <strong>Lernziele und Schwerpunkte:</strong>
                         </label>
-                        <textarea class="form-control" id="learningGoals" rows="8" placeholder="Was möchten Sie in dieser Schulung lernen?">
-# Ziel
-In diesem Ordner geht es um das Thema "{{ thema.name }}". Es sollen für uns Schulungen sowie Lernmaterial erstellt werden, in welchen:
-- Grundlagen im Fließtext vermittelt werden wie in Lehrbüchern
-- Grundbegriffe erläutert werden, wie in Fachbüchern
-- Erfolgsführende Vorgehensweisen für das Geschäftsmodell Naturmacher
-- Tipps und Tricks passend zu unserem Geschäft
-- Weiterführendes Wissen vermittelt angewendet auf Praxis
-- Übungen geben mit welchen wir angepasst auf Naturmacher die Grundlagen aber auch tiefergreifende Fähigkeiten erlernen
-
-Eine Schulung soll in ca. 2h machbar sein. Es ist immer so, dass beide Gründer sich zusammensetzen und diese Schulung gemeinsam absolvieren. Jede Schulung soll in eine eigene .md Datei gepackt werden. Du kannst gerne buntes Design aber schlicht und dezent verwenden, da wir uns jede Schulung farbig ausdrucken und so durcharbeiten. Sei kreativ, gerne kannst du neue Ansätze vorschlagen und stelle sicher, dass wir nach allen Schulungen bestens mit Fachwissen und Fähigkeiten gerüstet sind um in der E-Commerce Welt erfolgreich zu sein.
-                        </textarea>
+                        <textarea class="form-control" id="learningGoals" rows="8" placeholder="Was möchten Sie in dieser Schulung lernen?">{{ user.learning_goals|default:"" }}</textarea>
+                        {% if not user.learning_goals %}
+                        <div class="form-text">
+                            <i class="fas fa-info-circle"></i> 
+                            Sie können Ihre Standard-Lernziele in den 
+                            <a href="{% url 'accounts:company_info' %}" target="_blank">Profil-Einstellungen</a> 
+                            hinterlegen, um sie automatisch hier zu verwenden.
+                        </div>
+                        {% endif %}
                     </div>
                 </form>
             </div>

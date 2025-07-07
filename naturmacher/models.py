@@ -395,6 +395,7 @@ class APIBalance(models.Model):
         ('anthropic', 'Anthropic (Claude)'),
         ('google', 'Google (Gemini)'),
         ('youtube', 'YouTube Data API'),
+        ('canva', 'Canva'),
     ]
     
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -441,6 +442,42 @@ class APIBalance(models.Model):
         unique_together = ['user', 'provider']
         verbose_name = 'API-Kontostand'
         verbose_name_plural = 'API-Kontostände'
+
+
+class CanvaAPISettings(models.Model):
+    """Speichert Canva-spezifische API-Einstellungen für Benutzer"""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='canva_settings')
+    client_id = models.CharField(max_length=100, blank=True, help_text="Canva Client ID")
+    client_secret = models.CharField(max_length=200, blank=True, help_text="Canva Client Secret")
+    access_token = models.TextField(blank=True, help_text="OAuth Access Token")
+    refresh_token = models.TextField(blank=True, help_text="OAuth Refresh Token")
+    token_expires_at = models.DateTimeField(null=True, blank=True, help_text="Token Ablaufzeit")
+    brand_template_id = models.CharField(max_length=100, blank=True, help_text="Standard Brand Template ID")
+    folder_id = models.CharField(max_length=100, blank=True, help_text="Standard Ordner ID")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Canva API Settings"
+        verbose_name_plural = "Canva API Settings"
+    
+    def __str__(self):
+        return f"Canva Settings für {self.user.username}"
+    
+    def has_valid_credentials(self):
+        """Prüft ob gültige Canva-Anmeldedaten vorhanden sind"""
+        return bool(self.client_id and self.client_secret)
+    
+    def has_access_token(self):
+        """Prüft ob ein Access Token vorhanden ist"""
+        return bool(self.access_token)
+    
+    def is_token_expired(self):
+        """Prüft ob der Access Token abgelaufen ist"""
+        if not self.token_expires_at:
+            return True
+        from django.utils import timezone
+        return timezone.now() > self.token_expires_at
 
 
 class APIUsageLog(models.Model):

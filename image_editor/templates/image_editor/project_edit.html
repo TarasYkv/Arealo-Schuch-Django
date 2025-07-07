@@ -1,0 +1,277 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h2">
+                <i class="fas fa-pencil-alt text-warning"></i> Projekt bearbeiten
+            </h1>
+            <div class="btn-group">
+                <a href="{% url 'image_editor:project_detail' object.pk %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück zum Projekt
+                </a>
+                <a href="{% url 'image_editor:project_list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-list"></i> Zur Liste
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-edit"></i> Projektdetails bearbeiten
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post" id="edit-form">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="id_name" class="form-label">
+                            Projektname <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" name="name" class="form-control" id="id_name" 
+                               value="{{ object.name }}" required>
+                        <div class="form-text">
+                            Geben Sie einen aussagekräftigen Namen für Ihr Projekt ein.
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="id_description" class="form-label">
+                            Beschreibung (optional)
+                        </label>
+                        <textarea name="description" class="form-control" id="id_description" 
+                                  rows="4">{{ object.description|default_if_none:"" }}</textarea>
+                        <div class="form-text">
+                            Zusätzliche Informationen oder Notizen zu diesem Projekt.
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="id_status" class="form-label">
+                            Status
+                        </label>
+                        <select name="status" class="form-control" id="id_status">
+                            <option value="draft" {% if object.status == 'draft' %}selected{% endif %}>
+                                Entwurf
+                            </option>
+                            <option value="processing" {% if object.status == 'processing' %}selected{% endif %}>
+                                In Bearbeitung
+                            </option>
+                            <option value="completed" {% if object.status == 'completed' %}selected{% endif %}>
+                                Abgeschlossen
+                            </option>
+                        </select>
+                        <div class="form-text">
+                            Der aktuelle Status des Projekts.
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'image_editor:project_detail' object.pk %}" 
+                           class="btn btn-outline-secondary">
+                            <i class="fas fa-times"></i> Abbrechen
+                        </a>
+                        <button type="submit" class="btn btn-warning" id="save-btn">
+                            <i class="fas fa-save"></i> Änderungen speichern
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar mit Projektinfo -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-info-circle"></i> Projekt-Übersicht
+                </h6>
+            </div>
+            <div class="card-body">
+                <!-- Bildvorschau -->
+                {% if object.original_image %}
+                <div class="text-center mb-3">
+                    <img src="{{ object.original_image.url }}" 
+                         class="img-fluid rounded border" 
+                         style="max-height: 200px;" 
+                         alt="{{ object.name }}">
+                </div>
+                {% endif %}
+                
+                <dl class="row small">
+                    <dt class="col-sm-5">Quelle:</dt>
+                    <dd class="col-sm-7">
+                        {% if object.source_type == 'ai_generated' %}
+                            <span class="badge bg-info">
+                                <i class="fas fa-robot"></i> AI-Generiert
+                            </span>
+                        {% else %}
+                            <span class="badge bg-primary">
+                                <i class="fas fa-upload"></i> Hochgeladen
+                            </span>
+                        {% endif %}
+                    </dd>
+                    
+                    <dt class="col-sm-5">Erstellt:</dt>
+                    <dd class="col-sm-7">{{ object.created_at|date:"d.m.Y H:i" }}</dd>
+                    
+                    <dt class="col-sm-5">Bearbeitet:</dt>
+                    <dd class="col-sm-7">{{ object.updated_at|date:"d.m.Y H:i" }}</dd>
+                    
+                    {% if object.original_width and object.original_height %}
+                    <dt class="col-sm-5">Abmessungen:</dt>
+                    <dd class="col-sm-7">{{ object.original_width }} × {{ object.original_height }}</dd>
+                    {% endif %}
+                    
+                    {% if object.get_file_size %}
+                    <dt class="col-sm-5">Dateigröße:</dt>
+                    <dd class="col-sm-7">{{ object.get_file_size|filesizeformat }}</dd>
+                    {% endif %}
+                    
+                    <dt class="col-sm-5">Bearbeitungsschritte:</dt>
+                    <dd class="col-sm-7">{{ object.get_processing_steps_count }}</dd>
+                </dl>
+            </div>
+        </div>
+        
+        <!-- Schnellaktionen -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-bolt"></i> Schnellaktionen
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'image_editor:image_editor' object.pk %}" 
+                       class="btn btn-success btn-sm">
+                        <i class="fas fa-edit"></i> Bild bearbeiten
+                    </a>
+                    
+                    <a href="{% url 'image_editor:project_detail' object.pk %}" 
+                       class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-eye"></i> Projekt ansehen
+                    </a>
+                    
+                    <div class="btn-group w-100" role="group">
+                        <button type="button" class="btn btn-outline-info btn-sm dropdown-toggle" 
+                                data-bs-toggle="dropdown">
+                            <i class="fas fa-download"></i> Download
+                        </button>
+                        <ul class="dropdown-menu w-100">
+                            <li><a class="dropdown-item" href="{% url 'image_editor:download_image' object.pk 'PNG' %}">
+                                <i class="fas fa-file-image"></i> PNG
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'image_editor:download_image' object.pk 'JPEG' %}">
+                                <i class="fas fa-file-image"></i> JPEG
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'image_editor:download_image' object.pk 'WEBP' %}">
+                                <i class="fas fa-file-image"></i> WebP
+                            </a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Warnung bei Löschung -->
+        <div class="card mt-3 border-danger">
+            <div class="card-header bg-danger text-white">
+                <h6 class="mb-0">
+                    <i class="fas fa-exclamation-triangle"></i> Gefahrenzone
+                </h6>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    Das Löschen eines Projekts kann nicht rückgängig gemacht werden.
+                </p>
+                <a href="{% url 'image_editor:project_delete' object.pk %}" 
+                   class="btn btn-danger btn-sm w-100"
+                   onclick="return confirm('Sind Sie sicher, dass Sie dieses Projekt dauerhaft löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.')">
+                    <i class="fas fa-trash"></i> Projekt löschen
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('edit-form');
+    const saveBtn = document.getElementById('save-btn');
+    const originalName = '{{ object.name|escapejs }}';
+    const originalDescription = '{{ object.description|default_if_none:""|escapejs }}';
+    const originalStatus = '{{ object.status }}';
+    
+    // Überwache Änderungen
+    function checkForChanges() {
+        const currentName = document.getElementById('id_name').value;
+        const currentDescription = document.getElementById('id_description').value;
+        const currentStatus = document.getElementById('id_status').value;
+        
+        const hasChanges = currentName !== originalName || 
+                          currentDescription !== originalDescription || 
+                          currentStatus !== originalStatus;
+        
+        saveBtn.disabled = !hasChanges;
+        
+        if (hasChanges) {
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Änderungen speichern';
+            saveBtn.classList.remove('btn-outline-warning');
+            saveBtn.classList.add('btn-warning');
+        } else {
+            saveBtn.innerHTML = '<i class="fas fa-check"></i> Keine Änderungen';
+            saveBtn.classList.remove('btn-warning');
+            saveBtn.classList.add('btn-outline-warning');
+        }
+    }
+    
+    // Event Listener für Änderungen
+    document.getElementById('id_name').addEventListener('input', checkForChanges);
+    document.getElementById('id_description').addEventListener('input', checkForChanges);
+    document.getElementById('id_status').addEventListener('change', checkForChanges);
+    
+    // Initial check
+    checkForChanges();
+    
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        const nameInput = document.getElementById('id_name');
+        
+        if (!nameInput.value.trim()) {
+            e.preventDefault();
+            alert('Bitte geben Sie einen Projektnamen ein.');
+            nameInput.focus();
+            return;
+        }
+        
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Wird gespeichert...';
+    });
+    
+    // Warnung bei ungespeicherten Änderungen
+    window.addEventListener('beforeunload', function(e) {
+        const currentName = document.getElementById('id_name').value;
+        const currentDescription = document.getElementById('id_description').value;
+        const currentStatus = document.getElementById('id_status').value;
+        
+        const hasChanges = currentName !== originalName || 
+                          currentDescription !== originalDescription || 
+                          currentStatus !== originalStatus;
+        
+        if (hasChanges) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+});
+</script>
+{% endblock %}

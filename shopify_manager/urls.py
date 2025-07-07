@@ -24,13 +24,20 @@ urlpatterns = [
     path('api/test-connection/', views.test_connection_api_view, name='test_connection_api'),
     path('api/import/', views.import_products_view, name='import_products'),
     path('api/products/<int:product_id>/sync/', views.sync_product_view, name='sync_product'),
-    path('api/products/<int:product_id>/sync-and-grayout/', views.sync_and_grayout_product_view, name='sync_and_grayout_product'),
     path('api/products/<int:product_id>/delete-local/', views.delete_product_local_view, name='delete_product_local'),
     path('api/products/<int:product_id>/debug/', views.debug_product_data_view, name='debug_product_data'),
     path('api/products/<int:product_id>/update-seo/', views.update_seo_data_view, name='update_seo_data'),
     path('api/products/<int:product_id>/webrex-search/', views.webrex_search_view, name='webrex_search'),
     path('api/bulk-seo-analysis/', views.bulk_seo_analysis_view, name='bulk_seo_analysis'),
     path('seo-dashboard/', views.seo_dashboard_view, name='seo_dashboard'),
+    
+    # Unified SEO Optimization
+    path('seo-optimization/', views.unified_seo_optimization_view, name='unified_seo_optimization'),
+    
+    # Integrated SEO Optimization (neue Ein-Seiten-Lösung)
+    path('do-seo/<str:content_type>/<int:content_id>/', views.integrated_seo_optimization_view, name='integrated_seo_optimization'),
+    path('api/generate-integrated-seo/', views.generate_integrated_seo_view, name='generate_integrated_seo'),
+    path('api/apply-integrated-seo/', views.apply_integrated_seo_view, name='apply_integrated_seo'),
     
     # Alt-Text Manager
     path('alt-text-manager/', views.alt_text_manager_view, name='alt_text_manager'),
@@ -68,5 +75,4 @@ urlpatterns = [
     # Blog-Post Management APIs  
     path('api/blog-posts/<int:blog_post_id>/delete-local/', views.delete_blog_post_local_view, name='delete_blog_post_local'),
     path('api/blog-posts/<int:blog_post_id>/sync/', views.sync_blog_post_view, name='sync_blog_post'),
-    path('api/blog-posts/<int:blog_post_id>/sync-and-grayout/', views.sync_and_grayout_blog_post_view, name='sync_and_grayout_blog_post'),
 ]

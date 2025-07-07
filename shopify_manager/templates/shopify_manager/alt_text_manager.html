@@ -94,17 +94,37 @@
     <!-- Produktbilder Tab -->
     <div class="tab-pane fade show active" id="products" role="tabpanel">
         <div class="card mt-3">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="fas fa-box text-primary"></i> Produktbilder Alt-Texte
-                </h5>
-                <div class="btn-group" role="group">
-                    <button class="btn btn-sm btn-outline-primary" onclick="filterProducts('missing')">
-                        Nur fehlende anzeigen
-                    </button>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="filterProducts('all')">
-                        Alle anzeigen
-                    </button>
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-box text-primary"></i> Produktbilder Alt-Texte
+                    </h5>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-sm btn-outline-primary" onclick="filterProducts('missing')">
+                            Nur fehlende anzeigen
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="filterProducts('all')">
+                            Alle anzeigen
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Suchfeld -->
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-search"></i>
+                            </span>
+                            <input type="text" class="form-control" id="productSearch" 
+                                   placeholder="Nach Produkten suchen..." 
+                                   onkeyup="handleSearchKeyup(event)">
+                            <button class="btn btn-outline-secondary" type="button" 
+                                    onclick="clearSearch()" title="Suche zurücksetzen">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="card-body">
@@ -582,6 +602,80 @@ function clearAllData() {
     document.getElementById('collectionCount').textContent = '0';
     document.getElementById('blogCount').textContent = '0';
     document.getElementById('pageCount').textContent = '0';
+}
+
+// Produktsuchfunktionen
+let searchTimeout = null;
+
+function handleSearchKeyup(event) {
+    // Debounce: Warte 500ms nach dem letzten Tastendruck
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        searchProducts();
+    }, 500);
+    
+    // Sofortige Suche bei Enter-Taste
+    if (event.key === 'Enter') {
+        clearTimeout(searchTimeout);
+        searchProducts();
+    }
+}
+
+function searchProducts() {
+    const searchInput = document.getElementById('productSearch');
+    const searchTerm = searchInput.value.trim();
+    
+    if (!currentStoreId) {
+        return;
+    }
+    
+    // Lade Daten mit Suchparameter
+    loadStoreDataWithSearch(searchTerm);
+}
+
+function clearSearch() {
+    document.getElementById('productSearch').value = '';
+    loadStoreData(); // Lade alle Daten ohne Filter
+}
+
+function loadStoreDataWithSearch(searchTerm = '') {
+    if (!currentStoreId) return;
+    
+    showLoading(true);
+    
+    let url = `/shopify/api/alt-text-data/${currentStoreId}/`;
+    if (searchTerm) {
+        url += `?search=${encodeURIComponent(searchTerm)}`;
+    }
+    
+    fetch(url, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        showLoading(false);
+        if (data.success) {
+            displayAltTextData(data.data);
+            updateStatistics(data.statistics);
+            
+            // Zeige Suchergebnis-Info
+            const resultCount = data.data.products ? data.data.products.length : 0;
+            if (searchTerm) {
+                console.log(`Suche nach "${searchTerm}": ${resultCount} Produkte gefunden`);
+            }
+        } else {
+            alert('Fehler beim Laden der Alt-Text Daten: ' + data.error);
+        }
+    })
+    .catch(error => {
+        showLoading(false);
+        console.error('Error:', error);
+        alert('Fehler beim Laden der Daten');
+    });
 }
 
 function getCookie(name) {

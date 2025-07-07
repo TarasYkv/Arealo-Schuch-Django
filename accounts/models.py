@@ -13,6 +13,12 @@ class CustomUser(AbstractUser):
     google_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="Google API Key")
     youtube_api_key = EncryptedCharField(max_length=255, blank=True, null=True, verbose_name="YouTube API Key")
     
+    # Firmeninfo-Felder für Naturmacher
+    company_info = models.TextField(blank=True, verbose_name="Firmeninformationen", 
+                                   help_text="Beschreibung Ihres Unternehmens, Produkte, Zielgruppe, etc.")
+    learning_goals = models.TextField(blank=True, verbose_name="Standard-Lernziele",
+                                     help_text="Ihre Standard-Lernziele für Schulungen")
+    
     def __str__(self):
         return self.username
 

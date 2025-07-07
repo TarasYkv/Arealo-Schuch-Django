@@ -11,9 +11,10 @@ from django.urls import reverse_lazy, reverse
 from django.utils import timezone
 
 from .models import ShopifyStore, ShopifyProduct, ShopifySyncLog, ProductSEOOptimization, SEOAnalysisResult, ShopifyBlog, ShopifyBlogPost, BlogPostSEOOptimization
+from .ai_seo_service import generate_seo_with_ai, BlogPostSEOService
 from .forms import (
     ShopifyStoreForm, ShopifyProductEditForm, ProductFilterForm, 
-    BulkActionForm, ProductImportForm, SEOOptimizationForm, BlogPostSEOOptimizationForm
+    BulkActionForm, ProductImportForm, SEOOptimizationForm, BlogPostSEOOptimizationForm, BlogPostFilterForm
 )
 from .shopify_api import ShopifyAPIClient, ShopifyProductSync, ShopifyBlogSync
 
@@ -132,6 +133,16 @@ class ShopifyProductListView(LoginRequiredMixin, ListView):
                 queryset = queryset.filter(
                     Q(seo_title='') | Q(seo_description='')
                 )
+            
+            # SEO-Score Filterung basierend auf get_combined_seo_status()
+            seo_score = form.cleaned_data.get('seo_score')
+            if seo_score:
+                # Filtere Produkte basierend auf ihrem SEO-Score
+                product_ids = []
+                for product in queryset:
+                    if product.get_combined_seo_status() == seo_score:
+                        product_ids.append(product.id)
+                queryset = queryset.filter(id__in=product_ids)
             
             sort = form.cleaned_data.get('sort', '-updated_at')
             if sort:
@@ -313,8 +324,12 @@ def import_products_view(request):
         
         if log.status == 'success':
             message = f'{log.products_success} Produkte erfolgreich importiert'
+            if import_mode == 'all' and overwrite_existing:
+                message += ' (alle lokalen Produkte wurden überschrieben)'
         elif log.status == 'partial':
             message = f'{log.products_success} Produkte importiert, {log.products_failed} Fehler aufgetreten'
+            if import_mode == 'all' and overwrite_existing:
+                message += ' (alle lokalen Produkte wurden überschrieben)'
         else:
             message = f'Import fehlgeschlagen: {log.error_message}'
         
@@ -367,58 +382,6 @@ def sync_product_view(request, product_id):
             'error': f'Sync-Fehler: {str(e)}'
         })
 
-
-@login_required
-@require_http_methods(["POST"])
-def sync_and_grayout_product_view(request, product_id):
-    """Synchronisiert ein Produkt zu Shopify und markiert es lokal als erledigt (ausgegraut)"""
-    product = get_object_or_404(
-        ShopifyProduct, 
-        id=product_id, 
-        store__user=request.user
-    )
-    
-    sync_success = False
-    grayout_success = False
-    sync_message = ""
-    grayout_message = ""
-    
-    try:
-        # Schritt 1: Produkt synchronisieren
-        sync = ShopifyProductSync(product.store)
-        sync_success, sync_message = sync.sync_product_to_shopify(product)
-        
-        # Schritt 2: Produkt lokal als erledigt markieren (nur App-Status, nicht Shopify)
-        if sync_success:
-            try:
-                # Lokalen Status auf 'archived' setzen für bessere Übersicht
-                # Dies betrifft nur unsere App, nicht den Shopify-Status
-                product.status = 'archived'
-                product.save()
-                grayout_success = True
-                grayout_message = "Produkt lokal als erledigt markiert"
-                    
-            except Exception as grayout_error:
-                grayout_message = f"Fehler beim lokalen Markieren: {str(grayout_error)}"
-        else:
-            grayout_message = "Lokales Markieren übersprungen - Sync fehlgeschlagen"
-        
-        overall_success = sync_success and grayout_success
-        
-        return JsonResponse({
-            'success': overall_success,
-            'sync_success': sync_success,
-            'grayout_success': grayout_success,
-            'message': f"Sync: {sync_message}, Status: {grayout_message}"
-        })
-        
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'sync_success': sync_success,
-            'grayout_success': grayout_success,
-            'error': f'Allgemeiner Fehler: {str(e)}'
-        })
 
 
 @login_required
@@ -1261,6 +1224,7 @@ def alt_text_manager_view(request):
 def get_alt_text_data_view(request, store_id):
     """Holt Alt-Text Daten für einen Store"""
     store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
+    search_query = request.GET.get('search', '').strip().lower()
     
     try:
         api_client = ShopifyAPIClient(store)
@@ -1312,9 +1276,17 @@ def get_alt_text_data_view(request, store_id):
                         continue
                 
                 if product_images:
+                    product_title = product.get('title', '')
+                    
+                    # Suchfilter anwenden
+                    if search_query:
+                        # Suche in Produkttitel (case-insensitive)
+                        if search_query not in product_title.lower():
+                            continue
+                    
                     product_data.append({
                         'id': str(product.get('id', '')),
-                        'title': product.get('title', ''),
+                        'title': product_title,
                         'images': product_images
                     })
             except Exception as product_error:
@@ -1578,17 +1550,68 @@ class ShopifyBlogDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
-        # Blog-Posts für diesen Blog
+        # Blog-Posts für diesen Blog mit Filterung
         posts = self.object.posts.all()
+        
+        # Filter anwenden
+        filter_form = BlogPostFilterForm(self.request.GET)
+        if filter_form.is_valid():
+            search = filter_form.cleaned_data.get('search')
+            if search:
+                posts = posts.filter(
+                    Q(title__icontains=search) |
+                    Q(content__icontains=search) |
+                    Q(tags__icontains=search) |
+                    Q(author__icontains=search)
+                )
+            
+            status = filter_form.cleaned_data.get('status')
+            if status:
+                posts = posts.filter(status=status)
+            
+            sync_status = filter_form.cleaned_data.get('sync_status')
+            if sync_status == 'needs_sync':
+                posts = posts.filter(needs_sync=True)
+            elif sync_status == 'sync_error':
+                posts = posts.exclude(sync_error='')
+            elif sync_status == 'synced':
+                posts = posts.filter(needs_sync=False, sync_error='')
+            
+            author = filter_form.cleaned_data.get('author')
+            if author:
+                posts = posts.filter(author__icontains=author)
+            
+            seo_issues_only = filter_form.cleaned_data.get('seo_issues_only')
+            if seo_issues_only:
+                posts = posts.filter(
+                    Q(seo_title='') | Q(seo_description='')
+                )
+            
+            # SEO-Score Filterung basierend auf get_combined_seo_status()
+            seo_score = filter_form.cleaned_data.get('seo_score')
+            if seo_score:
+                # Filtere Blog-Posts basierend auf ihrem SEO-Score
+                post_ids = []
+                for post in posts:
+                    if post.get_combined_seo_status() == seo_score:
+                        post_ids.append(post.id)
+                posts = posts.filter(id__in=post_ids)
+            
+            sort = filter_form.cleaned_data.get('sort', '-updated_at')
+            if sort:
+                posts = posts.order_by(sort)
+        
+        context['filter_form'] = filter_form
+        
         paginator = Paginator(posts, 10)
         page = self.request.GET.get('page')
         context['posts'] = paginator.get_page(page)
         
         # Statistiken für diesen Blog
         context['stats'] = {
-            'total_posts': posts.count(),
-            'published_posts': posts.filter(status='published').count(),
-            'draft_posts': posts.filter(status='draft').count(),
+            'total_posts': self.object.posts.count(),
+            'published_posts': self.object.posts.filter(status='published').count(),
+            'draft_posts': self.object.posts.filter(status='draft').count(),
         }
         
         return context
@@ -1707,6 +1730,7 @@ def import_blogs_view(request):
 def import_blog_posts_view(request):
     """Importiert Blog-Posts für einen bestimmten Blog"""
     blog_id = request.POST.get('blog_id')
+    import_mode = request.POST.get('import_mode', 'new_only')  # new_only oder all
     
     if not blog_id:
         return JsonResponse({
@@ -1718,14 +1742,19 @@ def import_blog_posts_view(request):
     
     try:
         blog_sync = ShopifyBlogSync(blog.store)
-        log = blog_sync.import_blog_posts(blog)
+        log = blog_sync.import_blog_posts(blog, import_mode=import_mode)
+        
+        message = f'{log.products_success} Blog-Posts importiert'
+        if import_mode == 'all':
+            message += ' (alle lokalen Blog-Posts wurden überschrieben)'
         
         return JsonResponse({
             'success': log.status in ['success', 'partial'],
-            'message': f'{log.products_success} Blog-Posts importiert',
+            'message': message,
             'imported': log.products_success,
             'failed': log.products_failed,
-            'status': log.status
+            'status': log.status,
+            'import_mode': import_mode
         })
         
     except Exception as e:
@@ -1928,7 +1957,7 @@ def generate_blog_post_seo_ai_view(request, pk):
     try:
         from .ai_seo_service import BlogPostSEOService
         
-        service = BlogPostSEOService()
+        service = BlogPostSEOService(user=request.user)
         success, result, error = service.generate_seo_content(seo_optimization)
         
         if success:
@@ -2057,59 +2086,416 @@ def sync_blog_post_view(request, blog_post_id):
         })
 
 
+
 @login_required
-@require_http_methods(["POST"])  
-def sync_and_grayout_blog_post_view(request, blog_post_id):
-    """Synchronisiert einen Blog-Post und graut ihn aus"""
-    blog_post = get_object_or_404(ShopifyBlogPost, id=blog_post_id, blog__store__user=request.user)
+def unified_seo_optimization_view(request):
+    """Unified SEO-Optimierung für Produkte und Blog-Posts"""
+    # Hole alle Stores des Users
+    stores = ShopifyStore.objects.filter(user=request.user)
+    
+    # Hole alle Produkte und Blog-Posts
+    products = ShopifyProduct.objects.filter(store__user=request.user).select_related('store')
+    blog_posts = ShopifyBlogPost.objects.filter(blog__store__user=request.user).select_related('blog__store')
+    
+    # Filter anwenden
+    store_filter = request.GET.get('store')
+    content_type = request.GET.get('content_type', 'all')  # all, products, blog_posts
+    search_query = request.GET.get('search', '')
+    
+    if store_filter:
+        products = products.filter(store_id=store_filter)
+        blog_posts = blog_posts.filter(blog__store_id=store_filter)
+    
+    if search_query:
+        products = products.filter(Q(title__icontains=search_query) | Q(body_html__icontains=search_query))
+        blog_posts = blog_posts.filter(Q(title__icontains=search_query) | Q(content__icontains=search_query))
+    
+    # Paginierung
+    items_per_page = 20
+    
+    if content_type == 'products':
+        paginator = Paginator(products, items_per_page)
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        items = page_obj.object_list
+        item_type = 'product'
+    elif content_type == 'blog_posts':
+        paginator = Paginator(blog_posts, items_per_page)
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        items = page_obj.object_list
+        item_type = 'blog_post'
+    else:
+        # Kombiniere beide Listen
+        all_items = []
+        for product in products:
+            all_items.append({
+                'type': 'product',
+                'object': product,
+                'title': product.title,
+                'seo_title': product.seo_title,
+                'seo_description': product.seo_description,
+                'store': product.store
+            })
+        for blog_post in blog_posts:
+            all_items.append({
+                'type': 'blog_post',
+                'object': blog_post,
+                'title': blog_post.title,
+                'seo_title': blog_post.seo_title,
+                'seo_description': blog_post.seo_description,
+                'store': blog_post.blog.store
+            })
+        
+        # Sortiere nach Titel
+        all_items.sort(key=lambda x: x['title'])
+        
+        paginator = Paginator(all_items, items_per_page)
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        items = page_obj.object_list
+        item_type = 'mixed'
+    
+    context = {
+        'stores': stores,
+        'items': items,
+        'item_type': item_type,
+        'page_obj': page_obj,
+        'store_filter': store_filter,
+        'content_type': content_type,
+        'search_query': search_query,
+    }
+    
+    return render(request, 'shopify_manager/unified_seo_optimization.html', context)
+
+
+@login_required
+def integrated_seo_optimization_view(request, content_type, content_id):
+    """Integrierte SEO-Optimierung für Produkte und Blog-Posts auf einer Seite"""
+    
+    # Bestimme Content-Typ und hole entsprechendes Objekt
+    if content_type == 'product':
+        try:
+            content_object = ShopifyProduct.objects.get(
+                Q(id=content_id) | Q(shopify_id=str(content_id)),
+                store__user=request.user
+            )
+            content_title = content_object.title
+            content_description = content_object.body_html or ''
+            current_seo_title = content_object.seo_title or ''
+            current_seo_description = content_object.seo_description or ''
+        except ShopifyProduct.DoesNotExist:
+            from django.http import Http404
+            raise Http404(f"Produkt mit ID {content_id} nicht gefunden")
+            
+    elif content_type == 'blog_post':
+        try:
+            content_object = ShopifyBlogPost.objects.get(
+                id=content_id,
+                blog__store__user=request.user
+            )
+            content_title = content_object.title
+            content_description = content_object.content or content_object.summary or ''
+            current_seo_title = content_object.seo_title or ''
+            current_seo_description = content_object.seo_description or ''
+        except ShopifyBlogPost.DoesNotExist:
+            from django.http import Http404
+            raise Http404(f"Blog-Post mit ID {content_id} nicht gefunden")
+    else:
+        from django.http import Http404
+        raise Http404("Ungültiger Content-Typ")
+    
+    context = {
+        'content_type': content_type,
+        'content_object': content_object,
+        'content_title': content_title,
+        'content_description': content_description,
+        'current_seo_title': current_seo_title,
+        'current_seo_description': current_seo_description,
+        # AI-Modell-Optionen (bewährte Modelle aus Naturmacher-App)
+        'ai_models': [
+            # Claude (Anthropic) Modelle - Empfohlen
+            ('claude-opus-4', 'Claude Opus 4 (Höchste Qualität)'),
+            ('claude-sonnet-4', 'Claude Sonnet 4 (Ausgezeichnet)'),
+            ('claude-sonnet-3.7', 'Claude Sonnet 3.7 (Extended Reasoning)'),
+            ('claude-sonnet-3.5-new', 'Claude Sonnet 3.5 (Aktualisiert)'),
+            ('claude-sonnet-3.5', 'Claude Sonnet 3.5 (Bewährt)'),
+            ('claude-haiku-3.5-new', 'Claude Haiku 3.5 (Schnell, neu)'),
+            ('claude-haiku-3.5', 'Claude Haiku 3.5 (Schnell)'),
+            
+            # OpenAI (ChatGPT) Modelle - Standard
+            ('gpt-4.1', 'ChatGPT 4.1 (Neuestes Flagship, 1M Token)'),
+            ('gpt-4.1-mini', 'ChatGPT 4.1 Mini (Optimiert)'),
+            ('gpt-4.1-nano', 'ChatGPT 4.1 Nano (Schnellstes)'),
+            ('gpt-4o', 'ChatGPT 4o (Multimodal)'),
+            ('gpt-4o-mini', 'ChatGPT 4o Mini (Schnell, günstig)'),
+            ('gpt-4-turbo', 'ChatGPT 4 Turbo (Erweitert)'),
+            ('gpt-4', 'ChatGPT 4 (Bewährt)'),
+            ('gpt-3.5-turbo', 'ChatGPT 3.5 Turbo (Schnell)'),
+            
+            # OpenAI Reasoning Modelle
+            ('o3', 'OpenAI o3 (Neuestes Reasoning, langsam)'),
+            ('o4-mini', 'OpenAI o4 Mini (Schnelles Reasoning)'),
+            
+            # Google Gemini Modelle
+            ('gemini-2.5-pro', 'Gemini 2.5 Pro (Höchste Performance)'),
+            ('gemini-2.5-flash', 'Gemini 2.5 Flash (Bestes Preis-Leistung)'),
+            ('gemini-2.0-flash', 'Gemini 2.0 Flash (Verfügbar)'),
+            ('gemini-2.0-pro', 'Gemini 2.0 Pro (Beste Coding Performance)'),
+            ('gemini-1.5-flash', 'Gemini 1.5 Flash (Bewährt, schnell)'),
+            ('gemini-1.5-pro', 'Gemini 1.5 Pro (Kraftvoll)'),
+            ('gemini', 'Gemini (Kostenlos)'),
+        ]
+    }
+    
+    return render(request, 'shopify_manager/integrated_seo_optimization.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def generate_integrated_seo_view(request):
+    """Generiert SEO-Inhalte für integrierte Optimierung"""
+    import json
     
     try:
-        from .shopify_api import ShopifyAPIClient
+        # Parse JSON Request
+        data = json.loads(request.body)
+        content_type = data.get('content_type')
+        content_id = data.get('content_id')
+        keywords = data.get('keywords', '')
+        ai_model = data.get('ai_model', 'openai-gpt4')
         
-        # Erstelle API Client
-        api_client = ShopifyAPIClient(blog_post.blog.store)
+        # Validierung
+        if not content_type or not content_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Content-Typ und ID sind erforderlich'
+            })
         
-        # Bereite Blog-Post Daten für Shopify vor
-        blog_post_data = {
-            'title': blog_post.title,
-            'body_html': blog_post.content,
-            'summary': blog_post.summary,
-            'author': blog_post.author,
-            'tags': blog_post.tags,
-            'published_at': blog_post.published_at.isoformat() if blog_post.published_at else None,
-            'seo_title': blog_post.seo_title,
-            'seo_description': blog_post.seo_description,
-            'featured_image': {
-                'url': blog_post.featured_image_url,
-                'alt': blog_post.featured_image_alt
-            } if blog_post.featured_image_url else None
-        }
+        # Hole Content-Objekt
+        if content_type == 'product':
+            try:
+                content_object = ShopifyProduct.objects.get(
+                    Q(id=content_id) | Q(shopify_id=str(content_id)),
+                    store__user=request.user
+                )
+                title = content_object.title
+                description = content_object.body_html or ''
+            except ShopifyProduct.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Produkt nicht gefunden'
+                })
+                
+        elif content_type == 'blog_post':
+            try:
+                content_object = ShopifyBlogPost.objects.get(
+                    id=content_id,
+                    blog__store__user=request.user
+                )
+                title = content_object.title
+                description = content_object.content or content_object.summary or ''
+            except ShopifyBlogPost.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Blog-Post nicht gefunden'
+                })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Ungültiger Content-Typ'
+            })
         
-        # Synchronisiere zu Shopify
-        success, updated_post, message = api_client.update_blog_post(
-            blog_post.blog.shopify_id, 
-            blog_post.shopify_id, 
-            blog_post_data
-        )
+        # Keywords verarbeiten
+        keywords_list = [k.strip() for k in keywords.split(',') if k.strip()]
+        
+        # SEO-Generierung
+        if content_type == 'product':
+            success, result, message, raw_response = generate_seo_with_ai(
+                product_title=title,
+                product_description=description,
+                keywords=keywords_list,
+                ai_model=ai_model,
+                user=request.user
+            )
+        else:  # blog_post
+            # Verwende Blog-Post SEO Service
+            service = BlogPostSEOService(user=request.user)
+            
+            # Erstelle temporäres SEO-Optimization Objekt für die Generierung
+            from shopify_manager.models import BlogPostSEOOptimization
+            temp_seo = BlogPostSEOOptimization(
+                blog_post=content_object,
+                keywords=keywords,
+                ai_model=ai_model
+            )
+            
+            success, message, error_message = service.generate_seo_content(temp_seo)
+            
+            if success:
+                result = {
+                    'seo_title': temp_seo.generated_seo_title,
+                    'seo_description': temp_seo.generated_seo_description
+                }
+                raw_response = temp_seo.ai_response_raw
+            else:
+                result = {}
+                message = error_message
         
         if success:
-            # Aktualisiere lokale Daten und grau aus
-            blog_post.shopify_updated_at = timezone.now()
-            blog_post.is_grayed_out = True
-            blog_post.save(update_fields=['shopify_updated_at', 'is_grayed_out'])
-            
             return JsonResponse({
                 'success': True,
-                'message': f'Blog-Post "{blog_post.title}" erfolgreich synchronisiert und ausgegraut'
+                'seo_title': result.get('seo_title', ''),
+                'seo_description': result.get('seo_description', ''),
+                'message': message,
+                'ai_model': ai_model,
+                'keywords_used': ', '.join(keywords_list)
             })
         else:
             return JsonResponse({
                 'success': False,
-                'error': f'Fehler beim Synchronisieren: {message}'
+                'error': message
             })
-        
+            
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Ungültige JSON-Daten'
+        })
     except Exception as e:
         return JsonResponse({
             'success': False,
-            'error': f'Fehler beim Synchronisieren und Ausgrauen: {str(e)}'
+            'error': f'Fehler bei der SEO-Generierung: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["POST"])
+def apply_integrated_seo_view(request):
+    """Wendet generierte SEO-Inhalte an"""
+    import json
+    
+    try:
+        # Parse JSON Request
+        data = json.loads(request.body)
+        content_type = data.get('content_type')
+        content_id = data.get('content_id')
+        title = data.get('title', '').strip()
+        description = data.get('description', '').strip()
+        seo_title = data.get('seo_title', '').strip()
+        seo_description = data.get('seo_description', '').strip()
+        
+        # Validierung
+        if not content_type or not content_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Content-Typ und ID sind erforderlich'
+            })
+        
+        if not title and not description and not seo_title and not seo_description:
+            return JsonResponse({
+                'success': False,
+                'error': 'Mindestens ein Feld muss ausgefüllt sein'
+            })
+        
+        # Wende Änderungen an
+        if content_type == 'product':
+            try:
+                content_object = ShopifyProduct.objects.get(
+                    Q(id=content_id) | Q(shopify_id=str(content_id)),
+                    store__user=request.user
+                )
+                
+                # Hauptfelder aktualisieren
+                if title:
+                    content_object.title = title
+                if description:
+                    content_object.body_html = description
+                
+                # SEO-Felder aktualisieren
+                if seo_title:
+                    content_object.seo_title = seo_title
+                if seo_description:
+                    content_object.seo_description = seo_description
+                
+                content_object.needs_sync = True
+                content_object.save()
+                
+                updated_fields = []
+                if title: updated_fields.append("Titel")
+                if description: updated_fields.append("Beschreibung")
+                if seo_title: updated_fields.append("SEO-Titel")
+                if seo_description: updated_fields.append("SEO-Beschreibung")
+                
+                message = f'Produkt "{content_object.title}" erfolgreich aktualisiert'
+                if updated_fields:
+                    message += f': {", ".join(updated_fields)}'
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': message
+                })
+                
+            except ShopifyProduct.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Produkt nicht gefunden'
+                })
+                
+        elif content_type == 'blog_post':
+            try:
+                content_object = ShopifyBlogPost.objects.get(
+                    id=content_id,
+                    blog__store__user=request.user
+                )
+                
+                # Hauptfelder aktualisieren
+                if title:
+                    content_object.title = title
+                if description:
+                    content_object.content = description
+                
+                # SEO-Felder aktualisieren
+                if seo_title:
+                    content_object.seo_title = seo_title
+                if seo_description:
+                    content_object.seo_description = seo_description
+                
+                content_object.save()
+                
+                updated_fields = []
+                if title: updated_fields.append("Titel")
+                if description: updated_fields.append("Inhalt")
+                if seo_title: updated_fields.append("SEO-Titel")
+                if seo_description: updated_fields.append("SEO-Beschreibung")
+                
+                message = f'Blog-Post "{content_object.title}" erfolgreich aktualisiert'
+                if updated_fields:
+                    message += f': {", ".join(updated_fields)}'
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': message
+                })
+                
+            except ShopifyBlogPost.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Blog-Post nicht gefunden'
+                })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Ungültiger Content-Typ'
+            })
+            
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Ungültige JSON-Daten'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Anwenden der Änderungen: {str(e)}'
         })
