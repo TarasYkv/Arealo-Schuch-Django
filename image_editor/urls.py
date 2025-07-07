@@ -46,6 +46,13 @@ urlpatterns = [
     path('api/canva-import-design/', views.canva_import_design_api, name='canva_import_design'),
     path('api/canva-designs/', views.canva_designs_api, name='canva_designs'),
     
+    # Shopify Integration
+    path('shopify-import/', views.shopify_import_view, name='shopify_import'),
+    path('api/shopify-images/', views.shopify_images_api, name='shopify_images'),
+    path('api/shopify-import-image/', views.shopify_import_image_api, name='shopify_import_image'),
+    path('api/shopify-export-image/', views.shopify_export_image_api, name='shopify_export_image'),
+    path('api/shopify-products/', views.shopify_products_api, name='shopify_products'),
+    
     # Downloads
     path('download/<int:project_id>/<str:format>/', views.download_image_view, name='download_image'),
 ]

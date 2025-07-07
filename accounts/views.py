@@ -333,13 +333,18 @@ def api_settings_view(request):
 
 @login_required
 def neue_api_einstellungen_view(request):
-    """Zeigt die neue API-Einstellungsseite mit Canva-Integration an"""
+    """Zeigt die neue API-Einstellungsseite mit Canva- und Shopify-Integration an"""
     # Canva-Einstellungen laden oder erstellen
     from naturmacher.models import CanvaAPISettings
     canva_settings, created = CanvaAPISettings.objects.get_or_create(user=request.user)
     
+    # Shopify-Stores des Benutzers laden
+    from shopify_manager.models import ShopifyStore
+    shopify_stores = ShopifyStore.objects.filter(user=request.user, is_active=True)
+    
     return render(request, 'accounts/api_einstellungen.html', {
-        'canva_settings': canva_settings
+        'canva_settings': canva_settings,
+        'shopify_stores': shopify_stores
     })
 
 
@@ -887,4 +892,147 @@ def get_usage_stats(request):
         return JsonResponse({
             'success': False, 
             'error': f'Fehler beim Laden der Statistiken: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["POST"])
+def add_shopify_store(request):
+    """Fügt einen neuen Shopify Store hinzu"""
+    try:
+        from shopify_manager.models import ShopifyStore
+        
+        name = request.POST.get('name', '').strip()
+        shop_domain = request.POST.get('shop_domain', '').strip()
+        access_token = request.POST.get('access_token', '').strip()
+        custom_domain = request.POST.get('custom_domain', '').strip()
+        description = request.POST.get('description', '').strip()
+        
+        if not name or not shop_domain or not access_token:
+            return JsonResponse({
+                'success': False,
+                'error': 'Name, Shop Domain und Access Token sind erforderlich'
+            })
+        
+        # Shopify Domain normalisieren
+        if not shop_domain.endswith('.myshopify.com'):
+            if '.' not in shop_domain:
+                shop_domain = f"{shop_domain}.myshopify.com"
+        
+        # Prüfen ob Store bereits existiert
+        if ShopifyStore.objects.filter(user=request.user, shop_domain=shop_domain).exists():
+            return JsonResponse({
+                'success': False,
+                'error': 'Ein Store mit dieser Domain existiert bereits'
+            })
+        
+        # Store erstellen
+        store = ShopifyStore.objects.create(
+            user=request.user,
+            name=name,
+            shop_domain=shop_domain,
+            access_token=access_token,
+            custom_domain=custom_domain,
+            description=description
+        )
+        
+        # Verbindung testen
+        from shopify_manager.shopify_api import ShopifyAPIClient
+        client = ShopifyAPIClient(store)
+        is_valid, message = client.test_connection()
+        
+        if not is_valid:
+            store.delete()
+            return JsonResponse({
+                'success': False,
+                'error': f'Verbindungstest fehlgeschlagen: {message}'
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Store "{name}" erfolgreich hinzugefügt',
+            'store_id': store.id
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Hinzufügen des Stores: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["POST"])
+def test_shopify_connection(request):
+    """Testet die Shopify API-Verbindung"""
+    try:
+        import json
+        from shopify_manager.models import ShopifyStore
+        from shopify_manager.shopify_api import ShopifyAPIClient
+        
+        data = json.loads(request.body)
+        store_id = data.get('store_id')
+        
+        if not store_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Store ID ist erforderlich'
+            })
+        
+        store = ShopifyStore.objects.get(id=store_id, user=request.user)
+        client = ShopifyAPIClient(store)
+        is_valid, message = client.test_connection()
+        
+        return JsonResponse({
+            'success': is_valid,
+            'message' if is_valid else 'error': message
+        })
+        
+    except ShopifyStore.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Store nicht gefunden'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Testen der Verbindung: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["POST"])
+def delete_shopify_store(request):
+    """Löscht einen Shopify Store"""
+    try:
+        import json
+        from shopify_manager.models import ShopifyStore
+        
+        data = json.loads(request.body)
+        store_id = data.get('store_id')
+        
+        if not store_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Store ID ist erforderlich'
+            })
+        
+        store = ShopifyStore.objects.get(id=store_id, user=request.user)
+        store_name = store.name
+        store.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Store "{store_name}" erfolgreich entfernt'
+        })
+        
+    except ShopifyStore.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Store nicht gefunden'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Löschen des Stores: {str(e)}'
         })

@@ -515,6 +515,71 @@
                                     </div>
                                 </div>
                             </div>
+                            
+                            <!-- Shopify Integration -->
+                            <div class="col-md-6 col-lg-3 mb-3">
+                                <div class="card api-provider-card">
+                                    <div class="card-header bg-success text-white">
+                                        <h6 class="mb-0"><i class="fab fa-shopify"></i> Shopify</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        {% if shopify_stores %}
+                                            <!-- Verbunden -->
+                                            <div class="alert alert-success alert-sm p-2 mb-2">
+                                                <i class="fas fa-check-circle"></i>
+                                                <strong>{{ shopify_stores.count }} Store{{ shopify_stores.count|pluralize }}</strong>
+                                            </div>
+                                            
+                                            <div class="mb-2">
+                                                <select class="form-select form-select-sm" id="shopifyStoreSelect">
+                                                    {% for store in shopify_stores %}
+                                                    <option value="{{ store.id }}">{{ store.name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                            
+                                            <div class="row mb-2">
+                                                <div class="col-6">
+                                                    <button type="button" class="btn btn-sm btn-success w-100" onclick="shopifyImportImages()">
+                                                        <i class="fas fa-download"></i> Import
+                                                    </button>
+                                                </div>
+                                                <div class="col-6">
+                                                    <button type="button" class="btn btn-sm btn-outline-success w-100" onclick="shopifyExportImages()">
+                                                        <i class="fas fa-upload"></i> Export
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="btn-group w-100" role="group">
+                                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="toggleShopifySettings()">
+                                                    <i class="fas fa-cog"></i> Verwalten
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-success" onclick="testShopifyConnection()">
+                                                    <i class="fas fa-vial"></i> Test
+                                                </button>
+                                            </div>
+                                        {% else %}
+                                            <!-- Nicht verbunden -->
+                                            <div class="alert alert-info alert-sm p-2 mb-2">
+                                                <i class="fas fa-info-circle"></i>
+                                                <strong>Keine Stores</strong>
+                                            </div>
+                                            
+                                            <div class="mb-2">
+                                                <button type="button" class="btn btn-sm btn-outline-success w-100" onclick="toggleShopifySettings()">
+                                                    <i class="fas fa-plus"></i> Store hinzufügen
+                                                </button>
+                                            </div>
+                                        {% endif %}
+                                        
+                                        <a href="{% url 'shopify_manager:store_list' %}" 
+                                           target="_blank" class="btn btn-sm btn-outline-secondary w-100 mt-1">
+                                            <i class="fas fa-external-link-alt"></i> Shopify Manager
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -611,6 +676,123 @@
                                 <li>Kopieren Sie Client ID und Secret hierher</li>
                                 <li>Klicken Sie auf "Mit Canva verbinden"</li>
                             </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Shopify Einstellungen (Collapsible) -->
+            <div class="card mb-4" id="shopifySettingsCard" style="display: none;">
+                <div class="card-header">
+                    <h5><i class="fab fa-shopify"></i> Shopify Store-Einstellungen</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Bestehende Stores -->
+                    {% if shopify_stores %}
+                        <div class="mb-4">
+                            <h6>Verbundene Stores</h6>
+                            {% for store in shopify_stores %}
+                            <div class="card mb-2">
+                                <div class="card-body p-3">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">{{ store.name }}</h6>
+                                            <small class="text-muted">{{ store.shop_domain }}</small>
+                                        </div>
+                                        <div class="btn-group">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="editShopifyStore({{ store.id }})">
+                                                <i class="fas fa-edit"></i> Bearbeiten
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteShopifyStore({{ store.id }})">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Neuen Store hinzufügen -->
+                    <div class="border-top pt-3">
+                        <h6>Neuen Store hinzufügen</h6>
+                        <form id="shopifyStoreForm">
+                            {% csrf_token %}
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">
+                                            <i class="fas fa-store"></i> Store Name
+                                        </label>
+                                        <input type="text" name="name" class="form-control" 
+                                               placeholder="Mein Shopify Store" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">
+                                            <i class="fas fa-globe"></i> Shop Domain
+                                        </label>
+                                        <input type="text" name="shop_domain" class="form-control" 
+                                               placeholder="meinstore.myshopify.com" required>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">
+                                            <i class="fas fa-key"></i> Access Token
+                                        </label>
+                                        <input type="password" name="access_token" class="form-control" 
+                                               placeholder="shpat_..." required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">
+                                            <i class="fas fa-link"></i> Custom Domain (optional)
+                                        </label>
+                                        <input type="text" name="custom_domain" class="form-control" 
+                                               placeholder="shop.example.com">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <i class="fas fa-align-left"></i> Beschreibung (optional)
+                                </label>
+                                <textarea name="description" class="form-control" rows="2" 
+                                          placeholder="Optionale Beschreibung"></textarea>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-plus"></i> Store hinzufügen
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <!-- Hilfe-Sektion -->
+                    <div class="border-top pt-3 mt-3">
+                        <h6>
+                            <i class="fas fa-question-circle text-info"></i> Einrichtungshilfe
+                        </h6>
+                        <div class="small text-muted">
+                            <ol>
+                                <li>Loggen Sie sich in Ihr Shopify Admin Panel ein</li>
+                                <li>Gehen Sie zu <strong>Apps > App- und Verkaufskanal-Einstellungen</strong></li>
+                                <li>Klicken Sie auf <strong>Private App entwickeln</strong></li>
+                                <li>Erstellen Sie eine neue private App mit Lese-/Schreibberechtigung für Produkte und Medien</li>
+                                <li>Kopieren Sie den Admin API Access Token hierher</li>
+                            </ol>
+                            
+                            <div class="alert alert-warning alert-sm mt-2">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <strong>Wichtig:</strong> Stellen Sie sicher, dass die App Berechtigung für "Products", "Product listings" und "Files" hat.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1135,6 +1317,150 @@ function toggleCanvaSettings() {
         settingsCard.style.display = 'none';
     }
 }
+
+// Toggle Shopify Settings visibility
+function toggleShopifySettings() {
+    const settingsCard = document.getElementById('shopifySettingsCard');
+    if (settingsCard.style.display === 'none') {
+        settingsCard.style.display = 'block';
+        settingsCard.scrollIntoView({ behavior: 'smooth' });
+    } else {
+        settingsCard.style.display = 'none';
+    }
+}
+
+// Shopify Functions
+function shopifyImportImages() {
+    const storeSelect = document.getElementById('shopifyStoreSelect');
+    if (!storeSelect || !storeSelect.value) {
+        alert('Bitte wählen Sie einen Store aus.');
+        return;
+    }
+    
+    // Öffne Image Editor mit Shopify Import
+    const url = `/images/shopify-import/?store_id=${storeSelect.value}`;
+    window.open(url, '_blank');
+}
+
+function shopifyExportImages() {
+    alert('Export-Funktion wird im Bildeditor verfügbar sein.');
+}
+
+function testShopifyConnection() {
+    const storeSelect = document.getElementById('shopifyStoreSelect');
+    if (!storeSelect || !storeSelect.value) {
+        alert('Bitte wählen Sie einen Store aus.');
+        return;
+    }
+    
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Teste...';
+    button.disabled = true;
+    
+    fetch(`/accounts/api/test-shopify-connection/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            store_id: storeSelect.value
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+        
+        if (data.success) {
+            alert(`Verbindung erfolgreich: ${data.message}`);
+        } else {
+            alert(`Verbindung fehlgeschlagen: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+        alert('Netzwerkfehler beim Testen der Verbindung');
+        console.error('Error:', error);
+    });
+}
+
+function editShopifyStore(storeId) {
+    // Weiterleitung zum Shopify Manager
+    window.open(`/shopify/stores/${storeId}/edit/`, '_blank');
+}
+
+function deleteShopifyStore(storeId) {
+    if (confirm('Möchten Sie diesen Store wirklich entfernen?')) {
+        fetch(`/accounts/api/delete-shopify-store/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                store_id: storeId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(`Fehler beim Löschen: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            alert('Netzwerkfehler beim Löschen des Stores');
+            console.error('Error:', error);
+        });
+    }
+}
+
+// Shopify Store Form Handler
+document.addEventListener('DOMContentLoaded', function() {
+    const shopifyForm = document.getElementById('shopifyStoreForm');
+    if (shopifyForm) {
+        shopifyForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(shopifyForm);
+            const submitButton = shopifyForm.querySelector('button[type="submit"]');
+            const originalText = submitButton.innerHTML;
+            
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Speichern...';
+            submitButton.disabled = true;
+            
+            fetch('/accounts/api/add-shopify-store/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                submitButton.innerHTML = originalText;
+                submitButton.disabled = false;
+                
+                if (data.success) {
+                    alert('Store erfolgreich hinzugefügt!');
+                    location.reload();
+                } else {
+                    alert(`Fehler: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                submitButton.innerHTML = originalText;
+                submitButton.disabled = false;
+                alert('Netzwerkfehler beim Hinzufügen des Stores');
+                console.error('Error:', error);
+            });
+        });
+    }
+});
 </script>
 
 {% endblock %}

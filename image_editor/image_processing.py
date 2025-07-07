@@ -53,6 +53,64 @@ class ImageProcessor:
         self.current_image = self.original_image.copy()
         self.processing_history = []
     
+    def invert(self):
+        """Invertiert die Farben des Bildes"""
+        try:
+            if self.current_image.mode == 'RGBA':
+                # Für RGBA, invertiere nur RGB-Kanäle
+                r, g, b, a = self.current_image.split()
+                rgb_inverted = ImageOps.invert(Image.merge('RGB', (r, g, b)))
+                r_inv, g_inv, b_inv = rgb_inverted.split()
+                self.current_image = Image.merge('RGBA', (r_inv, g_inv, b_inv, a))
+            else:
+                self.current_image = ImageOps.invert(self.current_image.convert('RGB'))
+            
+            self._add_to_history('invert', {})
+            return True, "Farben erfolgreich invertiert"
+        except Exception as e:
+            return False, f"Fehler beim Invertieren: {str(e)}"
+    
+    def convert_to_grayscale(self):
+        """Konvertiert das Bild zu Graustufen"""
+        try:
+            self.current_image = ImageOps.grayscale(self.current_image)
+            # Konvertiere zurück zu RGB für Konsistenz
+            self.current_image = self.current_image.convert('RGB')
+            self._add_to_history('grayscale', {})
+            return True, "Erfolgreich zu Graustufen konvertiert"
+        except Exception as e:
+            return False, f"Fehler bei Graustufen-Konvertierung: {str(e)}"
+    
+    def adjust_brightness(self, factor=1.0):
+        """Passt die Helligkeit des Bildes an"""
+        try:
+            enhancer = ImageEnhance.Brightness(self.current_image)
+            self.current_image = enhancer.enhance(factor)
+            self._add_to_history('brightness', {'factor': factor})
+            return True, f"Helligkeit angepasst (Faktor: {factor})"
+        except Exception as e:
+            return False, f"Fehler bei Helligkeitsanpassung: {str(e)}"
+    
+    def adjust_contrast(self, factor=1.0):
+        """Passt den Kontrast des Bildes an"""
+        try:
+            enhancer = ImageEnhance.Contrast(self.current_image)
+            self.current_image = enhancer.enhance(factor)
+            self._add_to_history('contrast', {'factor': factor})
+            return True, f"Kontrast angepasst (Faktor: {factor})"
+        except Exception as e:
+            return False, f"Fehler bei Kontrastanpassung: {str(e)}"
+    
+    def adjust_saturation(self, factor=1.0):
+        """Passt die Sättigung des Bildes an"""
+        try:
+            enhancer = ImageEnhance.Color(self.current_image)
+            self.current_image = enhancer.enhance(factor)
+            self._add_to_history('saturation', {'factor': factor})
+            return True, f"Sättigung angepasst (Faktor: {factor})"
+        except Exception as e:
+            return False, f"Fehler bei Sättigungsanpassung: {str(e)}"
+    
     def remove_background(self, model='u2net'):
         """
         Entfernt den Hintergrund mit rembg

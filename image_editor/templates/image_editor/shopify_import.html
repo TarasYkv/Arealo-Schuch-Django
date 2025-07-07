@@ -1,0 +1,396 @@
+{% extends 'base.html' %}
+
+{% block title %}Shopify Import - Bildeditor{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-10 mx-auto">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'image_editor:dashboard' %}">Bildeditor</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Shopify Import</li>
+                </ol>
+            </nav>
+            
+            <h1><i class="fab fa-shopify text-success"></i> Shopify Import</h1>
+            <p class="lead">Importieren Sie Bilder aus Ihren Shopify Stores direkt in den Bildeditor.</p>
+            
+            {% if not stores %}
+                <div class="alert alert-warning">
+                    <h5><i class="fas fa-exclamation-triangle"></i> Keine Shopify Stores verfügbar</h5>
+                    <p>Sie haben noch keine Shopify Stores konfiguriert. Bitte fügen Sie zuerst einen Store in den 
+                    <a href="{% url 'accounts:neue_api_einstellungen' %}" target="_blank">API-Einstellungen</a> hinzu.</p>
+                </div>
+            {% else %}
+                <!-- Store Auswahl -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5><i class="fas fa-store"></i> Store auswählen</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="storeSelect" class="form-label">Shopify Store</label>
+                                <select class="form-select" id="storeSelect" onchange="loadStoreImages()">
+                                    <option value="">-- Store auswählen --</option>
+                                    {% for store in stores %}
+                                    <option value="{{ store.id }}" {% if store.id == store_id|add:0 %}selected{% endif %}>
+                                        {{ store.name }} ({{ store.shop_domain }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="limitSelect" class="form-label">Anzahl Bilder</label>
+                                <select class="form-select" id="limitSelect">
+                                    <option value="25">25 Bilder</option>
+                                    <option value="50" selected>50 Bilder</option>
+                                    <option value="100">100 Bilder</option>
+                                    <option value="250">250 Bilder</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="button" class="btn btn-primary w-100" onclick="loadStoreImages()">
+                                    <i class="fas fa-sync-alt"></i> Bilder laden
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Loading State -->
+                <div id="loadingIndicator" class="text-center py-5" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Lade Bilder...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Bilder werden von Shopify geladen...</p>
+                </div>
+                
+                <!-- Bilder Galerie -->
+                <div id="imagesContainer" class="card" style="display: none;">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="fas fa-images"></i> Verfügbare Bilder</h5>
+                        <span id="imageCount" class="badge bg-primary">0 Bilder</span>
+                    </div>
+                    <div class="card-body">
+                        <div id="imageGrid" class="row">
+                            <!-- Bilder werden hier dynamisch eingefügt -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Error State -->
+                <div id="errorContainer" class="alert alert-danger" style="display: none;">
+                    <h5><i class="fas fa-exclamation-circle"></i> Fehler beim Laden</h5>
+                    <p id="errorMessage"></p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-download"></i> Bild importieren</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="importImagePreview" class="text-center mb-3">
+                    <!-- Bildvorschau wird hier eingefügt -->
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Projektname</label>
+                    <input type="text" id="importProjectName" class="form-control" placeholder="Name für das neue Projekt">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Alt-Text</label>
+                    <input type="text" id="importAltText" class="form-control" placeholder="Alt-Text des Bildes">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="confirmImport()">
+                    <i class="fas fa-download"></i> Importieren
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentImages = [];
+let selectedImageData = null;
+
+function loadStoreImages() {
+    const storeSelect = document.getElementById('storeSelect');
+    const limitSelect = document.getElementById('limitSelect');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const imagesContainer = document.getElementById('imagesContainer');
+    const errorContainer = document.getElementById('errorContainer');
+    
+    const storeId = storeSelect.value;
+    const limit = parseInt(limitSelect.value);
+    
+    if (!storeId) {
+        alert('Bitte wählen Sie einen Store aus.');
+        return;
+    }
+    
+    // Loading state
+    loadingIndicator.style.display = 'block';
+    imagesContainer.style.display = 'none';
+    errorContainer.style.display = 'none';
+    
+    fetch('/images/api/shopify-images/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            store_id: storeId,
+            limit: limit
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        loadingIndicator.style.display = 'none';
+        
+        if (data.success) {
+            currentImages = data.images;
+            displayImages(data.images);
+            document.getElementById('imageCount').textContent = `${data.count} Bilder`;
+            imagesContainer.style.display = 'block';
+        } else {
+            showError(data.error);
+        }
+    })
+    .catch(error => {
+        loadingIndicator.style.display = 'none';
+        showError('Netzwerkfehler beim Laden der Bilder');
+        console.error('Error:', error);
+    });
+}
+
+function displayImages(images) {
+    const imageGrid = document.getElementById('imageGrid');
+    imageGrid.innerHTML = '';
+    
+    if (images.length === 0) {
+        imageGrid.innerHTML = `
+            <div class="col-12 text-center py-4">
+                <i class="fas fa-images fa-3x text-muted mb-3"></i>
+                <p class="text-muted">Keine Bilder in diesem Store gefunden.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    images.forEach(image => {
+        const col = document.createElement('div');
+        col.className = 'col-md-3 col-sm-4 col-6 mb-3';
+        
+        col.innerHTML = `
+            <div class="card h-100 image-card" onclick="selectImageForImport(${JSON.stringify(image).replace(/"/g, '&quot;')})">
+                <div class="card-img-container" style="height: 200px; overflow: hidden;">
+                    <img src="${image.src}" class="card-img-top" alt="${image.alt}" 
+                         style="width: 100%; height: 100%; object-fit: cover; cursor: pointer;"
+                         loading="lazy">
+                </div>
+                <div class="card-body p-2">
+                    <h6 class="card-title mb-1 small">${image.product_title}</h6>
+                    <p class="card-text small text-muted mb-1">${image.alt || 'Kein Alt-Text'}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">${image.width}×${image.height}</small>
+                        <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); selectImageForImport(${JSON.stringify(image).replace(/"/g, '&quot;')})">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        imageGrid.appendChild(col);
+    });
+}
+
+function selectImageForImport(imageData) {
+    selectedImageData = imageData;
+    
+    // Modal füllen
+    const modal = new bootstrap.Modal(document.getElementById('importModal'));
+    const preview = document.getElementById('importImagePreview');
+    const projectName = document.getElementById('importProjectName');
+    const altText = document.getElementById('importAltText');
+    
+    preview.innerHTML = `
+        <img src="${imageData.src}" class="img-thumbnail" style="max-width: 300px; max-height: 200px;" alt="${imageData.alt}">
+        <p class="mt-2 mb-0"><strong>Produkt:</strong> ${imageData.product_title}</p>
+    `;
+    
+    projectName.value = `${imageData.product_title}${imageData.alt ? ' - ' + imageData.alt : ''}`;
+    altText.value = imageData.alt || '';
+    
+    modal.show();
+}
+
+function confirmImport() {
+    if (!selectedImageData) {
+        alert('Kein Bild ausgewählt.');
+        return;
+    }
+    
+    const storeSelect = document.getElementById('storeSelect');
+    const projectName = document.getElementById('importProjectName');
+    const altText = document.getElementById('importAltText');
+    
+    const importData = {
+        store_id: storeSelect.value,
+        image_url: selectedImageData.src,
+        alt_text: altText.value,
+        product_title: projectName.value || selectedImageData.product_title
+    };
+    
+    // Modal schließen
+    const modal = bootstrap.Modal.getInstance(document.getElementById('importModal'));
+    modal.hide();
+    
+    // Loading state
+    const loadingToast = document.createElement('div');
+    loadingToast.className = 'toast position-fixed top-0 end-0 m-3';
+    loadingToast.innerHTML = `
+        <div class="toast-body">
+            <div class="d-flex align-items-center">
+                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                <span>Bild wird importiert...</span>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(loadingToast);
+    const toast = new bootstrap.Toast(loadingToast);
+    toast.show();
+    
+    fetch('/images/api/shopify-import-image/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(importData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        toast.hide();
+        loadingToast.remove();
+        
+        if (data.success) {
+            // Erfolgs-Toast
+            showSuccessToast(data.message);
+            
+            // Nach kurzer Verzögerung zum Editor weiterleiten
+            setTimeout(() => {
+                window.open(data.project_url, '_blank');
+            }, 1000);
+        } else {
+            alert(`Import fehlgeschlagen: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        toast.hide();
+        loadingToast.remove();
+        alert('Netzwerkfehler beim Import');
+        console.error('Error:', error);
+    });
+}
+
+function showError(message) {
+    const errorContainer = document.getElementById('errorContainer');
+    const errorMessage = document.getElementById('errorMessage');
+    
+    errorMessage.textContent = message;
+    errorContainer.style.display = 'block';
+}
+
+function showSuccessToast(message) {
+    const successToast = document.createElement('div');
+    successToast.className = 'toast position-fixed top-0 end-0 m-3';
+    successToast.innerHTML = `
+        <div class="toast-body bg-success text-white">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-check-circle me-2"></i>
+                <span>${message}</span>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(successToast);
+    const toast = new bootstrap.Toast(successToast);
+    toast.show();
+    
+    setTimeout(() => {
+        toast.hide();
+        successToast.remove();
+    }, 5000);
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Auto-load images if store is pre-selected
+document.addEventListener('DOMContentLoaded', function() {
+    const storeSelect = document.getElementById('storeSelect');
+    if (storeSelect && storeSelect.value) {
+        loadStoreImages();
+    }
+});
+</script>
+
+<style>
+.image-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.image-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.card-img-container {
+    position: relative;
+    overflow: hidden;
+}
+
+.card-img-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0);
+    transition: background 0.3s;
+}
+
+.image-card:hover .card-img-container::after {
+    background: rgba(0,0,0,0.1);
+}
+</style>
+
+{% endblock %}

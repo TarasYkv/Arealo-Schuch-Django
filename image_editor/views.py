@@ -181,9 +181,30 @@ def image_editor_view(request, pk):
     """Bildbearbeitungs-Interface"""
     project = get_object_or_404(ImageProject, pk=pk, user=request.user)
     
+    # Shopify stores für Export-Funktionalität laden
+    try:
+        from shopify_manager.models import ShopifyStore
+        import json
+        shopify_stores = ShopifyStore.objects.filter(user=request.user)
+        # Convert to JSON-serializable format
+        shopify_stores_list = [
+            {
+                'id': store.id,
+                'name': store.name,
+                'shop_domain': store.shop_domain
+            }
+            for store in shopify_stores
+        ]
+        shopify_stores_json = json.dumps(shopify_stores_list)
+    except ImportError:
+        shopify_stores_json = '[]'
+    except Exception:
+        shopify_stores_json = '[]'
+    
     context = {
         'project': project,
         'processing_steps': project.steps.all().order_by('applied_at'),
+        'shopify_stores_json': shopify_stores_json,
     }
     
     return render(request, 'image_editor/editor.html', context)
@@ -403,11 +424,35 @@ def process_image_api(request):
         
         start_time = time.time()
         
-        # Bild bearbeiten
-        processed_image = apply_image_operation(project.original_image, operation, parameters)
+        # Bildverarbeitung mit ImageProcessor - verwende das zuletzt bearbeitete Bild
+        current_image = project.processed_image if project.processed_image else project.original_image
+        processor = ImageProcessor(current_image)
         
-        if processed_image is None:
+        # Anwenden der Operation
+        success = False
+        if operation == 'invert':
+            success, message = processor.invert()
+        elif operation == 'grayscale':
+            success, message = processor.convert_to_grayscale()
+        elif operation == 'brightness':
+            factor = parameters.get('factor', 1.0)
+            success, message = processor.adjust_brightness(factor)
+        elif operation == 'contrast':
+            factor = parameters.get('factor', 1.0)
+            success, message = processor.adjust_contrast(factor)
+        elif operation == 'saturation':
+            factor = parameters.get('factor', 1.0)
+            success, message = processor.adjust_saturation(factor)
+        else:
             return JsonResponse({'success': False, 'error': f'Operation "{operation}" nicht unterstützt'})
+        
+        if not success:
+            return JsonResponse({'success': False, 'error': message})
+        
+        # Bearbeitetes Bild speichern
+        processed_file = processor.save_to_file()
+        filename = f"processed_{project.id}_{int(time.time())}.jpg"
+        saved_path = default_storage.save(f'images/processed/{filename}', processed_file)
         
         # Bearbeitungsschritt speichern
         step = ProcessingStep.objects.create(
@@ -417,20 +462,16 @@ def process_image_api(request):
             processing_time=time.time() - start_time
         )
         
-        # TODO: Processed image speichern
-        
-        # Projekt-History aktualisieren
+        # Projekt aktualisieren
+        project.processed_image = saved_path
         project.processing_history.append({
             'operation': operation,
             'parameters': parameters,
             'timestamp': timezone.now().isoformat(),
             'step_id': step.id
         })
-        project.status = 'processing'
+        project.status = 'completed'
         project.save()
-        
-        # Erzeuge Preview mit ImageProcessor
-        processor = ImageProcessor(processed_image)
         
         return JsonResponse({
             'success': True,
@@ -1283,3 +1324,265 @@ def download_image_view(request, project_id, format):
             
     except Exception as e:
         raise Http404(f"Download fehlgeschlagen: {str(e)}")
+
+
+# === Shopify Integration Views ===
+
+@login_required
+def shopify_import_view(request):
+    """Shopify Import Interface"""
+    from shopify_manager.models import ShopifyStore
+    
+    # Store ID aus URL-Parameter lesen
+    store_id = request.GET.get('store_id')
+    store = None
+    
+    if store_id:
+        try:
+            store = ShopifyStore.objects.get(id=store_id, user=request.user)
+        except ShopifyStore.DoesNotExist:
+            messages.error(request, 'Shopify Store nicht gefunden.')
+            return redirect('image_editor:dashboard')
+    
+    # Alle verfügbaren Stores des Benutzers
+    stores = ShopifyStore.objects.filter(user=request.user, is_active=True)
+    
+    context = {
+        'stores': stores,
+        'selected_store': store,
+        'store_id': store_id
+    }
+    
+    return render(request, 'image_editor/shopify_import.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def shopify_images_api(request):
+    """API: Holt Bilder von einem Shopify Store"""
+    try:
+        import json
+        from shopify_manager.models import ShopifyStore
+        from .shopify_service import ShopifyImageService
+        
+        data = json.loads(request.body)
+        store_id = data.get('store_id')
+        limit = data.get('limit', 50)
+        
+        if not store_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Store ID ist erforderlich'
+            })
+        
+        store = ShopifyStore.objects.get(id=store_id, user=request.user)
+        service = ShopifyImageService(store)
+        
+        success, images, message = service.get_product_images(limit=limit)
+        
+        return JsonResponse({
+            'success': success,
+            'images': images if success else [],
+            'message': message,
+            'count': len(images) if success else 0
+        })
+        
+    except ShopifyStore.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Store nicht gefunden'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Laden der Bilder: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["POST"])
+def shopify_import_image_api(request):
+    """API: Importiert ein Bild von Shopify in den Image Editor"""
+    try:
+        import json
+        from shopify_manager.models import ShopifyStore
+        from .shopify_service import ShopifyImageService
+        from .models import ImageProject
+        
+        data = json.loads(request.body)
+        store_id = data.get('store_id')
+        image_url = data.get('image_url')
+        image_alt = data.get('alt_text', '')
+        product_title = data.get('product_title', 'Shopify Import')
+        
+        if not store_id or not image_url:
+            return JsonResponse({
+                'success': False,
+                'error': 'Store ID und Bild-URL sind erforderlich'
+            })
+        
+        store = ShopifyStore.objects.get(id=store_id, user=request.user)
+        service = ShopifyImageService(store)
+        
+        # Bild herunterladen
+        success, file_path, message = service.download_image(image_url, image_alt)
+        
+        if not success:
+            return JsonResponse({
+                'success': False,
+                'error': message
+            })
+        
+        # Neues Projekt erstellen
+        project_name = f"{product_title} - {image_alt}" if image_alt else product_title
+        project = ImageProject.objects.create(
+            name=project_name,
+            user=request.user,
+            original_image=file_path,
+            processed_image=file_path
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Bild erfolgreich importiert: {project_name}',
+            'project_id': project.id,
+            'project_url': f'/images/projects/{project.id}/editor/'
+        })
+        
+    except ShopifyStore.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Store nicht gefunden'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Importieren: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["POST"])
+def shopify_export_image_api(request):
+    """API: Exportiert ein Bild zum Shopify Store"""
+    try:
+        import json
+        from shopify_manager.models import ShopifyStore
+        from .shopify_service import ShopifyImageService
+        from .models import ImageProject
+        
+        data = json.loads(request.body)
+        store_id = data.get('store_id')
+        project_id = data.get('project_id')
+        export_type = data.get('export_type', 'new_product')  # 'new_product', 'existing_product', 'update_image'
+        product_id = data.get('product_id')
+        product_title = data.get('product_title', '')
+        product_description = data.get('product_description', '')
+        alt_text = data.get('alt_text', '')
+        
+        if not store_id or not project_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Store ID und Projekt ID sind erforderlich'
+            })
+        
+        store = ShopifyStore.objects.get(id=store_id, user=request.user)
+        project = ImageProject.objects.get(id=project_id, user=request.user)
+        service = ShopifyImageService(store)
+        
+        # Verarbeitetes Bild verwenden, falls verfügbar
+        image_path = project.processed_image.path if project.processed_image else project.original_image.path
+        
+        if export_type == 'new_product':
+            if not product_title:
+                product_title = f"Projekt: {project.name}"
+            
+            success, result, message = service.create_product_with_image(
+                image_path, product_title, product_description, alt_text
+            )
+        elif export_type == 'existing_product':
+            if not product_id:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Produkt ID ist für bestehende Produkte erforderlich'
+                })
+            
+            success, result, message = service.upload_image_to_product(
+                image_path, product_id, alt_text
+            )
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Ungültiger Export-Typ'
+            })
+        
+        if success:
+            return JsonResponse({
+                'success': True,
+                'message': message,
+                'shopify_data': result
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': message
+            })
+        
+    except ShopifyStore.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Store nicht gefunden'
+        })
+    except ImageProject.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Projekt nicht gefunden'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Export: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["POST"])
+def shopify_products_api(request):
+    """API: Holt Produkte von einem Shopify Store"""
+    try:
+        import json
+        from shopify_manager.models import ShopifyStore
+        from .shopify_service import ShopifyImageService
+        
+        data = json.loads(request.body)
+        store_id = data.get('store_id')
+        limit = data.get('limit', 50)
+        
+        if not store_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Store ID ist erforderlich'
+            })
+        
+        store = ShopifyStore.objects.get(id=store_id, user=request.user)
+        service = ShopifyImageService(store)
+        
+        success, products, message = service.get_products_for_export(limit=limit)
+        
+        return JsonResponse({
+            'success': success,
+            'products': products if success else [],
+            'message': message,
+            'count': len(products) if success else 0
+        })
+        
+    except ShopifyStore.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Store nicht gefunden'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Laden der Produkte: {str(e)}'
+        })
