@@ -450,6 +450,71 @@
                                     </div>
                                 </div>
                             </div>
+                            
+                            <!-- Canva Integration -->
+                            <div class="col-md-6 col-lg-3 mb-3">
+                                <div class="card api-provider-card">
+                                    <div class="card-header bg-warning text-dark">
+                                        <h6 class="mb-0"><i class="fab fa-canva"></i> Canva</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        {% if canva_settings.has_access_token %}
+                                            <!-- Verbunden -->
+                                            <div class="alert alert-success alert-sm p-2 mb-2">
+                                                <i class="fas fa-check-circle"></i>
+                                                <strong>Verbunden!</strong>
+                                                {% if canva_settings.token_expires_at %}
+                                                <br><small>Token läuft ab: {{ canva_settings.token_expires_at|date:"d.m.Y" }}</small>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <div class="mb-2">
+                                                <a href="{% url 'image_editor:canva_import' %}" class="btn btn-sm btn-warning w-100">
+                                                    <i class="fas fa-download"></i> Designs importieren
+                                                </a>
+                                            </div>
+                                            
+                                            <div class="btn-group w-100" role="group">
+                                                <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                        onclick="toggleCanvaSettings()">
+                                                    <i class="fas fa-cog"></i> Einstellungen
+                                                </button>
+                                                <form method="post" action="{% url 'accounts:canva_disconnect' %}" style="display: inline;">
+                                                    {% csrf_token %}
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger" 
+                                                            onclick="return confirm('Canva-Verbindung trennen?')">
+                                                        <i class="fas fa-unlink"></i> Trennen
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        {% else %}
+                                            <!-- Nicht verbunden -->
+                                            <div class="alert alert-info alert-sm p-2 mb-2">
+                                                <i class="fas fa-info-circle"></i>
+                                                <strong>Nicht verbunden</strong>
+                                            </div>
+                                            
+                                            <div class="mb-2">
+                                                {% if canva_settings.has_valid_credentials %}
+                                                    <a href="{% url 'accounts:canva_oauth_start' %}" class="btn btn-sm btn-warning w-100">
+                                                        <i class="fab fa-canva"></i> Mit Canva verbinden
+                                                    </a>
+                                                {% else %}
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary w-100" 
+                                                            onclick="toggleCanvaSettings()">
+                                                        <i class="fas fa-cog"></i> Einstellungen
+                                                    </button>
+                                                {% endif %}
+                                            </div>
+                                        {% endif %}
+                                        
+                                        <a href="https://www.canva.com/developers/" 
+                                           target="_blank" class="btn btn-sm btn-outline-secondary w-100 mt-1">
+                                            <i class="fas fa-external-link-alt"></i> Developer Portal
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -469,6 +534,84 @@
                             <span class="visually-hidden">Laden...</span>
                         </div>
                         <p class="text-muted">Statistiken werden geladen...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Canva Einstellungen (Collapsible) -->
+            <div class="card mb-4" id="canvaSettingsCard" style="display: none;">
+                <div class="card-header">
+                    <h5><i class="fab fa-canva"></i> Canva API-Einstellungen</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'accounts:canva_settings' %}">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <i class="fas fa-key"></i> Client ID
+                                    </label>
+                                    <input type="text" name="client_id" class="form-control" 
+                                           value="{{ canva_settings.client_id }}"
+                                           placeholder="Ihre Canva Client ID">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <i class="fas fa-lock"></i> Client Secret
+                                    </label>
+                                    <input type="password" name="client_secret" class="form-control" 
+                                           value="{{ canva_settings.client_secret }}"
+                                           placeholder="Ihr Canva Client Secret">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <i class="fas fa-tags"></i> Brand Template ID (optional)
+                                    </label>
+                                    <input type="text" name="brand_template_id" class="form-control" 
+                                           value="{{ canva_settings.brand_template_id }}"
+                                           placeholder="Standard Brand Template">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <i class="fas fa-folder"></i> Ordner ID (optional)
+                                    </label>
+                                    <input type="text" name="folder_id" class="form-control" 
+                                           value="{{ canva_settings.folder_id }}"
+                                           placeholder="Standard Ordner">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Canva-Einstellungen speichern
+                        </button>
+                    </form>
+                    
+                    <!-- Hilfe-Sektion -->
+                    <div class="border-top pt-3 mt-3">
+                        <h6>
+                            <i class="fas fa-question-circle text-info"></i> Einrichtungshilfe
+                        </h6>
+                        <div class="small text-muted">
+                            <ol>
+                                <li>Besuchen Sie die <a href="https://www.canva.com/developers/" target="_blank">Canva Developer Console</a></li>
+                                <li>Erstellen Sie eine neue App</li>
+                                <li>Fügen Sie diese Redirect URI hinzu: <code>{{ request.build_absolute_uri }}accounts/canva-oauth-callback/</code></li>
+                                <li>Kopieren Sie Client ID und Secret hierher</li>
+                                <li>Klicken Sie auf "Mit Canva verbinden"</li>
+                            </ol>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -907,17 +1050,24 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         
         fetch('/accounts/api/usage/stats/')
-            .then(response => response.json())
+            .then(response => {
+                console.log('Usage stats response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('Usage stats data:', data);
                 if (data.success) {
                     displayUsageStatistics(data);
                 } else {
-                    statsContent.innerHTML = '<div class="alert alert-danger">Fehler beim Laden der Statistiken</div>';
+                    statsContent.innerHTML = '<div class="alert alert-danger">Fehler beim Laden der Statistiken: ' + (data.error || 'Unbekannter Fehler') + '</div>';
                 }
             })
             .catch(error => {
                 console.error('Error loading statistics:', error);
-                statsContent.innerHTML = '<div class="alert alert-danger">Netzwerkfehler</div>';
+                statsContent.innerHTML = '<div class="alert alert-danger">Netzwerkfehler: ' + error.message + '</div>';
             });
     }
     
@@ -974,6 +1124,17 @@ document.addEventListener('DOMContentLoaded', function() {
         return cookieValue;
     }
 });
+
+// Toggle Canva Settings visibility
+function toggleCanvaSettings() {
+    const settingsCard = document.getElementById('canvaSettingsCard');
+    if (settingsCard.style.display === 'none') {
+        settingsCard.style.display = 'block';
+        settingsCard.scrollIntoView({ behavior: 'smooth' });
+    } else {
+        settingsCard.style.display = 'none';
+    }
+}
 </script>
 
 {% endblock %}

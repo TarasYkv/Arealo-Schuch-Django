@@ -76,13 +76,8 @@ def manage_api_keys(request):
     else:
         form = ApiKeyForm(instance=request.user)
     
-    # Canva-Einstellungen laden oder erstellen
-    from naturmacher.models import CanvaAPISettings
-    canva_settings, created = CanvaAPISettings.objects.get_or_create(user=request.user)
-    
     return render(request, 'accounts/manage_api_keys.html', {
-        'form': form,
-        'canva_settings': canva_settings
+        'form': form
     })
 
 
@@ -101,11 +96,10 @@ def canva_settings_view(request):
         canva_settings.save()
         
         messages.success(request, 'Canva-Einstellungen wurden erfolgreich gespeichert.')
-        return redirect('accounts:canva_settings')
+        return redirect('accounts:neue_api_einstellungen')
     
-    return render(request, 'accounts/canva_settings.html', {
-        'canva_settings': canva_settings
-    })
+    # Redirect to the consolidated API settings page for GET requests
+    return redirect('accounts:neue_api_einstellungen')
 
 
 @login_required
@@ -120,7 +114,7 @@ def canva_oauth_start(request):
         return redirect(auth_url)
     except Exception as e:
         messages.error(request, f'Fehler beim Starten der Canva-Autorisierung: {str(e)}')
-        return redirect('accounts:canva_settings')
+        return redirect('accounts:neue_api_einstellungen')
 
 
 @login_required
@@ -134,17 +128,17 @@ def canva_oauth_callback(request):
     
     if error:
         messages.error(request, f'Canva-Autorisierung fehlgeschlagen: {error}')
-        return redirect('accounts:canva_settings')
+        return redirect('accounts:neue_api_einstellungen')
     
     if not code:
         messages.error(request, 'Kein Autorisierungscode von Canva erhalten.')
-        return redirect('accounts:canva_settings')
+        return redirect('accounts:neue_api_einstellungen')
     
     # Sicherheitscheck: State validieren
     expected_state = f'user_{request.user.id}'
     if state != expected_state:
         messages.error(request, 'Sicherheitsfehler: Ungültiger State-Parameter.')
-        return redirect('accounts:canva_settings')
+        return redirect('accounts:neue_api_einstellungen')
     
     try:
         canva_service = CanvaAPIService(request.user)
@@ -158,7 +152,7 @@ def canva_oauth_callback(request):
     except Exception as e:
         messages.error(request, f'Fehler bei der Canva-Autorisierung: {str(e)}')
     
-    return redirect('accounts:canva_settings')
+    return redirect('accounts:neue_api_einstellungen')
 
 
 @login_required
@@ -178,7 +172,7 @@ def canva_disconnect(request):
         except CanvaAPISettings.DoesNotExist:
             pass
     
-    return redirect('accounts:canva_settings')
+    return redirect('accounts:neue_api_einstellungen')
 
 
 @login_required
@@ -339,8 +333,14 @@ def api_settings_view(request):
 
 @login_required
 def neue_api_einstellungen_view(request):
-    """Zeigt die neue API-Einstellungsseite an"""
-    return render(request, 'accounts/api_einstellungen.html')
+    """Zeigt die neue API-Einstellungsseite mit Canva-Integration an"""
+    # Canva-Einstellungen laden oder erstellen
+    from naturmacher.models import CanvaAPISettings
+    canva_settings, created = CanvaAPISettings.objects.get_or_create(user=request.user)
+    
+    return render(request, 'accounts/api_einstellungen.html', {
+        'canva_settings': canva_settings
+    })
 
 
 @login_required
@@ -842,42 +842,49 @@ def remove_api_key(request):
 @require_http_methods(["GET"])
 def get_usage_stats(request):
     """Lädt die Nutzungsstatistiken für den Benutzer"""
-    # TODO: Lade echte Statistiken aus der Datenbank
-    # Für jetzt geben wir Mock-Daten zurück
-    mock_stats = {
-        'success': True,
-        'period': 'Letzten 30 Tage',
-        'total_cost': 12.45,
-        'stats': {
-            'openai': {
-                'name': 'OpenAI (ChatGPT)',
-                'request_count': 150,
-                'total_cost': 8.20,
-                'total_tokens': 45000,
-                'last_used': '2025-01-02T10:30:00Z'
-            },
-            'anthropic': {
-                'name': 'Anthropic (Claude)',
-                'request_count': 75,
-                'total_cost': 3.50,
-                'total_tokens': 20000,
-                'last_used': '2025-01-01T15:20:00Z'
-            },
-            'google': {
-                'name': 'Google (Gemini)',
-                'request_count': 25,
-                'total_cost': 0.75,
-                'total_tokens': 8000,
-                'last_used': '2024-12-30T09:15:00Z'
-            },
-            'youtube': {
-                'name': 'YouTube Data API',
-                'request_count': 10,
-                'total_cost': 0.00,
-                'total_tokens': 0,
-                'last_used': null
+    try:
+        # TODO: Lade echte Statistiken aus der Datenbank
+        # Für jetzt geben wir Mock-Daten zurück
+        mock_stats = {
+            'success': True,
+            'period': 'Letzten 30 Tage',
+            'total_cost': 12.45,
+            'stats': {
+                'openai': {
+                    'name': 'OpenAI (ChatGPT)',
+                    'request_count': 150,
+                    'total_cost': 8.20,
+                    'total_tokens': 45000,
+                    'last_used': '2025-01-02T10:30:00Z'
+                },
+                'anthropic': {
+                    'name': 'Anthropic (Claude)',
+                    'request_count': 75,
+                    'total_cost': 3.50,
+                    'total_tokens': 20000,
+                    'last_used': '2025-01-01T15:20:00Z'
+                },
+                'google': {
+                    'name': 'Google (Gemini)',
+                    'request_count': 25,
+                    'total_cost': 0.75,
+                    'total_tokens': 8000,
+                    'last_used': '2024-12-30T09:15:00Z'
+                },
+                'youtube': {
+                    'name': 'YouTube Data API',
+                    'request_count': 10,
+                    'total_cost': 0.00,
+                    'total_tokens': 0,
+                    'last_used': None
+                }
             }
         }
-    }
-    
-    return JsonResponse(mock_stats)
+        
+        return JsonResponse(mock_stats)
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False, 
+            'error': f'Fehler beim Laden der Statistiken: {str(e)}'
+        })
