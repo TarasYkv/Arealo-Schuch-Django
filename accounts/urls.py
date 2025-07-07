@@ -24,6 +24,11 @@ urlpatterns = [
     path('api/balances/remove-key/', views.remove_api_key, name='remove_api_key'),
     path('api/usage/stats/', views.get_usage_stats, name='get_usage_stats'),
     
+    # Shopify Integration APIs
+    path('api/add-shopify-store/', views.add_shopify_store, name='add_shopify_store'),
+    path('api/test-shopify-connection/', views.test_shopify_connection, name='test_shopify_connection'),
+    path('api/delete-shopify-store/', views.delete_shopify_store, name='delete_shopify_store'),
+    
     # Kategorie-Management
     path('kategorien/', views.category_list, name='category_list'),
     path('kategorien/neu/', views.category_create, name='category_create'),

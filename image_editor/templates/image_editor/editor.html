@@ -164,9 +164,12 @@
                     </select>
                 </div>
                 
-                <div class="d-grid">
+                <div class="d-grid gap-2">
                     <button class="btn btn-success btn-sm" onclick="exportImage()">
                         <i class="fas fa-download"></i> Exportieren
+                    </button>
+                    <button class="btn btn-outline-warning btn-sm" onclick="showShopifyExport()">
+                        <i class="fab fa-shopify"></i> Zu Shopify
                     </button>
                 </div>
             </div>
@@ -191,8 +194,8 @@
             </div>
             <div class="card-body text-center">
                 <div id="image-container" class="position-relative">
-                    <img id="preview-image" src="{{ project.original_image.url }}" 
-                         class="img-fluid border rounded" style="max-height: 500px;" alt="{{ project.name }}">
+                    <img id="preview-image" src="{{ project.original_image.url|default:'' }}" 
+                         class="img-fluid border rounded" style="max-height: 500px;" alt="{{ project.name|default:'' }}">
                     
                     <!-- Loading Overlay -->
                     <div id="loading-overlay" class="position-absolute top-0 start-0 w-100 h-100 
@@ -337,8 +340,16 @@
     </div>
 </div>
 
+<!-- Hidden data elements for safe JavaScript access -->
+<script type="application/json" id="shopify-stores-data">{{ shopify_stores_json|default:"[]"|safe }}</script>
+
 <script>
-const projectId = {{ project.id }};
+// Project ID handling
+const projectId = {{ project.id|default:"null" }};
+if (!projectId || projectId === null || isNaN(projectId)) {
+    console.error('Project ID is not available or invalid');
+    alert('Projekt-ID nicht verfügbar. Bitte laden Sie die Seite neu.');
+}
 let processingQueue = [];
 let isProcessing = false;
 let currentFilterType = null;
@@ -349,31 +360,59 @@ let isLivePreviewActive = false;
 
 // Live-Vorschau aktualisieren
 function refreshPreview() {
+    if (!projectId) {
+        console.error('Cannot refresh preview: Project ID is not available');
+        return;
+    }
+    
     fetch(`/images/api/live-preview/${projectId}/`)
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
-            document.getElementById('preview-image').src = data.preview_base64;
+            const previewImage = document.getElementById('preview-image');
+            if (previewImage && data.preview_base64) {
+                previewImage.src = data.preview_base64;
+            }
             
             // Bildinfo aktualisieren
-            const info = data.image_info;
-            document.getElementById('image-info').textContent = 
-                `${info.width} × ${info.height} Pixel • ${info.mode}`;
+            const imageInfo = document.getElementById('image-info');
+            if (imageInfo && data.image_info) {
+                const info = data.image_info;
+                imageInfo.textContent = `${info.width} × ${info.height} Pixel • ${info.mode}`;
+            }
+        } else {
+            console.error('Preview refresh failed:', data.error);
         }
     })
-    .catch(error => console.error('Fehler beim Laden der Vorschau:', error));
+    .catch(error => {
+        console.error('Fehler beim Laden der Vorschau:', error);
+        showMessage('warning', 'Vorschau konnte nicht geladen werden. Bitte versuchen Sie es erneut.');
+    });
 }
 
 // Basis-Operationen
 function applyBasicOperation(operation) {
+    if (!projectId) {
+        showMessage('danger', 'Projekt-ID nicht verfügbar. Bitte laden Sie die Seite neu.');
+        return;
+    }
+    
     const parameters = {};
     
     if (operation === 'brightness') {
-        parameters.factor = parseFloat(document.getElementById('brightness-slider').value);
+        const sliderElement = document.getElementById('brightness-slider');
+        parameters.factor = sliderElement ? parseFloat(sliderElement.value) : 1.0;
     } else if (operation === 'contrast') {
-        parameters.factor = parseFloat(document.getElementById('contrast-slider').value);
+        const sliderElement = document.getElementById('contrast-slider');
+        parameters.factor = sliderElement ? parseFloat(sliderElement.value) : 1.0;
     } else if (operation === 'saturation') {
-        parameters.factor = parseFloat(document.getElementById('saturation-slider').value);
+        const sliderElement = document.getElementById('saturation-slider');
+        parameters.factor = sliderElement ? parseFloat(sliderElement.value) : 1.0;
     }
     
     processImage(operation, parameters);
@@ -381,7 +420,10 @@ function applyBasicOperation(operation) {
 
 // Slider-Operationen
 function applySliderOperation(operation, value) {
-    document.getElementById(`${operation}-value`).textContent = value;
+    const valueElement = document.getElementById(`${operation}-value`);
+    if (valueElement) {
+        valueElement.textContent = value;
+    }
     applyBasicOperation(operation);
 }
 
@@ -412,6 +454,11 @@ function showFilterSettings(filterType) {
     // Controls erstellen
     filterControls.innerHTML = createFilterControls(filterType);
     
+    // Event Listener für Slider hinzufügen
+    setTimeout(() => {
+        addFilterEventListeners(filterType);
+    }, 100);
+    
     // Panel anzeigen
     panel.style.display = 'block';
     filterSettings.style.display = 'block';
@@ -426,6 +473,106 @@ function showFilterSettings(filterType) {
     
     // Smooth scroll zum Panel
     panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Event Listener für Filter-Controls hinzufügen
+function addFilterEventListeners(filterType) {
+    switch(filterType) {
+        case 'emboss':
+            const embossStrength = document.getElementById('emboss-strength');
+            const embossValue = document.getElementById('emboss-strength-value');
+            if (embossStrength && embossValue) {
+                embossStrength.addEventListener('input', function() {
+                    embossValue.textContent = this.value;
+                    triggerLivePreview();
+                });
+            }
+            break;
+            
+        case 'edge_detect':
+            const edgeMethod = document.getElementById('edge-method');
+            const edgeLow = document.getElementById('edge-low');
+            const edgeHigh = document.getElementById('edge-high');
+            const edgeLowValue = document.getElementById('edge-low-value');
+            const edgeHighValue = document.getElementById('edge-high-value');
+            
+            if (edgeMethod) {
+                edgeMethod.addEventListener('change', triggerLivePreview);
+            }
+            if (edgeLow && edgeLowValue) {
+                edgeLow.addEventListener('input', function() {
+                    edgeLowValue.textContent = this.value;
+                    triggerLivePreview();
+                });
+            }
+            if (edgeHigh && edgeHighValue) {
+                edgeHigh.addEventListener('input', function() {
+                    edgeHighValue.textContent = this.value;
+                    triggerLivePreview();
+                });
+            }
+            break;
+            
+        case 'oil_painting':
+            const oilSize = document.getElementById('oil-size');
+            const oilLevels = document.getElementById('oil-levels');
+            const oilSizeValue = document.getElementById('oil-size-value');
+            const oilLevelsValue = document.getElementById('oil-levels-value');
+            
+            if (oilSize && oilSizeValue) {
+                oilSize.addEventListener('input', function() {
+                    oilSizeValue.textContent = this.value;
+                    triggerLivePreview();
+                });
+            }
+            if (oilLevels && oilLevelsValue) {
+                oilLevels.addEventListener('input', function() {
+                    oilLevelsValue.textContent = this.value;
+                    triggerLivePreview();
+                });
+            }
+            break;
+            
+        case 'pencil_sketch':
+            const pencilLine = document.getElementById('pencil-line');
+            const pencilBlur = document.getElementById('pencil-blur');
+            const pencilLineValue = document.getElementById('pencil-line-value');
+            const pencilBlurValue = document.getElementById('pencil-blur-value');
+            
+            if (pencilLine && pencilLineValue) {
+                pencilLine.addEventListener('input', function() {
+                    pencilLineValue.textContent = this.value;
+                    triggerLivePreview();
+                });
+            }
+            if (pencilBlur && pencilBlurValue) {
+                pencilBlur.addEventListener('input', function() {
+                    pencilBlurValue.textContent = this.value;
+                    triggerLivePreview();
+                });
+            }
+            break;
+            
+        case 'vintage':
+            const vintageSepia = document.getElementById('vintage-sepia');
+            const vintageVignette = document.getElementById('vintage-vignette');
+            const vintageSepiaValue = document.getElementById('vintage-sepia-value');
+            const vintageVignetteValue = document.getElementById('vintage-vignette-value');
+            
+            if (vintageSepia && vintageSepiaValue) {
+                vintageSepia.addEventListener('input', function() {
+                    vintageSepiaValue.textContent = this.value;
+                    triggerLivePreview();
+                });
+            }
+            if (vintageVignette && vintageVignetteValue) {
+                vintageVignette.addEventListener('input', function() {
+                    vintageVignetteValue.textContent = this.value;
+                    triggerLivePreview();
+                });
+            }
+            break;
+    }
 }
 
 // Gravur-Einstellungen anzeigen  
@@ -866,7 +1013,7 @@ function vectorizeImage() {
                 // SVG in neuem Fenster anzeigen
                 const newWindow = window.open('', '_blank');
                 newWindow.document.write(data.svg_content);
-                newWindow.document.title = 'Vektorisiert: ' + '{{ project.name }}';
+                newWindow.document.title = 'Vektorisiert: ' + ('{{ project.name|default:"Unbekannt"|escapejs }}');
             }
             addToHistory('vectorize', {threshold: 128, simplify_tolerance: 1.0});
         } else {
@@ -908,7 +1055,7 @@ function exportImage() {
             // Download starten
             const downloadLink = document.createElement('a');
             downloadLink.href = data.download_url;
-            downloadLink.download = `{{ project.name }}_export.${format.toLowerCase()}`;
+            downloadLink.download = `${'{{ project.name|default:"export"|escapejs }}'}_export.${format.toLowerCase()}`;
             downloadLink.click();
         } else {
             showMessage('danger', data.error);
@@ -922,6 +1069,11 @@ function exportImage() {
 
 // Bild-Verarbeitung
 function processImage(operation, parameters) {
+    if (!projectId) {
+        showMessage('danger', 'Projekt-ID nicht verfügbar. Bitte laden Sie die Seite neu.');
+        return;
+    }
+    
     showLoadingWithTimeout();
     
     fetch('/images/api/process-image/', {
@@ -936,31 +1088,43 @@ function processImage(operation, parameters) {
             parameters: parameters
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         hideLoadingAndClearTimeout();
         if (data.success) {
             showMessage('success', data.message);
             if (data.preview_base64) {
-                document.getElementById('preview-image').src = data.preview_base64;
+                const previewImage = document.getElementById('preview-image');
+                if (previewImage) {
+                    previewImage.src = data.preview_base64;
+                }
             } else {
                 refreshPreview();
             }
             addToHistory(operation, parameters);
         } else {
-            showMessage('danger', data.error);
+            showMessage('danger', data.error || 'Unbekannter Fehler bei der Verarbeitung');
         }
     })
     .catch(error => {
         hideLoadingAndClearTimeout();
-        showMessage('danger', 'Fehler bei der Verarbeitung: ' + error);
+        console.error('Processing error:', error);
+        showMessage('danger', 'Fehler bei der Verarbeitung: ' + error.message);
     });
 }
 
 // Auf Original zurücksetzen
 function resetToOriginal() {
     if (confirm('Alle Bearbeitungen zurücksetzen und zum Original zurückkehren?')) {
-        document.getElementById('preview-image').src = '{{ project.original_image.url }}';
+        const originalImageUrl = '{{ project.original_image.url|default:""|escapejs }}';
+        if (originalImageUrl) {
+            document.getElementById('preview-image').src = originalImageUrl;
+        }
         
         // Slider zurücksetzen
         document.getElementById('brightness-slider').value = 1.0;
@@ -1064,33 +1228,43 @@ function getCookie(name) {
 function getFilterParameters(filterType) {
     switch(filterType) {
         case 'emboss':
+            const embossStrength = document.getElementById('emboss-strength');
             return {
-                strength: parseFloat(document.getElementById('emboss-strength').value)
+                strength: embossStrength ? parseFloat(embossStrength.value) : 1.0
             };
         
         case 'edge_detect':
+            const edgeMethod = document.getElementById('edge-method');
+            const edgeLow = document.getElementById('edge-low');
+            const edgeHigh = document.getElementById('edge-high');
             return {
-                method: document.getElementById('edge-method').value,
-                low_threshold: parseInt(document.getElementById('edge-low').value),
-                high_threshold: parseInt(document.getElementById('edge-high').value)
+                method: edgeMethod ? edgeMethod.value : 'canny',
+                low_threshold: edgeLow ? parseInt(edgeLow.value) : 50,
+                high_threshold: edgeHigh ? parseInt(edgeHigh.value) : 150
             };
         
         case 'oil_painting':
+            const oilSize = document.getElementById('oil-size');
+            const oilLevels = document.getElementById('oil-levels');
             return {
-                size: parseInt(document.getElementById('oil-size').value),
-                levels: parseInt(document.getElementById('oil-levels').value)
+                size: oilSize ? parseInt(oilSize.value) : 7,
+                levels: oilLevels ? parseInt(oilLevels.value) : 8
             };
         
         case 'pencil_sketch':
+            const pencilLine = document.getElementById('pencil-line');
+            const pencilBlur = document.getElementById('pencil-blur');
             return {
-                line_size: parseInt(document.getElementById('pencil-line').value),
-                blur_value: parseInt(document.getElementById('pencil-blur').value)
+                line_size: pencilLine ? parseInt(pencilLine.value) : 7,
+                blur_value: pencilBlur ? parseInt(pencilBlur.value) : 7
             };
         
         case 'vintage':
+            const vintageSepia = document.getElementById('vintage-sepia');
+            const vintageVignette = document.getElementById('vintage-vignette');
             return {
-                sepia_strength: parseFloat(document.getElementById('vintage-sepia').value),
-                vignette_strength: parseFloat(document.getElementById('vintage-vignette').value)
+                sepia_strength: vintageSepia ? parseFloat(vintageSepia.value) : 0.8,
+                vignette_strength: vintageVignette ? parseFloat(vintageVignette.value) : 0.3
             };
         
         default:
@@ -1102,27 +1276,36 @@ function getFilterParameters(filterType) {
 function getGravurParameters(toolType) {
     switch(toolType) {
         case 'remove_background':
+            const bgModel = document.getElementById('bg-model');
             return {
-                model: document.getElementById('bg-model').value
+                model: bgModel ? bgModel.value : 'u2net'
             };
         
         case 'prepare_engraving':
+            const engraveBeam = document.getElementById('engrave-beam');
+            const engraveLine = document.getElementById('engrave-line');
+            const engraveDepth = document.getElementById('engrave-depth');
             return {
-                beam_width: parseFloat(document.getElementById('engrave-beam').value),
-                line_thickness: parseFloat(document.getElementById('engrave-line').value),
-                depth_levels: parseInt(document.getElementById('engrave-depth').value)
+                beam_width: engraveBeam ? parseFloat(engraveBeam.value) : 0.1,
+                line_thickness: engraveLine ? parseFloat(engraveLine.value) : 0.1,
+                depth_levels: engraveDepth ? parseInt(engraveDepth.value) : 5
             };
         
         case 'vectorize':
+            const vectorThreshold = document.getElementById('vector-threshold');
+            const vectorSimplify = document.getElementById('vector-simplify');
+            const vectorEnhance = document.getElementById('vector-enhance');
+            const vectorLineWidth = document.getElementById('vector-line-width');
+            
             const parameters = {
-                threshold: parseInt(document.getElementById('vector-threshold').value),
-                simplify_tolerance: parseFloat(document.getElementById('vector-simplify').value)
+                threshold: vectorThreshold ? parseInt(vectorThreshold.value) : 128,
+                simplify_tolerance: vectorSimplify ? parseFloat(vectorSimplify.value) : 1.0
             };
             
             // Prüfe ob Linienverstärkung aktiviert ist
-            if (document.getElementById('vector-enhance').checked) {
+            if (vectorEnhance && vectorEnhance.checked) {
                 parameters.enhance_lines = true;
-                parameters.line_width = parseInt(document.getElementById('vector-line-width').value);
+                parameters.line_width = vectorLineWidth ? parseInt(vectorLineWidth.value) : 2;
             } else {
                 parameters.enhance_lines = false;
             }
@@ -1316,7 +1499,7 @@ function confirmGravurSettings() {
             if (data.svg_content && currentGravurType === 'vectorize') {
                 const newWindow = window.open('', '_blank');
                 newWindow.document.write(data.svg_content);
-                newWindow.document.title = 'Vektorisiert: ' + '{{ project.name }}';
+                newWindow.document.title = 'Vektorisiert: ' + ('{{ project.name|default:"Unbekannt"|escapejs }}');
             }
             addToHistory(currentGravurType, parameters);
             hideSettings();
@@ -1397,12 +1580,343 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event Listener für Settings hinzufügen
     addSettingsEventListeners();
     
-    // Initial Preview laden (ohne Loading-Spinner für das erste Laden)
-    setTimeout(() => {
-        refreshPreview();
-    }, 100); // Kurze Verzögerung für bessere UX
+    // Prüfe ob das Bild bereits geladen ist
+    const previewImage = document.getElementById('preview-image');
+    if (previewImage) {
+        // Wenn das Bild bereits eine src hat, ist es geladen
+        if (previewImage.src && previewImage.src !== window.location.href) {
+            console.log('Image already loaded from template');
+        } else {
+            console.log('Loading image via API');
+            // Initial Preview laden (ohne Loading-Spinner für das erste Laden)
+            setTimeout(() => {
+                refreshPreview();
+            }, 100); // Kurze Verzögerung für bessere UX
+        }
+    }
 });
+
+// === Shopify Export Functions ===
+function showShopifyExport() {
+    try {
+        const modal = new bootstrap.Modal(document.getElementById('shopifyExportModal'));
+        loadShopifyStores();
+        
+        // Safely set the project name in the product title field
+        const productTitleField = document.getElementById('productTitle');
+        if (productTitleField) {
+            // Get project name safely
+            const projectNameElement = document.querySelector('h1 .h2');
+            if (projectNameElement) {
+                const fullText = projectNameElement.textContent;
+                const projectName = fullText.replace('Bildeditor: ', '').trim();
+                productTitleField.value = projectName;
+            }
+        }
+        
+        // Event listeners für Export Type radio buttons
+        const exportTypeRadios = document.querySelectorAll('input[name="exportType"]');
+        exportTypeRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                const newProductFields = document.getElementById('newProductFields');
+                const existingProductFields = document.getElementById('existingProductFields');
+                
+                if (this.value === 'new_product') {
+                    if (newProductFields) newProductFields.style.display = 'block';
+                    if (existingProductFields) existingProductFields.style.display = 'none';
+                } else {
+                    if (newProductFields) newProductFields.style.display = 'none';
+                    if (existingProductFields) existingProductFields.style.display = 'block';
+                }
+            });
+        });
+        
+        modal.show();
+    } catch (error) {
+        console.error('Error in showShopifyExport:', error);
+        alert('Fehler beim Öffnen der Shopify-Export Einstellungen');
+    }
+}
+
+function loadShopifyStores() {
+    try {
+        const storeSelect = document.getElementById('shopifyStoreSelect');
+        if (!storeSelect) {
+            console.error('Shopify store select element not found');
+            return;
+        }
+        
+        storeSelect.innerHTML = '<option value="">-- Store auswählen --</option>';
+        
+        // Safer template variable handling
+        const storesJsonElement = document.getElementById('shopify-stores-data');
+        let stores = [];
+        
+        if (storesJsonElement && storesJsonElement.textContent.trim()) {
+            try {
+                stores = JSON.parse(storesJsonElement.textContent);
+            } catch (parseError) {
+                console.error('Error parsing stores JSON:', parseError);
+                stores = [];
+            }
+        }
+        
+        if (stores && stores.length > 0) {
+            stores.forEach(store => {
+                const option = document.createElement('option');
+                option.value = store.id || '';
+                option.textContent = `${store.name || 'Unnamed Store'} (${store.shop_domain || 'No Domain'})`;
+                storeSelect.appendChild(option);
+            });
+        } else {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'Keine Stores verfügbar - Erst in API-Einstellungen konfigurieren';
+            storeSelect.appendChild(option);
+        }
+    } catch (error) {
+        console.error('Error in loadShopifyStores:', error);
+        const storeSelect = document.getElementById('shopifyStoreSelect');
+        if (storeSelect) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'Fehler beim Laden der Stores';
+            storeSelect.appendChild(option);
+        }
+    }
+}
+
+function loadShopifyProducts() {
+    const storeSelect = document.getElementById('shopifyStoreSelect');
+    const productSelect = document.getElementById('existingProductSelect');
+    const storeId = storeSelect.value;
+    
+    if (!storeId) {
+        alert('Bitte wählen Sie zuerst einen Store aus.');
+        return;
+    }
+    
+    productSelect.innerHTML = '<option value="">Laden...</option>';
+    
+    fetch('/images/api/shopify-products/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            store_id: storeId,
+            limit: 100
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        productSelect.innerHTML = '<option value="">-- Produkt auswählen --</option>';
+        
+        if (data.success && data.products.length > 0) {
+            data.products.forEach(product => {
+                const option = document.createElement('option');
+                option.value = product.id;
+                option.textContent = `${product.title} (${product.image_count} Bilder)`;
+                productSelect.appendChild(option);
+            });
+        } else {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = data.error || 'Keine Produkte gefunden';
+            productSelect.appendChild(option);
+        }
+    })
+    .catch(error => {
+        console.error('Error loading products:', error);
+        productSelect.innerHTML = '<option value="">Fehler beim Laden</option>';
+    });
+}
+
+function confirmShopifyExport() {
+    const storeSelect = document.getElementById('shopifyStoreSelect');
+    const exportType = document.querySelector('input[name="exportType"]:checked').value;
+    const storeId = storeSelect.value;
+    // Using the globally defined projectId from above
+    
+    if (!storeId) {
+        alert('Bitte wählen Sie einen Store aus.');
+        return;
+    }
+    
+    let exportData = {
+        store_id: storeId,
+        project_id: projectId,
+        export_type: exportType
+    };
+    
+    if (exportType === 'new_product') {
+        const productTitle = document.getElementById('productTitle').value;
+        const productDescription = document.getElementById('productDescription').value;
+        const altText = document.getElementById('altText').value;
+        
+        if (!productTitle.trim()) {
+            alert('Bitte geben Sie einen Produktnamen ein.');
+            return;
+        }
+        
+        exportData.product_title = productTitle;
+        exportData.product_description = productDescription;
+        exportData.alt_text = altText;
+    } else {
+        const productSelect = document.getElementById('existingProductSelect');
+        const existingAltText = document.getElementById('existingAltText').value;
+        const productId = productSelect.value;
+        
+        if (!productId) {
+            alert('Bitte wählen Sie ein Produkt aus.');
+            return;
+        }
+        
+        exportData.product_id = productId;
+        exportData.alt_text = existingAltText;
+    }
+    
+    // Modal schließen
+    const modal = bootstrap.Modal.getInstance(document.getElementById('shopifyExportModal'));
+    modal.hide();
+    
+    // Loading-Toast anzeigen
+    const loadingToast = document.createElement('div');
+    loadingToast.className = 'toast position-fixed top-0 end-0 m-3';
+    loadingToast.innerHTML = `
+        <div class="toast-body">
+            <div class="d-flex align-items-center">
+                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                <span>Export zu Shopify läuft...</span>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(loadingToast);
+    const toast = new bootstrap.Toast(loadingToast);
+    toast.show();
+    
+    // Export API aufrufen
+    fetch('/images/api/shopify-export-image/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(exportData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        toast.hide();
+        loadingToast.remove();
+        
+        if (data.success) {
+            // Erfolgs-Toast
+            showMessage('success', data.message);
+        } else {
+            showMessage('danger', `Export fehlgeschlagen: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        toast.hide();
+        loadingToast.remove();
+        showMessage('danger', 'Netzwerkfehler beim Export');
+        console.error('Error:', error);
+    });
+}
 </script>
+
+<!-- Shopify Export Modal -->
+<div class="modal fade" id="shopifyExportModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fab fa-shopify"></i> Zu Shopify exportieren</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Store Auswahl -->
+                <div class="mb-3">
+                    <label class="form-label">Shopify Store</label>
+                    <select class="form-select" id="shopifyStoreSelect">
+                        <option value="">Laden...</option>
+                    </select>
+                </div>
+                
+                <!-- Export Type -->
+                <div class="mb-3">
+                    <label class="form-label">Export-Typ</label>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="exportType" id="newProduct" value="new_product" checked>
+                                <label class="form-check-label" for="newProduct">
+                                    <strong>Neues Produkt erstellen</strong>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="exportType" id="existingProduct" value="existing_product">
+                                <label class="form-check-label" for="existingProduct">
+                                    <strong>Zu bestehendem Produkt hinzufügen</strong>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Neues Produkt Felder -->
+                <div id="newProductFields">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Produktname</label>
+                                <input type="text" class="form-control" id="productTitle" value="">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Alt-Text</label>
+                                <input type="text" class="form-control" id="altText" placeholder="Beschreibung des Bildes">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Produktbeschreibung</label>
+                        <textarea class="form-control" id="productDescription" rows="3" 
+                                  placeholder="Detaillierte Beschreibung des Produkts"></textarea>
+                    </div>
+                </div>
+                
+                <!-- Bestehendes Produkt Felder -->
+                <div id="existingProductFields" style="display: none;">
+                    <div class="mb-3">
+                        <label class="form-label">Produkt auswählen</label>
+                        <select class="form-select" id="existingProductSelect">
+                            <option value="">Erst Store auswählen...</option>
+                        </select>
+                        <div class="form-text">
+                            <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="loadShopifyProducts()">
+                                <i class="fas fa-sync"></i> Produkte laden
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Alt-Text</label>
+                        <input type="text" class="form-control" id="existingAltText" placeholder="Beschreibung des Bildes">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-warning" onclick="confirmShopifyExport()" id="shopifyExportBtn">
+                    <i class="fab fa-shopify"></i> Zu Shopify exportieren
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <style>
 #image-container {
@@ -1472,5 +1986,6 @@ document.addEventListener('DOMContentLoaded', function() {
     box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
 }
 </style>
+
 
 {% endblock %}
