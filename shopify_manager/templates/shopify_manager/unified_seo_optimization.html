@@ -1,0 +1,246 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}SEO-Optimierung - Shopify Manager{% endblock %}
+
+{% block shopify_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-robot text-primary"></i> SEO-Optimierung
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{% url 'shopify_manager:dashboard' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Zurück zum Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Filter und Suche -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Filter und Suche</h5>
+            </div>
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Store</label>
+                        <select name="store" class="form-select">
+                            <option value="">Alle Stores</option>
+                            {% for store in stores %}
+                                <option value="{{ store.id }}" {% if store.id|stringformat:"s" == store_filter %}selected{% endif %}>
+                                    {{ store.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Content-Typ</label>
+                        <select name="content_type" class="form-select">
+                            <option value="all" {% if content_type == 'all' %}selected{% endif %}>Alle</option>
+                            <option value="products" {% if content_type == 'products' %}selected{% endif %}>Nur Produkte</option>
+                            <option value="blog_posts" {% if content_type == 'blog_posts' %}selected{% endif %}>Nur Blog-Posts</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Suche</label>
+                        <input type="text" name="search" class="form-control" placeholder="Titel oder Inhalt..." value="{{ search_query }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="submit" class="btn btn-primary d-block">
+                            <i class="fas fa-search"></i> Suchen
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Inhaltsliste -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-list"></i> 
+                    {% if content_type == 'products' %}
+                        Produkte
+                    {% elif content_type == 'blog_posts' %}
+                        Blog-Posts
+                    {% else %}
+                        Alle Inhalte
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if items %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Typ</th>
+                                    <th>Titel</th>
+                                    <th>Store</th>
+                                    <th>SEO-Status</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in items %}
+                                <tr>
+                                    <td>
+                                        {% if item_type == 'mixed' %}
+                                            {% if item.type == 'product' %}
+                                                <span class="badge bg-primary">
+                                                    <i class="fas fa-box"></i> Produkt
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-blog"></i> Blog-Post
+                                                </span>
+                                            {% endif %}
+                                        {% elif item_type == 'product' %}
+                                            <span class="badge bg-primary">
+                                                <i class="fas fa-box"></i> Produkt
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-blog"></i> Blog-Post
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <strong>
+                                            {% if item_type == 'mixed' %}
+                                                {{ item.title }}
+                                            {% else %}
+                                                {{ item.title }}
+                                            {% endif %}
+                                        </strong>
+                                    </td>
+                                    <td>
+                                        {% if item_type == 'mixed' %}
+                                            {{ item.store.name }}
+                                        {% elif item_type == 'product' %}
+                                            {{ item.store.name }}
+                                        {% else %}
+                                            {{ item.blog.store.name }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if item_type == 'mixed' %}
+                                            {% if item.seo_title and item.seo_description %}
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-check"></i> Vollständig
+                                                </span>
+                                            {% elif item.seo_title or item.seo_description %}
+                                                <span class="badge bg-warning">
+                                                    <i class="fas fa-exclamation-triangle"></i> Teilweise
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-danger">
+                                                    <i class="fas fa-times"></i> Fehlt
+                                                </span>
+                                            {% endif %}
+                                        {% else %}
+                                            {% if item.seo_title and item.seo_description %}
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-check"></i> Vollständig
+                                                </span>
+                                            {% elif item.seo_title or item.seo_description %}
+                                                <span class="badge bg-warning">
+                                                    <i class="fas fa-exclamation-triangle"></i> Teilweise
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-danger">
+                                                    <i class="fas fa-times"></i> Fehlt
+                                                </span>
+                                            {% endif %}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if item_type == 'mixed' %}
+                                            {% if item.type == 'product' %}
+                                                <a href="{% url 'shopify_manager:integrated_seo_optimization' 'product' item.object.id %}" class="btn btn-sm btn-primary">
+                                                    <i class="fas fa-robot"></i> Do-SEO
+                                                </a>
+                                            {% else %}
+                                                <a href="{% url 'shopify_manager:integrated_seo_optimization' 'blog_post' item.object.id %}" class="btn btn-sm btn-primary">
+                                                    <i class="fas fa-robot"></i> Do-SEO
+                                                </a>
+                                            {% endif %}
+                                        {% elif item_type == 'product' %}
+                                            <a href="{% url 'shopify_manager:integrated_seo_optimization' 'product' item.id %}" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-robot"></i> Do-SEO
+                                            </a>
+                                        {% else %}
+                                            <a href="{% url 'shopify_manager:integrated_seo_optimization' 'blog_post' item.id %}" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-robot"></i> Do-SEO
+                                            </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    {% if page_obj.has_other_pages %}
+                        <nav aria-label="Pagination">
+                            <ul class="pagination justify-content-center">
+                                {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if store_filter %}&store={{ store_filter }}{% endif %}{% if content_type %}&content_type={{ content_type }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                            <i class="fas fa-chevron-left"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                                
+                                {% for page_num in page_obj.paginator.page_range %}
+                                    {% if page_num == page_obj.number %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ page_num }}</span>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ page_num }}{% if store_filter %}&store={{ store_filter }}{% endif %}{% if content_type %}&content_type={{ content_type }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                                {{ page_num }}
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if store_filter %}&store={{ store_filter }}{% endif %}{% if content_type %}&content_type={{ content_type }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}">
+                                            <i class="fas fa-chevron-right"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                        <h4 class="text-muted">Keine Inhalte gefunden</h4>
+                        <p class="text-muted">
+                            {% if search_query %}
+                                Keine Ergebnisse für "{{ search_query }}" gefunden.
+                            {% else %}
+                                Keine Produkte oder Blog-Posts vorhanden.
+                            {% endif %}
+                        </p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

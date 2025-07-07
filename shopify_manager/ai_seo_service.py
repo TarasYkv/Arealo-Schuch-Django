@@ -88,10 +88,22 @@ class OpenAIService(AIService):
                 data = response.json()
                 content = data['choices'][0]['message']['content']
                 
-                # Parse JSON response
+                # Parse JSON response (remove markdown code blocks if present)
                 try:
-                    result = json.loads(content)
+                    # Entferne Markdown-Code-Blöcke falls vorhanden
+                    cleaned_content = content.strip()
+                    if cleaned_content.startswith('```json'):
+                        cleaned_content = cleaned_content[7:]  # Entferne ```json
+                    if cleaned_content.startswith('```'):
+                        cleaned_content = cleaned_content[3:]  # Entferne ```
+                    if cleaned_content.endswith('```'):
+                        cleaned_content = cleaned_content[:-3]  # Entferne ```
+                    cleaned_content = cleaned_content.strip()
+                    
+                    result = json.loads(cleaned_content)
                     return True, {
+                        'title': result.get('title', ''),
+                        'description': result.get('description', ''),
                         'seo_title': result.get('seo_title', '')[:70],  # Limit zu 70 Zeichen
                         'seo_description': result.get('seo_description', '')[:160]  # Limit zu 160 Zeichen
                     }, "SEO-Inhalte erfolgreich generiert"
@@ -116,6 +128,8 @@ Erstelle für folgendes Produkt einen SEO-optimierten Titel und eine SEO-Beschre
 **Ziel-Keywords:** {keywords_str}
 
 **Anforderungen:**
+- Titel: Optimierter Haupttitel für das Produkt, keyword-optimiert, ansprechend
+- Beschreibung: Optimierte Produktbeschreibung, verkaufsfördernd, detailliert
 - SEO-Titel: maximal 70 Zeichen, keyword-optimiert, ansprechend
 - SEO-Beschreibung: maximal 160 Zeichen, keyword-optimiert, verkaufsfördernd
 - Natürlich wirkende Integration der Keywords
@@ -124,6 +138,8 @@ Erstelle für folgendes Produkt einen SEO-optimierten Titel und eine SEO-Beschre
 
 **Antwortformat (nur JSON):**
 {{
+    "title": "Der optimierte Haupttitel hier",
+    "description": "Die optimierte Hauptbeschreibung hier",
     "seo_title": "Der optimierte SEO-Titel hier",
     "seo_description": "Die optimierte SEO-Beschreibung hier"
 }}
@@ -192,10 +208,22 @@ class ClaudeService(AIService):
                 data = response.json()
                 content = data['content'][0]['text']
                 
-                # Parse JSON response
+                # Parse JSON response (remove markdown code blocks if present)
                 try:
-                    result = json.loads(content)
+                    # Entferne Markdown-Code-Blöcke falls vorhanden
+                    cleaned_content = content.strip()
+                    if cleaned_content.startswith('```json'):
+                        cleaned_content = cleaned_content[7:]  # Entferne ```json
+                    if cleaned_content.startswith('```'):
+                        cleaned_content = cleaned_content[3:]  # Entferne ```
+                    if cleaned_content.endswith('```'):
+                        cleaned_content = cleaned_content[:-3]  # Entferne ```
+                    cleaned_content = cleaned_content.strip()
+                    
+                    result = json.loads(cleaned_content)
                     return True, {
+                        'title': result.get('title', ''),
+                        'description': result.get('description', ''),
                         'seo_title': result.get('seo_title', '')[:70],
                         'seo_description': result.get('seo_description', '')[:160]
                     }, "SEO-Inhalte erfolgreich generiert"
@@ -229,6 +257,132 @@ Du bist ein SEO-Experte. Erstelle für folgendes E-Commerce-Produkt einen SEO-op
 
 Antworte nur mit validem JSON in folgendem Format:
 {{
+    "title": "Der optimierte Haupttitel hier",
+    "description": "Die optimierte Hauptbeschreibung hier",
+    "seo_title": "Der optimierte SEO-Titel hier",
+    "seo_description": "Die optimierte SEO-Beschreibung hier"
+}}
+"""
+
+
+class GeminiService(AIService):
+    """Google Gemini-basierter SEO-Service"""
+    
+    def __init__(self, model: str = "gemini-1.5-flash", user=None):
+        self.model = model
+        self.user = user
+        
+        # Versuche API-Key aus verschiedenen Quellen zu holen
+        self.api_key = self._get_api_key()
+        if not self.api_key:
+            raise ValueError("Google Gemini API-Key nicht verfügbar. Bitte in den API-Einstellungen konfigurieren.")
+    
+    def _get_api_key(self):
+        """Holt API-Key aus verschiedenen Quellen"""
+        try:
+            # 1. Aus Benutzer-API-Einstellungen (bevorzugt)
+            if self.user and self.user.is_authenticated:
+                from naturmacher.utils.api_helpers import get_user_api_key
+                user_key = get_user_api_key(self.user, 'google')
+                if user_key:
+                    return user_key
+            
+            # 2. Fallback zu gemeinsamer Hilfsfunktion
+            from naturmacher.utils.api_helpers import get_env_api_key
+            return get_env_api_key('google')
+                
+        except ImportError:
+            # Falls naturmacher.utils.api_helpers nicht verfügbar
+            pass
+        except Exception as e:
+            print(f"Fehler beim API-Key Abruf: {e}")
+        
+        return None
+    
+    def generate_seo(self, product_title: str, product_description: str, keywords: list) -> Tuple[bool, Dict, str]:
+        try:
+            prompt = self._build_prompt(product_title, product_description, keywords)
+            
+            # Gemini API Endpoint
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
+            
+            response = requests.post(
+                url,
+                headers={
+                    'Content-Type': 'application/json'
+                },
+                json={
+                    "contents": [{
+                        "parts": [{
+                            "text": prompt
+                        }]
+                    }],
+                    "generationConfig": {
+                        "temperature": 0.7,
+                        "topK": 40,
+                        "topP": 0.95,
+                        "maxOutputTokens": 300,
+                    }
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if 'candidates' in data and len(data['candidates']) > 0:
+                    content = data['candidates'][0]['content']['parts'][0]['text']
+                    
+                    # Parse JSON response (remove markdown code blocks if present)
+                    try:
+                        # Entferne Markdown-Code-Blöcke falls vorhanden
+                        cleaned_content = content.strip()
+                        if cleaned_content.startswith('```json'):
+                            cleaned_content = cleaned_content[7:]  # Entferne ```json
+                        if cleaned_content.startswith('```'):
+                            cleaned_content = cleaned_content[3:]  # Entferne ```
+                        if cleaned_content.endswith('```'):
+                            cleaned_content = cleaned_content[:-3]  # Entferne ```
+                        cleaned_content = cleaned_content.strip()
+                        
+                        result = json.loads(cleaned_content)
+                        return True, {
+                            'seo_title': result.get('seo_title', '')[:70],
+                            'seo_description': result.get('seo_description', '')[:160]
+                        }, "SEO-Inhalte erfolgreich generiert"
+                    except json.JSONDecodeError:
+                        return False, {}, f"Ungültige JSON-Antwort: {content}"
+                else:
+                    return False, {}, "Keine Antwort von Gemini erhalten"
+            else:
+                return False, {}, f"Gemini API Fehler: {response.status_code} - {response.text}"
+                
+        except Exception as e:
+            return False, {}, f"Fehler bei Gemini-Request: {str(e)}"
+    
+    def _build_prompt(self, title: str, description: str, keywords: list) -> str:
+        keywords_str = ', '.join(keywords) if keywords else "keine spezifischen Keywords"
+        
+        return f"""
+Du bist ein SEO-Experte. Erstelle für folgendes E-Commerce-Produkt einen SEO-optimierten Titel und eine SEO-Beschreibung:
+
+**Produkttitel:** {title}
+
+**Produktbeschreibung:** {description[:500]}...
+
+**Ziel-Keywords:** {keywords_str}
+
+**Anforderungen:**
+- SEO-Titel: maximal 70 Zeichen, keyword-optimiert, ansprechend für Suchmaschinen
+- SEO-Beschreibung: maximal 160 Zeichen, keyword-optimiert, verkaufsfördernd
+- Natürliche Integration der Keywords (kein Keyword-Stuffing)
+- Deutsche Sprache mit "du"-Form für persönliche Ansprache
+- Verwende "du", "dein", "dir" statt "Sie", "Ihr", "Ihnen"
+- Fokus auf Conversion-Optimierung
+
+Antworte nur mit validem JSON in folgendem Format:
+{{
+    "title": "Der optimierte Haupttitel hier",
+    "description": "Die optimierte Hauptbeschreibung hier",
     "seo_title": "Der optimierte SEO-Titel hier",
     "seo_description": "Die optimierte SEO-Beschreibung hier"
 }}
@@ -246,28 +400,82 @@ class MockAIService(AIService):
         mock_description = f"✅ {product_title} - Hochwertig & {keywords_str}. Jetzt günstig für dich ✅" if keywords_str else f"✅ {product_title} - Hochwertig & zuverlässig. Perfekt für dich ✅"
         
         return True, {
+            'title': product_title,
+            'description': product_description[:500] if product_description else "Hochwertige Produktbeschreibung",
             'seo_title': mock_title[:70],
             'seo_description': mock_description[:160]
         }, "Mock SEO-Inhalte generiert"
 
 
 def get_ai_service(model_name: str, user=None) -> AIService:
-    """Factory-Funktion für AI-Services"""
+    """Factory-Funktion für AI-Services mit aktuellen Modell-Mappings"""
     
-    if model_name.startswith('openai-'):
-        model = 'gpt-4' if 'gpt4' in model_name else 'gpt-3.5-turbo'
+    # OpenAI/ChatGPT Modelle
+    if model_name.startswith('gpt-') or model_name.startswith('o'):
+        if model_name == 'gpt-4.1':
+            model = 'gpt-4-turbo'  # Neuestes verfügbares Modell
+        elif model_name == 'gpt-4.1-mini':
+            model = 'gpt-4o-mini'
+        elif model_name == 'gpt-4.1-nano':
+            model = 'gpt-4o-mini'
+        elif model_name == 'gpt-4o':
+            model = 'gpt-4o'
+        elif model_name == 'gpt-4o-mini':
+            model = 'gpt-4o-mini'
+        elif model_name == 'gpt-4-turbo':
+            model = 'gpt-4-turbo'
+        elif model_name == 'gpt-4':
+            model = 'gpt-4'
+        elif model_name == 'gpt-3.5-turbo':
+            model = 'gpt-3.5-turbo'
+        elif model_name == 'o3':
+            model = 'o1-preview'  # Mapping to available model
+        elif model_name == 'o4-mini':
+            model = 'o1-mini'  # Mapping to available model
+        else:
+            model = 'gpt-4o'  # Default zu neuem Standardmodell
         return OpenAIService(model, user=user)
+        
+    # Claude (Anthropic) Modelle
     elif model_name.startswith('claude-'):
-        if 'sonnet' in model_name:
+        if model_name == 'claude-opus-4':
+            model = 'claude-3-opus-20240229'  # Mapping to available model
+        elif model_name == 'claude-sonnet-4':
+            model = 'claude-3-5-sonnet-20241022'  # Mapping to latest Sonnet
+        elif model_name == 'claude-sonnet-3.7':
             model = 'claude-3-5-sonnet-20241022'
-        elif 'haiku' in model_name:
+        elif model_name == 'claude-sonnet-3.5-new':
+            model = 'claude-3-5-sonnet-20241022'
+        elif model_name == 'claude-sonnet-3.5':
+            model = 'claude-3-5-sonnet-20241022'
+        elif model_name == 'claude-haiku-3.5-new':
+            model = 'claude-3-5-haiku-20241022'
+        elif model_name == 'claude-haiku-3.5':
             model = 'claude-3-5-haiku-20241022'
         else:
-            model = 'claude-3-5-sonnet-20241022'  # Default to latest Sonnet
+            model = 'claude-3-5-sonnet-20241022'  # Default
         return ClaudeService(model, user=user)
-    elif model_name.startswith('gemini-') or model_name.startswith('google-'):
-        # Für jetzt als Mock, kann später durch echten Google AI Service ersetzt werden
-        return MockAIService()
+        
+    # Google Gemini Modelle
+    elif model_name.startswith('gemini-') or model_name.startswith('google-') or model_name == 'gemini':
+        if model_name == 'gemini-2.5-pro':
+            model = 'gemini-1.5-pro'  # Mapping to available model
+        elif model_name == 'gemini-2.5-flash':
+            model = 'gemini-1.5-flash'
+        elif model_name == 'gemini-2.0-flash':
+            model = 'gemini-1.5-flash'
+        elif model_name == 'gemini-2.0-pro':
+            model = 'gemini-1.5-pro'
+        elif model_name == 'gemini-1.5-flash':
+            model = 'gemini-1.5-flash'
+        elif model_name == 'gemini-1.5-pro':
+            model = 'gemini-1.5-pro'
+        elif model_name == 'gemini':
+            model = 'gemini-1.5-flash'  # Kostenlose Option
+        else:
+            model = 'gemini-1.5-flash'  # Default zu kostenlosem Modell
+        return GeminiService(model, user=user)
+        
     elif model_name.startswith('mock'):
         return MockAIService()
     else:
@@ -340,10 +548,22 @@ class BlogPostOpenAIService(OpenAIService, BlogPostAIService):
                 data = response.json()
                 content = data['choices'][0]['message']['content']
                 
-                # Parse JSON response
+                # Parse JSON response (remove markdown code blocks if present)
                 try:
-                    result = json.loads(content)
+                    # Entferne Markdown-Code-Blöcke falls vorhanden
+                    cleaned_content = content.strip()
+                    if cleaned_content.startswith('```json'):
+                        cleaned_content = cleaned_content[7:]  # Entferne ```json
+                    if cleaned_content.startswith('```'):
+                        cleaned_content = cleaned_content[3:]  # Entferne ```
+                    if cleaned_content.endswith('```'):
+                        cleaned_content = cleaned_content[:-3]  # Entferne ```
+                    cleaned_content = cleaned_content.strip()
+                    
+                    result = json.loads(cleaned_content)
                     return True, {
+                        'title': result.get('title', ''),
+                        'description': result.get('description', ''),
                         'seo_title': result.get('seo_title', '')[:70],
                         'seo_description': result.get('seo_description', '')[:160]
                     }, "Blog-Post SEO-Inhalte erfolgreich generiert"
@@ -383,6 +603,8 @@ Erstelle für folgenden Blog-Beitrag einen SEO-optimierten Titel und eine SEO-Be
 
 Antworte nur mit validem JSON in folgendem Format:
 {{
+    "title": "Der optimierte Blog-Titel hier",
+    "description": "Der optimierte Blog-Inhalt hier",
     "seo_title": "Der optimierte SEO-Titel für den Blog-Post hier",
     "seo_description": "Die optimierte SEO-Beschreibung für den Blog-Post hier"
 }}
@@ -420,10 +642,22 @@ class BlogPostClaudeService(ClaudeService, BlogPostAIService):
                 data = response.json()
                 content = data['content'][0]['text']
                 
-                # Parse JSON response
+                # Parse JSON response (remove markdown code blocks if present)
                 try:
-                    result = json.loads(content)
+                    # Entferne Markdown-Code-Blöcke falls vorhanden
+                    cleaned_content = content.strip()
+                    if cleaned_content.startswith('```json'):
+                        cleaned_content = cleaned_content[7:]  # Entferne ```json
+                    if cleaned_content.startswith('```'):
+                        cleaned_content = cleaned_content[3:]  # Entferne ```
+                    if cleaned_content.endswith('```'):
+                        cleaned_content = cleaned_content[:-3]  # Entferne ```
+                    cleaned_content = cleaned_content.strip()
+                    
+                    result = json.loads(cleaned_content)
                     return True, {
+                        'title': result.get('title', ''),
+                        'description': result.get('description', ''),
                         'seo_title': result.get('seo_title', '')[:70],
                         'seo_description': result.get('seo_description', '')[:160]
                     }, "Blog-Post SEO-Inhalte erfolgreich generiert"
@@ -463,6 +697,107 @@ Du bist ein SEO-Experte für Blog-Content. Erstelle für folgenden Blog-Beitrag 
 
 Antworte nur mit validem JSON in folgendem Format:
 {{
+    "title": "Der optimierte Blog-Titel hier",
+    "description": "Der optimierte Blog-Inhalt hier",
+    "seo_title": "Der optimierte SEO-Titel für den Blog-Post hier",
+    "seo_description": "Die optimierte SEO-Beschreibung für den Blog-Post hier"
+}}
+"""
+
+
+class BlogPostGeminiService(GeminiService, BlogPostAIService):
+    """Gemini-Service für Blog-Post SEO-Optimierung"""
+    
+    def generate_blog_seo(self, title: str, content: str, summary: str, keywords: list) -> Tuple[bool, Dict, str]:
+        try:
+            prompt = self._build_blog_prompt(title, content, summary, keywords)
+            
+            # Gemini API Endpoint
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
+            
+            response = requests.post(
+                url,
+                headers={
+                    'Content-Type': 'application/json'
+                },
+                json={
+                    "contents": [{
+                        "parts": [{
+                            "text": prompt
+                        }]
+                    }],
+                    "generationConfig": {
+                        "temperature": 0.7,
+                        "topK": 40,
+                        "topP": 0.95,
+                        "maxOutputTokens": 300,
+                    }
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if 'candidates' in data and len(data['candidates']) > 0:
+                    content = data['candidates'][0]['content']['parts'][0]['text']
+                    
+                    # Parse JSON response (remove markdown code blocks if present)
+                    try:
+                        # Entferne Markdown-Code-Blöcke falls vorhanden
+                        cleaned_content = content.strip()
+                        if cleaned_content.startswith('```json'):
+                            cleaned_content = cleaned_content[7:]  # Entferne ```json
+                        if cleaned_content.startswith('```'):
+                            cleaned_content = cleaned_content[3:]  # Entferne ```
+                        if cleaned_content.endswith('```'):
+                            cleaned_content = cleaned_content[:-3]  # Entferne ```
+                        cleaned_content = cleaned_content.strip()
+                        
+                        result = json.loads(cleaned_content)
+                        return True, {
+                            'seo_title': result.get('seo_title', '')[:70],
+                            'seo_description': result.get('seo_description', '')[:160]
+                        }, "Blog-Post SEO-Inhalte erfolgreich generiert"
+                    except json.JSONDecodeError:
+                        return False, {}, f"Ungültige JSON-Antwort: {content}"
+                else:
+                    return False, {}, "Keine Antwort von Gemini erhalten"
+            else:
+                return False, {}, f"Gemini API Fehler: {response.status_code} - {response.text}"
+                
+        except Exception as e:
+            return False, {}, f"Fehler bei Gemini-Request für Blog-Post: {str(e)}"
+    
+    def _build_blog_prompt(self, title: str, content: str, summary: str, keywords: list) -> str:
+        keywords_str = ', '.join(keywords) if keywords else "keine spezifischen Keywords"
+        
+        # Kürze den Content für den Prompt
+        content_preview = content[:800] if content else ""
+        summary_text = summary if summary else "Keine Zusammenfassung verfügbar"
+        
+        return f"""
+Du bist ein SEO-Experte für Blog-Content. Erstelle für folgenden Blog-Beitrag einen SEO-optimierten Titel und eine SEO-Beschreibung:
+
+**Blog-Titel:** {title}
+
+**Zusammenfassung:** {summary_text}
+
+**Inhalt (Vorschau):** {content_preview}...
+
+**Ziel-Keywords:** {keywords_str}
+
+**Anforderungen:**
+- SEO-Titel: maximal 70 Zeichen, keyword-optimiert, neugierig machend für Leser
+- SEO-Beschreibung: maximal 160 Zeichen, keyword-optimiert, informativ und klick-fördernd
+- Natürliche Integration der Keywords (kein Keyword-Stuffing)  
+- Deutsche Sprache mit "du"-Form für persönliche Ansprache
+- Verwende "du", "dein", "dir" statt "Sie", "Ihr", "Ihnen"
+- Fokus auf Klick-Optimierung und Nutzerinteresse für Blog-Leser
+
+Antworte nur mit validem JSON in folgendem Format:
+{{
+    "title": "Der optimierte Blog-Titel hier",
+    "description": "Der optimierte Blog-Inhalt hier",
     "seo_title": "Der optimierte SEO-Titel für den Blog-Post hier",
     "seo_description": "Die optimierte SEO-Beschreibung für den Blog-Post hier"
 }}
@@ -470,19 +805,74 @@ Antworte nur mit validem JSON in folgendem Format:
 
 
 def get_blog_ai_service(model_name: str, user=None) -> BlogPostAIService:
-    """Factory-Funktion für Blog-Post AI-Services"""
+    """Factory-Funktion für Blog-Post AI-Services mit aktuellen Modell-Mappings"""
     
-    if model_name.startswith('openai-'):
-        model = 'gpt-4' if 'gpt4' in model_name else 'gpt-3.5-turbo'
+    # OpenAI/ChatGPT Modelle
+    if model_name.startswith('gpt-') or model_name.startswith('o'):
+        if model_name == 'gpt-4.1':
+            model = 'gpt-4-turbo'  # Neuestes verfügbares Modell
+        elif model_name == 'gpt-4.1-mini':
+            model = 'gpt-4o-mini'
+        elif model_name == 'gpt-4.1-nano':
+            model = 'gpt-4o-mini'
+        elif model_name == 'gpt-4o':
+            model = 'gpt-4o'
+        elif model_name == 'gpt-4o-mini':
+            model = 'gpt-4o-mini'
+        elif model_name == 'gpt-4-turbo':
+            model = 'gpt-4-turbo'
+        elif model_name == 'gpt-4':
+            model = 'gpt-4'
+        elif model_name == 'gpt-3.5-turbo':
+            model = 'gpt-3.5-turbo'
+        elif model_name == 'o3':
+            model = 'o1-preview'  # Mapping to available model
+        elif model_name == 'o4-mini':
+            model = 'o1-mini'  # Mapping to available model
+        else:
+            model = 'gpt-4o'  # Default zu neuem Standardmodell
         return BlogPostOpenAIService(model, user=user)
+        
+    # Claude (Anthropic) Modelle
     elif model_name.startswith('claude-'):
-        if 'sonnet' in model_name:
+        if model_name == 'claude-opus-4':
+            model = 'claude-3-opus-20240229'  # Mapping to available model
+        elif model_name == 'claude-sonnet-4':
+            model = 'claude-3-5-sonnet-20241022'  # Mapping to latest Sonnet
+        elif model_name == 'claude-sonnet-3.7':
             model = 'claude-3-5-sonnet-20241022'
-        elif 'haiku' in model_name:
+        elif model_name == 'claude-sonnet-3.5-new':
+            model = 'claude-3-5-sonnet-20241022'
+        elif model_name == 'claude-sonnet-3.5':
+            model = 'claude-3-5-sonnet-20241022'
+        elif model_name == 'claude-haiku-3.5-new':
+            model = 'claude-3-5-haiku-20241022'
+        elif model_name == 'claude-haiku-3.5':
             model = 'claude-3-5-haiku-20241022'
         else:
-            model = 'claude-3-5-sonnet-20241022'  # Default to latest Sonnet
+            model = 'claude-3-5-sonnet-20241022'  # Default
         return BlogPostClaudeService(model, user=user)
+        
+    # Google Gemini Modelle
+    elif model_name.startswith('gemini-') or model_name.startswith('google-') or model_name == 'gemini':
+        if model_name == 'gemini-2.5-pro':
+            model = 'gemini-1.5-pro'  # Mapping to available model
+        elif model_name == 'gemini-2.5-flash':
+            model = 'gemini-1.5-flash'
+        elif model_name == 'gemini-2.0-flash':
+            model = 'gemini-1.5-flash'
+        elif model_name == 'gemini-2.0-pro':
+            model = 'gemini-1.5-pro'
+        elif model_name == 'gemini-1.5-flash':
+            model = 'gemini-1.5-flash'
+        elif model_name == 'gemini-1.5-pro':
+            model = 'gemini-1.5-pro'
+        elif model_name == 'gemini':
+            model = 'gemini-1.5-flash'  # Kostenlose Option
+        else:
+            model = 'gemini-1.5-flash'  # Default zu kostenlosem Modell
+        return BlogPostGeminiService(model, user=user)
+        
     else:
         # Fallback zu Mock für andere Modelle
         class BlogPostMockService(MockAIService, BlogPostAIService):
@@ -494,6 +884,8 @@ def get_blog_ai_service(model_name: str, user=None) -> BlogPostAIService:
                 mock_description = f"✅ {title} - Informativ & {keywords_str}. Jetzt lesen ✅" if keywords_str else f"✅ {title} - Informativer Blog-Beitrag. Jetzt entdecken ✅"
                 
                 return True, {
+                    'title': title,
+                    'description': content[:500] if content else summary[:500] if summary else "Informativer Blog-Beitrag",
                     'seo_title': mock_title[:70],
                     'seo_description': mock_description[:160]
                 }, "Mock Blog-Post SEO-Inhalte generiert"

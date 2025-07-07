@@ -544,6 +544,11 @@ class ShopifyProductSync:
         )
         
         try:
+            # Bei "Alle Produkte" mit "Überschreiben" - alle lokalen Produkte löschen
+            if import_mode == 'all' and overwrite_existing:
+                deleted_count = self._delete_all_local_products()
+                print(f"🗑️ {deleted_count} lokale Produkte gelöscht vor Neuimport")
+            
             # Bei "Alle Produkte" alle über Pagination holen, sonst nur bis zum Limit
             if import_mode == 'all':
                 success, products, message = self._fetch_all_products()
@@ -644,6 +649,12 @@ class ShopifyProductSync:
             log.save()
         
         return log
+    
+    def _delete_all_local_products(self):
+        """Löscht alle lokalen Produkte für diesen Store"""
+        from .models import ShopifyProduct
+        deleted_count, _ = ShopifyProduct.objects.filter(store=self.store).delete()
+        return deleted_count
     
     def sync_product_to_shopify(self, product: ShopifyProduct) -> Tuple[bool, str]:
         """Synchronisiert ein lokales Produkt zurück zu Shopify"""
@@ -1050,7 +1061,7 @@ class ShopifyBlogSync:
 
         return True, all_articles, f"{total_fetched} Blog-Posts über Pagination abgerufen"
 
-    def import_blog_posts(self, blog: ShopifyBlog) -> ShopifySyncLog:
+    def import_blog_posts(self, blog: ShopifyBlog, import_mode: str = 'new_only') -> ShopifySyncLog:
         """Importiert Blog-Posts für einen bestimmten Blog"""
         log = ShopifySyncLog.objects.create(
             store=self.store,
@@ -1059,6 +1070,11 @@ class ShopifyBlogSync:
         )
         
         try:
+            # Bei "Alle Posts" - alle lokalen Blog-Posts für diesen Blog löschen
+            if import_mode == 'all':
+                deleted_count = self._delete_all_local_blog_posts(blog)
+                print(f"🗑️ {deleted_count} lokale Blog-Posts gelöscht vor Neuimport für Blog {blog.title}")
+            
             success, articles, message = self._fetch_all_blog_posts(blog.shopify_id)
             
             if not success:
@@ -1074,6 +1090,23 @@ class ShopifyBlogSync:
             
             for article_data in articles:
                 try:
+                    shopify_id = str(article_data.get('id'))
+                    
+                    # Bei "new_only" prüfen ob Post bereits existiert
+                    if import_mode == 'new_only':
+                        try:
+                            from .models import ShopifyBlogPost
+                            existing_post = ShopifyBlogPost.objects.get(
+                                shopify_id=shopify_id,
+                                blog=blog
+                            )
+                            # Post existiert bereits - überspringen
+                            print(f"Blog-Post {shopify_id} bereits vorhanden - überspringe (new_only Modus)")
+                            continue
+                        except ShopifyBlogPost.DoesNotExist:
+                            # Post existiert noch nicht - kann importiert werden
+                            pass
+                    
                     post, created = self._create_or_update_blog_post(blog, article_data)
                     success_count += 1
                     if created:
@@ -1098,6 +1131,12 @@ class ShopifyBlogSync:
             log.save()
         
         return log
+    
+    def _delete_all_local_blog_posts(self, blog: ShopifyBlog):
+        """Löscht alle lokalen Blog-Posts für diesen Blog"""
+        from .models import ShopifyBlogPost
+        deleted_count, _ = ShopifyBlogPost.objects.filter(blog=blog).delete()
+        return deleted_count
     
     def _create_or_update_blog(self, blog_data: Dict) -> Tuple[ShopifyBlog, bool]:
         """Erstellt oder aktualisiert einen Blog"""

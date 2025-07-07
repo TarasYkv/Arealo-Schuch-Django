@@ -1,0 +1,437 @@
+{% extends 'base.html' %}
+
+{% block title %}Canva Designs importieren{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h2">
+                <i class="fab fa-canva text-warning"></i> Canva Designs importieren
+            </h1>
+            <div class="btn-group">
+                <a href="{% url 'image_editor:dashboard' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück zum Dashboard
+                </a>
+                <a href="{% url 'accounts:manage_api_keys' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-cog"></i> API-Einstellungen
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if error_message %}
+<div class="alert alert-danger" role="alert">
+    <i class="fas fa-exclamation-triangle"></i>
+    <strong>Fehler:</strong> {{ error_message }}
+    <div class="mt-2">
+        <a href="{% url 'accounts:manage_api_keys' %}" class="btn btn-outline-danger btn-sm">
+            <i class="fas fa-tools"></i> Verbindung prüfen
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<div class="row">
+    <!-- Design-Galerie -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-images"></i> Ihre Canva-Designs
+                    </h5>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-primary btn-sm" onclick="refreshDesigns()">
+                            <i class="fas fa-sync" id="refresh-icon"></i> Aktualisieren
+                        </button>
+                        <button class="btn btn-outline-info btn-sm" onclick="loadMoreDesigns()" id="load-more-btn" style="display: none;">
+                            <i class="fas fa-plus"></i> Mehr laden
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Designs-Grid -->
+                <div id="designs-grid" class="row g-3">
+                    {% for design in designs %}
+                    <div class="col-lg-3 col-md-4 col-sm-6">
+                        <div class="card design-card h-100 border-hover" data-design-id="{{ design.id }}">
+                            <!-- Design-Thumbnail -->
+                            <div class="position-relative">
+                                {% if design.thumbnail and design.thumbnail.url %}
+                                <img src="{{ design.thumbnail.url }}" 
+                                     class="card-img-top design-thumbnail" 
+                                     alt="{{ design.title }}"
+                                     style="height: 200px; object-fit: cover;">
+                                {% else %}
+                                <div class="card-img-top d-flex align-items-center justify-content-center bg-light" 
+                                     style="height: 200px;">
+                                    <i class="fas fa-image fa-3x text-muted"></i>
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Design-Typ Badge -->
+                                {% if design.design_type %}
+                                <span class="badge bg-info position-absolute top-0 end-0 m-2">
+                                    {{ design.design_type }}
+                                </span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="card-body">
+                                <h6 class="card-title">{{ design.title|default:"Unbenanntes Design" }}</h6>
+                                
+                                <!-- Design-Informationen -->
+                                <div class="small text-muted mb-3">
+                                    {% if design.created_at %}
+                                    <div><i class="fas fa-calendar-alt"></i> {{ design.created_at|date:"d.m.Y" }}</div>
+                                    {% endif %}
+                                    {% if design.updated_at %}
+                                    <div><i class="fas fa-clock"></i> {{ design.updated_at|date:"d.m.Y H:i" }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Import-Button -->
+                                <div class="d-grid">
+                                    <button class="btn btn-warning import-design-btn" 
+                                            data-design-id="{{ design.id }}"
+                                            data-design-title="{{ design.title|default:'Unbenanntes Design' }}">
+                                        <i class="fas fa-download"></i> Importieren
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="col-12">
+                        <div class="alert alert-info text-center">
+                            <i class="fas fa-info-circle fa-2x mb-3"></i>
+                            <h5>Keine Designs gefunden</h5>
+                            <p class="mb-3">
+                                Es wurden keine Designs in Ihrem Canva-Konto gefunden, oder die Verbindung konnte nicht hergestellt werden.
+                            </p>
+                            <a href="{% url 'accounts:manage_api_keys' %}" class="btn btn-primary">
+                                <i class="fas fa-link"></i> Canva-Verbindung prüfen
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Loading-Indikator -->
+                <div id="loading-indicator" class="text-center mt-4" style="display: none;">
+                    <div class="spinner-border text-warning" role="status">
+                        <span class="visually-hidden">Lädt...</span>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">Designs werden geladen...</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import-Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fab fa-canva text-warning"></i> Design importieren
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="import-form">
+                    <div class="mb-3">
+                        <label class="form-label">Design-Name:</label>
+                        <div class="fw-bold" id="design-name-display"></div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="project-name" class="form-label">Projektname:</label>
+                        <input type="text" class="form-control" id="project-name" 
+                               placeholder="Name für das neue Projekt">
+                        <div class="form-text">
+                            Lassen Sie das Feld leer, um den Canva-Design-Namen zu verwenden.
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        Das Design wird als PNG-Bild heruntergeladen und als neues Projekt erstellt.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> Abbrechen
+                </button>
+                <button type="button" class="btn btn-warning" id="confirm-import-btn">
+                    <i class="fas fa-download"></i> Design importieren
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Status-Nachrichten -->
+<div id="status-messages"></div>
+
+<script>
+let currentDesignId = null;
+let continuationToken = null;
+
+// Design importieren
+document.addEventListener('DOMContentLoaded', function() {
+    // Import-Button Event Listeners
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.import-design-btn')) {
+            const btn = e.target.closest('.import-design-btn');
+            const designId = btn.dataset.designId;
+            const designTitle = btn.dataset.designTitle;
+            
+            showImportModal(designId, designTitle);
+        }
+    });
+    
+    // Bestätigter Import
+    document.getElementById('confirm-import-btn').addEventListener('click', function() {
+        if (currentDesignId) {
+            importDesign(currentDesignId);
+        }
+    });
+});
+
+function showImportModal(designId, designTitle) {
+    currentDesignId = designId;
+    document.getElementById('design-name-display').textContent = designTitle;
+    document.getElementById('project-name').value = `Canva: ${designTitle}`;
+    
+    const modal = new bootstrap.Modal(document.getElementById('importModal'));
+    modal.show();
+}
+
+function importDesign(designId) {
+    const projectName = document.getElementById('project-name').value.trim();
+    const importBtn = document.getElementById('confirm-import-btn');
+    
+    // Button deaktivieren und Loading anzeigen
+    importBtn.disabled = true;
+    importBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Wird importiert...';
+    
+    fetch('/images/api/canva-import-design/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            design_id: designId,
+            project_name: projectName || null
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage('success', data.message);
+            
+            // Modal schließen
+            const modal = bootstrap.Modal.getInstance(document.getElementById('importModal'));
+            modal.hide();
+            
+            // Weiterleitung zum neuen Projekt
+            setTimeout(() => {
+                window.location.href = data.redirect_url;
+            }, 1500);
+        } else {
+            showMessage('danger', `Import fehlgeschlagen: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        showMessage('danger', `Fehler beim Import: ${error}`);
+    })
+    .finally(() => {
+        // Button wieder aktivieren
+        importBtn.disabled = false;
+        importBtn.innerHTML = '<i class="fas fa-download"></i> Design importieren';
+    });
+}
+
+function refreshDesigns() {
+    const refreshIcon = document.getElementById('refresh-icon');
+    refreshIcon.classList.add('fa-spin');
+    
+    // Seite neu laden für einfache Aktualisierung
+    setTimeout(() => {
+        window.location.reload();
+    }, 500);
+}
+
+function loadMoreDesigns() {
+    if (!continuationToken) return;
+    
+    const loadMoreBtn = document.getElementById('load-more-btn');
+    const loadingIndicator = document.getElementById('loading-indicator');
+    
+    loadMoreBtn.style.display = 'none';
+    loadingIndicator.style.display = 'block';
+    
+    fetch(`/images/api/canva-designs/?continuation_token=${continuationToken}&limit=20`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            appendDesigns(data.items);
+            continuationToken = data.continuation_token;
+            
+            if (continuationToken) {
+                loadMoreBtn.style.display = 'inline-block';
+            }
+        } else {
+            showMessage('danger', `Fehler beim Laden: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        showMessage('danger', `Fehler beim Laden: ${error}`);
+    })
+    .finally(() => {
+        loadingIndicator.style.display = 'none';
+    });
+}
+
+function appendDesigns(designs) {
+    const grid = document.getElementById('designs-grid');
+    
+    designs.forEach(design => {
+        const designCard = createDesignCard(design);
+        grid.appendChild(designCard);
+    });
+}
+
+function createDesignCard(design) {
+    const colDiv = document.createElement('div');
+    colDiv.className = 'col-lg-3 col-md-4 col-sm-6';
+    
+    colDiv.innerHTML = `
+        <div class="card design-card h-100 border-hover" data-design-id="${design.id}">
+            <div class="position-relative">
+                ${design.thumbnail && design.thumbnail.url ? 
+                    `<img src="${design.thumbnail.url}" class="card-img-top design-thumbnail" alt="${design.title}" style="height: 200px; object-fit: cover;">` :
+                    `<div class="card-img-top d-flex align-items-center justify-content-center bg-light" style="height: 200px;">
+                        <i class="fas fa-image fa-3x text-muted"></i>
+                    </div>`
+                }
+                ${design.design_type ? `<span class="badge bg-info position-absolute top-0 end-0 m-2">${design.design_type}</span>` : ''}
+            </div>
+            <div class="card-body">
+                <h6 class="card-title">${design.title || 'Unbenanntes Design'}</h6>
+                <div class="small text-muted mb-3">
+                    ${design.created_at ? `<div><i class="fas fa-calendar-alt"></i> ${new Date(design.created_at).toLocaleDateString('de-DE')}</div>` : ''}
+                    ${design.updated_at ? `<div><i class="fas fa-clock"></i> ${new Date(design.updated_at).toLocaleString('de-DE')}</div>` : ''}
+                </div>
+                <div class="d-grid">
+                    <button class="btn btn-warning import-design-btn" 
+                            data-design-id="${design.id}"
+                            data-design-title="${design.title || 'Unbenanntes Design'}">
+                        <i class="fas fa-download"></i> Importieren
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    return colDiv;
+}
+
+function showMessage(type, message) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    messageDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.getElementById('status-messages');
+    container.appendChild(messageDiv);
+    
+    // Automatisch entfernen nach 5 Sekunden
+    setTimeout(() => {
+        if (messageDiv.parentNode) {
+            messageDiv.remove();
+        }
+    }, 5000);
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Initial continuation token setzen falls vorhanden
+{% if designs %}
+continuationToken = '{{ designs.continuation_token|default:"" }}';
+if (continuationToken) {
+    document.getElementById('load-more-btn').style.display = 'inline-block';
+}
+{% endif %}
+</script>
+
+<style>
+.design-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    cursor: pointer;
+}
+
+.design-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.border-hover {
+    border: 1px solid #dee2e6;
+}
+
+.design-card:hover .border-hover {
+    border-color: #ffc107;
+}
+
+.design-thumbnail {
+    transition: opacity 0.2s ease-in-out;
+}
+
+.design-card:hover .design-thumbnail {
+    opacity: 0.9;
+}
+
+.import-design-btn {
+    transition: all 0.2s ease-in-out;
+}
+
+.import-design-btn:hover {
+    transform: scale(1.05);
+}
+
+#loading-indicator {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+</style>
+
+{% endblock %}

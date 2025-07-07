@@ -1,0 +1,167 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h2">
+                <i class="fas fa-robot text-primary"></i> AI-Generierungs-Historie
+            </h1>
+            <div class="btn-group">
+                <a href="{% url 'image_editor:ai_generation' %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Neues Bild generieren
+                </a>
+                <a href="{% url 'image_editor:dashboard' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-history"></i> AI-Generierungen
+                    <span class="badge bg-secondary ms-2">{{ generations.paginator.count }} Gesamt</span>
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if generations %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Prompt</th>
+                                <th>Status</th>
+                                <th>Qualität</th>
+                                <th>Größe</th>
+                                <th>Erstellt</th>
+                                <th>Dauer</th>
+                                <th>Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for generation in generations %}
+                            <tr>
+                                <td>
+                                    <div class="text-truncate" style="max-width: 200px;" title="{{ generation.prompt }}">
+                                        {{ generation.prompt }}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if generation.success %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check"></i> Erfolgreich
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-times"></i> Fehlgeschlagen
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ generation.quality }}</span>
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ generation.size }}</small>
+                                </td>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ generation.created_at|date:"d.m.Y H:i" }}
+                                    </small>
+                                </td>
+                                <td>
+                                    {% if generation.generation_time %}
+                                        <small class="text-muted">
+                                            {{ generation.generation_time|floatformat:2 }}s
+                                        </small>
+                                    {% else %}
+                                        <small class="text-muted">-</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if generation.success and generation.generated_project %}
+                                        <a href="{% url 'image_editor:project_detail' generation.generated_project.pk %}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{% url 'image_editor:image_editor' generation.generated_project.pk %}" 
+                                           class="btn btn-sm btn-outline-success">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                    {% elif not generation.success %}
+                                        <button class="btn btn-sm btn-outline-danger" 
+                                                title="{{ generation.error_message }}">
+                                            <i class="fas fa-exclamation-triangle"></i>
+                                        </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if generations.has_other_pages %}
+                <nav aria-label="Pagination" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if generations.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ generations.previous_page_number }}">
+                                    <i class="fas fa-angle-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        {% for num in generations.paginator.page_range %}
+                            {% if generations.number == num %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                            {% elif num > generations.number|add:'-3' and num < generations.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if generations.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ generations.next_page_number }}">
+                                    <i class="fas fa-angle-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ generations.paginator.num_pages }}">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-robot fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Noch keine AI-Generierungen</h5>
+                    <p class="text-muted">Starten Sie Ihre erste AI-Bildgenerierung!</p>
+                    <a href="{% url 'image_editor:ai_generation' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Erstes Bild generieren
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

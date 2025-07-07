@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="h2 mb-4">
+            <i class="fas fa-images text-primary"></i> Bildbearbeitung Dashboard
+        </h1>
+    </div>
+</div>
+
+<!-- Statistiken -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-folder fa-2x mb-2"></i>
+                <h4>{{ stats.total_projects }}</h4>
+                <p class="card-text">Projekte gesamt</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-robot fa-2x mb-2"></i>
+                <h4>{{ stats.ai_generated }}</h4>
+                <p class="card-text">KI-generiert</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-upload fa-2x mb-2"></i>
+                <h4>{{ stats.uploaded }}</h4>
+                <p class="card-text">Hochgeladen</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-check-circle fa-2x mb-2"></i>
+                <h4>{{ stats.completed }}</h4>
+                <p class="card-text">Abgeschlossen</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Aktionen -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-plus-circle"></i> Neues Projekt starten
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="d-grid">
+                            <a href="{% url 'image_editor:project_create' %}" class="btn btn-primary btn-lg">
+                                <i class="fas fa-upload"></i> Bild hochladen
+                            </a>
+                        </div>
+                        <small class="text-muted">Laden Sie ein vorhandenes Bild hoch und bearbeiten es</small>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="d-grid">
+                            <a href="{% url 'image_editor:ai_generation' %}" class="btn btn-success btn-lg">
+                                <i class="fas fa-robot"></i> KI-Bild generieren
+                            </a>
+                        </div>
+                        <small class="text-muted">Erstellen Sie neue Bilder mit künstlicher Intelligenz</small>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="d-grid">
+                            <a href="{% url 'image_editor:canva_import' %}" class="btn btn-warning btn-lg">
+                                <i class="fab fa-canva"></i> Canva Import
+                            </a>
+                        </div>
+                        <small class="text-muted">Importieren Sie Designs direkt aus Ihrem Canva-Konto</small>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="d-grid">
+                            <a href="{% url 'image_editor:project_list' %}" class="btn btn-outline-primary btn-lg">
+                                <i class="fas fa-list"></i> Alle Projekte
+                            </a>
+                        </div>
+                        <small class="text-muted">Verwalten und bearbeiten Sie Ihre vorhandenen Projekte</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Letzte Projekte -->
+{% if recent_projects %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-clock"></i> Letzte Projekte
+                </h5>
+                <a href="{% url 'image_editor:project_list' %}" class="btn btn-sm btn-outline-primary">
+                    Alle anzeigen
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for project in recent_projects %}
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card h-100">
+                            {% if project.original_image %}
+                            <img src="{{ project.original_image.url }}" class="card-img-top" style="height: 150px; object-fit: cover;" alt="{{ project.name }}">
+                            {% else %}
+                            <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 150px;">
+                                <i class="fas fa-image text-muted fa-3x"></i>
+                            </div>
+                            {% endif %}
+                            <div class="card-body d-flex flex-column">
+                                <h6 class="card-title">{{ project.name|truncatechars:30 }}</h6>
+                                <p class="card-text text-muted small flex-grow-1">
+                                    {{ project.description|truncatechars:60|default:"Keine Beschreibung" }}
+                                </p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-{% if project.source_type == 'ai_generated' %}success{% else %}primary{% endif %}">
+                                        {% if project.source_type == 'ai_generated' %}
+                                            <i class="fas fa-robot"></i> KI
+                                        {% else %}
+                                            <i class="fas fa-upload"></i> Upload
+                                        {% endif %}
+                                    </span>
+                                    <a href="{% url 'image_editor:project_detail' project.pk %}" class="btn btn-sm btn-outline-primary">
+                                        Öffnen
+                                    </a>
+                                </div>
+                                <small class="text-muted mt-2">
+                                    {{ project.updated_at|date:"d.m.Y H:i" }}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- KI-Generierungen -->
+{% if recent_ai %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-robot"></i> Letzte KI-Generierungen
+                </h5>
+                <a href="{% url 'image_editor:ai_history' %}" class="btn btn-sm btn-outline-success">
+                    Historie anzeigen
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    {% for generation in recent_ai %}
+                    <div class="list-group-item d-flex justify-content-between align-items-start">
+                        <div class="ms-2 me-auto">
+                            <div class="fw-bold">{{ generation.prompt|truncatechars:50 }}</div>
+                            <small class="text-muted">
+                                {{ generation.ai_model }} • {{ generation.created_at|date:"d.m.Y H:i" }}
+                                {% if generation.generation_time %}
+                                    • {{ generation.generation_time|floatformat:1 }}s
+                                {% endif %}
+                            </small>
+                        </div>
+                        <span class="badge bg-{% if generation.success %}success{% else %}danger{% endif %} rounded-pill">
+                            {% if generation.success %}
+                                <i class="fas fa-check"></i> Erfolg
+                            {% else %}
+                                <i class="fas fa-times"></i> Fehler
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Features Overview -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-tools"></i> Verfügbare Funktionen
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <div class="text-center">
+                            <i class="fas fa-palette fa-2x text-primary mb-2"></i>
+                            <h6>Bildbearbeitung</h6>
+                            <small class="text-muted">Helligkeit, Kontrast, Sättigung, Filter</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="text-center">
+                            <i class="fas fa-magic fa-2x text-success mb-2"></i>
+                            <h6>Hintergrund entfernen</h6>
+                            <small class="text-muted">Automatische Hintergrundentfernung</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="text-center">
+                            <i class="fas fa-industry fa-2x text-warning mb-2"></i>
+                            <h6>Gravur-Vorbereitung</h6>
+                            <small class="text-muted">Optimierung für 0,1mm Laserstrahl</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="text-center">
+                            <i class="fas fa-download fa-2x text-info mb-2"></i>
+                            <h6>Multi-Format Export</h6>
+                            <small class="text-muted">PNG, JPG, SVG, PDF und mehr</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

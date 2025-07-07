@@ -10,7 +10,14 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
     path('api-keys/', views.manage_api_keys, name='manage_api_keys'),
     path('api-einstellungen/', views.api_settings_view, name='api_settings'),
+    
+    # Canva Integration
+    path('canva-einstellungen/', views.canva_settings_view, name='canva_settings'),
+    path('canva-oauth-start/', views.canva_oauth_start, name='canva_oauth_start'),
+    path('canva-oauth-callback/', views.canva_oauth_callback, name='canva_oauth_callback'),
+    path('canva-disconnect/', views.canva_disconnect, name='canva_disconnect'),
     path('neue-api-einstellungen/', views.neue_api_einstellungen_view, name='neue_api_einstellungen'),
+    path('firmeninfo/', views.company_info_view, name='company_info'),
     path('api/validate-key/', views.validate_api_key, name='validate_api_key'),
     path('api/balances/', views.get_api_balances, name='get_api_balances'),
     path('api/balances/update/', views.update_api_balance, name='update_api_balance'),

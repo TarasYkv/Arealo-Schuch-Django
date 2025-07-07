@@ -12,9 +12,19 @@
             <a href="{% url 'shopify_manager:blog_list' %}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left"></i> Zurück zu Blogs
             </a>
-            <button class="btn btn-success" onclick="importBlogPosts()">
-                <i class="fas fa-download"></i> Beiträge importieren
-            </button>
+            <div class="btn-group">
+                <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown">
+                    <i class="fas fa-download"></i> Beiträge importieren
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" onclick="importBlogPosts('new_only')">
+                        <i class="fas fa-plus"></i> Nur neue Beiträge importieren
+                    </a></li>
+                    <li><a class="dropdown-item" href="#" onclick="importBlogPosts('all')">
+                        <i class="fas fa-sync"></i> Alle Beiträge neu importieren
+                    </a></li>
+                </ul>
+            </div>
             <a href="{{ blog.get_shopify_admin_url }}" target="_blank" class="btn btn-outline-primary">
                 <i class="fas fa-external-link-alt"></i> In Shopify öffnen
             </a>
@@ -86,6 +96,38 @@
     </div>
 </div>
 
+<!-- Filter -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                {{ filter_form.search.label_tag }}
+                {{ filter_form.search }}
+            </div>
+            <div class="col-md-2">
+                {{ filter_form.status.label_tag }}
+                {{ filter_form.status }}
+            </div>
+            <div class="col-md-2">
+                {{ filter_form.sync_status.label_tag }}
+                {{ filter_form.sync_status }}
+            </div>
+            <div class="col-md-2">
+                {{ filter_form.seo_score.label_tag }}
+                {{ filter_form.seo_score }}
+            </div>
+            <div class="col-md-2">
+                {{ filter_form.sort.label_tag }}
+                {{ filter_form.sort }}
+            </div>
+            <div class="col-md-1">
+                <label>&nbsp;</label>
+                <button type="submit" class="btn btn-primary w-100">Filter</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Blog Posts -->
 <div class="card">
     <div class="card-header">
@@ -95,76 +137,189 @@
     </div>
     <div class="card-body">
         {% if posts %}
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Titel</th>
-                            <th>Autor</th>
-                            <th>Status</th>
-                            <th>SEO</th>
-                            <th>Veröffentlicht</th>
-                            <th>Aktionen</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for post in posts %}
-                        <tr>
-                            <td>
-                                <a href="{% url 'shopify_manager:blog_post_detail' post.pk %}" class="text-decoration-none">
-                                    <strong>{{ post.title|truncatechars:50 }}</strong>
-                                </a>
-                                {% if post.featured_image_url %}
-                                    <i class="fas fa-image text-info ms-1" title="Hat Beitragsbild"></i>
-                                {% endif %}
-                            </td>
-                            <td>{{ post.author|default:"Unbekannt" }}</td>
-                            <td>
-                                {% if post.status == 'published' %}
-                                    <span class="badge bg-success">Veröffentlicht</span>
-                                {% elif post.status == 'draft' %}
-                                    <span class="badge bg-warning">Entwurf</span>
-                                {% else %}
-                                    <span class="badge bg-secondary">{{ post.get_status_display }}</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% with seo_status=post.get_seo_status %}
-                                    {% if seo_status == 'good' %}
-                                        <span class="badge bg-success"><i class="fas fa-circle"></i> Gut</span>
-                                    {% elif seo_status == 'warning' %}
-                                        <span class="badge bg-warning"><i class="fas fa-circle"></i> Warnung</span>
-                                    {% else %}
-                                        <span class="badge bg-danger"><i class="fas fa-circle"></i> Schlecht</span>
+            <div class="row">
+                {% for post in posts %}
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card blog-post-card h-100{% if post.status != 'published' %} opacity-50 border-secondary{% endif %} 
+                          {% with combined_status=post.get_combined_seo_status %}
+                              {% if combined_status == 'good' %}combined-status-good{% elif combined_status == 'warning' %}combined-status-warning{% else %}combined-status-poor{% endif %}
+                          {% endwith %}">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                <strong>{{ blog.title }}</strong><br>
+                                {{ blog.store.name }}
+                            </small>
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                        type="button" data-bs-toggle="dropdown">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="{% url 'shopify_manager:integrated_seo_optimization' 'blog_post' post.pk %}">
+                                        <i class="fas fa-robot text-primary"></i> Do-SEO
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{% url 'shopify_manager:blog_post_detail' post.pk %}">
+                                        <i class="fas fa-eye"></i> Details
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ post.get_shopify_admin_url }}" target="_blank">
+                                        <i class="fas fa-external-link-alt"></i> In Shopify bearbeiten
+                                    </a></li>
+                                    {% if post.status == 'published' and post.get_storefront_url %}
+                                    <li><a class="dropdown-item" href="{{ post.get_storefront_url }}" target="_blank">
+                                        <i class="fas fa-globe"></i> Im Shop ansehen
+                                    </a></li>
                                     {% endif %}
-                                {% endwith %}
-                            </td>
-                            <td>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        {% if post.featured_image_url %}
+                        <img src="{{ post.featured_image_url }}" class="card-img-top" style="height: 200px; object-fit: cover;" alt="{{ post.title }}">
+                        {% else %}
+                        <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
+                            <i class="fas fa-blog text-muted fa-3x"></i>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="card-body">
+                            <h5 class="card-title">{{ post.title|truncatechars:50 }}</h5>
+                            <p class="card-text text-muted small">{{ post.content|striptags|truncatechars:100|default:post.summary|truncatechars:100 }}</p>
+                            
+                            <div class="mb-2">
+                                <strong>Autor:</strong> {{ post.author|default:"—" }}<br>
                                 {% if post.published_at %}
-                                    {{ post.published_at|date:"d.m.Y" }}
+                                    <strong>Veröffentlicht:</strong> {{ post.published_at|date:"d.m.Y H:i" }}
                                 {% else %}
-                                    <span class="text-muted">Nicht veröffentlicht</span>
+                                    <strong>Status:</strong> Nicht veröffentlicht
                                 {% endif %}
-                            </td>
-                            <td>
-                                <div class="btn-group btn-group-sm">
-                                    <a href="{% url 'shopify_manager:blog_post_detail' post.pk %}" class="btn btn-outline-primary" title="Details">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                    <a href="{{ post.get_shopify_admin_url }}" target="_blank" class="btn btn-outline-secondary" title="In Shopify bearbeiten">
-                                        <i class="fas fa-external-link-alt"></i>
-                                    </a>
-                                    {% if post.get_storefront_url %}
-                                        <a href="{{ post.get_storefront_url }}" target="_blank" class="btn btn-outline-info" title="Im Shop ansehen">
-                                            <i class="fas fa-globe"></i>
-                                        </a>
+                            </div>
+                            
+                            <!-- Tags -->
+                            {% if post.tags %}
+                            <div class="mb-2">
+                                <small class="text-muted">Tags:</small><br>
+                                <span class="badge bg-light text-dark">{{ post.get_tags_list|slice:":3"|join:", " }}{% if post.get_tags_list|length > 3 %}...{% endif %}</span>
+                            </div>
+                            {% endif %}
+                            
+                            <!-- SEO und Alt-Text Ampelsystem -->
+                            <div class="row mb-2">
+                                <div class="col-6">
+                                    <small class="text-muted d-block">SEO-Status</small>
+                                    {% with combined_status=post.get_combined_seo_status %}
+                                        {% if combined_status == 'good' %}
+                                            <span class="badge bg-success"><i class="fas fa-circle"></i> Gut</span>
+                                        {% elif combined_status == 'warning' %}
+                                            <span class="badge bg-warning"><i class="fas fa-circle"></i> Warnung</span>
+                                        {% else %}
+                                            <span class="badge bg-danger"><i class="fas fa-circle"></i> Schlecht</span>
+                                        {% endif %}
+                                    {% endwith %}
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted d-block">Alt-Texte</small>
+                                    {% with alt_status=post.get_alt_text_status %}
+                                        {% if alt_status == 'good' %}
+                                            <span class="badge bg-success"><i class="fas fa-circle"></i> Gut</span>
+                                        {% elif alt_status == 'warning' %}
+                                            <span class="badge bg-warning"><i class="fas fa-circle"></i> Warnung</span>
+                                        {% else %}
+                                            <span class="badge bg-danger"><i class="fas fa-circle"></i> Schlecht</span>
+                                        {% endif %}
+                                    {% endwith %}
+                                </div>
+                            </div>
+                            
+                            <!-- Detaillierte SEO/Alt-Text Info bei Hover -->
+                            {% with seo_details=post.get_seo_details alt_details=post.get_alt_text_details %}
+                            <div class="status-details" style="display: none;">
+                                <div class="card mt-2">
+                                    <div class="card-body p-2">
+                                        <h6 class="card-title mb-2">SEO & Alt-Text Details</h6>
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <strong>SEO:</strong><br>
+                                                <small>
+                                                    Titel: {{ seo_details.title_length }}/70 Zeichen<br>
+                                                    Beschreibung: {{ seo_details.description_length }}/160 Zeichen
+                                                </small>
+                                            </div>
+                                            <div class="col-6">
+                                                <strong>Alt-Texte:</strong><br>
+                                                <small>
+                                                    {{ alt_details.images_with_alt }}/{{ alt_details.total_images }} Bilder<br>
+                                                    {{ alt_details.percentage }}% vollständig
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endwith %}
+                        </div>
+                        
+                        <div class="card-footer">
+                            <!-- SEO Score Display -->
+                            <div class="seo-score-container mb-2">
+                                {% with seo_score=post.get_seo_score combined_status=post.get_combined_seo_status seo_details=post.get_seo_details %}
+                                <div class="seo-score-display d-flex align-items-center justify-content-between">
+                                    <div class="seo-score-label">
+                                        <small class="text-muted">SEO-Score (inkl. Alt-Texte)</small>
+                                    </div>
+                                    <div class="seo-score-value">
+                                        <span class="badge bg-{% if combined_status == 'good' %}success{% elif combined_status == 'warning' %}warning{% else %}danger{% endif %} fs-6" 
+                                              title="Aufschlüsselung: {{ seo_details.breakdown }}">
+                                            {{ seo_score }}/100
+                                        </span>
+                                    </div>
+                                </div>
+                                {% endwith %}
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="badge bg-{% if post.status == 'published' %}success{% else %}secondary{% endif %}">
+                                    {% if post.status == 'published' %}
+                                        👁️ Sichtbar
+                                    {% else %}
+                                        🚫 Ausgeblendet
+                                    {% endif %}
+                                </span>
+                                
+                                <div class="sync-status">
+                                    {% if post.sync_error %}
+                                        <span class="sync-error">
+                                            <i class="fas fa-exclamation-triangle"></i> Sync-Fehler
+                                        </span>
+                                    {% elif post.needs_sync %}
+                                        <span class="needs-sync">
+                                            <i class="fas fa-clock"></i> Benötigt Sync
+                                        </span>
+                                    {% else %}
+                                        <span class="synced">
+                                            <i class="fas fa-check"></i> Synchronisiert
+                                        </span>
                                     {% endif %}
                                 </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                            </div>
+                            
+                            
+                            <!-- Action Buttons -->
+                            <div class="d-grid gap-2 mb-2">
+                                <a href="{% url 'shopify_manager:integrated_seo_optimization' 'blog_post' post.pk %}" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-robot"></i> Do-SEO
+                                </a>
+                                <button class="btn btn-outline-success btn-sm" onclick="syncBlogPost({{ post.id }})">
+                                    <i class="fas fa-sync"></i> Änderungen synchronisieren
+                                </button>
+                            </div>
+                            
+                            <small class="text-muted">
+                                Aktualisiert: {{ post.updated_at|date:"d.m.Y H:i" }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
             </div>
 
             <!-- Pagination für Posts -->
@@ -207,11 +362,19 @@
 </div>
 
 <script>
-function importBlogPosts() {
-    if (!confirm('Blog-Posts für diesen Blog importieren?')) return;
+function importBlogPosts(importMode = 'new_only') {
+    let confirmMessage = '';
+    if (importMode === 'all') {
+        confirmMessage = '🗑️ ACHTUNG: Alle lokalen Blog-Posts werden gelöscht und neu importiert!\n\nAlle SEO-Optimierungen gehen verloren.\n\nFortfahren?';
+    } else {
+        confirmMessage = 'Nur neue Blog-Posts importieren?';
+    }
+    
+    if (!confirm(confirmMessage)) return;
     
     const formData = new FormData();
     formData.append('blog_id', {{ blog.id }});
+    formData.append('import_mode', importMode);
     formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
     
     fetch('/shopify/api/import-blog-posts/', {
@@ -265,5 +428,173 @@ function showAlert(type, message) {
         alertDiv.remove();
     }, 5000);
 }
+
+// Blog-Post Synchronisation
+function syncBlogPost(blogPostId) {
+    if (!confirm('Blog-Post zu Shopify synchronisieren?')) return;
+    
+    fetch(`/shopify/api/blog-posts/${blogPostId}/sync/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('Synchronisation erfolgreich!', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showAlert('Synchronisation fehlgeschlagen: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('Fehler bei der Synchronisation', 'danger');
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Status-Details bei Hover anzeigen
+document.addEventListener('DOMContentLoaded', function() {
+    const blogPostCards = document.querySelectorAll('.blog-post-card');
+    
+    blogPostCards.forEach(card => {
+        const statusDetails = card.querySelector('.status-details');
+        
+        if (statusDetails) {
+            // Hover-Events für SEO/Alt-Text Badges
+            const badges = card.querySelectorAll('.badge');
+            
+            badges.forEach(badge => {
+                badge.addEventListener('mouseenter', function() {
+                    statusDetails.style.display = 'block';
+                });
+                
+                badge.addEventListener('mouseleave', function() {
+                    statusDetails.style.display = 'none';
+                });
+            });
+            
+            // Hover-Events für Details-Card selbst
+            statusDetails.addEventListener('mouseenter', function() {
+                statusDetails.style.display = 'block';
+            });
+            
+            statusDetails.addEventListener('mouseleave', function() {
+                statusDetails.style.display = 'none';
+            });
+        }
+    });
+});
 </script>
+
+<style>
+.sync-status .sync-error {
+    color: #dc3545;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.sync-status .needs-sync {
+    color: #ffc107;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.sync-status .synced {
+    color: #198754;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-details {
+    position: absolute;
+    z-index: 1000;
+    width: 100%;
+    margin-top: -10px;
+}
+
+.blog-post-card {
+    position: relative;
+}
+
+.form-switch .form-check-input {
+    width: 2em;
+    height: 1em;
+}
+
+.form-switch .form-check-label {
+    margin-left: 0.5rem;
+}
+
+/* Combined SEO Status Rahmen für Blog-Post Karten (analog zu Produkten) */
+.blog-post-card.combined-status-good {
+    border: 3px solid #198754 !important; /* Bootstrap Success Green */
+    box-shadow: 0 0 10px rgba(25, 135, 84, 0.3);
+}
+
+.blog-post-card.combined-status-warning {
+    border: 3px solid #ffc107 !important; /* Bootstrap Warning Yellow */
+    box-shadow: 0 0 10px rgba(255, 193, 7, 0.3);
+}
+
+.blog-post-card.combined-status-poor {
+    border: 3px solid #dc3545 !important; /* Bootstrap Danger Red */
+    box-shadow: 0 0 10px rgba(220, 53, 69, 0.3);
+}
+
+/* SEO Score Display Styles */
+.seo-score-container {
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 8px;
+    padding: 8px 12px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.seo-score-display {
+    align-items: center;
+}
+
+.seo-score-value .badge {
+    font-size: 0.9rem;
+    padding: 6px 12px;
+    min-width: 60px;
+    text-align: center;
+}
+
+/* Verbesserte Card Hover Effects für Blog-Posts */
+.blog-post-card:hover {
+    transform: translateY(-2px);
+    transition: all 0.2s ease-in-out;
+}
+
+.blog-post-card.combined-status-good:hover {
+    box-shadow: 0 4px 15px rgba(25, 135, 84, 0.4);
+}
+
+.blog-post-card.combined-status-warning:hover {
+    box-shadow: 0 4px 15px rgba(255, 193, 7, 0.4);
+}
+
+.blog-post-card.combined-status-poor:hover {
+    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+}
+</style>
+
 {% endblock %}

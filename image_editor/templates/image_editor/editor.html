@@ -1,0 +1,1476 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h2">
+                <i class="fas fa-edit text-primary"></i> Bildeditor: {{ project.name }}
+            </h1>
+            <div class="btn-group">
+                <a href="{% url 'image_editor:project_detail' project.pk %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-info-circle"></i> Details
+                </a>
+                <a href="{% url 'image_editor:dashboard' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Werkzeuge Panel -->
+    <div class="col-md-3">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-tools"></i> Basis-Bearbeitung
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary btn-sm" onclick="applyBasicOperation('invert')">
+                        <i class="fas fa-adjust"></i> Invertieren
+                    </button>
+                    <button class="btn btn-outline-primary btn-sm" onclick="applyBasicOperation('grayscale')">
+                        <i class="fas fa-palette"></i> Schwarzweiß
+                    </button>
+                    
+                    <!-- Slider für Helligkeit -->
+                    <div class="mt-2">
+                        <label class="form-label small">Helligkeit</label>
+                        <input type="range" class="form-range" min="0.1" max="2.0" step="0.1" value="1.0" 
+                               id="brightness-slider" onchange="applySliderOperation('brightness', this.value)">
+                        <small class="text-muted d-block">Aktuell: <span id="brightness-value">1.0</span></small>
+                    </div>
+                    
+                    <!-- Slider für Kontrast -->
+                    <div class="mt-2">
+                        <label class="form-label small">Kontrast</label>
+                        <input type="range" class="form-range" min="0.1" max="2.0" step="0.1" value="1.0" 
+                               id="contrast-slider" onchange="applySliderOperation('contrast', this.value)">
+                        <small class="text-muted d-block">Aktuell: <span id="contrast-value">1.0</span></small>
+                    </div>
+                    
+                    <!-- Slider für Sättigung -->
+                    <div class="mt-2">
+                        <label class="form-label small">Sättigung</label>
+                        <input type="range" class="form-range" min="0.0" max="2.0" step="0.1" value="1.0" 
+                               id="saturation-slider" onchange="applySliderOperation('saturation', this.value)">
+                        <small class="text-muted d-block">Aktuell: <span id="saturation-value">1.0</span></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-magic"></i> Erweiterte Filter
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-success btn-sm" onclick="showFilterSettings('emboss')">
+                        <i class="fas fa-mountain"></i> Prägen
+                    </button>
+                    <button class="btn btn-outline-success btn-sm" onclick="showFilterSettings('edge_detect')">
+                        <i class="fas fa-vector-square"></i> Kantenerkennung
+                    </button>
+                    <button class="btn btn-outline-success btn-sm" onclick="showFilterSettings('oil_painting')">
+                        <i class="fas fa-paint-brush"></i> Ölgemälde
+                    </button>
+                    <button class="btn btn-outline-success btn-sm" onclick="showFilterSettings('pencil_sketch')">
+                        <i class="fas fa-pencil-alt"></i> Bleistiftskizze
+                    </button>
+                    <button class="btn btn-outline-success btn-sm" onclick="showFilterSettings('vintage')">
+                        <i class="fas fa-camera-retro"></i> Vintage
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-industry"></i> Gravur-Tools
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2 mb-3">
+                    <button class="btn btn-outline-warning btn-sm" onclick="showGravurSettings('remove_background')">
+                        <i class="fas fa-eraser"></i> Hintergrund entfernen
+                    </button>
+                    <button class="btn btn-outline-warning btn-sm" onclick="showGravurSettings('prepare_engraving')">
+                        <i class="fas fa-cog"></i> Gravur vorbereiten
+                    </button>
+                    <button class="btn btn-outline-warning btn-sm" onclick="showGravurSettings('vectorize')">
+                        <i class="fas fa-bezier-curve"></i> Vektorisieren
+                    </button>
+                </div>
+                
+                <!-- Gravur-Einstellungen -->
+                <div class="border-top pt-2">
+                    <small class="text-muted d-block mb-2">Gravur-Parameter:</small>
+                    
+                    <div class="mb-2">
+                        <label class="form-label small">Strahlbreite (mm)</label>
+                        <input type="number" class="form-control form-control-sm" 
+                               id="beam-width" value="0.1" min="0.01" max="1.0" step="0.01">
+                    </div>
+                    
+                    <div class="mb-2">
+                        <label class="form-label small">Linienstärke (mm)</label>
+                        <input type="number" class="form-control form-control-sm" 
+                               id="line-thickness" value="0.1" min="0.01" max="1.0" step="0.01">
+                    </div>
+                    
+                    <div class="mb-2">
+                        <label class="form-label small">Tiefenstufen</label>
+                        <input type="number" class="form-control form-control-sm" 
+                               id="depth-levels" value="5" min="2" max="20">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-download"></i> Export
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <label class="form-label small">Format</label>
+                    <select class="form-select form-select-sm" id="export-format">
+                        <option value="PNG">PNG (verlustfrei)</option>
+                        <option value="JPEG">JPEG (komprimiert)</option>
+                        <option value="WEBP">WebP (modern)</option>
+                        <option value="TIFF">TIFF (professionell)</option>
+                        <option value="PDF">PDF (dokument)</option>
+                        <option value="SVG">SVG (vektor)</option>
+                    </select>
+                </div>
+                
+                <div class="mb-2">
+                    <label class="form-label small">Qualität</label>
+                    <select class="form-select form-select-sm" id="export-quality">
+                        <option value="max">Maximum</option>
+                        <option value="high" selected>Hoch</option>
+                        <option value="medium">Mittel</option>
+                        <option value="low">Niedrig</option>
+                    </select>
+                </div>
+                
+                <div class="d-grid">
+                    <button class="btn btn-success btn-sm" onclick="exportImage()">
+                        <i class="fas fa-download"></i> Exportieren
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Haupt-Arbeitsbereich -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">
+                    <i class="fas fa-image"></i> Live-Vorschau
+                </h6>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary" onclick="resetToOriginal()">
+                        <i class="fas fa-undo"></i> Zurücksetzen
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="refreshPreview()">
+                        <i class="fas fa-sync"></i> Aktualisieren
+                    </button>
+                </div>
+            </div>
+            <div class="card-body text-center">
+                <div id="image-container" class="position-relative">
+                    <img id="preview-image" src="{{ project.original_image.url }}" 
+                         class="img-fluid border rounded" style="max-height: 500px;" alt="{{ project.name }}">
+                    
+                    <!-- Loading Overlay -->
+                    <div id="loading-overlay" class="position-absolute top-0 start-0 w-100 h-100 
+                                bg-dark bg-opacity-25 d-flex align-items-center justify-content-center">
+                        <div class="spinner-border text-light" role="status">
+                            <span class="visually-hidden">Wird bearbeitet...</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Bildinfo -->
+                <div class="mt-3">
+                    <small class="text-muted" id="image-info">
+                        {% if project.original_width and project.original_height %}
+                            {{ project.original_width }} × {{ project.original_height }} Pixel
+                        {% endif %}
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Erweiterte Einstellungen Panel -->
+        <div id="settings-panel" class="mt-3" style="display: none;">
+            <!-- Filter Einstellungen -->
+            <div id="filter-settings" style="display: none;">
+                <div class="card border-success">
+                    <div class="card-header bg-light">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">
+                                <i class="fas fa-sliders-h text-success"></i> 
+                                <span id="filter-title">Filter-Einstellungen</span>
+                            </h6>
+                            <button type="button" class="btn-close btn-sm" onclick="hideSettings()"></button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="filter-controls"></div>
+                        <div class="d-flex gap-2 mt-3">
+                            <button class="btn btn-success btn-sm" onclick="confirmFilterSettings()">
+                                <i class="fas fa-check"></i> Übernehmen
+                            </button>
+                            <button class="btn btn-outline-warning btn-sm" onclick="resetFilterPreview()">
+                                <i class="fas fa-undo"></i> Zurücksetzen
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="hideSettings()">
+                                <i class="fas fa-times"></i> Abbrechen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gravur-Tool Einstellungen -->
+            <div id="gravur-settings" style="display: none;">
+                <div class="card border-warning">
+                    <div class="card-header bg-light">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">
+                                <i class="fas fa-cogs text-warning"></i> 
+                                <span id="gravur-title">Gravur-Einstellungen</span>
+                            </h6>
+                            <button type="button" class="btn-close btn-sm" onclick="hideSettings()"></button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="gravur-controls"></div>
+                        <div class="d-flex gap-2 mt-3">
+                            <button class="btn btn-warning btn-sm" onclick="confirmGravurSettings()">
+                                <i class="fas fa-check"></i> Übernehmen
+                            </button>
+                            <button class="btn btn-outline-warning btn-sm" onclick="resetGravurPreview()">
+                                <i class="fas fa-undo"></i> Zurücksetzen
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="hideSettings()">
+                                <i class="fas fa-times"></i> Abbrechen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Status/Feedback -->
+        <div id="status-messages" class="mt-3"></div>
+    </div>
+    
+    <!-- Verarbeitungshistorie -->
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-history"></i> Verarbeitungsschritte
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="processing-history">
+                    {% for step in processing_steps %}
+                    <div class="border-bottom pb-2 mb-2">
+                        <small class="fw-bold">{{ step.get_operation_display }}</small>
+                        <div class="text-muted small">
+                            {{ step.applied_at|date:"H:i:s" }}
+                            {% if step.processing_time %}
+                                ({{ step.processing_time|floatformat:2 }}s)
+                            {% endif %}
+                        </div>
+                        {% if step.parameters %}
+                        <div class="text-muted small">
+                            {% for key, value in step.parameters.items %}
+                                {{ key }}: {{ value }}{% if not forloop.last %}, {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <small class="text-muted">Noch keine Bearbeitungsschritte</small>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Projekt-Info -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-info-circle"></i> Projekt-Info
+                </h6>
+            </div>
+            <div class="card-body">
+                <small class="text-muted">
+                    <strong>Name:</strong> {{ project.name }}<br>
+                    <strong>Quelle:</strong> {{ project.get_source_type_display }}<br>
+                    <strong>Status:</strong> {{ project.get_status_display }}<br>
+                    <strong>Erstellt:</strong> {{ project.created_at|date:"d.m.Y H:i" }}<br>
+                    <strong>Bearbeitet:</strong> {{ project.updated_at|date:"d.m.Y H:i" }}<br>
+                    {% if project.get_file_size %}
+                    <strong>Dateigröße:</strong> {{ project.get_file_size|filesizeformat }}<br>
+                    {% endif %}
+                    <strong>Schritte:</strong> {{ project.get_processing_steps_count }}
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const projectId = {{ project.id }};
+let processingQueue = [];
+let isProcessing = false;
+let currentFilterType = null;
+let currentGravurType = null;
+let originalImageSrc = null;
+let previewTimeout = null;
+let isLivePreviewActive = false;
+
+// Live-Vorschau aktualisieren
+function refreshPreview() {
+    fetch(`/images/api/live-preview/${projectId}/`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('preview-image').src = data.preview_base64;
+            
+            // Bildinfo aktualisieren
+            const info = data.image_info;
+            document.getElementById('image-info').textContent = 
+                `${info.width} × ${info.height} Pixel • ${info.mode}`;
+        }
+    })
+    .catch(error => console.error('Fehler beim Laden der Vorschau:', error));
+}
+
+// Basis-Operationen
+function applyBasicOperation(operation) {
+    const parameters = {};
+    
+    if (operation === 'brightness') {
+        parameters.factor = parseFloat(document.getElementById('brightness-slider').value);
+    } else if (operation === 'contrast') {
+        parameters.factor = parseFloat(document.getElementById('contrast-slider').value);
+    } else if (operation === 'saturation') {
+        parameters.factor = parseFloat(document.getElementById('saturation-slider').value);
+    }
+    
+    processImage(operation, parameters);
+}
+
+// Slider-Operationen
+function applySliderOperation(operation, value) {
+    document.getElementById(`${operation}-value`).textContent = value;
+    applyBasicOperation(operation);
+}
+
+// Filter-Einstellungen anzeigen
+function showFilterSettings(filterType) {
+    currentFilterType = filterType;
+    currentGravurType = null; // Reset Gravur-Typ
+    hideSettings(); // Verstecke andere Settings zuerst
+    
+    // Original-Bild-Referenz speichern
+    originalImageSrc = document.getElementById('preview-image').src;
+    
+    const panel = document.getElementById('settings-panel');
+    const filterSettings = document.getElementById('filter-settings');
+    const filterTitle = document.getElementById('filter-title');
+    const filterControls = document.getElementById('filter-controls');
+    
+    // Titel setzen
+    const filterNames = {
+        'emboss': 'Prägen-Filter',
+        'edge_detect': 'Kantenerkennung',
+        'oil_painting': 'Ölgemälde-Filter',
+        'pencil_sketch': 'Bleistiftskizze',
+        'vintage': 'Vintage-Filter'
+    };
+    filterTitle.textContent = filterNames[filterType] || 'Filter-Einstellungen';
+    
+    // Controls erstellen
+    filterControls.innerHTML = createFilterControls(filterType);
+    
+    // Panel anzeigen
+    panel.style.display = 'block';
+    filterSettings.style.display = 'block';
+    
+    // Live-Vorschau aktivieren
+    isLivePreviewActive = true;
+    
+    // Erste Vorschau mit Standard-Werten anwenden
+    setTimeout(() => {
+        triggerLivePreview();
+    }, 100);
+    
+    // Smooth scroll zum Panel
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Gravur-Einstellungen anzeigen  
+function showGravurSettings(toolType) {
+    currentGravurType = toolType;
+    currentFilterType = null; // Reset Filter-Typ
+    hideSettings(); // Verstecke andere Settings zuerst
+    
+    // Original-Bild-Referenz speichern
+    originalImageSrc = document.getElementById('preview-image').src;
+    
+    const panel = document.getElementById('settings-panel');
+    const gravurSettings = document.getElementById('gravur-settings');
+    const gravurTitle = document.getElementById('gravur-title');
+    const gravurControls = document.getElementById('gravur-controls');
+    
+    // Titel setzen
+    const toolNames = {
+        'remove_background': 'Hintergrund entfernen',
+        'prepare_engraving': 'Gravur vorbereiten',
+        'vectorize': 'Vektorisierung'
+    };
+    gravurTitle.textContent = toolNames[toolType] || 'Gravur-Einstellungen';
+    
+    // Controls erstellen
+    gravurControls.innerHTML = createGravurControls(toolType);
+    
+    // Panel anzeigen
+    panel.style.display = 'block';
+    gravurSettings.style.display = 'block';
+    
+    // Live-Vorschau aktivieren
+    isLivePreviewActive = true;
+    
+    // Erste Vorschau mit Standard-Werten anwenden
+    setTimeout(() => {
+        triggerLivePreview();
+    }, 100);
+    
+    // Smooth scroll zum Panel
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Settings verstecken
+function hideSettings() {
+    const panel = document.getElementById('settings-panel');
+    const filterSettings = document.getElementById('filter-settings');
+    const gravurSettings = document.getElementById('gravur-settings');
+    
+    // Live-Vorschau deaktivieren
+    isLivePreviewActive = false;
+    
+    // Timeout löschen
+    clearTimeout(previewTimeout);
+    
+    // Reset auf Original-Bild falls nicht bestätigt
+    if (originalImageSrc) {
+        document.getElementById('preview-image').src = originalImageSrc;
+    }
+    
+    panel.style.display = 'none';
+    filterSettings.style.display = 'none';
+    gravurSettings.style.display = 'none';
+    
+    // Reset Variablen
+    currentFilterType = null;
+    currentGravurType = null;
+}
+
+// Filter-Controls erstellen
+function createFilterControls(filterType) {
+    switch(filterType) {
+        case 'emboss':
+            return `
+                <div class="mb-3">
+                    <label class="form-label">Stärke</label>
+                    <input type="range" class="form-range" id="emboss-strength" 
+                           min="0.1" max="3.0" step="0.1" value="1.0">
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">Schwach</small>
+                        <small class="text-muted">Stark</small>
+                    </div>
+                    <div class="text-center mt-1">
+                        <small class="fw-bold">Wert: <span id="emboss-strength-value">1.0</span></small>
+                    </div>
+                </div>
+            `;
+        
+        case 'edge_detect':
+            return `
+                <div class="mb-3">
+                    <label class="form-label">Methode</label>
+                    <select class="form-select" id="edge-method">
+                        <option value="canny">Canny (Empfohlen)</option>
+                        <option value="sobel">Sobel</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Untere Schwelle</label>
+                    <input type="range" class="form-range" id="edge-low" 
+                           min="10" max="200" step="5" value="50">
+                    <div class="text-center mt-1">
+                        <small class="fw-bold">Wert: <span id="edge-low-value">50</span></small>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Obere Schwelle</label>
+                    <input type="range" class="form-range" id="edge-high" 
+                           min="50" max="300" step="5" value="150">
+                    <div class="text-center mt-1">
+                        <small class="fw-bold">Wert: <span id="edge-high-value">150</span></small>
+                    </div>
+                </div>
+            `;
+        
+        case 'oil_painting':
+            return `
+                <div class="mb-3">
+                    <label class="form-label">Pinselgröße</label>
+                    <input type="range" class="form-range" id="oil-size" 
+                           min="3" max="15" step="2" value="7">
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">Klein</small>
+                        <small class="text-muted">Groß</small>
+                    </div>
+                    <div class="text-center mt-1">
+                        <small class="fw-bold">Wert: <span id="oil-size-value">7</span></small>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Farbstufen</label>
+                    <input type="range" class="form-range" id="oil-levels" 
+                           min="4" max="16" step="1" value="8">
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">Wenig</small>
+                        <small class="text-muted">Viel</small>
+                    </div>
+                    <div class="text-center mt-1">
+                        <small class="fw-bold">Wert: <span id="oil-levels-value">8</span></small>
+                    </div>
+                </div>
+            `;
+        
+        case 'pencil_sketch':
+            return `
+                <div class="mb-3">
+                    <label class="form-label">Linienstärke</label>
+                    <input type="range" class="form-range" id="pencil-line" 
+                           min="3" max="15" step="2" value="7">
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">Fein</small>
+                        <small class="text-muted">Dick</small>
+                    </div>
+                    <div class="text-center mt-1">
+                        <small class="fw-bold">Wert: <span id="pencil-line-value">7</span></small>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Weichzeichnung</label>
+                    <input type="range" class="form-range" id="pencil-blur" 
+                           min="3" max="21" step="2" value="7">
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">Scharf</small>
+                        <small class="text-muted">Weich</small>
+                    </div>
+                    <div class="text-center mt-1">
+                        <small class="fw-bold">Wert: <span id="pencil-blur-value">7</span></small>
+                    </div>
+                </div>
+            `;
+        
+        case 'vintage':
+            return `
+                <div class="mb-3">
+                    <label class="form-label">Sepia-Stärke</label>
+                    <input type="range" class="form-range" id="vintage-sepia" 
+                           min="0" max="1" step="0.1" value="0.8">
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">Kein Sepia</small>
+                        <small class="text-muted">Vollständig</small>
+                    </div>
+                    <div class="text-center mt-1">
+                        <small class="fw-bold">Wert: <span id="vintage-sepia-value">0.8</span></small>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Vignette-Stärke</label>
+                    <input type="range" class="form-range" id="vintage-vignette" 
+                           min="0" max="0.8" step="0.1" value="0.3">
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">Keine</small>
+                        <small class="text-muted">Stark</small>
+                    </div>
+                    <div class="text-center mt-1">
+                        <small class="fw-bold">Wert: <span id="vintage-vignette-value">0.3</span></small>
+                    </div>
+                </div>
+            `;
+        
+        default:
+            return '<p class="text-muted">Keine erweiterten Einstellungen verfügbar.</p>';
+    }
+}
+
+// Gravur-Controls erstellen
+function createGravurControls(toolType) {
+    switch(toolType) {
+        case 'remove_background':
+            return `
+                <div class="mb-3">
+                    <label class="form-label">AI-Modell</label>
+                    <select class="form-select" id="bg-model">
+                        <option value="u2net">U2-Net (Universell)</option>
+                        <option value="silueta">Silueta (Personen)</option>
+                        <option value="isnet-general-use">ISNet (Hochqualität)</option>
+                    </select>
+                    <div class="form-text">
+                        U2-Net für allgemeine Objekte, Silueta für Personen, ISNet für höchste Qualität
+                    </div>
+                </div>
+            `;
+        
+        case 'prepare_engraving':
+            return `
+                <div class="mb-3">
+                    <label class="form-label">Laserstrahl-Breite (mm)</label>
+                    <input type="number" class="form-control" id="engrave-beam" 
+                           min="0.05" max="0.5" step="0.01" value="0.1">
+                    <div class="form-text">Typisch: 0.1mm für Präzision, 0.2mm für Geschwindigkeit</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Mindest-Linienstärke (mm)</label>
+                    <input type="number" class="form-control" id="engrave-line" 
+                           min="0.05" max="1.0" step="0.01" value="0.1">
+                    <div class="form-text">Dünne Linien werden auf diese Mindestbreite verstärkt</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Tiefenstufen</label>
+                    <input type="range" class="form-range" id="engrave-depth" 
+                           min="2" max="20" step="1" value="5">
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">2</small>
+                        <small class="text-muted">20</small>
+                    </div>
+                    <div class="text-center mt-1">
+                        <small class="fw-bold">Stufen: <span id="engrave-depth-value">5</span></small>
+                    </div>
+                    <div class="form-text">Mehr Stufen = feinere Grauabstufungen, aber längere Gravur</div>
+                </div>
+            `;
+        
+        case 'vectorize':
+            return `
+                <div class="mb-3">
+                    <label class="form-label">Schwarz/Weiß-Schwelle</label>
+                    <input type="range" class="form-range" id="vector-threshold" 
+                           min="50" max="200" step="5" value="128">
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">Mehr Schwarz</small>
+                        <small class="text-muted">Mehr Weiß</small>
+                    </div>
+                    <div class="text-center mt-1">
+                        <small class="fw-bold">Wert: <span id="vector-threshold-value">128</span></small>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Vereinfachung</label>
+                    <input type="range" class="form-range" id="vector-simplify" 
+                           min="0.5" max="5.0" step="0.1" value="1.0">
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">Detailliert</small>
+                        <small class="text-muted">Vereinfacht</small>
+                    </div>
+                    <div class="text-center mt-1">
+                        <small class="fw-bold">Wert: <span id="vector-simplify-value">1.0</span></small>
+                    </div>
+                </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="vector-enhance" checked>
+                    <label class="form-check-label" for="vector-enhance">
+                        Linien vor Vektorisierung verstärken
+                    </label>
+                    <div class="form-text">Empfohlen für bessere Vektorkurven</div>
+                </div>
+                <div class="mb-3" id="enhance-options">
+                    <label class="form-label">Linienverstärkung</label>
+                    <input type="range" class="form-range" id="vector-line-width" 
+                           min="1" max="5" step="1" value="2">
+                    <div class="text-center mt-1">
+                        <small class="fw-bold">Breite: <span id="vector-line-width-value">2</span></small>
+                    </div>
+                </div>
+            `;
+        
+        default:
+            return '<p class="text-muted">Keine erweiterten Einstellungen verfügbar.</p>';
+    }
+}
+
+// Erweiterte Filter
+function applyAdvancedFilter(filterType) {
+    showLoadingWithTimeout();
+    
+    fetch('/images/api/advanced-filter/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            project_id: projectId,
+            filter_type: filterType,
+            parameters: {}
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingAndClearTimeout();
+        if (data.success) {
+            showMessage('success', data.message);
+            if (data.preview_base64) {
+                document.getElementById('preview-image').src = data.preview_base64;
+            }
+            addToHistory(filterType, {});
+            // refreshPreview(); // Entfernt, da wir bereits das Bild aktualisiert haben
+        } else {
+            showMessage('danger', data.error);
+        }
+    })
+    .catch(error => {
+        hideLoadingAndClearTimeout();
+        showMessage('danger', 'Fehler bei der Verarbeitung: ' + error);
+    });
+}
+
+// Hintergrund entfernen
+function removeBackground() {
+    showLoadingWithTimeout();
+    
+    fetch('/images/api/remove-background/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            project_id: projectId,
+            model: 'u2net'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingAndClearTimeout();
+        if (data.success) {
+            showMessage('success', data.message);
+            if (data.preview_base64) {
+                document.getElementById('preview-image').src = data.preview_base64;
+            }
+            addToHistory('remove_background', {model: 'u2net'});
+        } else {
+            showMessage('danger', data.error);
+        }
+    })
+    .catch(error => {
+        hideLoadingAndClearTimeout();
+        showMessage('danger', 'Fehler bei Hintergrundentfernung: ' + error);
+    });
+}
+
+// Gravur vorbereiten
+function prepareEngraving() {
+    const beamWidth = parseFloat(document.getElementById('beam-width').value);
+    const lineThickness = parseFloat(document.getElementById('line-thickness').value);
+    const depthLevels = parseInt(document.getElementById('depth-levels').value);
+    
+    showLoadingWithTimeout();
+    
+    fetch('/images/api/prepare-engraving/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            project_id: projectId,
+            beam_width: beamWidth,
+            line_thickness: lineThickness,
+            depth_levels: depthLevels
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingAndClearTimeout();
+        if (data.success) {
+            showMessage('success', data.message);
+            if (data.preview_base64) {
+                document.getElementById('preview-image').src = data.preview_base64;
+            }
+            addToHistory('prepare_engraving', {
+                beam_width: beamWidth,
+                line_thickness: lineThickness,
+                depth_levels: depthLevels
+            });
+        } else {
+            showMessage('danger', data.error);
+        }
+    })
+    .catch(error => {
+        hideLoadingAndClearTimeout();
+        showMessage('danger', 'Fehler bei Gravur-Vorbereitung: ' + error);
+    });
+}
+
+// Vektorisierung
+function vectorizeImage() {
+    showLoadingWithTimeout();
+    
+    fetch('/images/api/vectorize/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            project_id: projectId,
+            threshold: 128,
+            simplify_tolerance: 1.0,
+            enhance_lines: true,
+            line_width: 2
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingAndClearTimeout();
+        if (data.success) {
+            showMessage('success', data.message);
+            if (data.svg_content) {
+                // SVG in neuem Fenster anzeigen
+                const newWindow = window.open('', '_blank');
+                newWindow.document.write(data.svg_content);
+                newWindow.document.title = 'Vektorisiert: ' + '{{ project.name }}';
+            }
+            addToHistory('vectorize', {threshold: 128, simplify_tolerance: 1.0});
+        } else {
+            showMessage('danger', data.error);
+        }
+    })
+    .catch(error => {
+        hideLoadingAndClearTimeout();
+        showMessage('danger', 'Fehler bei Vektorisierung: ' + error);
+    });
+}
+
+// Export
+function exportImage() {
+    const format = document.getElementById('export-format').value;
+    const quality = document.getElementById('export-quality').value;
+    
+    showLoadingWithTimeout();
+    
+    fetch('/images/api/export/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            project_id: projectId,
+            format: format,
+            quality: quality,
+            dpi: 300
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingAndClearTimeout();
+        if (data.success) {
+            showMessage('success', data.message);
+            
+            // Download starten
+            const downloadLink = document.createElement('a');
+            downloadLink.href = data.download_url;
+            downloadLink.download = `{{ project.name }}_export.${format.toLowerCase()}`;
+            downloadLink.click();
+        } else {
+            showMessage('danger', data.error);
+        }
+    })
+    .catch(error => {
+        hideLoadingAndClearTimeout();
+        showMessage('danger', 'Fehler beim Export: ' + error);
+    });
+}
+
+// Bild-Verarbeitung
+function processImage(operation, parameters) {
+    showLoadingWithTimeout();
+    
+    fetch('/images/api/process-image/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            project_id: projectId,
+            operation: operation,
+            parameters: parameters
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingAndClearTimeout();
+        if (data.success) {
+            showMessage('success', data.message);
+            if (data.preview_base64) {
+                document.getElementById('preview-image').src = data.preview_base64;
+            } else {
+                refreshPreview();
+            }
+            addToHistory(operation, parameters);
+        } else {
+            showMessage('danger', data.error);
+        }
+    })
+    .catch(error => {
+        hideLoadingAndClearTimeout();
+        showMessage('danger', 'Fehler bei der Verarbeitung: ' + error);
+    });
+}
+
+// Auf Original zurücksetzen
+function resetToOriginal() {
+    if (confirm('Alle Bearbeitungen zurücksetzen und zum Original zurückkehren?')) {
+        document.getElementById('preview-image').src = '{{ project.original_image.url }}';
+        
+        // Slider zurücksetzen
+        document.getElementById('brightness-slider').value = 1.0;
+        document.getElementById('contrast-slider').value = 1.0;
+        document.getElementById('saturation-slider').value = 1.0;
+        document.getElementById('brightness-value').textContent = '1.0';
+        document.getElementById('contrast-value').textContent = '1.0';
+        document.getElementById('saturation-value').textContent = '1.0';
+        
+        showMessage('info', 'Auf ursprüngliches Bild zurückgesetzt');
+    }
+}
+
+// UI-Hilfsfunktionen
+function showLoading() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) {
+        overlay.classList.add('show');
+        console.log('Loading angezeigt');
+    }
+}
+
+function hideLoading() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) {
+        overlay.classList.remove('show');
+        console.log('Loading versteckt');
+    }
+}
+
+// Sicherheitsfunktion: Loading nach 30 Sekunden automatisch verstecken
+let loadingTimeout;
+function showLoadingWithTimeout() {
+    showLoading();
+    clearTimeout(loadingTimeout);
+    loadingTimeout = setTimeout(() => {
+        hideLoading();
+        showMessage('warning', 'Verarbeitung dauert länger als erwartet. Bitte versuchen Sie es erneut.');
+    }, 30000);
+}
+
+function hideLoadingAndClearTimeout() {
+    hideLoading();
+    clearTimeout(loadingTimeout);
+}
+
+function showMessage(type, message) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    messageDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.getElementById('status-messages');
+    container.appendChild(messageDiv);
+    
+    // Automatisch entfernen nach 5 Sekunden
+    setTimeout(() => {
+        if (messageDiv.parentNode) {
+            messageDiv.remove();
+        }
+    }, 5000);
+}
+
+function addToHistory(operation, parameters) {
+    const historyContainer = document.getElementById('processing-history');
+    
+    const historyItem = document.createElement('div');
+    historyItem.className = 'border-bottom pb-2 mb-2';
+    historyItem.innerHTML = `
+        <small class="fw-bold">${operation}</small>
+        <div class="text-muted small">
+            ${new Date().toLocaleTimeString()}
+        </div>
+        <div class="text-muted small">
+            ${Object.entries(parameters).map(([k, v]) => `${k}: ${v}`).join(', ')}
+        </div>
+    `;
+    
+    historyContainer.prepend(historyItem);
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+
+// Filter-Parameter extrahieren
+function getFilterParameters(filterType) {
+    switch(filterType) {
+        case 'emboss':
+            return {
+                strength: parseFloat(document.getElementById('emboss-strength').value)
+            };
+        
+        case 'edge_detect':
+            return {
+                method: document.getElementById('edge-method').value,
+                low_threshold: parseInt(document.getElementById('edge-low').value),
+                high_threshold: parseInt(document.getElementById('edge-high').value)
+            };
+        
+        case 'oil_painting':
+            return {
+                size: parseInt(document.getElementById('oil-size').value),
+                levels: parseInt(document.getElementById('oil-levels').value)
+            };
+        
+        case 'pencil_sketch':
+            return {
+                line_size: parseInt(document.getElementById('pencil-line').value),
+                blur_value: parseInt(document.getElementById('pencil-blur').value)
+            };
+        
+        case 'vintage':
+            return {
+                sepia_strength: parseFloat(document.getElementById('vintage-sepia').value),
+                vignette_strength: parseFloat(document.getElementById('vintage-vignette').value)
+            };
+        
+        default:
+            return {};
+    }
+}
+
+// Gravur-Parameter extrahieren
+function getGravurParameters(toolType) {
+    switch(toolType) {
+        case 'remove_background':
+            return {
+                model: document.getElementById('bg-model').value
+            };
+        
+        case 'prepare_engraving':
+            return {
+                beam_width: parseFloat(document.getElementById('engrave-beam').value),
+                line_thickness: parseFloat(document.getElementById('engrave-line').value),
+                depth_levels: parseInt(document.getElementById('engrave-depth').value)
+            };
+        
+        case 'vectorize':
+            const parameters = {
+                threshold: parseInt(document.getElementById('vector-threshold').value),
+                simplify_tolerance: parseFloat(document.getElementById('vector-simplify').value)
+            };
+            
+            // Prüfe ob Linienverstärkung aktiviert ist
+            if (document.getElementById('vector-enhance').checked) {
+                parameters.enhance_lines = true;
+                parameters.line_width = parseInt(document.getElementById('vector-line-width').value);
+            } else {
+                parameters.enhance_lines = false;
+            }
+            
+            return parameters;
+        
+        default:
+            return {};
+    }
+}
+
+// Live-Vorschau für Filter/Gravur-Einstellungen
+function triggerLivePreview() {
+    // Debounce: Warte 300ms nach der letzten Änderung für schnellere Response
+    clearTimeout(previewTimeout);
+    previewTimeout = setTimeout(() => {
+        if (isLivePreviewActive) {
+            if (currentFilterType) {
+                applyFilterPreview();
+            } else if (currentGravurType) {
+                applyGravurPreview();
+            }
+        }
+    }, 300);
+}
+
+// Filter-Vorschau anwenden (temporär)
+function applyFilterPreview() {
+    if (!currentFilterType || isProcessing) return;
+    
+    const parameters = getFilterParameters(currentFilterType);
+    
+    // Zeige kurzen Loading-Indikator
+    const previewImage = document.getElementById('preview-image');
+    previewImage.style.opacity = '0.7';
+    
+    fetch('/images/api/preview-filter/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            project_id: projectId,
+            filter_type: currentFilterType,
+            parameters: parameters,
+            preview_only: true
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        previewImage.style.opacity = '1';
+        if (data.success && data.preview_base64) {
+            previewImage.src = data.preview_base64;
+        }
+    })
+    .catch(error => {
+        previewImage.style.opacity = '1';
+        console.error('Vorschau-Fehler:', error);
+    });
+}
+
+// Gravur-Vorschau anwenden (temporär)
+function applyGravurPreview() {
+    if (!currentGravurType || isProcessing) return;
+    
+    const parameters = getGravurParameters(currentGravurType);
+    
+    // Zeige kurzen Loading-Indikator
+    const previewImage = document.getElementById('preview-image');
+    previewImage.style.opacity = '0.7';
+    
+    let endpoint;
+    switch(currentGravurType) {
+        case 'remove_background':
+            endpoint = '/images/api/preview-remove-background/';
+            break;
+        case 'prepare_engraving':
+            endpoint = '/images/api/preview-prepare-engraving/';
+            break;
+        case 'vectorize':
+            endpoint = '/images/api/preview-vectorize/';
+            break;
+        default:
+            previewImage.style.opacity = '1';
+            return;
+    }
+    
+    fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(Object.assign({
+            project_id: projectId,
+            preview_only: true
+        }, parameters))
+    })
+    .then(response => response.json())
+    .then(data => {
+        previewImage.style.opacity = '1';
+        if (data.success && data.preview_base64) {
+            previewImage.src = data.preview_base64;
+        }
+    })
+    .catch(error => {
+        previewImage.style.opacity = '1';
+        console.error('Vorschau-Fehler:', error);
+    });
+}
+
+// Filter-Einstellungen bestätigen (dauerhaft speichern)
+function confirmFilterSettings() {
+    if (!currentFilterType) return;
+    
+    const parameters = getFilterParameters(currentFilterType);
+    showLoadingWithTimeout();
+    
+    fetch('/images/api/advanced-filter/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            project_id: projectId,
+            filter_type: currentFilterType,
+            parameters: parameters
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingAndClearTimeout();
+        if (data.success) {
+            showMessage('success', data.message);
+            addToHistory(currentFilterType, parameters);
+            hideSettings();
+            // Original-Bild-Referenz aktualisieren
+            originalImageSrc = data.preview_base64;
+        } else {
+            showMessage('danger', data.error);
+        }
+    })
+    .catch(error => {
+        hideLoadingAndClearTimeout();
+        showMessage('danger', 'Fehler bei der Verarbeitung: ' + error);
+    });
+}
+
+// Gravur-Einstellungen bestätigen (dauerhaft speichern)
+function confirmGravurSettings() {
+    if (!currentGravurType) return;
+    
+    const parameters = getGravurParameters(currentGravurType);
+    showLoadingWithTimeout();
+    
+    let endpoint;
+    switch(currentGravurType) {
+        case 'remove_background':
+            endpoint = '/images/api/remove-background/';
+            break;
+        case 'prepare_engraving':
+            endpoint = '/images/api/prepare-engraving/';
+            break;
+        case 'vectorize':
+            endpoint = '/images/api/vectorize/';
+            break;
+        default:
+            showMessage('danger', 'Unbekannter Gravur-Tool-Typ');
+            hideLoadingAndClearTimeout();
+            return;
+    }
+    
+    fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(Object.assign({project_id: projectId}, parameters))
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoadingAndClearTimeout();
+        if (data.success) {
+            showMessage('success', data.message);
+            if (data.preview_base64) {
+                originalImageSrc = data.preview_base64;
+            }
+            if (data.svg_content && currentGravurType === 'vectorize') {
+                const newWindow = window.open('', '_blank');
+                newWindow.document.write(data.svg_content);
+                newWindow.document.title = 'Vektorisiert: ' + '{{ project.name }}';
+            }
+            addToHistory(currentGravurType, parameters);
+            hideSettings();
+        } else {
+            showMessage('danger', data.error);
+        }
+    })
+    .catch(error => {
+        hideLoadingAndClearTimeout();
+        showMessage('danger', 'Fehler bei der Verarbeitung: ' + error);
+    });
+}
+
+// Filter-Vorschau zurücksetzen
+function resetFilterPreview() {
+    if (originalImageSrc) {
+        document.getElementById('preview-image').src = originalImageSrc;
+    }
+}
+
+// Gravur-Vorschau zurücksetzen
+function resetGravurPreview() {
+    if (originalImageSrc) {
+        document.getElementById('preview-image').src = originalImageSrc;
+    }
+}
+
+// Event Listener für Live-Updates in den Settings hinzufügen
+function addSettingsEventListeners() {
+    // Event-Handler für alle Range-Inputs und Select-Inputs hinzufügen
+    document.addEventListener('input', function(e) {
+        if (e.target.type === 'range') {
+            const valueSpan = document.getElementById(e.target.id + '-value');
+            if (valueSpan) {
+                valueSpan.textContent = e.target.value;
+            }
+            // Live-Vorschau triggern
+            triggerLivePreview();
+        }
+        
+        // Auch für Number-Inputs
+        if (e.target.type === 'number') {
+            triggerLivePreview();
+        }
+    });
+    
+    // Event-Handler für Select-Änderungen
+    document.addEventListener('change', function(e) {
+        if (e.target.tagName === 'SELECT') {
+            triggerLivePreview();
+        }
+        
+        // Spezielle Handler für Vektorisierungs-Enhance Checkbox
+        if (e.target.id === 'vector-enhance') {
+            const enhanceOptions = document.getElementById('enhance-options');
+            if (enhanceOptions) {
+                enhanceOptions.style.display = e.target.checked ? 'block' : 'none';
+            }
+            triggerLivePreview();
+        }
+        
+        // Für alle anderen Checkboxes
+        if (e.target.type === 'checkbox') {
+            triggerLivePreview();
+        }
+    });
+}
+
+// Initial preview laden
+document.addEventListener('DOMContentLoaded', function() {
+    // Forciere das Verstecken des Loading-Spinners beim Start
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) {
+        overlay.classList.remove('show');
+        overlay.style.display = 'none';
+    }
+    
+    // Event Listener für Settings hinzufügen
+    addSettingsEventListeners();
+    
+    // Initial Preview laden (ohne Loading-Spinner für das erste Laden)
+    setTimeout(() => {
+        refreshPreview();
+    }, 100); // Kurze Verzögerung für bessere UX
+});
+</script>
+
+<style>
+#image-container {
+    min-height: 300px;
+}
+
+.form-range {
+    cursor: pointer;
+}
+
+.btn-group-sm .btn {
+    font-size: 0.75rem;
+}
+
+#loading-overlay {
+    border-radius: 0.375rem;
+    display: none !important; /* Standardmäßig versteckt */
+}
+
+#loading-overlay.show {
+    display: flex !important; /* Nur anzeigen wenn explizit gewünscht */
+}
+
+.processing-step {
+    transition: all 0.2s ease-in-out;
+}
+
+.processing-step:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Live-Vorschau Effekte */
+#preview-image {
+    transition: opacity 0.3s ease-in-out;
+}
+
+#settings-panel {
+    animation: slideInUp 0.3s ease-out;
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.form-range:hover {
+    cursor: grab;
+}
+
+.form-range:active {
+    cursor: grabbing;
+}
+
+/* Subtile Hervorhebung bei Parametern */
+.form-range:focus {
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+</style>
+
+{% endblock %}

@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'todos',
     'chat',
     'shopify_manager',
+    'image_editor',
     'encrypted_model_fields',
 ]
 
