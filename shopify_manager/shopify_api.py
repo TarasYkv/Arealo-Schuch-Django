@@ -1,5 +1,6 @@
 import requests
 import json
+import time
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 from django.utils import timezone as django_timezone
@@ -16,13 +17,60 @@ class ShopifyAPIClient:
             'X-Shopify-Access-Token': store.access_token,
             'Content-Type': 'application/json'
         }
+        self.last_request_time = 0
+        self.min_request_interval = 0.5  # 500ms zwischen Requests = 2 Requests pro Sekunde
+    
+    def _rate_limit(self):
+        """Wartet die minimale Zeit zwischen API-Requests ab"""
+        current_time = time.time()
+        time_since_last = current_time - self.last_request_time
+        
+        if time_since_last < self.min_request_interval:
+            sleep_time = self.min_request_interval - time_since_last
+            print(f"⏱️ Rate limiting: Warte {sleep_time:.2f}s...")
+            time.sleep(sleep_time)
+        
+        self.last_request_time = time.time()
+    
+    def _make_request(self, method: str, url: str, **kwargs) -> requests.Response:
+        """Macht einen Rate-Limited API Request mit Retry-Logik"""
+        max_retries = 3
+        retry_delay = 1.0  # Startet mit 1 Sekunde
+        
+        for attempt in range(max_retries):
+            try:
+                self._rate_limit()
+                response = requests.request(method, url, headers=self.headers, **kwargs)
+                
+                # Prüfe auf Rate-Limiting
+                if response.status_code == 429:
+                    print(f"⚠️ Rate limit erreicht (Versuch {attempt + 1}/{max_retries})")
+                    if attempt < max_retries - 1:
+                        print(f"⏳ Warte {retry_delay}s vor erneutem Versuch...")
+                        time.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
+                        continue
+                
+                return response
+                
+            except requests.exceptions.RequestException as e:
+                if attempt < max_retries - 1:
+                    print(f"⚠️ Request-Fehler (Versuch {attempt + 1}/{max_retries}): {e}")
+                    print(f"⏳ Warte {retry_delay}s vor erneutem Versuch...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                    continue
+                else:
+                    raise
+        
+        return response
     
     def test_connection(self) -> Tuple[bool, str]:
         """Testet die Verbindung zur Shopify API"""
         try:
-            response = requests.get(
+            response = self._make_request(
+                'GET',
                 f"{self.base_url}/shop.json",
-                headers=self.headers,
                 timeout=10
             )
             
@@ -51,9 +99,9 @@ class ShopifyAPIClient:
             if since_id:
                 params['since_id'] = since_id
             
-            response = requests.get(
+            response = self._make_request(
+                'GET',
                 f"{self.base_url}/products.json",
-                headers=self.headers,
                 params=params,
                 timeout=30
             )
@@ -68,12 +116,47 @@ class ShopifyAPIClient:
         except requests.exceptions.RequestException as e:
             return False, [], f"Fehler beim Abrufen: {str(e)}"
     
+    def search_products(self, search_term: str, limit: int = 50) -> Tuple[bool, List[Dict], str]:
+        """Sucht Produkte nach Name/Titel"""
+        try:
+            params = {
+                'limit': min(limit, 250),  # Shopify maximum
+                'fields': 'id,title,handle,body_html,vendor,product_type,status,seo_title,seo_description,images,variants,tags,created_at,updated_at',
+                'title': search_term  # Shopify API unterstützt Titel-Suche
+            }
+            
+            response = self._make_request(
+                'GET',
+                f"{self.base_url}/products.json",
+                params=params,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                products = data.get('products', [])
+                
+                # Zusätzliche clientseitige Filterung für bessere Übereinstimmung
+                filtered_products = []
+                search_lower = search_term.lower()
+                for product in products:
+                    title = product.get('title', '').lower()
+                    if search_lower in title:
+                        filtered_products.append(product)
+                
+                return True, filtered_products, f"{len(filtered_products)} Produkte gefunden"
+            else:
+                return False, [], f"HTTP {response.status_code}: {response.text}"
+                
+        except requests.exceptions.RequestException as e:
+            return False, [], f"Fehler bei der Suche: {str(e)}"
+    
     def fetch_product(self, product_id: str) -> Tuple[bool, Optional[Dict], str]:
         """Holt ein einzelnes Produkt von Shopify"""
         try:
-            response = requests.get(
+            response = self._make_request(
+                'GET',
                 f"{self.base_url}/products/{product_id}.json",
-                headers=self.headers,
                 timeout=10
             )
             
@@ -105,9 +188,9 @@ class ShopifyAPIClient:
                 }
             }
             
-            response = requests.put(
+            response = self._make_request(
+                'PUT',
                 f"{self.base_url}/products/{product_id}.json",
-                headers=self.headers,
                 json=shopify_data,
                 timeout=15
             )
@@ -180,17 +263,17 @@ class ShopifyAPIClient:
             if existing_metafield_id:
                 # Update existing metafield
                 metafield_data['metafield']['id'] = existing_metafield_id
-                response = requests.put(
+                response = self._make_request(
+                    'PUT',
                     f"{self.base_url}/products/{product_id}/metafields/{existing_metafield_id}.json",
-                    headers=self.headers,
                     json=metafield_data,
                     timeout=10
                 )
             else:
                 # Create new metafield
-                response = requests.post(
+                response = self._make_request(
+                    'POST',
                     f"{self.base_url}/products/{product_id}/metafields.json",
-                    headers=self.headers,
                     json=metafield_data,
                     timeout=10
                 )
@@ -207,9 +290,9 @@ class ShopifyAPIClient:
     def get_product_metafields(self, product_id: str) -> Tuple[bool, List[Dict], str]:
         """Holt Metafields eines Produkts (für SEO Daten)"""
         try:
-            response = requests.get(
+            response = self._make_request(
+                'GET',
                 f"{self.base_url}/products/{product_id}/metafields.json",
-                headers=self.headers,
                 timeout=10
             )
             
@@ -281,9 +364,9 @@ class ShopifyAPIClient:
     def get_product(self, product_id: str) -> Tuple[bool, Dict, str]:
         """Holt ein einzelnes Produkt von Shopify"""
         try:
-            response = requests.get(
+            response = self._make_request(
+                'GET',
                 f"{self.base_url}/products/{product_id}.json",
-                headers=self.headers,
                 timeout=15
             )
             
@@ -307,9 +390,9 @@ class ShopifyAPIClient:
                 }
             }
             
-            response = requests.put(
+            response = self._make_request(
+                'PUT',
                 f"{self.base_url}/products/{product_id}.json",
-                headers=self.headers,
                 json=shopify_data,
                 timeout=15
             )
@@ -328,9 +411,9 @@ class ShopifyAPIClient:
     def fetch_blogs(self) -> Tuple[bool, List[Dict], str]:
         """Holt Blogs von Shopify API"""
         try:
-            response = requests.get(
+            response = self._make_request(
+                'GET',
                 f"{self.base_url}/blogs.json",
-                headers=self.headers,
                 timeout=30
             )
             
@@ -347,18 +430,18 @@ class ShopifyAPIClient:
     def fetch_blog_posts(self, blog_id: str, limit: int = 250, since_id: Optional[str] = None) -> Tuple[bool, List[Dict], str]:
         """Holt Blog-Posts für einen bestimmten Blog"""
         try:
-            # Erste Abfrage: Grunddaten aller Artikel
+            # Hole alle Felder direkt in einer Abfrage (inkl. Content)
             params = {
                 'limit': min(limit, 250),
-                'fields': 'id,title,handle,author,status,created_at,updated_at,published_at,tags,image'
+                'fields': 'id,title,handle,author,status,created_at,updated_at,published_at,tags,image,body_html,summary'
             }
             
             if since_id:
                 params['since_id'] = since_id
             
-            response = requests.get(
+            response = self._make_request(
+                'GET',
                 f"{self.base_url}/blogs/{blog_id}/articles.json",
-                headers=self.headers,
                 params=params,
                 timeout=30
             )
@@ -367,19 +450,25 @@ class ShopifyAPIClient:
                 data = response.json()
                 articles = data.get('articles', [])
                 
-                # Erweitere jeden Artikel um Content und Summary
+                # Erweitere Artikel nur um fehlende Felder wenn nötig
                 enhanced_articles = []
                 for article in articles:
-                    article_id = article.get('id')
-                    if article_id:
-                        # Hole vollständige Artikeldaten
-                        full_success, full_article, full_message = self.fetch_single_blog_post(blog_id, str(article_id))
-                        if full_success and full_article:
-                            # Merge der Daten - vollständige Daten haben Priorität
-                            article.update(full_article)
-                        enhanced_articles.append(article)
+                    # Prüfe ob wichtige Felder fehlen
+                    body_html = article.get('body_html', '')
+                    summary = article.get('summary', '')
+                    
+                    # Nur wenn beide Felder leer sind, hole vollständige Daten
+                    if not body_html and not summary:
+                        article_id = article.get('id')
+                        if article_id:
+                            print(f"⚠️ Hole vollständige Daten für Artikel {article_id} (Content fehlt)")
+                            full_success, full_article, full_message = self.fetch_single_blog_post(blog_id, str(article_id))
+                            if full_success and full_article:
+                                article.update(full_article)
+                    
+                    enhanced_articles.append(article)
                 
-                return True, enhanced_articles, f"{len(enhanced_articles)} Blog-Posts mit vollständigem Content abgerufen"
+                return True, enhanced_articles, f"{len(enhanced_articles)} Blog-Posts abgerufen"
             else:
                 return False, [], f"HTTP {response.status_code}: {response.text}"
                 
@@ -389,9 +478,9 @@ class ShopifyAPIClient:
     def fetch_single_blog_post(self, blog_id: str, article_id: str) -> Tuple[bool, Optional[Dict], str]:
         """Holt einen einzelnen Blog-Post mit vollständigem Content"""
         try:
-            response = requests.get(
+            response = self._make_request(
+                'GET',
                 f"{self.base_url}/blogs/{blog_id}/articles/{article_id}.json",
-                headers=self.headers,
                 timeout=15
             )
             
@@ -410,9 +499,9 @@ class ShopifyAPIClient:
     def get_blog_metafields(self, blog_id: str) -> Tuple[bool, List[Dict], str]:
         """Holt Metafields eines Blogs"""
         try:
-            response = requests.get(
+            response = self._make_request(
+                'GET',
                 f"{self.base_url}/blogs/{blog_id}/metafields.json",
-                headers=self.headers,
                 timeout=10
             )
             
@@ -429,9 +518,9 @@ class ShopifyAPIClient:
     def get_article_metafields(self, blog_id: str, article_id: str) -> Tuple[bool, List[Dict], str]:
         """Holt Metafields eines Blog-Posts"""
         try:
-            response = requests.get(
+            response = self._make_request(
+                'GET',
                 f"{self.base_url}/blogs/{blog_id}/articles/{article_id}/metafields.json",
-                headers=self.headers,
                 timeout=10
             )
             
@@ -476,9 +565,9 @@ class ShopifyAPIClient:
                         'alt': featured_image.get('alt', '')
                     }
             
-            response = requests.put(
+            response = self._make_request(
+                'PUT',
                 f"{self.base_url}/blogs/{blog_id}/articles/{article_id}.json",
-                headers=self.headers,
                 json=shopify_data,
                 timeout=15
             )
@@ -1116,7 +1205,27 @@ class ShopifyBlogSync:
                         
                 except Exception as e:
                     failed_count += 1
-                    print(f"Fehler beim Importieren von Blog-Post {article_data.get('title', 'Unknown')}: {e}")
+                    import traceback
+                    error_details = traceback.format_exc()
+                    article_title = article_data.get('title', 'Unknown')
+                    article_id = article_data.get('id', 'Unknown')
+                    
+                    print(f"❌ Fehler beim Importieren von Blog-Post '{article_title}' (ID: {article_id}): {e}")
+                    print(f"Vollständiger Fehler: {error_details}")
+                    
+                    # Sammle detaillierte Fehlerinformationen
+                    error_info = {
+                        'article_id': article_id,
+                        'article_title': article_title,
+                        'error_type': type(e).__name__,
+                        'error_message': str(e),
+                        'error_details': error_details
+                    }
+                    
+                    # Speichere den Fehler im Log für spätere Analyse
+                    if not hasattr(log, '_errors'):
+                        log._errors = []
+                    log._errors.append(error_info)
             
             log.products_success = success_count
             log.products_failed = failed_count

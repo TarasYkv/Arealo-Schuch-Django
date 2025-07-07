@@ -33,4 +33,11 @@ urlpatterns = [
     
     # API key validation
     path('api/validate-key/', views.validate_api_key, name='validate_api_key'),
+    
+    # Freigabe-Management
+    path('thema/<int:thema_id>/freigaben/', views.thema_freigaben_view, name='thema_freigaben'),
+    path('thema/<int:thema_id>/freigaben/hinzufuegen/', views.thema_freigabe_hinzufuegen, name='thema_freigabe_hinzufuegen'),
+    path('thema/<int:thema_id>/freigaben/<int:freigabe_id>/entfernen/', views.thema_freigabe_entfernen, name='thema_freigabe_entfernen'),
+    path('thema/<int:thema_id>/oeffentlich-toggle/', views.thema_oeffentlich_toggle, name='thema_oeffentlich_toggle'),
+    path('thema/<int:thema_id>/sichtbarkeit-update/', views.thema_sichtbarkeit_update, name='thema_sichtbarkeit_update'),
 ]

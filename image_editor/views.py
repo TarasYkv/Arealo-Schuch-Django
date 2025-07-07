@@ -425,7 +425,7 @@ def process_image_api(request):
         start_time = time.time()
         
         # Bildverarbeitung mit ImageProcessor - verwende das zuletzt bearbeitete Bild
-        current_image = project.processed_image if project.processed_image else project.original_image
+        current_image = project.original_image
         processor = ImageProcessor(current_image)
         
         # Anwenden der Operation
@@ -529,8 +529,8 @@ def apply_advanced_filter_api(request):
         
         start_time = time.time()
         
-        # Bildverarbeitung mit ImageProcessor
-        processor = ImageProcessor(project.processed_image if project.processed_image else project.original_image)
+        # Bildverarbeitung mit ImageProcessor - IMMER das Originalbild verwenden
+        processor = ImageProcessor(project.original_image)
         success, message = processor.apply_advanced_filter(filter_type, **filter_params)
         
         if success:
@@ -602,7 +602,7 @@ def batch_process_api(request):
             
             try:
                 # Verwende das zuletzt bearbeitete Bild für kumulative Bearbeitung
-                current_image = project.processed_image if project.processed_image else project.original_image
+                current_image = project.original_image
                 processor = ImageProcessor(current_image)
                 project_results = []
                 
@@ -676,7 +676,7 @@ def get_live_preview_api(request, project_id):
         project = get_object_or_404(ImageProject, pk=project_id, user=request.user)
         
         # Verwende processed_image falls vorhanden, sonst original
-        image_source = project.processed_image if project.processed_image else project.original_image
+        image_source = project.original_image
         
         if not image_source:
             return JsonResponse({'success': False, 'error': 'Kein Bild vorhanden'})
@@ -716,7 +716,7 @@ def remove_background_api(request):
         start_time = time.time()
         
         # Bildverarbeitung mit ImageProcessor - verwende das zuletzt bearbeitete Bild
-        current_image = project.processed_image if project.processed_image else project.original_image
+        current_image = project.original_image
         processor = ImageProcessor(current_image)
         success, message = processor.remove_background(model=model)
         
@@ -778,7 +778,7 @@ def prepare_engraving_api(request):
         start_time = time.time()
         
         # Bildverarbeitung mit ImageProcessor - verwende das zuletzt bearbeitete Bild
-        current_image = project.processed_image if project.processed_image else project.original_image
+        current_image = project.original_image
         processor = ImageProcessor(current_image)
         success, message = processor.prepare_for_engraving(
             beam_width=beam_width,
@@ -870,7 +870,7 @@ def vectorize_image_api(request):
         start_time = time.time()
         
         # Bildverarbeitung mit ImageProcessor - verwende das zuletzt bearbeitete Bild
-        current_image = project.processed_image if project.processed_image else project.original_image
+        current_image = project.original_image
         processor = ImageProcessor(current_image)
         
         # Optional: Linien verstärken vor Vektorisierung
@@ -952,7 +952,7 @@ def export_image_api(request):
             return JsonResponse({'success': False, 'error': 'Kein Ausgangsbild vorhanden'})
         
         # Verwende processed_image falls vorhanden, sonst original
-        image_source = project.processed_image if project.processed_image else project.original_image
+        image_source = project.original_image
         
         start_time = time.time()
         
@@ -1042,7 +1042,7 @@ def preview_filter_api(request):
             return JsonResponse({'success': False, 'error': 'Kein Ausgangsbild vorhanden'})
         
         # Bildverarbeitung ohne Speichern - verwende das aktuelle Bild
-        current_image = project.processed_image if project.processed_image else project.original_image
+        current_image = project.original_image
         processor = ImageProcessor(current_image)
         success, message = processor.apply_advanced_filter(filter_type, **filter_params)
         
@@ -1074,7 +1074,7 @@ def preview_remove_background_api(request):
             return JsonResponse({'success': False, 'error': 'Kein Ausgangsbild vorhanden'})
         
         # Bildverarbeitung ohne Speichern
-        current_image = project.processed_image if project.processed_image else project.original_image
+        current_image = project.original_image
         processor = ImageProcessor(current_image)
         success, message = processor.remove_background(model=model)
         
@@ -1108,7 +1108,7 @@ def preview_prepare_engraving_api(request):
             return JsonResponse({'success': False, 'error': 'Kein Ausgangsbild vorhanden'})
         
         # Bildverarbeitung ohne Speichern
-        current_image = project.processed_image if project.processed_image else project.original_image
+        current_image = project.original_image
         processor = ImageProcessor(current_image)
         success, message = processor.prepare_for_engraving(
             beam_width=beam_width,
@@ -1147,7 +1147,7 @@ def preview_vectorize_api(request):
             return JsonResponse({'success': False, 'error': 'Kein Ausgangsbild vorhanden'})
         
         # Bildverarbeitung ohne Speichern
-        current_image = project.processed_image if project.processed_image else project.original_image
+        current_image = project.original_image
         processor = ImageProcessor(current_image)
         
         # Optional: Linien verstärken vor Vektorisierung
@@ -1280,7 +1280,7 @@ def download_image_view(request, project_id, format):
         
         if not export_record or not export_record.file_path:
             # Erstelle Export falls nicht vorhanden
-            processor = ImageProcessor(project.processed_image if project.processed_image else project.original_image)
+            processor = ImageProcessor(project.original_image)
             exported_file = processor.save_to_file(format=format.upper())
             
             filename = f"export_{project.id}_{int(time.time())}.{format.lower()}"
@@ -1438,9 +1438,23 @@ def shopify_import_image_api(request):
         project = ImageProject.objects.create(
             name=project_name,
             user=request.user,
-            original_image=file_path,
-            processed_image=file_path
+            source_type='shopify_import'
         )
+        
+        # Bild-Pfad korrekt setzen
+        project.original_image.name = file_path
+        
+        # Bildabmessungen ermitteln
+        try:
+            from PIL import Image
+            full_path = project.original_image.path
+            with Image.open(full_path) as img:
+                project.original_width = img.width
+                project.original_height = img.height
+        except Exception:
+            pass
+        
+        project.save()
         
         return JsonResponse({
             'success': True,
@@ -1491,7 +1505,7 @@ def shopify_export_image_api(request):
         service = ShopifyImageService(store)
         
         # Verarbeitetes Bild verwenden, falls verfügbar
-        image_path = project.processed_image.path if project.processed_image else project.original_image.path
+        image_path = project.original_image.path
         
         if export_type == 'new_product':
             if not product_title:
@@ -1557,6 +1571,7 @@ def shopify_products_api(request):
         data = json.loads(request.body)
         store_id = data.get('store_id')
         limit = data.get('limit', 50)
+        search_term = data.get('search', '')
         
         if not store_id:
             return JsonResponse({
@@ -1567,7 +1582,10 @@ def shopify_products_api(request):
         store = ShopifyStore.objects.get(id=store_id, user=request.user)
         service = ShopifyImageService(store)
         
-        success, products, message = service.get_products_for_export(limit=limit)
+        if search_term:
+            success, products, message = service.search_products_for_export(search_term=search_term, limit=limit)
+        else:
+            success, products, message = service.get_products_for_export(limit=limit)
         
         return JsonResponse({
             'success': success,

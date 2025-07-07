@@ -1,0 +1,284 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h2">
+                    <i class="fas fa-share-alt text-primary"></i> Freigaben verwalten: {{ thema.name }}
+                </h1>
+                <a href="{% url 'naturmacher:thema_detail' thema.pk %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück zum Thema
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sichtbarkeits-Einstellungen -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-eye"></i> Sichtbarkeits-Einstellungen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Wer kann dieses Thema sehen?</strong></label>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="card h-100 {% if thema.sichtbarkeit == 'public' %}border-success bg-light{% endif %}">
+                                    <div class="card-body text-center">
+                                        <input type="radio" class="btn-check" name="sichtbarkeit" id="sichtbarkeit-public" value="public" 
+                                               {% if thema.sichtbarkeit == 'public' %}checked{% endif %}>
+                                        <label class="btn btn-outline-success w-100" for="sichtbarkeit-public">
+                                            <i class="fas fa-globe fa-2x d-block mb-2"></i>
+                                            <strong>Öffentlich</strong>
+                                        </label>
+                                        <small class="text-muted d-block mt-2">Alle Benutzer können dieses Thema sehen</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card h-100 {% if thema.sichtbarkeit == 'private' %}border-warning bg-light{% endif %}">
+                                    <div class="card-body text-center">
+                                        <input type="radio" class="btn-check" name="sichtbarkeit" id="sichtbarkeit-private" value="private" 
+                                               {% if thema.sichtbarkeit == 'private' %}checked{% endif %}>
+                                        <label class="btn btn-outline-warning w-100" for="sichtbarkeit-private">
+                                            <i class="fas fa-lock fa-2x d-block mb-2"></i>
+                                            <strong>Privat</strong>
+                                        </label>
+                                        <small class="text-muted d-block mt-2">Nur Sie können dieses Thema sehen</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card h-100 {% if thema.sichtbarkeit == 'shared' %}border-info bg-light{% endif %}">
+                                    <div class="card-body text-center">
+                                        <input type="radio" class="btn-check" name="sichtbarkeit" id="sichtbarkeit-shared" value="shared" 
+                                               {% if thema.sichtbarkeit == 'shared' %}checked{% endif %}>
+                                        <label class="btn btn-outline-info w-100" for="sichtbarkeit-shared">
+                                            <i class="fas fa-users fa-2x d-block mb-2"></i>
+                                            <strong>Mit Freigaben</strong>
+                                        </label>
+                                        <small class="text-muted d-block mt-2">Sie + ausgewählte Benutzer</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center">
+                        <button type="button" class="btn btn-primary" onclick="saveSichtbarkeit()">
+                            <i class="fas fa-save"></i> Sichtbarkeit speichern
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Spezifische Benutzer-Freigaben (nur bei "shared" Modus) -->
+    <div class="row" id="freigaben-section" {% if thema.sichtbarkeit != 'shared' %}style="display: none;"{% endif %}>
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-users"></i> Spezifische Benutzer-Freigaben
+                    </h5>
+                    <small class="text-muted">Diese Einstellungen sind nur bei "Mit Freigaben" aktiv</small>
+                </div>
+                <div class="card-body">
+                    <!-- Neue Freigabe hinzufügen -->
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <select class="form-select" id="benutzerSelect">
+                                <option value="">Benutzer auswählen...</option>
+                                {% for benutzer in verfuegbare_benutzer %}
+                                    <option value="{{ benutzer.id }}">{{ benutzer.username }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="button" class="btn btn-success" onclick="freigabeHinzufuegen()">
+                                <i class="fas fa-plus"></i> Freigabe hinzufügen
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Aktuelle Freigaben -->
+                    <div id="freigabenListe">
+                        {% if freigaben %}
+                            <h6 class="mb-3">Aktuelle Freigaben:</h6>
+                            <div class="list-group">
+                                {% for freigabe in freigaben %}
+                                    <div class="list-group-item d-flex justify-content-between align-items-center" id="freigabe-{{ freigabe.id }}">
+                                        <div>
+                                            <i class="fas fa-user"></i>
+                                            <strong>{{ freigabe.benutzer.username }}</strong>
+                                            <small class="text-muted">
+                                                (freigegeben am {{ freigabe.freigegeben_am|date:"d.m.Y H:i" }})
+                                            </small>
+                                        </div>
+                                        <button type="button" class="btn btn-outline-danger btn-sm" 
+                                                onclick="freigabeEntfernen({{ freigabe.id }}, '{{ freigabe.benutzer.username }}')">
+                                            <i class="fas fa-trash"></i> Entfernen
+                                        </button>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i>
+                                Dieses Thema wurde noch für keine spezifischen Benutzer freigegeben.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// CSRF Token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Sichtbarkeit speichern
+function saveSichtbarkeit() {
+    const selectedSichtbarkeit = document.querySelector('input[name="sichtbarkeit"]:checked');
+    
+    if (!selectedSichtbarkeit) {
+        alert('Bitte wählen Sie eine Sichtbarkeits-Option aus');
+        return;
+    }
+    
+    if (!confirm('Möchten Sie die Sichtbarkeits-Einstellungen wirklich ändern?')) {
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('sichtbarkeit', selectedSichtbarkeit.value);
+
+    fetch(`/schulungen/thema/{{ thema.pk }}/sichtbarkeit-update/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ein Fehler ist aufgetreten');
+    });
+}
+
+// Event Listener für Sichtbarkeits-Änderungen
+document.addEventListener('DOMContentLoaded', function() {
+    const sichtbarkeitInputs = document.querySelectorAll('input[name="sichtbarkeit"]');
+    const freigabenSection = document.getElementById('freigaben-section');
+    
+    sichtbarkeitInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            if (freigabenSection) {
+                freigabenSection.style.display = this.value === 'shared' ? 'block' : 'none';
+            }
+        });
+    });
+});
+
+// Neue Freigabe hinzufügen
+function freigabeHinzufuegen() {
+    const benutzerSelect = document.getElementById('benutzerSelect');
+    const benutzerId = benutzerSelect.value;
+    
+    if (!benutzerId) {
+        alert('Bitte wählen Sie einen Benutzer aus');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('benutzer_id', benutzerId);
+
+    fetch(`/schulungen/thema/{{ thema.pk }}/freigaben/hinzufuegen/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ein Fehler ist aufgetreten');
+    });
+}
+
+// Freigabe entfernen
+function freigabeEntfernen(freigabeId, benutzername) {
+    if (!confirm(`Möchten Sie die Freigabe für ${benutzername} wirklich entfernen?`)) {
+        return;
+    }
+
+    fetch(`/schulungen/thema/{{ thema.pk }}/freigaben/${freigabeId}/entfernen/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/x-www-form-urlencoded',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            document.getElementById(`freigabe-${freigabeId}`).remove();
+            
+            // Prüfe ob keine Freigaben mehr vorhanden sind
+            const freigabenListe = document.querySelectorAll('[id^="freigabe-"]');
+            if (freigabenListe.length === 0) {
+                location.reload();
+            }
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ein Fehler ist aufgetreten');
+    });
+}
+</script>
+
+{% endblock %}

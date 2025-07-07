@@ -11,7 +11,7 @@ from django.http import HttpResponseRedirect, JsonResponse, HttpResponse
 from django.urls import reverse
 from django.conf import settings
 from django.db import models
-from .models import Thema, Training, UserTrainingFortschritt, UserTrainingNotizen, APIBalance, APIUsageLog
+from .models import Thema, Training, UserTrainingFortschritt, UserTrainingNotizen, APIBalance, APIUsageLog, ThemaFreigabe
 from .utils.youtube_search import get_youtube_videos_for_training
 from .api_pricing import calculate_cost, estimate_tokens, get_provider_from_model, get_model_info
 from .utils import get_user_api_key
@@ -22,6 +22,25 @@ class ThemaListView(ListView):
     template_name = 'naturmacher/thema_list.html'
     context_object_name = 'themen'
 
+    def get_queryset(self):
+        """Filtere Themen basierend auf Berechtigungen"""
+        user = self.request.user
+        
+        if not user.is_authenticated:
+            # Nicht angemeldete Benutzer sehen nur öffentliche Themen
+            return Thema.objects.filter(sichtbarkeit='public')
+        
+        # Angemeldete Benutzer sehen:
+        # 1. Ihre eigenen Themen
+        # 2. Öffentliche Themen  
+        # 3. Themen, für die sie eine Freigabe haben (bei 'shared' Modus)
+        from django.db.models import Q
+        return Thema.objects.filter(
+            Q(ersteller=user) |  # Eigene Themen
+            Q(sichtbarkeit='public') |  # Öffentliche Themen
+            Q(sichtbarkeit='shared', freigaben__benutzer=user)  # Freigegebene Themen
+        ).distinct()
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
@@ -31,6 +50,7 @@ class ThemaListView(ListView):
             for thema in context['themen']:
                 thema.user_fortschritt = thema.get_fortschritt(self.request.user)
                 thema.user_komplett_erledigt = thema.ist_komplett_erledigt(self.request.user)
+                thema.ist_creator = thema.ist_ersteller(self.request.user)
                 themen_mit_fortschritt.append(thema)
             context['themen'] = themen_mit_fortschritt
         
@@ -41,6 +61,17 @@ class ThemaDetailView(DetailView):
     model = Thema
     template_name = 'naturmacher/thema_detail.html'
     context_object_name = 'thema'
+
+    def get_object(self, queryset=None):
+        """Überprüfe Berechtigungen für das spezifische Thema"""
+        obj = super().get_object(queryset)
+        
+        # Überprüfe ob der User dieses Thema anzeigen kann
+        if not obj.kann_anzeigen(self.request.user):
+            from django.http import Http404
+            raise Http404("Sie haben keine Berechtigung, dieses Thema anzuzeigen.")
+        
+        return obj
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -58,6 +89,9 @@ class ThemaDetailView(DetailView):
             # Thema-Fortschritt für den aktuellen User
             context['thema_fortschritt'] = self.object.get_fortschritt(self.request.user)
             context['thema_komplett_erledigt'] = self.object.ist_komplett_erledigt(self.request.user)
+            
+            # Füge ist_creator Attribut hinzu
+            self.object.ist_creator = self.object.ist_ersteller(self.request.user)
         else:
             context['trainings'] = trainings
         
@@ -71,6 +105,17 @@ class TrainingDetailView(DetailView):
     model = Training
     template_name = 'naturmacher/training_detail.html'
     context_object_name = 'training'
+
+    def get_object(self, queryset=None):
+        """Überprüfe Berechtigungen für das Training über das zugehörige Thema"""
+        obj = super().get_object(queryset)
+        
+        # Überprüfe ob der User das zugehörige Thema anzeigen kann
+        if not obj.thema.kann_anzeigen(self.request.user):
+            from django.http import Http404
+            raise Http404("Sie haben keine Berechtigung, dieses Training anzuzeigen.")
+        
+        return obj
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -600,6 +645,14 @@ def create_thema(request):
         from naturmacher.management.commands.sync_trainings import Command
         sync_command = Command()
         sync_command.handle()
+        
+        # Setze den Creator für das neue Thema
+        try:
+            thema = Thema.objects.get(name=thema_name)
+            thema.ersteller = request.user
+            thema.save()
+        except Thema.DoesNotExist:
+            pass  # Falls das Thema nicht gefunden wird, ist das nicht kritisch
 
         return JsonResponse({'success': True, 'message': f'Thema "{thema_name}" erfolgreich erstellt und synchronisiert!'})
 
@@ -2080,5 +2133,186 @@ def get_raw_html_from_file(training):
     except Exception as e:
         print(f"Fehler beim Laden der HTML-Datei: {e}")
         return None
+
+
+# === Freigabe-Management Views ===
+
+@login_required
+def thema_freigaben_view(request, thema_id):
+    """Verwaltung der Freigaben für ein Thema"""
+    thema = get_object_or_404(Thema, pk=thema_id)
+    
+    # Nur Ersteller können Freigaben verwalten
+    if not thema.ist_ersteller(request.user):
+        messages.error(request, "Sie haben keine Berechtigung, die Freigaben für dieses Thema zu verwalten.")
+        return redirect('naturmacher:thema_detail', pk=thema.pk)
+    
+    # Aktuelle Freigaben
+    freigaben = ThemaFreigabe.objects.filter(thema=thema).select_related('benutzer')
+    
+    # Alle Benutzer außer sich selbst für die Auswahl
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    verfuegbare_benutzer = User.objects.exclude(pk=request.user.pk)
+    
+    context = {
+        'thema': thema,
+        'freigaben': freigaben,
+        'verfuegbare_benutzer': verfuegbare_benutzer,
+    }
+    
+    return render(request, 'naturmacher/thema_freigaben.html', context)
+
+
+@login_required
+def thema_freigabe_hinzufuegen(request, thema_id):
+    """Neue Freigabe für ein Thema hinzufügen"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Nur POST-Requests erlaubt'})
+    
+    thema = get_object_or_404(Thema, pk=thema_id)
+    
+    # Nur Ersteller können Freigaben verwalten
+    if not thema.ist_ersteller(request.user):
+        return JsonResponse({'success': False, 'error': 'Keine Berechtigung'})
+    
+    benutzer_id = request.POST.get('benutzer_id')
+    if not benutzer_id:
+        return JsonResponse({'success': False, 'error': 'Benutzer-ID fehlt'})
+    
+    try:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        benutzer = User.objects.get(pk=benutzer_id)
+        
+        # Prüfe ob Freigabe bereits existiert
+        freigabe, created = ThemaFreigabe.objects.get_or_create(
+            thema=thema,
+            benutzer=benutzer,
+            defaults={'freigegeben_von': request.user}
+        )
+        
+        if created:
+            return JsonResponse({
+                'success': True, 
+                'message': f'Thema wurde für {benutzer.username} freigegeben',
+                'benutzer_name': benutzer.username,
+                'freigabe_id': freigabe.id
+            })
+        else:
+            return JsonResponse({'success': False, 'error': 'Freigabe existiert bereits'})
+            
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Benutzer nicht gefunden'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required  
+def thema_freigabe_entfernen(request, thema_id, freigabe_id):
+    """Freigabe für ein Thema entfernen"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Nur POST-Requests erlaubt'})
+    
+    thema = get_object_or_404(Thema, pk=thema_id)
+    
+    # Nur Ersteller können Freigaben verwalten
+    if not thema.ist_ersteller(request.user):
+        return JsonResponse({'success': False, 'error': 'Keine Berechtigung'})
+    
+    try:
+        freigabe = ThemaFreigabe.objects.get(pk=freigabe_id, thema=thema)
+        benutzer_name = freigabe.benutzer.username
+        freigabe.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Freigabe für {benutzer_name} wurde entfernt'
+        })
+        
+    except ThemaFreigabe.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Freigabe nicht gefunden'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def thema_oeffentlich_toggle(request, thema_id):
+    """Öffentlichkeitsstatus eines Themas umschalten"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Nur POST-Requests erlaubt'})
+    
+    thema = get_object_or_404(Thema, pk=thema_id)
+    
+    # Nur Ersteller können den Status ändern
+    if not thema.ist_ersteller(request.user):
+        return JsonResponse({'success': False, 'error': 'Keine Berechtigung'})
+    
+    try:
+        thema.oeffentlich = not thema.oeffentlich
+        thema.save()
+        
+        status = "öffentlich" if thema.oeffentlich else "privat"
+        return JsonResponse({
+            'success': True,
+            'message': f'Thema ist jetzt {status}',
+            'oeffentlich': thema.oeffentlich
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def thema_sichtbarkeit_update(request, thema_id):
+    """Sichtbarkeits-Einstellungen eines Themas aktualisieren"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Nur POST-Requests erlaubt'})
+    
+    thema = get_object_or_404(Thema, pk=thema_id)
+    
+    # Nur Ersteller können die Sichtbarkeit ändern
+    if not thema.ist_ersteller(request.user):
+        return JsonResponse({'success': False, 'error': 'Keine Berechtigung'})
+    
+    sichtbarkeit = request.POST.get('sichtbarkeit')
+    
+    # Validiere die Sichtbarkeits-Option
+    valid_choices = [choice[0] for choice in Thema.SICHTBARKEIT_CHOICES]
+    if sichtbarkeit not in valid_choices:
+        return JsonResponse({'success': False, 'error': 'Ungültige Sichtbarkeits-Option'})
+    
+    try:
+        alte_sichtbarkeit = thema.sichtbarkeit
+        thema.sichtbarkeit = sichtbarkeit
+        
+        # Für Kompatibilität: oeffentlich Feld aktualisieren
+        thema.oeffentlich = (sichtbarkeit == 'public')
+        
+        thema.save()
+        
+        # Erstelle Nachricht basierend auf der neuen Einstellung
+        sichtbarkeit_names = {
+            'public': 'Öffentlich',
+            'private': 'Privat',
+            'shared': 'Privat mit Freigaben'
+        }
+        
+        message = f'Sichtbarkeit erfolgreich geändert zu "{sichtbarkeit_names[sichtbarkeit]}"'
+        
+        # Warnung wenn von "shared" weg gewechselt wird
+        if alte_sichtbarkeit == 'shared' and sichtbarkeit != 'shared':
+            freigaben_count = thema.freigaben.count()
+            if freigaben_count > 0:
+                message += f' (Hinweis: {freigaben_count} bestehende Freigaben bleiben erhalten, sind aber inaktiv)'
+        
+        return JsonResponse({
+            'success': True,
+            'message': message,
+            'neue_sichtbarkeit': sichtbarkeit
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
 
 

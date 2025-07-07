@@ -361,7 +361,48 @@
     </div>
 </div>
 
+<!-- Progress Modal -->
+<div class="modal fade" id="importProgressModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-download"></i> Blog-Posts werden importiert...
+                </h5>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <div class="progress" style="height: 25px;">
+                        <div id="importProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%">
+                            0%
+                        </div>
+                    </div>
+                </div>
+                <div id="importProgressMessage" class="text-muted text-center">
+                    Import wird gestartet...
+                </div>
+                <div id="importProgressStats" class="mt-3 text-center" style="display: none;">
+                    <span class="badge bg-success me-2">
+                        <i class="fas fa-check"></i> <span id="importSuccessCount">0</span> erfolgreich
+                    </span>
+                    <span class="badge bg-danger">
+                        <i class="fas fa-times"></i> <span id="importFailedCount">0</span> fehlgeschlagen
+                    </span>
+                </div>
+            </div>
+            <div class="modal-footer" id="importProgressFooter" style="display: none;">
+                <button type="button" class="btn btn-primary" onclick="location.reload();">
+                    <i class="fas fa-sync"></i> Seite neu laden
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+let importInterval = null;
+
 function importBlogPosts(importMode = 'new_only') {
     let confirmMessage = '';
     if (importMode === 'all') {
@@ -372,11 +413,21 @@ function importBlogPosts(importMode = 'new_only') {
     
     if (!confirm(confirmMessage)) return;
     
+    // Zeige Progress Modal
+    const progressModal = new bootstrap.Modal(document.getElementById('importProgressModal'));
+    progressModal.show();
+    
+    // Reset Progress
+    updateProgress(0, 0, 'Import wird gestartet...');
+    document.getElementById('importProgressStats').style.display = 'none';
+    document.getElementById('importProgressFooter').style.display = 'none';
+    
     const formData = new FormData();
     formData.append('blog_id', {{ blog.id }});
     formData.append('import_mode', importMode);
     formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
     
+    // Starte Import
     fetch('/shopify/api/import-blog-posts/', {
         method: 'POST',
         headers: {
@@ -386,16 +437,87 @@ function importBlogPosts(importMode = 'new_only') {
     })
     .then(response => response.json())
     .then(data => {
-        if (data.success) {
-            showAlert('success', `${data.imported} Blog-Posts erfolgreich importiert!`);
-            setTimeout(() => location.reload(), 1500);
+        if (data.success && data.import_id) {
+            // Starte Progress-Polling
+            startProgressPolling(data.import_id);
         } else {
-            showAlert('danger', `Import fehlgeschlagen: ${data.error}`);
+            progressModal.hide();
+            showAlert('danger', `Import fehlgeschlagen: ${data.error || 'Unbekannter Fehler'}`);
         }
     })
     .catch(error => {
+        progressModal.hide();
         showAlert('danger', 'Fehler beim Import: ' + error);
     });
+}
+
+function startProgressPolling(importId) {
+    // Polling alle 500ms
+    importInterval = setInterval(() => {
+        fetch(`/shopify/api/import-blog-posts-progress/${importId}/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.progress) {
+                    const progress = data.progress;
+                    
+                    // Update Progress Bar
+                    if (progress.total > 0) {
+                        const percentage = Math.round((progress.current / progress.total) * 100);
+                        updateProgress(progress.current, progress.total, progress.message);
+                    } else {
+                        updateProgress(0, 0, progress.message);
+                    }
+                    
+                    // Prüfe ob Import abgeschlossen
+                    if (progress.status === 'completed' || progress.status === 'error') {
+                        clearInterval(importInterval);
+                        
+                        // Zeige finale Statistiken
+                        if (progress.imported !== undefined || progress.failed !== undefined) {
+                            document.getElementById('importSuccessCount').textContent = progress.imported || 0;
+                            document.getElementById('importFailedCount').textContent = progress.failed || 0;
+                            document.getElementById('importProgressStats').style.display = 'block';
+                        }
+                        
+                        // Zeige Footer mit Reload-Button
+                        document.getElementById('importProgressFooter').style.display = 'block';
+                        
+                        // Entferne Animation von Progress Bar
+                        const progressBar = document.getElementById('importProgressBar');
+                        progressBar.classList.remove('progress-bar-animated');
+                        
+                        if (progress.status === 'error') {
+                            progressBar.classList.add('bg-danger');
+                            document.getElementById('importProgressMessage').innerHTML = 
+                                `<span class="text-danger">${progress.error || 'Import fehlgeschlagen'}</span>`;
+                        } else {
+                            progressBar.classList.add('bg-success');
+                            document.getElementById('importProgressMessage').innerHTML = 
+                                `<span class="text-success">${progress.message || 'Import abgeschlossen'}</span>`;
+                        }
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Progress polling error:', error);
+            });
+    }, 500);
+}
+
+function updateProgress(current, total, message) {
+    const progressBar = document.getElementById('importProgressBar');
+    const progressMessage = document.getElementById('importProgressMessage');
+    
+    if (total > 0) {
+        const percentage = Math.round((current / total) * 100);
+        progressBar.style.width = percentage + '%';
+        progressBar.textContent = percentage + '%';
+    } else {
+        progressBar.style.width = '100%';
+        progressBar.textContent = 'Läuft...';
+    }
+    
+    progressMessage.textContent = message;
 }
 
 function getCookie(name) {

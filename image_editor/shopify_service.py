@@ -121,7 +121,7 @@ class ShopifyImageService:
                 timeout=30
             )
             
-            if response.status_code == 201:
+            if response.status_code in [200, 201]:
                 image_data = response.json().get('image', {})
                 return True, image_data, "Bild erfolgreich zu Produkt hinzugefügt"
             else:
@@ -198,6 +198,32 @@ class ShopifyImageService:
             
         except Exception as e:
             return False, [], f"Fehler beim Abrufen der Produkte: {str(e)}"
+    
+    def search_products_for_export(self, search_term: str, limit: int = 50) -> Tuple[bool, List[Dict], str]:
+        """Sucht Produkte für Export-Auswahl"""
+        try:
+            success, products, error = self.api_client.search_products(search_term=search_term, limit=limit)
+            
+            if not success:
+                return False, [], error
+            
+            # Vereinfachte Produktliste für Export
+            simplified_products = []
+            for product in products:
+                simplified_products.append({
+                    'id': product.get('id'),
+                    'title': product.get('title'),
+                    'handle': product.get('handle'),
+                    'status': product.get('status'),
+                    'image_count': len(product.get('images', [])),
+                    'created_at': product.get('created_at'),
+                    'updated_at': product.get('updated_at')
+                })
+            
+            return True, simplified_products, f"{len(simplified_products)} Produkte für '{search_term}' gefunden"
+            
+        except Exception as e:
+            return False, [], f"Fehler bei der Produktsuche: {str(e)}"
     
     def update_product_image(self, product_id: str, image_id: str, image_path: str, alt_text: str = "") -> Tuple[bool, Optional[Dict], str]:
         """Aktualisiert ein bestehendes Produktbild"""

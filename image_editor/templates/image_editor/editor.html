@@ -110,28 +110,6 @@
                     </button>
                 </div>
                 
-                <!-- Gravur-Einstellungen -->
-                <div class="border-top pt-2">
-                    <small class="text-muted d-block mb-2">Gravur-Parameter:</small>
-                    
-                    <div class="mb-2">
-                        <label class="form-label small">Strahlbreite (mm)</label>
-                        <input type="number" class="form-control form-control-sm" 
-                               id="beam-width" value="0.1" min="0.01" max="1.0" step="0.01">
-                    </div>
-                    
-                    <div class="mb-2">
-                        <label class="form-label small">Linienstärke (mm)</label>
-                        <input type="number" class="form-control form-control-sm" 
-                               id="line-thickness" value="0.1" min="0.01" max="1.0" step="0.01">
-                    </div>
-                    
-                    <div class="mb-2">
-                        <label class="form-label small">Tiefenstufen</label>
-                        <input type="number" class="form-control form-control-sm" 
-                               id="depth-levels" value="5" min="2" max="20">
-                    </div>
-                </div>
             </div>
         </div>
         
@@ -429,9 +407,11 @@ function applySliderOperation(operation, value) {
 
 // Filter-Einstellungen anzeigen
 function showFilterSettings(filterType) {
+    hideSettings(); // Verstecke andere Settings zuerst
+    
+    // NACH hideSettings() die Variablen setzen
     currentFilterType = filterType;
     currentGravurType = null; // Reset Gravur-Typ
-    hideSettings(); // Verstecke andere Settings zuerst
     
     // Original-Bild-Referenz speichern
     originalImageSrc = document.getElementById('preview-image').src;
@@ -454,11 +434,6 @@ function showFilterSettings(filterType) {
     // Controls erstellen
     filterControls.innerHTML = createFilterControls(filterType);
     
-    // Event Listener für Slider hinzufügen
-    setTimeout(() => {
-        addFilterEventListeners(filterType);
-    }, 100);
-    
     // Panel anzeigen
     panel.style.display = 'block';
     filterSettings.style.display = 'block';
@@ -466,8 +441,10 @@ function showFilterSettings(filterType) {
     // Live-Vorschau aktivieren
     isLivePreviewActive = true;
     
-    // Erste Vorschau mit Standard-Werten anwenden
+    // Event Listener für Slider hinzufügen (nach DOM-Update)
     setTimeout(() => {
+        addFilterEventListeners(filterType);
+        // Erste Vorschau mit Standard-Werten anwenden
         triggerLivePreview();
     }, 100);
     
@@ -575,19 +552,139 @@ function addFilterEventListeners(filterType) {
     }
 }
 
+// Event Listener für Gravur-Controls hinzufügen
+function addGravurEventListeners(toolType) {
+    switch(toolType) {
+        case 'remove_background':
+            const bgModel = document.getElementById('bg-model');
+            if (bgModel) {
+                bgModel.addEventListener('change', triggerLivePreview);
+            }
+            break;
+            
+        case 'prepare_engraving':
+            const engraveBeam = document.getElementById('engrave-beam');
+            const engraveLine = document.getElementById('engrave-line');
+            const engraveDepth = document.getElementById('engrave-depth');
+            const engraveDepthValue = document.getElementById('engrave-depth-value');
+            const engraveContrast = document.getElementById('engrave-contrast');
+            const engraveContrastValue = document.getElementById('engrave-contrast-value');
+            const ditherStrength = document.getElementById('dither-strength');
+            const ditherStrengthValue = document.getElementById('dither-strength-value');
+            const ditherAlgorithm = document.getElementById('dither-algorithm');
+            const engraveModeInputs = document.querySelectorAll('input[name="engraveMode"]');
+            
+            if (engraveBeam) {
+                engraveBeam.addEventListener('input', triggerLivePreview);
+            }
+            if (engraveLine) {
+                engraveLine.addEventListener('input', triggerLivePreview);
+            }
+            if (engraveDepth && engraveDepthValue) {
+                engraveDepth.addEventListener('input', function() {
+                    engraveDepthValue.textContent = this.value;
+                    triggerLivePreview();
+                });
+            }
+            if (engraveContrast && engraveContrastValue) {
+                engraveContrast.addEventListener('input', function() {
+                    engraveContrastValue.textContent = this.value;
+                    triggerLivePreview();
+                });
+            }
+            if (ditherStrength && ditherStrengthValue) {
+                ditherStrength.addEventListener('input', function() {
+                    ditherStrengthValue.textContent = this.value;
+                    triggerLivePreview();
+                });
+            }
+            if (ditherAlgorithm) {
+                ditherAlgorithm.addEventListener('change', triggerLivePreview);
+            }
+            // Add event listeners for radio buttons
+            engraveModeInputs.forEach(input => {
+                input.addEventListener('change', function() {
+                    const ditheringSettings = document.getElementById('dithering-settings');
+                    const grayscaleSettings = document.getElementById('grayscale-settings');
+                    
+                    if (this.value === 'dithering') {
+                        if (ditheringSettings) ditheringSettings.style.display = 'block';
+                        if (grayscaleSettings) grayscaleSettings.style.display = 'block';
+                    } else if (this.value === 'grayscale') {
+                        if (ditheringSettings) ditheringSettings.style.display = 'none';
+                        if (grayscaleSettings) grayscaleSettings.style.display = 'block';
+                    } else {
+                        if (ditheringSettings) ditheringSettings.style.display = 'none';
+                        if (grayscaleSettings) grayscaleSettings.style.display = 'none';
+                    }
+                    
+                    triggerLivePreview();
+                });
+            });
+            break;
+            
+        case 'vectorize':
+            const vectorThreshold = document.getElementById('vector-threshold');
+            const vectorSimplify = document.getElementById('vector-simplify');
+            const vectorEnhance = document.getElementById('vector-enhance');
+            const vectorLineWidth = document.getElementById('vector-line-width');
+            const vectorThresholdValue = document.getElementById('vector-threshold-value');
+            const vectorSimplifyValue = document.getElementById('vector-simplify-value');
+            const vectorLineWidthValue = document.getElementById('vector-line-width-value');
+            
+            if (vectorThreshold && vectorThresholdValue) {
+                vectorThreshold.addEventListener('input', function() {
+                    vectorThresholdValue.textContent = this.value;
+                    triggerLivePreview();
+                });
+            }
+            if (vectorSimplify && vectorSimplifyValue) {
+                vectorSimplify.addEventListener('input', function() {
+                    vectorSimplifyValue.textContent = this.value;
+                    triggerLivePreview();
+                });
+            }
+            if (vectorEnhance) {
+                vectorEnhance.addEventListener('change', triggerLivePreview);
+            }
+            if (vectorLineWidth && vectorLineWidthValue) {
+                vectorLineWidth.addEventListener('input', function() {
+                    vectorLineWidthValue.textContent = this.value;
+                    triggerLivePreview();
+                });
+            }
+            break;
+    }
+}
+
 // Gravur-Einstellungen anzeigen  
 function showGravurSettings(toolType) {
+    console.log('showGravurSettings called with toolType:', toolType);
+    
+    hideSettings(); // Verstecke andere Settings zuerst
+    
+    // NACH hideSettings() die Variablen setzen
     currentGravurType = toolType;
     currentFilterType = null; // Reset Filter-Typ
-    hideSettings(); // Verstecke andere Settings zuerst
+    
+    console.log('currentGravurType set to:', currentGravurType);
+    console.log('currentFilterType reset to:', currentFilterType);
     
     // Original-Bild-Referenz speichern
     originalImageSrc = document.getElementById('preview-image').src;
+    console.log('originalImageSrc saved:', originalImageSrc);
     
     const panel = document.getElementById('settings-panel');
     const gravurSettings = document.getElementById('gravur-settings');
     const gravurTitle = document.getElementById('gravur-title');
     const gravurControls = document.getElementById('gravur-controls');
+    
+    console.log('DOM elements found:', {
+        panel: !!panel,
+        gravurSettings: !!gravurSettings,
+        gravurTitle: !!gravurTitle,
+        gravurControls: !!gravurControls
+    });
     
     // Titel setzen
     const toolNames = {
@@ -596,19 +693,28 @@ function showGravurSettings(toolType) {
         'vectorize': 'Vektorisierung'
     };
     gravurTitle.textContent = toolNames[toolType] || 'Gravur-Einstellungen';
+    console.log('Title set to:', gravurTitle.textContent);
     
     // Controls erstellen
-    gravurControls.innerHTML = createGravurControls(toolType);
+    const controlsHtml = createGravurControls(toolType);
+    console.log('Controls HTML created:', controlsHtml);
+    gravurControls.innerHTML = controlsHtml;
     
     // Panel anzeigen
     panel.style.display = 'block';
     gravurSettings.style.display = 'block';
+    console.log('Panel and gravur settings shown');
     
     // Live-Vorschau aktivieren
     isLivePreviewActive = true;
+    console.log('Live preview activated:', isLivePreviewActive);
     
-    // Erste Vorschau mit Standard-Werten anwenden
+    // Event Listener für Gravur-Controls hinzufügen (nach DOM-Update)
     setTimeout(() => {
+        console.log('Adding gravur event listeners for:', toolType);
+        addGravurEventListeners(toolType);
+        console.log('About to trigger live preview with currentGravurType:', currentGravurType);
+        // Erste Vorschau mit Standard-Werten anwenden
         triggerLivePreview();
     }, 100);
     
@@ -797,30 +903,92 @@ function createGravurControls(toolType) {
         
         case 'prepare_engraving':
             return `
+                <!-- Gravur-Modus -->
+                <div class="mb-3">
+                    <label class="form-label">Gravur-Modus</label>
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" name="engraveMode" id="engrave-mode-grayscale" value="grayscale" checked>
+                        <label class="btn btn-outline-primary btn-sm" for="engrave-mode-grayscale">
+                            <i class="fas fa-palette"></i> Graustufen
+                        </label>
+                        
+                        <input type="radio" class="btn-check" name="engraveMode" id="engrave-mode-bw" value="black_white">
+                        <label class="btn btn-outline-primary btn-sm" for="engrave-mode-bw">
+                            <i class="fas fa-adjust"></i> Schwarz/Weiß
+                        </label>
+                        
+                        <input type="radio" class="btn-check" name="engraveMode" id="engrave-mode-dither" value="dithering">
+                        <label class="btn btn-outline-primary btn-sm" for="engrave-mode-dither">
+                            <i class="fas fa-th"></i> Dithering
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Dithering-Einstellungen (nur bei Dithering-Modus sichtbar) -->
+                <div id="dithering-settings" style="display: none;">
+                    <div class="mb-3">
+                        <label class="form-label">Dithering-Algorithmus</label>
+                        <select class="form-select form-select-sm" id="dither-algorithm">
+                            <option value="floyd_steinberg">Floyd-Steinberg (Empfohlen)</option>
+                            <option value="ordered">Ordered Dithering</option>
+                            <option value="random">Random Dithering</option>
+                            <option value="sierra">Sierra</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Dithering-Stärke</label>
+                        <input type="range" class="form-range" id="dither-strength" 
+                               min="0.1" max="2.0" step="0.1" value="1.0">
+                        <div class="d-flex justify-content-between">
+                            <small class="text-muted">Schwach</small>
+                            <small class="text-muted">Stark</small>
+                        </div>
+                        <div class="text-center mt-1">
+                            <small class="fw-bold">Stärke: <span id="dither-strength-value">1.0</span></small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Graustufen-Einstellungen -->
+                <div id="grayscale-settings">
+                    <div class="mb-3">
+                        <label class="form-label">Graustufen-Tiefe</label>
+                        <input type="range" class="form-range" id="engrave-depth" 
+                               min="4" max="32" step="1" value="8">
+                        <div class="d-flex justify-content-between">
+                            <small class="text-muted">4 Stufen</small>
+                            <small class="text-muted">32 Stufen</small>
+                        </div>
+                        <div class="text-center mt-1">
+                            <small class="fw-bold">Stufen: <span id="engrave-depth-value">8</span></small>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Kontrast-Anpassung</label>
+                        <input type="range" class="form-range" id="engrave-contrast" 
+                               min="0.5" max="2.0" step="0.1" value="1.2">
+                        <div class="d-flex justify-content-between">
+                            <small class="text-muted">Weich</small>
+                            <small class="text-muted">Hart</small>
+                        </div>
+                        <div class="text-center mt-1">
+                            <small class="fw-bold">Kontrast: <span id="engrave-contrast-value">1.2</span></small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Laser-Parameter -->
                 <div class="mb-3">
                     <label class="form-label">Laserstrahl-Breite (mm)</label>
-                    <input type="number" class="form-control" id="engrave-beam" 
+                    <input type="number" class="form-control form-control-sm" id="engrave-beam" 
                            min="0.05" max="0.5" step="0.01" value="0.1">
                     <div class="form-text">Typisch: 0.1mm für Präzision, 0.2mm für Geschwindigkeit</div>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Mindest-Linienstärke (mm)</label>
-                    <input type="number" class="form-control" id="engrave-line" 
+                    <input type="number" class="form-control form-control-sm" id="engrave-line" 
                            min="0.05" max="1.0" step="0.01" value="0.1">
                     <div class="form-text">Dünne Linien werden auf diese Mindestbreite verstärkt</div>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Tiefenstufen</label>
-                    <input type="range" class="form-range" id="engrave-depth" 
-                           min="2" max="20" step="1" value="5">
-                    <div class="d-flex justify-content-between">
-                        <small class="text-muted">2</small>
-                        <small class="text-muted">20</small>
-                    </div>
-                    <div class="text-center mt-1">
-                        <small class="fw-bold">Stufen: <span id="engrave-depth-value">5</span></small>
-                    </div>
-                    <div class="form-text">Mehr Stufen = feinere Grauabstufungen, aber längere Gravur</div>
                 </div>
             `;
         
@@ -1285,11 +1453,30 @@ function getGravurParameters(toolType) {
             const engraveBeam = document.getElementById('engrave-beam');
             const engraveLine = document.getElementById('engrave-line');
             const engraveDepth = document.getElementById('engrave-depth');
-            return {
+            const engraveContrast = document.getElementById('engrave-contrast');
+            const ditherStrength = document.getElementById('dither-strength');
+            const ditherAlgorithm = document.getElementById('dither-algorithm');
+            const engraveMode = document.querySelector('input[name="engraveMode"]:checked');
+            
+            const engraveParameters = {
                 beam_width: engraveBeam ? parseFloat(engraveBeam.value) : 0.1,
                 line_thickness: engraveLine ? parseFloat(engraveLine.value) : 0.1,
-                depth_levels: engraveDepth ? parseInt(engraveDepth.value) : 5
+                depth_levels: engraveDepth ? parseInt(engraveDepth.value) : 8,
+                mode: engraveMode ? engraveMode.value : 'grayscale'
             };
+            
+            // Add contrast for grayscale and dithering modes
+            if (engraveMode && (engraveMode.value === 'grayscale' || engraveMode.value === 'dithering')) {
+                engraveParameters.contrast = engraveContrast ? parseFloat(engraveContrast.value) : 1.2;
+            }
+            
+            // Add dithering parameters
+            if (engraveMode && engraveMode.value === 'dithering') {
+                engraveParameters.dither_algorithm = ditherAlgorithm ? ditherAlgorithm.value : 'floyd_steinberg';
+                engraveParameters.dither_strength = ditherStrength ? parseFloat(ditherStrength.value) : 1.0;
+            }
+            
+            return engraveParameters;
         
         case 'vectorize':
             const vectorThreshold = document.getElementById('vector-threshold');
@@ -1297,20 +1484,20 @@ function getGravurParameters(toolType) {
             const vectorEnhance = document.getElementById('vector-enhance');
             const vectorLineWidth = document.getElementById('vector-line-width');
             
-            const parameters = {
+            const vectorParameters = {
                 threshold: vectorThreshold ? parseInt(vectorThreshold.value) : 128,
                 simplify_tolerance: vectorSimplify ? parseFloat(vectorSimplify.value) : 1.0
             };
             
             // Prüfe ob Linienverstärkung aktiviert ist
             if (vectorEnhance && vectorEnhance.checked) {
-                parameters.enhance_lines = true;
-                parameters.line_width = vectorLineWidth ? parseInt(vectorLineWidth.value) : 2;
+                vectorParameters.enhance_lines = true;
+                vectorParameters.line_width = vectorLineWidth ? parseInt(vectorLineWidth.value) : 2;
             } else {
-                parameters.enhance_lines = false;
+                vectorParameters.enhance_lines = false;
             }
             
-            return parameters;
+            return vectorParameters;
         
         default:
             return {};
@@ -1319,24 +1506,46 @@ function getGravurParameters(toolType) {
 
 // Live-Vorschau für Filter/Gravur-Einstellungen
 function triggerLivePreview() {
+    // Debug-Ausgabe
+    console.log('triggerLivePreview called', {
+        isLivePreviewActive,
+        currentFilterType,
+        currentGravurType
+    });
+    
     // Debounce: Warte 300ms nach der letzten Änderung für schnellere Response
     clearTimeout(previewTimeout);
     previewTimeout = setTimeout(() => {
         if (isLivePreviewActive) {
             if (currentFilterType) {
+                console.log('Applying filter preview:', currentFilterType);
                 applyFilterPreview();
             } else if (currentGravurType) {
+                console.log('Applying gravur preview:', currentGravurType);
                 applyGravurPreview();
             }
+        } else {
+            console.log('Live preview not active');
         }
     }, 300);
 }
 
 // Filter-Vorschau anwenden (temporär)
 function applyFilterPreview() {
-    if (!currentFilterType || isProcessing) return;
+    if (!currentFilterType || isProcessing) {
+        console.log('applyFilterPreview blocked:', {currentFilterType, isProcessing});
+        return;
+    }
+    
+    if (!projectId) {
+        console.error('Project ID not available for preview');
+        return;
+    }
     
     const parameters = getFilterParameters(currentFilterType);
+    console.log('Filter preview parameters:', parameters);
+    console.log('Project ID:', projectId);
+    console.log('Filter type:', currentFilterType);
     
     // Zeige kurzen Loading-Indikator
     const previewImage = document.getElementById('preview-image');
@@ -1355,11 +1564,21 @@ function applyFilterPreview() {
             preview_only: true
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Preview response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
+        console.log('Preview response data:', data);
         previewImage.style.opacity = '1';
         if (data.success && data.preview_base64) {
             previewImage.src = data.preview_base64;
+            console.log('Preview image updated successfully');
+        } else {
+            console.error('Preview failed:', data.error);
         }
     })
     .catch(error => {
@@ -1370,9 +1589,20 @@ function applyFilterPreview() {
 
 // Gravur-Vorschau anwenden (temporär)
 function applyGravurPreview() {
-    if (!currentGravurType || isProcessing) return;
+    if (!currentGravurType || isProcessing) {
+        console.log('applyGravurPreview blocked:', {currentGravurType, isProcessing});
+        return;
+    }
+    
+    if (!projectId) {
+        console.error('Project ID not available for gravur preview');
+        return;
+    }
     
     const parameters = getGravurParameters(currentGravurType);
+    console.log('Gravur preview parameters:', parameters);
+    console.log('Project ID:', projectId);
+    console.log('Gravur type:', currentGravurType);
     
     // Zeige kurzen Loading-Indikator
     const previewImage = document.getElementById('preview-image');
@@ -1390,9 +1620,12 @@ function applyGravurPreview() {
             endpoint = '/images/api/preview-vectorize/';
             break;
         default:
+            console.error('Unknown gravur type:', currentGravurType);
             previewImage.style.opacity = '1';
             return;
     }
+    
+    console.log('Using endpoint:', endpoint);
     
     fetch(endpoint, {
         method: 'POST',
@@ -1405,16 +1638,26 @@ function applyGravurPreview() {
             preview_only: true
         }, parameters))
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Gravur preview response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
+        console.log('Gravur preview response data:', data);
         previewImage.style.opacity = '1';
         if (data.success && data.preview_base64) {
             previewImage.src = data.preview_base64;
+            console.log('Gravur preview image updated successfully');
+        } else {
+            console.error('Gravur preview failed:', data.error);
         }
     })
     .catch(error => {
         previewImage.style.opacity = '1';
-        console.error('Vorschau-Fehler:', error);
+        console.error('Gravur Vorschau-Fehler:', error);
     });
 }
 
@@ -1444,8 +1687,11 @@ function confirmFilterSettings() {
             showMessage('success', data.message);
             addToHistory(currentFilterType, parameters);
             hideSettings();
-            // Original-Bild-Referenz aktualisieren
-            originalImageSrc = data.preview_base64;
+            // Bild im Frontend aktualisieren
+            if (data.preview_base64) {
+                document.getElementById('preview-image').src = data.preview_base64;
+                originalImageSrc = data.preview_base64;
+            }
         } else {
             showMessage('danger', data.error);
         }
@@ -1493,7 +1739,9 @@ function confirmGravurSettings() {
         hideLoadingAndClearTimeout();
         if (data.success) {
             showMessage('success', data.message);
+            // Bild im Frontend aktualisieren
             if (data.preview_base64) {
+                document.getElementById('preview-image').src = data.preview_base64;
                 originalImageSrc = data.preview_base64;
             }
             if (data.svg_content && currentGravurType === 'vectorize') {
@@ -1686,9 +1934,75 @@ function loadShopifyStores() {
     }
 }
 
-function loadShopifyProducts() {
+// Neue Suchfunktion für Shopify Produkte
+function searchShopifyProducts() {
     const storeSelect = document.getElementById('shopifyStoreSelect');
-    const productSelect = document.getElementById('existingProductSelect');
+    const searchInput = document.getElementById('productSearchInput');
+    const storeId = storeSelect.value;
+    const searchTerm = searchInput.value.trim();
+    
+    if (!storeId) {
+        alert('Bitte wählen Sie zuerst einen Store aus.');
+        return;
+    }
+    
+    if (!searchTerm || searchTerm.length < 2) {
+        alert('Bitte geben Sie mindestens 2 Zeichen für die Suche ein.');
+        return;
+    }
+    
+    const resultsList = document.getElementById('productResultsList');
+    const resultsDiv = document.getElementById('productSearchResults');
+    
+    resultsList.innerHTML = '<div class="list-group-item">Suche läuft...</div>';
+    resultsDiv.style.display = 'block';
+    
+    fetch('/images/api/shopify-products/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            store_id: storeId,
+            search: searchTerm,
+            limit: 50
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        resultsList.innerHTML = '';
+        
+        if (data.success && data.products.length > 0) {
+            data.products.forEach(product => {
+                const item = document.createElement('div');
+                item.className = 'list-group-item list-group-item-action';
+                item.style.cursor = 'pointer';
+                item.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="mb-1">${product.title}</h6>
+                            <p class="mb-1 text-muted small">${product.image_count} Bilder</p>
+                        </div>
+                        <small class="text-muted">ID: ${product.id}</small>
+                    </div>
+                `;
+                item.onclick = () => selectProduct(product.id, product.title);
+                resultsList.appendChild(item);
+            });
+        } else {
+            resultsList.innerHTML = '<div class="list-group-item text-muted">Keine Produkte gefunden</div>';
+        }
+    })
+    .catch(error => {
+        console.error('Fehler bei der Produktsuche:', error);
+        resultsList.innerHTML = '<div class="list-group-item text-danger">Fehler bei der Suche</div>';
+    });
+}
+
+// Alle Produkte laden (ursprüngliche Funktion umbenannt)
+function loadAllShopifyProducts() {
+    const storeSelect = document.getElementById('shopifyStoreSelect');
     const storeId = storeSelect.value;
     
     if (!storeId) {
@@ -1696,7 +2010,11 @@ function loadShopifyProducts() {
         return;
     }
     
-    productSelect.innerHTML = '<option value="">Laden...</option>';
+    const resultsList = document.getElementById('productResultsList');
+    const resultsDiv = document.getElementById('productSearchResults');
+    
+    resultsList.innerHTML = '<div class="list-group-item">Lade alle Produkte...</div>';
+    resultsDiv.style.display = 'block';
     
     fetch('/images/api/shopify-products/', {
         method: 'POST',
@@ -1711,27 +2029,68 @@ function loadShopifyProducts() {
     })
     .then(response => response.json())
     .then(data => {
-        productSelect.innerHTML = '<option value="">-- Produkt auswählen --</option>';
+        resultsList.innerHTML = '';
         
         if (data.success && data.products.length > 0) {
             data.products.forEach(product => {
-                const option = document.createElement('option');
-                option.value = product.id;
-                option.textContent = `${product.title} (${product.image_count} Bilder)`;
-                productSelect.appendChild(option);
+                const item = document.createElement('div');
+                item.className = 'list-group-item list-group-item-action';
+                item.style.cursor = 'pointer';
+                item.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="mb-1">${product.title}</h6>
+                            <p class="mb-1 text-muted small">${product.image_count} Bilder</p>
+                        </div>
+                        <small class="text-muted">ID: ${product.id}</small>
+                    </div>
+                `;
+                item.onclick = () => selectProduct(product.id, product.title);
+                resultsList.appendChild(item);
             });
         } else {
-            const option = document.createElement('option');
-            option.value = '';
-            option.textContent = data.error || 'Keine Produkte gefunden';
-            productSelect.appendChild(option);
+            resultsList.innerHTML = '<div class="list-group-item text-muted">Keine Produkte gefunden</div>';
         }
     })
     .catch(error => {
         console.error('Error loading products:', error);
-        productSelect.innerHTML = '<option value="">Fehler beim Laden</option>';
+        resultsList.innerHTML = '<div class="list-group-item text-danger">Fehler beim Laden</div>';
     });
 }
+
+// Produkt auswählen
+function selectProduct(productId, productTitle) {
+    document.getElementById('selectedProductId').value = productId;
+    document.getElementById('selectedProductName').textContent = productTitle;
+    
+    // Zeige die Auswahl-Info und verstecke die Suchergebnisse
+    document.getElementById('selectedProductInfo').style.display = 'block';
+    document.getElementById('productSearchResults').style.display = 'none';
+    
+    // Leere das Suchfeld
+    document.getElementById('productSearchInput').value = '';
+}
+
+// Produktauswahl zurücksetzen
+function clearSelectedProduct() {
+    document.getElementById('selectedProductId').value = '';
+    document.getElementById('selectedProductName').textContent = '';
+    document.getElementById('selectedProductInfo').style.display = 'none';
+    document.getElementById('productSearchResults').style.display = 'none';
+}
+
+// Enter-Taste für Suche aktivieren
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('productSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                searchShopifyProducts();
+            }
+        });
+    }
+});
 
 function confirmShopifyExport() {
     const storeSelect = document.getElementById('shopifyStoreSelect');
@@ -1764,16 +2123,15 @@ function confirmShopifyExport() {
         exportData.product_description = productDescription;
         exportData.alt_text = altText;
     } else {
-        const productSelect = document.getElementById('existingProductSelect');
+        const selectedProductId = document.getElementById('selectedProductId').value;
         const existingAltText = document.getElementById('existingAltText').value;
-        const productId = productSelect.value;
         
-        if (!productId) {
-            alert('Bitte wählen Sie ein Produkt aus.');
+        if (!selectedProductId) {
+            alert('Bitte suchen und wählen Sie ein Produkt aus.');
             return;
         }
         
-        exportData.product_id = productId;
+        exportData.product_id = selectedProductId;
         exportData.alt_text = existingAltText;
     }
     
@@ -1892,20 +2250,49 @@ function confirmShopifyExport() {
                 <!-- Bestehendes Produkt Felder -->
                 <div id="existingProductFields" style="display: none;">
                     <div class="mb-3">
-                        <label class="form-label">Produkt auswählen</label>
-                        <select class="form-select" id="existingProductSelect">
-                            <option value="">Erst Store auswählen...</option>
-                        </select>
+                        <label class="form-label">Produkt suchen</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="productSearchInput" 
+                                   placeholder="Produktname eingeben..." autocomplete="off">
+                            <button type="button" class="btn btn-outline-primary" onclick="searchShopifyProducts()">
+                                <i class="fas fa-search"></i> Suchen
+                            </button>
+                        </div>
                         <div class="form-text">
-                            <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="loadShopifyProducts()">
-                                <i class="fas fa-sync"></i> Produkte laden
+                            <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="loadAllShopifyProducts()">
+                                <i class="fas fa-list"></i> Alle Produkte anzeigen
                             </button>
                         </div>
                     </div>
+                    
+                    <!-- Suchergebnisse -->
+                    <div id="productSearchResults" style="display: none;">
+                        <label class="form-label">Suchergebnisse</label>
+                        <div class="list-group" id="productResultsList" style="max-height: 200px; overflow-y: auto;">
+                            <!-- Wird dynamisch gefüllt -->
+                        </div>
+                    </div>
+                    
+                    <!-- Ausgewähltes Produkt -->
+                    <div id="selectedProductInfo" style="display: none;">
+                        <div class="alert alert-info d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>Ausgewähltes Produkt:</strong>
+                                <span id="selectedProductName"></span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearSelectedProduct()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
                     <div class="mb-3">
                         <label class="form-label">Alt-Text</label>
                         <input type="text" class="form-control" id="existingAltText" placeholder="Beschreibung des Bildes">
                     </div>
+                    
+                    <!-- Hidden field für die ausgewählte Produkt-ID -->
+                    <input type="hidden" id="selectedProductId" value="">
                 </div>
             </div>
             <div class="modal-footer">
