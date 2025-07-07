@@ -11,8 +11,8 @@ urlpatterns = [
     path('api-keys/', views.manage_api_keys, name='manage_api_keys'),
     path('api-einstellungen/', views.api_settings_view, name='api_settings'),
     
-    # Canva Integration
-    path('canva-einstellungen/', views.canva_settings_view, name='canva_settings'),
+    # Canva Integration (consolidated into neue-api-einstellungen)
+    path('canva-settings/', views.canva_settings_view, name='canva_settings'),  # Keep for form handling
     path('canva-oauth-start/', views.canva_oauth_start, name='canva_oauth_start'),
     path('canva-oauth-callback/', views.canva_oauth_callback, name='canva_oauth_callback'),
     path('canva-disconnect/', views.canva_disconnect, name='canva_disconnect'),
