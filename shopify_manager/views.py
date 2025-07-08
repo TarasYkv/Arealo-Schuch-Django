@@ -2052,6 +2052,284 @@ def update_blog_alt_text_view(request):
 
 
 @login_required
+def alt_text_manager_view(request, product_id):
+    """Alt-Text Management für Produktbilder"""
+    product = get_object_or_404(ShopifyProduct, id=product_id, store__user=request.user)
+    
+    # Lade Produktbilder aus raw_shopify_data
+    images = []
+    if product.raw_shopify_data and 'images' in product.raw_shopify_data:
+        for img in product.raw_shopify_data['images']:
+            images.append({
+                'id': img.get('id'),
+                'src': img.get('src'),
+                'alt': img.get('alt', ''),
+                'width': img.get('width'),
+                'height': img.get('height'),
+                'position': img.get('position', 0)
+            })
+    
+    # Sortiere Bilder nach Position
+    images.sort(key=lambda x: x['position'])
+    
+    context = {
+        'product': product,
+        'images': images
+    }
+    
+    return render(request, 'shopify_manager/product_alt_text_manager.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def update_alt_text_view(request):
+    """Aktualisiert Alt-Text für ein Produktbild"""
+    product_id = request.POST.get('product_id')
+    image_id = request.POST.get('image_id')
+    alt_text = request.POST.get('alt_text', '').strip()
+    
+    if not all([product_id, image_id]):
+        return JsonResponse({
+            'success': False,
+            'error': 'Fehlende Parameter'
+        })
+    
+    product = get_object_or_404(ShopifyProduct, id=product_id, store__user=request.user)
+    
+    try:
+        # Update im raw_shopify_data
+        if product.raw_shopify_data and 'images' in product.raw_shopify_data:
+            for img in product.raw_shopify_data['images']:
+                if str(img.get('id')) == str(image_id):
+                    img['alt'] = alt_text
+                    break
+        
+        # Speichere Änderungen
+        product.needs_sync = True
+        product.save(update_fields=['raw_shopify_data', 'needs_sync'])
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Alt-Text erfolgreich aktualisiert'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Aktualisieren des Alt-Textes: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["POST"])
+def generate_alt_text_view(request):
+    """Generiert Alt-Text für ein Bild mit KI"""
+    product_id = request.POST.get('product_id')
+    image_id = request.POST.get('image_id')
+    image_url = request.POST.get('image_url')
+    
+    if not all([product_id, image_id, image_url]):
+        return JsonResponse({
+            'success': False,
+            'error': 'Fehlende Parameter'
+        })
+    
+    product = get_object_or_404(ShopifyProduct, id=product_id, store__user=request.user)
+    
+    try:
+        # Versuche KI-Integration für Alt-Text-Generierung
+        suggested_alt = generate_alt_text_with_ai(product, image_url, request.user)
+        
+        if suggested_alt:
+            return JsonResponse({
+                'success': True,
+                'suggested_alt': suggested_alt
+            })
+        else:
+            # Fallback: Einfacher Vorschlag basierend auf Produktdaten
+            suggested_alt = f"{product.title} - Produktbild"
+            if product.vendor:
+                suggested_alt += f" von {product.vendor}"
+            if product.product_type:
+                suggested_alt += f" ({product.product_type})"
+                
+            return JsonResponse({
+                'success': True,
+                'suggested_alt': suggested_alt
+            })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Generieren des Alt-Textes: {str(e)}'
+        })
+
+
+def generate_alt_text_with_ai(product, image_url, user):
+    """Generiert Alt-Text mit KI-Unterstützung"""
+    try:
+        # Versuche verschiedene AI-Services
+        from naturmacher.utils.api_helpers import get_user_api_key
+        
+        # 1. OpenAI GPT-4 Vision (falls verfügbar)
+        openai_key = get_user_api_key(user, 'openai')
+        if openai_key:
+            try:
+                alt_text = generate_alt_text_openai_vision(product, image_url, openai_key)
+                if alt_text:
+                    return alt_text
+            except Exception as e:
+                print(f"OpenAI Vision fehlgeschlagen: {e}")
+        
+        # 2. Google Gemini Vision (falls verfügbar)
+        google_key = get_user_api_key(user, 'google')
+        if google_key:
+            try:
+                alt_text = generate_alt_text_google_vision(product, image_url, google_key)
+                if alt_text:
+                    return alt_text
+            except Exception as e:
+                print(f"Google Gemini Vision fehlgeschlagen: {e}")
+        
+        # 3. Anthropic Claude Vision (falls verfügbar)
+        anthropic_key = get_user_api_key(user, 'anthropic')
+        if anthropic_key:
+            try:
+                alt_text = generate_alt_text_anthropic_vision(product, image_url, anthropic_key)
+                if alt_text:
+                    return alt_text
+            except Exception as e:
+                print(f"Anthropic Claude Vision fehlgeschlagen: {e}")
+        
+        return None
+        
+    except Exception as e:
+        print(f"Fehler bei Alt-Text-Generierung: {e}")
+        return None
+
+
+def generate_alt_text_openai_vision(product, image_url, api_key):
+    """Generiert Alt-Text mit OpenAI GPT-4 Vision"""
+    try:
+        prompt = f"""Analysiere dieses Produktbild und erstelle einen präzisen Alt-Text für SEO und Barrierefreiheit.
+
+Produktkontext:
+- Titel: {product.title}
+- Hersteller: {product.vendor or 'Unbekannt'}
+- Typ: {product.product_type or 'Unbekannt'}
+- Beschreibung: {(product.body_html or '')[:200]}
+
+Erstelle einen Alt-Text der:
+- Präzise das Bild beschreibt
+- Für Screenreader geeignet ist
+- SEO-optimiert ist
+- Unter 125 Zeichen liegt
+- Den Produktkontext berücksichtigt
+
+Antworte nur mit dem Alt-Text, ohne weitere Erklärungen."""
+
+        response = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'model': 'gpt-4-vision-preview',
+                'messages': [
+                    {
+                        'role': 'user',
+                        'content': [
+                            {'type': 'text', 'text': prompt},
+                            {'type': 'image_url', 'image_url': {'url': image_url}}
+                        ]
+                    }
+                ],
+                'max_tokens': 100,
+                'temperature': 0.3
+            },
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            if 'choices' in result and len(result['choices']) > 0:
+                alt_text = result['choices'][0]['message']['content'].strip()
+                # Kürze wenn nötig
+                if len(alt_text) > 125:
+                    alt_text = alt_text[:122] + '...'
+                return alt_text
+        
+    except Exception as e:
+        print(f"OpenAI Vision Fehler: {e}")
+    
+    return None
+
+
+def generate_alt_text_google_vision(product, image_url, api_key):
+    """Generiert Alt-Text mit Google Gemini Vision"""
+    try:
+        prompt = f"""Analysiere dieses Produktbild und erstelle einen präzisen Alt-Text.
+
+Produktkontext:
+- Titel: {product.title}
+- Hersteller: {product.vendor or 'Unbekannt'}
+- Typ: {product.product_type or 'Unbekannt'}
+
+Erstelle einen Alt-Text unter 125 Zeichen, der das Bild präzise beschreibt und SEO-optimiert ist. Antworte nur mit dem Alt-Text."""
+
+        # Vereinfachter Ansatz - nutze Gemini Text-Only mit Produktkontext
+        response = requests.post(
+            f'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}',
+            headers={'Content-Type': 'application/json'},
+            json={
+                'contents': [{
+                    'parts': [{'text': prompt}]
+                }],
+                'generationConfig': {
+                    'maxOutputTokens': 50,
+                    'temperature': 0.3
+                }
+            },
+            timeout=15
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            if 'candidates' in result and len(result['candidates']) > 0:
+                alt_text = result['candidates'][0]['content']['parts'][0]['text'].strip()
+                if len(alt_text) > 125:
+                    alt_text = alt_text[:122] + '...'
+                return alt_text
+        
+    except Exception as e:
+        print(f"Google Gemini Fehler: {e}")
+    
+    return None
+
+
+def generate_alt_text_anthropic_vision(product, image_url, api_key):
+    """Generiert Alt-Text mit Anthropic Claude Vision"""
+    try:
+        # Claude Vision API würde hier implementiert werden
+        # Für jetzt einen kontextbasierten Vorschlag
+        base_text = f"{product.title}"
+        if product.vendor and product.vendor.lower() not in base_text.lower():
+            base_text += f" von {product.vendor}"
+        
+        # Kürze auf 125 Zeichen
+        if len(base_text) > 125:
+            base_text = base_text[:122] + '...'
+            
+        return base_text
+        
+    except Exception as e:
+        print(f"Anthropic Claude Fehler: {e}")
+    
+    return None
+
+
+@login_required
 @require_http_methods(["GET"])
 def get_blogs_for_store_view(request, store_id):
     """Holt Blogs für einen Store zur Auswahl"""

@@ -40,7 +40,7 @@ urlpatterns = [
     path('api/apply-integrated-seo/', views.apply_integrated_seo_view, name='apply_integrated_seo'),
     
     # Alt-Text Manager
-    path('alt-text-manager/', views.alt_text_manager_view, name='alt_text_manager'),
+    path('products/<int:product_id>/alt-text/', views.alt_text_manager_view, name='alt_text_manager'),
     path('api/alt-text-data/<int:store_id>/', views.get_alt_text_data_view, name='get_alt_text_data'),
     path('api/update-alt-text/', views.update_alt_text_view, name='update_alt_text'),
     path('api/generate-alt-text/', views.generate_alt_text_view, name='generate_alt_text'),

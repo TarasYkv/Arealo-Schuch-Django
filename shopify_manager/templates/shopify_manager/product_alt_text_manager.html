@@ -1,0 +1,334 @@
+{% extends "shopify_manager/base.html" %}
+{% load static %}
+
+{% block title %}Alt-Text Management - {{ product.title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-1">Alt-Text Management</h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item">
+                                <a href="{% url 'shopify_manager:product_list' %}">Produkte</a>
+                            </li>
+                            <li class="breadcrumb-item active">Alt-Text Management</li>
+                        </ol>
+                    </nav>
+                </div>
+                <a href="{% url 'shopify_manager:product_list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück zur Produktliste
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Produkt Info -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-2">
+                            {% if product.featured_image_url %}
+                                <img src="{{ product.featured_image_url }}" 
+                                     alt="{{ product.featured_image_alt|default:'Produktbild' }}" 
+                                     class="img-fluid rounded">
+                            {% else %}
+                                <div class="bg-light rounded d-flex align-items-center justify-content-center" 
+                                     style="height: 100px;">
+                                    <i class="fas fa-image text-muted fa-2x"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-10">
+                            <h4>{{ product.title }}</h4>
+                            <p class="text-muted mb-2">{{ product.body_html|striptags|truncatechars:200 }}</p>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Store:</strong> {{ product.store.name }}<br>
+                                    <strong>Vendor:</strong> {{ product.vendor|default:"—" }}<br>
+                                    <strong>Typ:</strong> {{ product.product_type|default:"—" }}
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Status:</strong> 
+                                    <span class="badge bg-{% if product.status == 'active' %}success{% elif product.status == 'archived' %}dark{% else %}secondary{% endif %}">
+                                        {{ product.get_status_display }}
+                                    </span><br>
+                                    <strong>Alt-Text-Status:</strong>
+                                    {% with alt_status=product.get_alt_text_status %}
+                                        <span class="badge bg-{% if alt_status == 'good' %}success{% elif alt_status == 'warning' %}warning{% else %}danger{% endif %}">
+                                            {% if alt_status == 'good' %}
+                                                <i class="fas fa-check"></i> Gut
+                                            {% elif alt_status == 'warning' %}
+                                                <i class="fas fa-exclamation-triangle"></i> Warnung
+                                            {% else %}
+                                                <i class="fas fa-times"></i> Schlecht
+                                            {% endif %}
+                                        </span>
+                                    {% endwith %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bilder -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-images"></i> Produktbilder ({{ images|length }})
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if images %}
+                        <div class="row">
+                            {% for image in images %}
+                            <div class="col-lg-6 col-xl-4 mb-4">
+                                <div class="card h-100">
+                                    <div class="position-relative">
+                                        <img src="{{ image.src }}" 
+                                             alt="{{ image.alt|default:'Bild ohne Alt-Text' }}" 
+                                             class="card-img-top" 
+                                             style="height: 250px; object-fit: cover;">
+                                        {% if image.position == 1 %}
+                                            <span class="position-absolute top-0 start-0 m-2 badge bg-primary">
+                                                <i class="fas fa-star"></i> Hauptbild
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="card-body">
+                                        <h6 class="card-title">Bild {{ image.position|default:"?" }}</h6>
+                                        <p class="text-muted small mb-3">
+                                            {{ image.width }}x{{ image.height }}px
+                                        </p>
+                                        
+                                        <!-- Alt-Text Form -->
+                                        <form class="alt-text-form" data-image-id="{{ image.id }}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="product_id" value="{{ product.id }}">
+                                            <input type="hidden" name="image_id" value="{{ image.id }}">
+                                            <input type="hidden" name="image_url" value="{{ image.src }}">
+                                            
+                                            <div class="mb-3">
+                                                <label for="alt_text_{{ image.id }}" class="form-label">Alt-Text</label>
+                                                <textarea class="form-control" 
+                                                          id="alt_text_{{ image.id }}" 
+                                                          name="alt_text" 
+                                                          rows="3" 
+                                                          placeholder="Beschreibung des Bildes für Screenreader...">{{ image.alt }}</textarea>
+                                                <div class="form-text">
+                                                    <span class="char-count">{{ image.alt|length }}</span>/125 Zeichen
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="d-grid gap-2">
+                                                <button type="button" 
+                                                        class="btn btn-info btn-sm generate-alt-btn" 
+                                                        data-image-id="{{ image.id }}">
+                                                    <i class="fas fa-robot"></i> KI-Vorschlag generieren
+                                                </button>
+                                                <button type="submit" class="btn btn-success btn-sm">
+                                                    <i class="fas fa-save"></i> Speichern
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <!-- Bulk Actions -->
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6><i class="fas fa-magic"></i> Bulk-Aktionen</h6>
+                                        <div class="d-flex gap-2">
+                                            <button type="button" class="btn btn-outline-info" id="generateAllBtn">
+                                                <i class="fas fa-robot"></i> Alle Alt-Texte generieren
+                                            </button>
+                                            <button type="button" class="btn btn-outline-success" id="saveAllBtn">
+                                                <i class="fas fa-save"></i> Alle speichern
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-image text-muted fa-3x mb-3"></i>
+                            <h5 class="text-muted">Keine Bilder gefunden</h5>
+                            <p class="text-muted">Dieses Produkt hat keine Bilder oder die Bilder wurden noch nicht synchronisiert.</p>
+                            <a href="{% url 'shopify_manager:product_list' %}" class="btn btn-primary">
+                                <i class="fas fa-arrow-left"></i> Zurück zur Produktliste
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Character counter for textareas
+    document.querySelectorAll('textarea[name="alt_text"]').forEach(textarea => {
+        const charCount = textarea.closest('.mb-3').querySelector('.char-count');
+        
+        function updateCharCount() {
+            const length = textarea.value.length;
+            charCount.textContent = length;
+            charCount.className = length > 125 ? 'text-danger' : length > 100 ? 'text-warning' : '';
+        }
+        
+        textarea.addEventListener('input', updateCharCount);
+        updateCharCount(); // Initial count
+    });
+    
+    // Individual form submission
+    document.querySelectorAll('.alt-text-form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Speichere...';
+            
+            fetch('/shopify/api/update-alt-text/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('success', data.message);
+                } else {
+                    showAlert('danger', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'Fehler beim Speichern des Alt-Textes');
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            });
+        });
+    });
+    
+    // Generate alt text buttons
+    document.querySelectorAll('.generate-alt-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const form = this.closest('.alt-text-form');
+            const formData = new FormData(form);
+            const originalText = this.innerHTML;
+            
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generiere...';
+            
+            fetch('/shopify/api/generate-alt-text/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const textarea = form.querySelector('textarea[name="alt_text"]');
+                    textarea.value = data.suggested_alt;
+                    textarea.dispatchEvent(new Event('input')); // Trigger char count update
+                    showAlert('success', 'Alt-Text-Vorschlag generiert');
+                } else {
+                    showAlert('danger', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'Fehler beim Generieren des Alt-Textes');
+            })
+            .finally(() => {
+                this.disabled = false;
+                this.innerHTML = originalText;
+            });
+        });
+    });
+    
+    // Bulk generate button
+    document.getElementById('generateAllBtn')?.addEventListener('click', function() {
+        document.querySelectorAll('.generate-alt-btn').forEach(btn => {
+            if (!btn.disabled) {
+                btn.click();
+            }
+        });
+    });
+    
+    // Bulk save button
+    document.getElementById('saveAllBtn')?.addEventListener('click', function() {
+        document.querySelectorAll('.alt-text-form').forEach(form => {
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (!submitBtn.disabled) {
+                form.dispatchEvent(new Event('submit'));
+            }
+        });
+    });
+});
+
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

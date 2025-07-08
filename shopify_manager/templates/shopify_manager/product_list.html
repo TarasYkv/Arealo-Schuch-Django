@@ -96,6 +96,7 @@
 <form id="bulkForm" method="post" action="{% url 'shopify_manager:bulk_action' %}">
     {% csrf_token %}
     {{ bulk_form.action.as_hidden }}
+    {{ bulk_form.selected_products.as_hidden }}
     
     <!-- Produktliste -->
     <div class="row">
@@ -262,6 +263,9 @@
                     <div class="d-grid gap-2 mb-2">
                         <a href="{% url 'shopify_manager:integrated_seo_optimization' 'product' product.pk %}" class="btn btn-primary btn-sm">
                             <i class="fas fa-robot"></i> Do-SEO
+                        </a>
+                        <a href="{% url 'shopify_manager:alt_text_manager' product.pk %}" class="btn btn-info btn-sm">
+                            <i class="fas fa-image"></i> Do-Alt-Text
                         </a>
                         <button class="btn btn-outline-success btn-sm" onclick="syncProduct({{ product.id }})">
                             <i class="fas fa-sync"></i> Änderungen synchronisieren
@@ -498,8 +502,58 @@ function bulkAction() {
         return;
     }
     
-    document.querySelector('input[name="action"]').value = selectedAction;
-    document.getElementById('bulkForm').submit();
+    // Collect selected product IDs
+    const selectedIds = Array.from(checkboxes).map(cb => cb.value);
+    
+    // Confirmation for sync action
+    if (selectedAction === 'sync_to_shopify') {
+        if (!confirm(`${selectedIds.length} Produkte zu Shopify synchronisieren?\nDies kann einige Zeit dauern.`)) {
+            return;
+        }
+    }
+    
+    // Show loading state
+    const originalText = 'Bulk-Aktion ausführen';
+    const bulkButton = document.querySelector('button[onclick="bulkAction()"]');
+    if (bulkButton) {
+        bulkButton.disabled = true;
+        bulkButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Führe Aktion aus...';
+    }
+    
+    // Use AJAX instead of form submission
+    fetch('/shopify/api/bulk-action/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+            'action': selectedAction,
+            'selected_products': selectedIds.join(',')
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`✅ Erfolgreich!\n\n${data.message}\n\n${data.details || ''}`);
+            // Reload page to show updated data
+            location.reload();
+        } else {
+            alert(`❌ Fehler bei der Bulk-Aktion:\n\n${data.error}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Fehler bei der Bulk-Aktion\n\nBitte versuchen Sie es erneut.');
+    })
+    .finally(() => {
+        // Reset button state
+        if (bulkButton) {
+            bulkButton.disabled = false;
+            bulkButton.innerHTML = originalText;
+        }
+    });
 }
 
 // Toggle import options based on mode
