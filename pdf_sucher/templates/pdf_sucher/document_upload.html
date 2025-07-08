@@ -1,0 +1,335 @@
+{% extends 'pdf_sucher/base.html' %}
+
+{% block title %}PDF hochladen{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a href="{% url 'pdf_sucher:document_list' %}">
+                <i class="bi bi-folder"></i> Dokumente
+            </a>
+        </li>
+        <li class="breadcrumb-item active">Neues PDF hochladen</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="bi bi-cloud-upload text-primary"></i>
+                    Neues PDF-Dokument hochladen
+                </h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-4">
+                    Laden Sie ein PDF-Dokument hoch, um automatische KI-gestützte Analysen und Zusammenfassungen zu erstellen.
+                </p>
+                
+                <form method="post" enctype="multipart/form-data" id="uploadForm">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label for="{{ form.title.id_for_label }}" class="form-label">{{ form.title.label }}</label>
+                        {{ form.title }}
+                        {% if form.title.help_text %}
+                            <div class="form-text">{{ form.title.help_text }}</div>
+                        {% endif %}
+                        {% if form.title.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.title.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="{{ form.file.id_for_label }}" class="form-label">{{ form.file.label }}</label>
+                        
+                        <!-- File Drop Zone -->
+                        <div class="file-drop-zone border border-dashed border-primary rounded p-4 text-center mb-3" id="dropZone">
+                            <i class="bi bi-cloud-upload text-primary fs-1 mb-3"></i>
+                            <h5 class="text-primary mb-2">PDF-Datei hier hinziehen</h5>
+                            <p class="text-muted mb-3">oder klicken Sie, um eine Datei auszuwählen</p>
+                            {{ form.file }}
+                            <small class="text-muted">Maximale Dateigröße: 50MB</small>
+                        </div>
+                        
+                        {% if form.file.help_text %}
+                            <div class="form-text">{{ form.file.help_text }}</div>
+                        {% endif %}
+                        {% if form.file.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.file.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        
+                        <!-- File Info Display -->
+                        <div id="fileInfo" class="alert alert-info mt-3" style="display: none;">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-file-earmark-pdf text-danger fs-4 me-3"></i>
+                                <div class="flex-grow-1">
+                                    <div id="fileName" class="fw-bold"></div>
+                                    <div id="fileSize" class="small text-muted"></div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="removeFile">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Upload Progress -->
+                    <div id="uploadProgress" class="mb-4" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted">Upload-Fortschritt:</span>
+                            <span id="progressPercent">0%</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 id="progressBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'pdf_sucher:document_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Zurück
+                        </a>
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            <i class="bi bi-upload"></i> PDF hochladen
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Info Card -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-info-circle"></i> Was passiert nach dem Upload?
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">
+                            <i class="bi bi-1-circle"></i> Automatische Verarbeitung
+                        </h6>
+                        <p class="small text-muted mb-3">
+                            Das PDF wird automatisch analysiert und für die KI-Verarbeitung vorbereitet.
+                        </p>
+                        
+                        <h6 class="text-primary">
+                            <i class="bi bi-2-circle"></i> Zusammenfassung erstellen
+                        </h6>
+                        <p class="small text-muted mb-3">
+                            Sie können verschiedene KI-Modelle auswählen, um automatische Zusammenfassungen und Analysen zu erstellen.
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-primary">
+                            <i class="bi bi-3-circle"></i> Strukturierte Datenextraktion
+                        </h6>
+                        <p class="small text-muted mb-3">
+                            Ausschreibungspositionen, Preise und andere relevante Informationen werden automatisch extrahiert.
+                        </p>
+                        
+                        <h6 class="text-primary">
+                            <i class="bi bi-4-circle"></i> PDF-Export
+                        </h6>
+                        <p class="small text-muted mb-3">
+                            Erhalten Sie eine strukturierte PDF-Zusammenfassung mit allen wichtigen Informationen.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('uploadForm');
+    const fileInput = document.getElementById('{{ form.file.id_for_label }}');
+    const dropZone = document.getElementById('dropZone');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const removeFileBtn = document.getElementById('removeFile');
+    const submitBtn = document.getElementById('submitBtn');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const progressBar = document.getElementById('progressBar');
+    const progressPercent = document.getElementById('progressPercent');
+    
+    // Drag and Drop Functionality
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropZone.classList.add('border-success', 'bg-light');
+    });
+    
+    dropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('border-success', 'bg-light');
+    });
+    
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('border-success', 'bg-light');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+            if (file.type === 'application/pdf') {
+                fileInput.files = files;
+                updateFileInfo(file);
+            } else {
+                alert('Bitte wählen Sie eine PDF-Datei aus.');
+            }
+        }
+    });
+    
+    // Click to upload
+    dropZone.addEventListener('click', function() {
+        fileInput.click();
+    });
+    
+    // File input change
+    fileInput.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            updateFileInfo(this.files[0]);
+        } else {
+            hideFileInfo();
+        }
+    });
+    
+    // Remove file
+    removeFileBtn.addEventListener('click', function() {
+        fileInput.value = '';
+        hideFileInfo();
+    });
+    
+    function updateFileInfo(file) {
+        fileName.textContent = file.name;
+        fileSize.textContent = formatFileSize(file.size);
+        fileInfo.style.display = 'block';
+        dropZone.classList.add('border-success');
+    }
+    
+    function hideFileInfo() {
+        fileInfo.style.display = 'none';
+        dropZone.classList.remove('border-success');
+    }
+    
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    // Form submission with progress simulation
+    form.addEventListener('submit', function(e) {
+        if (!fileInput.files.length) {
+            e.preventDefault();
+            alert('Bitte wählen Sie eine PDF-Datei aus.');
+            return;
+        }
+        
+        // Show progress
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Wird hochgeladen...';
+        uploadProgress.style.display = 'block';
+        
+        // Simulate progress (in real implementation, you'd use XMLHttpRequest or fetch for real progress)
+        let progress = 0;
+        const interval = setInterval(function() {
+            progress += Math.random() * 15;
+            if (progress > 95) {
+                progress = 95;
+                clearInterval(interval);
+            }
+            progressBar.style.width = progress + '%';
+            progressPercent.textContent = Math.round(progress) + '%';
+        }, 200);
+    });
+    
+    // Auto-fill title based on filename
+    fileInput.addEventListener('change', function() {
+        const titleInput = document.getElementById('{{ form.title.id_for_label }}');
+        if (this.files.length > 0 && !titleInput.value.trim()) {
+            const filename = this.files[0].name;
+            const nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
+            titleInput.value = nameWithoutExt;
+        }
+    });
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Escape to go back
+        if (e.key === 'Escape') {
+            window.location.href = "{% url 'pdf_sucher:document_list' %}";
+        }
+        
+        // Ctrl+Enter to submit (if file is selected)
+        if (e.ctrlKey && e.key === 'Enter' && fileInput.files.length > 0) {
+            form.submit();
+        }
+    });
+});
+</script>
+
+<style>
+.file-drop-zone {
+    transition: all 0.3s ease;
+    cursor: pointer;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.file-drop-zone:hover {
+    border-color: var(--bs-primary) !important;
+    background-color: rgba(var(--bs-primary-rgb), 0.05);
+}
+
+.file-drop-zone.border-success {
+    border-color: var(--bs-success) !important;
+    background-color: rgba(var(--bs-success-rgb), 0.05);
+}
+
+.file-drop-zone input[type="file"] {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+#fileInfo {
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+</style>
+{% endblock %}

@@ -1,22 +1,35 @@
-# VOLLSTÄNDIGER CODE FÜR: pdf_sucher/views.py
+# PDF SUCHER & ZUSAMMENFASSUNG - VIEWS
 
 import os
 import io
 import re
+import json
 from datetime import datetime
+from decimal import Decimal
 
 import fitz  # PyMuPDF
 import openai
 import numpy as np
 from PIL import Image
 from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core.files.storage import FileSystemStorage
-from django.http import FileResponse, Http404, HttpResponse
-from django.shortcuts import render
+from django.core.paginator import Paginator
+from django.db import models
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
+from django.shortcuts import render, get_object_or_404, redirect
+from django.views.decorators.http import require_http_methods
+from django.urls import reverse
 from werkzeug.utils import secure_filename
 
 # Import für user-spezifische API-Keys
 from naturmacher.utils import get_user_api_key
+
+# Neue Imports für Zusammenfassungsfunktionalität
+from .models import PDFDocument, PDFSummary, TenderPosition
+from .forms import PDFUploadForm, SummaryCreationForm, SummaryFilterForm
+from .services import PDFSummaryService
 
 # OpenAI API wird jetzt über den neuen Client verwendet
 
@@ -2247,3 +2260,306 @@ def pdf_page_preview(request, filename, page_num):
     except Exception as e:
         print(f"Fehler bei der Vorschauerstellung: {e}")
         raise Http404("Vorschau konnte nicht erstellt werden")
+
+
+# ===========================================
+# NEUE FUNKTIONALITÄT: PDF ZUSAMMENFASSUNG
+# ===========================================
+
+@login_required
+def document_list_view(request):
+    """Übersicht aller hochgeladenen Dokumente"""
+    documents = PDFDocument.objects.filter(user=request.user).order_by('-uploaded_at')
+    
+    # Filter anwenden
+    filter_form = SummaryFilterForm(request.GET)
+    
+    # Pagination
+    paginator = Paginator(documents, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'documents': page_obj,
+        'filter_form': filter_form,
+        'upload_form': PDFUploadForm(),
+    }
+    
+    return render(request, 'pdf_sucher/document_list.html', context)
+
+
+@login_required
+def document_upload_view(request):
+    """Upload eines neuen PDF-Dokuments"""
+    if request.method == 'POST':
+        form = PDFUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                document = form.save(commit=False)
+                document.user = request.user
+                document.original_filename = request.FILES['file'].name
+                document.file_size = request.FILES['file'].size
+                document.save()
+                
+                messages.success(request, f'Dokument "{document.title}" wurde erfolgreich hochgeladen.')
+                return redirect('pdf_sucher:document_detail', pk=document.pk)
+            
+            except Exception as e:
+                messages.error(request, f'Fehler beim Upload: {str(e)}')
+        else:
+            messages.error(request, 'Bitte korrigieren Sie die Fehler im Formular.')
+    
+    return redirect('pdf_sucher:document_list')
+
+
+@login_required
+def document_detail_view(request, pk):
+    """Detailansicht eines Dokuments mit Zusammenfassungsoptionen"""
+    document = get_object_or_404(PDFDocument, pk=pk, user=request.user)
+    summaries = document.summaries.all().order_by('-created_at')
+    
+    # Formular für neue Zusammenfassung
+    summary_form = SummaryCreationForm(user=request.user)
+    
+    context = {
+        'document': document,
+        'summaries': summaries,
+        'summary_form': summary_form,
+    }
+    
+    return render(request, 'pdf_sucher/document_detail.html', context)
+
+
+@login_required
+def create_summary_view(request, document_id):
+    """Erstellt eine neue Zusammenfassung für ein Dokument"""
+    document = get_object_or_404(PDFDocument, pk=document_id, user=request.user)
+    
+    if request.method == 'POST':
+        form = SummaryCreationForm(request.POST, user=request.user)
+        if form.is_valid():
+            try:
+                service = PDFSummaryService()
+                summary = service.create_summary(
+                    document=document,
+                    ai_model=form.cleaned_data['ai_model'],
+                    user=request.user
+                )
+                
+                messages.success(request, 'Zusammenfassung wurde erstellt und wird verarbeitet.')
+                return redirect('pdf_sucher:summary_detail', pk=summary.pk)
+            
+            except Exception as e:
+                messages.error(request, f'Fehler bei der Erstellung der Zusammenfassung: {str(e)}')
+        else:
+            messages.error(request, 'Ungültige Eingaben im Formular.')
+    
+    return redirect('pdf_sucher:document_detail', pk=document_id)
+
+
+@login_required
+def summary_list_view(request):
+    """Übersicht aller Zusammenfassungen des Benutzers"""
+    summaries = PDFSummary.objects.filter(user=request.user).order_by('-created_at')
+    
+    # Filter anwenden
+    filter_form = SummaryFilterForm(request.GET)
+    if filter_form.is_valid():
+        if filter_form.cleaned_data['ai_model']:
+            summaries = summaries.filter(ai_model=filter_form.cleaned_data['ai_model'])
+        if filter_form.cleaned_data['status']:
+            summaries = summaries.filter(status=filter_form.cleaned_data['status'])
+        if filter_form.cleaned_data['date_from']:
+            summaries = summaries.filter(created_at__date__gte=filter_form.cleaned_data['date_from'])
+        if filter_form.cleaned_data['date_to']:
+            summaries = summaries.filter(created_at__date__lte=filter_form.cleaned_data['date_to'])
+        if filter_form.cleaned_data['search']:
+            search_term = filter_form.cleaned_data['search']
+            summaries = summaries.filter(
+                models.Q(document__title__icontains=search_term) |
+                models.Q(summary_text__icontains=search_term)
+            )
+    
+    # Pagination
+    paginator = Paginator(summaries, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'summaries': page_obj,
+        'filter_form': filter_form,
+    }
+    
+    return render(request, 'pdf_sucher/summary_list.html', context)
+
+
+@login_required
+def summary_detail_view(request, pk):
+    """Detailansicht einer Zusammenfassung"""
+    summary = get_object_or_404(PDFSummary, pk=pk, user=request.user)
+    positions = summary.positions.all().order_by('position_number')
+    
+    # Statistiken berechnen
+    total_positions = positions.count()
+    total_value = sum([pos.total_price for pos in positions if pos.total_price])
+    
+    context = {
+        'summary': summary,
+        'positions': positions,
+        'stats': {
+            'total_positions': total_positions,
+            'total_value': total_value,
+            'with_prices': positions.filter(total_price__isnull=False).count(),
+            'categories': positions.values_list('category', flat=True).distinct().count(),
+        }
+    }
+    
+    return render(request, 'pdf_sucher/summary_detail.html', context)
+
+
+@login_required
+def download_summary_pdf_view(request, pk):
+    """Download der generierten Zusammenfassungs-PDF"""
+    summary = get_object_or_404(PDFSummary, pk=pk, user=request.user)
+    
+    if not summary.summary_pdf:
+        messages.error(request, 'Keine PDF-Zusammenfassung verfügbar.')
+        return redirect('pdf_sucher:summary_detail', pk=pk)
+    
+    try:
+        response = FileResponse(
+            summary.summary_pdf.open('rb'),
+            as_attachment=True,
+            filename=f"zusammenfassung_{summary.document.title}_{summary.id}.pdf"
+        )
+        return response
+    except Exception as e:
+        messages.error(request, f'Fehler beim Download: {str(e)}')
+        return redirect('pdf_sucher:summary_detail', pk=pk)
+
+
+@login_required
+@require_http_methods(["POST"])
+def delete_document_view(request, pk):
+    """Löscht ein Dokument und alle zugehörigen Zusammenfassungen"""
+    document = get_object_or_404(PDFDocument, pk=pk, user=request.user)
+    
+    try:
+        # Datei von Festplatte löschen
+        if document.file and os.path.exists(document.file.path):
+            os.remove(document.file.path)
+        
+        document_title = document.title
+        document.delete()
+        
+        messages.success(request, f'Dokument "{document_title}" wurde gelöscht.')
+    except Exception as e:
+        messages.error(request, f'Fehler beim Löschen: {str(e)}')
+    
+    return redirect('pdf_sucher:document_list')
+
+
+@login_required
+@require_http_methods(["POST"])
+def delete_summary_view(request, pk):
+    """Löscht eine Zusammenfassung"""
+    summary = get_object_or_404(PDFSummary, pk=pk, user=request.user)
+    document_id = summary.document.id
+    
+    try:
+        # PDF-Datei von Festplatte löschen
+        if summary.summary_pdf and os.path.exists(summary.summary_pdf.path):
+            os.remove(summary.summary_pdf.path)
+        
+        summary.delete()
+        messages.success(request, 'Zusammenfassung wurde gelöscht.')
+    except Exception as e:
+        messages.error(request, f'Fehler beim Löschen: {str(e)}')
+    
+    return redirect('pdf_sucher:document_detail', pk=document_id)
+
+
+@login_required
+@require_http_methods(["GET"])
+def summary_status_api_view(request, pk):
+    """API-Endpoint für den aktuellen Status einer Zusammenfassung"""
+    summary = get_object_or_404(PDFSummary, pk=pk, user=request.user)
+    
+    data = {
+        'status': summary.status,
+        'status_display': summary.get_status_display(),
+        'progress': get_summary_progress(summary),
+        'error_message': summary.error_message if summary.status == 'error' else None,
+        'completed_at': summary.completed_at.isoformat() if summary.completed_at else None,
+        'processing_time': summary.processing_time,
+        'positions_count': summary.positions.count() if summary.status == 'completed' else 0,
+    }
+    
+    return JsonResponse(data)
+
+
+def get_summary_progress(summary):
+    """Berechnet den Fortschritt einer Zusammenfassung in Prozent"""
+    if summary.status == 'pending':
+        return 0
+    elif summary.status == 'processing':
+        # Schätze Fortschritt basierend auf vorhandenen Daten
+        progress = 10  # Grundfortschritt für "processing"
+        if summary.extracted_text:
+            progress += 30  # Text wurde extrahiert
+        if summary.summary_text:
+            progress += 30  # Zusammenfassung wurde erstellt
+        if summary.positions.exists():
+            progress += 20  # Positionen wurden erstellt
+        if summary.summary_pdf:
+            progress += 10  # PDF wurde generiert
+        return min(progress, 95)  # Maximal 95% während processing
+    elif summary.status == 'completed':
+        return 100
+    else:  # error
+        return 0
+
+
+# ======================================
+# AJAX VIEWS FÜR LIVE-UPDATES
+# ======================================
+
+@login_required
+@require_http_methods(["POST"])
+def regenerate_summary_pdf_view(request, pk):
+    """Regeneriert die PDF-Zusammenfassung"""
+    summary = get_object_or_404(PDFSummary, pk=pk, user=request.user)
+    
+    try:
+        from .services import PDFSummaryGenerator
+        generator = PDFSummaryGenerator()
+        
+        # Alte PDF löschen
+        if summary.summary_pdf:
+            if os.path.exists(summary.summary_pdf.path):
+                os.remove(summary.summary_pdf.path)
+            summary.summary_pdf.delete()
+        
+        # Neue PDF generieren
+        pdf_path = generator.generate_summary_pdf(summary)
+        
+        # PDF-Datei im Model speichern
+        with open(pdf_path, 'rb') as pdf_file:
+            from django.core.files.base import ContentFile
+            filename = f"zusammenfassung_{summary.document.title}_{summary.id}.pdf"
+            summary.summary_pdf.save(filename, ContentFile(pdf_file.read()))
+        
+        # Temporäre Datei löschen
+        os.unlink(pdf_path)
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'PDF wurde erfolgreich regeneriert.',
+            'download_url': reverse('pdf_sucher:download_summary_pdf', kwargs={'pk': summary.pk})
+        })
+    
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler bei der PDF-Generierung: {str(e)}'
+        })

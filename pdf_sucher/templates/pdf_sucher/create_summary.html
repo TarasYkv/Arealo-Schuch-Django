@@ -1,0 +1,391 @@
+{% extends 'pdf_sucher/base.html' %}
+
+{% block title %}Neue Analyse erstellen - {{ document.title }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a href="{% url 'pdf_sucher:document_list' %}">
+                <i class="bi bi-folder"></i> Dokumente
+            </a>
+        </li>
+        <li class="breadcrumb-item">
+            <a href="{{ document.get_absolute_url }}">{{ document.title|truncatechars:30 }}</a>
+        </li>
+        <li class="breadcrumb-item active">Neue Analyse</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="bi bi-robot text-primary"></i>
+                    Neue KI-Analyse erstellen
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <h6 class="alert-heading">
+                        <i class="bi bi-info-circle"></i> KI-gestützte Ausschreibungsanalyse
+                    </h6>
+                    <p class="mb-0">
+                        Die KI wird Ihr PDF-Dokument analysieren und automatisch Ausschreibungspositionen, 
+                        Preise und andere relevante Informationen extrahieren. Je nach gewähltem Modell 
+                        kann die Analyse 1-5 Minuten dauern.
+                    </p>
+                </div>
+                
+                <form method="post" id="summaryForm">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label for="{{ form.ai_model.id_for_label }}" class="form-label">{{ form.ai_model.label }}</label>
+                        {{ form.ai_model }}
+                        {% if form.ai_model.help_text %}
+                            <div class="form-text">{{ form.ai_model.help_text }}</div>
+                        {% endif %}
+                        {% if form.ai_model.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.ai_model.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- KI-Modell Beschreibungen -->
+                    <div class="card bg-light mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="bi bi-cpu"></i> KI-Modell Eigenschaften
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="model-info" data-model="openai_gpt4">
+                                        <h6 class="text-primary">
+                                            <i class="bi bi-star-fill"></i> OpenAI GPT-4
+                                        </h6>
+                                        <ul class="small mb-3">
+                                            <li>Höchste Genauigkeit bei komplexen Dokumenten</li>
+                                            <li>Beste Erkennung von Preisen und Positionen</li>
+                                            <li>Langsamste Verarbeitung (3-5 Minuten)</li>
+                                            <li>Empfohlen für wichtige Ausschreibungen</li>
+                                        </ul>
+                                    </div>
+                                    
+                                    <div class="model-info" data-model="openai_gpt35" style="display: none;">
+                                        <h6 class="text-success">
+                                            <i class="bi bi-lightning-fill"></i> OpenAI GPT-3.5
+                                        </h6>
+                                        <ul class="small mb-3">
+                                            <li>Gute Balance zwischen Geschwindigkeit und Qualität</li>
+                                            <li>Zuverlässige Grundanalyse</li>
+                                            <li>Mittlere Verarbeitung (1-2 Minuten)</li>
+                                            <li>Empfohlen für Standard-Analysen</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="model-info" data-model="google_gemini" style="display: none;">
+                                        <h6 class="text-info">
+                                            <i class="bi bi-google"></i> Google Gemini
+                                        </h6>
+                                        <ul class="small mb-3">
+                                            <li>Sehr schnelle Verarbeitung</li>
+                                            <li>Gute Struktur-Erkennung</li>
+                                            <li>Kosteneffizient für große Mengen</li>
+                                            <li>Experimentell - noch in der Testphase</li>
+                                        </ul>
+                                    </div>
+                                    
+                                    <div class="model-info" data-model="anthropic_claude" style="display: none;">
+                                        <h6 class="text-warning">
+                                            <i class="bi bi-chat-quote"></i> Anthropic Claude
+                                        </h6>
+                                        <ul class="small mb-3">
+                                            <li>Ausgezeichnete Textverständnis</li>
+                                            <li>Detaillierte Zusammenfassungen</li>
+                                            <li>Gute Performance bei langen Dokumenten</li>
+                                            <li>Noch nicht vollständig integriert</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ document.get_absolute_url }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Zurück
+                        </a>
+                        <button type="submit" class="btn btn-success" id="submitBtn">
+                            <i class="bi bi-play-fill"></i> Analyse starten
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <!-- Dokument Info -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-file-earmark-pdf"></i> Zu analysierendes Dokument
+                </h6>
+            </div>
+            <div class="card-body">
+                <h6 class="text-primary mb-2">{{ document.title }}</h6>
+                
+                <dl class="row small">
+                    <dt class="col-5">Datei:</dt>
+                    <dd class="col-7">{{ document.original_filename|truncatechars:20 }}</dd>
+                    
+                    <dt class="col-5">Größe:</dt>
+                    <dd class="col-7">{{ document.file_size_mb }} MB</dd>
+                    
+                    <dt class="col-5">Hochgeladen:</dt>
+                    <dd class="col-7">{{ document.uploaded_at|date:"d.m.Y" }}</dd>
+                    
+                    <dt class="col-5">Analysen:</dt>
+                    <dd class="col-7">{{ document.summaries.count }}</dd>
+                </dl>
+                
+                <div class="text-center mt-3">
+                    <a href="{{ document.file.url }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-eye"></i> PDF ansehen
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- API-Status -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-key"></i> API-Konfiguration
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="apiStatus">
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="spinner-border spinner-border-sm me-2"></div>
+                        <small class="text-muted">Prüfe API-Verfügbarkeit...</small>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <a href="{% url 'accounts:neue_api_einstellungen' %}" class="btn btn-outline-secondary btn-sm w-100">
+                        <i class="bi bi-gear"></i> API-Einstellungen verwalten
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bisherige Analysen -->
+        {% if document.summaries.exists %}
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-clock-history"></i> Bisherige Analysen
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% for summary in document.summaries.all|slice:":3" %}
+                        <div class="d-flex justify-content-between align-items-center mb-2 {% if not forloop.last %}border-bottom pb-2{% endif %}">
+                            <div>
+                                <small class="fw-bold">{{ summary.get_ai_model_display }}</small><br>
+                                <small class="text-muted">{{ summary.created_at|date:"d.m.Y H:i" }}</small>
+                            </div>
+                            <span class="badge status-{{ summary.status }}">{{ summary.get_status_display }}</span>
+                        </div>
+                    {% endfor %}
+                    
+                    {% if document.summaries.count > 3 %}
+                        <div class="text-center mt-2">
+                            <a href="{{ document.get_absolute_url }}" class="btn btn-outline-secondary btn-sm">
+                                Alle {{ document.summaries.count }} ansehen
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+        
+        <!-- Schätzung -->
+        <div class="card mt-3 bg-light">
+            <div class="card-body">
+                <h6 class="text-muted mb-2">
+                    <i class="bi bi-clock"></i> Geschätzte Analysezeit
+                </h6>
+                <div id="timeEstimate">
+                    <span class="fs-5 fw-bold text-primary">1-3 Minuten</span><br>
+                    <small class="text-muted">Je nach gewähltem KI-Modell</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('summaryForm');
+    const modelSelect = document.getElementById('{{ form.ai_model.id_for_label }}');
+    const submitBtn = document.getElementById('submitBtn');
+    const timeEstimate = document.getElementById('timeEstimate');
+    const apiStatus = document.getElementById('apiStatus');
+    
+    // Model descriptions
+    const modelDescriptions = {
+        'openai_gpt4': {
+            time: '3-5 Minuten',
+            description: 'Höchste Qualität, langsamste Verarbeitung'
+        },
+        'openai_gpt35': {
+            time: '1-2 Minuten', 
+            description: 'Gute Balance zwischen Qualität und Geschwindigkeit'
+        },
+        'google_gemini': {
+            time: '30-60 Sekunden',
+            description: 'Schnellste Verarbeitung, experimentell'
+        },
+        'anthropic_claude': {
+            time: '2-3 Minuten',
+            description: 'Noch nicht vollständig verfügbar'
+        }
+    };
+    
+    // Update model info and time estimate
+    function updateModelInfo() {
+        const selectedModel = modelSelect.value;
+        
+        // Hide all model info divs
+        document.querySelectorAll('.model-info').forEach(div => {
+            div.style.display = 'none';
+        });
+        
+        // Show selected model info
+        const selectedInfo = document.querySelector(`.model-info[data-model="${selectedModel}"]`);
+        if (selectedInfo) {
+            selectedInfo.style.display = 'block';
+        }
+        
+        // Update time estimate
+        if (modelDescriptions[selectedModel]) {
+            timeEstimate.innerHTML = `
+                <span class="fs-5 fw-bold text-primary">${modelDescriptions[selectedModel].time}</span><br>
+                <small class="text-muted">${modelDescriptions[selectedModel].description}</small>
+            `;
+        }
+    }
+    
+    // Check API availability
+    function checkApiAvailability() {
+        // Simulate API check - in real implementation, make AJAX call
+        setTimeout(() => {
+            const availableModels = ['openai_gpt4', 'openai_gpt35']; // Simulated available models
+            
+            let statusHtml = '';
+            const allModels = [
+                { value: 'openai_gpt4', label: 'OpenAI GPT-4', icon: 'star-fill', color: 'primary' },
+                { value: 'openai_gpt35', label: 'OpenAI GPT-3.5', icon: 'lightning-fill', color: 'success' },
+                { value: 'google_gemini', label: 'Google Gemini', icon: 'google', color: 'info' },
+                { value: 'anthropic_claude', label: 'Anthropic Claude', icon: 'chat-quote', color: 'warning' }
+            ];
+            
+            allModels.forEach(model => {
+                const isAvailable = availableModels.includes(model.value);
+                const icon = isAvailable ? 'check-circle-fill' : 'x-circle-fill';
+                const color = isAvailable ? 'success' : 'danger';
+                
+                statusHtml += `
+                    <div class="d-flex align-items-center mb-1">
+                        <i class="bi bi-${icon} text-${color} me-2"></i>
+                        <small class="text-muted">${model.label}</small>
+                    </div>
+                `;
+            });
+            
+            apiStatus.innerHTML = statusHtml;
+        }, 1000);
+    }
+    
+    // Event listeners
+    modelSelect.addEventListener('change', updateModelInfo);
+    
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        if (!modelSelect.value) {
+            e.preventDefault();
+            alert('Bitte wählen Sie ein KI-Modell aus.');
+            return;
+        }
+        
+        // Disable form and show progress
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Analyse wird gestartet...';
+        
+        // Optional: Show modal with progress
+        showAnalysisModal();
+    });
+    
+    function showAnalysisModal() {
+        // Create and show modal for analysis progress
+        const modal = document.createElement('div');
+        modal.className = 'modal fade';
+        modal.innerHTML = `
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-cpu"></i> KI-Analyse gestartet
+                        </h5>
+                    </div>
+                    <div class="modal-body text-center">
+                        <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;"></div>
+                        <h5>Ihr Dokument wird analysiert...</h5>
+                        <p class="text-muted">
+                            Dies kann je nach Modell und Dokumentgröße einige Minuten dauern. 
+                            Sie werden automatisch zur Ergebnisseite weitergeleitet.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        const bootstrapModal = new bootstrap.Modal(modal, {
+            backdrop: 'static',
+            keyboard: false
+        });
+        bootstrapModal.show();
+    }
+    
+    // Initialize
+    updateModelInfo();
+    checkApiAvailability();
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Escape to go back
+        if (e.key === 'Escape') {
+            window.location.href = "{{ document.get_absolute_url }}";
+        }
+        
+        // Enter to submit (if model is selected)
+        if (e.key === 'Enter' && modelSelect.value) {
+            form.submit();
+        }
+    });
+});
+</script>
+{% endblock %}

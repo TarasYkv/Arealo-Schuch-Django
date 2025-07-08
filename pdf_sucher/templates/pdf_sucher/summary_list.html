@@ -1,0 +1,520 @@
+{% extends 'pdf_sucher/base.html' %}
+
+{% block title %}Zusammenfassungen{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2 mb-1">
+            <i class="bi bi-list-task text-primary"></i> 
+            Meine Zusammenfassungen
+        </h1>
+        <p class="text-muted mb-0">Übersicht aller KI-gestützten Ausschreibungsanalysen</p>
+    </div>
+    
+    <div class="text-end">
+        <a href="{% url 'pdf_sucher:document_upload' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> 
+            Neue Analyse erstellen
+        </a>
+    </div>
+</div>
+
+<!-- Statistiken Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-list-task fs-1 mb-2"></i>
+                <h4 class="mb-1">{{ total_summaries }}</h4>
+                <small>Zusammenfassung{{ total_summaries|pluralize:"en" }}</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-check-circle fs-1 mb-2"></i>
+                <h4 class="mb-1">{{ completed_summaries }}</h4>
+                <small>Abgeschlossen</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-cpu fs-1 mb-2"></i>
+                <h4 class="mb-1">{{ processing_summaries }}</h4>
+                <small>In Bearbeitung</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-exclamation-triangle fs-1 mb-2"></i>
+                <h4 class="mb-1">{{ error_summaries }}</h4>
+                <small>Fehlgeschlagen</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter und Suche -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-funnel"></i> Filter und Suche
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label for="search" class="form-label">Suche</label>
+                <input type="text" class="form-control" id="search" name="search" 
+                       value="{{ form.search.value|default:'' }}" 
+                       placeholder="Dokument oder Zusammenfassung durchsuchen...">
+            </div>
+            <div class="col-md-2">
+                <label for="ai_model" class="form-label">KI-Modell</label>
+                <select class="form-select" id="ai_model" name="ai_model">
+                    <option value="">Alle Modelle</option>
+                    {% for value, label in form.ai_model.field.choices %}
+                        {% if value %}
+                            <option value="{{ value }}" {% if form.ai_model.value == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="status" class="form-label">Status</label>
+                <select class="form-select" id="status" name="status">
+                    <option value="">Alle Status</option>
+                    {% for value, label in form.status.field.choices %}
+                        {% if value %}
+                            <option value="{{ value }}" {% if form.status.value == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="date_from" class="form-label">Von Datum</label>
+                <input type="date" class="form-control" id="date_from" name="date_from" 
+                       value="{{ form.date_from.value|default:'' }}">
+            </div>
+            <div class="col-md-2">
+                <label for="date_to" class="form-label">Bis Datum</label>
+                <input type="date" class="form-control" id="date_to" name="date_to" 
+                       value="{{ form.date_to.value|default:'' }}">
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-search"></i> Suchen
+                </button>
+                <a href="{% url 'pdf_sucher:summary_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle"></i> Zurücksetzen
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Zusammenfassungsliste -->
+{% if summaries %}
+    <div class="row">
+        {% for summary in summaries %}
+            <div class="col-lg-6 col-xl-4 mb-4">
+                <div class="card h-100 summary-card" data-status="{{ summary.status }}">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="mb-0 text-truncate" title="{{ summary.document.title }}">
+                                <i class="bi bi-file-earmark-text text-primary"></i>
+                                {{ summary.document.title|truncatechars:25 }}
+                            </h6>
+                            <small class="text-muted">{{ summary.document.original_filename|truncatechars:30 }}</small>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                    type="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                {% if summary.status == 'completed' %}
+                                    <li>
+                                        <a class="dropdown-item" href="{{ summary.get_absolute_url }}">
+                                            <i class="bi bi-eye"></i> Details ansehen
+                                        </a>
+                                    </li>
+                                    {% if summary.summary_pdf %}
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'pdf_sucher:download_summary_pdf' summary.pk %}" target="_blank">
+                                                <i class="bi bi-download"></i> PDF herunterladen
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                    <li><hr class="dropdown-divider"></li>
+                                {% endif %}
+                                <li>
+                                    <a class="dropdown-item" href="{{ summary.document.get_absolute_url }}">
+                                        <i class="bi bi-file-earmark-pdf"></i> Zum Dokument
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item text-danger" 
+                                       href="{% url 'pdf_sucher:delete_summary' summary.pk %}"
+                                       onclick="return confirm('Sind Sie sicher, dass Sie diese Zusammenfassung löschen möchten?')">
+                                        <i class="bi bi-trash"></i> Löschen
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="card-body">
+                        <!-- Status und Modell -->
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge ai-{{ summary.ai_model|slice:':7' }} small">
+                                    {{ summary.get_ai_model_display }}
+                                </span>
+                                <span class="badge status-{{ summary.status }}">
+                                    {{ summary.get_status_display }}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <!-- Datum und Zeit -->
+                        <div class="mb-3">
+                            <small class="text-muted d-block">
+                                <i class="bi bi-calendar"></i> 
+                                Erstellt: {{ summary.created_at|date:"d.m.Y H:i" }}
+                            </small>
+                            {% if summary.completed_at %}
+                                <small class="text-muted d-block">
+                                    <i class="bi bi-check-circle"></i> 
+                                    Abgeschlossen: {{ summary.completed_at|date:"d.m.Y H:i" }}
+                                </small>
+                            {% endif %}
+                            {% if summary.processing_time %}
+                                <small class="text-muted d-block">
+                                    <i class="bi bi-clock"></i> 
+                                    Dauer: {{ summary.processing_time|floatformat:1 }}s
+                                </small>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Zusammenfassung Preview -->
+                        {% if summary.summary_text and summary.status == 'completed' %}
+                            <div class="mb-3">
+                                <p class="small text-muted mb-1">Zusammenfassung:</p>
+                                <div class="bg-light p-2 rounded small">
+                                    {{ summary.summary_text|truncatechars:120 }}
+                                </div>
+                            </div>
+                        {% elif summary.status == 'processing' %}
+                            <div class="mb-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="spinner-border spinner-border-sm text-info me-2"></div>
+                                    <small class="text-info">KI-Analyse läuft...</small>
+                                </div>
+                                <div class="progress mt-2" style="height: 4px;">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-info" 
+                                         style="width: 100%"></div>
+                                </div>
+                            </div>
+                        {% elif summary.status == 'error' %}
+                            <div class="mb-3">
+                                <div class="alert alert-danger p-2 mb-0">
+                                    <small>
+                                        <i class="bi bi-exclamation-triangle"></i>
+                                        {% if summary.error_message %}
+                                            {{ summary.error_message|truncatechars:80 }}
+                                        {% else %}
+                                            Analyse fehlgeschlagen
+                                        {% endif %}
+                                    </small>
+                                </div>
+                            </div>
+                        {% endif %}
+                        
+                        <!-- Positionen Statistik -->
+                        {% if summary.status == 'completed' %}
+                            <div class="mb-3">
+                                <div class="row text-center">
+                                    <div class="col-6">
+                                        <div class="border-end">
+                                            <h6 class="text-primary mb-0">{{ summary.positions.count }}</h6>
+                                            <small class="text-muted">Position{{ summary.positions.count|pluralize:"en" }}</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        {% with total_value=summary.structured_data.total_value %}
+                                            {% if total_value %}
+                                                <h6 class="text-success mb-0">{{ total_value|floatformat:0 }}€</h6>
+                                                <small class="text-muted">Gesamtwert</small>
+                                            {% else %}
+                                                <h6 class="text-muted mb-0">-</h6>
+                                                <small class="text-muted">Kein Wert</small>
+                                            {% endif %}
+                                        {% endwith %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="card-footer bg-transparent">
+                        {% if summary.status == 'completed' %}
+                            <div class="d-grid gap-2">
+                                <a href="{{ summary.get_absolute_url }}" class="btn btn-outline-primary btn-sm">
+                                    <i class="bi bi-eye"></i> Details ansehen
+                                </a>
+                                
+                                <div class="btn-group" role="group">
+                                    {% if summary.summary_pdf %}
+                                        <a href="{% url 'pdf_sucher:download_summary_pdf' summary.pk %}" 
+                                           class="btn btn-success btn-sm" target="_blank">
+                                            <i class="bi bi-download"></i> PDF
+                                        </a>
+                                    {% endif %}
+                                    <a href="{{ summary.document.get_absolute_url }}" 
+                                       class="btn btn-outline-secondary btn-sm">
+                                        <i class="bi bi-file-earmark-pdf"></i> Dokument
+                                    </a>
+                                </div>
+                            </div>
+                            
+                        {% elif summary.status == 'processing' %}
+                            <div class="d-grid">
+                                <button class="btn btn-info btn-sm" disabled>
+                                    <div class="spinner-border spinner-border-sm me-1"></div>
+                                    Wird analysiert...
+                                </button>
+                            </div>
+                            
+                        {% elif summary.status == 'error' %}
+                            <div class="d-grid gap-2">
+                                <a href="{% url 'pdf_sucher:create_summary' summary.document.pk %}" 
+                                   class="btn btn-warning btn-sm">
+                                    <i class="bi bi-arrow-clockwise"></i> Erneut versuchen
+                                </a>
+                                <a href="{{ summary.document.get_absolute_url }}" 
+                                   class="btn btn-outline-secondary btn-sm">
+                                    <i class="bi bi-file-earmark-pdf"></i> Zum Dokument
+                                </a>
+                            </div>
+                            
+                        {% elif summary.status == 'pending' %}
+                            <div class="d-grid">
+                                <button class="btn btn-warning btn-sm" disabled>
+                                    <i class="bi bi-clock me-1"></i>
+                                    In Warteschlange...
+                                </button>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Pagination -->
+    {% if is_paginated %}
+        <nav aria-label="Zusammenfassungs-Navigation">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">
+                            <i class="bi bi-chevron-double-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    {% endif %}
+    
+{% else %}
+    <!-- Leere Ansicht -->
+    <div class="text-center py-5">
+        <div class="mb-4">
+            <i class="bi bi-list-task text-muted" style="font-size: 4rem;"></i>
+        </div>
+        <h3 class="text-muted mb-3">Noch keine Zusammenfassungen vorhanden</h3>
+        {% if request.GET.search or request.GET.ai_model or request.GET.status or request.GET.date_from or request.GET.date_to %}
+            <p class="text-muted mb-4">
+                Keine Zusammenfassungen gefunden, die Ihren Suchkriterien entsprechen.
+            </p>
+            <a href="{% url 'pdf_sucher:summary_list' %}" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-x-circle"></i> Filter zurücksetzen
+            </a>
+        {% else %}
+            <p class="text-muted mb-4">
+                Laden Sie ein PDF-Dokument hoch und erstellen Sie Ihre erste KI-gestützte Analyse.
+            </p>
+        {% endif %}
+        <a href="{% url 'pdf_sucher:document_upload' %}" class="btn btn-primary btn-lg">
+            <i class="bi bi-plus-circle"></i> Erste Analyse erstellen
+        </a>
+    </div>
+{% endif %}
+
+<!-- Quick Actions (Floating) -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1000;">
+    <div class="btn-group-vertical" role="group">
+        <a href="{% url 'pdf_sucher:document_upload' %}" 
+           class="btn btn-primary rounded-circle p-3 shadow mb-2" 
+           data-bs-toggle="tooltip" data-bs-placement="left" title="Neue Analyse erstellen">
+            <i class="bi bi-plus fs-5"></i>
+        </a>
+        {% if processing_summaries > 0 %}
+            <button class="btn btn-info rounded-circle p-3 shadow" 
+                    onclick="location.reload()" 
+                    data-bs-toggle="tooltip" data-bs-placement="left" title="Aktualisieren ({{ processing_summaries }} laufen)">
+                <i class="bi bi-arrow-clockwise fs-5"></i>
+            </button>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-refresh für processing Summaries
+    {% if processing_summaries > 0 %}
+        setTimeout(function() {
+            location.reload();
+        }, 30000); // Refresh nach 30 Sekunden
+    {% endif %}
+    
+    // Filter persistence
+    const filterForm = document.querySelector('form');
+    if (filterForm) {
+        // Auto-submit bei Select-Änderungen
+        const selects = filterForm.querySelectorAll('select');
+        selects.forEach(select => {
+            select.addEventListener('change', function() {
+                filterForm.submit();
+            });
+        });
+    }
+    
+    // Status-basierte Card-Animationen
+    const summaryCards = document.querySelectorAll('.summary-card');
+    summaryCards.forEach(function(card, index) {
+        const status = card.dataset.status;
+        
+        // Verschiedene Animations-Delays basierend auf Status
+        let delay = index * 0.1;
+        if (status === 'processing') delay += 0.5;
+        else if (status === 'error') delay += 0.3;
+        
+        card.style.animationDelay = delay + 's';
+        card.classList.add('fade-in');
+        
+        // Pulse-Animation für processing
+        if (status === 'processing') {
+            card.classList.add('processing-pulse');
+        }
+    });
+    
+    // Quick Actions Tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Ctrl+N für neue Analyse
+        if (e.ctrlKey && e.key === 'n') {
+            e.preventDefault();
+            window.location.href = "{% url 'pdf_sucher:document_upload' %}";
+        }
+        
+        // F5 oder Ctrl+R für Refresh (wenn processing)
+        {% if processing_summaries > 0 %}
+            if (e.key === 'F5' || (e.ctrlKey && e.key === 'r')) {
+                // Normal refresh behavior
+                return true;
+            }
+        {% endif %}
+        
+        // Escape zum Filter zurücksetzen
+        if (e.key === 'Escape') {
+            const hasFilters = {% if request.GET.search or request.GET.ai_model or request.GET.status or request.GET.date_from or request.GET.date_to %}true{% else %}false{% endif %};
+            if (hasFilters) {
+                window.location.href = "{% url 'pdf_sucher:summary_list' %}";
+            }
+        }
+    });
+    
+    // Focus management
+    const searchField = document.getElementById('search');
+    if (searchField && !searchField.value) {
+        searchField.focus();
+    }
+    
+    // Progress animation für processing items
+    const progressBars = document.querySelectorAll('.progress-bar-animated');
+    progressBars.forEach(bar => {
+        // Add some visual variety to the animation
+        const randomDelay = Math.random() * 2;
+        bar.style.animationDelay = randomDelay + 's';
+    });
+});
+
+// CSS für processing pulse animation
+const style = document.createElement('style');
+style.textContent = `
+    .processing-pulse {
+        animation: processing-pulse 2s ease-in-out infinite alternate;
+    }
+    
+    @keyframes processing-pulse {
+        0% { box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07); }
+        100% { box-shadow: 0 8px 15px rgba(23, 162, 184, 0.2); }
+    }
+    
+    @media (prefers-reduced-motion: reduce) {
+        .processing-pulse {
+            animation: none;
+        }
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

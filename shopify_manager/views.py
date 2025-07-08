@@ -1207,8 +1207,8 @@ def seo_dashboard_view(request):
 
 
 @login_required
-def alt_text_manager_view(request):
-    """Alt-Text Manager für alle Bildtypen"""
+def alt_text_manager_overview_view(request):
+    """Alt-Text Manager Übersicht für alle Bildtypen"""
     # Hole alle Stores des Benutzers
     user_stores = ShopifyStore.objects.filter(user=request.user, is_active=True)
     
