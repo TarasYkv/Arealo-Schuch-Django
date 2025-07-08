@@ -383,12 +383,39 @@ class ShopifyAPIClient:
     def update_product_images(self, product_id: str, images: List[Dict]) -> Tuple[bool, Optional[Dict], str]:
         """Aktualisiert die Bilder eines Produkts in Shopify"""
         try:
+            # Bereite Bilder-Daten für Shopify vor
+            shopify_images = []
+            for img in images:
+                shopify_img = {}
+                
+                # ID ist erforderlich für Updates bestehender Bilder
+                if 'id' in img and img['id']:
+                    shopify_img['id'] = int(img['id'])
+                
+                # Alt-Text ist das wichtigste Feld
+                if 'alt' in img:
+                    shopify_img['alt'] = str(img['alt'])[:512]  # Shopify Alt-Text Limit
+                
+                # Position falls vorhanden
+                if 'position' in img:
+                    shopify_img['position'] = int(img['position'])
+                
+                # Weitere Felder falls vorhanden
+                for field in ['src', 'filename', 'attachment', 'width', 'height']:
+                    if field in img and img[field]:
+                        shopify_img[field] = img[field]
+                
+                shopify_images.append(shopify_img)
+                print(f"DEBUG: Bild für Sync vorbereitet - ID: {shopify_img.get('id', 'N/A')}, Alt: '{shopify_img.get('alt', '')[:50]}...', Position: {shopify_img.get('position', 'N/A')}")
+            
             shopify_data = {
                 'product': {
                     'id': int(product_id),
-                    'images': images
+                    'images': shopify_images
                 }
             }
+            
+            print(f"DEBUG: Sende {len(shopify_images)} Bilder an Shopify für Produkt {product_id}")
             
             response = self._make_request(
                 'PUT',
@@ -400,13 +427,50 @@ class ShopifyAPIClient:
             if response.status_code == 200:
                 data = response.json()
                 updated_product = data.get('product')
-                return True, updated_product, "Produktbilder erfolgreich aktualisiert"
+                updated_images = updated_product.get('images', []) if updated_product else []
+                print(f"DEBUG: Shopify hat {len(updated_images)} Bilder zurückgegeben")
+                return True, updated_product, f"Produktbilder erfolgreich aktualisiert ({len(updated_images)} Bilder)"
             else:
                 error_data = response.json() if response.headers.get('content-type', '').startswith('application/json') else response.text
+                print(f"DEBUG: Shopify Bilder-Update Fehler - Status: {response.status_code}, Error: {error_data}")
                 return False, None, f"Bilder-Update fehlgeschlagen - HTTP {response.status_code}: {error_data}"
                 
         except requests.exceptions.RequestException as e:
+            print(f"DEBUG: Request Exception bei Bilder-Update: {str(e)}")
             return False, None, f"Fehler beim Update der Bilder: {str(e)}"
+    
+    def update_single_product_image(self, product_id: str, image_id: str, alt_text: str) -> Tuple[bool, str]:
+        """Aktualisiert ein einzelnes Produktbild in Shopify"""
+        try:
+            image_data = {
+                'image': {
+                    'id': int(image_id),
+                    'alt': str(alt_text)[:512]  # Shopify Alt-Text Limit
+                }
+            }
+            
+            print(f"DEBUG: Aktualisiere einzelnes Bild {image_id} für Produkt {product_id} mit Alt-Text: '{alt_text[:50]}...'")
+            
+            response = self._make_request(
+                'PUT',
+                f"{self.base_url}/products/{product_id}/images/{image_id}.json",
+                json=image_data,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                updated_image = data.get('image')
+                print(f"DEBUG: Einzelbild-Update erfolgreich - ID: {updated_image.get('id') if updated_image else 'N/A'}")
+                return True, "Einzelnes Bild erfolgreich aktualisiert"
+            else:
+                error_data = response.json() if response.headers.get('content-type', '').startswith('application/json') else response.text
+                print(f"DEBUG: Einzelbild-Update Fehler - Status: {response.status_code}, Error: {error_data}")
+                return False, f"Einzelbild-Update fehlgeschlagen - HTTP {response.status_code}: {error_data}"
+                
+        except requests.exceptions.RequestException as e:
+            print(f"DEBUG: Request Exception bei Einzelbild-Update: {str(e)}")
+            return False, f"Fehler beim Update des einzelnen Bildes: {str(e)}"
     
     def fetch_blogs(self) -> Tuple[bool, List[Dict], str]:
         """Holt Blogs von Shopify API"""
@@ -759,10 +823,64 @@ class ShopifyProductSync:
                 'seo_description': product.seo_description,
             }
             
-            success, updated_product, message = self.api.update_product(
-                product.shopify_id, 
-                product_data
-            )
+            # Füge Bilder hinzu wenn sie in raw_shopify_data vorhanden sind
+            if product.raw_shopify_data and 'images' in product.raw_shopify_data:
+                images = product.raw_shopify_data['images']
+                if images:  # Nur wenn Bilder vorhanden sind
+                    print(f"DEBUG: Synchronisiere {len(images)} Bilder für Produkt {product.shopify_id}")
+                    
+                    # Erst die Standard-Produktdaten aktualisieren
+                    success, updated_product, message = self.api.update_product(
+                        product.shopify_id, 
+                        product_data
+                    )
+                    
+                    if not success:
+                        return False, message
+                    
+                    # Dann die Bilder separat aktualisieren
+                    images_success, images_updated_product, images_message = self.api.update_product_images(
+                        product.shopify_id,
+                        images
+                    )
+                    
+                    if images_success:
+                        message += f"; Bilder aktualisiert: {images_message}"
+                    else:
+                        # Fallback: Versuche einzelne Bilder zu aktualisieren
+                        print(f"DEBUG: Bulk-Bild-Update fehlgeschlagen, versuche einzelne Updates...")
+                        individual_success_count = 0
+                        individual_error_count = 0
+                        
+                        for img in images:
+                            if 'id' in img and 'alt' in img:
+                                single_success, single_message = self.api.update_single_product_image(
+                                    product.shopify_id,
+                                    str(img['id']),
+                                    str(img['alt'])
+                                )
+                                if single_success:
+                                    individual_success_count += 1
+                                else:
+                                    individual_error_count += 1
+                                    print(f"DEBUG: Einzelbild-Update fehlgeschlagen für Bild {img['id']}: {single_message}")
+                        
+                        if individual_success_count > 0:
+                            message += f"; {individual_success_count} Bilder einzeln aktualisiert"
+                            if individual_error_count > 0:
+                                message += f" ({individual_error_count} Fehler)"
+                        else:
+                            message += f"; Bilder-Fehler: {images_message}"
+                else:
+                    success, updated_product, message = self.api.update_product(
+                        product.shopify_id, 
+                        product_data
+                    )
+            else:
+                success, updated_product, message = self.api.update_product(
+                    product.shopify_id, 
+                    product_data
+                )
             
             if success:
                 # Update lokales Produkt mit Shopify Daten

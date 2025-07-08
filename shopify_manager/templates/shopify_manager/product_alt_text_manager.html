@@ -288,12 +288,60 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Bulk save button
     document.getElementById('saveAllBtn')?.addEventListener('click', function() {
-        document.querySelectorAll('.alt-text-form').forEach(form => {
+        const forms = document.querySelectorAll('.alt-text-form');
+        let saveCount = 0;
+        let totalForms = 0;
+        
+        forms.forEach(form => {
             const submitBtn = form.querySelector('button[type="submit"]');
             if (!submitBtn.disabled) {
-                form.dispatchEvent(new Event('submit'));
+                totalForms++;
+                
+                // Simuliere den gleichen Speichervorgang wie beim einzelnen Speichern
+                const formData = new FormData(form);
+                const originalText = submitBtn.innerHTML;
+                
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Speichere...';
+                
+                fetch('/shopify/api/update-alt-text/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    saveCount++;
+                    if (data.success) {
+                        console.log(`Alt-Text ${saveCount}/${totalForms} gespeichert`);
+                    } else {
+                        console.error(`Fehler beim Speichern ${saveCount}/${totalForms}:`, data.error);
+                        showAlert('danger', `Fehler beim Speichern eines Alt-Textes: ${data.error}`);
+                    }
+                    
+                    // Zeige Erfolg nach dem letzten gespeicherten Element
+                    if (saveCount === totalForms) {
+                        showAlert('success', `Alle ${totalForms} Alt-Texte erfolgreich gespeichert`);
+                    }
+                })
+                .catch(error => {
+                    saveCount++;
+                    console.error('Error:', error);
+                    showAlert('danger', 'Fehler beim Speichern eines Alt-Textes');
+                })
+                .finally(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                });
             }
         });
+        
+        if (totalForms === 0) {
+            showAlert('info', 'Keine Alt-Texte zum Speichern gefunden');
+        }
     });
 });
 

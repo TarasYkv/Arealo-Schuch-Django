@@ -9,6 +9,8 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
+import requests
+import base64
 
 from .models import ShopifyStore, ShopifyProduct, ShopifySyncLog, ProductSEOOptimization, SEOAnalysisResult, ShopifyBlog, ShopifyBlogPost, BlogPostSEOOptimization
 from .ai_seo_service import generate_seo_with_ai, BlogPostSEOService
@@ -1432,71 +1434,8 @@ def update_alt_text_view(request):
 
 @login_required
 @require_http_methods(["POST"])
-def generate_alt_text_view(request):
-    """Generiert Alt-Text für ein Bild mittels KI"""
-    image_url = request.POST.get('image_url')
-    product_id = request.POST.get('product_id')
-    
-    if not image_url:
-        return JsonResponse({
-            'success': False,
-            'error': 'Bild-URL fehlt'
-        })
-    
-    try:
-        # Hier würde normalerweise eine KI-basierte Bilderkennung stattfinden
-        # Für jetzt verwenden wir eine einfache Fallback-Lösung
-        
-        # Hole Produktinformationen für Kontext
-        if product_id:
-            try:
-                # Versuche lokales Produkt zu finden für Kontext
-                local_product = ShopifyProduct.objects.filter(
-                    shopify_id=product_id,
-                    store__user=request.user
-                ).first()
-                
-                if local_product:
-                    # Generiere Alt-Text basierend auf Produkttitel
-                    product_title = local_product.title
-                    product_type = local_product.product_type or "Produkt"
-                    vendor = local_product.vendor or ""
-                    
-                    # Einfache Alt-Text Generierung basierend auf Produktdaten
-                    alt_text_parts = []
-                    
-                    if vendor:
-                        alt_text_parts.append(vendor)
-                    
-                    alt_text_parts.append(product_title[:50])  # Titel begrenzen
-                    
-                    if product_type and product_type.lower() not in product_title.lower():
-                        alt_text_parts.append(product_type)
-                    
-                    generated_alt_text = " - ".join(alt_text_parts)
-                    
-                    # Auf 125 Zeichen begrenzen
-                    if len(generated_alt_text) > 125:
-                        generated_alt_text = generated_alt_text[:122] + "..."
-                    
-                else:
-                    generated_alt_text = "Produktbild"
-                    
-            except Exception:
-                generated_alt_text = "Produktbild"
-        else:
-            generated_alt_text = "Bild"
-        
-        return JsonResponse({
-            'success': True,
-            'alt_text': generated_alt_text
-        })
-        
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': f'Fehler bei der Alt-Text Generierung: {str(e)}'
-        })
+# REMOVED: Old fallback-only generate_alt_text_view function
+# Now using the AI-integrated version at line ~2131
 
 
 def index_view(request):
@@ -2130,83 +2069,131 @@ def update_alt_text_view(request):
 @require_http_methods(["POST"])
 def generate_alt_text_view(request):
     """Generiert Alt-Text für ein Bild mit KI"""
-    product_id = request.POST.get('product_id')
-    image_id = request.POST.get('image_id')
     image_url = request.POST.get('image_url')
+    product_id = request.POST.get('product_id')
     
-    if not all([product_id, image_id, image_url]):
+    if not image_url:
         return JsonResponse({
             'success': False,
-            'error': 'Fehlende Parameter'
+            'error': 'Bild-URL fehlt'
         })
     
-    product = get_object_or_404(ShopifyProduct, id=product_id, store__user=request.user)
+    # Finde das Produkt basierend auf Django ID (wie im Frontend gesendet)
+    product = None
+    if product_id:
+        try:
+            product = ShopifyProduct.objects.filter(
+                id=product_id,
+                store__user=request.user
+            ).first()
+        except:
+            pass
+    
+    if not product:
+        # Fallback für fehlende Produktdaten
+        print(f"DEBUG: Kein Produkt mit ID {product_id} gefunden für User {request.user}")
+        return JsonResponse({
+            'success': True,
+            'alt_text': 'Produktbild',
+            'suggested_alt': 'Produktbild'
+        })
     
     try:
         # Versuche KI-Integration für Alt-Text-Generierung
+        print(f"DEBUG: Starte KI-Alt-Text Generierung für Produkt: {product.title}")
         suggested_alt = generate_alt_text_with_ai(product, image_url, request.user)
         
         if suggested_alt:
+            print(f"DEBUG: KI-Alt-Text generiert: {suggested_alt}")
             return JsonResponse({
                 'success': True,
-                'suggested_alt': suggested_alt
+                'alt_text': suggested_alt,
+                'suggested_alt': suggested_alt  # Beide Formate für Kompatibilität
             })
         else:
             # Fallback: Einfacher Vorschlag basierend auf Produktdaten
-            suggested_alt = f"{product.title} - Produktbild"
-            if product.vendor:
-                suggested_alt += f" von {product.vendor}"
-            if product.product_type:
-                suggested_alt += f" ({product.product_type})"
-                
+            print("DEBUG: KI-Generierung fehlgeschlagen, verwende Fallback")
+            fallback_alt = generate_alt_text_fallback(product)
+            print(f"DEBUG: Fallback Alt-Text: {fallback_alt}")
+            
             return JsonResponse({
                 'success': True,
-                'suggested_alt': suggested_alt
+                'alt_text': fallback_alt,
+                'suggested_alt': fallback_alt  # Beide Formate für Kompatibilität
             })
-        
+            
     except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': f'Fehler beim Generieren des Alt-Textes: {str(e)}'
-        })
+        print(f"Alt-Text Generierung Fehler: {e}")
+        # Fallback auch bei Fehlern
+        try:
+            fallback_alt = generate_alt_text_fallback(product)
+            return JsonResponse({
+                'success': True,
+                'alt_text': fallback_alt,
+                'suggested_alt': fallback_alt  # Beide Formate für Kompatibilität
+            })
+        except:
+            return JsonResponse({
+                'success': False,
+                'error': f'Fehler bei der Alt-Text Generierung: {str(e)}'
+            })
 
 
 def generate_alt_text_with_ai(product, image_url, user):
     """Generiert Alt-Text mit KI-Unterstützung"""
+    print(f"DEBUG: Starte KI-Alt-Text für Produkt: {product.title}")
+    print(f"DEBUG: Bild-URL: {image_url}")
+    
     try:
         # Versuche verschiedene AI-Services
         from naturmacher.utils.api_helpers import get_user_api_key
         
         # 1. OpenAI GPT-4 Vision (falls verfügbar)
         openai_key = get_user_api_key(user, 'openai')
+        print(f"DEBUG: OpenAI Key verfügbar: {bool(openai_key)}")
         if openai_key:
             try:
+                print("DEBUG: Versuche OpenAI Vision...")
                 alt_text = generate_alt_text_openai_vision(product, image_url, openai_key)
                 if alt_text:
+                    print(f"DEBUG: OpenAI Vision erfolgreich: {alt_text}")
                     return alt_text
+                else:
+                    print("DEBUG: OpenAI Vision lieferte keinen Text")
             except Exception as e:
                 print(f"OpenAI Vision fehlgeschlagen: {e}")
         
         # 2. Google Gemini Vision (falls verfügbar)
         google_key = get_user_api_key(user, 'google')
+        print(f"DEBUG: Google Key verfügbar: {bool(google_key)}")
         if google_key:
             try:
+                print("DEBUG: Versuche Google Gemini Vision...")
                 alt_text = generate_alt_text_google_vision(product, image_url, google_key)
                 if alt_text:
+                    print(f"DEBUG: Google Vision erfolgreich: {alt_text}")
                     return alt_text
+                else:
+                    print("DEBUG: Google Vision lieferte keinen Text")
             except Exception as e:
                 print(f"Google Gemini Vision fehlgeschlagen: {e}")
         
         # 3. Anthropic Claude Vision (falls verfügbar)
         anthropic_key = get_user_api_key(user, 'anthropic')
+        print(f"DEBUG: Anthropic Key verfügbar: {bool(anthropic_key)}")
         if anthropic_key:
             try:
+                print("DEBUG: Versuche Anthropic Claude Vision...")
                 alt_text = generate_alt_text_anthropic_vision(product, image_url, anthropic_key)
                 if alt_text:
+                    print(f"DEBUG: Anthropic Vision erfolgreich: {alt_text}")
                     return alt_text
+                else:
+                    print("DEBUG: Anthropic Vision lieferte keinen Text")
             except Exception as e:
                 print(f"Anthropic Claude Vision fehlgeschlagen: {e}")
         
+        print("DEBUG: Keine KI-Services verfügbar oder alle fehlgeschlagen")
         return None
         
     except Exception as e:
@@ -2275,43 +2262,94 @@ Antworte nur mit dem Alt-Text, ohne weitere Erklärungen."""
 def generate_alt_text_google_vision(product, image_url, api_key):
     """Generiert Alt-Text mit Google Gemini Vision"""
     try:
-        prompt = f"""Analysiere dieses Produktbild und erstelle einen präzisen Alt-Text.
+        # Hole das Bild für die Analyse
+        
+        try:
+            img_response = requests.get(image_url, timeout=10)
+            if img_response.status_code == 200:
+                image_data = base64.b64encode(img_response.content).decode()
+            else:
+                # Fallback zu text-only wenn Bild nicht verfügbar
+                return generate_alt_text_fallback(product)
+        except:
+            # Fallback zu text-only wenn Bild nicht erreichbar
+            return generate_alt_text_fallback(product)
+
+        prompt = f"""Analysiere dieses Produktbild und erstelle einen präzisen Alt-Text für SEO und Barrierefreiheit.
 
 Produktkontext:
 - Titel: {product.title}
 - Hersteller: {product.vendor or 'Unbekannt'}
 - Typ: {product.product_type or 'Unbekannt'}
+- Beschreibung: {(product.body_html or '')[:100]}
 
-Erstelle einen Alt-Text unter 125 Zeichen, der das Bild präzise beschreibt und SEO-optimiert ist. Antworte nur mit dem Alt-Text."""
+Erstelle einen Alt-Text der:
+- Das Bild präzise beschreibt
+- Für Screenreader geeignet ist  
+- SEO-optimiert ist
+- Unter 125 Zeichen liegt
+- Den Produktkontext berücksichtigt
 
-        # Vereinfachter Ansatz - nutze Gemini Text-Only mit Produktkontext
+Antworte nur mit dem Alt-Text, ohne weitere Erklärungen."""
+
+        # Verwende Gemini 1.5 Pro Vision für Bildanalyse
         response = requests.post(
-            f'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}',
+            f'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={api_key}',
             headers={'Content-Type': 'application/json'},
             json={
                 'contents': [{
-                    'parts': [{'text': prompt}]
+                    'parts': [
+                        {'text': prompt},
+                        {
+                            'inline_data': {
+                                'mime_type': 'image/jpeg',
+                                'data': image_data
+                            }
+                        }
+                    ]
                 }],
                 'generationConfig': {
-                    'maxOutputTokens': 50,
+                    'maxOutputTokens': 100,
                     'temperature': 0.3
                 }
             },
-            timeout=15
+            timeout=30
         )
         
         if response.status_code == 200:
             result = response.json()
             if 'candidates' in result and len(result['candidates']) > 0:
                 alt_text = result['candidates'][0]['content']['parts'][0]['text'].strip()
+                # Entferne Anführungszeichen falls vorhanden
+                alt_text = alt_text.strip('"\'')
                 if len(alt_text) > 125:
                     alt_text = alt_text[:122] + '...'
                 return alt_text
         
     except Exception as e:
-        print(f"Google Gemini Fehler: {e}")
+        print(f"Google Gemini Vision Fehler: {e}")
     
     return None
+
+
+def generate_alt_text_fallback(product):
+    """Einfacher Fallback Alt-Text basierend auf Produktdaten"""
+    alt_text_parts = []
+    
+    if product.vendor:
+        alt_text_parts.append(product.vendor)
+    
+    alt_text_parts.append(product.title[:50])
+    
+    if product.product_type and product.product_type.lower() not in product.title.lower():
+        alt_text_parts.append(product.product_type)
+    
+    generated_alt_text = " - ".join(alt_text_parts)
+    
+    if len(generated_alt_text) > 125:
+        generated_alt_text = generated_alt_text[:122] + "..."
+    
+    return generated_alt_text
 
 
 def generate_alt_text_anthropic_vision(product, image_url, api_key):
