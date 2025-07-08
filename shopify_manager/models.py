@@ -64,7 +64,7 @@ class ShopifyProduct(models.Model):
     ]
     
     # Shopify IDs
-    shopify_id = models.CharField(max_length=50, unique=True, help_text="Shopify Product ID")
+    shopify_id = models.CharField(max_length=50, help_text="Shopify Product ID")
     store = models.ForeignKey(ShopifyStore, on_delete=models.CASCADE, related_name='products')
     
     # Grunddaten
@@ -107,6 +107,11 @@ class ShopifyProduct(models.Model):
     
     def __str__(self):
         return f"{self.title} ({self.shopify_id})"
+    
+    class Meta:
+        verbose_name = "Shopify Produkt"
+        verbose_name_plural = "Shopify Produkte"
+        unique_together = ['shopify_id', 'store']
     
     def get_seo_status(self):
         """Berechnet SEO-Status nur für SEO-Titel und SEO-Beschreibung (good/warning/poor)"""
