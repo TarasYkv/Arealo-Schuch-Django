@@ -1603,15 +1603,23 @@ class ShopifyBlogDetailView(LoginRequiredMixin, DetailView):
         
         context['filter_form'] = filter_form
         
-        paginator = Paginator(posts, 10)
+        paginator = Paginator(posts, 50)  # Zeige 50 Posts pro Seite statt 10
         page = self.request.GET.get('page')
         context['posts'] = paginator.get_page(page)
         
         # Statistiken für diesen Blog
+        total_count = self.object.posts.count()
+        published_count = self.object.posts.filter(status='published').count()
+        draft_count = self.object.posts.filter(status='draft').count()
+        
+        # Debug-Ausgabe
+        print(f"Blog {self.object.title} - Total Posts in DB: {total_count}")
+        print(f"  Published: {published_count}, Draft: {draft_count}")
+        
         context['stats'] = {
-            'total_posts': self.object.posts.count(),
-            'published_posts': self.object.posts.filter(status='published').count(),
-            'draft_posts': self.object.posts.filter(status='draft').count(),
+            'total_posts': total_count,
+            'published_posts': published_count,
+            'draft_posts': draft_count,
         }
         
         return context
@@ -1853,6 +1861,54 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
                 'message': message
             })
     
+    def _fetch_all_blog_posts(self, blog_id: str):
+        """Holt alle Blog-Posts über Pagination mit Progress-Updates"""
+        all_articles = []
+        since_id = None
+        total_fetched = 0
+        page = 1
+
+        while True:
+            self._update_progress(
+                len(all_articles), 
+                len(all_articles) + 1,  # Wir wissen noch nicht wie viele es insgesamt sind
+                f'Hole Blog-Posts von Shopify (Seite {page})...'
+            )
+            
+            # Hier wird die API-Client-Methode aufgerufen
+            success, articles, message = self.api.fetch_blog_posts(blog_id, limit=250, since_id=since_id)
+
+            if not success:
+                return False, [], message
+
+            if not articles:  # Keine weiteren Artikel
+                break
+
+            all_articles.extend(articles)
+            total_fetched += len(articles)
+            print(f"Pagination: {len(articles)} Blog-Posts geholt, insgesamt: {total_fetched}")
+
+            # Update progress message
+            self._update_progress(
+                len(all_articles), 
+                len(all_articles) + 1,
+                f'{total_fetched} Blog-Posts von Shopify geladen...'
+            )
+
+            # since_id für nächste Seite setzen
+            if len(articles) < 250:  # Weniger als Maximum = letzte Seite
+                break
+
+            since_id = str(articles[-1]['id'])  # ID des letzten Artikels
+            page += 1
+
+            # Sicherheitscheck: Stoppe bei sehr vielen Artikeln
+            if total_fetched >= 10000:
+                print(f"Sicherheitsstopp bei {total_fetched} Blog-Posts erreicht")
+                break
+
+        return True, all_articles, f"{total_fetched} Blog-Posts über Pagination abgerufen"
+    
     def import_blog_posts(self, blog: ShopifyBlog, import_mode: str = 'new_only') -> ShopifySyncLog:
         """Importiert Blog-Posts mit Progress-Updates"""
         log = ShopifySyncLog.objects.create(
@@ -1872,11 +1928,12 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
             
             self._update_progress(0, 0, 'Hole Blog-Posts von Shopify...')
             success, articles, message = self._fetch_all_blog_posts(blog.shopify_id)
+            print(f"=== IMPORT RESULT: {len(articles)} Blog-Posts von Shopify geholt ===")
             
             if not success:
                 log.status = 'error'
                 log.error_message = message
-                log.completed_at = django_timezone.now()
+                log.completed_at = timezone.now()
                 log.save()
                 return log
             
@@ -1944,13 +2001,13 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
             log.products_success = success_count
             log.products_failed = failed_count
             log.status = 'success' if failed_count == 0 else 'partial'
-            log.completed_at = django_timezone.now()
+            log.completed_at = timezone.now()
             log.save()
             
         except Exception as e:
             log.status = 'error'
             log.error_message = str(e)
-            log.completed_at = django_timezone.now()
+            log.completed_at = timezone.now()
             log.save()
         
         return log

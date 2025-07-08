@@ -22,10 +22,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-(kg*xcvmm*p(77-ai*pa5tz1&g(o2x!jyd)f##sf7820y=*yo8'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = [
     'tarasyuzkiv.pythonanywhere.com',
+    'www.workloom.de',
+    'workloom.de',
     '10.63.100.139',
     '127.0.0.1',
     'localhost',
@@ -78,6 +80,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'django.template.context_processors.media',
             ],
         },
     },
