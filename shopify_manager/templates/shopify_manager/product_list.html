@@ -10,7 +10,7 @@
             <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#importModal">
                 <i class="fas fa-download"></i> Importieren
             </button>
-            <button type="button" class="btn btn-outline-primary" onclick="bulkAction()">
+            <button type="button" class="btn btn-outline-primary" onclick="bulkAction(event)">
                 <i class="fas fa-tasks"></i> Bulk-Aktionen
             </button>
             <button type="button" class="btn btn-outline-info" onclick="bulkSeoAnalysis()">
@@ -93,7 +93,7 @@
 </div>
 
 <!-- Bulk-Aktionen Form -->
-<form id="bulkForm" method="post" action="{% url 'shopify_manager:bulk_action' %}">
+<form id="bulkForm" method="post">
     {% csrf_token %}
     {{ bulk_form.action.as_hidden }}
     {{ bulk_form.selected_products.as_hidden }}
@@ -478,7 +478,15 @@ function syncProduct(productId) {
     });
 }
 
-function bulkAction() {
+function bulkAction(event) {
+    // Prevent any form submission
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    
+    console.log('bulkAction called with AJAX implementation');
+    
     const checkboxes = document.querySelectorAll('.product-checkbox:checked');
     if (checkboxes.length === 0) {
         alert('Bitte wählen Sie mindestens ein Produkt aus.');
@@ -577,7 +585,27 @@ function toggleImportOptions() {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('✅ Product list page loaded - initializing');
     toggleImportOptions();
+    
+    // Prevent bulk form from submitting traditionally
+    const bulkForm = document.getElementById('bulkForm');
+    if (bulkForm) {
+        // Remove any action attribute to be absolutely sure
+        bulkForm.removeAttribute('action');
+        
+        bulkForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('❌ Bulk form submission BLOCKED - use bulkAction() button instead');
+            alert('⚠️ Bitte verwenden Sie den "Bulk-Aktionen" Button anstatt das Formular direkt zu übertragen.');
+            return false;
+        });
+        
+        console.log('✅ Bulk form protection activated');
+    } else {
+        console.log('❌ Bulk form not found');
+    }
 });
 
 // Import Form Handler
