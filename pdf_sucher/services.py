@@ -10,6 +10,8 @@ import tempfile
 from datetime import datetime
 from decimal import Decimal
 from typing import Dict, List, Tuple, Optional
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 
 from django.conf import settings
 from django.core.files.base import ContentFile
@@ -53,6 +55,22 @@ class TenderAnalysisService:
     
     def __init__(self, user):
         self.user = user
+    
+    def _get_requests_session_with_retry(self) -> requests.Session:
+        """Erstellt eine Session mit automatischen Wiederholungen bei Netzwerkfehlern"""
+        session = requests.Session()
+        retry = Retry(
+            total=3,
+            read=3,
+            connect=3,
+            backoff_factor=0.3,
+            status_forcelist=(500, 502, 504),
+            allowed_methods=["GET", "POST"]
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
+        return session
     
     def analyze_tender_document(self, text: str, ai_model: str) -> Dict:
         """Analysiert ein Ausschreibungsdokument mit dem gewählten KI-Modell"""
@@ -127,34 +145,70 @@ Wichtig:
             if not api_key:
                 raise Exception("OpenAI API-Schlüssel nicht konfiguriert")
             
-            model_name = 'gpt-4' if model == 'openai_gpt4' else 'gpt-3.5-turbo'
+            # Text auf max. Zeichen begrenzen (ca. 32k Tokens für GPT-4)
+            max_chars = 100000 if model == 'openai_gpt4' else 12000
+            if len(text) > max_chars:
+                print(f"DEBUG: Text zu lang ({len(text)} Zeichen), kürze auf {max_chars} Zeichen")
+                text = text[:max_chars] + "\n\n... (Text gekürzt)"
             
-            response = requests.post(
-                'https://api.openai.com/v1/chat/completions',
-                headers={
-                    'Authorization': f'Bearer {api_key}',
-                    'Content-Type': 'application/json'
-                },
-                json={
-                    'model': model_name,
-                    'messages': [
-                        {'role': 'system', 'content': self._get_analysis_prompt()},
-                        {'role': 'user', 'content': f"Analysiere dieses Dokument:\n\n{text}"}
-                    ],
-                    'max_tokens': 4000,
-                    'temperature': 0.1
-                },
-                timeout=60
-            )
+            model_name = 'gpt-4' if model == 'openai_gpt4' else 'gpt-3.5-turbo'
+            print(f"DEBUG: Verwende Modell {model_name}, Textlänge: {len(text)} Zeichen")
+            
+            session = self._get_requests_session_with_retry()
+            try:
+                response = session.post(
+                    'https://api.openai.com/v1/chat/completions',
+                    headers={
+                        'Authorization': f'Bearer {api_key}',
+                        'Content-Type': 'application/json'
+                    },
+                    json={
+                        'model': model_name,
+                        'messages': [
+                            {'role': 'system', 'content': self._get_analysis_prompt()},
+                            {'role': 'user', 'content': f"Analysiere dieses Dokument:\n\n{text}"}
+                        ],
+                        'max_tokens': 4000,
+                        'temperature': 0.1
+                    },
+                    timeout=60
+                )
+            except requests.exceptions.ConnectionError as e:
+                raise Exception("Netzwerkverbindung fehlgeschlagen. Bitte prüfen Sie Ihre Internetverbindung.")
+            except requests.exceptions.Timeout:
+                raise Exception("Zeitüberschreitung bei der API-Anfrage. Bitte versuchen Sie es erneut.")
+            except requests.exceptions.RequestException as e:
+                raise Exception(f"Netzwerkfehler: {str(e)}")
             
             if response.status_code == 200:
                 result = response.json()
                 content = result['choices'][0]['message']['content']
                 return self._parse_analysis_result(content)
+            elif response.status_code == 429:
+                raise Exception("OpenAI API Rate Limit erreicht. Bitte warten Sie einen Moment und versuchen Sie es erneut.")
+            elif response.status_code == 400:
+                # Bei 400 Fehler Details aus der Response extrahieren
+                try:
+                    error_details = response.json()
+                    error_message = error_details.get('error', {}).get('message', 'Unbekannter Fehler')
+                    raise Exception(f"OpenAI API Anfragefehler: {error_message}")
+                except:
+                    raise Exception(f"OpenAI API Anfragefehler (400): {response.text}")
+            elif response.status_code == 401:
+                raise Exception("OpenAI API-Schlüssel ungültig oder abgelaufen.")
+            elif response.status_code == 402:
+                raise Exception("OpenAI API-Guthaben aufgebraucht. Bitte laden Sie Ihr Guthaben auf.")
             else:
-                raise Exception(f"OpenAI API Fehler: {response.status_code}")
+                error_text = response.text[:500] if response.text else 'Keine Details verfügbar'
+                raise Exception(f"OpenAI API Fehler {response.status_code}: {error_text}")
         
+        except requests.exceptions.ConnectionError as e:
+            if "Failed to resolve" in str(e) or "getaddrinfo failed" in str(e):
+                raise Exception("DNS-Auflösung fehlgeschlagen. Bitte prüfen Sie Ihre Internetverbindung und DNS-Einstellungen.")
+            raise Exception(f"OpenAI Analyse fehlgeschlagen: Netzwerkverbindung nicht möglich")
         except Exception as e:
+            if "Netzwerkverbindung fehlgeschlagen" in str(e) or "Zeitüberschreitung" in str(e) or "Netzwerkfehler" in str(e):
+                raise e
             raise Exception(f"OpenAI Analyse fehlgeschlagen: {str(e)}")
     
     def _analyze_with_gemini(self, text: str) -> Dict:
@@ -168,29 +222,58 @@ Wichtig:
             
             prompt = f"{self._get_analysis_prompt()}\n\nAnalysiere dieses Dokument:\n\n{text}"
             
-            response = requests.post(
-                f'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}',
-                headers={'Content-Type': 'application/json'},
-                json={
-                    'contents': [{
-                        'parts': [{'text': prompt}]
-                    }],
-                    'generationConfig': {
-                        'maxOutputTokens': 4000,
-                        'temperature': 0.1
-                    }
-                },
-                timeout=60
-            )
+            session = self._get_requests_session_with_retry()
+            try:
+                response = session.post(
+                    f'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}',
+                    headers={'Content-Type': 'application/json'},
+                    json={
+                        'contents': [{
+                            'parts': [{'text': prompt}]
+                        }],
+                        'generationConfig': {
+                            'maxOutputTokens': 4000,
+                            'temperature': 0.1
+                        }
+                    },
+                    timeout=60
+                )
+            except requests.exceptions.ConnectionError as e:
+                raise Exception("Netzwerkverbindung fehlgeschlagen. Bitte prüfen Sie Ihre Internetverbindung.")
+            except requests.exceptions.Timeout:
+                raise Exception("Zeitüberschreitung bei der API-Anfrage. Bitte versuchen Sie es erneut.")
+            except requests.exceptions.RequestException as e:
+                raise Exception(f"Netzwerkfehler: {str(e)}")
             
             if response.status_code == 200:
                 result = response.json()
                 content = result['candidates'][0]['content']['parts'][0]['text']
                 return self._parse_analysis_result(content)
+            elif response.status_code == 429:
+                raise Exception("Google Gemini API Rate Limit erreicht. Bitte warten Sie einen Moment und versuchen Sie es erneut.")
+            elif response.status_code == 401:
+                raise Exception("Google API-Schlüssel ungültig oder abgelaufen.")
+            elif response.status_code == 400:
+                # Bei 400 Fehler Details aus der Response extrahieren
+                try:
+                    error_details = response.json()
+                    error_message = error_details.get('error', {}).get('message', 'Unbekannter Fehler')
+                    raise Exception(f"Gemini API Anfragefehler: {error_message}")
+                except:
+                    raise Exception(f"Gemini API Anfragefehler (400): {response.text[:500]}")
+            elif response.status_code == 403:
+                raise Exception("Google API-Zugriff verweigert oder Quota überschritten.")
             else:
-                raise Exception(f"Gemini API Fehler: {response.status_code}")
+                error_text = response.text[:500] if response.text else 'Keine Details verfügbar'
+                raise Exception(f"Gemini API Fehler {response.status_code}: {error_text}")
         
+        except requests.exceptions.ConnectionError as e:
+            if "Failed to resolve" in str(e) or "getaddrinfo failed" in str(e):
+                raise Exception("DNS-Auflösung fehlgeschlagen. Bitte prüfen Sie Ihre Internetverbindung und DNS-Einstellungen.")
+            raise Exception(f"Gemini Analyse fehlgeschlagen: Netzwerkverbindung nicht möglich")
         except Exception as e:
+            if "Netzwerkverbindung fehlgeschlagen" in str(e) or "Zeitüberschreitung" in str(e) or "Netzwerkfehler" in str(e):
+                raise e
             raise Exception(f"Gemini Analyse fehlgeschlagen: {str(e)}")
     
     def _analyze_with_claude(self, text: str) -> Dict:

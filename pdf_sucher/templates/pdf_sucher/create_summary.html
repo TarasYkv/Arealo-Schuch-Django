@@ -290,33 +290,40 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Check API availability
     function checkApiAvailability() {
-        // Simulate API check - in real implementation, make AJAX call
-        setTimeout(() => {
-            const availableModels = ['openai_gpt4', 'openai_gpt35']; // Simulated available models
-            
-            let statusHtml = '';
-            const allModels = [
+        // Get available models from the form options
+        const selectElement = document.getElementById('{{ form.ai_model.id_for_label }}');
+        const availableModels = [];
+        
+        if (selectElement) {
+            for (let option of selectElement.options) {
+                if (option.value && option.value !== '') {
+                    availableModels.push(option.value);
+                }
+            }
+        }
+        
+        let statusHtml = '';
+        const allModels = [
                 { value: 'openai_gpt4', label: 'OpenAI GPT-4', icon: 'star-fill', color: 'primary' },
                 { value: 'openai_gpt35', label: 'OpenAI GPT-3.5', icon: 'lightning-fill', color: 'success' },
                 { value: 'google_gemini', label: 'Google Gemini', icon: 'google', color: 'info' },
                 { value: 'anthropic_claude', label: 'Anthropic Claude', icon: 'chat-quote', color: 'warning' }
-            ];
+        ];
+        
+        allModels.forEach(model => {
+            const isAvailable = availableModels.includes(model.value);
+            const icon = isAvailable ? 'check-circle-fill' : 'x-circle-fill';
+            const color = isAvailable ? 'success' : 'danger';
             
-            allModels.forEach(model => {
-                const isAvailable = availableModels.includes(model.value);
-                const icon = isAvailable ? 'check-circle-fill' : 'x-circle-fill';
-                const color = isAvailable ? 'success' : 'danger';
-                
-                statusHtml += `
-                    <div class="d-flex align-items-center mb-1">
-                        <i class="bi bi-${icon} text-${color} me-2"></i>
-                        <small class="text-muted">${model.label}</small>
-                    </div>
-                `;
-            });
-            
-            apiStatus.innerHTML = statusHtml;
-        }, 1000);
+            statusHtml += `
+                <div class="d-flex align-items-center mb-1">
+                    <i class="bi bi-${icon} text-${color} me-2"></i>
+                    <small class="text-muted">${model.label}</small>
+                </div>
+            `;
+        });
+        
+        apiStatus.innerHTML = statusHtml;
     }
     
     // Event listeners

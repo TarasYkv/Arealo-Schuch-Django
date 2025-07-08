@@ -2273,9 +2273,25 @@ def document_list_view(request):
     
     # Filter anwenden
     filter_form = SummaryFilterForm(request.GET)
+    if filter_form.is_valid():
+        if filter_form.cleaned_data.get('search'):
+            search_term = filter_form.cleaned_data['search']
+            documents = documents.filter(
+                models.Q(title__icontains=search_term) |
+                models.Q(original_filename__icontains=search_term)
+            )
+        if filter_form.cleaned_data.get('date_from'):
+            documents = documents.filter(uploaded_at__date__gte=filter_form.cleaned_data['date_from'])
+        if filter_form.cleaned_data.get('date_to'):
+            documents = documents.filter(uploaded_at__date__lte=filter_form.cleaned_data['date_to'])
+    
+    # Statistiken berechnen
+    total_summaries = PDFSummary.objects.filter(user=request.user).count()
+    processing_summaries = PDFSummary.objects.filter(user=request.user, status='processing').count()
+    total_size_mb = sum([doc.file_size for doc in documents]) / (1024 * 1024) if documents else 0
     
     # Pagination
-    paginator = Paginator(documents, 10)
+    paginator = Paginator(documents, 12)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
@@ -2283,6 +2299,9 @@ def document_list_view(request):
         'documents': page_obj,
         'filter_form': filter_form,
         'upload_form': PDFUploadForm(),
+        'total_summaries': total_summaries,
+        'processing_summaries': processing_summaries,
+        'total_size_mb': round(total_size_mb, 1),
     }
     
     return render(request, 'pdf_sucher/document_list.html', context)
@@ -2292,7 +2311,12 @@ def document_list_view(request):
 def document_upload_view(request):
     """Upload eines neuen PDF-Dokuments"""
     if request.method == 'POST':
+        print(f"POST request received. FILES: {request.FILES.keys()}")
+        print(f"POST data: {request.POST.keys()}")
+        
         form = PDFUploadForm(request.POST, request.FILES)
+        print(f"Form is_valid: {form.is_valid()}")
+        
         if form.is_valid():
             try:
                 document = form.save(commit=False)
@@ -2301,15 +2325,24 @@ def document_upload_view(request):
                 document.file_size = request.FILES['file'].size
                 document.save()
                 
+                print(f"Document saved successfully: {document.id}")
                 messages.success(request, f'Dokument "{document.title}" wurde erfolgreich hochgeladen.')
                 return redirect('pdf_sucher:document_detail', pk=document.pk)
             
             except Exception as e:
+                print(f"Error saving document: {str(e)}")
                 messages.error(request, f'Fehler beim Upload: {str(e)}')
         else:
+            print(f"Form errors: {form.errors}")
             messages.error(request, 'Bitte korrigieren Sie die Fehler im Formular.')
+    else:
+        form = PDFUploadForm()
     
-    return redirect('pdf_sucher:document_list')
+    context = {
+        'form': form,
+        'max_file_size_mb': 50,
+    }
+    return render(request, 'pdf_sucher/document_upload.html', context)
 
 
 @login_required
@@ -2318,6 +2351,10 @@ def document_detail_view(request, pk):
     document = get_object_or_404(PDFDocument, pk=pk, user=request.user)
     summaries = document.summaries.all().order_by('-created_at')
     
+    # Statistiken für dieses Dokument
+    completed_summaries = summaries.filter(status='completed').count()
+    processing_summaries = summaries.filter(status='processing').count()
+    
     # Formular für neue Zusammenfassung
     summary_form = SummaryCreationForm(user=request.user)
     
@@ -2325,6 +2362,8 @@ def document_detail_view(request, pk):
         'document': document,
         'summaries': summaries,
         'summary_form': summary_form,
+        'completed_summaries': completed_summaries,
+        'processing_summaries': processing_summaries,
     }
     
     return render(request, 'pdf_sucher/document_detail.html', context)
@@ -2353,8 +2392,14 @@ def create_summary_view(request, document_id):
                 messages.error(request, f'Fehler bei der Erstellung der Zusammenfassung: {str(e)}')
         else:
             messages.error(request, 'Ungültige Eingaben im Formular.')
+    else:
+        form = SummaryCreationForm(user=request.user)
     
-    return redirect('pdf_sucher:document_detail', pk=document_id)
+    context = {
+        'document': document,
+        'form': form,
+    }
+    return render(request, 'pdf_sucher/create_summary.html', context)
 
 
 @login_required
@@ -2380,6 +2425,13 @@ def summary_list_view(request):
                 models.Q(summary_text__icontains=search_term)
             )
     
+    # Statistiken berechnen
+    all_summaries = PDFSummary.objects.filter(user=request.user)
+    total_summaries = all_summaries.count()
+    completed_summaries = all_summaries.filter(status='completed').count()
+    processing_summaries = all_summaries.filter(status='processing').count()
+    error_summaries = all_summaries.filter(status='error').count()
+    
     # Pagination
     paginator = Paginator(summaries, 20)
     page_number = request.GET.get('page')
@@ -2388,6 +2440,10 @@ def summary_list_view(request):
     context = {
         'summaries': page_obj,
         'filter_form': filter_form,
+        'total_summaries': total_summaries,
+        'completed_summaries': completed_summaries,
+        'processing_summaries': processing_summaries,
+        'error_summaries': error_summaries,
     }
     
     return render(request, 'pdf_sucher/summary_list.html', context)

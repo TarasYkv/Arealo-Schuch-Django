@@ -272,36 +272,56 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Character Counter
     function updateCharacterCount() {
+        // Prüfe ob die Elemente existieren
+        if (!generatedSeoTitle || !generatedSeoDescription) {
+            return;
+        }
+        
         // SEO Title/Description
         const titleLength = generatedSeoTitle.value.length;
         const descriptionLength = generatedSeoDescription.value.length;
         
-        document.getElementById('titleLength').textContent = titleLength;
-        document.getElementById('descriptionLength').textContent = descriptionLength;
+        const titleLengthEl = document.getElementById('titleLength');
+        const descriptionLengthEl = document.getElementById('descriptionLength');
+        
+        if (titleLengthEl) {
+            titleLengthEl.textContent = titleLength;
+        }
+        if (descriptionLengthEl) {
+            descriptionLengthEl.textContent = descriptionLength;
+        }
         
         // SEO Title Status
         const titleStatus = document.getElementById('titleStatus');
-        if (titleLength <= 70) {
-            titleStatus.textContent = 'Optimal';
-            titleStatus.className = 'badge bg-success';
-        } else {
-            titleStatus.textContent = 'Zu lang';
-            titleStatus.className = 'badge bg-warning';
+        if (titleStatus) {
+            if (titleLength <= 70) {
+                titleStatus.textContent = 'Optimal';
+                titleStatus.className = 'badge bg-success';
+            } else {
+                titleStatus.textContent = 'Zu lang';
+                titleStatus.className = 'badge bg-warning';
+            }
         }
         
         // SEO Description Status
         const descriptionStatus = document.getElementById('descriptionStatus');
-        if (descriptionLength <= 160) {
-            descriptionStatus.textContent = 'Optimal';
-            descriptionStatus.className = 'badge bg-success';
-        } else {
-            descriptionStatus.textContent = 'Zu lang';
-            descriptionStatus.className = 'badge bg-warning';
+        if (descriptionStatus) {
+            if (descriptionLength <= 160) {
+                descriptionStatus.textContent = 'Optimal';
+                descriptionStatus.className = 'badge bg-success';
+            } else {
+                descriptionStatus.textContent = 'Zu lang';
+                descriptionStatus.className = 'badge bg-warning';
+            }
         }
     }
 
-    generatedSeoTitle.addEventListener('input', updateCharacterCount);
-    generatedSeoDescription.addEventListener('input', updateCharacterCount);
+    if (generatedSeoTitle) {
+        generatedSeoTitle.addEventListener('input', updateCharacterCount);
+    }
+    if (generatedSeoDescription) {
+        generatedSeoDescription.addEventListener('input', updateCharacterCount);
+    }
 
     // SEO-Generierung
     function generateSeo() {
@@ -343,11 +363,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 generatedSeoTitle.value = data.seo_title || '';
                 generatedSeoDescription.value = data.seo_description || '';
                 
-                document.getElementById('generationInfo').innerHTML = `
-                    <strong>Modell:</strong> ${data.ai_model}<br>
-                    <strong>Keywords:</strong> ${data.keywords_used}<br>
-                    <strong>Status:</strong> ${data.message}
-                `;
+                const generationInfoEl = document.getElementById('generationInfo');
+                if (generationInfoEl) {
+                    generationInfoEl.innerHTML = `
+                        <strong>Modell:</strong> ${data.ai_model}<br>
+                        <strong>Keywords:</strong> ${data.keywords_used}<br>
+                        <strong>Status:</strong> ${data.message}
+                    `;
+                }
                 
                 generatedResults.classList.remove('d-none');
                 updateCharacterCount();
@@ -522,6 +545,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Vollständigen Inhalt anzeigen
     window.showFullContent = function() {
         const descriptionDisplay = document.getElementById('descriptionDisplay');
+        if (!descriptionDisplay) return;
         descriptionDisplay.innerHTML = `
             <div style="max-height: none; line-height: 1.5;">
                 {{ content_description|safe|escapejs }}
@@ -536,6 +560,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     window.hideFullContent = function() {
         const descriptionDisplay = document.getElementById('descriptionDisplay');
+        if (!descriptionDisplay) return;
         descriptionDisplay.innerHTML = `
             {% if content_description %}
                 <div style="max-height: none; line-height: 1.5;">

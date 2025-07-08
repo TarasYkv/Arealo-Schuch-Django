@@ -88,7 +88,7 @@ class TenderPosition(models.Model):
     description = models.TextField(blank=True, help_text="Detaillierte Beschreibung")
     quantity = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, 
                                    help_text="Menge/Anzahl")
-    unit = models.CharField(max_length=50, blank=True, help_text="Einheit (Stk, m², kg, etc.)")
+    unit = models.CharField(max_length=50, blank=True, null=True, default='', help_text="Einheit (Stk, m², kg, etc.)")
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, 
                                      help_text="Einzelpreis")
     total_price = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, 
