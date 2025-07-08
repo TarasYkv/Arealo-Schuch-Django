@@ -334,10 +334,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // UI-Update
-        generateBtn.disabled = true;
-        loadingSpinner.classList.remove('d-none');
-        generatedResults.classList.add('d-none');
-        errorMessage.classList.add('d-none');
+        if (generateBtn) {
+            generateBtn.disabled = true;
+        }
+        if (loadingSpinner) {
+            loadingSpinner.classList.remove('d-none');
+        }
+        if (generatedResults) {
+            generatedResults.classList.add('d-none');
+        }
+        if (errorMessage) {
+            errorMessage.classList.add('d-none');
+        }
 
         // API-Call
         fetch('{% url "shopify_manager:generate_integrated_seo" %}', {
@@ -355,13 +363,21 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
-            loadingSpinner.classList.add('d-none');
-            generateBtn.disabled = false;
+            if (loadingSpinner) {
+                loadingSpinner.classList.add('d-none');
+            }
+            if (generateBtn) {
+                generateBtn.disabled = false;
+            }
 
             if (data.success) {
                 // Ergebnisse anzeigen
-                generatedSeoTitle.value = data.seo_title || '';
-                generatedSeoDescription.value = data.seo_description || '';
+                if (generatedSeoTitle) {
+                    generatedSeoTitle.value = data.seo_title || '';
+                }
+                if (generatedSeoDescription) {
+                    generatedSeoDescription.value = data.seo_description || '';
+                }
                 
                 const generationInfoEl = document.getElementById('generationInfo');
                 if (generationInfoEl) {
@@ -372,19 +388,35 @@ document.addEventListener('DOMContentLoaded', function() {
                     `;
                 }
                 
-                generatedResults.classList.remove('d-none');
+                if (generatedResults) {
+                    generatedResults.classList.remove('d-none');
+                }
                 updateCharacterCount();
             } else {
                 // Fehler anzeigen
-                document.getElementById('errorText').textContent = data.error;
-                errorMessage.classList.remove('d-none');
+                const errorTextEl = document.getElementById('errorText');
+                if (errorTextEl) {
+                    errorTextEl.textContent = data.error;
+                }
+                if (errorMessage) {
+                    errorMessage.classList.remove('d-none');
+                }
             }
         })
         .catch(error => {
-            loadingSpinner.classList.add('d-none');
-            generateBtn.disabled = false;
-            document.getElementById('errorText').textContent = 'Netzwerkfehler: ' + error.message;
-            errorMessage.classList.remove('d-none');
+            if (loadingSpinner) {
+                loadingSpinner.classList.add('d-none');
+            }
+            if (generateBtn) {
+                generateBtn.disabled = false;
+            }
+            const errorTextEl = document.getElementById('errorText');
+            if (errorTextEl) {
+                errorTextEl.textContent = 'Netzwerkfehler: ' + error.message;
+            }
+            if (errorMessage) {
+                errorMessage.classList.remove('d-none');
+            }
         });
     }
 
@@ -398,7 +430,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        applyBtn.disabled = true;
+        if (applyBtn) {
+            applyBtn.disabled = true;
+        }
 
         fetch('{% url "shopify_manager:apply_integrated_seo" %}', {
             method: 'POST',
@@ -415,12 +449,19 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
-            applyBtn.disabled = false;
+            if (applyBtn) {
+                applyBtn.disabled = false;
+            }
 
             if (data.success) {
                 // Erfolg anzeigen
-                document.getElementById('successText').textContent = data.message;
-                successMessage.classList.remove('d-none');
+                const successTextEl = document.getElementById('successText');
+                if (successTextEl) {
+                    successTextEl.textContent = data.message;
+                }
+                if (successMessage) {
+                    successMessage.classList.remove('d-none');
+                }
                 
                 // Zur entsprechenden Übersicht weiterleiten
                 setTimeout(() => {
@@ -435,7 +476,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })
         .catch(error => {
-            applyBtn.disabled = false;
+            if (applyBtn) {
+                applyBtn.disabled = false;
+            }
             alert('Netzwerkfehler: ' + error.message);
         });
     }

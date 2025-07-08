@@ -58,42 +58,55 @@
 
 <!-- Filter -->
 <div class="card mb-3">
+    <div class="card-header bg-light">
+        <h6 class="mb-0"><i class="fas fa-filter"></i> Produkte filtern</h6>
+    </div>
     <div class="card-body">
-        <form method="get" class="row g-3">
-            <div class="col-md-3">
-                {{ filter_form.search.label_tag }}
-                {{ filter_form.search }}
+        <form method="get">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label for="{{ filter_form.search.id_for_label }}" class="form-label">{{ filter_form.search.label }}</label>
+                    {{ filter_form.search }}
+                </div>
+                <div class="col-md-2">
+                    <label for="{{ filter_form.status.id_for_label }}" class="form-label">{{ filter_form.status.label }}</label>
+                    {{ filter_form.status }}
+                </div>
+                <div class="col-md-2">
+                    <label for="{{ filter_form.sync_status.id_for_label }}" class="form-label">{{ filter_form.sync_status.label }}</label>
+                    {{ filter_form.sync_status }}
+                </div>
+                <div class="col-md-2">
+                    <label for="{{ filter_form.seo_score.id_for_label }}" class="form-label">{{ filter_form.seo_score.label }}</label>
+                    {{ filter_form.seo_score }}
+                </div>
+                <div class="col-md-2">
+                    <label for="{{ filter_form.vendor.id_for_label }}" class="form-label">{{ filter_form.vendor.label }}</label>
+                    {{ filter_form.vendor }}
+                </div>
             </div>
-            <div class="col-md-2">
-                {{ filter_form.status.label_tag }}
-                {{ filter_form.status }}
-            </div>
-            <div class="col-md-2">
-                {{ filter_form.sync_status.label_tag }}
-                {{ filter_form.sync_status }}
-            </div>
-            <div class="col-md-2">
-                {{ filter_form.seo_score.label_tag }}
-                {{ filter_form.seo_score }}
-            </div>
-            <div class="col-md-2">
-                {{ filter_form.vendor.label_tag }}
-                {{ filter_form.vendor }}
-            </div>
-            <div class="col-md-2">
-                {{ filter_form.sort.label_tag }}
-                {{ filter_form.sort }}
-            </div>
-            <div class="col-md-1">
-                <label>&nbsp;</label>
-                <button type="submit" class="btn btn-primary w-100">Filter</button>
+            <div class="row g-3 mt-2">
+                <div class="col-md-3">
+                    <label for="{{ filter_form.sort.id_for_label }}" class="form-label">{{ filter_form.sort.label }}</label>
+                    {{ filter_form.sort }}
+                </div>
+                <div class="col-md-9 d-flex align-items-end">
+                    <div class="ms-auto">
+                        <button type="reset" class="btn btn-outline-secondary me-2" onclick="window.location.href=window.location.pathname">
+                            <i class="fas fa-times"></i> Zurücksetzen
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i> Filter anwenden
+                        </button>
+                    </div>
+                </div>
             </div>
         </form>
     </div>
 </div>
 
 <!-- Bulk-Aktionen Form -->
-<form id="bulkForm" method="post">
+<form id="bulkForm" method="post" onsubmit="return false;">
     {% csrf_token %}
     {{ bulk_form.action.as_hidden }}
     {{ bulk_form.selected_products.as_hidden }}
@@ -603,6 +616,28 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         console.log('✅ Bulk form protection activated');
+        
+        // Prevent Enter key from submitting the bulk form
+        bulkForm.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('❌ Enter key blocked in bulk form');
+                return false;
+            }
+        });
+        
+        // Also prevent Enter on all input elements within the bulk form
+        const bulkFormInputs = bulkForm.querySelectorAll('input');
+        bulkFormInputs.forEach(input => {
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                }
+            });
+        });
     } else {
         console.log('❌ Bulk form not found');
     }
@@ -809,6 +844,24 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
+/* Filter Form Styling */
+.card-header {
+    border-bottom: 2px solid #dee2e6;
+}
+
+/* Ensure all form controls have the same height */
+.form-control, .form-select {
+    min-height: 38px;
+}
+
+/* Filter buttons alignment */
+.filter-buttons {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+}
+
 /* SEO Status Rahmen für Produktkarten (analog zu Alt-Text Manager) */
 .product-card.seo-status-good {
     border: 3px solid #198754 !important; /* Bootstrap Success Green */
