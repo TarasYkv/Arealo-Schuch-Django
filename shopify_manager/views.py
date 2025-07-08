@@ -1868,7 +1868,9 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
         total_fetched = 0
         page = 1
 
-        while True:
+        max_pages = 50  # Maximale Anzahl Seiten zur Sicherheit
+        
+        while page <= max_pages:
             self._update_progress(
                 len(all_articles), 
                 len(all_articles) + 1,  # Wir wissen noch nicht wie viele es insgesamt sind
@@ -1903,9 +1905,13 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
             page += 1
 
             # Sicherheitscheck: Stoppe bei sehr vielen Artikeln
-            if total_fetched >= 10000:
+            if total_fetched >= 5000:  # Reduziert von 10000 für bessere Performance
                 print(f"Sicherheitsstopp bei {total_fetched} Blog-Posts erreicht")
                 break
+        
+        # Warnung wenn Seitenlimit erreicht wurde
+        if page > max_pages:
+            print(f"Warnung: Maximale Seitenanzahl ({max_pages}) erreicht. Möglicherweise wurden nicht alle Blog-Posts geladen.")
 
         return True, all_articles, f"{total_fetched} Blog-Posts über Pagination abgerufen"
     

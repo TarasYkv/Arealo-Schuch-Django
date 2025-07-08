@@ -36,6 +36,31 @@
         max-height: 90vh;
         overflow-y: auto;
     }
+    #pdf-preview-container .preview-header {
+        position: relative;
+        margin-bottom: 10px;
+    }
+    #pdf-preview-container .btn-close-preview {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 25px;
+        height: 25px;
+        font-size: 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    #pdf-preview-container .btn-close-preview:hover {
+        background: #c82333;
+        transform: scale(1.1);
+    }
     #pdf-preview-container img {
         max-width: 100%;
         height: auto;
@@ -64,7 +89,13 @@
         right: 15px;
         z-index: 10;
     }
+    .permanent-pdf-btn {
+        visibility: visible !important;
+        display: inline-block !important;
+        opacity: 1 !important;
+    }
 </style>
+
 
 <div class="row">
     <div class="col-lg-7">
@@ -119,6 +150,19 @@
                     <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
                     <h5 class="mt-3">Dokument wird analysiert... Dieser Vorgang kann einen Moment dauern.</h5>
                 </div>
+
+                <!-- PDF-Button auch auf der initial-Seite anzeigen, falls verfügbar -->
+                {% if results_pdf_filename and step == 'initial' %}
+                    <div class="text-center mt-4">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i>
+                            Sie haben bereits Suchergebnisse als PDF verfügbar.
+                        </div>
+                        <a href="{% url 'pdf_sucher:view_pdf' filename=results_pdf_filename %}" class="btn btn-success permanent-pdf-btn" target="_blank">
+                            <i class="bi bi-download"></i> PDF öffnen
+                        </a>
+                    </div>
+                {% endif %}
 
                 {% if step == 'preview_terms' %}
                     <div class="card shadow-sm mb-5" id="preview-terms-card">
@@ -387,9 +431,14 @@
                             <a href="{% url 'pdf_sucher:pdf_suche' %}" class="btn btn-outline-secondary">
                                 <i class="bi bi-arrow-left"></i> Neue PDF hochladen
                             </a>
-                            <a href="{% url 'pdf_sucher:view_pdf' filename=pdf_filename %}" class="btn btn-outline-primary" target="_blank">
-                                <i class="bi bi-file-pdf"></i> PDF öffnen
+                            <a href="{% url 'pdf_sucher:view_pdf' filename=pdf_filename %}" class="btn btn-outline-primary permanent-pdf-btn" target="_blank">
+                                <i class="bi bi-file-pdf"></i> Original PDF öffnen
                             </a>
+                            {% if results_pdf_filename %}
+                                <a href="{% url 'pdf_sucher:view_pdf' filename=results_pdf_filename %}" class="btn btn-success permanent-pdf-btn" target="_blank">
+                                    <i class="bi bi-download"></i> PDF öffnen
+                                </a>
+                            {% endif %}
                         </div>
                     </div>
                 {% endif %}
@@ -495,47 +544,46 @@
                          <div class="alert alert-warning mt-5">Keine passenden Textstellen für Ihre Anfrage gefunden.</div>
                     {% endif %}
                 
-                <!-- PDF Download Bereich -->
-                <!-- DEBUG: results_pdf_filename = "{{ results_pdf_filename }}" -->
-                {% if results_pdf_filename %}
-                    <div class="alert alert-success mt-4">
-                        <div class="d-flex align-items-center">
-                            <div class="flex-grow-1">
-                                <h6 class="alert-heading mb-1">
-                                    <i class="bi bi-file-earmark-pdf"></i>
-                                    PDF mit Suchergebnissen erstellt!
-                                </h6>
-                                <p class="mb-0 small">
-                                    Ihre Suchergebnisse wurden in einer PDF zusammengefasst mit Navigation über Lesezeichen.
-                                    <strong>Tipp:</strong> Öffnen Sie das Lesezeichen-Panel in Ihrem PDF-Viewer für einfache Navigation.
-                                </p>
-                            </div>
-                            <div class="ms-3">
-                                <a href="{% url 'pdf_sucher:view_pdf' filename=results_pdf_filename %}" 
-                                   class="btn btn-success btn-lg" target="_blank">
-                                    <i class="bi bi-download"></i>
-                                    PDF öffnen
+                
+                <div class="mt-4 text-center">
+                    <a href="{% url 'pdf_sucher:pdf_suche' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Neue Suche starten
+                    </a>
+                    {% if pdf_filename %}
+                        <a href="{% url 'pdf_sucher:view_pdf' filename=pdf_filename %}" class="btn btn-outline-primary permanent-pdf-btn" target="_blank">
+                            <i class="bi bi-file-pdf"></i> Original PDF öffnen
+                        </a>
+                    {% endif %}
+                    {% if results_pdf_filename %}
+                        <a href="{% url 'pdf_sucher:view_pdf' filename=results_pdf_filename %}" class="btn btn-success permanent-pdf-btn" target="_blank">
+                            <i class="bi bi-download"></i> PDF öffnen
+                        </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                <!-- Fallback PDF-Button der immer angezeigt wird wenn PDF verfügbar -->
+                {% if pdf_filename and step != 'initial' %}
+                    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1000;">
+                        <div class="card shadow-lg" style="border-radius: 15px;">
+                            <div class="card-body p-2">
+                                <a href="{% url 'pdf_sucher:view_pdf' filename=pdf_filename %}" 
+                                   class="btn btn-primary btn-sm permanent-pdf-btn" 
+                                   target="_blank"
+                                   title="Original PDF öffnen">
+                                    <i class="bi bi-file-pdf"></i> PDF
                                 </a>
+                                {% if results_pdf_filename %}
+                                    <a href="{% url 'pdf_sucher:view_pdf' filename=results_pdf_filename %}" 
+                                       class="btn btn-success btn-sm permanent-pdf-btn ms-1" 
+                                       target="_blank"
+                                       title="PDF Suchergebnisse öffnen">
+                                        <i class="bi bi-download"></i> PDF
+                                    </a>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
-                {% else %}
-                    <!-- DEBUG: Kein results_pdf_filename gefunden! -->
-                    {% if ergebnisse %}
-                        <div class="alert alert-warning mt-4">
-                            <strong>DEBUG:</strong> Suchergebnisse gefunden ({{ ergebnisse|length }}), aber PDF-Dateiname fehlt!
-                            <br><small>results_pdf_filename = "{{ results_pdf_filename }}"</small>
-                        </div>
-                    {% else %}
-                        <div class="alert alert-info mt-4">
-                            <strong>DEBUG:</strong> Keine Suchergebnisse gefunden.
-                        </div>
-                    {% endif %}
-                {% endif %}
-                
-                <div class="mt-4 text-center">
-                    <a href="{% url 'pdf_sucher:pdf_suche' %}" class="btn btn-outline-primary">Neue Suche starten</a>
-                </div>
                 {% endif %}
             </div>
         </div>
@@ -543,7 +591,12 @@
 
     <div class="col-lg-5">
         <div id="pdf-preview-container" class="sticky-top">
-            <h6 class="text-muted text-center mb-2">Seiten-Vorschau</h6>
+            <div class="preview-header">
+                <h6 class="text-muted text-center mb-2">Seiten-Vorschau</h6>
+                <button class="btn-close-preview" onclick="document.getElementById('pdf-preview-container').style.display='none'" title="Vorschau schließen">
+                    ×
+                </button>
+            </div>
             <div id="preview-loader" class="text-center p-5" style="display: none;">
                 <div class="spinner-border text-primary" role="status"></div>
             </div>
@@ -1124,9 +1177,70 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // --- Session Persistence für Suchergebnisse ---
+    function preserveSearchResults() {
+        // Speichere kritische Daten im localStorage
+        const searchData = {
+            step: '{{ step|default:"" }}',
+            pdf_filename: '{{ pdf_filename|default:"" }}',
+            results_pdf_filename: '{{ results_pdf_filename|default:"" }}',
+            suchanfrage: '{{ suchanfrage|default:"" }}',
+            timestamp: Date.now()
+        };
+        
+        if (searchData.step === 'results' || searchData.step === 'ampel_and_search') {
+            localStorage.setItem('pdf_search_data', JSON.stringify(searchData));
+        }
+    }
+    
+    // --- Wiederherstellung der Suchergebnisse ---
+    function restoreSearchResults() {
+        const savedData = localStorage.getItem('pdf_search_data');
+        if (savedData) {
+            const data = JSON.parse(savedData);
+            const currentStep = '{{ step|default:"" }}';
+            
+            // Prüfe ob die Daten noch aktuell sind (max 1 Stunde)
+            if (Date.now() - data.timestamp < 3600000) {
+                // Wenn die Seite plötzlich auf 'initial' zurückgesetzt wurde, aber wir Daten haben
+                if (currentStep === 'initial' && data.step === 'results') {
+                    console.log('Suchergebnisse wurden zurückgesetzt - zeige Benachrichtigung');
+                    showPersistentNotification();
+                }
+            } else {
+                localStorage.removeItem('pdf_search_data');
+            }
+        }
+    }
+    
+    // --- Persistente Benachrichtigung für verlorene Suchergebnisse ---
+    function showPersistentNotification() {
+        const notification = document.createElement('div');
+        notification.className = 'alert alert-warning alert-dismissible fade show position-fixed';
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 400px;';
+        notification.innerHTML = `
+            <i class="bi bi-exclamation-triangle"></i>
+            <strong>Suchergebnisse verschwunden?</strong><br>
+            Die Seite wurde möglicherweise automatisch aktualisiert. 
+            Verwenden Sie den "Original PDF öffnen" Button unten.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(notification);
+        
+        // Auto-remove nach 10 Sekunden
+        setTimeout(() => {
+            if (document.body.contains(notification)) {
+                const bsAlert = new bootstrap.Alert(notification);
+                bsAlert.close();
+            }
+        }, 10000);
+    }
+    
     // --- Initialisierung beim Laden der Seite ---
     function initializeAmpelCards() {
         console.log('Ampel cards initialized');
+        preserveSearchResults();
+        restoreSearchResults();
         // Ampel-Karten sind bereits korrekt im Template gerendert
     }
     

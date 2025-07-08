@@ -1302,7 +1302,8 @@ def pdf_suche(request):
                     'step': 'ampel_and_search',
                     'pdf_filename': pdf_filename,
                     'ampel_results': ampel_results,
-                    'pdf_original_name': pdf_file.name
+                    'pdf_original_name': pdf_file.name,
+                    'results_pdf_filename': request.session.get('results_pdf_filename')
                 }
                 print(f"DEBUG: Context für Template: {context}")
                 return render(request, "pdf_sucher/suche.html", context)
@@ -1356,7 +1357,8 @@ def pdf_suche(request):
                 'seite_von': seite_von_str,
                 'seite_bis': seite_bis_str,
                 'expanded_terms': expanded_terms,
-                'original_terms': [term.strip() for term in suchanfrage.split(",") if len(term.strip()) > 1]
+                'original_terms': [term.strip() for term in suchanfrage.split(",") if len(term.strip()) > 1],
+                'results_pdf_filename': request.session.get('results_pdf_filename')
             }
             return render(request, "pdf_sucher/suche.html", context)
         
@@ -1401,6 +1403,10 @@ def pdf_suche(request):
                 results_pdf_filename = generate_search_results_pdf(
                     pdf_path, ergebnisse, suchanfrage, search_type, search_perspective
                 )
+                # Speichere PDF-Dateiname in der Session für Persistenz
+                if results_pdf_filename:
+                    request.session['results_pdf_filename'] = results_pdf_filename
+                    request.session['pdf_filename'] = pdf_filename
             
             context = {
                 'step': 'results',
@@ -1409,7 +1415,7 @@ def pdf_suche(request):
                 'search_type': search_type,
                 'search_perspective': search_perspective,
                 'pdf_filename': pdf_filename,
-                'results_pdf_filename': results_pdf_filename,
+                'results_pdf_filename': results_pdf_filename or request.session.get('results_pdf_filename'),
                 'search_terms_for_preview': search_terms
             }
             return render(request, "pdf_sucher/suche.html", context)
@@ -1500,6 +1506,10 @@ def pdf_suche(request):
                     pdf_path, ergebnisse, suchanfrage, search_type, search_perspective
                 )
                 print(f"DEBUG: PDF erstellt: {results_pdf_filename}")
+                # Speichere PDF-Dateiname in der Session für Persistenz
+                if results_pdf_filename:
+                    request.session['results_pdf_filename'] = results_pdf_filename
+                    request.session['pdf_filename'] = pdf_filename
             else:
                 print("DEBUG: Keine Ergebnisse für PDF-Generierung")
             
@@ -1516,7 +1526,7 @@ def pdf_suche(request):
                 'step': 'results',
                 'ergebnisse': ergebnisse,
                 'pdf_filename': pdf_filename,
-                'results_pdf_filename': results_pdf_filename,
+                'results_pdf_filename': results_pdf_filename or request.session.get('results_pdf_filename'),
                 'search_terms': ','.join(search_terms_for_preview),
                 'search_type': search_type,
                 'search_perspective': search_perspective,
@@ -1527,7 +1537,13 @@ def pdf_suche(request):
             print(f"DEBUG: Context für Template - ergebnisse: {len(ergebnisse) if ergebnisse else 0}")
             return render(request, "pdf_sucher/suche.html", context)
 
-    return render(request, "pdf_sucher/suche.html", {"step": "initial"})
+    # Für GET-Requests und fallback: Prüfe Session für bestehende PDF-Daten
+    context = {
+        "step": "initial",
+        "results_pdf_filename": request.session.get('results_pdf_filename'),
+        "pdf_filename": request.session.get('pdf_filename')
+    }
+    return render(request, "pdf_sucher/suche.html", context)
 
 
 def view_pdf(request, filename):

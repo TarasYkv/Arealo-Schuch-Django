@@ -35,10 +35,21 @@ class PDFDocument(models.Model):
 class PDFSummary(models.Model):
     """Zusammenfassungen von PDF-Dokumenten"""
     AI_MODEL_CHOICES = [
-        ('openai_gpt4', 'OpenAI GPT-4'),
-        ('openai_gpt35', 'OpenAI GPT-3.5'),
-        ('google_gemini', 'Google Gemini'),
-        ('anthropic_claude', 'Anthropic Claude'),
+        # OpenAI Models
+        ('openai_gpt4o', 'OpenAI GPT-4o (128k Token, $2.50/$10.00 pro 1M Token)'),
+        ('openai_gpt4o_mini', 'OpenAI GPT-4o Mini (128k Token, $0.15/$0.60 pro 1M Token)'),
+        ('openai_gpt4_turbo', 'OpenAI GPT-4 Turbo (128k Token, $10.00/$30.00 pro 1M Token)'),
+        ('openai_gpt4', 'OpenAI GPT-4 (8k Token, $30.00/$60.00 pro 1M Token)'),
+        ('openai_gpt35_turbo', 'OpenAI GPT-3.5 Turbo (16k Token, $0.50/$1.50 pro 1M Token)'),
+        
+        # Google Models
+        ('google_gemini_pro', 'Google Gemini Pro (1M Token, $0.50/$1.50 pro 1M Token)'),
+        ('google_gemini_flash', 'Google Gemini Flash (1M Token, $0.075/$0.30 pro 1M Token)'),
+        
+        # Anthropic Models
+        ('anthropic_claude_opus', 'Anthropic Claude-3 Opus (200k Token, $15.00/$75.00 pro 1M Token)'),
+        ('anthropic_claude_sonnet', 'Anthropic Claude-3.5 Sonnet (200k Token, $3.00/$15.00 pro 1M Token)'),
+        ('anthropic_claude_haiku', 'Anthropic Claude-3 Haiku (200k Token, $0.25/$1.25 pro 1M Token)'),
     ]
     
     STATUS_CHOICES = [
@@ -50,7 +61,7 @@ class PDFSummary(models.Model):
     
     document = models.ForeignKey(PDFDocument, on_delete=models.CASCADE, related_name='summaries')
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    ai_model = models.CharField(max_length=20, choices=AI_MODEL_CHOICES, help_text="Verwendetes KI-Modell")
+    ai_model = models.CharField(max_length=30, choices=AI_MODEL_CHOICES, help_text="Verwendetes KI-Modell")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     
     # Analyseergebnisse
@@ -78,6 +89,117 @@ class PDFSummary(models.Model):
     
     def get_absolute_url(self):
         return reverse('pdf_sucher:summary_detail', kwargs={'pk': self.pk})
+    
+    @classmethod
+    def get_model_info(cls):
+        """Gibt detaillierte Informationen zu allen AI-Modellen zurück"""
+        return {
+            # OpenAI Models
+            'openai_gpt4o': {
+                'name': 'GPT-4o',
+                'provider': 'OpenAI',
+                'context_length': 128000,
+                'input_price_per_1m': 2.50,
+                'output_price_per_1m': 10.00,
+                'speed': 'Mittel',
+                'quality': 'Sehr hoch',
+                'description': 'Neuestes multimodales Modell von OpenAI'
+            },
+            'openai_gpt4o_mini': {
+                'name': 'GPT-4o Mini',
+                'provider': 'OpenAI',
+                'context_length': 128000,
+                'input_price_per_1m': 0.15,
+                'output_price_per_1m': 0.60,
+                'speed': 'Schnell',
+                'quality': 'Hoch',
+                'description': 'Kosteneffiziente Version von GPT-4o'
+            },
+            'openai_gpt4_turbo': {
+                'name': 'GPT-4 Turbo',
+                'provider': 'OpenAI',
+                'context_length': 128000,
+                'input_price_per_1m': 10.00,
+                'output_price_per_1m': 30.00,
+                'speed': 'Mittel',
+                'quality': 'Sehr hoch',
+                'description': 'Erweiterte Version von GPT-4 mit größerem Kontext'
+            },
+            'openai_gpt4': {
+                'name': 'GPT-4',
+                'provider': 'OpenAI',
+                'context_length': 8192,
+                'input_price_per_1m': 30.00,
+                'output_price_per_1m': 60.00,
+                'speed': 'Langsam',
+                'quality': 'Sehr hoch',
+                'description': 'Original GPT-4 Modell (legacy)'
+            },
+            'openai_gpt35_turbo': {
+                'name': 'GPT-3.5 Turbo',
+                'provider': 'OpenAI',
+                'context_length': 16385,
+                'input_price_per_1m': 0.50,
+                'output_price_per_1m': 1.50,
+                'speed': 'Sehr schnell',
+                'quality': 'Gut',
+                'description': 'Schnelles und kostengünstiges Modell'
+            },
+            
+            # Google Models
+            'google_gemini_pro': {
+                'name': 'Gemini Pro',
+                'provider': 'Google',
+                'context_length': 1048576,
+                'input_price_per_1m': 0.50,
+                'output_price_per_1m': 1.50,
+                'speed': 'Schnell',
+                'quality': 'Hoch',
+                'description': 'Googles fortschrittliches Sprachmodell'
+            },
+            'google_gemini_flash': {
+                'name': 'Gemini Flash',
+                'provider': 'Google',
+                'context_length': 1048576,
+                'input_price_per_1m': 0.075,
+                'output_price_per_1m': 0.30,
+                'speed': 'Sehr schnell',
+                'quality': 'Gut',
+                'description': 'Schnellste und kostengünstigste Gemini-Variante'
+            },
+            
+            # Anthropic Models
+            'anthropic_claude_opus': {
+                'name': 'Claude-3 Opus',
+                'provider': 'Anthropic',
+                'context_length': 200000,
+                'input_price_per_1m': 15.00,
+                'output_price_per_1m': 75.00,
+                'speed': 'Langsam',
+                'quality': 'Sehr hoch',
+                'description': 'Anthropics stärkstes Modell für komplexe Aufgaben'
+            },
+            'anthropic_claude_sonnet': {
+                'name': 'Claude-3.5 Sonnet',
+                'provider': 'Anthropic',
+                'context_length': 200000,
+                'input_price_per_1m': 3.00,
+                'output_price_per_1m': 15.00,
+                'speed': 'Mittel',
+                'quality': 'Sehr hoch',
+                'description': 'Ausgewogenes Verhältnis von Leistung und Kosten'
+            },
+            'anthropic_claude_haiku': {
+                'name': 'Claude-3 Haiku',
+                'provider': 'Anthropic',
+                'context_length': 200000,
+                'input_price_per_1m': 0.25,
+                'output_price_per_1m': 1.25,
+                'speed': 'Sehr schnell',
+                'quality': 'Gut',
+                'description': 'Schnellstes Claude-Modell für einfache Aufgaben'
+            }
+        }
 
 
 class TenderPosition(models.Model):

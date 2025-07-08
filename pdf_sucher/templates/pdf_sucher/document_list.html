@@ -282,12 +282,26 @@
 {% block extra_scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Auto-refresh für processing Summaries
+    // Auto-refresh für processing Summaries (nur wenn Dropdown nicht geöffnet ist)
     const processingCards = document.querySelectorAll('.status-processing');
     if (processingCards.length > 0) {
-        setTimeout(function() {
-            location.reload();
+        let refreshTimer = setTimeout(function() {
+            // Prüfe ob ein Dropdown geöffnet ist
+            const openDropdowns = document.querySelectorAll('.dropdown-menu.show');
+            if (openDropdowns.length === 0) {
+                location.reload();
+            } else {
+                // Versuche erneut in 5 Sekunden wenn Dropdown offen
+                setTimeout(arguments.callee, 5000);
+            }
         }, 30000); // Refresh nach 30 Sekunden
+        
+        // Stoppe Auto-Refresh wenn Benutzer mit Dropdown interagiert
+        document.querySelectorAll('.dropdown-toggle').forEach(function(toggle) {
+            toggle.addEventListener('click', function() {
+                clearTimeout(refreshTimer);
+            });
+        });
     }
     
     // Tooltips für gekürzte Titel
