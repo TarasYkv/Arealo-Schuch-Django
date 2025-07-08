@@ -1,0 +1,325 @@
+{% extends 'pdf_sucher/base.html' %}
+
+{% block title %}PDF-Dokumente{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2 mb-1">
+            <i class="bi bi-folder text-primary"></i> 
+            Meine PDF-Dokumente
+        </h1>
+        <p class="text-muted mb-0">Verwalten Sie Ihre hochgeladenen PDF-Dokumente und erstellen Sie Zusammenfassungen</p>
+    </div>
+    
+    <div class="text-end">
+        <a href="{% url 'pdf_sucher:document_upload' %}" class="btn btn-primary">
+            <i class="bi bi-cloud-upload"></i> 
+            Neues PDF hochladen
+        </a>
+    </div>
+</div>
+
+<!-- Statistiken Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-file-earmark-pdf fs-1 mb-2"></i>
+                <h4 class="mb-1">{{ documents.count }}</h4>
+                <small>Dokument{{ documents.count|pluralize:"e" }}</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-list-task fs-1 mb-2"></i>
+                <h4 class="mb-1">{{ total_summaries }}</h4>
+                <small>Zusammenfassung{{ total_summaries|pluralize:"en" }}</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-clock fs-1 mb-2"></i>
+                <h4 class="mb-1">{{ processing_summaries }}</h4>
+                <small>In Bearbeitung</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-hdd fs-1 mb-2"></i>
+                <h4 class="mb-1">{{ total_size_mb }} MB</h4>
+                <small>Gesamtgröße</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter und Suche -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-funnel"></i> Filter und Suche
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-6">
+                <label for="search" class="form-label">Dokumentensuche</label>
+                <input type="text" class="form-control" id="search" name="search" 
+                       value="{{ request.GET.search }}" 
+                       placeholder="Titel oder Dateiname durchsuchen...">
+            </div>
+            <div class="col-md-3">
+                <label for="date_from" class="form-label">Von Datum</label>
+                <input type="date" class="form-control" id="date_from" name="date_from" 
+                       value="{{ request.GET.date_from }}">
+            </div>
+            <div class="col-md-3">
+                <label for="date_to" class="form-label">Bis Datum</label>
+                <input type="date" class="form-control" id="date_to" name="date_to" 
+                       value="{{ request.GET.date_to }}">
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-search"></i> Suchen
+                </button>
+                <a href="{% url 'pdf_sucher:document_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle"></i> Zurücksetzen
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Dokumentenliste -->
+{% if documents %}
+    <div class="row">
+        {% for document in documents %}
+            <div class="col-lg-6 col-xl-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 text-truncate" title="{{ document.title }}">
+                            <i class="bi bi-file-earmark-pdf text-danger"></i>
+                            {{ document.title|truncatechars:30 }}
+                        </h6>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                    type="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a class="dropdown-item" href="{{ document.get_absolute_url }}">
+                                        <i class="bi bi-eye"></i> Details
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{{ document.file.url }}" target="_blank">
+                                        <i class="bi bi-download"></i> PDF öffnen
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item text-danger" 
+                                       href="{% url 'pdf_sucher:delete_document' document.pk %}"
+                                       onclick="return confirm('Sind Sie sicher, dass Sie dieses Dokument löschen möchten?')">
+                                        <i class="bi bi-trash"></i> Löschen
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <small class="text-muted d-block">
+                                <i class="bi bi-calendar"></i> 
+                                Hochgeladen: {{ document.uploaded_at|date:"d.m.Y H:i" }}
+                            </small>
+                            <small class="text-muted d-block">
+                                <i class="bi bi-hdd"></i> 
+                                Größe: {{ document.file_size_mb }} MB
+                            </small>
+                            <small class="text-muted d-block">
+                                <i class="bi bi-file-text"></i> 
+                                Datei: {{ document.original_filename|truncatechars:25 }}
+                            </small>
+                        </div>
+                        
+                        <!-- Zusammenfassungen-Status -->
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small class="text-muted">Zusammenfassungen:</small>
+                                <span class="badge bg-secondary">{{ document.summaries.count }}</span>
+                            </div>
+                            
+                            {% if document.summaries.exists %}
+                                <div class="progress mb-2" style="height: 6px;">
+                                    {% with completed=document.summaries.filter|status:'completed'|length total=document.summaries.count %}
+                                        <div class="progress-bar bg-success" 
+                                             style="width: {{ completed|floatformat:0|div:total|mul:100 }}%"></div>
+                                    {% endwith %}
+                                </div>
+                                
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% for summary in document.summaries.all|slice:":3" %}
+                                        <span class="badge status-{{ summary.status }} small">
+                                            {{ summary.get_ai_model_display|truncatechars:8 }}
+                                        </span>
+                                    {% endfor %}
+                                    {% if document.summaries.count > 3 %}
+                                        <span class="badge bg-secondary small">+{{ document.summaries.count|add:"-3" }}</span>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <small class="text-muted">Noch keine Zusammenfassungen erstellt</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="card-footer bg-transparent">
+                        <div class="d-grid gap-2">
+                            <a href="{{ document.get_absolute_url }}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-eye"></i> Details ansehen
+                            </a>
+                            
+                            {% if document.summaries.exists %}
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'pdf_sucher:create_summary' document.pk %}" 
+                                       class="btn btn-success btn-sm">
+                                        <i class="bi bi-plus-circle"></i> Neue Analyse
+                                    </a>
+                                    <a href="{{ document.get_absolute_url }}#summaries" 
+                                       class="btn btn-outline-success btn-sm">
+                                        <i class="bi bi-list-task"></i> Alle ansehen
+                                    </a>
+                                </div>
+                            {% else %}
+                                <a href="{% url 'pdf_sucher:create_summary' document.pk %}" 
+                                   class="btn btn-success btn-sm">
+                                    <i class="bi bi-robot"></i> Erste Analyse erstellen
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Pagination -->
+    {% if is_paginated %}
+        <nav aria-label="Dokumenten-Navigation">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}">
+                            <i class="bi bi-chevron-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}">
+                            <i class="bi bi-chevron-double-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    {% endif %}
+    
+{% else %}
+    <!-- Leere Ansicht -->
+    <div class="text-center py-5">
+        <div class="mb-4">
+            <i class="bi bi-folder2-open text-muted" style="font-size: 4rem;"></i>
+        </div>
+        <h3 class="text-muted mb-3">Noch keine PDF-Dokumente vorhanden</h3>
+        {% if request.GET.search or request.GET.date_from or request.GET.date_to %}
+            <p class="text-muted mb-4">
+                Keine Dokumente gefunden, die Ihren Suchkriterien entsprechen.
+            </p>
+            <a href="{% url 'pdf_sucher:document_list' %}" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-x-circle"></i> Filter zurücksetzen
+            </a>
+        {% else %}
+            <p class="text-muted mb-4">
+                Laden Sie Ihr erstes PDF-Dokument hoch, um mit der KI-gestützten Analyse zu beginnen.
+            </p>
+        {% endif %}
+        <a href="{% url 'pdf_sucher:document_upload' %}" class="btn btn-primary btn-lg">
+            <i class="bi bi-cloud-upload"></i> Erstes PDF hochladen
+        </a>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-refresh für processing Summaries
+    const processingCards = document.querySelectorAll('.status-processing');
+    if (processingCards.length > 0) {
+        setTimeout(function() {
+            location.reload();
+        }, 30000); // Refresh nach 30 Sekunden
+    }
+    
+    // Tooltips für gekürzte Titel
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Ctrl+U für Upload
+        if (e.ctrlKey && e.key === 'u') {
+            e.preventDefault();
+            window.location.href = "{% url 'pdf_sucher:document_upload' %}";
+        }
+        
+        // Escape zum Filter zurücksetzen
+        if (e.key === 'Escape' && (document.getElementById('search').value || 
+                                    document.getElementById('date_from').value || 
+                                    document.getElementById('date_to').value)) {
+            window.location.href = "{% url 'pdf_sucher:document_list' %}";
+        }
+    });
+    
+    // Focus auf Suchfeld bei Seitenaufruf
+    const searchField = document.getElementById('search');
+    if (searchField && !searchField.value) {
+        searchField.focus();
+    }
+});
+</script>
+{% endblock %}

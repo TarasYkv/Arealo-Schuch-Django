@@ -515,7 +515,7 @@ class SEOAnalysisResult(models.Model):
 
 class ShopifyBlog(models.Model):
     """Shopify Blog Model"""
-    shopify_id = models.CharField(max_length=50, unique=True, help_text="Shopify Blog ID")
+    shopify_id = models.CharField(max_length=50, help_text="Shopify Blog ID")
     store = models.ForeignKey(ShopifyStore, on_delete=models.CASCADE, related_name='blogs')
     
     # Grunddaten
@@ -564,7 +564,7 @@ class ShopifyBlogPost(models.Model):
         ('hidden', 'Versteckt'),
     ]
     
-    shopify_id = models.CharField(max_length=50, unique=True, help_text="Shopify Article ID")
+    shopify_id = models.CharField(max_length=50, help_text="Shopify Article ID")
     blog = models.ForeignKey(ShopifyBlog, on_delete=models.CASCADE, related_name='posts')
     
     # Grunddaten

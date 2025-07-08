@@ -1,0 +1,403 @@
+{% extends 'pdf_sucher/base.html' %}
+
+{% block title %}{{ document.title }} - Details{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a href="{% url 'pdf_sucher:document_list' %}">
+                <i class="bi bi-folder"></i> Dokumente
+            </a>
+        </li>
+        <li class="breadcrumb-item active">{{ document.title|truncatechars:50 }}</li>
+    </ol>
+</nav>
+
+<!-- Dokument Header -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="bi bi-file-earmark-pdf text-danger"></i>
+                    {{ document.title }}
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-5">Originaldatei:</dt>
+                            <dd class="col-sm-7">{{ document.original_filename }}</dd>
+                            
+                            <dt class="col-sm-5">Hochgeladen:</dt>
+                            <dd class="col-sm-7">{{ document.uploaded_at|date:"d.m.Y H:i" }}</dd>
+                            
+                            <dt class="col-sm-5">Dateigröße:</dt>
+                            <dd class="col-sm-7">{{ document.file_size_mb }} MB</dd>
+                            
+                            <dt class="col-sm-5">Benutzer:</dt>
+                            <dd class="col-sm-7">{{ document.user.username }}</dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="text-center">
+                            <i class="bi bi-file-earmark-pdf text-danger" style="font-size: 4rem;"></i>
+                            <div class="mt-2">
+                                <a href="{{ document.file.url }}" target="_blank" class="btn btn-primary">
+                                    <i class="bi bi-eye"></i> PDF öffnen
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-graph-up"></i> Zusammenfassungs-Statistiken
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h4 class="text-primary mb-1">{{ document.summaries.count }}</h4>
+                        <small class="text-muted">Gesamt</small>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="text-success mb-1">{{ completed_summaries }}</h4>
+                        <small class="text-muted">Abgeschlossen</small>
+                    </div>
+                </div>
+                
+                {% if processing_summaries > 0 %}
+                    <div class="alert alert-info mt-3 mb-0">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border spinner-border-sm me-2"></div>
+                            <small>{{ processing_summaries }} Analyse{{ processing_summaries|pluralize:"n" }} in Bearbeitung</small>
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <div class="mt-3">
+                    <a href="{% url 'pdf_sucher:create_summary' document.pk %}" class="btn btn-success btn-sm w-100">
+                        <i class="bi bi-robot"></i> Neue Analyse erstellen
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Zusammenfassungen -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-list-task"></i> 
+                    Zusammenfassungen 
+                    <span class="badge bg-secondary">{{ document.summaries.count }}</span>
+                </h5>
+                
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="status-filter" id="status-all" value="all" checked>
+                    <label class="btn btn-outline-secondary btn-sm" for="status-all">Alle</label>
+                    
+                    <input type="radio" class="btn-check" name="status-filter" id="status-completed" value="completed">
+                    <label class="btn btn-outline-success btn-sm" for="status-completed">Abgeschlossen</label>
+                    
+                    <input type="radio" class="btn-check" name="status-filter" id="status-processing" value="processing">
+                    <label class="btn btn-outline-info btn-sm" for="status-processing">Läuft</label>
+                    
+                    <input type="radio" class="btn-check" name="status-filter" id="status-error" value="error">
+                    <label class="btn btn-outline-danger btn-sm" for="status-error">Fehler</label>
+                </div>
+            </div>
+            
+            <div class="card-body">
+                {% if document.summaries.exists %}
+                    <div id="summaries-container">
+                        {% for summary in document.summaries.all %}
+                            <div class="summary-item border rounded p-3 mb-3" data-status="{{ summary.status }}">
+                                <div class="row align-items-center">
+                                    <div class="col-md-6">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <span class="badge ai-{{ summary.ai_model|slice:':7' }} me-2">
+                                                {{ summary.get_ai_model_display }}
+                                            </span>
+                                            <span class="badge status-{{ summary.status }}">
+                                                {{ summary.get_status_display }}
+                                            </span>
+                                        </div>
+                                        
+                                        <h6 class="mb-1">
+                                            {% if summary.status == 'completed' %}
+                                                <a href="{{ summary.get_absolute_url }}" class="text-decoration-none">
+                                                    Analyse vom {{ summary.created_at|date:"d.m.Y H:i" }}
+                                                </a>
+                                            {% else %}
+                                                Analyse vom {{ summary.created_at|date:"d.m.Y H:i" }}
+                                            {% endif %}
+                                        </h6>
+                                        
+                                        {% if summary.summary_text %}
+                                            <p class="text-muted small mb-2">
+                                                {{ summary.summary_text|truncatechars:150 }}
+                                            </p>
+                                        {% endif %}
+                                        
+                                        <div class="small text-muted">
+                                            {% if summary.positions.exists %}
+                                                <i class="bi bi-list-ol"></i> 
+                                                {{ summary.positions.count }} Position{{ summary.positions.count|pluralize:"en" }}
+                                            {% endif %}
+                                            
+                                            {% if summary.processing_time %}
+                                                <span class="ms-3">
+                                                    <i class="bi bi-clock"></i> 
+                                                    {{ summary.processing_time|floatformat:1 }}s
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        {% if summary.status == 'completed' %}
+                                            <div class="text-end">
+                                                <div class="btn-group mb-2" role="group">
+                                                    <a href="{{ summary.get_absolute_url }}" class="btn btn-outline-primary btn-sm">
+                                                        <i class="bi bi-eye"></i> Details
+                                                    </a>
+                                                    {% if summary.summary_pdf %}
+                                                        <a href="{% url 'pdf_sucher:download_summary_pdf' summary.pk %}" 
+                                                           class="btn btn-outline-success btn-sm" target="_blank">
+                                                            <i class="bi bi-download"></i> PDF
+                                                        </a>
+                                                    {% endif %}
+                                                    <div class="btn-group" role="group">
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" 
+                                                                data-bs-toggle="dropdown">
+                                                            <i class="bi bi-three-dots"></i>
+                                                        </button>
+                                                        <ul class="dropdown-menu">
+                                                            {% if summary.summary_pdf %}
+                                                                <li>
+                                                                    <a class="dropdown-item" 
+                                                                       href="{% url 'pdf_sucher:regenerate_summary_pdf' summary.pk %}">
+                                                                        <i class="bi bi-arrow-clockwise"></i> PDF neu generieren
+                                                                    </a>
+                                                                </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                            {% endif %}
+                                                            <li>
+                                                                <a class="dropdown-item text-danger" 
+                                                                   href="{% url 'pdf_sucher:delete_summary' summary.pk %}"
+                                                                   onclick="return confirm('Sind Sie sicher?')">
+                                                                    <i class="bi bi-trash"></i> Löschen
+                                                                </a>
+                                                            </li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                                
+                                                {% if summary.positions.exists %}
+                                                    <div class="small text-muted">
+                                                        Positionen: {{ summary.positions.count }}
+                                                        {% if summary.structured_data.total_value %}
+                                                            | Gesamtwert: {{ summary.structured_data.total_value|floatformat:2 }} €
+                                                        {% endif %}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                            
+                                        {% elif summary.status == 'processing' %}
+                                            <div class="text-end">
+                                                <div class="progress mb-2">
+                                                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-info" 
+                                                         style="width: 100%"></div>
+                                                </div>
+                                                <small class="text-muted">
+                                                    <i class="bi bi-cpu"></i> 
+                                                    KI-Analyse läuft...
+                                                </small>
+                                            </div>
+                                            
+                                        {% elif summary.status == 'error' %}
+                                            <div class="text-end">
+                                                <div class="alert alert-danger mb-2 p-2">
+                                                    <small>
+                                                        <i class="bi bi-exclamation-triangle"></i>
+                                                        {% if summary.error_message %}
+                                                            {{ summary.error_message|truncatechars:100 }}
+                                                        {% else %}
+                                                            Analyse fehlgeschlagen
+                                                        {% endif %}
+                                                    </small>
+                                                </div>
+                                                <div class="btn-group" role="group">
+                                                    <a href="{% url 'pdf_sucher:create_summary' document.pk %}" 
+                                                       class="btn btn-warning btn-sm">
+                                                        <i class="bi bi-arrow-clockwise"></i> Erneut versuchen
+                                                    </a>
+                                                    <a href="{% url 'pdf_sucher:delete_summary' summary.pk %}" 
+                                                       class="btn btn-outline-danger btn-sm"
+                                                       onclick="return confirm('Fehlgeschlagene Analyse löschen?')">
+                                                        <i class="bi bi-trash"></i>
+                                                    </a>
+                                                </div>
+                                            </div>
+                                            
+                                        {% elif summary.status == 'pending' %}
+                                            <div class="text-end">
+                                                <div class="spinner-border spinner-border-sm text-warning me-2"></div>
+                                                <small class="text-muted">Warten auf Bearbeitung...</small>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    
+                {% else %}
+                    <!-- Keine Zusammenfassungen -->
+                    <div class="text-center py-5">
+                        <i class="bi bi-robot text-muted" style="font-size: 3rem;"></i>
+                        <h4 class="text-muted mt-3 mb-2">Noch keine Analysen erstellt</h4>
+                        <p class="text-muted mb-4">
+                            Erstellen Sie Ihre erste KI-gestützte Ausschreibungsanalyse für dieses Dokument.
+                        </p>
+                        <a href="{% url 'pdf_sucher:create_summary' document.pk %}" class="btn btn-success btn-lg">
+                            <i class="bi bi-robot"></i> Erste Analyse erstellen
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Aktionen -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card bg-light">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h6 class="mb-1">Weitere Aktionen</h6>
+                        <small class="text-muted">Zusätzliche Optionen für dieses Dokument</small>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="btn-group" role="group">
+                            <a href="{% url 'pdf_sucher:pdf_suche' %}" class="btn btn-outline-primary">
+                                <i class="bi bi-search"></i> PDF durchsuchen
+                            </a>
+                            <a href="{% url 'pdf_sucher:delete_document' document.pk %}" 
+                               class="btn btn-outline-danger"
+                               onclick="return confirm('Sind Sie sicher? Alle Zusammenfassungen werden ebenfalls gelöscht.')">
+                                <i class="bi bi-trash"></i> Dokument löschen
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Status Filter Funktionalität
+    const statusFilters = document.querySelectorAll('input[name="status-filter"]');
+    const summaryItems = document.querySelectorAll('.summary-item');
+    
+    statusFilters.forEach(filter => {
+        filter.addEventListener('change', function() {
+            const selectedStatus = this.value;
+            
+            summaryItems.forEach(item => {
+                const itemStatus = item.dataset.status;
+                
+                if (selectedStatus === 'all' || itemStatus === selectedStatus) {
+                    item.style.display = 'block';
+                    item.classList.add('fade-in');
+                } else {
+                    item.style.display = 'none';
+                    item.classList.remove('fade-in');
+                }
+            });
+            
+            // Update badge counts
+            updateFilterBadges();
+        });
+    });
+    
+    function updateFilterBadges() {
+        const statusCounts = {
+            all: summaryItems.length,
+            completed: document.querySelectorAll('[data-status="completed"]').length,
+            processing: document.querySelectorAll('[data-status="processing"]').length,
+            error: document.querySelectorAll('[data-status="error"]').length
+        };
+        
+        // Optional: Update badge text with counts
+        // This would require additional HTML structure
+    }
+    
+    // Auto-refresh für processing Summaries
+    const processingSummaries = document.querySelectorAll('[data-status="processing"]');
+    if (processingSummaries.length > 0) {
+        setTimeout(function() {
+            location.reload();
+        }, 15000); // Refresh nach 15 Sekunden
+    }
+    
+    // AJAX Status Updates (Optional - für Real-time Updates)
+    function checkSummaryStatus() {
+        const processingSummaryIds = Array.from(processingSummaries).map(item => {
+            // Extract summary ID from URL or data attribute
+            const detailLink = item.querySelector('a[href*="/zusammenfassung/"]');
+            if (detailLink) {
+                const matches = detailLink.href.match(/\/zusammenfassung\/(\d+)\//);
+                return matches ? matches[1] : null;
+            }
+            return null;
+        }).filter(id => id !== null);
+        
+        if (processingSummaryIds.length > 0) {
+            // Implement AJAX status check if needed
+            // fetch('/api/summary-status/', {...})
+        }
+    }
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Escape to go back
+        if (e.key === 'Escape') {
+            window.location.href = "{% url 'pdf_sucher:document_list' %}";
+        }
+        
+        // Ctrl+N for new summary
+        if (e.ctrlKey && e.key === 'n') {
+            e.preventDefault();
+            window.location.href = "{% url 'pdf_sucher:create_summary' document.pk %}";
+        }
+    });
+    
+    // Tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}
