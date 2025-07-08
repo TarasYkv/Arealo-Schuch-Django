@@ -78,28 +78,73 @@ class SummaryCreationForm(forms.ModelForm):
                 self.fields['ai_model'].help_text = 'Keine API-Schlüssel konfiguriert. Bitte konfigurieren Sie Ihre API-Schlüssel in den Kontoeinstellungen.'
     
     def get_available_models_for_user(self, user):
-        """Ermittelt verfügbare KI-Modelle basierend auf konfigurierten API-Schlüsseln"""
+        """Ermittelt verfügbare KI-Modelle basierend auf konfigurierten API-Schlüsseln und Balance"""
         try:
             from naturmacher.utils.api_helpers import get_user_api_key
+            from naturmacher.models import APIBalance
             
             available_models = []
             
             # OpenAI prüfen
-            if get_user_api_key(user, 'openai'):
-                available_models.extend(['openai_gpt4', 'openai_gpt35'])
+            openai_key = get_user_api_key(user, 'openai')
+            print(f"DEBUG: OpenAI key for {user.username}: {'SET' if openai_key else 'NOT SET'}")
+            if openai_key:
+                # Prüfe Balance
+                try:
+                    balance = APIBalance.objects.get(user=user, provider='openai')
+                    if balance.balance > 0:
+                        available_models.extend(['openai_gpt4', 'openai_gpt35'])
+                        print(f"DEBUG: OpenAI balance for {user.username}: {balance.balance}")
+                    else:
+                        print(f"DEBUG: OpenAI balance empty for {user.username}")
+                except APIBalance.DoesNotExist:
+                    # Wenn keine Balance-Info vorhanden, als verfügbar markieren
+                    available_models.extend(['openai_gpt4', 'openai_gpt35'])
+                    print(f"DEBUG: No OpenAI balance info for {user.username}")
             
             # Google prüfen
-            if get_user_api_key(user, 'google'):
-                available_models.append('google_gemini')
+            google_key = get_user_api_key(user, 'google')
+            print(f"DEBUG: Google key for {user.username}: {'SET' if google_key else 'NOT SET'}")
+            if google_key:
+                # Prüfe Balance
+                try:
+                    balance = APIBalance.objects.get(user=user, provider='google')
+                    if balance.balance > 0:
+                        available_models.append('google_gemini')
+                        print(f"DEBUG: Google balance for {user.username}: {balance.balance}")
+                    else:
+                        print(f"DEBUG: Google balance empty for {user.username}")
+                except APIBalance.DoesNotExist:
+                    # Wenn keine Balance-Info vorhanden, als verfügbar markieren
+                    available_models.append('google_gemini')
+                    print(f"DEBUG: No Google balance info for {user.username}")
             
             # Anthropic prüfen
-            if get_user_api_key(user, 'anthropic'):
-                available_models.append('anthropic_claude')
+            anthropic_key = get_user_api_key(user, 'anthropic')
+            print(f"DEBUG: Anthropic key for {user.username}: {'SET' if anthropic_key else 'NOT SET'}")
+            if anthropic_key:
+                # Prüfe Balance
+                try:
+                    balance = APIBalance.objects.get(user=user, provider='anthropic')
+                    if balance.balance > 0:
+                        available_models.append('anthropic_claude')
+                        print(f"DEBUG: Anthropic balance for {user.username}: {balance.balance}")
+                    else:
+                        print(f"DEBUG: Anthropic balance empty for {user.username}")
+                except APIBalance.DoesNotExist:
+                    # Wenn keine Balance-Info vorhanden, als verfügbar markieren
+                    available_models.append('anthropic_claude')
+                    print(f"DEBUG: No Anthropic balance info for {user.username}")
             
+            print(f"DEBUG: Available models: {available_models}")
             return available_models
         
-        except ImportError:
+        except ImportError as e:
+            print(f"DEBUG: ImportError in get_available_models_for_user: {e}")
             # Fallback falls die API-Helper nicht verfügbar sind
+            return [choice[0] for choice in PDFSummary.AI_MODEL_CHOICES]
+        except Exception as e:
+            print(f"DEBUG: Exception in get_available_models_for_user: {e}")
             return [choice[0] for choice in PDFSummary.AI_MODEL_CHOICES]
 
 
