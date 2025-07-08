@@ -304,21 +304,51 @@ document.addEventListener('DOMContentLoaded', function() {
         
         let statusHtml = '';
         const allModels = [
-                { value: 'openai_gpt4', label: 'OpenAI GPT-4', icon: 'star-fill', color: 'primary' },
-                { value: 'openai_gpt35', label: 'OpenAI GPT-3.5', icon: 'lightning-fill', color: 'success' },
-                { value: 'google_gemini', label: 'Google Gemini', icon: 'google', color: 'info' },
-                { value: 'anthropic_claude', label: 'Anthropic Claude', icon: 'chat-quote', color: 'warning' }
+                // OpenAI Models
+                { value: 'openai_gpt4o', label: 'GPT-4o', provider: 'OpenAI', tokens: '128k', price: '$2.50/$10', icon: 'star-fill', color: 'primary' },
+                { value: 'openai_gpt4o_mini', label: 'GPT-4o Mini', provider: 'OpenAI', tokens: '128k', price: '$0.15/$0.60', icon: 'lightning-fill', color: 'success' },
+                { value: 'openai_gpt4_turbo', label: 'GPT-4 Turbo', provider: 'OpenAI', tokens: '128k', price: '$10/$30', icon: 'star', color: 'primary' },
+                { value: 'openai_gpt4', label: 'GPT-4', provider: 'OpenAI', tokens: '8k', price: '$30/$60', icon: 'star', color: 'warning' },
+                { value: 'openai_gpt35_turbo', label: 'GPT-3.5 Turbo', provider: 'OpenAI', tokens: '16k', price: '$0.50/$1.50', icon: 'lightning', color: 'success' },
+                
+                // Google Models
+                { value: 'google_gemini_pro', label: 'Gemini Pro', provider: 'Google', tokens: '1M', price: '$0.50/$1.50', icon: 'google', color: 'info' },
+                { value: 'google_gemini_flash', label: 'Gemini Flash', provider: 'Google', tokens: '1M', price: '$0.075/$0.30', icon: 'lightning-charge', color: 'success' },
+                
+                // Anthropic Models
+                { value: 'anthropic_claude_opus', label: 'Claude-3 Opus', provider: 'Anthropic', tokens: '200k', price: '$15/$75', icon: 'star-fill', color: 'danger' },
+                { value: 'anthropic_claude_sonnet', label: 'Claude-3.5 Sonnet', provider: 'Anthropic', tokens: '200k', price: '$3/$15', icon: 'chat-quote', color: 'warning' },
+                { value: 'anthropic_claude_haiku', label: 'Claude-3 Haiku', provider: 'Anthropic', tokens: '200k', price: '$0.25/$1.25', icon: 'lightning', color: 'success' }
         ];
         
         allModels.forEach(model => {
             const isAvailable = availableModels.includes(model.value);
             const icon = isAvailable ? 'check-circle-fill' : 'x-circle-fill';
-            const color = isAvailable ? 'success' : 'danger';
+            const statusColor = isAvailable ? 'success' : 'danger';
+            const status = isAvailable ? 'Verfügbar' : 'Nicht verfügbar';
             
             statusHtml += `
-                <div class="d-flex align-items-center mb-1">
-                    <i class="bi bi-${icon} text-${color} me-2"></i>
-                    <small class="text-muted">${model.label}</small>
+                <div class="card mb-2 ${isAvailable ? '' : 'opacity-50'}">
+                    <div class="card-body p-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="d-flex align-items-center mb-1">
+                                    <i class="bi bi-${model.icon} text-${model.color} me-2"></i>
+                                    <strong class="text-${model.color}">${model.label}</strong>
+                                    <small class="text-muted ms-2">(${model.provider})</small>
+                                </div>
+                                <div class="small text-muted">
+                                    <i class="bi bi-cpu me-1"></i> ${model.tokens} Token
+                                    <span class="mx-2">|</span>
+                                    <i class="bi bi-currency-dollar me-1"></i> ${model.price}/1M Token
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <i class="bi bi-${icon} text-${statusColor}"></i>
+                                <small class="text-${statusColor} d-block">${status}</small>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             `;
         });

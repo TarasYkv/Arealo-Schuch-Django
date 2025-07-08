@@ -93,13 +93,19 @@ class SummaryCreationForm(forms.ModelForm):
                 try:
                     balance = APIBalance.objects.get(user=user, provider='openai')
                     if balance.balance > 0:
-                        available_models.extend(['openai_gpt4', 'openai_gpt35'])
+                        available_models.extend([
+                            'openai_gpt4o', 'openai_gpt4o_mini', 'openai_gpt4_turbo', 
+                            'openai_gpt4', 'openai_gpt35_turbo'
+                        ])
                         print(f"DEBUG: OpenAI balance for {user.username}: {balance.balance}")
                     else:
                         print(f"DEBUG: OpenAI balance empty for {user.username}")
                 except APIBalance.DoesNotExist:
                     # Wenn keine Balance-Info vorhanden, als verfügbar markieren
-                    available_models.extend(['openai_gpt4', 'openai_gpt35'])
+                    available_models.extend([
+                        'openai_gpt4o', 'openai_gpt4o_mini', 'openai_gpt4_turbo', 
+                        'openai_gpt4', 'openai_gpt35_turbo'
+                    ])
                     print(f"DEBUG: No OpenAI balance info for {user.username}")
             
             # Google prüfen
@@ -110,13 +116,13 @@ class SummaryCreationForm(forms.ModelForm):
                 try:
                     balance = APIBalance.objects.get(user=user, provider='google')
                     if balance.balance > 0:
-                        available_models.append('google_gemini')
+                        available_models.extend(['google_gemini_pro', 'google_gemini_flash'])
                         print(f"DEBUG: Google balance for {user.username}: {balance.balance}")
                     else:
                         print(f"DEBUG: Google balance empty for {user.username}")
                 except APIBalance.DoesNotExist:
                     # Wenn keine Balance-Info vorhanden, als verfügbar markieren
-                    available_models.append('google_gemini')
+                    available_models.extend(['google_gemini_pro', 'google_gemini_flash'])
                     print(f"DEBUG: No Google balance info for {user.username}")
             
             # Anthropic prüfen
@@ -127,13 +133,17 @@ class SummaryCreationForm(forms.ModelForm):
                 try:
                     balance = APIBalance.objects.get(user=user, provider='anthropic')
                     if balance.balance > 0:
-                        available_models.append('anthropic_claude')
+                        available_models.extend([
+                            'anthropic_claude_opus', 'anthropic_claude_sonnet', 'anthropic_claude_haiku'
+                        ])
                         print(f"DEBUG: Anthropic balance for {user.username}: {balance.balance}")
                     else:
                         print(f"DEBUG: Anthropic balance empty for {user.username}")
                 except APIBalance.DoesNotExist:
                     # Wenn keine Balance-Info vorhanden, als verfügbar markieren
-                    available_models.append('anthropic_claude')
+                    available_models.extend([
+                        'anthropic_claude_opus', 'anthropic_claude_sonnet', 'anthropic_claude_haiku'
+                    ])
                     print(f"DEBUG: No Anthropic balance info for {user.username}")
             
             print(f"DEBUG: Available models: {available_models}")
