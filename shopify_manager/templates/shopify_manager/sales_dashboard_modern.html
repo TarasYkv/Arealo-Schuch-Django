@@ -1,0 +1,544 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}Verkaufszahlen - {{ store.name }}{% endblock %}
+
+{% block shopify_content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        --warning-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --card-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        --card-shadow-hover: 0 15px 35px rgba(0, 0, 0, 0.15);
+    }
+
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .dashboard-container {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        padding: 2rem;
+        margin: 2rem 0;
+        box-shadow: var(--card-shadow);
+        backdrop-filter: blur(10px);
+    }
+
+    .dashboard-header {
+        background: var(--primary-gradient);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+        text-align: center;
+        box-shadow: var(--card-shadow);
+    }
+
+    .dashboard-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .dashboard-subtitle {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin-bottom: 0;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: var(--card-shadow);
+        transition: all 0.3s ease;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--primary-gradient);
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--card-shadow-hover);
+    }
+
+    .stat-card.success::before {
+        background: var(--success-gradient);
+    }
+
+    .stat-card.warning::before {
+        background: var(--warning-gradient);
+    }
+
+    .stat-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        color: #667eea;
+    }
+
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: #2d3748;
+        margin-bottom: 0.5rem;
+        line-height: 1;
+    }
+
+    .stat-label {
+        color: #718096;
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .chart-container {
+        background: white;
+        border-radius: 15px;
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+        margin-bottom: 2rem;
+    }
+    
+    .chart-wrapper {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+
+    .chart-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #2d3748;
+        margin-bottom: 1.5rem;
+        text-align: center;
+    }
+
+    .action-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-top: 2rem;
+    }
+
+    .action-card {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        box-shadow: var(--card-shadow);
+        text-align: center;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .action-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--card-shadow-hover);
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .action-icon {
+        font-size: 2.5rem;
+        color: #667eea;
+        margin-bottom: 1rem;
+    }
+
+    .action-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #2d3748;
+        margin-bottom: 0.5rem;
+    }
+
+    .action-description {
+        font-size: 0.9rem;
+        color: #718096;
+    }
+
+    .controls-container {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--card-shadow);
+    }
+
+    .store-selector {
+        width: 100%;
+        padding: 0.75rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        font-size: 1rem;
+        background: white;
+        transition: border-color 0.3s ease;
+    }
+
+    .store-selector:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .period-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+    }
+
+    .period-btn {
+        padding: 0.5rem 1rem;
+        border: 2px solid #e2e8f0;
+        background: white;
+        border-radius: 25px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    .period-btn:hover {
+        background: #f7fafc;
+        border-color: #667eea;
+    }
+
+    .period-btn.active {
+        background: var(--primary-gradient);
+        border-color: transparent;
+        color: white;
+    }
+
+    .btn-primary {
+        background: var(--primary-gradient);
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        color: white;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        text-decoration: none;
+        color: white;
+    }
+
+    .animate-fade-in {
+        animation: fadeIn 0.6s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .dashboard-title {
+            font-size: 2rem;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+        }
+        
+        .chart-wrapper {
+            height: 250px;
+        }
+        
+        .dashboard-container {
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+    }
+</style>
+
+<div class="dashboard-container animate-fade-in">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <h1 class="dashboard-title">
+            <i class="fas fa-chart-line"></i> Verkaufszahlen
+        </h1>
+        <p class="dashboard-subtitle">
+            Detaillierte Analyse für {{ store.name }}
+        </p>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls-container">
+        <div class="row">
+            <div class="col-md-6">
+                <label class="form-label fw-bold">Store auswählen</label>
+                <select class="store-selector" onchange="changeStore(this.value)">
+                    {% for s in stores %}
+                    <option value="{{ s.id }}" {% if s.id == store.id %}selected{% endif %}>
+                        {{ s.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-bold">Zeitraum</label>
+                <div class="period-buttons">
+                    <button class="period-btn" onclick="setPeriod('1_day')">1 Tag</button>
+                    <button class="period-btn" onclick="setPeriod('7_days')">7 Tage</button>
+                    <button class="period-btn active" onclick="setPeriod('30_days')">30 Tage</button>
+                    <button class="period-btn" onclick="setPeriod('3_months')">3 Monate</button>
+                    <button class="period-btn" onclick="setPeriod('6_months')">6 Monate</button>
+                    <button class="period-btn" onclick="setPeriod('12_months')">1 Jahr</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row">
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card animate-fade-in">
+                <div class="stat-icon">
+                    <i class="fas fa-shopping-cart"></i>
+                </div>
+                <div class="stat-value">{{ statistics.total_orders|default:"0" }}</div>
+                <div class="stat-label">Bestellungen</div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card success animate-fade-in">
+                <div class="stat-icon">
+                    <i class="fas fa-euro-sign"></i>
+                </div>
+                <div class="stat-value">{{ statistics.total_revenue|floatformat:0|default:"0" }}€</div>
+                <div class="stat-label">Umsatz</div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card warning animate-fade-in">
+                <div class="stat-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="stat-value">{{ statistics.total_profit|floatformat:0|default:"0" }}€</div>
+                <div class="stat-label">Gewinn</div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card animate-fade-in">
+                <div class="stat-icon">
+                    <i class="fas fa-bullseye"></i>
+                </div>
+                <div class="stat-value">{{ statistics.roas|floatformat:1|default:"0.0" }}</div>
+                <div class="stat-label">ROAS</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-container animate-fade-in">
+        <h3 class="chart-title">
+            <i class="fas fa-chart-area"></i> Umsatz-Verlauf
+        </h3>
+        <div class="chart-wrapper">
+            <canvas id="revenueChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Action Cards -->
+    <div class="action-grid animate-fade-in">
+        <a href="{% url 'shopify_manager:import_sales_data' %}?store={{ store.id }}" class="action-card">
+            <div class="action-icon">
+                <i class="fas fa-download"></i>
+            </div>
+            <div class="action-title">Daten importieren</div>
+            <div class="action-description">Aktuelle Verkaufsdaten aus Shopify laden</div>
+        </a>
+        
+        <a href="{% url 'shopify_manager:shipping_profiles' %}?store={{ store.id }}" class="action-card">
+            <div class="action-icon">
+                <i class="fas fa-shipping-fast"></i>
+            </div>
+            <div class="action-title">Versandprofile</div>
+            <div class="action-description">Versandkosten verwalten</div>
+        </a>
+        
+        <a href="{% url 'shopify_manager:recurring_costs' %}?store={{ store.id }}" class="action-card">
+            <div class="action-icon">
+                <i class="fas fa-calendar-alt"></i>
+            </div>
+            <div class="action-title">Laufende Kosten</div>
+            <div class="action-description">Monatliche Ausgaben verwalten</div>
+        </a>
+        
+        <a href="{% url 'shopify_manager:ads_costs' %}?store={{ store.id }}" class="action-card">
+            <div class="action-icon">
+                <i class="fas fa-bullhorn"></i>
+            </div>
+            <div class="action-title">Werbekosten</div>
+            <div class="action-description">ROAS und Kampagnen verwalten</div>
+        </a>
+        
+        <a href="{% url 'shopify_manager:cost_breakdown' %}?store={{ store.id }}" class="action-card">
+            <div class="action-icon">
+                <i class="fas fa-chart-pie"></i>
+            </div>
+            <div class="action-title">Kostenaufschlüsselung</div>
+            <div class="action-description">Detaillierte Analyse aller Kosten</div>
+        </a>
+    </div>
+</div>
+
+<script>
+// Initialize chart
+document.addEventListener('DOMContentLoaded', function() {
+    const chartData = {{ chart_data|safe }};
+    
+    if (chartData && chartData.labels && chartData.labels.length > 0) {
+        const ctx = document.getElementById('revenueChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartData.labels,
+                datasets: [{
+                    label: 'Umsatz (€)',
+                    data: chartData.revenue,
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#667eea',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: '#ffffff',
+                        bodyColor: '#ffffff',
+                        borderColor: '#667eea',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        displayColors: false,
+                        callbacks: {
+                            title: function(tooltipItems) {
+                                return tooltipItems[0].label;
+                            },
+                            label: function(context) {
+                                return 'Umsatz: ' + context.parsed.y.toLocaleString() + '€';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#718096',
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: '#e2e8f0'
+                        },
+                        ticks: {
+                            color: '#718096',
+                            font: {
+                                size: 12
+                            },
+                            callback: function(value) {
+                                return value.toLocaleString() + '€';
+                            },
+                            maxTicksLimit: 8
+                        }
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                elements: {
+                    point: {
+                        hoverRadius: 8
+                    }
+                }
+            }
+        });
+    } else {
+        // Show no data message
+        document.getElementById('revenueChart').style.display = 'none';
+        const container = document.querySelector('.chart-container');
+        container.innerHTML = `
+            <h3 class="chart-title">
+                <i class="fas fa-chart-area"></i> Umsatz-Verlauf
+            </h3>
+            <div class="text-center p-4">
+                <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                <p class="text-muted">Keine Verkaufsdaten verfügbar</p>
+                <a href="/shopify/sales/import/?store={{ store.id }}" class="btn btn-primary">
+                    <i class="fas fa-download"></i> Daten importieren
+                </a>
+            </div>
+        `;
+    }
+});
+
+function changeStore(storeId) {
+    window.location.href = '{% url "shopify_manager:sales_dashboard" %}?store=' + storeId;
+}
+
+function setPeriod(period) {
+    // Update active button
+    document.querySelectorAll('.period-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    // Update URL
+    const url = new URL(window.location.href);
+    url.searchParams.set('period', period);
+    window.location.href = url.toString();
+}
+</script>
+{% endblock %}

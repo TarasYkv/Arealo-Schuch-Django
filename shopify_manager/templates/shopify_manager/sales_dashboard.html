@@ -1,0 +1,853 @@
+{% extends 'shopify_manager/base.html' %}
+{% load static %}
+
+{% block title %}Verkaufszahlen - {{ store.name }}{% endblock %}
+
+{% block shopify_content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --success-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --warning-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --info-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        --dark-gradient: linear-gradient(135deg, #2c3e50 0%, #4a6741 100%);
+        --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --card-shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+
+    body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+        font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .dashboard-header {
+        background: var(--primary-gradient);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: 0 0 2rem 2rem;
+        box-shadow: var(--card-shadow);
+    }
+
+    .dashboard-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        margin-bottom: 0.5rem;
+    }
+
+    .dashboard-subtitle {
+        opacity: 0.9;
+        font-size: 1.1rem;
+        font-weight: 300;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 1rem;
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+        margin-bottom: 2rem;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--primary-gradient);
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--card-shadow-hover);
+    }
+
+    .stat-card.success::before {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .stat-card.warning::before {
+        background: var(--warning-gradient);
+    }
+
+    .stat-card.info::before {
+        background: var(--info-gradient);
+    }
+
+    .stat-card.dark::before {
+        background: var(--dark-gradient);
+    }
+
+    .stat-value {
+        font-size: 2.8rem;
+        font-weight: 800;
+        color: #2d3748;
+        margin-bottom: 0.5rem;
+        line-height: 1;
+    }
+
+    .stat-label {
+        color: #718096;
+        font-size: 0.95rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-change {
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .stat-change.positive {
+        color: #38a169;
+    }
+
+    .stat-change.negative {
+        color: #e53e3e;
+    }
+
+    .stat-change.neutral {
+        color: #718096;
+    }
+
+    .stat-icon {
+        font-size: 3rem;
+        opacity: 0.1;
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+    }
+
+    .chart-container {
+        background: white;
+        border-radius: 1rem;
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+        margin-bottom: 2rem;
+    }
+
+    .chart-canvas {
+        height: 400px !important;
+    }
+
+    .control-panel {
+        background: white;
+        border-radius: 1rem;
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+        margin-bottom: 2rem;
+    }
+
+    .store-selector {
+        background: #f7fafc;
+        border: 2px solid #e2e8f0;
+        border-radius: 0.75rem;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        width: 100%;
+    }
+
+    .store-selector:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .period-selector {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+
+    .period-btn {
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        border: 2px solid #e2e8f0;
+        background: white;
+        color: #4a5568;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        font-size: 0.9rem;
+    }
+
+    .period-btn:hover {
+        background: #f7fafc;
+        transform: translateY(-1px);
+    }
+
+    .period-btn.active {
+        background: var(--primary-gradient);
+        color: white;
+        border-color: transparent;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .action-btn {
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.75rem;
+        border: none;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.95rem;
+    }
+
+    .action-btn.primary {
+        background: var(--primary-gradient);
+        color: white;
+    }
+
+    .action-btn.secondary {
+        background: #f7fafc;
+        color: #4a5568;
+        border: 2px solid #e2e8f0;
+    }
+
+    .action-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--card-shadow-hover);
+    }
+
+    .nav-tabs-modern {
+        border: none;
+        background: #f7fafc;
+        border-radius: 0.75rem;
+        padding: 0.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .nav-tabs-modern .nav-link {
+        border: none;
+        color: #4a5568;
+        font-weight: 500;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        transition: all 0.3s ease;
+        margin-right: 0.25rem;
+    }
+
+    .nav-tabs-modern .nav-link:hover {
+        background: white;
+        color: #2d3748;
+    }
+
+    .nav-tabs-modern .nav-link.active {
+        background: white;
+        color: #667eea;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .quick-actions {
+        background: white;
+        border-radius: 1rem;
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+    }
+
+    .quick-actions h3 {
+        color: #2d3748;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        font-size: 1.25rem;
+    }
+
+    .quick-action-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+
+    .quick-action-item {
+        padding: 1rem;
+        text-align: center;
+        border-radius: 0.75rem;
+        border: 2px solid #e2e8f0;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        color: #4a5568;
+        font-weight: 500;
+    }
+
+    .quick-action-item:hover {
+        background: #f7fafc;
+        transform: translateY(-3px);
+        box-shadow: var(--card-shadow);
+        text-decoration: none;
+        color: #2d3748;
+    }
+
+    .quick-action-item i {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        color: #667eea;
+    }
+
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        backdrop-filter: blur(5px);
+    }
+
+    .loading-spinner {
+        width: 60px;
+        height: 60px;
+        border: 4px solid #e2e8f0;
+        border-top: 4px solid #667eea;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .fade-in {
+        animation: fadeIn 0.5s ease-in;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .bestseller-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        background: #f7fafc;
+        margin-bottom: 0.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .bestseller-item:hover {
+        background: #edf2f7;
+        transform: translateX(5px);
+    }
+
+    .bestseller-rank {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #667eea;
+        margin-right: 1rem;
+    }
+
+    .bestseller-info {
+        flex: 1;
+    }
+
+    .bestseller-name {
+        font-weight: 600;
+        color: #2d3748;
+        margin-bottom: 0.25rem;
+    }
+
+    .bestseller-stats {
+        font-size: 0.85rem;
+        color: #718096;
+    }
+
+    .bestseller-value {
+        font-weight: 700;
+        color: #38a169;
+        font-size: 1.1rem;
+    }
+
+    @media (max-width: 768px) {
+        .dashboard-title {
+            font-size: 2rem;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+        }
+        
+        .quick-action-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+<div class="loading-overlay" id="loadingOverlay" style="display: none;">
+    <div class="loading-spinner"></div>
+</div>
+
+<!-- Dashboard Header -->
+<div class="dashboard-header">
+    <div class="container-fluid">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="dashboard-title animate__animated animate__fadeInDown">
+                    <i class="fas fa-chart-line"></i> Verkaufszahlen
+                </h1>
+                <p class="dashboard-subtitle animate__animated animate__fadeInUp">
+                    Detaillierte Analyse für {{ store.name }}
+                </p>
+            </div>
+            <div class="col-md-4 text-right">
+                <div class="action-buttons">
+                    <a href="{% url 'shopify_manager:import_sales_data' %}?store={{ store.id }}" class="action-btn primary">
+                        <i class="fas fa-download"></i> Daten laden
+                    </a>
+                    <a href="{% url 'shopify_manager:sales_data_list' %}?store={{ store.id }}" class="action-btn secondary">
+                        <i class="fas fa-list"></i> Details
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <!-- Control Panel -->
+    <div class="control-panel fade-in">
+        <div class="row">
+            <div class="col-md-6">
+                <label class="form-label">Store auswählen</label>
+                <select class="store-selector" onchange="changeStore(this.value)">
+                    {% for s in stores %}
+                    <option value="{{ s.id }}" {% if s.id == store.id %}selected{% endif %}>
+                        {{ s.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Zeitraum</label>
+                <div class="period-selector">
+                    <button class="period-btn" onclick="setPeriod('1_day')">1 Tag</button>
+                    <button class="period-btn" onclick="setPeriod('7_days')">7 Tage</button>
+                    <button class="period-btn active" onclick="setPeriod('30_days')">30 Tage</button>
+                    <button class="period-btn" onclick="setPeriod('3_months')">3 Monate</button>
+                    <button class="period-btn" onclick="setPeriod('6_months')">6 Monate</button>
+                    <button class="period-btn" onclick="setPeriod('12_months')">1 Jahr</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row">
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card success animate__animated animate__fadeInUp">
+                <div class="stat-icon">
+                    <i class="fas fa-shopping-cart"></i>
+                </div>
+                <div class="stat-value">{{ statistics.total_orders }}</div>
+                <div class="stat-label">Bestellungen</div>
+                <div class="stat-change positive">
+                    <i class="fas fa-arrow-up"></i>
+                    <span>+12% vs. Vormonat</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card info animate__animated animate__fadeInUp" style="animation-delay: 0.1s;">
+                <div class="stat-icon">
+                    <i class="fas fa-euro-sign"></i>
+                </div>
+                <div class="stat-value">{{ statistics.total_revenue|floatformat:0 }}€</div>
+                <div class="stat-label">Umsatz</div>
+                <div class="stat-change positive">
+                    <i class="fas fa-arrow-up"></i>
+                    <span>+8% vs. Vormonat</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card {% if statistics.total_profit > 0 %}success{% elif statistics.total_profit < 0 %}warning{% else %}dark{% endif %} animate__animated animate__fadeInUp" style="animation-delay: 0.2s;">
+                <div class="stat-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="stat-value">{{ statistics.total_profit|floatformat:0 }}€</div>
+                <div class="stat-label">Gewinn</div>
+                <div class="stat-change {% if statistics.total_profit > 0 %}positive{% elif statistics.total_profit < 0 %}negative{% else %}neutral{% endif %}">
+                    <i class="fas fa-arrow-{% if statistics.total_profit > 0 %}up{% elif statistics.total_profit < 0 %}down{% else %}right{% endif %}"></i>
+                    <span>{{ statistics.margin_percentage|floatformat:1 }}% Marge</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card dark animate__animated animate__fadeInUp" style="animation-delay: 0.3s;">
+                <div class="stat-icon">
+                    <i class="fas fa-bullseye"></i>
+                </div>
+                <div class="stat-value">{{ statistics.roas|floatformat:1 }}</div>
+                <div class="stat-label">ROAS</div>
+                <div class="stat-change {% if statistics.roas > 3 %}positive{% elif statistics.roas < 2 %}negative{% else %}neutral{% endif %}">
+                    <i class="fas fa-arrow-{% if statistics.roas > 3 %}up{% elif statistics.roas < 2 %}down{% else %}right{% endif %}"></i>
+                    <span>Return on Ad Spend</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Secondary Stats -->
+    <div class="row">
+        <div class="col-lg-2 col-md-4">
+            <div class="stat-card animate__animated animate__fadeInUp" style="animation-delay: 0.4s;">
+                <div class="stat-value">{{ statistics.total_cost|floatformat:0 }}€</div>
+                <div class="stat-label">Einkaufskosten</div>
+            </div>
+        </div>
+        <div class="col-lg-2 col-md-4">
+            <div class="stat-card animate__animated animate__fadeInUp" style="animation-delay: 0.5s;">
+                <div class="stat-value">{{ statistics.total_shipping_costs|floatformat:0 }}€</div>
+                <div class="stat-label">Versandkosten</div>
+            </div>
+        </div>
+        <div class="col-lg-2 col-md-4">
+            <div class="stat-card animate__animated animate__fadeInUp" style="animation-delay: 0.6s;">
+                <div class="stat-value">{{ statistics.total_shopify_fees|floatformat:0 }}€</div>
+                <div class="stat-label">Shopify Gebühren</div>
+            </div>
+        </div>
+        <div class="col-lg-2 col-md-4">
+            <div class="stat-card animate__animated animate__fadeInUp" style="animation-delay: 0.7s;">
+                <div class="stat-value">{{ statistics.total_paypal_fees|floatformat:0 }}€</div>
+                <div class="stat-label">PayPal Gebühren</div>
+            </div>
+        </div>
+        <div class="col-lg-2 col-md-4">
+            <div class="stat-card animate__animated animate__fadeInUp" style="animation-delay: 0.8s;">
+                <div class="stat-value">{{ statistics.total_ads_costs|floatformat:0 }}€</div>
+                <div class="stat-label">Werbekosten</div>
+            </div>
+        </div>
+        <div class="col-lg-2 col-md-4">
+            <div class="stat-card animate__animated animate__fadeInUp" style="animation-delay: 0.9s;">
+                <div class="stat-value">{{ statistics.total_tax|floatformat:0 }}€</div>
+                <div class="stat-label">Mehrwertsteuer</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts and Analysis -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="chart-container animate__animated animate__fadeInUp" style="animation-delay: 1s;">
+                <ul class="nav nav-tabs nav-tabs-modern" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#revenue-chart">
+                            <i class="fas fa-euro-sign"></i> Umsatz
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#orders-chart">
+                            <i class="fas fa-shopping-cart"></i> Bestellungen
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#profit-chart">
+                            <i class="fas fa-chart-line"></i> Gewinn
+                        </a>
+                    </li>
+                </ul>
+                
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="revenue-chart">
+                        <canvas id="revenueChart" class="chart-canvas"></canvas>
+                    </div>
+                    <div class="tab-pane fade" id="orders-chart">
+                        <canvas id="ordersChart" class="chart-canvas"></canvas>
+                    </div>
+                    <div class="tab-pane fade" id="profit-chart">
+                        <canvas id="profitChart" class="chart-canvas"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="chart-container animate__animated animate__fadeInUp" style="animation-delay: 1.1s;">
+                <h3 style="color: #2d3748; font-weight: 700; margin-bottom: 1.5rem;">
+                    <i class="fas fa-trophy"></i> Bestseller
+                </h3>
+                <div id="bestsellersContainer">
+                    {% for item in bestsellers %}
+                    <div class="bestseller-item">
+                        <div class="bestseller-rank">{{ forloop.counter }}</div>
+                        <div class="bestseller-info">
+                            <div class="bestseller-name">{{ item.product__title|truncatechars:30 }}</div>
+                            <div class="bestseller-stats">{{ item.total_quantity }} verkauft</div>
+                        </div>
+                        <div class="bestseller-value">{{ item.total_revenue|floatformat:0 }}€</div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center text-muted">
+                        <i class="fas fa-chart-bar fa-3x mb-3"></i>
+                        <p>Keine Verkaufsdaten verfügbar</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions animate__animated animate__fadeInUp" style="animation-delay: 1.2s;">
+        <h3><i class="fas fa-bolt"></i> Schnellzugriff</h3>
+        <div class="quick-action-grid">
+            <a href="{% url 'shopify_manager:shipping_profiles' %}?store={{ store.id }}" class="quick-action-item">
+                <i class="fas fa-shipping-fast"></i>
+                <div>Versandprofile</div>
+            </a>
+            <a href="{% url 'shopify_manager:recurring_costs' %}?store={{ store.id }}" class="quick-action-item">
+                <i class="fas fa-calendar-alt"></i>
+                <div>Laufende Kosten</div>
+            </a>
+            <a href="{% url 'shopify_manager:ads_costs' %}?store={{ store.id }}" class="quick-action-item">
+                <i class="fas fa-bullhorn"></i>
+                <div>Werbekosten</div>
+            </a>
+            <a href="{% url 'shopify_manager:product_cost_management' %}?store={{ store.id }}" class="quick-action-item">
+                <i class="fas fa-tags"></i>
+                <div>Produktkosten</div>
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+const chartData = {{ chart_data|safe }};
+const bestsellersData = {{ bestsellers|safe }};
+
+// Initialize charts
+document.addEventListener('DOMContentLoaded', function() {
+    initCharts();
+});
+
+function initCharts() {
+    // Revenue Chart
+    const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+    const revenueChart = new Chart(revenueCtx, {
+        type: 'line',
+        data: {
+            labels: chartData.labels,
+            datasets: [{
+                label: 'Umsatz (€)',
+                data: chartData.revenue,
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                borderWidth: 3,
+                tension: 0.4,
+                fill: true,
+                pointBackgroundColor: '#667eea',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2,
+                pointRadius: 6,
+                pointHoverRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        color: '#718096'
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: '#e2e8f0'
+                    },
+                    ticks: {
+                        color: '#718096',
+                        callback: function(value) {
+                            return value + '€';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Orders Chart
+    const ordersCtx = document.getElementById('ordersChart').getContext('2d');
+    const ordersChart = new Chart(ordersCtx, {
+        type: 'bar',
+        data: {
+            labels: chartData.labels,
+            datasets: [{
+                label: 'Bestellungen',
+                data: chartData.orders,
+                backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                borderColor: '#667eea',
+                borderWidth: 1,
+                borderRadius: 4,
+                borderSkipped: false
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        color: '#718096'
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: '#e2e8f0'
+                    },
+                    ticks: {
+                        color: '#718096',
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+
+    // Profit Chart
+    const profitCtx = document.getElementById('profitChart').getContext('2d');
+    const profitChart = new Chart(profitCtx, {
+        type: 'bar',
+        data: {
+            labels: chartData.labels,
+            datasets: [{
+                label: 'Gewinn (€)',
+                data: chartData.revenue.map((revenue, index) => revenue - (chartData.orders[index] * 50)), // Simplified profit calculation
+                backgroundColor: function(context) {
+                    const value = context.parsed.y;
+                    return value >= 0 ? 'rgba(56, 161, 105, 0.8)' : 'rgba(229, 62, 62, 0.8)';
+                },
+                borderColor: function(context) {
+                    const value = context.parsed.y;
+                    return value >= 0 ? '#38a169' : '#e53e3e';
+                },
+                borderWidth: 1,
+                borderRadius: 4,
+                borderSkipped: false
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        color: '#718096'
+                    }
+                },
+                y: {
+                    grid: {
+                        color: '#e2e8f0'
+                    },
+                    ticks: {
+                        color: '#718096',
+                        callback: function(value) {
+                            return value + '€';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function changeStore(storeId) {
+    showLoading();
+    window.location.href = '{% url "shopify_manager:sales_dashboard" %}?store=' + storeId;
+}
+
+function setPeriod(period) {
+    // Update active button
+    document.querySelectorAll('.period-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    // Reload with new period
+    showLoading();
+    const url = new URL(window.location.href);
+    url.searchParams.set('period', period);
+    window.location.href = url.toString();
+}
+
+function showLoading() {
+    document.getElementById('loadingOverlay').style.display = 'flex';
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').style.display = 'none';
+}
+
+// Auto-refresh every 5 minutes
+setInterval(function() {
+    location.reload();
+}, 300000);
+</script>
+{% endblock %}

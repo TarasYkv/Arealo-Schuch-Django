@@ -122,14 +122,24 @@
                             <div class="d-flex {% if message.sender == request.user %}justify-content-end{% else %}justify-content-start{% endif %}">
                                 {% if message.sender != request.user %}
                                     <div class="user-avatar bg-secondary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" style="width: 35px; height: 35px; font-size: 0.8rem;">
-                                        {{ message.sender.get_full_name.0|default:message.sender.username.0|upper }}
+                                        {% if message.sender %}
+                                            {{ message.sender.get_full_name.0|default:message.sender.username.0|upper }}
+                                        {% else %}
+                                            {{ message.sender_name.0|default:"A"|upper }}
+                                        {% endif %}
                                     </div>
                                 {% endif %}
                                 
                                 <div class="message-content" style="max-width: 75%;">
                                     {% if message.reply_to %}
                                         <div class="message-reply bg-white p-2 rounded mb-2 border-start border-3 border-primary">
-                                            <small class="text-muted d-block">{{ message.reply_to.sender.get_full_name|default:message.reply_to.sender.username }}</small>
+                                            <small class="text-muted d-block">
+                                                {% if message.reply_to.sender %}
+                                                    {{ message.reply_to.sender.get_full_name|default:message.reply_to.sender.username }}
+                                                {% else %}
+                                                    {{ message.reply_to.sender_name|default:"Anonym" }}
+                                                {% endif %}
+                                            </small>
                                             <p class="mb-0 small">{{ message.reply_to.content|truncatewords:10 }}</p>
                                         </div>
                                     {% endif %}
@@ -145,7 +155,11 @@
                                     <div class="message-time mt-1">
                                         <small class="text-muted">
                                             {% if message.sender != request.user %}
-                                                {{ message.sender.get_full_name|default:message.sender.username }} • 
+                                                {% if message.sender %}
+                                                    {{ message.sender.get_full_name|default:message.sender.username }}
+                                                {% else %}
+                                                    {{ message.sender_name|default:"Anonym" }}
+                                                {% endif %} • 
                                             {% endif %}
                                             {{ message.get_formatted_time }}
                                             {% if message.is_edited %}
@@ -157,7 +171,11 @@
                                 
                                 {% if message.sender == request.user %}
                                     <div class="user-avatar bg-primary text-white rounded-circle ms-2 d-flex align-items-center justify-content-center" style="width: 35px; height: 35px; font-size: 0.8rem;">
-                                        {{ message.sender.get_full_name.0|default:message.sender.username.0|upper }}
+                                        {% if message.sender %}
+                                            {{ message.sender.get_full_name.0|default:message.sender.username.0|upper }}
+                                        {% else %}
+                                            {{ message.sender_name.0|default:"A"|upper }}
+                                        {% endif %}
                                     </div>
                                 {% endif %}
                             </div>

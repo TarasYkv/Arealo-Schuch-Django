@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import sales_views
 
 app_name = 'shopify_manager'
 
@@ -74,4 +75,33 @@ urlpatterns = [
     
     # Blog-Post Alt-Text Manager
     path('blog-posts/<int:blog_post_id>/alt-text/', views.blog_post_alt_text_manager_view, name='blog_post_alt_text_manager'),
+    
+    # Sales Statistics
+    path('sales/', sales_views.sales_dashboard_view, name='sales_dashboard'),
+    path('sales/import/', sales_views.import_sales_data_view, name='import_sales_data'),
+    path('sales/data/', sales_views.sales_data_list_view, name='sales_data_list'),
+    path('sales/cost-breakdown/', sales_views.cost_breakdown_view, name='cost_breakdown'),
+    
+    # Shipping Profiles
+    path('shipping-profiles/', sales_views.ShippingProfileListView.as_view(), name='shipping_profiles'),
+    path('shipping-profiles/add/', sales_views.ShippingProfileCreateView.as_view(), name='shipping_profile_add'),
+    path('shipping-profiles/<int:pk>/edit/', sales_views.ShippingProfileUpdateView.as_view(), name='shipping_profile_edit'),
+    path('shipping-profiles/<int:pk>/delete/', sales_views.ShippingProfileDeleteView.as_view(), name='shipping_profile_delete'),
+    path('shipping-profiles/assign/', sales_views.assign_shipping_profile_view, name='assign_shipping_profile'),
+    
+    # Recurring Costs
+    path('recurring-costs/', sales_views.RecurringCostListView.as_view(), name='recurring_costs'),
+    path('recurring-costs/add/', sales_views.RecurringCostCreateView.as_view(), name='recurring_cost_add'),
+    path('recurring-costs/<int:pk>/edit/', sales_views.RecurringCostUpdateView.as_view(), name='recurring_cost_edit'),
+    path('recurring-costs/<int:pk>/delete/', sales_views.RecurringCostDeleteView.as_view(), name='recurring_cost_delete'),
+    
+    # Ads Costs
+    path('ads-costs/', sales_views.AdsCostListView.as_view(), name='ads_costs'),
+    path('ads-costs/add/', sales_views.AdsCostCreateView.as_view(), name='ads_cost_add'),
+    path('ads-costs/<int:pk>/edit/', sales_views.AdsCostUpdateView.as_view(), name='ads_cost_edit'),
+    path('ads-costs/<int:pk>/delete/', sales_views.AdsCostDeleteView.as_view(), name='ads_cost_delete'),
+    
+    # Product Cost Management
+    path('product-costs/', sales_views.product_cost_management_view, name='product_cost_management'),
+    path('api/update-product-cost/', sales_views.update_product_cost_view, name='update_product_cost'),
 ]

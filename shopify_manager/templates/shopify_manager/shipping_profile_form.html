@@ -1,0 +1,91 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}{% if object %}Versandprofil bearbeiten{% else %}Neues Versandprofil{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3>{% if object %}Versandprofil bearbeiten{% else %}Neues Versandprofil{% endif %}</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="form-group">
+                            <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+                            {{ form.name }}
+                            {% if form.name.errors %}
+                                <div class="text-danger">{{ form.name.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="{{ form.shipping_cost.id_for_label }}">{{ form.shipping_cost.label }}</label>
+                            {{ form.shipping_cost }}
+                            {% if form.shipping_cost.errors %}
+                                <div class="text-danger">{{ form.shipping_cost.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group">
+                            <div class="form-check">
+                                {{ form.is_active }}
+                                <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                    {{ form.is_active.label }}
+                                </label>
+                            </div>
+                            {% if form.is_active.errors %}
+                                <div class="text-danger">{{ form.is_active.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Speichern
+                            </button>
+                            <a href="{% url 'shopify_manager:shipping_profiles' %}?store={{ request.GET.store }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Zurück
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Hilfe</h4>
+                </div>
+                <div class="card-body">
+                    <h5>Versandprofile</h5>
+                    <p>Versandprofile helfen dabei, die tatsächlichen Versandkosten für verschiedene Produktgruppen zu definieren.</p>
+                    
+                    <h6>Verwendung:</h6>
+                    <ul>
+                        <li>Erstelle verschiedene Profile für unterschiedliche Produktkategorien</li>
+                        <li>Weise Produkte den entsprechenden Versandprofilen zu</li>
+                        <li>Die Versandkosten werden automatisch bei der Gewinnberechnung berücksichtigt</li>
+                    </ul>
+                    
+                    <h6>Beispiele:</h6>
+                    <ul>
+                        <li>Standardversand (4,95€)</li>
+                        <li>Sperrgutversand (19,95€)</li>
+                        <li>Kostenloser Versand (0,00€)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

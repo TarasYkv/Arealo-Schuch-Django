@@ -144,8 +144,10 @@
                                                 {% with other_user=room|get_other_participant:request.user %}
                                                     {% if other_user %}
                                                         {{ other_user.get_full_name.0|default:other_user.username.0|upper }}
-                                                    {% else %}
+                                                    {% elif room.created_by %}
                                                         {{ room.created_by.get_full_name.0|default:room.created_by.username.0|upper }}
+                                                    {% else %}
+                                                        <i class="fas fa-bug"></i>
                                                     {% endif %}
                                                 {% endwith %}
                                             {% endif %}
@@ -188,7 +190,13 @@
                                         {% with last_message=room.get_last_message %}
                                             {% if last_message %}
                                                 <div class="chat-room-preview">
-                                                    <strong>{{ last_message.sender.get_full_name|default:last_message.sender.username }}:</strong>
+                                                    <strong>
+                                                        {% if last_message.sender %}
+                                                            {{ last_message.sender.get_full_name|default:last_message.sender.username }}
+                                                        {% else %}
+                                                            {{ last_message.sender_name|default:"Anonym" }}
+                                                        {% endif %}:
+                                                    </strong>
                                                     {{ last_message.content|truncatewords:8 }}
                                                 </div>
                                             {% else %}

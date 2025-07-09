@@ -1,0 +1,537 @@
+{% extends 'chat/base.html' %}
+{% load chat_extras %}
+
+{% block content %}
+<style>
+.chat-container {
+    height: calc(100vh - 200px);
+    display: flex;
+}
+
+.chat-sidebar {
+    width: 400px;
+    border-right: 1px solid #dee2e6;
+    display: flex;
+    flex-direction: column;
+    background: #f8f9fa;
+}
+
+.chat-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: white;
+}
+
+.chat-header {
+    padding: 1rem;
+    border-bottom: 1px solid #dee2e6;
+    background: white;
+}
+
+.chat-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+}
+
+.chat-room-item {
+    padding: 15px;
+    border-bottom: 1px solid #e9ecef;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.chat-room-item:hover {
+    background-color: #e9ecef;
+}
+
+.chat-room-item.active {
+    background-color: #007bff;
+    color: white;
+}
+
+.chat-room-item.active .text-muted {
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: white;
+    margin-right: 12px;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    background: #f8f9fa;
+}
+
+.message-input-area {
+    padding: 1rem;
+    border-top: 1px solid #dee2e6;
+    background: white;
+}
+
+.message-bubble {
+    max-width: 70%;
+    padding: 10px 15px;
+    border-radius: 18px;
+    margin-bottom: 10px;
+    word-wrap: break-word;
+}
+
+.message-own {
+    background-color: #007bff;
+    color: white;
+    margin-left: auto;
+}
+
+.message-other {
+    background-color: white;
+    color: #333;
+    border: 1px solid #dee2e6;
+}
+
+.empty-chat {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    flex-direction: column;
+    color: #6c757d;
+}
+
+.no-chat-selected {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    flex-direction: column;
+    color: #6c757d;
+}
+
+.badge-unread {
+    background-color: #dc3545;
+    color: white;
+    border-radius: 50%;
+    padding: 2px 6px;
+    font-size: 0.7rem;
+    min-width: 18px;
+    text-align: center;
+}
+
+.search-box {
+    padding: 0.5rem;
+    border: none;
+    border-bottom: 1px solid #dee2e6;
+    background: white;
+}
+
+.search-box:focus {
+    outline: none;
+    border-bottom-color: #007bff;
+}
+</style>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">
+                            <i class="fas fa-comments text-primary"></i>
+                            Chat
+                        </h4>
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'chat:user_search' %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-search"></i> Nutzer suchen
+                            </a>
+                            <a href="{% url 'chat:create_group_chat' %}" class="btn btn-sm btn-outline-success">
+                                <i class="fas fa-users"></i> Gruppe erstellen
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="chat-container">
+                        <!-- Chat Sidebar -->
+                        <div class="chat-sidebar">
+                            <div class="chat-header">
+                                <h6 class="mb-0">Chats ({{ chat_rooms|length }})</h6>
+                            </div>
+                            <input type="text" class="search-box" placeholder="Chats durchsuchen..." id="chatSearch">
+                            <div class="chat-list" id="chatList">
+                                {% for room in chat_rooms %}
+                                <div class="chat-room-item" data-room-id="{{ room.id }}" onclick="loadChat({{ room.id }})">
+                                    <div class="d-flex align-items-center">
+                                        <div class="user-avatar {% if room.is_group_chat %}bg-success{% else %}bg-primary{% endif %}">
+                                            {% if room.is_group_chat %}
+                                                <i class="fas fa-users"></i>
+                                            {% else %}
+                                                {% with other_user=room|get_other_participant:request.user %}
+                                                    {% if other_user %}
+                                                        {{ other_user.get_full_name.0|default:other_user.username.0|upper }}
+                                                    {% elif room.created_by %}
+                                                        {{ room.created_by.get_full_name.0|default:room.created_by.username.0|upper }}
+                                                    {% else %}
+                                                        <i class="fas fa-bug"></i>
+                                                    {% endif %}
+                                                {% endwith %}
+                                            {% endif %}
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div>
+                                                    <h6 class="mb-0">{{ room.name|default:room }}</h6>
+                                                    {% with last_message=room.get_last_message %}
+                                                        {% if last_message %}
+                                                            <small class="text-muted">
+                                                                {% if last_message.sender %}
+                                                                    {{ last_message.sender.get_full_name|default:last_message.sender.username }}
+                                                                {% else %}
+                                                                    {{ last_message.sender_name|default:"Anonym" }}
+                                                                {% endif %}:
+                                                                {{ last_message.content|truncatewords:5 }}
+                                                            </small>
+                                                        {% else %}
+                                                            <small class="text-muted">Noch keine Nachrichten</small>
+                                                        {% endif %}
+                                                    {% endwith %}
+                                                </div>
+                                                <div class="text-end">
+                                                    <small class="text-muted">{{ room.last_message_at|timesince }}</small>
+                                                    {% if room.unread_count > 0 %}
+                                                        <div class="badge-unread">{{ room.unread_count }}</div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <div class="empty-chat">
+                                    <i class="fas fa-comments fa-3x mb-3"></i>
+                                    <p>Keine Chats vorhanden</p>
+                                    <a href="{% url 'chat:user_search' %}" class="btn btn-primary btn-sm">
+                                        <i class="fas fa-search"></i> Nutzer suchen
+                                    </a>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Chat Main Area -->
+                        <div class="chat-main">
+                            <div id="chatHeader" class="chat-header" style="display: none;">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center">
+                                        <div id="chatAvatar" class="user-avatar bg-primary me-3"></div>
+                                        <div>
+                                            <h6 class="mb-0" id="chatTitle">Chat-Name</h6>
+                                            <small class="text-muted" id="chatSubtitle">Informationen</small>
+                                        </div>
+                                    </div>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="#"><i class="fas fa-info-circle"></i> Info</a></li>
+                                            <li><a class="dropdown-item" href="#"><i class="fas fa-trash"></i> Löschen</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="chat-messages" id="chatMessages">
+                                <div class="no-chat-selected">
+                                    <i class="fas fa-comments fa-4x mb-3"></i>
+                                    <h5>Wählen Sie einen Chat aus</h5>
+                                    <p>Klicken Sie auf einen Chat in der Seitenleiste, um die Unterhaltung zu beginnen.</p>
+                                </div>
+                            </div>
+                            
+                            <div class="message-input-area" id="messageInput" style="display: none;">
+                                <div class="d-flex align-items-end gap-2">
+                                    <div class="flex-grow-1">
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" placeholder="Nachricht eingeben..." id="messageText" onkeypress="handleKeyPress(event)">
+                                        </div>
+                                        <div id="attachmentPreview" class="mt-2" style="display: none;"></div>
+                                    </div>
+                                    <div class="d-flex gap-1">
+                                        <button class="btn btn-outline-secondary" onclick="document.getElementById('fileInput').click()" title="Datei anhängen">
+                                            <i class="fas fa-paperclip"></i>
+                                        </button>
+                                        <button class="btn btn-primary" onclick="sendMessage()">
+                                            <i class="fas fa-paper-plane"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <input type="file" id="fileInput" multiple style="display: none;" onchange="handleFileSelect(event)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentRoomId = null;
+let messagesContainer = document.getElementById('chatMessages');
+let messageInput = document.getElementById('messageText');
+let selectedFiles = [];
+let attachmentPreview = document.getElementById('attachmentPreview');
+
+function loadChat(roomId) {
+    // Update active chat room
+    document.querySelectorAll('.chat-room-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    document.querySelector(`[data-room-id="${roomId}"]`).classList.add('active');
+    
+    currentRoomId = roomId;
+    
+    // Show chat header and input
+    document.getElementById('chatHeader').style.display = 'block';
+    document.getElementById('messageInput').style.display = 'block';
+    
+    // Load messages
+    fetch(`/chat/api/room/${roomId}/messages/`)
+        .then(response => {
+            console.log('Response status:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('Response data:', data);
+            if (data.success) {
+                displayMessages(data.messages);
+                updateChatHeader(data.room);
+            } else {
+                console.error('Error loading messages:', data.error);
+                alert('Fehler beim Laden der Nachrichten: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Netzwerkfehler beim Laden der Nachrichten');
+        });
+}
+
+function displayMessages(messages) {
+    console.log('displayMessages called with:', messages);
+    messagesContainer.innerHTML = '';
+    
+    if (!messages || messages.length === 0) {
+        messagesContainer.innerHTML = `
+            <div class="empty-chat">
+                <i class="fas fa-comments fa-3x mb-3"></i>
+                <p>Noch keine Nachrichten</p>
+                <p class="text-muted">Senden Sie die erste Nachricht!</p>
+            </div>
+        `;
+        return;
+    }
+    
+    messages.forEach(message => {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `d-flex ${message.is_own ? 'justify-content-end' : 'justify-content-start'} mb-3`;
+        
+        const isOwn = message.is_own;
+        const senderName = message.sender_name || 'Anonym';
+        
+        let attachmentsHtml = '';
+        if (message.attachments && message.attachments.length > 0) {
+            attachmentsHtml = '<div class="attachments mt-2">';
+            message.attachments.forEach(attachment => {
+                if (attachment.is_image) {
+                    attachmentsHtml += `
+                        <div class="attachment-item mb-2">
+                            <img src="${attachment.file_url}" alt="${attachment.filename}" class="img-fluid rounded" style="max-width: 300px; max-height: 200px;">
+                            <div class="small text-muted">${attachment.filename} (${attachment.file_size})</div>
+                        </div>
+                    `;
+                } else {
+                    attachmentsHtml += `
+                        <div class="attachment-item mb-2">
+                            <a href="${attachment.file_url}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-file"></i> ${attachment.filename} (${attachment.file_size})
+                            </a>
+                        </div>
+                    `;
+                }
+            });
+            attachmentsHtml += '</div>';
+        }
+        
+        messageDiv.innerHTML = `
+            <div class="message-bubble ${isOwn ? 'message-own' : 'message-other'}">
+                ${!isOwn ? `<div class="mb-1"><small><strong>${senderName}</strong></small></div>` : ''}
+                <div>${message.content || ''}</div>
+                ${attachmentsHtml}
+                <div class="mt-1">
+                    <small class="opacity-75">${message.formatted_time}</small>
+                </div>
+            </div>
+        `;
+        
+        messagesContainer.appendChild(messageDiv);
+    });
+    
+    // Scroll to bottom
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function updateChatHeader(room) {
+    document.getElementById('chatTitle').textContent = room.name || room.display_name;
+    document.getElementById('chatSubtitle').textContent = room.is_group_chat ? 
+        `${room.participant_count} Teilnehmer` : 'Privater Chat';
+    
+    const avatar = document.getElementById('chatAvatar');
+    avatar.className = `user-avatar ${room.is_group_chat ? 'bg-success' : 'bg-primary'} me-3`;
+    avatar.innerHTML = room.is_group_chat ? '<i class="fas fa-users"></i>' : room.avatar_text;
+}
+
+function sendMessage() {
+    const messageText = messageInput.value.trim();
+    if (!messageText && selectedFiles.length === 0) return;
+    if (!currentRoomId) return;
+    
+    const formData = new FormData();
+    formData.append('content', messageText);
+    
+    // Add attachments
+    selectedFiles.forEach(file => {
+        formData.append('attachments', file);
+    });
+    
+    fetch(`/chat/api/room/${currentRoomId}/send/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            messageInput.value = '';
+            selectedFiles = [];
+            attachmentPreview.style.display = 'none';
+            attachmentPreview.innerHTML = '';
+            loadChat(currentRoomId); // Reload messages
+        } else {
+            alert('Fehler beim Senden der Nachricht: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Verbindungsfehler');
+    });
+}
+
+function handleKeyPress(event) {
+    if (event.key === 'Enter') {
+        sendMessage();
+    }
+}
+
+// Search functionality
+document.getElementById('chatSearch').addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase();
+    const chatItems = document.querySelectorAll('.chat-room-item');
+    
+    chatItems.forEach(item => {
+        const chatName = item.querySelector('h6').textContent.toLowerCase();
+        const lastMessage = item.querySelector('.text-muted').textContent.toLowerCase();
+        
+        if (chatName.includes(searchTerm) || lastMessage.includes(searchTerm)) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+});
+
+// Get CSRF cookie
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Handle file selection
+function handleFileSelect(event) {
+    const files = Array.from(event.target.files);
+    selectedFiles = files;
+    
+    if (files.length === 0) {
+        attachmentPreview.style.display = 'none';
+        return;
+    }
+    
+    let previewHtml = '<div class="selected-files"><strong>Ausgewählte Dateien:</strong><br>';
+    files.forEach((file, index) => {
+        const fileSize = formatFileSize(file.size);
+        previewHtml += `
+            <div class="file-item d-flex align-items-center gap-2 mb-1">
+                <i class="fas fa-file"></i>
+                <span>${file.name} (${fileSize})</span>
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(${index})">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+    });
+    previewHtml += '</div>';
+    
+    attachmentPreview.innerHTML = previewHtml;
+    attachmentPreview.style.display = 'block';
+}
+
+function removeFile(index) {
+    selectedFiles.splice(index, 1);
+    if (selectedFiles.length === 0) {
+        attachmentPreview.style.display = 'none';
+    } else {
+        // Update preview
+        handleFileSelect({ target: { files: selectedFiles } });
+    }
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Auto-refresh messages every 5 seconds
+setInterval(() => {
+    if (currentRoomId) {
+        loadChat(currentRoomId);
+    }
+}, 5000);
+</script>
+{% endblock %}

@@ -133,3 +133,58 @@ class CustomPasswordChangeForm(PasswordChangeForm):
         self.fields['old_password'].widget.attrs.update({'class': 'form-control'})
         self.fields['new_password1'].widget.attrs.update({'class': 'form-control'})
         self.fields['new_password2'].widget.attrs.update({'class': 'form-control'})
+
+
+class SuperUserManagementForm(forms.Form):
+    """Formular für Super User Verwaltung"""
+    
+    def __init__(self, *args, **kwargs):
+        current_user = kwargs.pop('current_user', None)
+        super().__init__(*args, **kwargs)
+        
+        # Alle Benutzer außer dem aktuellen
+        users = CustomUser.objects.all()
+        if current_user:
+            users = users.exclude(id=current_user.id)
+        
+        for user in users:
+            self.fields[f'user_{user.id}_superuser'] = forms.BooleanField(
+                required=False,
+                initial=user.is_bug_chat_superuser,
+                label=f"{user.username} - Super User",
+                widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+            )
+            
+            self.fields[f'user_{user.id}_receive_reports'] = forms.BooleanField(
+                required=False,
+                initial=user.receive_bug_reports,
+                label=f"{user.username} - Bug-Meldungen empfangen",
+                widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+            )
+            
+            self.fields[f'user_{user.id}_receive_anonymous'] = forms.BooleanField(
+                required=False,
+                initial=user.receive_anonymous_reports,
+                label=f"{user.username} - Anonyme Meldungen empfangen",
+                widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+            )
+
+
+class BugChatSettingsForm(forms.ModelForm):
+    """Formular für Bug-Chat-Einstellungen des aktuellen Users"""
+    
+    class Meta:
+        model = CustomUser
+        fields = ['receive_bug_reports', 'receive_anonymous_reports']
+        widgets = {
+            'receive_bug_reports': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'receive_anonymous_reports': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+        labels = {
+            'receive_bug_reports': 'Bug-Meldungen empfangen',
+            'receive_anonymous_reports': 'Anonyme Meldungen empfangen',
+        }
+        help_texts = {
+            'receive_bug_reports': 'Erhalten Sie Bug-Meldungen von angemeldeten Benutzern',
+            'receive_anonymous_reports': 'Erhalten Sie auch Bug-Meldungen von nicht angemeldeten Benutzern',
+        }

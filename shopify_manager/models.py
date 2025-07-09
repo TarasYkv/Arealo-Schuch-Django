@@ -17,6 +17,39 @@ class ShopifyStore(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='shopify_stores')
     description = models.TextField(blank=True, help_text="Optionale Beschreibung")
     custom_domain = models.CharField(max_length=200, blank=True, help_text="Custom Domain (z.B. naturmacher.de)")
+    
+    # PayPal-Konfiguration
+    PAYPAL_ACCOUNT_TYPES = [
+        ('standard', 'Standard Account'),
+        ('business', 'Business Account'),
+        ('handler', 'Handler Account'),
+    ]
+    
+    paypal_account_type = models.CharField(
+        max_length=20, 
+        choices=PAYPAL_ACCOUNT_TYPES, 
+        default='standard',
+        help_text="PayPal Account-Typ für Gebührenberechnung"
+    )
+    paypal_monthly_volume = models.DecimalField(
+        max_digits=12, 
+        decimal_places=2, 
+        default=0.00,
+        help_text="Monatliches PayPal-Transaktionsvolumen für gestaffelte Gebühren"
+    )
+    paypal_handler_rate = models.DecimalField(
+        max_digits=5, 
+        decimal_places=4, 
+        default=0.0199,
+        help_text="Handler Account Gebührensatz (Standard: 1.99%)"
+    )
+    paypal_handler_fixed_fee = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=0.35,
+        help_text="Handler Account Fixgebühr (Standard: 0.35€)"
+    )
+    
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -900,3 +933,311 @@ class BlogPostSEOOptimization(models.Model):
         
         self.is_applied = True
         self.save()
+
+
+class ShippingProfile(models.Model):
+    """Versandprofile für Kostenberechnung"""
+    name = models.CharField(max_length=200, help_text="Name des Versandprofils")
+    store = models.ForeignKey(ShopifyStore, on_delete=models.CASCADE, related_name='shipping_profiles')
+    
+    # Versandkosten
+    shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Tatsächliche Versandkosten")
+    
+    # Metadaten
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    
+    def __str__(self):
+        return f"{self.name} - {self.shipping_cost}€"
+    
+    class Meta:
+        verbose_name = "Versandprofil"
+        verbose_name_plural = "Versandprofile"
+        unique_together = ['name', 'store']
+
+
+class ProductShippingProfile(models.Model):
+    """Zuordnung von Produkten zu Versandprofilen"""
+    product = models.OneToOneField(ShopifyProduct, on_delete=models.CASCADE, related_name='shipping_profile')
+    shipping_profile = models.ForeignKey(ShippingProfile, on_delete=models.CASCADE, related_name='products')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Produkt-Versandprofil"
+        verbose_name_plural = "Produkt-Versandprofile"
+
+
+class SalesData(models.Model):
+    """Verkaufsdaten von Shopify"""
+    store = models.ForeignKey(ShopifyStore, on_delete=models.CASCADE, related_name='sales_data')
+    product = models.ForeignKey(ShopifyProduct, on_delete=models.CASCADE, related_name='sales_data', null=True, blank=True)
+    
+    # Shopify Order/Line Item IDs
+    shopify_order_id = models.CharField(max_length=50, help_text="Shopify Order ID")
+    shopify_line_item_id = models.CharField(max_length=50, help_text="Shopify Line Item ID")
+    
+    # Verkaufsdaten
+    order_date = models.DateTimeField(help_text="Bestelldatum")
+    quantity = models.PositiveIntegerField(help_text="Verkaufte Menge")
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, help_text="Verkaufspreis pro Einheit")
+    total_price = models.DecimalField(max_digits=10, decimal_places=2, help_text="Gesamtpreis")
+    
+    # Detaillierte Kostenaufschlüsselung
+    # Beschaffungskosten (aus Shopify cost_per_item)
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Einkaufspreis pro Einheit aus Shopify")
+    
+    # Versandkosten (getrennt: Shop vs. tatsächlich)
+    shop_shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Versandkosten die der Kunde bezahlt hat")
+    actual_shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Tatsächliche Versandkosten (aus Versandprofil)")
+    
+    # Provisionen und Gebühren
+    shopify_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Shopify Provision")
+    paypal_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="PayPal Provision")
+    payment_gateway_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Payment Gateway Gebühren")
+    
+    # Steuern
+    tax_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Mehrwertsteuer")
+    
+    # Legacy-Feld für Rückwärtskompatibilität
+    shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Versandkosten (Legacy - nutze shop_shipping_cost)")
+    
+    # Metadaten
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        product_name = self.product.title if self.product else "Unknown Product"
+        return f"{product_name} - {self.order_date.strftime('%d.%m.%Y')}"
+    
+    @property
+    def total_cost(self):
+        """Gesamtkosten berechnen"""
+        cost = 0
+        if self.cost_price:
+            cost += self.cost_price * self.quantity
+        cost += self.get_actual_shipping_cost() + self.shopify_fee + self.paypal_fee + self.payment_gateway_fee
+        return cost
+    
+    @property
+    def total_procurement_cost(self):
+        """Gesamte Beschaffungskosten"""
+        if self.cost_price:
+            return self.cost_price * self.quantity
+        return 0
+    
+    @property
+    def total_fees(self):
+        """Gesamte Gebühren (Shopify + PayPal + Payment Gateway)"""
+        return self.shopify_fee + self.paypal_fee + self.payment_gateway_fee
+    
+    def get_actual_shipping_cost(self):
+        """Tatsächliche Versandkosten oder Fallback auf Shop-Versandkosten"""
+        return self.actual_shipping_cost if self.actual_shipping_cost is not None else self.shop_shipping_cost
+    
+    @property
+    def shipping_profit_loss(self):
+        """Gewinn/Verlust bei Versandkosten"""
+        return self.shop_shipping_cost - self.get_actual_shipping_cost()
+    
+    @property
+    def profit(self):
+        """Gewinn berechnen"""
+        return self.total_price - self.total_cost
+    
+    @property
+    def margin(self):
+        """Gewinnmarge in Prozent"""
+        if self.total_price == 0:
+            return 0
+        return (self.profit / self.total_price) * 100
+    
+    def get_cost_breakdown(self):
+        """Detaillierte Kostenaufschlüsselung"""
+        return {
+            'procurement_cost': self.total_procurement_cost,
+            'shop_shipping_cost': self.shop_shipping_cost,
+            'actual_shipping_cost': self.get_actual_shipping_cost(),
+            'shipping_profit_loss': self.shipping_profit_loss,
+            'shopify_fee': self.shopify_fee,
+            'paypal_fee': self.paypal_fee,
+            'payment_gateway_fee': self.payment_gateway_fee,
+            'tax_amount': self.tax_amount,
+            'total_cost': self.total_cost,
+            'total_revenue': self.total_price,
+            'profit': self.profit,
+            'margin': self.margin
+        }
+    
+    class Meta:
+        verbose_name = "Verkaufsdaten"
+        verbose_name_plural = "Verkaufsdaten"
+        ordering = ['-order_date']
+        unique_together = ['shopify_order_id', 'shopify_line_item_id']
+
+
+class RecurringCost(models.Model):
+    """Laufende Kosten"""
+    FREQUENCY_CHOICES = [
+        ('monthly', 'Monatlich'),
+        ('yearly', 'Jährlich'),
+        ('one_time', 'Einmalig'),
+    ]
+    
+    store = models.ForeignKey(ShopifyStore, on_delete=models.CASCADE, related_name='recurring_costs')
+    name = models.CharField(max_length=200, help_text="Name der laufenden Kosten")
+    description = models.TextField(blank=True, help_text="Beschreibung der Kosten")
+    amount = models.DecimalField(max_digits=10, decimal_places=2, help_text="Kostenbetrag")
+    frequency = models.CharField(max_length=20, choices=FREQUENCY_CHOICES, default='monthly')
+    
+    # Zeitraum
+    start_date = models.DateField(help_text="Startdatum der Kosten")
+    end_date = models.DateField(null=True, blank=True, help_text="Enddatum (optional)")
+    
+    # Metadaten
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    
+    def __str__(self):
+        return f"{self.name} - {self.amount}€ ({self.get_frequency_display()})"
+    
+    def get_monthly_cost(self):
+        """Monatliche Kosten berechnen"""
+        if self.frequency == 'monthly':
+            return self.amount
+        elif self.frequency == 'yearly':
+            return self.amount / 12
+        else:  # one_time
+            return 0
+    
+    class Meta:
+        verbose_name = "Laufende Kosten"
+        verbose_name_plural = "Laufende Kosten"
+        ordering = ['-created_at']
+
+
+class AdsCost(models.Model):
+    """Werbekosten"""
+    PLATFORM_CHOICES = [
+        ('google_ads', 'Google Ads'),
+        ('facebook_ads', 'Facebook Ads'),
+        ('instagram_ads', 'Instagram Ads'),
+        ('tiktok_ads', 'TikTok Ads'),
+        ('other', 'Andere'),
+    ]
+    
+    store = models.ForeignKey(ShopifyStore, on_delete=models.CASCADE, related_name='ads_costs')
+    platform = models.CharField(max_length=20, choices=PLATFORM_CHOICES, help_text="Werbeplattform")
+    campaign_name = models.CharField(max_length=200, help_text="Name der Kampagne")
+    
+    # Kosten und Performance
+    cost = models.DecimalField(max_digits=10, decimal_places=2, help_text="Werbekosten")
+    clicks = models.PositiveIntegerField(default=0, help_text="Anzahl Klicks")
+    impressions = models.PositiveIntegerField(default=0, help_text="Anzahl Impressionen")
+    conversions = models.PositiveIntegerField(default=0, help_text="Anzahl Conversions")
+    revenue = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Umsatz aus Werbung")
+    
+    # Zeitraum
+    date = models.DateField(help_text="Datum der Werbemaßnahme")
+    
+    # Metadaten
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.campaign_name} - {self.cost}€ ({self.date})"
+    
+    @property
+    def roas(self):
+        """Return on Ad Spend berechnen"""
+        if self.cost == 0:
+            return 0
+        return self.revenue / self.cost
+    
+    @property
+    def cpc(self):
+        """Cost per Click berechnen"""
+        if self.clicks == 0:
+            return 0
+        return self.cost / self.clicks
+    
+    @property
+    def cpm(self):
+        """Cost per Mille (1000 Impressionen) berechnen"""
+        if self.impressions == 0:
+            return 0
+        return (self.cost / self.impressions) * 1000
+    
+    @property
+    def conversion_rate(self):
+        """Conversion Rate berechnen"""
+        if self.clicks == 0:
+            return 0
+        return (self.conversions / self.clicks) * 100
+    
+    class Meta:
+        verbose_name = "Werbekosten"
+        verbose_name_plural = "Werbekosten"
+        ordering = ['-date']
+
+
+class SalesStatistics(models.Model):
+    """Vorberechnete Verkaufsstatistiken für Performance"""
+    store = models.ForeignKey(ShopifyStore, on_delete=models.CASCADE, related_name='sales_statistics')
+    
+    # Zeitraum
+    date = models.DateField(help_text="Datum der Statistik")
+    period_type = models.CharField(max_length=20, choices=[
+        ('daily', 'Täglich'),
+        ('weekly', 'Wöchentlich'),
+        ('monthly', 'Monatlich'),
+    ], default='daily')
+    
+    # Verkaufszahlen
+    total_orders = models.PositiveIntegerField(default=0)
+    total_revenue = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    total_cost = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    total_profit = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    total_tax = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    
+    # Kosten
+    total_shipping_costs = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    total_shopify_fees = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    total_paypal_fees = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    total_ads_costs = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    total_recurring_costs = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    
+    # Metadaten
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"Statistik {self.store.name} - {self.date} ({self.get_period_type_display()})"
+    
+    @property
+    def contribution_margin(self):
+        """Deckungsbeitrag berechnen"""
+        return self.total_revenue - self.total_cost - self.total_recurring_costs
+    
+    @property
+    def margin_percentage(self):
+        """Gewinnmarge in Prozent"""
+        if self.total_revenue == 0:
+            return 0
+        return (self.total_profit / self.total_revenue) * 100
+    
+    @property
+    def roas(self):
+        """Return on Ad Spend für den Zeitraum"""
+        if self.total_ads_costs == 0:
+            return 0
+        return self.total_revenue / self.total_ads_costs
+    
+    class Meta:
+        verbose_name = "Verkaufsstatistik"
+        verbose_name_plural = "Verkaufsstatistiken"
+        ordering = ['-date']
+        unique_together = ['store', 'date', 'period_type']

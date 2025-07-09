@@ -51,6 +51,16 @@
                         <i class="bi bi-key"></i> Passwort
                     </button>
                 </li>
+                {% if is_superuser %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {% if active_tab == 'bug_chat' %}active{% endif %}" 
+                            id="bug-chat-tab" data-bs-toggle="tab" data-bs-target="#bug-chat-tab-pane" 
+                            type="button" role="tab" aria-controls="bug-chat-tab-pane" 
+                            aria-selected="{% if active_tab == 'bug_chat' %}true{% else %}false{% endif %}">
+                        <i class="bi bi-bug"></i> Bug-Chat
+                    </button>
+                </li>
+                {% endif %}
             </ul>
 
             <!-- Tab Content -->
@@ -395,6 +405,144 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Bug-Chat Tab -->
+                {% if is_superuser %}
+                <div class="tab-pane fade {% if active_tab == 'bug_chat' %}show active{% endif %}" 
+                     id="bug-chat-tab-pane" role="tabpanel" aria-labelledby="bug-chat-tab" tabindex="0">
+                    
+                    <!-- Bug-Chat-Einstellungen -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-cog"></i> Bug-Chat-Einstellungen
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="bug_chat_form" value="1">
+                                
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        {{ bug_chat_form.receive_bug_reports }}
+                                        <label class="form-check-label" for="{{ bug_chat_form.receive_bug_reports.id_for_label }}">
+                                            {{ bug_chat_form.receive_bug_reports.label }}
+                                        </label>
+                                        {% if bug_chat_form.receive_bug_reports.help_text %}
+                                            <div class="form-text">{{ bug_chat_form.receive_bug_reports.help_text }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        {{ bug_chat_form.receive_anonymous_reports }}
+                                        <label class="form-check-label" for="{{ bug_chat_form.receive_anonymous_reports.id_for_label }}">
+                                            {{ bug_chat_form.receive_anonymous_reports.label }}
+                                        </label>
+                                        {% if bug_chat_form.receive_anonymous_reports.help_text %}
+                                            <div class="form-text">{{ bug_chat_form.receive_anonymous_reports.help_text }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Einstellungen speichern
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <!-- Super User Verwaltung -->
+                    {% if user.username == 'taras' or user.username == 'Lisa' %}
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-users-cog"></i> Super User Verwaltung
+                            </h5>
+                            <small class="text-muted">Verwalten Sie die Super User Rollen für alle Benutzer</small>
+                        </div>
+                        <div class="card-body">
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="superuser_form" value="1">
+                                
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i>
+                                    <strong>Hinweis:</strong> Super User können Bug-Meldungen empfangen und bearbeiten. 
+                                    Nur die Benutzer "taras" und "Lisa" können Super User Rollen verwalten.
+                                </div>
+                                
+                                {% if superuser_form %}
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Benutzer</th>
+                                                <th>Super User</th>
+                                                <th>Bug-Meldungen</th>
+                                                <th>Anonyme Meldungen</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for field in superuser_form %}
+                                                {% if 'superuser' in field.name %}
+                                                    {% with user_id=field.name|slice:"5:-10" %}
+                                                    <tr>
+                                                        <td>
+                                                            <strong>{{ field.label|slice:"0:-13" }}</strong>
+                                                        </td>
+                                                        <td>
+                                                            <div class="form-check">
+                                                                {{ field }}
+                                                                <label class="form-check-label" for="{{ field.id_for_label }}">
+                                                                    Super User
+                                                                </label>
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            {% for reports_field in superuser_form %}
+                                                                {% if reports_field.name == 'user_'|add:user_id|add:'_receive_reports' %}
+                                                                    <div class="form-check">
+                                                                        {{ reports_field }}
+                                                                        <label class="form-check-label" for="{{ reports_field.id_for_label }}">
+                                                                            Empfangen
+                                                                        </label>
+                                                                    </div>
+                                                                {% endif %}
+                                                            {% endfor %}
+                                                        </td>
+                                                        <td>
+                                                            {% for anon_field in superuser_form %}
+                                                                {% if anon_field.name == 'user_'|add:user_id|add:'_receive_anonymous' %}
+                                                                    <div class="form-check">
+                                                                        {{ anon_field }}
+                                                                        <label class="form-check-label" for="{{ anon_field.id_for_label }}">
+                                                                            Anonym
+                                                                        </label>
+                                                                    </div>
+                                                                {% endif %}
+                                                            {% endfor %}
+                                                        </td>
+                                                    </tr>
+                                                    {% endwith %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-warning">
+                                    <i class="fas fa-save"></i> Super User Einstellungen speichern
+                                </button>
+                                {% endif %}
+                            </form>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
             </div>
             
             <!-- Vorschau (nur im Company Tab anzeigen) -->

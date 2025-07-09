@@ -7,7 +7,7 @@ from django.urls import reverse_lazy
 from django.views.generic import CreateView
 from django.views.decorators.http import require_http_methods
 from django.http import JsonResponse
-from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm, ApiKeyForm, CompanyInfoForm, UserProfileForm, CustomPasswordChangeForm
+from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm, ApiKeyForm, CompanyInfoForm, UserProfileForm, CustomPasswordChangeForm, SuperUserManagementForm, BugChatSettingsForm
 from .models import CustomUser, AmpelCategory, CategoryKeyword
 from naturmacher.models import APIBalance
 
@@ -354,6 +354,9 @@ def company_info_view(request):
     # Bestimme den aktiven Tab
     active_tab = request.GET.get('tab', 'company')
     
+    # Prüfe ob User Super User ist für Bug-Chat-Tab
+    is_superuser = request.user.is_bug_chat_superuser
+    
     if request.method == 'POST':
         # Prüfe welches Formular gesendet wurde
         if 'company_form' in request.POST:
@@ -401,6 +404,8 @@ def company_info_view(request):
             company_form = CompanyInfoForm(instance=request.user)
             profile_form = UserProfileForm(instance=request.user)
             password_form = CustomPasswordChangeForm(request.user, request.POST)
+            bug_chat_form = BugChatSettingsForm(instance=request.user)
+            superuser_form = SuperUserManagementForm(current_user=request.user) if is_superuser else None
             
             if password_form.is_valid():
                 password_form.save()
@@ -408,23 +413,79 @@ def company_info_view(request):
                 return redirect('accounts:company_info' + '?tab=password')
             active_tab = 'password'
             
+        elif 'bug_chat_form' in request.POST:
+            # Bug-Chat-Einstellungen
+            company_form = CompanyInfoForm(instance=request.user)
+            profile_form = UserProfileForm(instance=request.user)
+            password_form = CustomPasswordChangeForm(request.user)
+            bug_chat_form = BugChatSettingsForm(request.POST, instance=request.user)
+            superuser_form = SuperUserManagementForm(current_user=request.user) if is_superuser else None
+            
+            if bug_chat_form.is_valid():
+                bug_chat_form.save()
+                messages.success(request, 'Bug-Chat-Einstellungen wurden erfolgreich gespeichert!')
+                return redirect('accounts:company_info' + '?tab=bug_chat')
+            active_tab = 'bug_chat'
+            
+        elif 'superuser_form' in request.POST and is_superuser:
+            # Super User Verwaltung
+            company_form = CompanyInfoForm(instance=request.user)
+            profile_form = UserProfileForm(instance=request.user)
+            password_form = CustomPasswordChangeForm(request.user)
+            bug_chat_form = BugChatSettingsForm(instance=request.user)
+            superuser_form = SuperUserManagementForm(request.POST, current_user=request.user)
+            
+            if superuser_form.is_valid():
+                # Verarbeite Super User Änderungen
+                updated_count = 0
+                for field_name, value in superuser_form.cleaned_data.items():
+                    if field_name.startswith('user_'):
+                        parts = field_name.split('_')
+                        user_id = int(parts[1])
+                        setting_type = '_'.join(parts[2:])
+                        
+                        try:
+                            user = CustomUser.objects.get(id=user_id)
+                            if setting_type == 'superuser':
+                                user.is_bug_chat_superuser = value
+                            elif setting_type == 'receive_reports':
+                                user.receive_bug_reports = value
+                            elif setting_type == 'receive_anonymous':
+                                user.receive_anonymous_reports = value
+                            
+                            user.save()
+                            updated_count += 1
+                        except CustomUser.DoesNotExist:
+                            continue
+                
+                messages.success(request, f'Super User Einstellungen wurden für {updated_count} Benutzer aktualisiert!')
+                return redirect('accounts:company_info' + '?tab=bug_chat')
+            active_tab = 'bug_chat'
+            
         else:
             # Fallback: Alle Formulare initialisieren
             company_form = CompanyInfoForm(instance=request.user)
             profile_form = UserProfileForm(instance=request.user)
             password_form = CustomPasswordChangeForm(request.user)
+            bug_chat_form = BugChatSettingsForm(instance=request.user)
+            superuser_form = SuperUserManagementForm(current_user=request.user) if is_superuser else None
             
     else:
         # GET-Request: Alle Formulare mit aktuellen Daten initialisieren
         company_form = CompanyInfoForm(instance=request.user)
         profile_form = UserProfileForm(instance=request.user)
         password_form = CustomPasswordChangeForm(request.user)
+        bug_chat_form = BugChatSettingsForm(instance=request.user)
+        superuser_form = SuperUserManagementForm(current_user=request.user) if is_superuser else None
     
     return render(request, 'accounts/company_info.html', {
         'company_form': company_form,
         'profile_form': profile_form,
         'password_form': password_form,
+        'bug_chat_form': bug_chat_form,
+        'superuser_form': superuser_form,
         'active_tab': active_tab,
+        'is_superuser': is_superuser,
         'user': request.user,
     })
 

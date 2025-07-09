@@ -15,7 +15,8 @@ class ChatRoom(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     last_message_at = models.DateTimeField(auto_now_add=True)
     is_group_chat = models.BooleanField(default=False)
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_chat_rooms')
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_chat_rooms', null=True, blank=True)
+    is_bug_report_room = models.BooleanField(default=False, help_text="Ist ein Bug-Meldungs-Chat-Raum")
 
     class Meta:
         ordering = ['-last_message_at']
@@ -83,19 +84,28 @@ class ChatMessage(models.Model):
     ]
 
     chat_room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE, related_name='messages')
-    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages', null=True, blank=True)
+    sender_name = models.CharField(max_length=100, blank=True, null=True, help_text="Name für anonyme Nachrichten")
     message_type = models.CharField(max_length=20, choices=MESSAGE_TYPES, default='text')
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_edited = models.BooleanField(default=False)
+    is_system_message = models.BooleanField(default=False, help_text="Ist eine Systemnachricht")
     reply_to = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
 
     class Meta:
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.sender.username}: {self.content[:50]}..."
+        sender_name = self.sender.username if self.sender else (self.sender_name or "Anonym")
+        return f"{sender_name}: {self.content[:50]}..."
+    
+    def get_sender_name(self):
+        """Gibt den Namen des Absenders zurück"""
+        if self.sender:
+            return self.sender.username
+        return self.sender_name or "Anonym"
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
@@ -130,3 +140,39 @@ class ChatMessageRead(models.Model):
 
     def __str__(self):
         return f"{self.user.username} read {self.message.id}"
+
+
+class ChatMessageAttachment(models.Model):
+    """
+    Represents an attachment to a chat message
+    """
+    message = models.ForeignKey(ChatMessage, on_delete=models.CASCADE, related_name='attachments')
+    file = models.FileField(upload_to='chat_attachments/%Y/%m/%d/')
+    filename = models.CharField(max_length=255)
+    file_size = models.IntegerField()
+    file_type = models.CharField(max_length=100)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.filename} - {self.message.id}"
+
+    def get_file_size_display(self):
+        """Get human readable file size"""
+        size = self.file_size
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if size < 1024.0:
+                return f"{size:.1f} {unit}"
+            size /= 1024.0
+        return f"{size:.1f} TB"
+
+    def is_image(self):
+        """Check if file is an image"""
+        return self.file_type.startswith('image/')
+
+    def is_video(self):
+        """Check if file is a video"""
+        return self.file_type.startswith('video/')
+
+    def is_audio(self):
+        """Check if file is an audio file"""
+        return self.file_type.startswith('audio/')

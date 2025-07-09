@@ -22,6 +22,7 @@ urlpatterns = [
     path('chat/', include('chat.urls')),
     path('shopify/', include('shopify_manager.urls')),
     path('images/', include('image_editor.urls')),
+    path('bug-report/', include('bug_report.urls')),
     path('admin/', admin.site.urls),
 ]
 

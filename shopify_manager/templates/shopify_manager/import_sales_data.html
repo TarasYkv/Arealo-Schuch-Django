@@ -1,0 +1,551 @@
+{% extends 'shopify_manager/base.html' %}
+{% load static %}
+
+{% block title %}Shopify Daten importieren - {{ store.name }}{% endblock %}
+
+{% block shopify_content %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --success-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --warning-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --card-shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+
+    body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+        font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .import-header {
+        background: var(--primary-gradient);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: 0 0 2rem 2rem;
+        box-shadow: var(--card-shadow);
+    }
+
+    .import-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        margin-bottom: 0.5rem;
+    }
+
+    .import-subtitle {
+        opacity: 0.9;
+        font-size: 1.1rem;
+        font-weight: 300;
+    }
+
+    .import-card {
+        background: white;
+        border-radius: 1rem;
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .import-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--card-shadow-hover);
+    }
+
+    .import-card-header {
+        background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+        padding: 1.5rem;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .import-card-header h3 {
+        margin: 0;
+        color: #2d3748;
+        font-weight: 600;
+    }
+
+    .import-card-body {
+        padding: 2rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #2d3748;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 0.5rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: #f7fafc;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        background: white;
+    }
+
+    .form-text {
+        font-size: 0.875rem;
+        color: #718096;
+        margin-top: 0.25rem;
+    }
+
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1rem;
+    }
+
+    .btn-primary {
+        background: var(--primary-gradient);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--card-shadow-hover);
+    }
+
+    .btn-secondary {
+        background: #f7fafc;
+        color: #4a5568;
+        border: 2px solid #e2e8f0;
+    }
+
+    .btn-secondary:hover {
+        background: #edf2f7;
+        transform: translateY(-1px);
+    }
+
+    .info-card {
+        background: white;
+        border-radius: 1rem;
+        box-shadow: var(--card-shadow);
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .info-card h4 {
+        color: #2d3748;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .info-list {
+        list-style: none;
+        padding: 0;
+    }
+
+    .info-list li {
+        padding: 0.5rem 0;
+        color: #4a5568;
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .info-list li::before {
+        content: "✓";
+        color: #38a169;
+        font-weight: bold;
+        margin-top: 0.1rem;
+    }
+
+    .progress-container {
+        background: white;
+        border-radius: 1rem;
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+        margin-top: 2rem;
+        display: none;
+    }
+
+    .progress-bar {
+        width: 100%;
+        height: 8px;
+        background: #e2e8f0;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 1rem;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: var(--primary-gradient);
+        width: 0%;
+        transition: width 0.3s ease;
+    }
+
+    .progress-text {
+        text-align: center;
+        color: #4a5568;
+        font-weight: 500;
+    }
+
+    .status-messages {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: #f7fafc;
+        border-radius: 0.5rem;
+        border-left: 4px solid #667eea;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .status-message {
+        padding: 0.25rem 0;
+        color: #4a5568;
+        font-size: 0.875rem;
+    }
+
+    .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin: 2rem 0;
+    }
+
+    .feature-item {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 0.75rem;
+        box-shadow: var(--card-shadow);
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    .feature-item:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--card-shadow-hover);
+    }
+
+    .feature-icon {
+        font-size: 3rem;
+        color: #667eea;
+        margin-bottom: 1rem;
+    }
+
+    .feature-title {
+        font-weight: 600;
+        color: #2d3748;
+        margin-bottom: 0.5rem;
+    }
+
+    .feature-description {
+        color: #718096;
+        font-size: 0.875rem;
+    }
+
+    .alert {
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+        border: 1px solid transparent;
+    }
+
+    .alert-warning {
+        background: #fef5e7;
+        color: #c05621;
+        border-color: #f6e05e;
+    }
+
+    .alert-success {
+        background: #f0fff4;
+        color: #22543d;
+        border-color: #68d391;
+    }
+
+    .alert-error {
+        background: #fed7d7;
+        color: #c53030;
+        border-color: #feb2b2;
+    }
+
+    @media (max-width: 768px) {
+        .import-title {
+            font-size: 2rem;
+        }
+        
+        .feature-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<!-- Import Header -->
+<div class="import-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="import-title animate__animated animate__fadeInDown">
+                    <i class="fas fa-download"></i> Shopify Daten importieren
+                </h1>
+                <p class="import-subtitle animate__animated animate__fadeInUp">
+                    Lade aktuelle Verkaufsdaten direkt aus {{ store.name }}
+                </p>
+            </div>
+            <div class="col-md-4 text-right">
+                <a href="{% url 'shopify_manager:sales_dashboard' %}?store={{ store.id }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück zum Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="import-card animate__animated animate__fadeInUp">
+                <div class="import-card-header">
+                    <h3><i class="fas fa-cog"></i> Import-Einstellungen</h3>
+                </div>
+                <div class="import-card-body">
+                    <form method="post" id="importForm">
+                        {% csrf_token %}
+                        
+                        <div class="form-group">
+                            <label for="{{ form.start_date.id_for_label }}" class="form-label">
+                                <i class="fas fa-calendar-alt"></i> {{ form.start_date.label }}
+                            </label>
+                            {{ form.start_date }}
+                            {% if form.start_date.help_text %}
+                                <div class="form-text">{{ form.start_date.help_text }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="{{ form.end_date.id_for_label }}" class="form-label">
+                                <i class="fas fa-calendar-alt"></i> {{ form.end_date.label }}
+                            </label>
+                            {{ form.end_date }}
+                            {% if form.end_date.help_text %}
+                                <div class="form-text">{{ form.end_date.help_text }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="{{ form.limit.id_for_label }}" class="form-label">
+                                <i class="fas fa-list-ol"></i> {{ form.limit.label }}
+                            </label>
+                            {{ form.limit }}
+                            {% if form.limit.help_text %}
+                                <div class="form-text">{{ form.limit.help_text }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Wichtig:</strong> Der Import kann je nach Datenmenge einige Minuten dauern. 
+                            Bitte schließen Sie das Fenster nicht während des Imports.
+                        </div>
+                        
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary" id="importBtn">
+                                <i class="fas fa-download"></i> Import starten
+                            </button>
+                            <a href="{% url 'shopify_manager:sales_dashboard' %}?store={{ store.id }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Abbrechen
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Progress Container -->
+            <div class="progress-container" id="progressContainer">
+                <h4><i class="fas fa-sync fa-spin"></i> Import läuft...</h4>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">Bereite Import vor...</div>
+                <div class="status-messages" id="statusMessages"></div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="info-card animate__animated animate__fadeInUp" style="animation-delay: 0.2s;">
+                <h4>
+                    <i class="fas fa-info-circle"></i> Was wird importiert?
+                </h4>
+                <ul class="info-list">
+                    <li>Bestellungen mit Status "bezahlt"</li>
+                    <li>Produktdaten und Verkaufszahlen</li>
+                    <li>Steuern und Gebühren</li>
+                    <li>Versandkosten</li>
+                    <li>Shopify & PayPal Provisionen</li>
+                </ul>
+            </div>
+            
+            <div class="info-card animate__animated animate__fadeInUp" style="animation-delay: 0.4s;">
+                <h4>
+                    <i class="fas fa-shield-alt"></i> Sicherheit
+                </h4>
+                <ul class="info-list">
+                    <li>Sichere Verbindung zu Shopify</li>
+                    <li>Keine doppelten Importe</li>
+                    <li>Bestehende Daten bleiben erhalten</li>
+                    <li>Automatische Fehlerbehandlung</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Features -->
+    <div class="feature-grid animate__animated animate__fadeInUp" style="animation-delay: 0.6s;">
+        <div class="feature-item">
+            <div class="feature-icon">
+                <i class="fas fa-rocket"></i>
+            </div>
+            <div class="feature-title">Schneller Import</div>
+            <div class="feature-description">
+                Moderne API-Integration für maximale Geschwindigkeit
+            </div>
+        </div>
+        
+        <div class="feature-item">
+            <div class="feature-icon">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <div class="feature-title">Detaillierte Analyse</div>
+            <div class="feature-description">
+                Alle wichtigen Kennzahlen auf einen Blick
+            </div>
+        </div>
+        
+        <div class="feature-item">
+            <div class="feature-icon">
+                <i class="fas fa-sync-alt"></i>
+            </div>
+            <div class="feature-title">Automatische Updates</div>
+            <div class="feature-description">
+                Regelmäßige Aktualisierung der Verkaufsdaten
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('importForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Show progress container
+    const progressContainer = document.getElementById('progressContainer');
+    const importBtn = document.getElementById('importBtn');
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+    const statusMessages = document.getElementById('statusMessages');
+    
+    // Hide form and show progress
+    progressContainer.style.display = 'block';
+    importBtn.disabled = true;
+    importBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Import läuft...';
+    
+    // Simulate progress
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+        progress += Math.random() * 10;
+        if (progress > 90) progress = 90;
+        
+        progressFill.style.width = progress + '%';
+        
+        if (progress < 30) {
+            progressText.textContent = 'Verbinde mit Shopify API...';
+        } else if (progress < 60) {
+            progressText.textContent = 'Lade Bestelldaten...';
+        } else if (progress < 90) {
+            progressText.textContent = 'Verarbeite Produktdaten...';
+        }
+    }, 500);
+    
+    // Submit form
+    const formData = new FormData(this);
+    
+    fetch(this.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.text())
+    .then(data => {
+        clearInterval(progressInterval);
+        
+        // Complete progress
+        progressFill.style.width = '100%';
+        progressText.textContent = 'Import abgeschlossen!';
+        
+        // Add success message
+        const successMsg = document.createElement('div');
+        successMsg.className = 'status-message';
+        successMsg.innerHTML = '<i class="fas fa-check text-success"></i> Import erfolgreich abgeschlossen';
+        statusMessages.appendChild(successMsg);
+        
+        // Redirect after 2 seconds
+        setTimeout(() => {
+            window.location.href = '{% url "shopify_manager:sales_dashboard" %}?store={{ store.id }}';
+        }, 2000);
+    })
+    .catch(error => {
+        clearInterval(progressInterval);
+        
+        // Show error
+        progressText.textContent = 'Fehler beim Import';
+        progressFill.style.background = '#e53e3e';
+        
+        const errorMsg = document.createElement('div');
+        errorMsg.className = 'status-message';
+        errorMsg.innerHTML = '<i class="fas fa-exclamation-triangle text-danger"></i> Fehler: ' + error.message;
+        statusMessages.appendChild(errorMsg);
+        
+        // Re-enable button
+        importBtn.disabled = false;
+        importBtn.innerHTML = '<i class="fas fa-download"></i> Import starten';
+    });
+});
+
+// Set default dates
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    
+    const startDate = document.getElementById('id_start_date');
+    const endDate = document.getElementById('id_end_date');
+    
+    if (!startDate.value) {
+        startDate.value = thirtyDaysAgo.toISOString().split('T')[0];
+    }
+    if (!endDate.value) {
+        endDate.value = today.toISOString().split('T')[0];
+    }
+});
+</script>
+{% endblock %}
