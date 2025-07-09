@@ -646,12 +646,16 @@ def create_thema(request):
         sync_command = Command()
         sync_command.handle()
         
-        # Setze den Creator für das neue Thema
+        # Setze den Creator für das neue Thema und stelle sicher, dass es sichtbar ist
         try:
             thema = Thema.objects.get(name=thema_name)
             thema.ersteller = request.user
+            # Setze die Sichtbarkeit auf 'shared' damit der Ersteller Freigaben verwalten kann
+            thema.sichtbarkeit = 'shared'
             thema.save()
+            print(f"DEBUG: Thema '{thema_name}' erstellt - Ersteller: {request.user.username}, Sichtbarkeit: {thema.sichtbarkeit}")
         except Thema.DoesNotExist:
+            print(f"WARNUNG: Thema '{thema_name}' konnte nach dem Sync nicht gefunden werden")
             pass  # Falls das Thema nicht gefunden wird, ist das nicht kritisch
 
         return JsonResponse({'success': True, 'message': f'Thema "{thema_name}" erfolgreich erstellt und synchronisiert!'})

@@ -17,7 +17,7 @@ urlpatterns = [
     path('rechner/', include('amortization_calculator.urls')),
     path('sportplatz/', include('sportplatzApp.urls')),
     path('pdf-tool/', include('pdf_sucher.urls')),
-    path('naturmacher/', include('naturmacher.urls')),
+    path('schulungen/', include('naturmacher.urls')),
     path('todos/', include('todos.urls')),
     path('chat/', include('chat.urls')),
     path('shopify/', include('shopify_manager.urls')),

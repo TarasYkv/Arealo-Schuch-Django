@@ -40,4 +40,8 @@ urlpatterns = [
     path('kategorien/<int:category_pk>/begriffe/neu/', views.keyword_add, name='keyword_add'),
     path('kategorien/<int:category_pk>/begriffe/bulk/', views.keyword_bulk_add, name='keyword_bulk_add'),
     path('begriffe/<int:keyword_pk>/loeschen/', views.keyword_delete, name='keyword_delete'),
+    
+    # Profil-Management (integriert in Firmeninfo)
+    # path('profil/', views.profile_view, name='profile'),
+    # path('passwort-aendern/', views.change_password_view, name='change_password'),
 ]

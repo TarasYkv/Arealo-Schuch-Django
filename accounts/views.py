@@ -7,7 +7,7 @@ from django.urls import reverse_lazy
 from django.views.generic import CreateView
 from django.views.decorators.http import require_http_methods
 from django.http import JsonResponse
-from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm, ApiKeyForm, CompanyInfoForm
+from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm, ApiKeyForm, CompanyInfoForm, UserProfileForm, CustomPasswordChangeForm
 from .models import CustomUser, AmpelCategory, CategoryKeyword
 from naturmacher.models import APIBalance
 
@@ -350,18 +350,82 @@ def neue_api_einstellungen_view(request):
 
 @login_required
 def company_info_view(request):
-    """Verwaltet die Firmeninformationen des Benutzers"""
+    """Verwaltet die Firmeninformationen und das Profil des Benutzers"""
+    # Bestimme den aktiven Tab
+    active_tab = request.GET.get('tab', 'company')
+    
     if request.method == 'POST':
-        form = CompanyInfoForm(request.POST, instance=request.user)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Firmeninformationen wurden erfolgreich gespeichert.')
-            return redirect('accounts:company_info')
+        # Prüfe welches Formular gesendet wurde
+        if 'company_form' in request.POST:
+            # Firmeninfo-Formular
+            company_form = CompanyInfoForm(request.POST, instance=request.user)
+            profile_form = UserProfileForm(instance=request.user)
+            password_form = CustomPasswordChangeForm(request.user)
+            
+            if company_form.is_valid():
+                company_form.save()
+                messages.success(request, 'Firmeninformationen wurden erfolgreich gespeichert.')
+                return redirect('accounts:company_info' + '?tab=company')
+            active_tab = 'company'
+            
+        elif 'profile_form' in request.POST:
+            # Profil-Formular
+            company_form = CompanyInfoForm(instance=request.user)
+            password_form = CustomPasswordChangeForm(request.user)
+            
+            # Prüfe ob Profilbild gelöscht werden soll
+            if request.POST.get('delete_profile_picture') == 'true':
+                if request.user.profile_picture:
+                    import os
+                    try:
+                        os.remove(request.user.profile_picture.path)
+                    except OSError:
+                        pass
+                    request.user.profile_picture = None
+                    request.user.save()
+                    messages.success(request, 'Ihr Profilbild wurde erfolgreich gelöscht!')
+                else:
+                    messages.info(request, 'Kein Profilbild vorhanden.')
+                return redirect('accounts:company_info' + '?tab=profile')
+            
+            # Normale Profilaktualisierung
+            profile_form = UserProfileForm(request.POST, request.FILES, instance=request.user)
+            if profile_form.is_valid():
+                profile_form.save()
+                messages.success(request, 'Ihr Profil wurde erfolgreich aktualisiert!')
+                return redirect('accounts:company_info' + '?tab=profile')
+            active_tab = 'profile'
+            
+        elif 'password_form' in request.POST:
+            # Passwort-Formular
+            company_form = CompanyInfoForm(instance=request.user)
+            profile_form = UserProfileForm(instance=request.user)
+            password_form = CustomPasswordChangeForm(request.user, request.POST)
+            
+            if password_form.is_valid():
+                password_form.save()
+                messages.success(request, 'Ihr Passwort wurde erfolgreich geändert!')
+                return redirect('accounts:company_info' + '?tab=password')
+            active_tab = 'password'
+            
+        else:
+            # Fallback: Alle Formulare initialisieren
+            company_form = CompanyInfoForm(instance=request.user)
+            profile_form = UserProfileForm(instance=request.user)
+            password_form = CustomPasswordChangeForm(request.user)
+            
     else:
-        form = CompanyInfoForm(instance=request.user)
+        # GET-Request: Alle Formulare mit aktuellen Daten initialisieren
+        company_form = CompanyInfoForm(instance=request.user)
+        profile_form = UserProfileForm(instance=request.user)
+        password_form = CustomPasswordChangeForm(request.user)
     
     return render(request, 'accounts/company_info.html', {
-        'form': form
+        'company_form': company_form,
+        'profile_form': profile_form,
+        'password_form': password_form,
+        'active_tab': active_tab,
+        'user': request.user,
     })
 
 
@@ -1036,3 +1100,15 @@ def delete_shopify_store(request):
             'success': False,
             'error': f'Fehler beim Löschen des Stores: {str(e)}'
         })
+
+
+# Separate Profile-Views wurden in company_info_view integriert
+# @login_required
+# def profile_view(request):
+#     """Benutzer-Profil anzeigen und bearbeiten - INTEGRIERT IN COMPANY_INFO_VIEW"""
+#     pass
+
+# @login_required
+# def change_password_view(request):
+#     """Passwort ändern - INTEGRIERT IN COMPANY_INFO_VIEW"""
+#     pass

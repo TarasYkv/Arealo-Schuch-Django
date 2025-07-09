@@ -19,6 +19,10 @@ class CustomUser(AbstractUser):
     learning_goals = models.TextField(blank=True, verbose_name="Standard-Lernziele",
                                      help_text="Ihre Standard-Lernziele für Schulungen")
     
+    # Profilbild
+    profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True, 
+                                       verbose_name="Profilbild")
+    
     def __str__(self):
         return self.username
 
