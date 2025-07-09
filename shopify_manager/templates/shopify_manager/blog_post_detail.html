@@ -15,11 +15,11 @@
             <a href="{% url 'shopify_manager:blog_detail' post.blog.pk %}" class="btn btn-outline-info">
                 <i class="fas fa-blog"></i> Zum Blog
             </a>
-            <a href="{% url 'shopify_manager:integrated_seo_optimization' 'blog_post' post.pk %}" class="btn btn-outline-warning">
+            <a href="{% url 'shopify_manager:blog_post_seo_optimization' post.pk %}" class="btn btn-outline-warning">
                 <i class="fas fa-robot"></i> Do-SEO
             </a>
             <button class="btn btn-outline-success" onclick="syncBlogPost({{ post.id }})">
-                <i class="fas fa-sync"></i> Änderungen synchronisieren
+                <i class="fas fa-cloud-upload-alt"></i> Speichern + zu Shopify
             </button>
             <a href="{{ post.get_shopify_admin_url }}" target="_blank" class="btn btn-outline-primary">
                 <i class="fas fa-external-link-alt"></i> In Shopify bearbeiten
@@ -148,7 +148,7 @@
                 </div>
                 
                 <div class="d-grid">
-                    <a href="{% url 'shopify_manager:integrated_seo_optimization' 'blog_post' post.pk %}" class="btn btn-primary btn-sm">
+                    <a href="{% url 'shopify_manager:blog_post_seo_optimization' post.pk %}" class="btn btn-primary btn-sm">
                         <i class="fas fa-robot"></i> Do-SEO
                     </a>
                 </div>
@@ -371,6 +371,24 @@
     </div>
 </div>
 
+<!-- Progress Bar für Blog-Post Synchronisation -->
+<div id="blogPostProgressContainer" class="d-none mt-4">
+    <div class="card">
+        <div class="card-body">
+            <div class="mb-2">
+                <small id="blogPostProgressText" class="text-muted">Synchronisiere zu Shopify...</small>
+            </div>
+            <div class="progress mb-2" style="height: 20px;">
+                <div id="blogPostProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" 
+                     role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                    <span id="blogPostProgressPercent">0%</span>
+                </div>
+            </div>
+            <div id="blogPostProgressDetails" class="small text-muted"></div>
+        </div>
+    </div>
+</div>
+
 <!-- JSON Debug (optional, für Entwicklung) -->
 {% if user.is_superuser and post.raw_shopify_data %}
 <div class="card mt-4">
@@ -391,6 +409,29 @@
 {% endif %}
 
 <script>
+// Progress Bar Helper Functions für Blog-Post Sync
+function showBlogPostProgress(text, percent = 0) {
+    const progressContainer = document.getElementById('blogPostProgressContainer');
+    const progressText = document.getElementById('blogPostProgressText');
+    const progressBar = document.getElementById('blogPostProgressBar');
+    const progressPercent = document.getElementById('blogPostProgressPercent');
+    
+    if (progressContainer && progressText && progressBar && progressPercent) {
+        progressContainer.classList.remove('d-none');
+        progressText.textContent = text;
+        progressBar.style.width = percent + '%';
+        progressBar.setAttribute('aria-valuenow', percent);
+        progressPercent.textContent = percent + '%';
+    }
+}
+
+function hideBlogPostProgress() {
+    const progressContainer = document.getElementById('blogPostProgressContainer');
+    if (progressContainer) {
+        progressContainer.classList.add('d-none');
+    }
+}
+
 function syncBlogPost(postId) {
     if (!confirm('Blog-Post zu Shopify synchronisieren?')) return;
     
@@ -399,6 +440,9 @@ function syncBlogPost(postId) {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Synchronisiere...';
     
+    // Progress Bar anzeigen
+    showBlogPostProgress('Synchronisation wird vorbereitet...', 10);
+    
     fetch(`/shopify/api/blog-posts/${postId}/sync/`, {
         method: 'POST',
         headers: {
@@ -406,17 +450,28 @@ function syncBlogPost(postId) {
             'X-Requested-With': 'XMLHttpRequest',
         },
     })
-    .then(response => response.json())
+    .then(response => {
+        showBlogPostProgress('Verarbeitung der Antwort...', 75);
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
-            alert('Synchronisation erfolgreich!');
-            location.reload();
+            showBlogPostProgress('Erfolgreich synchronisiert!', 100);
+            
+            // Progress Bar nach kurzer Zeit ausblenden
+            setTimeout(() => {
+                hideBlogPostProgress();
+                alert('Synchronisation erfolgreich!');
+                location.reload();
+            }, 1000);
         } else {
+            hideBlogPostProgress();
             alert('Synchronisation fehlgeschlagen: ' + (data.error || data.message));
         }
     })
     .catch(error => {
         console.error('Error:', error);
+        hideBlogPostProgress();
         alert('Fehler bei der Synchronisation');
     })
     .finally(() => {

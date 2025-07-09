@@ -614,11 +614,8 @@ class ShopifyAPIClient:
                 }
             }
             
-            # Füge SEO-Daten hinzu falls vorhanden
-            if blog_post_data.get('seo_title'):
-                shopify_data['article']['meta_title'] = blog_post_data['seo_title']
-            if blog_post_data.get('seo_description'):
-                shopify_data['article']['meta_description'] = blog_post_data['seo_description']
+            # SEO-Daten werden separat über Metafields gehandhabt
+            # Die Shopify Blog API unterstützt meta_title und meta_description nicht direkt
             
             # Füge Featured Image hinzu falls vorhanden
             if blog_post_data.get('featured_image'):
@@ -639,13 +636,99 @@ class ShopifyAPIClient:
             if response.status_code == 200:
                 data = response.json()
                 updated_article = data.get('article')
-                return True, updated_article, "Blog-Post erfolgreich aktualisiert"
+                
+                # 2. SEO-Daten über separate Metafields API aktualisieren
+                seo_success = True
+                seo_messages = []
+                
+                if blog_post_data.get('seo_title'):
+                    success, message = self.update_blog_post_metafield(
+                        blog_id, article_id, 'global', 'title_tag', 
+                        blog_post_data['seo_title'], 'single_line_text_field'
+                    )
+                    if success:
+                        seo_messages.append("SEO-Titel aktualisiert")
+                    else:
+                        seo_success = False
+                        seo_messages.append(f"SEO-Titel Fehler: {message}")
+                
+                if blog_post_data.get('seo_description'):
+                    success, message = self.update_blog_post_metafield(
+                        blog_id, article_id, 'global', 'description_tag', 
+                        blog_post_data['seo_description'], 'multi_line_text_field'
+                    )
+                    if success:
+                        seo_messages.append("SEO-Beschreibung aktualisiert")
+                    else:
+                        seo_success = False
+                        seo_messages.append(f"SEO-Beschreibung Fehler: {message}")
+                
+                # Kombiniere Ergebnisse
+                final_message = "Blog-Post erfolgreich aktualisiert"
+                if seo_messages:
+                    final_message += ". " + "; ".join(seo_messages)
+                
+                return seo_success, updated_article, final_message
             else:
                 error_data = response.json() if response.headers.get('content-type', '').startswith('application/json') else response.text
                 return False, None, f"Blog-Post Update fehlgeschlagen - HTTP {response.status_code}: {error_data}"
                 
         except requests.exceptions.RequestException as e:
             return False, None, f"Fehler beim Update des Blog-Posts: {str(e)}"
+    
+    def update_blog_post_metafield(self, blog_id: str, article_id: str, namespace: str, key: str, value: str, field_type: str) -> Tuple[bool, str]:
+        """Aktualisiert oder erstellt ein spezifisches Metafield für einen Blog-Post"""
+        try:
+            # Erst prüfen, ob das Metafield bereits existiert
+            response = self._make_request(
+                'GET',
+                f"{self.base_url}/blogs/{blog_id}/articles/{article_id}/metafields.json",
+                timeout=10
+            )
+            
+            existing_metafield_id = None
+            if response.status_code == 200:
+                metafields = response.json().get('metafields', [])
+                for mf in metafields:
+                    if mf.get('namespace') == namespace and mf.get('key') == key:
+                        existing_metafield_id = mf.get('id')
+                        break
+            
+            metafield_data = {
+                'metafield': {
+                    'namespace': namespace,
+                    'key': key,
+                    'value': value,
+                    'type': field_type
+                }
+            }
+            
+            if existing_metafield_id:
+                # Update existing metafield
+                metafield_data['metafield']['id'] = existing_metafield_id
+                response = self._make_request(
+                    'PUT',
+                    f"{self.base_url}/blogs/{blog_id}/articles/{article_id}/metafields/{existing_metafield_id}.json",
+                    json=metafield_data,
+                    timeout=10
+                )
+            else:
+                # Create new metafield
+                response = self._make_request(
+                    'POST',
+                    f"{self.base_url}/blogs/{blog_id}/articles/{article_id}/metafields.json",
+                    json=metafield_data,
+                    timeout=10
+                )
+            
+            if response.status_code in [200, 201]:
+                return True, f"Metafield {namespace}.{key} erfolgreich {'aktualisiert' if existing_metafield_id else 'erstellt'}"
+            else:
+                error_data = response.json() if response.headers.get('content-type', '').startswith('application/json') else response.text
+                return False, f"HTTP {response.status_code}: {error_data}"
+                
+        except requests.exceptions.RequestException as e:
+            return False, f"Fehler beim Blog-Post Metafield-Update: {str(e)}"
 
 
 class ShopifyProductSync:

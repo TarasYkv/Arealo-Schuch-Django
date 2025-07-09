@@ -65,7 +65,7 @@
                                             {% if alt_status == 'good' %}
                                                 <i class="fas fa-check"></i> Gut
                                             {% elif alt_status == 'warning' %}
-                                                <i class="fas fa-exclamation-triangle"></i> Warnung
+                                                <i class="fas fa-exclamation-triangle"></i> Mittelmäßig
                                             {% else %}
                                                 <i class="fas fa-times"></i> Schlecht
                                             {% endif %}
@@ -115,7 +115,9 @@
                                         <!-- Alt-Text Form -->
                                         <form class="alt-text-form" data-image-id="{{ image.id }}">
                                             {% csrf_token %}
-                                            <input type="hidden" name="product_id" value="{{ product.id }}">
+                                            <input type="hidden" name="store_id" value="{{ product.store.id }}">
+                                            <input type="hidden" name="product_id" value="{{ product.shopify_id }}">
+                                            <input type="hidden" name="django_product_id" value="{{ product.id }}">
                                             <input type="hidden" name="image_id" value="{{ image.id }}">
                                             <input type="hidden" name="image_url" value="{{ image.src }}">
                                             
@@ -125,9 +127,9 @@
                                                           id="alt_text_{{ image.id }}" 
                                                           name="alt_text" 
                                                           rows="3" 
-                                                          placeholder="Beschreibung des Bildes für Screenreader...">{{ image.alt }}</textarea>
+                                                          placeholder="Beschreibung des Bildes für Screenreader...">{{ image.alt|default:"" }}</textarea>
                                                 <div class="form-text">
-                                                    <span class="char-count">{{ image.alt|length }}</span>/125 Zeichen
+                                                    <span class="char-count">{{ image.alt|default:""|length }}</span>/125 Zeichen
                                                 </div>
                                             </div>
                                             
@@ -154,13 +156,27 @@
                                 <div class="card bg-light">
                                     <div class="card-body">
                                         <h6><i class="fas fa-magic"></i> Bulk-Aktionen</h6>
-                                        <div class="d-flex gap-2">
+                                        <div class="d-flex gap-2 mb-3">
                                             <button type="button" class="btn btn-outline-info" id="generateAllBtn">
                                                 <i class="fas fa-robot"></i> Alle Alt-Texte generieren
                                             </button>
                                             <button type="button" class="btn btn-outline-success" id="saveAllBtn">
-                                                <i class="fas fa-save"></i> Alle speichern
+                                                <i class="fas fa-cloud-upload-alt"></i> Speichern + zu Shopify
                                             </button>
+                                        </div>
+                                        
+                                        <!-- Progress Bar Container -->
+                                        <div id="progressContainer" class="d-none">
+                                            <div class="mb-2">
+                                                <small id="progressText" class="text-muted">Lade...</small>
+                                            </div>
+                                            <div class="progress mb-2" style="height: 20px;">
+                                                <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                                     role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                                    <span id="progressPercent">0%</span>
+                                                </div>
+                                            </div>
+                                            <div id="progressDetails" class="small text-muted"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -204,6 +220,17 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             
             const formData = new FormData(this);
+            const altTextValue = formData.get('alt_text');
+            
+            // Debug: Log what we're actually sending
+            console.log(`DEBUG Single Save: Image ${formData.get('image_id')}, Alt-Text: "${altTextValue}"`);
+            
+            // Validate alt-text before sending
+            if (!altTextValue || altTextValue.trim() === '' || altTextValue.toLowerCase() === 'none') {
+                showAlert('warning', 'Bitte geben Sie einen gültigen Alt-Text ein');
+                return;
+            }
+            
             const submitBtn = this.querySelector('button[type="submit"]');
             const originalText = submitBtn.innerHTML;
             
@@ -221,9 +248,25 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    showAlert('success', data.message);
+                    showAlert('success', data.message || 'Alt-Text erfolgreich gespeichert');
+                    console.log('Alt-Text Update Success:', data);
+                    
+                    // UI-Feedback: Zeige dass der Alt-Text gespeichert wurde
+                    const textarea = this.querySelector('textarea[name="alt_text"]');
+                    textarea.style.border = '2px solid #28a745';
+                    setTimeout(() => {
+                        textarea.style.border = '';
+                    }, 2000);
                 } else {
-                    showAlert('danger', data.error);
+                    showAlert('danger', data.error || 'Unbekannter Fehler beim Speichern');
+                    console.error('Alt-Text Update Error:', data);
+                    
+                    // UI-Feedback: Zeige Fehler
+                    const textarea = this.querySelector('textarea[name="alt_text"]');
+                    textarea.style.border = '2px solid #dc3545';
+                    setTimeout(() => {
+                        textarea.style.border = '';
+                    }, 2000);
                 }
             })
             .catch(error => {
@@ -259,11 +302,23 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 if (data.success) {
                     const textarea = form.querySelector('textarea[name="alt_text"]');
-                    textarea.value = data.suggested_alt;
+                    const imageId = formData.get('image_id');
+                    
+                    console.log(`DEBUG Generate Success: Image ${imageId}, Generated: "${data.suggested_alt}"`);
+                    
+                    textarea.value = data.suggested_alt || '';
                     textarea.dispatchEvent(new Event('input')); // Trigger char count update
-                    showAlert('success', 'Alt-Text-Vorschlag generiert');
+                    
+                    // Warnung wenn Fallback verwendet wurde
+                    if (!data.suggested_alt || data.suggested_alt.trim() === '') {
+                        showAlert('warning', `Bild ${imageId}: Keine KI-Generierung möglich, bitte manuell eingeben`);
+                    } else {
+                        showAlert('success', 'Alt-Text-Vorschlag generiert');
+                    }
                 } else {
-                    showAlert('danger', data.error);
+                    const imageId = formData.get('image_id');
+                    console.error(`DEBUG Generate Error: Image ${imageId}, Error: ${data.error}`);
+                    showAlert('danger', `Bild ${imageId}: ${data.error}`);
                 }
             })
             .catch(error => {
@@ -277,70 +332,221 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Bulk generate button
-    document.getElementById('generateAllBtn')?.addEventListener('click', function() {
-        document.querySelectorAll('.generate-alt-btn').forEach(btn => {
-            if (!btn.disabled) {
-                btn.click();
-            }
-        });
+    // Progress bar functions
+    function showProgress(text = 'Lade...') {
+        document.getElementById('progressContainer').classList.remove('d-none');
+        document.getElementById('progressText').textContent = text;
+        updateProgress(0, '0%', '');
+    }
+    
+    function updateProgress(percent, percentText, details) {
+        const progressBar = document.getElementById('progressBar');
+        const progressPercent = document.getElementById('progressPercent');
+        const progressDetails = document.getElementById('progressDetails');
+        
+        progressBar.style.width = percent + '%';
+        progressBar.setAttribute('aria-valuenow', percent);
+        progressPercent.textContent = percentText;
+        progressDetails.textContent = details;
+        
+        // Change color based on progress
+        if (percent < 50) {
+            progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated bg-info';
+        } else if (percent < 100) {
+            progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated bg-warning';
+        } else {
+            progressBar.className = 'progress-bar progress-bar-striped bg-success';
+        }
+    }
+    
+    function hideProgress() {
+        document.getElementById('progressContainer').classList.add('d-none');
+    }
+
+    // Enhanced bulk generate button with progress
+    document.getElementById('generateAllBtn')?.addEventListener('click', async function() {
+        const generateBtns = document.querySelectorAll('.generate-alt-btn:not(:disabled)');
+        const totalCount = generateBtns.length;
+        
+        if (totalCount === 0) {
+            showAlert('info', 'Keine Bilder zum Generieren gefunden');
+            return;
+        }
+        
+        showProgress('Generiere Alt-Texte mit KI...');
+        this.disabled = true;
+        document.getElementById('saveAllBtn').disabled = true; // Disable save button too
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generiere...';
+        
+        let completed = 0;
+        for (const btn of generateBtns) {
+            completed++;
+            const percent = Math.round((completed / totalCount) * 100);
+            updateProgress(percent, `${percent}%`, `Generiere ${completed}/${totalCount} Alt-Texte...`);
+            
+            // Highlight current image being processed
+            const form = btn.closest('.alt-text-form');
+            const card = btn.closest('.card');
+            card.style.border = '2px solid #17a2b8';
+            
+            btn.click();
+            
+            // Wait for generation to complete before continuing
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Remove highlight
+            card.style.border = '';
+        }
+        
+        hideProgress();
+        this.disabled = false;
+        document.getElementById('saveAllBtn').disabled = false; // Re-enable save button
+        this.innerHTML = '<i class="fas fa-robot"></i> Alle Alt-Texte generieren';
+        showAlert('success', `${totalCount} Alt-Texte erfolgreich generiert!`);
     });
     
-    // Bulk save button
-    document.getElementById('saveAllBtn')?.addEventListener('click', function() {
+    // Bulk save button - Sequential Processing
+    document.getElementById('saveAllBtn')?.addEventListener('click', async function() {
         const forms = document.querySelectorAll('.alt-text-form');
         let saveCount = 0;
-        let totalForms = 0;
+        let successCount = 0;
+        let skipCount = 0;
         
+        // Filter valid forms first
+        const validForms = [];
         forms.forEach(form => {
             const submitBtn = form.querySelector('button[type="submit"]');
             if (!submitBtn.disabled) {
-                totalForms++;
-                
-                // Simuliere den gleichen Speichervorgang wie beim einzelnen Speichern
                 const formData = new FormData(form);
-                const originalText = submitBtn.innerHTML;
+                const altTextValue = formData.get('alt_text');
                 
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Speichere...';
-                
-                fetch('/shopify/api/update-alt-text/', {
+                if (!altTextValue || altTextValue.trim() === '' || altTextValue.toLowerCase() === 'none') {
+                    console.log(`DEBUG Skip: Skipping save for image ${formData.get('image_id')} - invalid alt-text`);
+                    skipCount++;
+                } else {
+                    validForms.push({form, formData, submitBtn, altTextValue});
+                }
+            }
+        });
+        
+        const totalForms = validForms.length + skipCount;
+        console.log(`DEBUG: Processing ${validForms.length} forms sequentially, ${skipCount} skipped`);
+        
+        if (validForms.length === 0) {
+            showAlert('info', skipCount > 0 ? 'Keine gültigen Alt-Texte zum Speichern gefunden. Bitte generieren Sie zuerst Alt-Texte.' : 'Keine Alt-Texte zum Speichern gefunden');
+            return;
+        }
+        
+        // Show progress and disable buttons
+        showProgress('Speichere Alt-Texte zu Shopify...');
+        this.disabled = true;
+        document.getElementById('generateAllBtn').disabled = true; // Disable generate button too
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Speichere...';
+        
+        // Process forms sequentially instead of in parallel
+        for (const {form, formData, submitBtn, altTextValue} of validForms) {
+            saveCount++;
+            
+            // Update progress
+            const percent = Math.round((saveCount / validForms.length) * 100);
+            updateProgress(percent, `${percent}%`, `Speichere ${saveCount}/${validForms.length} Alt-Texte zu Shopify...`);
+            
+            // Debug: Log what we're actually sending
+            console.log(`DEBUG Sequential Save ${saveCount}/${validForms.length}: Image ${formData.get('image_id')}, Alt-Text: "${altTextValue}"`);
+            
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Speichere...';
+            
+            try {
+                const response = await fetch('/shopify/api/update-alt-text/', {
                     method: 'POST',
                     body: formData,
                     headers: {
                         'X-CSRFToken': getCookie('csrftoken'),
                         'X-Requested-With': 'XMLHttpRequest',
                     },
-                })
-                .then(response => response.json())
-                .then(data => {
-                    saveCount++;
-                    if (data.success) {
-                        console.log(`Alt-Text ${saveCount}/${totalForms} gespeichert`);
-                    } else {
-                        console.error(`Fehler beim Speichern ${saveCount}/${totalForms}:`, data.error);
-                        showAlert('danger', `Fehler beim Speichern eines Alt-Textes: ${data.error}`);
-                    }
-                    
-                    // Zeige Erfolg nach dem letzten gespeicherten Element
-                    if (saveCount === totalForms) {
-                        showAlert('success', `Alle ${totalForms} Alt-Texte erfolgreich gespeichert`);
-                    }
-                })
-                .catch(error => {
-                    saveCount++;
-                    console.error('Error:', error);
-                    showAlert('danger', 'Fehler beim Speichern eines Alt-Textes');
-                })
-                .finally(() => {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalText;
                 });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    successCount++;
+                    console.log(`✅ Sequential Alt-Text ${saveCount}/${validForms.length} gespeichert`);
+                    
+                    // UI-Feedback: Grüner Rahmen für gespeicherte Felder
+                    const textarea = form.querySelector('textarea[name="alt_text"]');
+                    textarea.style.border = '2px solid #28a745';
+                    setTimeout(() => {
+                        textarea.style.border = '';
+                    }, 3000);
+                } else {
+                    console.error(`❌ Sequential Fehler beim Speichern ${saveCount}/${validForms.length}:`, data.error);
+                    showAlert('danger', `Fehler beim Speichern von Bild ${formData.get('image_id')}: ${data.error}`);
+                    
+                    // UI-Feedback: Roter Rahmen für Fehler
+                    const textarea = form.querySelector('textarea[name="alt_text"]');
+                    textarea.style.border = '2px solid #dc3545';
+                    setTimeout(() => {
+                        textarea.style.border = '';
+                    }, 3000);
+                }
+            } catch (error) {
+                console.error(`❌ Sequential Network Error ${saveCount}/${validForms.length}:`, error);
+                showAlert('danger', `Netzwerkfehler beim Speichern von Bild ${formData.get('image_id')}`);
+                
+                // UI-Feedback: Roter Rahmen für Fehler
+                const textarea = form.querySelector('textarea[name="alt_text"]');
+                textarea.style.border = '2px solid #dc3545';
+                setTimeout(() => {
+                    textarea.style.border = '';
+                }, 3000);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
             }
-        });
+            
+            // Small delay between requests to avoid overwhelming the database
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        // Hide progress and restore buttons
+        hideProgress();
+        this.disabled = false;
+        document.getElementById('generateAllBtn').disabled = false; // Re-enable generate button
+        this.innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Speichern + zu Shopify';
+        
+        // Show final summary
+        showFinalSummary(successCount, skipCount, validForms.length - successCount);
         
         if (totalForms === 0) {
             showAlert('info', 'Keine Alt-Texte zum Speichern gefunden');
+        }
+        
+        // New final summary function for sequential processing
+        function showFinalSummary(successCount, skipCount, errorCount) {
+            let message = `Sequential processing completed: ${successCount} gespeichert`;
+            if (skipCount > 0) {
+                message += `, ${skipCount} übersprungen (leer)`;
+            }
+            if (errorCount > 0) {
+                message += `, ${errorCount} fehlgeschlagen`;
+            }
+            
+            console.log(`🏁 Final Summary: ${message}`);
+            
+            if (successCount > 0) {
+                showAlert('success', message);
+                
+                // Redirect only if at least one alt-text was saved
+                setTimeout(() => {
+                    window.location.href = '{% url "shopify_manager:product_list" %}';
+                }, 2000);
+            } else if (skipCount > 0) {
+                showAlert('warning', message + '. Bitte generieren Sie zuerst Alt-Texte.');
+            } else {
+                showAlert('danger', message);
+            }
         }
     });
 });

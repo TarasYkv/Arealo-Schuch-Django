@@ -14,6 +14,7 @@ import base64
 
 from .models import ShopifyStore, ShopifyProduct, ShopifySyncLog, ProductSEOOptimization, SEOAnalysisResult, ShopifyBlog, ShopifyBlogPost, BlogPostSEOOptimization
 from .ai_seo_service import generate_seo_with_ai, BlogPostSEOService
+from .shopify_api import ShopifyAPIClient
 from .forms import (
     ShopifyStoreForm, ShopifyProductEditForm, ProductFilterForm, 
     BulkActionForm, ProductImportForm, SEOOptimizationForm, BlogPostSEOOptimizationForm, BlogPostFilterForm
@@ -150,7 +151,26 @@ class ShopifyProductListView(LoginRequiredMixin, ListView):
             if sort:
                 queryset = queryset.order_by(sort)
         
-        return queryset.select_related('store')
+        # Fetch all products and sort by SEO score (worst first)
+        queryset = queryset.select_related('store')
+        
+        # Create a list of tuples (seo_score, product_id) for sorting
+        products_with_scores = []
+        for product in queryset:
+            products_with_scores.append((product.get_seo_score(), product.id))
+        
+        # Sort by SEO score (ascending = worst first)
+        products_with_scores.sort(key=lambda x: x[0])
+        
+        # Extract sorted product IDs
+        sorted_ids = [item[1] for item in products_with_scores]
+        
+        # Preserve the order using Case/When
+        from django.db.models import Case, When
+        preserved = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(sorted_ids)])
+        
+        # Return queryset ordered by SEO score
+        return queryset.filter(id__in=sorted_ids).order_by(preserved)
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -373,12 +393,33 @@ def sync_product_view(request, product_id):
         sync = ShopifyProductSync(product.store)
         success, message = sync.sync_product_to_shopify(product)
         
-        return JsonResponse({
-            'success': success,
-            'message': message
-        })
+        if success:
+            # Aktualisiere lokale Daten nach erfolgreicher Synchronisation
+            product.shopify_updated_at = timezone.now()
+            product.needs_sync = False
+            product.sync_error = ''  # Leerer String statt None für NOT NULL Feld
+            product.last_synced_at = timezone.now()
+            product.save(update_fields=['shopify_updated_at', 'needs_sync', 'sync_error', 'last_synced_at'])
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Produkt "{product.title}" erfolgreich synchronisiert'
+            })
+        else:
+            # Protokolliere Sync-Fehler
+            product.sync_error = f'Sync-Fehler: {message}'
+            product.save(update_fields=['sync_error'])
+            
+            return JsonResponse({
+                'success': False,
+                'error': f'Fehler beim Synchronisieren: {message}'
+            })
         
     except Exception as e:
+        # Protokolliere Exception-Fehler
+        product.sync_error = f'Exception: {str(e)}'
+        product.save(update_fields=['sync_error'])
+        
         return JsonResponse({
             'success': False,
             'error': f'Sync-Fehler: {str(e)}'
@@ -1357,6 +1398,10 @@ def update_alt_text_view(request):
     image_id = request.POST.get('image_id')
     alt_text = request.POST.get('alt_text', '').strip()
     
+    # Validierung der Alt-Text-Eingabe
+    if alt_text.lower() in ['none', 'null', '']:
+        alt_text = ''  # Leeren Alt-Text setzen statt "None"
+    
     if not all([store_id, product_id, image_id]):
         return JsonResponse({
             'success': False,
@@ -1366,11 +1411,17 @@ def update_alt_text_view(request):
     store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
     
     try:
+        print(f"DEBUG: Alt-Text Update Request - Store: {store.name}, Product: {product_id}, Image: {image_id}")
+        print(f"DEBUG: Original Alt-Text: '{alt_text}'")
+        print(f"DEBUG: Alt-Text Length: {len(alt_text)}")
+        print(f"DEBUG: Alt-Text Type: {type(alt_text)}")
+        
         # Shopify API Call zum Aktualisieren des Alt-Textes
         api_client = ShopifyAPIClient(store)
         
         # Hole das aktuelle Produkt
         success, product, message = api_client.fetch_product(product_id)
+        print(f"DEBUG: Fetch Product Result - Success: {success}, Message: {message}")
         
         if not success:
             return JsonResponse({
@@ -1395,24 +1446,54 @@ def update_alt_text_view(request):
                 'error': 'Bild nicht gefunden'
             })
         
-        # Aktualisiere die Bilder in Shopify
-        success, updated_product, message = api_client.update_product_images(product_id, updated_images)
+        # Aktualisiere das einzelne Bild in Shopify (effizienter)
+        print(f"DEBUG: Calling update_single_product_image - Product: {product_id}, Image: {image_id}")
+        success, message = api_client.update_single_product_image(product_id, image_id, alt_text)
+        print(f"DEBUG: Update Single Image Result - Success: {success}, Message: {message}")
         
         if success:
-            # Aktualisiere auch die lokale Datenbank
+            print(f"DEBUG: Shopify Update erfolgreich, aktualisiere lokale DB")
+            # Aktualisiere auch die lokale Datenbank mit Database Locking
+            from django.db import transaction
+            
             try:
-                local_product = ShopifyProduct.objects.get(
-                    shopify_id=product_id, 
-                    store=store
-                )
-                
-                # Update raw_shopify_data
-                if hasattr(local_product, 'raw_shopify_data') and local_product.raw_shopify_data:
-                    local_product.raw_shopify_data = updated_product
-                    local_product.save(update_fields=['raw_shopify_data'])
+                with transaction.atomic():
+                    # Hole das Produkt mit SELECT FOR UPDATE für exklusiven Zugriff
+                    local_product = ShopifyProduct.objects.select_for_update().get(
+                        shopify_id=product_id, 
+                        store=store
+                    )
+                    print(f"DEBUG: Lokales Produkt mit Lock gefunden: {local_product.title}")
+                    
+                    # Update raw_shopify_data mit dem neuen Alt-Text
+                    if hasattr(local_product, 'raw_shopify_data') and local_product.raw_shopify_data:
+                        if 'images' in local_product.raw_shopify_data:
+                            image_found = False
+                            for img in local_product.raw_shopify_data['images']:
+                                if str(img.get('id')) == str(image_id):
+                                    old_alt = img.get('alt', '')
+                                    img['alt'] = alt_text
+                                    image_found = True
+                                    print(f"DEBUG: Bild {image_id} Alt-Text aktualisiert: '{old_alt}' → '{alt_text}'")
+                                    break
+                            
+                            if not image_found:
+                                print(f"DEBUG: WARNUNG - Bild {image_id} nicht in lokalen Daten gefunden!")
+                                # Trotzdem als erfolgreich markieren, da Shopify-Update erfolgreich war
+                            else:
+                                local_product.save(update_fields=['raw_shopify_data'])
+                                print(f"DEBUG: Lokale Datenbank erfolgreich aktualisiert mit Transaction Lock")
+                        else:
+                            print(f"DEBUG: Keine 'images' in raw_shopify_data gefunden")
+                    else:
+                        print(f"DEBUG: Keine raw_shopify_data verfügbar")
                 
             except ShopifyProduct.DoesNotExist:
-                # Produkt nicht in lokaler DB - ignorieren
+                print(f"DEBUG: Produkt {product_id} nicht in lokaler DB gefunden - ignorieren")
+                pass
+            except Exception as e:
+                print(f"DEBUG: Fehler beim lokalen Update mit Transaction: {e}")
+                # Auch bei lokalen Fehlern als Erfolg werten, da Shopify-Update erfolgreich war
                 pass
             
             return JsonResponse({
@@ -1540,9 +1621,13 @@ class ShopifyBlogDetailView(LoginRequiredMixin, DetailView):
             if sort:
                 posts = posts.order_by(sort)
         
+        # Sort blog posts by SEO score (worst first)
+        posts_list = list(posts)
+        posts_list.sort(key=lambda p: p.get_seo_score())  # Lower scores (worse) first
+        
         context['filter_form'] = filter_form
         
-        paginator = Paginator(posts, 50)  # Zeige 50 Posts pro Seite statt 10
+        paginator = Paginator(posts_list, 50)  # Zeige 50 Posts pro Seite statt 10
         page = self.request.GET.get('page')
         context['posts'] = paginator.get_page(page)
         
@@ -1597,7 +1682,26 @@ class ShopifyBlogPostListView(LoginRequiredMixin, ListView):
         if sort:
             queryset = queryset.order_by(sort)
         
-        return queryset.select_related('blog')
+        # Fetch all blog posts and sort by SEO score (worst first)
+        queryset = queryset.select_related('blog')
+        
+        # Create a list of tuples (seo_score, blog_post_id) for sorting
+        posts_with_scores = []
+        for post in queryset:
+            posts_with_scores.append((post.get_seo_score(), post.id))
+        
+        # Sort by SEO score (ascending = worst first)
+        posts_with_scores.sort(key=lambda x: x[0])
+        
+        # Extract sorted blog post IDs
+        sorted_ids = [item[1] for item in posts_with_scores]
+        
+        # Preserve the order using Case/When
+        from django.db.models import Case, When
+        preserved = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(sorted_ids)])
+        
+        # Return queryset ordered by SEO score
+        return queryset.filter(id__in=sorted_ids).order_by(preserved)
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1964,6 +2068,8 @@ def update_blog_alt_text_view(request):
     """Aktualisiert den Alt-Text eines Blog-Post Bildes"""
     store_id = request.POST.get('store_id')
     blog_post_id = request.POST.get('blog_post_id')
+    image_id = request.POST.get('image_id')
+    image_url = request.POST.get('image_url')
     alt_text = request.POST.get('alt_text', '').strip()
     
     if not all([store_id, blog_post_id]):
@@ -1975,19 +2081,81 @@ def update_blog_alt_text_view(request):
     store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
     blog_post = get_object_or_404(ShopifyBlogPost, shopify_id=blog_post_id, blog__store=store)
     
+    # Nur Featured Images werden unterstützt (da nur diese zu Shopify synchronisiert werden können)
+    is_featured_image = image_id and image_id.startswith('featured_')
+    
     try:
-        # Update des lokalen Blog-Posts
-        blog_post.featured_image_alt = alt_text
-        blog_post.save(update_fields=['featured_image_alt'])
+        if is_featured_image:
+            # Featured Image Alt-Text Update
+            blog_post.featured_image_alt = alt_text
+            blog_post.save(update_fields=['featured_image_alt'])
+            
+            # Shopify API Update für Featured Image
+            shopify_api = ShopifyAPIClient(store)
+            
+            # Erstelle die Update-Daten für Shopify (korrekte Struktur)
+            update_data = {}
+            
+            # Wenn eine Featured Image URL vorhanden ist, füge sie hinzu
+            if blog_post.featured_image_url:
+                update_data['featured_image'] = {
+                    'url': blog_post.featured_image_url,
+                    'alt': alt_text
+                }
+            else:
+                # Nur Alt-Text ohne URL (für bestehende Bilder)
+                update_data['featured_image'] = {
+                    'alt': alt_text
+                }
+            
+            # Update zu Shopify senden
+            try:
+                print(f"DEBUG: Updating Featured Image - Blog ID: {blog_post.blog.shopify_id}, Post ID: {blog_post.shopify_id}")
+                print(f"DEBUG: Update data: {update_data}")
+                
+                response = shopify_api.update_blog_post(blog_post.blog.shopify_id, blog_post.shopify_id, update_data)
+                print(f"DEBUG: Shopify response: {response}")
+                
+                if response and 'article' in response:
+                    # Erfolgreiche Synchronisation
+                    blog_post.needs_sync = False
+                    blog_post.sync_error = ''  # Leerer String statt None für NOT NULL Feld
+                    blog_post.last_synced_at = timezone.now()
+                    blog_post.save(update_fields=['needs_sync', 'sync_error', 'last_synced_at'])
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Featured Image Alt-Text erfolgreich zu Shopify übertragen'
+                    })
+                else:
+                    # Shopify-Update fehlgeschlagen
+                    blog_post.needs_sync = True
+                    blog_post.sync_error = f'Shopify-Update fehlgeschlagen - Response: {response}'
+                    blog_post.save(update_fields=['needs_sync', 'sync_error'])
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Alt-Text lokal gespeichert, Shopify-Update fehlgeschlagen'
+                    })
+                    
+            except Exception as shopify_error:
+                # Shopify API Fehler
+                print(f"DEBUG: Shopify API Exception: {shopify_error}")
+                blog_post.needs_sync = True
+                blog_post.sync_error = f'Shopify API Fehler: {str(shopify_error)}'
+                blog_post.save(update_fields=['needs_sync', 'sync_error'])
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Alt-Text lokal gespeichert, Shopify-Fehler: {str(shopify_error)}'
+                })
         
-        # TODO: Shopify API Update für Blog-Posts
-        # Hier würde normalerweise der Shopify API Call für Blog-Post Updates stehen
-        # Shopify API für Blog-Posts ist komplexer und erfordert separate Implementierung
-        
-        return JsonResponse({
-            'success': True,
-            'message': 'Alt-Text erfolgreich aktualisiert (lokal gespeichert)'
-        })
+        else:
+            # Nur Featured Images werden unterstützt
+            return JsonResponse({
+                'success': False,
+                'error': 'Nur Featured Images werden unterstützt - Content-Bilder können nicht zu Shopify synchronisiert werden'
+            })
         
     except Exception as e:
         return JsonResponse({
@@ -2005,10 +2173,15 @@ def alt_text_manager_view(request, product_id):
     images = []
     if product.raw_shopify_data and 'images' in product.raw_shopify_data:
         for img in product.raw_shopify_data['images']:
+            # Bereinige Alt-Text von None-Werten
+            alt_text = img.get('alt', '') or ''
+            if alt_text in ['None', 'null', None]:
+                alt_text = ''
+            
             images.append({
                 'id': img.get('id'),
                 'src': img.get('src'),
-                'alt': img.get('alt', ''),
+                'alt': alt_text,
                 'width': img.get('width'),
                 'height': img.get('height'),
                 'position': img.get('position', 0)
@@ -2026,43 +2199,61 @@ def alt_text_manager_view(request, product_id):
 
 
 @login_required
-@require_http_methods(["POST"])
-def update_alt_text_view(request):
-    """Aktualisiert Alt-Text für ein Produktbild"""
-    product_id = request.POST.get('product_id')
-    image_id = request.POST.get('image_id')
-    alt_text = request.POST.get('alt_text', '').strip()
+def blog_post_alt_text_manager_view(request, blog_post_id):
+    """Alt-Text Management für Blog-Post-Bilder - Nur Featured Images (da nur diese zu Shopify synchronisiert werden können)"""
+    blog_post = get_object_or_404(ShopifyBlogPost, id=blog_post_id, blog__store__user=request.user)
     
-    if not all([product_id, image_id]):
-        return JsonResponse({
-            'success': False,
-            'error': 'Fehlende Parameter'
+    # Nur Featured Images laden (da nur diese zu Shopify synchronisiert werden können)
+    images = []
+    
+    # Featured image
+    if blog_post.featured_image_url:
+        # Bereinige Alt-Text von None-Werten
+        alt_text = blog_post.featured_image_alt or ''
+        if alt_text in ['None', 'null', None]:
+            alt_text = ''
+        
+        images.append({
+            'id': f'featured_{blog_post.id}',
+            'src': blog_post.featured_image_url,
+            'alt': alt_text,
+            'width': None,
+            'height': None,
+            'is_featured': True,
+            'name': 'Hauptbild'
         })
     
-    product = get_object_or_404(ShopifyProduct, id=product_id, store__user=request.user)
+    # CONTENT-BILDER WERDEN NICHT ANGEZEIGT
+    # Grund: Shopify API erlaubt keine direkten Alt-Text-Updates für Content-Bilder
+    # Nur Featured Images können erfolgreich zu Shopify synchronisiert werden
     
-    try:
-        # Update im raw_shopify_data
-        if product.raw_shopify_data and 'images' in product.raw_shopify_data:
-            for img in product.raw_shopify_data['images']:
-                if str(img.get('id')) == str(image_id):
-                    img['alt'] = alt_text
-                    break
-        
-        # Speichere Änderungen
-        product.needs_sync = True
-        product.save(update_fields=['raw_shopify_data', 'needs_sync'])
-        
-        return JsonResponse({
-            'success': True,
-            'message': 'Alt-Text erfolgreich aktualisiert'
-        })
-        
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': f'Fehler beim Aktualisieren des Alt-Textes: {str(e)}'
-        })
+    # Lade auch Bilder aus raw_shopify_data falls vorhanden
+    if blog_post.raw_shopify_data and 'image' in blog_post.raw_shopify_data:
+        shopify_image = blog_post.raw_shopify_data['image']
+        if shopify_image and shopify_image.get('src'):
+            # Prüfe ob dieses Bild nicht bereits als Featured Image hinzugefügt wurde
+            existing_srcs = [img['src'] for img in images]
+            if shopify_image['src'] not in existing_srcs:
+                alt_text = shopify_image.get('alt', '') or ''
+                if alt_text in ['None', 'null', None]:
+                    alt_text = ''
+                
+                images.append({
+                    'id': f'shopify_{blog_post.id}',
+                    'src': shopify_image['src'],
+                    'alt': alt_text,
+                    'width': shopify_image.get('width'),
+                    'height': shopify_image.get('height'),
+                    'is_featured': True,
+                    'name': 'Shopify-Bild'
+                })
+    
+    context = {
+        'blog_post': blog_post,
+        'images': images
+    }
+    
+    return render(request, 'shopify_manager/blog_post_alt_text_manager.html', context)
 
 
 @login_required
@@ -2070,7 +2261,10 @@ def update_alt_text_view(request):
 def generate_alt_text_view(request):
     """Generiert Alt-Text für ein Bild mit KI"""
     image_url = request.POST.get('image_url')
-    product_id = request.POST.get('product_id')
+    django_product_id = request.POST.get('django_product_id')
+    product_id = request.POST.get('product_id')  # Shopify ID for backwards compatibility
+    blog_post_title = request.POST.get('blog_post_title')
+    blog_post_content = request.POST.get('blog_post_content')
     
     if not image_url:
         return JsonResponse({
@@ -2078,9 +2272,77 @@ def generate_alt_text_view(request):
             'error': 'Bild-URL fehlt'
         })
     
-    # Finde das Produkt basierend auf Django ID (wie im Frontend gesendet)
+    # Prüfe ob es sich um einen Blog-Post handelt
+    if blog_post_title or blog_post_content:
+        # Blog-Post Alt-Text Generierung
+        try:
+            blog_post = None
+            if django_product_id:
+                try:
+                    blog_post = ShopifyBlogPost.objects.filter(
+                        id=django_product_id,
+                        blog__store__user=request.user
+                    ).first()
+                except:
+                    pass
+            
+            # Erstelle Kontext für Alt-Text Generierung
+            context = {
+                'title': blog_post_title or (blog_post.title if blog_post else ''),
+                'content': blog_post_content or (blog_post.content if blog_post else ''),
+                'type': 'blog_post'
+            }
+            
+            # Versuche KI-basierte Alt-Text Generierung (gleiche Funktionalität wie bei Produkten)
+            if blog_post:
+                try:
+                    # Erstelle ein temporäres Produkt-ähnliches Objekt für die KI-Generierung
+                    class BlogPostWrapper:
+                        def __init__(self, blog_post):
+                            self.title = blog_post.title
+                            self.body_html = blog_post.content or ''
+                            self.vendor = blog_post.author or ''
+                            self.product_type = 'Blog-Post'
+                            self.store = blog_post.blog.store
+                    
+                    blog_wrapper = BlogPostWrapper(blog_post)
+                    alt_text = generate_alt_text_with_ai(blog_wrapper, image_url, request.user)
+                    if alt_text and alt_text != 'Produktbild':
+                        return JsonResponse({
+                            'success': True,
+                            'alt_text': alt_text,
+                            'method': 'ai'
+                        })
+                except Exception as e:
+                    print(f"AI Alt-Text generation failed: {e}")
+            
+            # Einfacher Fallback
+            alt_text = "Blog-Beitragsbild"
+            
+            return JsonResponse({
+                'success': True,
+                'alt_text': alt_text,
+                'method': 'fallback'
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Fehler bei der Alt-Text Generierung: {str(e)}'
+            })
+    
+    # Finde das Produkt basierend auf Django ID (ursprüngliche Logik)
     product = None
-    if product_id:
+    if django_product_id:
+        try:
+            product = ShopifyProduct.objects.filter(
+                id=django_product_id,
+                store__user=request.user
+            ).first()
+        except:
+            pass
+    elif product_id:
+        # Fallback für alte Implementierung
         try:
             product = ShopifyProduct.objects.filter(
                 id=product_id,
@@ -2103,8 +2365,10 @@ def generate_alt_text_view(request):
         print(f"DEBUG: Starte KI-Alt-Text Generierung für Produkt: {product.title}")
         suggested_alt = generate_alt_text_with_ai(product, image_url, request.user)
         
-        if suggested_alt:
-            print(f"DEBUG: KI-Alt-Text generiert: {suggested_alt}")
+        # Validiere und bereinige AI-Ergebnis
+        if suggested_alt and suggested_alt.strip() and suggested_alt.lower() not in ['none', 'null']:
+            suggested_alt = suggested_alt.strip()
+            print(f"DEBUG: KI-Alt-Text generiert für Bild {image_url}: {suggested_alt}")
             return JsonResponse({
                 'success': True,
                 'alt_text': suggested_alt,
@@ -2112,9 +2376,14 @@ def generate_alt_text_view(request):
             })
         else:
             # Fallback: Einfacher Vorschlag basierend auf Produktdaten
-            print("DEBUG: KI-Generierung fehlgeschlagen, verwende Fallback")
+            print(f"DEBUG: KI-Generierung fehlgeschlagen oder ungültig für Bild {image_url} ('{suggested_alt}'), verwende Fallback")
             fallback_alt = generate_alt_text_fallback(product)
-            print(f"DEBUG: Fallback Alt-Text: {fallback_alt}")
+            print(f"DEBUG: Fallback Alt-Text für Bild {image_url}: '{fallback_alt}'")
+            
+            # Zusätzliche Sicherheitsprüfung für Fallback
+            if not fallback_alt or fallback_alt.strip() == '':
+                fallback_alt = f"Produktbild - {product.title[:30]}" if product.title else "Produktbild"
+                print(f"DEBUG: NOTFALL-Fallback Alt-Text: '{fallback_alt}'")
             
             return JsonResponse({
                 'success': True,
@@ -2339,15 +2608,21 @@ def generate_alt_text_fallback(product):
     if product.vendor:
         alt_text_parts.append(product.vendor)
     
-    alt_text_parts.append(product.title[:50])
+    # Verwende immer mindestens den Produkttitel
+    title = product.title[:50] if product.title else "Produktbild"
+    alt_text_parts.append(title)
     
-    if product.product_type and product.product_type.lower() not in product.title.lower():
+    if product.product_type and product.product_type.lower() not in title.lower():
         alt_text_parts.append(product.product_type)
     
     generated_alt_text = " - ".join(alt_text_parts)
     
     if len(generated_alt_text) > 125:
         generated_alt_text = generated_alt_text[:122] + "..."
+    
+    # Sicherheitsprüfung: niemals leer oder None zurückgeben
+    if not generated_alt_text or generated_alt_text.strip() == "":
+        generated_alt_text = "Produktbild"
     
     return generated_alt_text
 
@@ -2638,19 +2913,30 @@ def sync_blog_post_view(request, blog_post_id):
         if success:
             # Aktualisiere lokale Daten falls nötig
             blog_post.shopify_updated_at = timezone.now()
-            blog_post.save(update_fields=['shopify_updated_at'])
+            blog_post.needs_sync = False
+            blog_post.sync_error = ''  # Leerer String statt None für NOT NULL Feld
+            blog_post.last_synced_at = timezone.now()
+            blog_post.save(update_fields=['shopify_updated_at', 'needs_sync', 'sync_error', 'last_synced_at'])
             
             return JsonResponse({
                 'success': True,
                 'message': f'Blog-Post "{blog_post.title}" erfolgreich synchronisiert'
             })
         else:
+            # Protokolliere Sync-Fehler
+            blog_post.sync_error = f'Sync-Fehler: {message}'
+            blog_post.save(update_fields=['sync_error'])
+            
             return JsonResponse({
                 'success': False,
                 'error': f'Fehler beim Synchronisieren: {message}'
             })
         
     except Exception as e:
+        # Protokolliere Exception-Fehler
+        blog_post.sync_error = f'Exception: {str(e)}'
+        blog_post.save(update_fields=['sync_error'])
+        
         return JsonResponse({
             'success': False,
             'error': f'Fehler beim Synchronisieren: {str(e)}'
@@ -2998,9 +3284,61 @@ def apply_integrated_seo_view(request):
                 if seo_title: updated_fields.append("SEO-Titel")
                 if seo_description: updated_fields.append("SEO-Beschreibung")
                 
-                message = f'Produkt "{content_object.title}" erfolgreich aktualisiert'
-                if updated_fields:
-                    message += f': {", ".join(updated_fields)}'
+                # Automatische Synchronisation zu Shopify für Produkte
+                try:
+                    from .shopify_api import ShopifyAPIClient
+                    
+                    api_client = ShopifyAPIClient(content_object.store)
+                    
+                    # Bereite Produkt-Daten für Shopify vor
+                    product_data = {
+                        'title': content_object.title,
+                        'body_html': content_object.body_html,
+                        'vendor': content_object.vendor,
+                        'product_type': content_object.product_type,
+                        'tags': content_object.tags,
+                        'handle': content_object.handle,
+                        'status': content_object.status,
+                        'seo_title': content_object.seo_title,
+                        'seo_description': content_object.seo_description,
+                    }
+                    
+                    # Synchronisiere zu Shopify
+                    success, updated_product, sync_message = api_client.update_product(
+                        content_object.shopify_id, 
+                        product_data
+                    )
+                    
+                    if success:
+                        # Aktualisiere lokale Daten
+                        content_object.shopify_updated_at = timezone.now()
+                        content_object.needs_sync = False
+                        content_object.sync_error = ''  # Leerer String statt None für NOT NULL Feld
+                        content_object.last_synced_at = timezone.now()
+                        content_object.save(update_fields=['shopify_updated_at', 'needs_sync', 'sync_error', 'last_synced_at'])
+                        
+                        message = f'Produkt "{content_object.title}" erfolgreich aktualisiert und zu Shopify synchronisiert'
+                        if updated_fields:
+                            message += f': {", ".join(updated_fields)}'
+                    else:
+                        # Sync-Fehler protokollieren
+                        content_object.sync_error = f'Sync-Fehler: {sync_message}'
+                        content_object.save(update_fields=['sync_error'])
+                        
+                        message = f'Produkt "{content_object.title}" erfolgreich aktualisiert, aber Shopify-Sync fehlgeschlagen'
+                        if updated_fields:
+                            message += f': {", ".join(updated_fields)}'
+                        message += f' (Sync-Fehler: {sync_message})'
+                        
+                except Exception as sync_error:
+                    # Sync-Exception protokollieren
+                    content_object.sync_error = f'Sync-Exception: {str(sync_error)}'
+                    content_object.save(update_fields=['sync_error'])
+                    
+                    message = f'Produkt "{content_object.title}" erfolgreich aktualisiert, aber Shopify-Sync fehlgeschlagen'
+                    if updated_fields:
+                        message += f': {", ".join(updated_fields)}'
+                    message += f' (Fehler: {str(sync_error)})'
                 
                 return JsonResponse({
                     'success': True,
@@ -3032,6 +3370,8 @@ def apply_integrated_seo_view(request):
                 if seo_description:
                     content_object.seo_description = seo_description
                 
+                # Setze needs_sync für automatische Synchronisation
+                content_object.needs_sync = True
                 content_object.save()
                 
                 updated_fields = []
@@ -3040,9 +3380,65 @@ def apply_integrated_seo_view(request):
                 if seo_title: updated_fields.append("SEO-Titel")
                 if seo_description: updated_fields.append("SEO-Beschreibung")
                 
-                message = f'Blog-Post "{content_object.title}" erfolgreich aktualisiert'
-                if updated_fields:
-                    message += f': {", ".join(updated_fields)}'
+                # Automatische Synchronisation zu Shopify
+                try:
+                    from .shopify_api import ShopifyAPIClient
+                    
+                    api_client = ShopifyAPIClient(content_object.blog.store)
+                    
+                    # Bereite Blog-Post Daten für Shopify vor
+                    blog_post_data = {
+                        'title': content_object.title,
+                        'body_html': content_object.content,
+                        'summary': content_object.summary,
+                        'author': content_object.author,
+                        'tags': content_object.tags,
+                        'published_at': content_object.published_at.isoformat() if content_object.published_at else None,
+                        'seo_title': content_object.seo_title,
+                        'seo_description': content_object.seo_description,
+                        'featured_image': {
+                            'url': content_object.featured_image_url,
+                            'alt': content_object.featured_image_alt
+                        } if content_object.featured_image_url else None
+                    }
+                    
+                    # Synchronisiere zu Shopify
+                    success, updated_post, sync_message = api_client.update_blog_post(
+                        content_object.blog.shopify_id, 
+                        content_object.shopify_id, 
+                        blog_post_data
+                    )
+                    
+                    if success:
+                        # Aktualisiere lokale Daten
+                        content_object.shopify_updated_at = timezone.now()
+                        content_object.needs_sync = False
+                        content_object.sync_error = ''  # Leerer String statt None für NOT NULL Feld
+                        content_object.last_synced_at = timezone.now()
+                        content_object.save(update_fields=['shopify_updated_at', 'needs_sync', 'sync_error', 'last_synced_at'])
+                        
+                        message = f'Blog-Post "{content_object.title}" erfolgreich aktualisiert und zu Shopify synchronisiert'
+                        if updated_fields:
+                            message += f': {", ".join(updated_fields)}'
+                    else:
+                        # Sync-Fehler protokollieren
+                        content_object.sync_error = f'Sync-Fehler: {sync_message}'
+                        content_object.save(update_fields=['sync_error'])
+                        
+                        message = f'Blog-Post "{content_object.title}" erfolgreich aktualisiert, aber Shopify-Sync fehlgeschlagen'
+                        if updated_fields:
+                            message += f': {", ".join(updated_fields)}'
+                        message += f' (Sync-Fehler: {sync_message})'
+                        
+                except Exception as sync_error:
+                    # Sync-Exception protokollieren
+                    content_object.sync_error = f'Sync-Exception: {str(sync_error)}'
+                    content_object.save(update_fields=['sync_error'])
+                    
+                    message = f'Blog-Post "{content_object.title}" erfolgreich aktualisiert, aber Shopify-Sync fehlgeschlagen'
+                    if updated_fields:
+                        message += f': {", ".join(updated_fields)}'
+                    message += f' (Fehler: {str(sync_error)})'
                 
                 return JsonResponse({
                     'success': True,
@@ -3070,3 +3466,51 @@ def apply_integrated_seo_view(request):
             'success': False,
             'error': f'Fehler beim Anwenden der Änderungen: {str(e)}'
         })
+
+
+@login_required
+def product_seo_optimization_view(request, product_id):
+    """Separate SEO-Optimierung für Produkte"""
+    try:
+        product = ShopifyProduct.objects.get(
+            Q(id=product_id) | Q(shopify_id=str(product_id)),
+            store__user=request.user
+        )
+    except ShopifyProduct.DoesNotExist:
+        from django.http import Http404
+        raise Http404(f"Produkt mit ID {product_id} nicht gefunden")
+    
+    context = {
+        'product': product,
+        'content_type': 'product',
+        'content_id': product.pk,
+        'content_title': product.title,
+        'current_seo_title': product.seo_title or '',
+        'current_seo_description': product.seo_description or '',
+    }
+    
+    return render(request, 'shopify_manager/product_seo_optimization.html', context)
+
+
+@login_required
+def blog_post_seo_optimization_view(request, blog_post_id):
+    """Separate SEO-Optimierung für Blog-Posts"""
+    try:
+        blog_post = ShopifyBlogPost.objects.get(
+            id=blog_post_id,
+            blog__store__user=request.user
+        )
+    except ShopifyBlogPost.DoesNotExist:
+        from django.http import Http404
+        raise Http404(f"Blog-Post mit ID {blog_post_id} nicht gefunden")
+    
+    context = {
+        'blog_post': blog_post,
+        'content_type': 'blog_post',
+        'content_id': blog_post.pk,
+        'content_title': blog_post.title,
+        'current_seo_title': blog_post.seo_title or '',
+        'current_seo_description': blog_post.seo_description or '',
+    }
+    
+    return render(request, 'shopify_manager/blog_post_seo_optimization.html', context)
