@@ -17,6 +17,20 @@ class CustomUserCreationForm(UserCreationForm):
         self.fields['email'].widget.attrs.update({'class': 'form-control'})
         self.fields['password1'].widget.attrs.update({'class': 'form-control'})
         self.fields['password2'].widget.attrs.update({'class': 'form-control'})
+        
+        # Freundliche deutsche Labels und Hilfetexte
+        self.fields['username'].label = 'Benutzername'
+        self.fields['username'].help_text = 'Wählen Sie einen einzigartigen Benutzernamen (Buchstaben, Zahlen und @/./+/-/_ erlaubt)'
+        self.fields['email'].label = 'E-Mail-Adresse'
+        self.fields['password1'].label = 'Passwort'
+        self.fields['password1'].help_text = 'Ihr Passwort sollte mindestens 8 Zeichen lang sein und nicht nur aus Zahlen bestehen.'
+        self.fields['password2'].label = 'Passwort bestätigen'
+        self.fields['password2'].help_text = 'Geben Sie das gleiche Passwort zur Bestätigung noch einmal ein.'
+    
+    error_messages = {
+        'password_mismatch': 'Die beiden Passwörter stimmen nicht überein. Bitte versuchen Sie es noch einmal.',
+        'username_exists': 'Dieser Benutzername ist leider schon vergeben. Wie wäre es mit einer kleinen Variation?',
+    }
 
 
 class CustomAuthenticationForm(AuthenticationForm):
@@ -24,6 +38,22 @@ class CustomAuthenticationForm(AuthenticationForm):
         super().__init__(*args, **kwargs)
         self.fields['username'].widget.attrs.update({'class': 'form-control'})
         self.fields['password'].widget.attrs.update({'class': 'form-control'})
+        
+        # Freundliche deutsche Labels
+        self.fields['username'].label = 'Benutzername'
+        self.fields['password'].label = 'Passwort'
+    
+    error_messages = {
+        'invalid_login': (
+            "Hoppla! 🤔 Das hat leider nicht geklappt. "
+            "Bitte überprüfen Sie Ihren Benutzernamen und Ihr Passwort noch einmal. "
+            "Achten Sie dabei auf Groß- und Kleinschreibung - manchmal versteckt sich der Fehler in solchen Details!"
+        ),
+        'inactive': (
+            "Ihr Konto ist momentan deaktiviert. "
+            "Bitte kontaktieren Sie uns, wenn Sie Hilfe benötigen."
+        ),
+    }
 
 
 class ApiKeyForm(forms.ModelForm):
