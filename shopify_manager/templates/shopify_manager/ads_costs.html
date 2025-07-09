@@ -1,0 +1,556 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}Werbekosten{% endblock %}
+
+{% block shopify_content %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        --warning-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --card-shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+
+    .page-header {
+        background: var(--primary-gradient);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+        box-shadow: var(--card-shadow);
+    }
+
+    .page-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .page-subtitle {
+        font-size: 1.1rem;
+        opacity: 0.9;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-primary {
+        background: var(--primary-gradient);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--card-shadow-hover);
+        text-decoration: none;
+        color: white;
+    }
+
+    .btn-secondary {
+        background: #f8f9fa;
+        color: #6c757d;
+        border: 1px solid #dee2e6;
+    }
+
+    .btn-secondary:hover {
+        background: #e9ecef;
+        transform: translateY(-1px);
+        text-decoration: none;
+        color: #6c757d;
+    }
+
+    .btn-sm {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+
+    .btn-outline-primary {
+        background: transparent;
+        color: #667eea;
+        border: 2px solid #667eea;
+    }
+
+    .btn-outline-primary:hover {
+        background: #667eea;
+        color: white;
+    }
+
+    .btn-outline-danger {
+        background: transparent;
+        color: #dc3545;
+        border: 2px solid #dc3545;
+    }
+
+    .btn-outline-danger:hover {
+        background: #dc3545;
+        color: white;
+    }
+
+    .controls-container {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--card-shadow);
+    }
+
+    .store-selector {
+        width: 100%;
+        padding: 0.75rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        font-size: 1rem;
+        background: white;
+        transition: border-color 0.3s ease;
+    }
+
+    .store-selector:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .ads-table-container {
+        background: white;
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: var(--card-shadow);
+        margin-bottom: 2rem;
+    }
+
+    .table-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 1.5rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .table-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #495057;
+        margin: 0;
+    }
+
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table th {
+        background: #f8f9fa;
+        border-top: none;
+        font-weight: 600;
+        color: #495057;
+        padding: 1rem;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .table td {
+        padding: 1rem;
+        vertical-align: middle;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .badge {
+        padding: 0.5rem 0.75rem;
+        border-radius: 50px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .badge-success {
+        background: var(--success-gradient);
+        color: white;
+    }
+
+    .badge-warning {
+        background: var(--warning-gradient);
+        color: white;
+    }
+
+    .badge-secondary {
+        background: #6c757d;
+        color: white;
+    }
+
+    .platform-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        text-transform: capitalize;
+    }
+
+    .platform-google {
+        background: #e8f5e8;
+        color: #2e7d32;
+    }
+
+    .platform-facebook {
+        background: #e3f2fd;
+        color: #1565c0;
+    }
+
+    .platform-instagram {
+        background: #fce4ec;
+        color: #c2185b;
+    }
+
+    .platform-tiktok {
+        background: #f3e5f5;
+        color: #7b1fa2;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #6c757d;
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        color: #dee2e6;
+    }
+
+    .pagination {
+        justify-content: center;
+        margin-top: 2rem;
+    }
+
+    .pagination .page-link {
+        color: #667eea;
+        border: 1px solid #dee2e6;
+        padding: 0.5rem 1rem;
+        margin: 0 0.25rem;
+        border-radius: 0.375rem;
+        transition: all 0.3s ease;
+    }
+
+    .pagination .page-link:hover {
+        background-color: #667eea;
+        color: white;
+        transform: translateY(-1px);
+    }
+
+    .pagination .page-item.active .page-link {
+        background-color: #667eea;
+        border-color: #667eea;
+    }
+
+    .ads-amount {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: #dc3545;
+    }
+
+    .roas-value {
+        font-size: 1.125rem;
+        font-weight: 600;
+    }
+
+    .roas-good {
+        color: #28a745;
+    }
+
+    .roas-warning {
+        color: #ffc107;
+    }
+
+    .roas-bad {
+        color: #dc3545;
+    }
+
+    .campaign-description {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-top: 0.25rem;
+    }
+
+    .animate-fade-in {
+        animation: fadeIn 0.6s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 768px) {
+        .page-title {
+            font-size: 2rem;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+        }
+        
+        .table-responsive {
+            font-size: 0.875rem;
+        }
+    }
+</style>
+
+<div class="animate-fade-in">
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="page-title">
+                    <i class="fas fa-bullhorn"></i> Werbekosten
+                </h1>
+                <p class="page-subtitle mb-0">
+                    Verwalten Sie Ihre Werbeausgaben und ROAS-Analyse
+                </p>
+            </div>
+            <div class="action-buttons">
+                <a href="{% url 'shopify_manager:ads_cost_add' %}?store={{ request.GET.store }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Neue Kampagne
+                </a>
+                <a href="{% url 'shopify_manager:sales_dashboard' %}?store={{ request.GET.store }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Store Selection -->
+    <div class="controls-container">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <label class="form-label fw-bold mb-2">Store auswählen:</label>
+                <select class="store-selector" onchange="changeStore(this.value)">
+                    <option value="">Alle Stores</option>
+                    {% for store in stores %}
+                    <option value="{{ store.id }}" {% if store.id|stringformat:'s' == request.GET.store %}selected{% endif %}>
+                        {{ store.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6 text-end">
+                <div class="mt-3">
+                    <small class="text-muted">
+                        Gesamt: {{ ads_costs|length }} Kampagnen
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ads Table -->
+    <div class="ads-table-container">
+        <div class="table-header">
+            <h3 class="table-title">
+                <i class="fas fa-chart-line"></i> Werbekampagnen Übersicht
+            </h3>
+        </div>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Kampagne</th>
+                        <th>Store</th>
+                        <th>Plattform</th>
+                        <th>Ausgaben</th>
+                        <th>Zeitraum</th>
+                        <th>ROAS</th>
+                        <th>Status</th>
+                        <th>Erstellt</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ads_cost in ads_costs %}
+                    <tr>
+                        <td>
+                            <div>
+                                <strong>{{ ads_cost.campaign_name }}</strong>
+                                {% if ads_cost.description %}
+                                    <div class="campaign-description">{{ ads_cost.description|truncatechars:50 }}</div>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>{{ ads_cost.store.name }}</td>
+                        <td>
+                            <span class="platform-badge platform-{{ ads_cost.platform|lower }}">
+                                {{ ads_cost.get_platform_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="ads-amount">{{ ads_cost.cost|floatformat:2 }}€</span>
+                        </td>
+                        <td>
+                            <div>
+                                <small class="text-muted">Von:</small> {{ ads_cost.start_date|date:"d.m.Y" }}<br>
+                                {% if ads_cost.end_date %}
+                                    <small class="text-muted">Bis:</small> {{ ads_cost.end_date|date:"d.m.Y" }}
+                                {% else %}
+                                    <small class="text-muted">Laufend</small>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            {% if ads_cost.roas %}
+                                <span class="roas-value {% if ads_cost.roas >= 4 %}roas-good{% elif ads_cost.roas >= 2 %}roas-warning{% else %}roas-bad{% endif %}">
+                                    {{ ads_cost.roas|floatformat:2 }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if ads_cost.is_active %}
+                                <span class="badge badge-success">Aktiv</span>
+                            {% else %}
+                                <span class="badge badge-secondary">Inaktiv</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ ads_cost.created_at|date:"d.m.Y H:i" }}</td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <a href="{% url 'shopify_manager:ads_cost_edit' ads_cost.pk %}" 
+                                   class="btn btn-sm btn-outline-primary" title="Bearbeiten">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'shopify_manager:ads_cost_delete' ads_cost.pk %}" 
+                                   class="btn btn-sm btn-outline-danger" 
+                                   onclick="return confirm('Wirklich löschen?')" title="Löschen">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9">
+                            <div class="empty-state">
+                                <i class="fas fa-bullhorn"></i>
+                                <h4>Keine Werbekampagnen vorhanden</h4>
+                                <p class="text-muted">Erstellen Sie Ihre erste Werbekampagne um Ihre ROAS zu tracken.</p>
+                                <a href="{% url 'shopify_manager:ads_cost_add' %}?store={{ request.GET.store }}" class="btn btn-primary">
+                                    <i class="fas fa-plus"></i> Erste Kampagne erstellen
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav aria-label="Seiten-Navigation">
+        <ul class="pagination">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}&store={{ request.GET.store }}">
+                        <i class="fas fa-chevron-left"></i> Vorherige
+                    </a>
+                </li>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}&store={{ request.GET.store }}">{{ num }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}&store={{ request.GET.store }}">
+                        Nächste <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    <!-- Summary Cards -->
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">Gesamtausgaben</h5>
+                    <h3 class="text-danger">
+                        {% widthratio ads_costs.count 1 1 as total_cost %}
+                        {{ total_cost|default:"0" }}€
+                    </h3>
+                    <small class="text-muted">Alle Werbekampagnen</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-info">Durchschnittliche ROAS</h5>
+                    <h3 class="text-success">
+                        {% widthratio ads_costs.count 1 2 as avg_roas %}
+                        {{ avg_roas|default:"0.0" }}
+                    </h3>
+                    <small class="text-muted">Return on Ad Spend</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-dark">Aktive Kampagnen</h5>
+                    <h3 class="text-primary">
+                        {% for ads_cost in ads_costs %}
+                            {% if ads_cost.is_active %}{{ forloop.counter }}{% endif %}
+                        {% endfor %}
+                    </h3>
+                    <small class="text-muted">Laufende Kampagnen</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function changeStore(storeId) {
+    if (storeId) {
+        window.location.href = '{% url "shopify_manager:ads_costs" %}?store=' + storeId;
+    } else {
+        window.location.href = '{% url "shopify_manager:ads_costs" %}';
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,301 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}Werbekosten löschen{% endblock %}
+
+{% block shopify_content %}
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --danger-gradient: linear-gradient(135deg, #fc466b 0%, #3f5efb 100%);
+        --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --card-shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+
+    .delete-header {
+        background: var(--danger-gradient);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+        box-shadow: var(--card-shadow);
+        text-align: center;
+    }
+
+    .delete-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .delete-subtitle {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin-bottom: 0;
+    }
+
+    .delete-card {
+        background: white;
+        border-radius: 15px;
+        box-shadow: var(--card-shadow);
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+
+    .delete-card-header {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        padding: 1.5rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .delete-card-header h3 {
+        margin: 0;
+        color: #856404;
+        font-weight: 600;
+    }
+
+    .delete-card-body {
+        padding: 2rem;
+    }
+
+    .campaign-info {
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        border-left: 4px solid #667eea;
+    }
+
+    .campaign-info h4 {
+        color: #495057;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+
+    .info-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .info-item:last-child {
+        border-bottom: none;
+    }
+
+    .info-label {
+        font-weight: 500;
+        color: #6c757d;
+    }
+
+    .info-value {
+        font-weight: 600;
+        color: #2d3748;
+    }
+
+    .warning-box {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+
+    .warning-box i {
+        color: #856404;
+        margin-right: 0.5rem;
+    }
+
+    .warning-box p {
+        color: #856404;
+        margin: 0;
+        font-weight: 500;
+    }
+
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1rem;
+    }
+
+    .btn-danger {
+        background: var(--danger-gradient);
+        color: white;
+    }
+
+    .btn-danger:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--card-shadow-hover);
+        text-decoration: none;
+        color: white;
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background: #5a6268;
+        transform: translateY(-1px);
+        text-decoration: none;
+        color: white;
+    }
+
+    .button-group {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        margin-top: 2rem;
+    }
+
+    .platform-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .platform-google {
+        background: #e8f5e8;
+        color: #2e7d32;
+    }
+
+    .platform-facebook {
+        background: #e3f2fd;
+        color: #1565c0;
+    }
+
+    .platform-instagram {
+        background: #fce4ec;
+        color: #c2185b;
+    }
+
+    .platform-tiktok {
+        background: #f3e5f5;
+        color: #7b1fa2;
+    }
+
+    .platform-other {
+        background: #f5f5f5;
+        color: #616161;
+    }
+
+    .animate-fade-in {
+        animation: fadeIn 0.6s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 768px) {
+        .delete-title {
+            font-size: 2rem;
+        }
+        
+        .button-group {
+            flex-direction: column;
+        }
+    }
+</style>
+
+<div class="animate-fade-in">
+    <!-- Header -->
+    <div class="delete-header">
+        <h1 class="delete-title">
+            <i class="fas fa-trash-alt"></i> Werbekosten löschen
+        </h1>
+        <p class="delete-subtitle">
+            Sind Sie sicher, dass Sie diese Kampagne löschen möchten?
+        </p>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="delete-card">
+                <div class="delete-card-header">
+                    <h3>
+                        <i class="fas fa-exclamation-triangle"></i> Löschbestätigung
+                    </h3>
+                </div>
+                <div class="delete-card-body">
+                    <div class="campaign-info">
+                        <h4>
+                            <i class="fas fa-bullhorn"></i> Kampagnen-Details
+                        </h4>
+                        <div class="info-item">
+                            <span class="info-label">Kampagnenname:</span>
+                            <span class="info-value">{{ object.campaign_name }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Store:</span>
+                            <span class="info-value">{{ object.store.name }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Plattform:</span>
+                            <span class="platform-badge platform-{{ object.platform|lower }}">
+                                {{ object.get_platform_display }}
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Ausgaben:</span>
+                            <span class="info-value">{{ object.cost|floatformat:2 }}€</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Zeitraum:</span>
+                            <span class="info-value">
+                                {{ object.start_date|date:"d.m.Y" }} - 
+                                {% if object.end_date %}{{ object.end_date|date:"d.m.Y" }}{% else %}Laufend{% endif %}
+                            </span>
+                        </div>
+                        {% if object.roas %}
+                        <div class="info-item">
+                            <span class="info-label">ROAS:</span>
+                            <span class="info-value">{{ object.roas|floatformat:2 }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="info-item">
+                            <span class="info-label">Erstellt:</span>
+                            <span class="info-value">{{ object.created_at|date:"d.m.Y H:i" }}</span>
+                        </div>
+                    </div>
+
+                    <div class="warning-box">
+                        <p>
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Warnung:</strong> Diese Aktion kann nicht rückgängig gemacht werden. 
+                            Alle Daten zu dieser Kampagne werden unwiderruflich gelöscht.
+                        </p>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="button-group">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash"></i> Ja, löschen
+                            </button>
+                            <a href="{% url 'shopify_manager:ads_costs' %}?store={{ object.store.id }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Abbrechen
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

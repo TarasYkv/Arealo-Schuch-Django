@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'chat',
     'shopify_manager',
     'image_editor',
+    'bug_report',
     'encrypted_model_fields',
 ]
 

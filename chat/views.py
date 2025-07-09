@@ -10,7 +10,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 import json
 
-from .models import ChatRoom, ChatMessage, ChatRoomParticipant, ChatMessageRead
+from .models import ChatRoom, ChatMessage, ChatRoomParticipant, ChatMessageRead, ChatMessageAttachment
 
 User = get_user_model()
 
@@ -42,7 +42,7 @@ def chat_home(request):
         'recent_users': recent_users,
     }
     
-    return render(request, 'chat/home.html', context)
+    return render(request, 'chat/home_new.html', context)
 
 
 @login_required
@@ -176,17 +176,41 @@ def send_message(request, room_id):
         message_type = request.POST.get('message_type', 'text')
         reply_to_id = request.POST.get('reply_to')
         
-        if not content:
-            return JsonResponse({'success': False, 'error': 'Nachricht darf nicht leer sein'})
+        # Handle file uploads
+        uploaded_files = request.FILES.getlist('attachments')
+        
+        if not content and not uploaded_files:
+            return JsonResponse({'success': False, 'error': 'Nachricht oder Anhang erforderlich'})
         
         # Create message
         message = ChatMessage.objects.create(
             chat_room=chat_room,
             sender=request.user,
-            content=content,
+            content=content or '',
             message_type=message_type,
             reply_to_id=reply_to_id if reply_to_id else None
         )
+        
+        # Handle attachments
+        attachments = []
+        for uploaded_file in uploaded_files:
+            attachment = ChatMessageAttachment.objects.create(
+                message=message,
+                file=uploaded_file,
+                filename=uploaded_file.name,
+                file_size=uploaded_file.size,
+                file_type=uploaded_file.content_type
+            )
+            attachments.append({
+                'id': attachment.id,
+                'filename': attachment.filename,
+                'file_size': attachment.get_file_size_display(),
+                'file_type': attachment.file_type,
+                'file_url': attachment.file.url,
+                'is_image': attachment.is_image(),
+                'is_video': attachment.is_video(),
+                'is_audio': attachment.is_audio()
+            })
         
         # Mark as read by sender
         ChatMessageRead.objects.create(
@@ -200,10 +224,13 @@ def send_message(request, room_id):
                 'id': message.id,
                 'content': message.content,
                 'sender': message.sender.get_full_name() or message.sender.username,
+                'sender_name': message.sender.get_full_name() or message.sender.username,
                 'sender_id': message.sender.id,
-                'created_at': message.get_formatted_time(),
+                'is_own': True,
+                'formatted_time': message.get_formatted_time(),
                 'message_type': message.message_type,
-                'reply_to': message.reply_to.id if message.reply_to else None
+                'reply_to': message.reply_to.id if message.reply_to else None,
+                'attachments': attachments
             }
         })
         
@@ -217,6 +244,7 @@ def get_messages(request, room_id):
     Get messages for a chat room (AJAX endpoint for polling)
     """
     try:
+        print(f"DEBUG: Getting messages for room {room_id}")
         chat_room = get_object_or_404(ChatRoom, id=room_id)
         
         # Check if user is participant
@@ -225,28 +253,70 @@ def get_messages(request, room_id):
         
         since_id = request.GET.get('since_id')
         if since_id:
-            messages = chat_room.messages.filter(
+            messages_queryset = chat_room.messages.filter(
                 id__gt=since_id
             ).select_related('sender').order_by('created_at')
+            messages_list = list(messages_queryset)
         else:
-            messages = chat_room.messages.select_related('sender').order_by('created_at')[:50]
+            messages_queryset = chat_room.messages.select_related('sender').order_by('created_at')
+            messages_list = list(messages_queryset[:50])
         
+        print(f"DEBUG: Found {len(messages_list)} messages")
         messages_data = []
-        for message in messages:
+        for message in messages_list:
+            # Handle anonymous messages (no sender)
+            if message.sender:
+                sender_name = message.sender.get_full_name() or message.sender.username
+                sender_id = message.sender.id
+                avatar_text = (message.sender.get_full_name() or message.sender.username)[0].upper()
+            else:
+                sender_name = message.sender_name or "Anonym"
+                sender_id = None
+                avatar_text = (message.sender_name or "A")[0].upper()
+            
+            # Get attachments
+            attachments = []
+            for attachment in message.attachments.all():
+                attachments.append({
+                    'id': attachment.id,
+                    'filename': attachment.filename,
+                    'file_size': attachment.get_file_size_display(),
+                    'file_type': attachment.file_type,
+                    'file_url': attachment.file.url,
+                    'is_image': attachment.is_image(),
+                    'is_video': attachment.is_video(),
+                    'is_audio': attachment.is_audio()
+                })
+            
             messages_data.append({
                 'id': message.id,
                 'content': message.content,
-                'sender': message.sender.get_full_name() or message.sender.username,
-                'sender_id': message.sender.id,
-                'created_at': message.get_formatted_time(),
+                'sender': sender_name,
+                'sender_name': sender_name,
+                'sender_id': sender_id,
+                'is_own': message.sender == request.user if message.sender else False,
+                'formatted_time': message.get_formatted_time(),
                 'message_type': message.message_type,
-                'reply_to': message.reply_to.id if message.reply_to else None
+                'reply_to': message.reply_to.id if message.reply_to else None,
+                'attachments': attachments
             })
         
+        # Also return room info for chat header
+        room_info = {
+            'id': chat_room.id,
+            'name': chat_room.name,
+            'display_name': str(chat_room),
+            'is_group_chat': chat_room.is_group_chat,
+            'participant_count': chat_room.participants.count(),
+            'avatar_text': 'G' if chat_room.is_group_chat else 'U'
+        }
+        
+        print(f"DEBUG: Returning {len(messages_data)} messages")
         return JsonResponse({
             'success': True,
             'messages': messages_data,
-            'last_message_id': messages.last().id if messages.exists() else None
+            'room': room_info,
+            'last_message_id': messages_list[-1].id if messages_list else None
         })
         
     except Exception as e:

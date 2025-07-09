@@ -15,7 +15,11 @@ class ShopifyStoreForm(forms.ModelForm):
     
     class Meta:
         model = ShopifyStore
-        fields = ['name', 'shop_domain', 'custom_domain', 'access_token', 'description', 'is_active']
+        fields = [
+            'name', 'shop_domain', 'custom_domain', 'access_token', 'description', 
+            'paypal_account_type', 'paypal_monthly_volume', 'paypal_handler_rate', 
+            'paypal_handler_fixed_fee', 'is_active'
+        ]
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -44,6 +48,24 @@ class ShopifyStoreForm(forms.ModelForm):
             'api_secret': forms.PasswordInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Optional für Public Apps'
+            }),
+            'paypal_account_type': forms.Select(attrs={
+                'class': 'form-control'
+            }),
+            'paypal_monthly_volume': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': '0.00',
+                'step': '0.01'
+            }),
+            'paypal_handler_rate': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': '0.0199',
+                'step': '0.0001'
+            }),
+            'paypal_handler_fixed_fee': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': '0.35',
+                'step': '0.01'
             }),
         }
     

@@ -1,0 +1,501 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}Kostenaufschlüsselung - {{ store.name }}{% endblock %}
+
+{% block shopify_content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+
+<style>
+    :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        --warning-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --danger-gradient: linear-gradient(135deg, #fc466b 0%, #3f5efb 100%);
+        --card-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        --card-shadow-hover: 0 15px 35px rgba(0, 0, 0, 0.15);
+    }
+
+    .breakdown-header {
+        background: var(--primary-gradient);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+        text-align: center;
+        box-shadow: var(--card-shadow);
+    }
+
+    .breakdown-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .breakdown-subtitle {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin-bottom: 0;
+    }
+
+    .cost-card {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: var(--card-shadow);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .cost-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--primary-gradient);
+    }
+
+    .cost-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--card-shadow-hover);
+    }
+
+    .cost-card.procurement::before {
+        background: var(--success-gradient);
+    }
+
+    .cost-card.shipping::before {
+        background: var(--warning-gradient);
+    }
+
+    .cost-card.fees::before {
+        background: var(--danger-gradient);
+    }
+
+    .cost-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .cost-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #2d3748;
+        margin: 0;
+    }
+
+    .cost-amount {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #667eea;
+    }
+
+    .cost-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .cost-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+    }
+
+    .cost-item-label {
+        font-size: 0.9rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+
+    .cost-item-value {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #2d3748;
+    }
+
+    .profit-card {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 15px;
+        text-align: center;
+        margin-bottom: 2rem;
+        box-shadow: var(--card-shadow);
+    }
+
+    .profit-amount {
+        font-size: 3rem;
+        font-weight: 800;
+        margin-bottom: 0.5rem;
+    }
+
+    .profit-label {
+        font-size: 1.2rem;
+        opacity: 0.9;
+    }
+
+    .chart-container {
+        background: white;
+        border-radius: 15px;
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+        margin-bottom: 2rem;
+    }
+
+    .chart-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #2d3748;
+        margin-bottom: 1.5rem;
+        text-align: center;
+    }
+
+    .comparison-table {
+        background: white;
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: var(--card-shadow);
+        margin-bottom: 2rem;
+    }
+
+    .table-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 1.5rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .table-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #495057;
+        margin: 0;
+    }
+
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table th {
+        background: #f8f9fa;
+        border-top: none;
+        font-weight: 600;
+        color: #495057;
+        padding: 1rem;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .table td {
+        padding: 1rem;
+        vertical-align: middle;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .positive {
+        color: #28a745;
+        font-weight: 600;
+    }
+
+    .negative {
+        color: #dc3545;
+        font-weight: 600;
+    }
+
+    .neutral {
+        color: #6c757d;
+        font-weight: 600;
+    }
+
+    .animate-fade-in {
+        animation: fadeIn 0.6s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 768px) {
+        .breakdown-title {
+            font-size: 2rem;
+        }
+        
+        .cost-details {
+            grid-template-columns: 1fr;
+        }
+        
+        .profit-amount {
+            font-size: 2.5rem;
+        }
+    }
+</style>
+
+<div class="animate-fade-in">
+    <!-- Header -->
+    <div class="breakdown-header">
+        <h1 class="breakdown-title">
+            <i class="fas fa-chart-pie"></i> Kostenaufschlüsselung
+        </h1>
+        <p class="breakdown-subtitle">
+            Detaillierte Analyse aller Kosten für {{ store.name }}
+        </p>
+    </div>
+
+    <!-- Profit Overview -->
+    <div class="profit-card animate-fade-in">
+        <div class="profit-amount">{{ total_profit|floatformat:2 }}€</div>
+        <div class="profit-label">Gesamtgewinn</div>
+    </div>
+
+    <!-- Cost Breakdown Cards -->
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="cost-card procurement animate-fade-in">
+                <div class="cost-header">
+                    <h3 class="cost-title">
+                        <i class="fas fa-shopping-cart"></i> Beschaffungskosten
+                    </h3>
+                    <span class="cost-amount">{{ total_procurement_cost|floatformat:2 }}€</span>
+                </div>
+                <div class="cost-details">
+                    <div class="cost-item">
+                        <span class="cost-item-label">Einkaufspreis (Shopify)</span>
+                        <span class="cost-item-value">{{ total_procurement_cost|floatformat:2 }}€</span>
+                    </div>
+                    <div class="cost-item">
+                        <span class="cost-item-label">Durchschnitt pro Einheit</span>
+                        <span class="cost-item-value">{{ avg_procurement_cost|floatformat:2 }}€</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="cost-card shipping animate-fade-in">
+                <div class="cost-header">
+                    <h3 class="cost-title">
+                        <i class="fas fa-shipping-fast"></i> Versandkosten
+                    </h3>
+                    <span class="cost-amount">{{ total_shipping_cost|floatformat:2 }}€</span>
+                </div>
+                <div class="cost-details">
+                    <div class="cost-item">
+                        <span class="cost-item-label">Vom Kunden bezahlt</span>
+                        <span class="cost-item-value">{{ total_shop_shipping|floatformat:2 }}€</span>
+                    </div>
+                    <div class="cost-item">
+                        <span class="cost-item-label">Tatsächliche Kosten</span>
+                        <span class="cost-item-value">{{ total_actual_shipping|floatformat:2 }}€</span>
+                    </div>
+                    <div class="cost-item">
+                        <span class="cost-item-label">Versand Gewinn/Verlust</span>
+                        <span class="cost-item-value {% if shipping_profit > 0 %}positive{% elif shipping_profit < 0 %}negative{% else %}neutral{% endif %}">
+                            {{ shipping_profit|floatformat:2 }}€
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="cost-card fees animate-fade-in">
+                <div class="cost-header">
+                    <h3 class="cost-title">
+                        <i class="fas fa-credit-card"></i> Gebühren
+                    </h3>
+                    <span class="cost-amount">{{ total_fees|floatformat:2 }}€</span>
+                </div>
+                <div class="cost-details">
+                    <div class="cost-item">
+                        <span class="cost-item-label">Shopify Gebühren</span>
+                        <span class="cost-item-value">{{ total_shopify_fees|floatformat:2 }}€</span>
+                    </div>
+                    <div class="cost-item">
+                        <span class="cost-item-label">PayPal Gebühren</span>
+                        <span class="cost-item-value">{{ total_paypal_fees|floatformat:2 }}€</span>
+                    </div>
+                    <div class="cost-item">
+                        <span class="cost-item-label">Payment Gateway</span>
+                        <span class="cost-item-value">{{ total_payment_gateway_fees|floatformat:2 }}€</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cost Breakdown Chart -->
+    <div class="chart-container animate-fade-in">
+        <h3 class="chart-title">
+            <i class="fas fa-chart-donut"></i> Kostenverteilung
+        </h3>
+        <div style="max-width: 400px; margin: 0 auto;">
+            <canvas id="costBreakdownChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Detailed Comparison Table -->
+    <div class="comparison-table animate-fade-in">
+        <div class="table-header">
+            <h3 class="table-title">
+                <i class="fas fa-table"></i> Detaillierte Kostenvergleich
+            </h3>
+        </div>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Kostenart</th>
+                        <th>Betrag</th>
+                        <th>Anteil am Umsatz</th>
+                        <th>Durchschnitt pro Bestellung</th>
+                        <th>Trend</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><i class="fas fa-shopping-cart text-success"></i> Beschaffungskosten</td>
+                        <td>{{ total_procurement_cost|floatformat:2 }}€</td>
+                        <td>{{ procurement_percentage|floatformat:1 }}%</td>
+                        <td>{{ avg_procurement_per_order|floatformat:2 }}€</td>
+                        <td><i class="fas fa-arrow-up text-success"></i></td>
+                    </tr>
+                    <tr>
+                        <td><i class="fas fa-shipping-fast text-warning"></i> Versandkosten</td>
+                        <td>{{ total_shipping_cost|floatformat:2 }}€</td>
+                        <td>{{ shipping_percentage|floatformat:1 }}%</td>
+                        <td>{{ avg_shipping_per_order|floatformat:2 }}€</td>
+                        <td><i class="fas fa-minus text-secondary"></i></td>
+                    </tr>
+                    <tr>
+                        <td><i class="fas fa-credit-card text-danger"></i> Shopify Gebühren</td>
+                        <td>{{ total_shopify_fees|floatformat:2 }}€</td>
+                        <td>{{ shopify_fees_percentage|floatformat:1 }}%</td>
+                        <td>{{ avg_shopify_fees_per_order|floatformat:2 }}€</td>
+                        <td><i class="fas fa-arrow-up text-danger"></i></td>
+                    </tr>
+                    <tr>
+                        <td><i class="fas fa-paypal text-info"></i> PayPal Gebühren</td>
+                        <td>{{ total_paypal_fees|floatformat:2 }}€</td>
+                        <td>{{ paypal_fees_percentage|floatformat:1 }}%</td>
+                        <td>{{ avg_paypal_fees_per_order|floatformat:2 }}€</td>
+                        <td><i class="fas fa-arrow-down text-success"></i></td>
+                    </tr>
+                    <tr>
+                        <td><i class="fas fa-mobile-alt text-primary"></i> Payment Gateway</td>
+                        <td>{{ total_payment_gateway_fees|floatformat:2 }}€</td>
+                        <td>{{ payment_gateway_fees_percentage|floatformat:1 }}%</td>
+                        <td>{{ avg_payment_gateway_fees_per_order|floatformat:2 }}€</td>
+                        <td><i class="fas fa-minus text-secondary"></i></td>
+                    </tr>
+                    <tr>
+                        <td><i class="fas fa-calculator text-secondary"></i> Mehrwertsteuer</td>
+                        <td>{{ total_tax|floatformat:2 }}€</td>
+                        <td>{{ tax_percentage|floatformat:1 }}%</td>
+                        <td>{{ avg_tax_per_order|floatformat:2 }}€</td>
+                        <td><i class="fas fa-minus text-secondary"></i></td>
+                    </tr>
+                    <tr class="table-success">
+                        <td><strong><i class="fas fa-chart-line"></i> Gesamtgewinn</strong></td>
+                        <td><strong>{{ total_profit|floatformat:2 }}€</strong></td>
+                        <td><strong>{{ profit_percentage|floatformat:1 }}%</strong></td>
+                        <td><strong>{{ avg_profit_per_order|floatformat:2 }}€</strong></td>
+                        <td><i class="fas fa-arrow-up text-success"></i></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+// Cost Breakdown Chart
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('costBreakdownChart').getContext('2d');
+    
+    const data = {
+        labels: [
+            'Beschaffungskosten',
+            'Versandkosten',
+            'Shopify Gebühren',
+            'PayPal Gebühren',
+            'Payment Gateway',
+            'Mehrwertsteuer'
+        ],
+        datasets: [{
+            data: [
+                {{ total_procurement_cost|floatformat:2 }},
+                {{ total_shipping_cost|floatformat:2 }},
+                {{ total_shopify_fees|floatformat:2 }},
+                {{ total_paypal_fees|floatformat:2 }},
+                {{ total_payment_gateway_fees|floatformat:2 }},
+                {{ total_tax|floatformat:2 }}
+            ],
+            backgroundColor: [
+                '#4facfe',
+                '#f093fb',
+                '#fc466b',
+                '#3f5efb',
+                '#667eea',
+                '#764ba2'
+            ],
+            borderWidth: 0
+        }]
+    };
+
+    const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    padding: 20,
+                    usePointStyle: true,
+                    font: {
+                        size: 12
+                    }
+                }
+            },
+            tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                titleColor: '#ffffff',
+                bodyColor: '#ffffff',
+                borderColor: '#667eea',
+                borderWidth: 1,
+                cornerRadius: 8,
+                callbacks: {
+                    label: function(context) {
+                        const value = context.parsed;
+                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        const percentage = ((value / total) * 100).toFixed(1);
+                        return context.label + ': ' + value.toLocaleString() + '€ (' + percentage + '%)';
+                    }
+                }
+            }
+        }
+    };
+
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: data,
+        options: options
+    });
+});
+</script>
+{% endblock %}

@@ -126,11 +126,306 @@
         </div>
     </main>
 
+    <!-- Schwebendes Bug-Report-Widget -->
+    <div id="bug-report-widget" class="position-fixed bottom-0 start-0 m-3" style="z-index: 1050;">
+        <button id="bug-report-btn" class="btn btn-danger rounded-circle shadow-lg" 
+                style="width: 60px; height: 60px; border-radius: 50%;"
+                title="Bug melden">
+            <i class="fas fa-bug fa-lg"></i>
+        </button>
+    </div>
+
+    <!-- Bug-Report Modal -->
+    <div class="modal fade" id="bugReportModal" tabindex="-1" aria-labelledby="bugReportModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="bugReportModalLabel">
+                        <i class="fas fa-bug me-2"></i>Bug-Meldung senden
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="bugReportForm">
+                        {% csrf_token %}
+                        
+                        <!-- Anonyme Nutzer Felder -->
+                        {% if not user.is_authenticated %}
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="senderName" class="form-label">Name *</label>
+                                <input type="text" class="form-control" id="senderName" name="sender_name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="senderEmail" class="form-label">E-Mail-Adresse *</label>
+                                <input type="email" class="form-control" id="senderEmail" name="sender_email" required>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Betreff -->
+                        <div class="mb-3">
+                            <label for="bugSubject" class="form-label">Betreff *</label>
+                            <input type="text" class="form-control" id="bugSubject" name="subject" 
+                                   placeholder="Kurze Beschreibung des Problems" required>
+                        </div>
+                        
+                        <!-- Nachricht -->
+                        <div class="mb-3">
+                            <label for="bugMessage" class="form-label">Beschreibung *</label>
+                            <textarea class="form-control" id="bugMessage" name="message" rows="5" 
+                                      placeholder="Detaillierte Beschreibung des Problems..." required></textarea>
+                        </div>
+                        
+                        <!-- Screenshot Bereich -->
+                        <div class="mb-3">
+                            <label class="form-label">Screenshot</label>
+                            <div class="d-flex gap-2 mb-2">
+                                <button type="button" class="btn btn-outline-primary" id="takeScreenshot">
+                                    <i class="fas fa-camera me-2"></i>Screenshot erstellen
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" id="clearScreenshot" style="display: none;">
+                                    <i class="fas fa-trash me-2"></i>Screenshot löschen
+                                </button>
+                            </div>
+                            <div id="screenshotPreview" style="display: none;">
+                                <img id="screenshotImage" class="img-fluid rounded border" style="max-height: 200px;">
+                            </div>
+                        </div>
+                        
+                        <!-- Datei-Upload -->
+                        <div class="mb-3">
+                            <label for="fileUpload" class="form-label">Zusätzliche Dateien</label>
+                            <input type="file" class="form-control" id="fileUpload" name="files" multiple
+                                   accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.txt,.zip">
+                            <div class="form-text">
+                                Erlaubte Dateitypen: Bilder, PDFs, Dokumente, ZIP-Archive (max. 10MB je Datei)
+                            </div>
+                            <div id="fileList" class="mt-2"></div>
+                        </div>
+                        
+                        <!-- Aktuelle URL wird automatisch erfasst -->
+                        <input type="hidden" id="currentUrl" name="url">
+                        <input type="hidden" id="browserInfo" name="browser_info">
+                        <input type="hidden" id="screenshotData" name="screenshot">
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="button" class="btn btn-danger" id="submitBugReport">
+                        <i class="fas fa-paper-plane me-2"></i>Bug-Meldung senden
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <footer class="text-center text-muted py-4">
         <p>&copy; {% now "Y" %} Workloom by Taras</p>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Bug-Report Widget Script -->
+    <script>
+        // Console Log Capture
+        let consoleLog = [];
+        const maxLogLines = 100;
+        
+        // Überschreibe console-Methoden um Logs zu sammeln
+        (function() {
+            const originalLog = console.log;
+            const originalError = console.error;
+            const originalWarn = console.warn;
+            const originalInfo = console.info;
+            
+            function captureLog(type, args) {
+                const timestamp = new Date().toISOString();
+                const message = Array.from(args).map(arg => {
+                    try {
+                        return typeof arg === 'object' ? JSON.stringify(arg) : String(arg);
+                    } catch (e) {
+                        return String(arg);
+                    }
+                }).join(' ');
+                
+                consoleLog.push(`[${timestamp}] [${type}] ${message}`);
+                
+                // Behalte nur die letzten maxLogLines Zeilen
+                if (consoleLog.length > maxLogLines) {
+                    consoleLog = consoleLog.slice(-maxLogLines);
+                }
+            }
+            
+            console.log = function() {
+                captureLog('LOG', arguments);
+                originalLog.apply(console, arguments);
+            };
+            
+            console.error = function() {
+                captureLog('ERROR', arguments);
+                originalError.apply(console, arguments);
+            };
+            
+            console.warn = function() {
+                captureLog('WARN', arguments);
+                originalWarn.apply(console, arguments);
+            };
+            
+            console.info = function() {
+                captureLog('INFO', arguments);
+                originalInfo.apply(console, arguments);
+            };
+        })();
+        
+        // Bug-Report-Widget Funktionalität
+        document.addEventListener('DOMContentLoaded', function() {
+            const bugReportBtn = document.getElementById('bug-report-btn');
+            const bugReportModal = new bootstrap.Modal(document.getElementById('bugReportModal'));
+            
+            // Widget-Button Event
+            bugReportBtn.addEventListener('click', function() {
+                // Erfasse aktuelle URL und Browser-Info
+                document.getElementById('currentUrl').value = window.location.href;
+                document.getElementById('browserInfo').value = navigator.userAgent;
+                
+                // Öffne Modal
+                bugReportModal.show();
+            });
+            
+            // Screenshot-Funktionalität
+            document.getElementById('takeScreenshot').addEventListener('click', function() {
+                if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+                    navigator.mediaDevices.getDisplayMedia({
+                        video: { mediaSource: 'screen' }
+                    }).then(function(stream) {
+                        const video = document.createElement('video');
+                        video.srcObject = stream;
+                        video.play();
+                        
+                        video.addEventListener('loadedmetadata', function() {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = video.videoWidth;
+                            canvas.height = video.videoHeight;
+                            
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(video, 0, 0);
+                            
+                            // Konvertiere zu Base64
+                            const dataURL = canvas.toDataURL('image/png');
+                            
+                            // Zeige Preview
+                            document.getElementById('screenshotImage').src = dataURL;
+                            document.getElementById('screenshotPreview').style.display = 'block';
+                            document.getElementById('clearScreenshot').style.display = 'inline-block';
+                            document.getElementById('screenshotData').value = dataURL;
+                            
+                            // Stoppe Stream
+                            stream.getTracks().forEach(track => track.stop());
+                        });
+                    }).catch(function(err) {
+                        alert('Screenshot konnte nicht erstellt werden: ' + err.message);
+                    });
+                } else {
+                    alert('Screenshot-Funktion wird von diesem Browser nicht unterstützt.');
+                }
+            });
+            
+            // Screenshot löschen
+            document.getElementById('clearScreenshot').addEventListener('click', function() {
+                document.getElementById('screenshotPreview').style.display = 'none';
+                document.getElementById('clearScreenshot').style.display = 'none';
+                document.getElementById('screenshotData').value = '';
+            });
+            
+            // Datei-Upload Preview
+            document.getElementById('fileUpload').addEventListener('change', function() {
+                const fileList = document.getElementById('fileList');
+                fileList.innerHTML = '';
+                
+                Array.from(this.files).forEach(function(file) {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'alert alert-info alert-sm d-flex justify-content-between align-items-center';
+                    fileItem.innerHTML = `
+                        <span><i class="fas fa-file me-2"></i>${file.name} (${formatFileSize(file.size)})</span>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(this, '${file.name}')">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
+                    fileList.appendChild(fileItem);
+                });
+            });
+            
+            // Bug-Report senden
+            document.getElementById('submitBugReport').addEventListener('click', function() {
+                const form = document.getElementById('bugReportForm');
+                const formData = new FormData(form);
+                
+                // Validierung
+                if (!form.checkValidity()) {
+                    form.reportValidity();
+                    return;
+                }
+                
+                // Sammle Daten
+                const data = {
+                    subject: document.getElementById('bugSubject').value,
+                    message: document.getElementById('bugMessage').value,
+                    url: document.getElementById('currentUrl').value,
+                    browser_info: document.getElementById('browserInfo').value,
+                    screenshot: document.getElementById('screenshotData').value,
+                    console_log: consoleLog.join('\n')  // Füge Console Log hinzu
+                };
+                
+                // Anonyme Nutzer Daten
+                {% if not user.is_authenticated %}
+                data.sender_name = document.getElementById('senderName').value;
+                data.sender_email = document.getElementById('senderEmail').value;
+                {% endif %}
+                
+                // Sende Request
+                fetch('/bug-report/submit/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Bug-Meldung erfolgreich gesendet!');
+                        bugReportModal.hide();
+                        form.reset();
+                        document.getElementById('screenshotPreview').style.display = 'none';
+                        document.getElementById('clearScreenshot').style.display = 'none';
+                        document.getElementById('fileList').innerHTML = '';
+                    } else {
+                        alert('Fehler: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('Ein Fehler ist aufgetreten: ' + error.message);
+                });
+            });
+        });
+        
+        // Hilfsfunktion für Datei-Entfernung
+        function removeFile(button, fileName) {
+            const fileInput = document.getElementById('fileUpload');
+            const dt = new DataTransfer();
+            
+            Array.from(fileInput.files).forEach(file => {
+                if (file.name !== fileName) {
+                    dt.items.add(file);
+                }
+            });
+            
+            fileInput.files = dt.files;
+            button.closest('.alert').remove();
+        }
+    </script>
 
     <script>
         // Auto-dismiss alerts after 5 seconds

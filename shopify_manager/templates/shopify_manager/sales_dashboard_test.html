@@ -1,0 +1,110 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}Verkaufszahlen - {{ store.name }}{% endblock %}
+
+{% block shopify_content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                <i class="fas fa-chart-line text-primary"></i> Verkaufszahlen
+            </h1>
+            
+            <div class="alert alert-info">
+                <strong>Store:</strong> {{ store.name }}
+            </div>
+            
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="card border-primary">
+                        <div class="card-body text-center">
+                            <h3 class="text-primary">{{ statistics.total_orders|default:"0" }}</h3>
+                            <p class="text-muted">Bestellungen</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-success">
+                        <div class="card-body text-center">
+                            <h3 class="text-success">{{ statistics.total_revenue|floatformat:0|default:"0" }}€</h3>
+                            <p class="text-muted">Umsatz</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-warning">
+                        <div class="card-body text-center">
+                            <h3 class="text-warning">{{ statistics.total_profit|floatformat:0|default:"0" }}€</h3>
+                            <p class="text-muted">Gewinn</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-info">
+                        <div class="card-body text-center">
+                            <h3 class="text-info">{{ statistics.roas|floatformat:1|default:"0.0" }}</h3>
+                            <p class="text-muted">ROAS</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Aktionen</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <a href="{% url 'shopify_manager:import_sales_data' %}?store={{ store.id }}" class="btn btn-primary btn-block">
+                                        <i class="fas fa-download"></i> Daten importieren
+                                    </a>
+                                </div>
+                                <div class="col-md-3">
+                                    <a href="{% url 'shopify_manager:shipping_profiles' %}?store={{ store.id }}" class="btn btn-outline-primary btn-block">
+                                        <i class="fas fa-shipping-fast"></i> Versandprofile
+                                    </a>
+                                </div>
+                                <div class="col-md-3">
+                                    <a href="{% url 'shopify_manager:recurring_costs' %}?store={{ store.id }}" class="btn btn-outline-primary btn-block">
+                                        <i class="fas fa-calendar-alt"></i> Laufende Kosten
+                                    </a>
+                                </div>
+                                <div class="col-md-3">
+                                    <a href="{% url 'shopify_manager:ads_costs' %}?store={{ store.id }}" class="btn btn-outline-primary btn-block">
+                                        <i class="fas fa-bullhorn"></i> Werbekosten
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Debug-Informationen</h5>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Store:</strong> {{ store.name }} (ID: {{ store.id }})</p>
+                            <p><strong>Statistiken:</strong></p>
+                            <ul>
+                                <li>Bestellungen: {{ statistics.total_orders|default:"Keine Daten" }}</li>
+                                <li>Umsatz: {{ statistics.total_revenue|default:"Keine Daten" }}€</li>
+                                <li>Gewinn: {{ statistics.total_profit|default:"Keine Daten" }}€</li>
+                                <li>ROAS: {{ statistics.roas|default:"Keine Daten" }}</li>
+                            </ul>
+                            <p><strong>Bestseller:</strong> {{ bestsellers|length }} Artikel</p>
+                            <p><strong>Chart Data:</strong> {{ chart_data.labels|length|default:"0" }} Datenpunkte</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

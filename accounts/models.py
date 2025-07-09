@@ -23,6 +23,14 @@ class CustomUser(AbstractUser):
     profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True, 
                                        verbose_name="Profilbild")
     
+    # Super User für Bug-Chat
+    is_bug_chat_superuser = models.BooleanField(default=False, verbose_name="Bug-Chat Super User",
+                                               help_text="Kann Bug-Chat-Nachrichten empfangen und Super User verwalten")
+    receive_bug_reports = models.BooleanField(default=False, verbose_name="Bug-Meldungen empfangen",
+                                             help_text="Erhält Bug-Meldungen über das Chat-System")
+    receive_anonymous_reports = models.BooleanField(default=False, verbose_name="Anonyme Meldungen empfangen",
+                                                   help_text="Erhält auch Bug-Meldungen ohne angemeldeten User")
+    
     def __str__(self):
         return self.username
 
