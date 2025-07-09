@@ -202,6 +202,7 @@ class ProductFilterForm(forms.Form):
     status = forms.ChoiceField(
         choices=STATUS_CHOICES,
         required=False,
+        initial='active',
         widget=forms.Select(attrs={'class': 'form-select'})
     )
     
@@ -290,6 +291,7 @@ class BlogPostFilterForm(forms.Form):
     status = forms.ChoiceField(
         choices=STATUS_CHOICES,
         required=False,
+        initial='published',
         widget=forms.Select(attrs={'class': 'form-select'})
     )
     

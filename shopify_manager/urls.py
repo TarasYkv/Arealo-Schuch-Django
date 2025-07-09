@@ -34,14 +34,14 @@ urlpatterns = [
     # Unified SEO Optimization
     path('seo-optimization/', views.unified_seo_optimization_view, name='unified_seo_optimization'),
     
-    # Integrated SEO Optimization (neue Ein-Seiten-Lösung)
-    path('do-seo/<str:content_type>/<int:content_id>/', views.integrated_seo_optimization_view, name='integrated_seo_optimization'),
-    path('api/generate-integrated-seo/', views.generate_integrated_seo_view, name='generate_integrated_seo'),
-    path('api/apply-integrated-seo/', views.apply_integrated_seo_view, name='apply_integrated_seo'),
     
     # Separate SEO Optimization (spezifische Templates)
     path('products/<int:product_id>/do-seo/', views.product_seo_optimization_view, name='product_seo_optimization'),
     path('blog-posts/<int:blog_post_id>/do-seo/', views.blog_post_seo_optimization_view, name='blog_post_seo_optimization'),
+    
+    # SEO Optimization API
+    path('api/generate-seo/', views.generate_seo_view, name='generate_seo'),
+    path('api/apply-seo/', views.apply_seo_view, name='apply_seo'),
     
     # Alt-Text Manager
     path('alt-text-manager/', views.alt_text_manager_overview_view, name='alt_text_manager'),
@@ -50,11 +50,6 @@ urlpatterns = [
     path('api/update-alt-text/', views.update_alt_text_view, name='update_alt_text'),
     path('api/generate-alt-text/', views.generate_alt_text_view, name='generate_alt_text'),
     
-    # SEO-Optimierung mit KI (unterstützt sowohl lokale ID als auch Shopify-ID)
-    path('products/<int:product_id>/seo-optimization/', views.seo_optimization_view, name='seo_optimization'),
-    path('seo-optimization/<int:pk>/', views.seo_optimization_detail_view, name='seo_optimization_detail'),
-    path('api/seo-optimization/<int:pk>/generate/', views.generate_seo_ai_view, name='generate_seo_ai'),
-    path('api/seo-optimization/<int:pk>/apply/', views.apply_seo_optimization_view, name='apply_seo_optimization'),
     
     path('api/bulk-action/', views.bulk_action_view, name='bulk_action'),
     
@@ -72,11 +67,6 @@ urlpatterns = [
     path('api/get-blogs-for-store/<int:store_id>/', views.get_blogs_for_store_view, name='get_blogs_for_store'),
     path('api/update-blog-alt-text/', views.update_blog_alt_text_view, name='update_blog_alt_text'),
     
-    # Blog SEO-Optimierung mit KI
-    path('blog-posts/<int:blog_post_id>/seo-optimization/', views.blog_post_seo_optimization_view, name='blog_post_seo_optimization'),
-    path('blog-post-seo-optimization/<int:pk>/', views.blog_post_seo_optimization_detail_view, name='blog_post_seo_optimization_detail'),
-    path('api/blog-post-seo-optimization/<int:pk>/generate/', views.generate_blog_post_seo_ai_view, name='generate_blog_post_seo_ai'),
-    path('api/blog-post-seo-optimization/<int:pk>/apply/', views.apply_blog_post_seo_optimization_view, name='apply_blog_post_seo_optimization'),
     
     # Blog-Post Management APIs  
     path('api/blog-posts/<int:blog_post_id>/delete-local/', views.delete_blog_post_local_view, name='delete_blog_post_local'),
