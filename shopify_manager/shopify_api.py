@@ -755,7 +755,7 @@ class ShopifyProductSync:
                 
             all_products.extend(products)
             total_fetched += len(products)
-            print(f"Pagination: {len(products)} Produkte geholt, insgesamt: {total_fetched}")
+            print(f"📦 Produkt Pagination: {len(products)} Produkte geholt, insgesamt: {total_fetched}")
             
             # since_id für nächste Seite setzen
             if len(products) < 250:  # Weniger als Maximum = letzte Seite
@@ -764,7 +764,7 @@ class ShopifyProductSync:
             since_id = str(products[-1]['id'])  # ID des letzten Produkts
             
             # Sicherheitscheck: Stoppe bei sehr vielen Produkten
-            if total_fetched >= 10000:
+            if total_fetched >= 50000:
                 print(f"Sicherheitsstopp bei {total_fetched} Produkten erreicht")
                 break
         
@@ -1061,7 +1061,7 @@ class ShopifyProductSync:
             defaults = {
                 'title': product_data.get('title', '')[:255],  # Titel begrenzen
                 'handle': product_data.get('handle', '')[:255],  # Handle begrenzen
-                'body_html': product_data.get('body_html', ''),
+                'body_html': product_data.get('body_html') or '',
                 'vendor': product_data.get('vendor', '')[:255],  # Vendor begrenzen  
                 'product_type': product_data.get('product_type', '')[:255],  # Product Type begrenzen
                 'status': product_data.get('status', 'active'),
@@ -1071,7 +1071,7 @@ class ShopifyProductSync:
                 'featured_image_alt': featured_image_alt[:255] if featured_image_alt else '',  # Alt Text begrenzen
                 'price': price,
                 'compare_at_price': compare_at_price,
-                'tags': product_data.get('tags', ''),
+                'tags': product_data.get('tags') or '',
                 'shopify_created_at': self._parse_shopify_datetime(product_data.get('created_at')),
                 'shopify_updated_at': self._parse_shopify_datetime(product_data.get('updated_at')),
                 'last_synced_at': django_timezone.now(),
@@ -1336,7 +1336,7 @@ class ShopifyBlogSync:
 
             all_articles.extend(articles)
             total_fetched += len(articles)
-            print(f"Pagination: {len(articles)} Blog-Posts geholt, insgesamt: {total_fetched}")
+            print(f"📄 Blog-Post Pagination: {len(articles)} Blog-Posts geholt, insgesamt: {total_fetched}")
 
             # since_id für nächste Seite setzen
             if len(articles) < 250:  # Weniger als Maximum = letzte Seite
@@ -1345,7 +1345,7 @@ class ShopifyBlogSync:
             since_id = str(articles[-1]['id'])  # ID des letzten Artikels
 
             # Sicherheitscheck: Stoppe bei sehr vielen Artikeln
-            if total_fetched >= 10000:
+            if total_fetched >= 50000:
                 print(f"Sicherheitsstopp bei {total_fetched} Blog-Posts erreicht")
                 break
 

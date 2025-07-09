@@ -419,13 +419,24 @@
                     </div>
                     
                     <div id="importProgress" class="d-none">
-                        <div class="alert alert-primary">
-                            <i class="fas fa-spinner fa-spin"></i> 
-                            <span id="importStatus">Import läuft...</span>
+                        <div class="mb-3">
+                            <div class="progress" style="height: 25px;">
+                                <div id="importProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
+                                     role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                    0%
+                                </div>
+                            </div>
                         </div>
-                        <div class="progress">
-                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
-                                 style="width: 100%"></div>
+                        <div id="importProgressMessage" class="text-muted text-center">
+                            Import wird gestartet...
+                        </div>
+                        <div id="importProgressStats" class="mt-3 text-center" style="display: none;">
+                            <span class="badge bg-success me-2">
+                                <i class="fas fa-check"></i> <span id="importSuccessCount">0</span> erfolgreich
+                            </span>
+                            <span class="badge bg-danger">
+                                <i class="fas fa-times"></i> <span id="importFailedCount">0</span> fehlgeschlagen
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -651,18 +662,35 @@ document.getElementById('importForm').addEventListener('submit', function(e) {
     const importMode = formData.get('import_mode');
     const submitBtn = this.querySelector('button[type="submit"]');
     const progressDiv = document.getElementById('importProgress');
-    const statusSpan = document.getElementById('importStatus');
+    const progressBar = document.getElementById('importProgressBar');
+    const progressMessage = document.getElementById('importProgressMessage');
+    const progressStats = document.getElementById('importProgressStats');
+    const successCount = document.getElementById('importSuccessCount');
+    const failedCount = document.getElementById('importFailedCount');
+    
+    // Reset progress
+    progressBar.style.width = '0%';
+    progressBar.textContent = '0%';
+    progressBar.setAttribute('aria-valuenow', 0);
+    progressStats.style.display = 'none';
+    successCount.textContent = '0';
+    failedCount.textContent = '0';
     
     // Show different messages based on import mode
     if (importMode === 'all') {
-        statusSpan.textContent = 'Importiere alle Produkte... (kann länger dauern)';
+        progressMessage.textContent = 'Importiere alle Produkte... (kann länger dauern)';
     } else {
-        statusSpan.textContent = 'Importiere neue Produkte...';
+        progressMessage.textContent = 'Importiere neue Produkte...';
     }
     
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importiere...';
     progressDiv.classList.remove('d-none');
+    
+    // Show indeterminate progress
+    progressBar.style.width = '100%';
+    progressBar.textContent = 'Läuft...';
+    progressBar.classList.add('progress-bar-animated');
     
     const startTime = Date.now();
     
@@ -678,27 +706,60 @@ document.getElementById('importForm').addEventListener('submit', function(e) {
     .then(data => {
         const duration = Math.round((Date.now() - startTime) / 1000);
         
+        // Update progress to 100%
+        progressBar.style.width = '100%';
+        progressBar.textContent = '100%';
+        progressBar.setAttribute('aria-valuenow', 100);
+        progressBar.classList.remove('progress-bar-animated');
+        
         if (data.success) {
-            const message = `Import erfolgreich in ${duration}s: ${data.message}`;
-            if (data.products_imported > 0) {
-                alert(`✅ ${message}\n\n${data.products_imported} Produkte importiert`);
-                location.reload();
-            } else {
-                alert(`ℹ️ ${message}\n\nKeine neuen Produkte gefunden.`);
-            }
+            progressBar.classList.remove('bg-primary');
+            progressBar.classList.add('bg-success');
+            progressMessage.innerHTML = `<span class="text-success">Import erfolgreich in ${duration}s!</span>`;
+            
+            // Show statistics
+            const imported = data.products_imported || 0;
+            const failed = data.products_failed || 0;
+            successCount.textContent = imported;
+            failedCount.textContent = failed;
+            progressStats.style.display = 'block';
+            
+            setTimeout(() => {
+                if (imported > 0) {
+                    location.reload();
+                } else {
+                    progressDiv.classList.add('d-none');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = 'Importieren';
+                }
+            }, 2000);
         } else {
-            alert(`❌ Import fehlgeschlagen nach ${duration}s: ${data.error}`);
+            progressBar.classList.remove('bg-primary');
+            progressBar.classList.add('bg-danger');
+            progressMessage.innerHTML = `<span class="text-danger">Import fehlgeschlagen nach ${duration}s: ${data.error}</span>`;
+            
+            setTimeout(() => {
+                progressDiv.classList.add('d-none');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Importieren';
+            }, 3000);
         }
     })
     .catch(error => {
         const duration = Math.round((Date.now() - startTime) / 1000);
         console.error('Error:', error);
-        alert(`❌ Fehler beim Import nach ${duration}s: ${error.message || 'Unbekannter Fehler'}`);
-    })
-    .finally(() => {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = 'Importieren';
-        progressDiv.classList.add('d-none');
+        
+        progressBar.style.width = '100%';
+        progressBar.classList.remove('bg-primary', 'progress-bar-animated');
+        progressBar.classList.add('bg-danger');
+        progressBar.textContent = 'Fehler';
+        progressMessage.innerHTML = `<span class="text-danger">Fehler beim Import nach ${duration}s: ${error.message || 'Unbekannter Fehler'}</span>`;
+        
+        setTimeout(() => {
+            progressDiv.classList.add('d-none');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Importieren';
+        }, 3000);
     });
 });
 

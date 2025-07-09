@@ -106,6 +106,28 @@
                             {% endfor %}
                         </select>
                     </div>
+                    
+                    <div id="blogImportProgress" class="d-none">
+                        <div class="mb-3">
+                            <div class="progress" style="height: 25px;">
+                                <div id="blogImportProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
+                                     role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                    0%
+                                </div>
+                            </div>
+                        </div>
+                        <div id="blogImportProgressMessage" class="text-muted text-center">
+                            Import wird gestartet...
+                        </div>
+                        <div id="blogImportProgressStats" class="mt-3 text-center" style="display: none;">
+                            <span class="badge bg-success me-2">
+                                <i class="fas fa-check"></i> <span id="blogImportSuccessCount">0</span> erfolgreich
+                            </span>
+                            <span class="badge bg-danger">
+                                <i class="fas fa-times"></i> <span id="blogImportFailedCount">0</span> fehlgeschlagen
+                            </span>
+                        </div>
+                    </div>
                 </form>
             </div>
             <div class="modal-footer">
@@ -145,6 +167,28 @@
                         </select>
                         <div class="form-text">
                             Wählen Sie "Alle Blogs" um Posts von allen Blogs zu importieren
+                        </div>
+                    </div>
+                    
+                    <div id="blogPostImportProgress" class="d-none">
+                        <div class="mb-3">
+                            <div class="progress" style="height: 25px;">
+                                <div id="blogPostImportProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
+                                     role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                    0%
+                                </div>
+                            </div>
+                        </div>
+                        <div id="blogPostImportProgressMessage" class="text-muted text-center">
+                            Import wird gestartet...
+                        </div>
+                        <div id="blogPostImportProgressStats" class="mt-3 text-center" style="display: none;">
+                            <span class="badge bg-success me-2">
+                                <i class="fas fa-check"></i> <span id="blogPostImportSuccessCount">0</span> erfolgreich
+                            </span>
+                            <span class="badge bg-danger">
+                                <i class="fas fa-times"></i> <span id="blogPostImportFailedCount">0</span> fehlgeschlagen
+                            </span>
                         </div>
                     </div>
                 </form>
@@ -245,6 +289,36 @@ function importBlogs() {
 function executeImport() {
     const form = document.getElementById('importForm');
     const formData = new FormData(form);
+    const progressDiv = document.getElementById('blogImportProgress');
+    const progressBar = document.getElementById('blogImportProgressBar');
+    const progressMessage = document.getElementById('blogImportProgressMessage');
+    const progressStats = document.getElementById('blogImportProgressStats');
+    const successCount = document.getElementById('blogImportSuccessCount');
+    const failedCount = document.getElementById('blogImportFailedCount');
+    const submitBtn = document.querySelector('#importModal .btn-success');
+    
+    // Reset progress
+    progressBar.style.width = '0%';
+    progressBar.textContent = '0%';
+    progressBar.setAttribute('aria-valuenow', 0);
+    progressBar.classList.remove('bg-success', 'bg-danger');
+    progressBar.classList.add('bg-primary');
+    progressStats.style.display = 'none';
+    successCount.textContent = '0';
+    failedCount.textContent = '0';
+    
+    // Show progress
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importiere...';
+    progressDiv.classList.remove('d-none');
+    progressMessage.textContent = 'Importiere Blogs...';
+    
+    // Show indeterminate progress
+    progressBar.style.width = '100%';
+    progressBar.textContent = 'Läuft...';
+    progressBar.classList.add('progress-bar-animated');
+    
+    const startTime = Date.now();
     
     fetch('/shopify/api/import-blogs/', {
         method: 'POST',
@@ -255,17 +329,56 @@ function executeImport() {
     })
     .then(response => response.json())
     .then(data => {
+        const duration = Math.round((Date.now() - startTime) / 1000);
+        
+        // Update progress to 100%
+        progressBar.style.width = '100%';
+        progressBar.textContent = '100%';
+        progressBar.setAttribute('aria-valuenow', 100);
+        progressBar.classList.remove('progress-bar-animated');
+        
         if (data.success) {
-            showAlert('success', `${data.imported} Blogs erfolgreich importiert!`);
-            setTimeout(() => location.reload(), 1500);
+            progressBar.classList.remove('bg-primary');
+            progressBar.classList.add('bg-success');
+            progressMessage.innerHTML = `<span class="text-success">Import erfolgreich in ${duration}s!</span>`;
+            
+            // Show statistics
+            const imported = data.imported || 0;
+            const failed = data.failed || 0;
+            successCount.textContent = imported;
+            failedCount.textContent = failed;
+            progressStats.style.display = 'block';
+            
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
         } else {
-            showAlert('danger', `Import fehlgeschlagen: ${data.error}`);
+            progressBar.classList.remove('bg-primary');
+            progressBar.classList.add('bg-danger');
+            progressMessage.innerHTML = `<span class="text-danger">Import fehlgeschlagen nach ${duration}s: ${data.error}</span>`;
+            
+            setTimeout(() => {
+                progressDiv.classList.add('d-none');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-download"></i> Importieren';
+            }, 3000);
         }
-        bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
     })
     .catch(error => {
-        showAlert('danger', 'Fehler beim Import: ' + error);
-        bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
+        const duration = Math.round((Date.now() - startTime) / 1000);
+        console.error('Error:', error);
+        
+        progressBar.style.width = '100%';
+        progressBar.classList.remove('bg-primary', 'progress-bar-animated');
+        progressBar.classList.add('bg-danger');
+        progressBar.textContent = 'Fehler';
+        progressMessage.innerHTML = `<span class="text-danger">Fehler beim Import nach ${duration}s: ${error.message || 'Unbekannter Fehler'}</span>`;
+        
+        setTimeout(() => {
+            progressDiv.classList.add('d-none');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-download"></i> Importieren';
+        }, 3000);
     });
 }
 
@@ -321,6 +434,13 @@ function loadBlogsForStore() {
 function executeBlogPostImport() {
     const form = document.getElementById('blogPostImportForm');
     const formData = new FormData(form);
+    const progressDiv = document.getElementById('blogPostImportProgress');
+    const progressBar = document.getElementById('blogPostImportProgressBar');
+    const progressMessage = document.getElementById('blogPostImportProgressMessage');
+    const progressStats = document.getElementById('blogPostImportProgressStats');
+    const successCount = document.getElementById('blogPostImportSuccessCount');
+    const failedCount = document.getElementById('blogPostImportFailedCount');
+    const submitBtn = document.querySelector('#blogPostImportModal .btn-success');
     
     const storeId = formData.get('store_id');
     const blogId = formData.get('blog_id');
@@ -329,6 +449,34 @@ function executeBlogPostImport() {
         alert('Bitte wählen Sie Store und Blog aus.');
         return;
     }
+    
+    // Reset progress
+    progressBar.style.width = '0%';
+    progressBar.textContent = '0%';
+    progressBar.setAttribute('aria-valuenow', 0);
+    progressBar.classList.remove('bg-success', 'bg-danger');
+    progressBar.classList.add('bg-primary');
+    progressStats.style.display = 'none';
+    successCount.textContent = '0';
+    failedCount.textContent = '0';
+    
+    // Show progress
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importiere...';
+    progressDiv.classList.remove('d-none');
+    
+    if (blogId === 'all') {
+        progressMessage.textContent = 'Importiere alle Blog-Posts...';
+    } else {
+        progressMessage.textContent = 'Importiere Blog-Posts...';
+    }
+    
+    // Show indeterminate progress
+    progressBar.style.width = '100%';
+    progressBar.textContent = 'Läuft...';
+    progressBar.classList.add('progress-bar-animated');
+    
+    const startTime = Date.now();
     
     let url, body;
     
@@ -352,17 +500,56 @@ function executeBlogPostImport() {
     })
     .then(response => response.json())
     .then(data => {
+        const duration = Math.round((Date.now() - startTime) / 1000);
+        
+        // Update progress to 100%
+        progressBar.style.width = '100%';
+        progressBar.textContent = '100%';
+        progressBar.setAttribute('aria-valuenow', 100);
+        progressBar.classList.remove('progress-bar-animated');
+        
         if (data.success) {
-            showAlert('success', `${data.imported} Blog-Posts erfolgreich importiert!`);
-            setTimeout(() => location.reload(), 1500);
+            progressBar.classList.remove('bg-primary');
+            progressBar.classList.add('bg-success');
+            progressMessage.innerHTML = `<span class="text-success">Import erfolgreich in ${duration}s!</span>`;
+            
+            // Show statistics
+            const imported = data.imported || 0;
+            const failed = data.failed || 0;
+            successCount.textContent = imported;
+            failedCount.textContent = failed;
+            progressStats.style.display = 'block';
+            
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
         } else {
-            showAlert('danger', `Import fehlgeschlagen: ${data.error}`);
+            progressBar.classList.remove('bg-primary');
+            progressBar.classList.add('bg-danger');
+            progressMessage.innerHTML = `<span class="text-danger">Import fehlgeschlagen nach ${duration}s: ${data.error}</span>`;
+            
+            setTimeout(() => {
+                progressDiv.classList.add('d-none');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-download"></i> Importieren';
+            }, 3000);
         }
-        bootstrap.Modal.getInstance(document.getElementById('blogPostImportModal')).hide();
     })
     .catch(error => {
-        showAlert('danger', 'Fehler beim Import: ' + error);
-        bootstrap.Modal.getInstance(document.getElementById('blogPostImportModal')).hide();
+        const duration = Math.round((Date.now() - startTime) / 1000);
+        console.error('Error:', error);
+        
+        progressBar.style.width = '100%';
+        progressBar.classList.remove('bg-primary', 'progress-bar-animated');
+        progressBar.classList.add('bg-danger');
+        progressBar.textContent = 'Fehler';
+        progressMessage.innerHTML = `<span class="text-danger">Fehler beim Import nach ${duration}s: ${error.message || 'Unbekannter Fehler'}</span>`;
+        
+        setTimeout(() => {
+            progressDiv.classList.add('d-none');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-download"></i> Importieren';
+        }, 3000);
     });
 }
 
