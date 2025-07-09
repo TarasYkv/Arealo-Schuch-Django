@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h2">
+                    <i class="fas fa-user-circle text-primary"></i> Mein Profil
+                </h1>
+                <div class="btn-group">
+                    <a href="{% url 'accounts:change_password' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-key"></i> Passwort ändern
+                    </a>
+                    <a href="{% url 'accounts:dashboard' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left"></i> Zurück zum Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <!-- Profilbild-Vorschau -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-image"></i> Profilbild
+                    </h5>
+                </div>
+                <div class="card-body text-center">
+                    {% if user.profile_picture %}
+                        <img src="{{ user.profile_picture.url }}" 
+                             alt="Profilbild von {{ user.username }}" 
+                             class="img-fluid rounded-circle mb-3" 
+                             style="width: 150px; height: 150px; object-fit: cover;">
+                    {% else %}
+                        <div class="bg-secondary rounded-circle d-flex align-items-center justify-content-center mb-3 mx-auto" 
+                             style="width: 150px; height: 150px;">
+                            <i class="fas fa-user fa-4x text-white"></i>
+                        </div>
+                    {% endif %}
+                    <p class="text-muted">
+                        <small>
+                            {% if user.profile_picture %}
+                                Profilbild hochgeladen
+                            {% else %}
+                                Kein Profilbild vorhanden
+                            {% endif %}
+                        </small>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Benutzer-Informationen -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle"></i> Benutzer-Informationen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Benutzername:</strong> {{ user.username }}</p>
+                    <p><strong>E-Mail:</strong> {{ user.email }}</p>
+                    <p><strong>Vollständiger Name:</strong> 
+                        {% if user.first_name or user.last_name %}
+                            {{ user.first_name }} {{ user.last_name }}
+                        {% else %}
+                            <em class="text-muted">Nicht angegeben</em>
+                        {% endif %}
+                    </p>
+                    <p><strong>Mitglied seit:</strong> {{ user.date_joined|date:"d.m.Y" }}</p>
+                    <p><strong>Letzte Anmeldung:</strong> 
+                        {% if user.last_login %}
+                            {{ user.last_login|date:"d.m.Y H:i" }}
+                        {% else %}
+                            <em class="text-muted">Noch nie</em>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <!-- Profil bearbeiten -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-edit"></i> Profil bearbeiten
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ profile_form.username.id_for_label }}" class="form-label">
+                                        <i class="fas fa-user"></i> Benutzername
+                                    </label>
+                                    {{ profile_form.username }}
+                                    {% if profile_form.username.errors %}
+                                        <div class="text-danger">
+                                            {% for error in profile_form.username.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ profile_form.email.id_for_label }}" class="form-label">
+                                        <i class="fas fa-envelope"></i> E-Mail-Adresse
+                                    </label>
+                                    {{ profile_form.email }}
+                                    {% if profile_form.email.errors %}
+                                        <div class="text-danger">
+                                            {% for error in profile_form.email.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ profile_form.first_name.id_for_label }}" class="form-label">
+                                        <i class="fas fa-user"></i> Vorname
+                                    </label>
+                                    {{ profile_form.first_name }}
+                                    {% if profile_form.first_name.errors %}
+                                        <div class="text-danger">
+                                            {% for error in profile_form.first_name.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ profile_form.last_name.id_for_label }}" class="form-label">
+                                        <i class="fas fa-user"></i> Nachname
+                                    </label>
+                                    {{ profile_form.last_name }}
+                                    {% if profile_form.last_name.errors %}
+                                        <div class="text-danger">
+                                            {% for error in profile_form.last_name.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ profile_form.profile_picture.id_for_label }}" class="form-label">
+                                <i class="fas fa-image"></i> Profilbild
+                            </label>
+                            {{ profile_form.profile_picture }}
+                            {% if profile_form.profile_picture.errors %}
+                                <div class="text-danger">
+                                    {% for error in profile_form.profile_picture.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                <small class="text-muted">
+                                    Erlaubte Formate: JPG, PNG, GIF. Maximale Dateigröße: 5MB.
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Profil speichern
+                            </button>
+                            
+                            {% if user.profile_picture %}
+                                <button type="button" class="btn btn-outline-danger" onclick="confirmDeleteProfilePicture()">
+                                    <i class="fas fa-trash"></i> Profilbild löschen
+                                </button>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDeleteProfilePicture() {
+    if (confirm('Möchten Sie Ihr Profilbild wirklich löschen?')) {
+        // Erstelle ein verstecktes Formular zum Löschen
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{% url "accounts:profile" %}';
+        
+        const csrfToken = document.createElement('input');
+        csrfToken.type = 'hidden';
+        csrfToken.name = 'csrfmiddlewaretoken';
+        csrfToken.value = '{{ csrf_token }}';
+        
+        const deleteField = document.createElement('input');
+        deleteField.type = 'hidden';
+        deleteField.name = 'delete_profile_picture';
+        deleteField.value = 'true';
+        
+        form.appendChild(csrfToken);
+        form.appendChild(deleteField);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+
+{% endblock %}

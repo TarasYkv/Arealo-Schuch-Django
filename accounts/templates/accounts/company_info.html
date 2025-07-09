@@ -13,8 +13,8 @@
                 </ol>
             </nav>
             
-            <h1 class="text-primary"><i class="bi bi-building"></i> Firmeninfo</h1>
-            <p class="lead text-muted">Verwalten Sie Ihre Standard-Firmeninformationen für KI-Schulungen.</p>
+            <h1 class="text-primary"><i class="bi bi-building"></i> Firmeninfo & Profil</h1>
+            <p class="lead text-muted">Verwalten Sie Ihre Firmeninformationen und Ihr Benutzerprofil.</p>
             
             {% if messages %}
                 {% for message in messages %}
@@ -25,68 +25,380 @@
                 {% endfor %}
             {% endif %}
             
-            <div class="card">
-                <div class="card-header">
-                    <h5><i class="bi bi-info-circle"></i> Firmeninformationen</h5>
-                </div>
-                <div class="card-body">
-                    <div class="alert alert-info">
-                        <i class="bi bi-lightbulb"></i> 
-                        <strong>Hinweis:</strong> Diese Informationen werden automatisch in die KI-Schulung Erstellung übernommen, 
-                        sodass Sie nicht jedes Mal alles neu eingeben müssen.
+            <!-- Navigation Tabs -->
+            <ul class="nav nav-tabs" id="profileTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {% if active_tab == 'company' %}active{% endif %}" 
+                            id="company-tab" data-bs-toggle="tab" data-bs-target="#company-tab-pane" 
+                            type="button" role="tab" aria-controls="company-tab-pane" 
+                            aria-selected="{% if active_tab == 'company' %}true{% else %}false{% endif %}">
+                        <i class="bi bi-building"></i> Firmeninfo
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {% if active_tab == 'profile' %}active{% endif %}" 
+                            id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile-tab-pane" 
+                            type="button" role="tab" aria-controls="profile-tab-pane" 
+                            aria-selected="{% if active_tab == 'profile' %}true{% else %}false{% endif %}">
+                        <i class="bi bi-person-circle"></i> Profil
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {% if active_tab == 'password' %}active{% endif %}" 
+                            id="password-tab" data-bs-toggle="tab" data-bs-target="#password-tab-pane" 
+                            type="button" role="tab" aria-controls="password-tab-pane" 
+                            aria-selected="{% if active_tab == 'password' %}true{% else %}false{% endif %}">
+                        <i class="bi bi-key"></i> Passwort
+                    </button>
+                </li>
+            </ul>
+
+            <!-- Tab Content -->
+            <div class="tab-content" id="profileTabsContent">
+                <!-- Firmeninfo Tab -->
+                <div class="tab-pane fade {% if active_tab == 'company' %}show active{% endif %}" 
+                     id="company-tab-pane" role="tabpanel" aria-labelledby="company-tab" tabindex="0">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="bi bi-info-circle"></i> Firmeninformationen</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info">
+                                <i class="bi bi-lightbulb"></i> 
+                                <strong>Hinweis:</strong> Diese Informationen werden automatisch in die KI-Schulung Erstellung übernommen, 
+                                sodass Sie nicht jedes Mal alles neu eingeben müssen.
+                            </div>
+                            
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="company_form" value="1">
+                                
+                                <div class="mb-4">
+                                    <label for="{{ company_form.company_info.id_for_label }}" class="form-label">
+                                        <i class="fas fa-building"></i> {{ company_form.company_info.label }}
+                                    </label>
+                                    {{ company_form.company_info }}
+                                    {% if company_form.company_info.help_text %}
+                                        <div class="form-text">{{ company_form.company_info.help_text }}</div>
+                                    {% endif %}
+                                    {% if company_form.company_info.errors %}
+                                        <div class="text-danger">
+                                            {% for error in company_form.company_info.errors %}
+                                                <div>{{ error }}</div>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <label for="{{ company_form.learning_goals.id_for_label }}" class="form-label">
+                                        <i class="fas fa-target"></i> {{ company_form.learning_goals.label }}
+                                    </label>
+                                    {{ company_form.learning_goals }}
+                                    {% if company_form.learning_goals.help_text %}
+                                        <div class="form-text">{{ company_form.learning_goals.help_text }}</div>
+                                    {% endif %}
+                                    {% if company_form.learning_goals.errors %}
+                                        <div class="text-danger">
+                                            {% for error in company_form.learning_goals.errors %}
+                                                <div>{{ error }}</div>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                    <a href="{% url 'accounts:dashboard' %}" class="btn btn-secondary me-md-2">
+                                        <i class="fas fa-arrow-left"></i> Zurück
+                                    </a>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Speichern
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                    
-                    <form method="post">
-                        {% csrf_token %}
-                        
-                        <div class="mb-4">
-                            <label for="{{ form.company_info.id_for_label }}" class="form-label">
-                                <i class="fas fa-building"></i> {{ form.company_info.label }}
-                            </label>
-                            {{ form.company_info }}
-                            {% if form.company_info.help_text %}
-                                <div class="form-text">{{ form.company_info.help_text }}</div>
-                            {% endif %}
-                            {% if form.company_info.errors %}
-                                <div class="text-danger">
-                                    {% for error in form.company_info.errors %}
-                                        <div>{{ error }}</div>
-                                    {% endfor %}
+                </div>
+
+                <!-- Profil Tab -->
+                <div class="tab-pane fade {% if active_tab == 'profile' %}show active{% endif %}" 
+                     id="profile-tab-pane" role="tabpanel" aria-labelledby="profile-tab" tabindex="0">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <!-- Profilbild-Vorschau -->
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-image"></i> Profilbild
+                                    </h5>
                                 </div>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="mb-4">
-                            <label for="{{ form.learning_goals.id_for_label }}" class="form-label">
-                                <i class="fas fa-target"></i> {{ form.learning_goals.label }}
-                            </label>
-                            {{ form.learning_goals }}
-                            {% if form.learning_goals.help_text %}
-                                <div class="form-text">{{ form.learning_goals.help_text }}</div>
-                            {% endif %}
-                            {% if form.learning_goals.errors %}
-                                <div class="text-danger">
-                                    {% for error in form.learning_goals.errors %}
-                                        <div>{{ error }}</div>
-                                    {% endfor %}
+                                <div class="card-body text-center">
+                                    {% if user.profile_picture %}
+                                        <img src="{{ user.profile_picture.url }}" 
+                                             alt="Profilbild von {{ user.username }}" 
+                                             class="img-fluid rounded-circle mb-3 shadow-sm" 
+                                             style="width: 150px; height: 150px; object-fit: cover; border: 3px solid #e9ecef;">
+                                    {% else %}
+                                        <div class="bg-secondary rounded-circle d-flex align-items-center justify-content-center mb-3 mx-auto shadow-sm" 
+                                             style="width: 150px; height: 150px; border: 3px solid #e9ecef;">
+                                            <i class="fas fa-user fa-4x text-white"></i>
+                                        </div>
+                                    {% endif %}
+                                    <p class="text-muted">
+                                        <small>
+                                            {% if user.profile_picture %}
+                                                Profilbild hochgeladen
+                                            {% else %}
+                                                Kein Profilbild vorhanden
+                                            {% endif %}
+                                        </small>
+                                    </p>
                                 </div>
-                            {% endif %}
+                            </div>
+
+                            <!-- Benutzer-Informationen -->
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-info-circle"></i> Benutzer-Informationen
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>Benutzername:</strong> {{ user.username }}</p>
+                                    <p><strong>E-Mail:</strong> {{ user.email }}</p>
+                                    <p><strong>Vollständiger Name:</strong> 
+                                        {% if user.first_name or user.last_name %}
+                                            {{ user.first_name }} {{ user.last_name }}
+                                        {% else %}
+                                            <em class="text-muted">Nicht angegeben</em>
+                                        {% endif %}
+                                    </p>
+                                    <p><strong>Mitglied seit:</strong> {{ user.date_joined|date:"d.m.Y" }}</p>
+                                    <p><strong>Letzte Anmeldung:</strong> 
+                                        {% if user.last_login %}
+                                            {{ user.last_login|date:"d.m.Y H:i" }}
+                                        {% else %}
+                                            <em class="text-muted">Noch nie</em>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
                         </div>
-                        
-                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <a href="{% url 'accounts:dashboard' %}" class="btn btn-secondary me-md-2">
-                                <i class="fas fa-arrow-left"></i> Zurück
-                            </a>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save"></i> Speichern
-                            </button>
+
+                        <div class="col-md-8">
+                            <!-- Profil bearbeiten -->
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-edit"></i> Profil bearbeiten
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <form method="post" enctype="multipart/form-data">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="profile_form" value="1">
+                                        
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="{{ profile_form.username.id_for_label }}" class="form-label">
+                                                        <i class="fas fa-user"></i> Benutzername
+                                                    </label>
+                                                    {{ profile_form.username }}
+                                                    {% if profile_form.username.errors %}
+                                                        <div class="text-danger">
+                                                            {% for error in profile_form.username.errors %}
+                                                                <small>{{ error }}</small>
+                                                            {% endfor %}
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="{{ profile_form.email.id_for_label }}" class="form-label">
+                                                        <i class="fas fa-envelope"></i> E-Mail-Adresse
+                                                    </label>
+                                                    {{ profile_form.email }}
+                                                    {% if profile_form.email.errors %}
+                                                        <div class="text-danger">
+                                                            {% for error in profile_form.email.errors %}
+                                                                <small>{{ error }}</small>
+                                                            {% endfor %}
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="{{ profile_form.first_name.id_for_label }}" class="form-label">
+                                                        <i class="fas fa-user"></i> Vorname
+                                                    </label>
+                                                    {{ profile_form.first_name }}
+                                                    {% if profile_form.first_name.errors %}
+                                                        <div class="text-danger">
+                                                            {% for error in profile_form.first_name.errors %}
+                                                                <small>{{ error }}</small>
+                                                            {% endfor %}
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="{{ profile_form.last_name.id_for_label }}" class="form-label">
+                                                        <i class="fas fa-user"></i> Nachname
+                                                    </label>
+                                                    {{ profile_form.last_name }}
+                                                    {% if profile_form.last_name.errors %}
+                                                        <div class="text-danger">
+                                                            {% for error in profile_form.last_name.errors %}
+                                                                <small>{{ error }}</small>
+                                                            {% endfor %}
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="{{ profile_form.profile_picture.id_for_label }}" class="form-label">
+                                                <i class="fas fa-image"></i> Profilbild
+                                            </label>
+                                            {{ profile_form.profile_picture }}
+                                            {% if profile_form.profile_picture.errors %}
+                                                <div class="text-danger">
+                                                    {% for error in profile_form.profile_picture.errors %}
+                                                        <small>{{ error }}</small>
+                                                    {% endfor %}
+                                                </div>
+                                            {% endif %}
+                                            <div class="form-text">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-info-circle"></i> 
+                                                    Erlaubte Formate: JPG, JPEG, PNG, GIF, WEBP. Maximale Dateigröße: 5MB.
+                                                </small>
+                                                <br>
+                                                <small class="text-info">
+                                                    <i class="fas fa-lightbulb"></i> 
+                                                    Tipp: Quadratische Bilder (1:1) sehen als Profilbild am besten aus.
+                                                </small>
+                                            </div>
+                                            
+                                            <!-- Vorschau für neu ausgewähltes Bild -->
+                                            <div id="image-preview" class="mt-2" style="display: none;">
+                                                <div class="card">
+                                                    <div class="card-body text-center">
+                                                        <p class="mb-2"><strong>Vorschau des neuen Bildes:</strong></p>
+                                                        <img id="preview-image" class="rounded-circle" style="width: 100px; height: 100px; object-fit: cover;">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="d-flex justify-content-between">
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="fas fa-save"></i> Profil speichern
+                                            </button>
+                                            
+                                            {% if user.profile_picture %}
+                                                <button type="button" class="btn btn-outline-danger" onclick="confirmDeleteProfilePicture()">
+                                                    <i class="fas fa-trash"></i> Profilbild löschen
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
                         </div>
-                    </form>
+                    </div>
+                </div>
+
+                <!-- Passwort Tab -->
+                <div class="tab-pane fade {% if active_tab == 'password' %}show active{% endif %}" 
+                     id="password-tab-pane" role="tabpanel" aria-labelledby="password-tab" tabindex="0">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-lock"></i> Passwort ändern
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="password_form" value="1">
+                                
+                                <div class="mb-3">
+                                    <label for="{{ password_form.old_password.id_for_label }}" class="form-label">
+                                        <i class="fas fa-key"></i> Aktuelles Passwort
+                                    </label>
+                                    {{ password_form.old_password }}
+                                    {% if password_form.old_password.errors %}
+                                        <div class="text-danger">
+                                            {% for error in password_form.old_password.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="{{ password_form.new_password1.id_for_label }}" class="form-label">
+                                        <i class="fas fa-lock"></i> Neues Passwort
+                                    </label>
+                                    {{ password_form.new_password1 }}
+                                    {% if password_form.new_password1.errors %}
+                                        <div class="text-danger">
+                                            {% for error in password_form.new_password1.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="{{ password_form.new_password2.id_for_label }}" class="form-label">
+                                        <i class="fas fa-lock"></i> Neues Passwort bestätigen
+                                    </label>
+                                    {{ password_form.new_password2 }}
+                                    {% if password_form.new_password2.errors %}
+                                        <div class="text-danger">
+                                            {% for error in password_form.new_password2.errors %}
+                                                <small>{{ error }}</small>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i>
+                                    <strong>Passwort-Anforderungen:</strong>
+                                    <ul class="mb-0 mt-2">
+                                        <li>Mindestens 8 Zeichen lang</li>
+                                        <li>Darf nicht zu ähnlich zu Ihren anderen persönlichen Informationen sein</li>
+                                        <li>Darf nicht nur aus Zahlen bestehen</li>
+                                        <li>Darf nicht zu häufig verwendet werden</li>
+                                    </ul>
+                                </div>
+
+                                <div class="d-flex justify-content-end">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save"></i> Passwort ändern
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </div>
             
-            <!-- Vorschau -->
-            <div class="card mt-4">
+            <!-- Vorschau (nur im Company Tab anzeigen) -->
+            <div class="card mt-4" id="company-preview" {% if active_tab != 'company' %}style="display: none;"{% endif %}>
                 <div class="card-header">
                     <h5><i class="fas fa-eye"></i> Verwendung in KI-Schulungen</h5>
                 </div>
@@ -122,4 +434,90 @@
         </div>
     </div>
 </div>
+
+<script>
+// Profilbild löschen
+function confirmDeleteProfilePicture() {
+    if (confirm('Möchten Sie Ihr Profilbild wirklich löschen?')) {
+        // Erstelle ein verstecktes Formular zum Löschen
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{% url "accounts:company_info" %}' + '?tab=profile';
+        
+        const csrfToken = document.createElement('input');
+        csrfToken.type = 'hidden';
+        csrfToken.name = 'csrfmiddlewaretoken';
+        csrfToken.value = '{{ csrf_token }}';
+        
+        const deleteField = document.createElement('input');
+        deleteField.type = 'hidden';
+        deleteField.name = 'delete_profile_picture';
+        deleteField.value = 'true';
+        
+        form.appendChild(csrfToken);
+        form.appendChild(deleteField);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+// Tab-Wechsel überwachen und Preview ein-/ausblenden
+document.addEventListener('DOMContentLoaded', function() {
+    const companyPreview = document.getElementById('company-preview');
+    const tabs = document.querySelectorAll('[data-bs-toggle="tab"]');
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('shown.bs.tab', function (event) {
+            const targetId = event.target.getAttribute('data-bs-target');
+            if (targetId === '#company-tab-pane') {
+                companyPreview.style.display = 'block';
+            } else {
+                companyPreview.style.display = 'none';
+            }
+        });
+    });
+    
+    // Bildvorschau-Funktionalität
+    const profilePictureInput = document.getElementById('{{ profile_form.profile_picture.id_for_label }}');
+    const imagePreview = document.getElementById('image-preview');
+    const previewImage = document.getElementById('preview-image');
+    
+    if (profilePictureInput) {
+        profilePictureInput.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            
+            if (file) {
+                // Dateigröße prüfen (5MB)
+                const maxSize = 5 * 1024 * 1024;
+                if (file.size > maxSize) {
+                    alert('Die Datei ist zu groß. Maximale Dateigröße: 5MB.');
+                    this.value = '';
+                    imagePreview.style.display = 'none';
+                    return;
+                }
+                
+                // Dateityp prüfen
+                const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+                if (!validTypes.includes(file.type)) {
+                    alert('Ungültiger Dateityp. Erlaubt sind: JPG, JPEG, PNG, GIF, WEBP.');
+                    this.value = '';
+                    imagePreview.style.display = 'none';
+                    return;
+                }
+                
+                // Bildvorschau erstellen
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewImage.src = e.target.result;
+                    imagePreview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            } else {
+                imagePreview.style.display = 'none';
+            }
+        });
+    }
+});
+</script>
+
 {% endblock %}

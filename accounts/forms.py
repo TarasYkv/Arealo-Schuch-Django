@@ -1,5 +1,5 @@
 from django import forms
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm, PasswordChangeForm
 from django.contrib.auth import authenticate
 from .models import CustomUser, AmpelCategory, CategoryKeyword
 
@@ -84,3 +84,52 @@ class CompanyInfoForm(forms.ModelForm):
                 'placeholder': 'Was möchten Sie standardmäßig in Schulungen lernen?'
             }),
         }
+
+
+class UserProfileForm(forms.ModelForm):
+    """Formular für Benutzer-Profil bearbeiten"""
+    class Meta:
+        model = CustomUser
+        fields = ['username', 'email', 'first_name', 'last_name', 'profile_picture']
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'profile_picture': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+        }
+    
+    def clean_profile_picture(self):
+        """Validierung für Profilbild"""
+        profile_picture = self.cleaned_data.get('profile_picture')
+        
+        if profile_picture:
+            # Dateigröße prüfen (max 5MB)
+            max_size = 5 * 1024 * 1024  # 5MB in Bytes
+            if profile_picture.size > max_size:
+                raise forms.ValidationError('Die Datei ist zu groß. Maximale Dateigröße: 5MB.')
+            
+            # Dateityp prüfen
+            valid_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+            file_name = profile_picture.name.lower()
+            if not any(file_name.endswith(ext) for ext in valid_extensions):
+                raise forms.ValidationError('Ungültiger Dateityp. Erlaubt sind: JPG, JPEG, PNG, GIF, WEBP.')
+            
+            # MIME-Type prüfen
+            import mimetypes
+            mime_type, _ = mimetypes.guess_type(profile_picture.name)
+            valid_mime_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+            if mime_type not in valid_mime_types:
+                raise forms.ValidationError('Ungültiger Dateityp. Nur Bilddateien sind erlaubt.')
+        
+        return profile_picture
+
+
+class CustomPasswordChangeForm(PasswordChangeForm):
+    """Erweiterte Passwort-Änderung mit Bootstrap-Styling"""
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['old_password'].widget.attrs.update({'class': 'form-control'})
+        self.fields['new_password1'].widget.attrs.update({'class': 'form-control'})
+        self.fields['new_password2'].widget.attrs.update({'class': 'form-control'})
