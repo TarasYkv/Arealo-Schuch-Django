@@ -10,6 +10,7 @@ from django.http import JsonResponse
 from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm, ApiKeyForm, CompanyInfoForm, UserProfileForm, CustomPasswordChangeForm, SuperUserManagementForm, BugChatSettingsForm
 from .models import CustomUser, AmpelCategory, CategoryKeyword
 from naturmacher.models import APIBalance
+from .utils import redirect_with_params
 
 
 class CustomLoginView(LoginView):
@@ -368,7 +369,7 @@ def company_info_view(request):
             if company_form.is_valid():
                 company_form.save()
                 messages.success(request, 'Firmeninformationen wurden erfolgreich gespeichert.')
-                return redirect('accounts:company_info' + '?tab=company')
+                return redirect_with_params('accounts:company_info', tab='company')
             active_tab = 'company'
             
         elif 'profile_form' in request.POST:
@@ -389,14 +390,14 @@ def company_info_view(request):
                     messages.success(request, 'Ihr Profilbild wurde erfolgreich gelöscht!')
                 else:
                     messages.info(request, 'Kein Profilbild vorhanden.')
-                return redirect('accounts:company_info' + '?tab=profile')
+                return redirect('accounts:company_info')
             
             # Normale Profilaktualisierung
             profile_form = UserProfileForm(request.POST, request.FILES, instance=request.user)
             if profile_form.is_valid():
                 profile_form.save()
                 messages.success(request, 'Ihr Profil wurde erfolgreich aktualisiert!')
-                return redirect('accounts:company_info' + '?tab=profile')
+                return redirect('accounts:company_info')
             active_tab = 'profile'
             
         elif 'password_form' in request.POST:
@@ -410,7 +411,7 @@ def company_info_view(request):
             if password_form.is_valid():
                 password_form.save()
                 messages.success(request, 'Ihr Passwort wurde erfolgreich geändert!')
-                return redirect('accounts:company_info' + '?tab=password')
+                return redirect('accounts:company_info')
             active_tab = 'password'
             
         elif 'bug_chat_form' in request.POST:
@@ -424,7 +425,7 @@ def company_info_view(request):
             if bug_chat_form.is_valid():
                 bug_chat_form.save()
                 messages.success(request, 'Bug-Chat-Einstellungen wurden erfolgreich gespeichert!')
-                return redirect('accounts:company_info' + '?tab=bug_chat')
+                return redirect('accounts:company_info')
             active_tab = 'bug_chat'
             
         elif 'superuser_form' in request.POST and is_superuser:
@@ -459,7 +460,7 @@ def company_info_view(request):
                             continue
                 
                 messages.success(request, f'Super User Einstellungen wurden für {updated_count} Benutzer aktualisiert!')
-                return redirect('accounts:company_info' + '?tab=bug_chat')
+                return redirect('accounts:company_info')
             active_tab = 'bug_chat'
             
         else:
