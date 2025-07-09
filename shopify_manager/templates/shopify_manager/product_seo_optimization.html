@@ -1,26 +1,26 @@
 {% extends 'shopify_manager/base.html' %}
 
-{% block title %}Do-SEO: {{ blog_post.title }} - Shopify Manager{% endblock %}
+{% block title %}Do-SEO: {{ product.title }} - Shopify Manager{% endblock %}
 
 {% block shopify_content %}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">
-        <i class="fas fa-robot text-primary"></i> Do-SEO: {{ blog_post.title|truncatechars:50 }}
+        <i class="fas fa-robot text-primary"></i> Do-SEO: {{ product.title|truncatechars:50 }}
     </h1>
     <div class="btn-toolbar mb-2 mb-md-0">
         <div class="btn-group me-2">
-            <a href="{% url 'shopify_manager:blog_post_detail' blog_post.pk %}" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left"></i> Zurück zum Blog-Post
+            <a href="{% url 'shopify_manager:product_detail' product.pk %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Zurück zum Produkt
             </a>
         </div>
     </div>
 </div>
 
-<!-- Blog-Post Informationen -->
+<!-- Produktinformationen -->
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">
-            📝 Blog-Post Informationen
+            📦 Produktinformationen
         </h5>
         <button class="btn btn-outline-primary btn-sm" onclick="toggleEditMode()">
             <i class="fas fa-edit"></i> <span id="editButtonText">Bearbeiten</span>
@@ -32,49 +32,39 @@
                 <div class="mb-3">
                     <label class="form-label"><strong>Titel:</strong></label>
                     <div class="form-control-plaintext border rounded p-2 bg-light" id="titleDisplay">
-                        {{ blog_post.title }}
+                        {{ product.title }}
                     </div>
-                    <textarea class="form-control d-none" id="titleEdit" rows="2">{{ blog_post.title }}</textarea>
+                    <textarea class="form-control d-none" id="titleEdit" rows="2">{{ product.title }}</textarea>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="mb-3">
-                    <label class="form-label"><strong>Blog:</strong></label>
-                    <div class="form-control-plaintext">{{ blog_post.blog.title }} ({{ blog_post.blog.store.name }})</div>
+                    <label class="form-label"><strong>Store:</strong></label>
+                    <div class="form-control-plaintext">{{ product.store.name }}</div>
                 </div>
             </div>
         </div>
         <div class="row">
             <div class="col-md-6">
                 <div class="mb-3">
-                    <label class="form-label"><strong>Autor:</strong></label>
-                    <div class="form-control-plaintext">{{ blog_post.author|default:"—" }}</div>
+                    <label class="form-label"><strong>Vendor:</strong></label>
+                    <div class="form-control-plaintext">{{ product.vendor|default:"—" }}</div>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="mb-3">
-                    <label class="form-label"><strong>Status:</strong></label>
-                    <div class="form-control-plaintext">
-                        <span class="badge bg-{% if blog_post.status == 'published' %}success{% elif blog_post.status == 'draft' %}warning{% else %}secondary{% endif %}">
-                            {{ blog_post.get_status_display }}
-                        </span>
-                    </div>
+                    <label class="form-label"><strong>Typ:</strong></label>
+                    <div class="form-control-plaintext">{{ product.product_type|default:"—" }}</div>
                 </div>
             </div>
         </div>
         <div class="mb-3">
-            <label class="form-label"><strong>Inhalt:</strong></label>
-            <div class="form-control-plaintext border rounded p-2 bg-light" id="contentDisplay" style="max-height: 150px; overflow-y: auto;">
-                {{ blog_post.content|striptags|default:"Kein Inhalt"|truncatechars:300 }}
+            <label class="form-label"><strong>Beschreibung:</strong></label>
+            <div class="form-control-plaintext border rounded p-2 bg-light" id="descriptionDisplay" style="max-height: 150px; overflow-y: auto;">
+                {{ product.body_html|striptags|default:"Keine Beschreibung"|truncatechars:300 }}
             </div>
-            <textarea class="form-control d-none" id="contentEdit" rows="4">{{ blog_post.content|striptags }}</textarea>
+            <textarea class="form-control d-none" id="descriptionEdit" rows="4">{{ product.body_html|striptags }}</textarea>
         </div>
-        {% if blog_post.tags %}
-        <div class="mb-3">
-            <label class="form-label"><strong>Tags:</strong></label>
-            <div class="form-control-plaintext">{{ blog_post.get_tags_list|join:", " }}</div>
-        </div>
-        {% endif %}
     </div>
 </div>
 
@@ -88,8 +78,8 @@
     <div class="card-body">
         <form id="seoForm">
             {% csrf_token %}
-            <input type="hidden" id="contentType" value="blog_post">
-            <input type="hidden" id="contentId" value="{{ blog_post.pk }}">
+            <input type="hidden" id="contentType" value="product">
+            <input type="hidden" id="contentId" value="{{ product.pk }}">
             
             <div class="row">
                 <div class="col-md-6">
@@ -98,9 +88,9 @@
                             <strong>SEO-Titel</strong>
                             <small class="text-muted">(empfohlen: 50-60 Zeichen)</small>
                         </label>
-                        <textarea class="form-control" id="seoTitle" rows="2" maxlength="70" placeholder="Optimierter Titel für Suchmaschinen...">{{ blog_post.seo_title|default:"" }}</textarea>
+                        <textarea class="form-control" id="seoTitle" rows="2" maxlength="70" placeholder="Optimierter Titel für Suchmaschinen...">{{ product.seo_title|default:"" }}</textarea>
                         <div class="form-text">
-                            <span id="seoTitleCount">{{ blog_post.seo_title|default:""|length }}</span>/70 Zeichen
+                            <span id="seoTitleCount">{{ product.seo_title|default:""|length }}</span>/70 Zeichen
                         </div>
                     </div>
                 </div>
@@ -110,9 +100,9 @@
                             <strong>SEO-Beschreibung</strong>
                             <small class="text-muted">(empfohlen: 150-160 Zeichen)</small>
                         </label>
-                        <textarea class="form-control" id="seoDescription" rows="4" maxlength="170" placeholder="Optimierte Beschreibung für Suchmaschinen...">{{ blog_post.seo_description|default:"" }}</textarea>
+                        <textarea class="form-control" id="seoDescription" rows="4" maxlength="170" placeholder="Optimierte Beschreibung für Suchmaschinen...">{{ product.seo_description|default:"" }}</textarea>
                         <div class="form-text">
-                            <span id="seoDescriptionCount">{{ blog_post.seo_description|default:""|length }}</span>/170 Zeichen
+                            <span id="seoDescriptionCount">{{ product.seo_description|default:""|length }}</span>/170 Zeichen
                         </div>
                     </div>
                 </div>
@@ -161,13 +151,13 @@
     <div class="card-body">
         <div class="seo-preview">
             <div class="seo-title" id="previewTitle">
-                {{ blog_post.seo_title|default:blog_post.title }}
+                {{ product.seo_title|default:product.title }}
             </div>
             <div class="seo-url" id="previewUrl">
-                {{ blog_post.blog.store.shop_domain }}/blogs/{{ blog_post.blog.handle }}/{{ blog_post.handle }}
+                {{ product.store.shop_domain }}/products/{{ product.handle }}
             </div>
             <div class="seo-description" id="previewDescription">
-                {{ blog_post.seo_description|default:blog_post.content|striptags|truncatechars:160 }}
+                {{ product.seo_description|default:product.body_html|striptags|truncatechars:160 }}
             </div>
         </div>
     </div>
@@ -211,8 +201,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Update SEO preview
 function updatePreview() {
-    const title = document.getElementById('seoTitle').value || '{{ blog_post.title|escapejs }}';
-    const description = document.getElementById('seoDescription').value || '{{ blog_post.content|striptags|truncatechars:160|escapejs }}';
+    const title = document.getElementById('seoTitle').value || '{{ product.title|escapejs }}';
+    const description = document.getElementById('seoDescription').value || '{{ product.body_html|striptags|truncatechars:160|escapejs }}';
     
     document.getElementById('previewTitle').textContent = title;
     document.getElementById('previewDescription').textContent = description;
@@ -224,26 +214,26 @@ function toggleEditMode() {
     editMode = !editMode;
     const titleDisplay = document.getElementById('titleDisplay');
     const titleEdit = document.getElementById('titleEdit');
-    const contentDisplay = document.getElementById('contentDisplay');
-    const contentEdit = document.getElementById('contentEdit');
+    const descriptionDisplay = document.getElementById('descriptionDisplay');
+    const descriptionEdit = document.getElementById('descriptionEdit');
     const editButtonText = document.getElementById('editButtonText');
     
     if (editMode) {
         titleDisplay.classList.add('d-none');
         titleEdit.classList.remove('d-none');
-        contentDisplay.classList.add('d-none');
-        contentEdit.classList.remove('d-none');
+        descriptionDisplay.classList.add('d-none');
+        descriptionEdit.classList.remove('d-none');
         editButtonText.textContent = 'Speichern';
     } else {
         titleDisplay.classList.remove('d-none');
         titleEdit.classList.add('d-none');
-        contentDisplay.classList.remove('d-none');
-        contentEdit.classList.add('d-none');
+        descriptionDisplay.classList.remove('d-none');
+        descriptionEdit.classList.add('d-none');
         editButtonText.textContent = 'Bearbeiten';
         
         // Update displayed values
         titleDisplay.textContent = titleEdit.value;
-        contentDisplay.textContent = contentEdit.value || 'Kein Inhalt';
+        descriptionDisplay.textContent = descriptionEdit.value || 'Keine Beschreibung';
     }
 }
 
@@ -273,13 +263,13 @@ document.getElementById('generateSeoBtn').addEventListener('click', function() {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generiere...';
     
-    updateProgress(10, 'KI-Analyse startet...', 'Blog-Post wird analysiert...');
+    updateProgress(10, 'KI-Analyse startet...', 'Produktdaten werden analysiert...');
     
     const requestData = {
-        content_type: 'blog_post',
+        content_type: 'product',
         content_id: document.getElementById('contentId').value,
-        title: document.getElementById('titleEdit').value || '{{ blog_post.title|escapejs }}',
-        description: document.getElementById('contentEdit').value || '{{ blog_post.content|striptags|escapejs }}',
+        title: document.getElementById('titleEdit').value || '{{ product.title|escapejs }}',
+        description: document.getElementById('descriptionEdit').value || '{{ product.body_html|striptags|escapejs }}',
         keywords: '',
         ai_model: 'openai-gpt4'
     };
@@ -328,10 +318,10 @@ document.getElementById('generateSeoBtn').addEventListener('click', function() {
 document.getElementById('applySeoBtn').addEventListener('click', function() {
     const seoTitle = document.getElementById('seoTitle').value.trim();
     const seoDescription = document.getElementById('seoDescription').value.trim();
-    const title = document.getElementById('titleEdit').value || '{{ blog_post.title|escapejs }}';
-    const content = document.getElementById('contentEdit').value || '{{ blog_post.content|striptags|escapejs }}';
+    const title = document.getElementById('titleEdit').value || '{{ product.title|escapejs }}';
+    const description = document.getElementById('descriptionEdit').value || '{{ product.body_html|striptags|escapejs }}';
     
-    if (!seoTitle && !seoDescription && !title && !content) {
+    if (!seoTitle && !seoDescription && !title && !description) {
         alert('Bitte füllen Sie mindestens ein Feld aus.');
         return;
     }
@@ -343,10 +333,10 @@ document.getElementById('applySeoBtn').addEventListener('click', function() {
     updateProgress(25, 'Speichere SEO-Daten...', 'Übertragung zu Shopify...');
     
     const data = {
-        content_type: 'blog_post',
+        content_type: 'product',
         content_id: document.getElementById('contentId').value,
         title: title,
-        description: content,
+        description: description,
         seo_title: seoTitle,
         seo_description: seoDescription
     };
@@ -370,7 +360,7 @@ document.getElementById('applySeoBtn').addEventListener('click', function() {
             setTimeout(() => {
                 hideProgress();
                 // Redirect zur Alt-Text Seite nach erfolgreicher Speicherung
-                window.location.href = '{% url "shopify_manager:blog_post_alt_text_manager" blog_post.pk %}';
+                window.location.href = '{% url "shopify_manager:product_alt_text_manager" product.pk %}';
             }, 1500);
         } else {
             hideProgress();

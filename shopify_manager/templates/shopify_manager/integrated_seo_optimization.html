@@ -225,11 +225,25 @@
                         
                         <div class="d-flex justify-content-center align-items-center gap-3">
                             <button type="button" class="btn btn-success btn-lg" id="applySeoBtn">
-                                <i class="fas fa-save"></i> Änderungen anwenden
+                                <i class="fas fa-cloud-upload-alt"></i> Speichern + zu Shopify
                             </button>
                             <button type="button" class="btn btn-outline-secondary ms-2" id="regenerateBtn">
                                 <i class="fas fa-redo"></i> Neu generieren
                             </button>
+                        </div>
+                        
+                        <!-- Progress Bar für SEO-Operationen -->
+                        <div id="seoProgressContainer" class="d-none mt-4">
+                            <div class="mb-2">
+                                <small id="seoProgressText" class="text-muted">Speichere zu Shopify...</small>
+                            </div>
+                            <div class="progress mb-2" style="height: 20px;">
+                                <div id="seoProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-info" 
+                                     role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                    <span id="seoProgressPercent">0%</span>
+                                </div>
+                            </div>
+                            <div id="seoProgressDetails" class="small text-muted"></div>
                         </div>
                     </div>
 
@@ -420,6 +434,29 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Progress Bar Helper Functions
+    function showProgress(text, percent = 0) {
+        const progressContainer = document.getElementById('seoProgressContainer');
+        const progressText = document.getElementById('seoProgressText');
+        const progressBar = document.getElementById('seoProgressBar');
+        const progressPercent = document.getElementById('seoProgressPercent');
+        
+        if (progressContainer && progressText && progressBar && progressPercent) {
+            progressContainer.classList.remove('d-none');
+            progressText.textContent = text;
+            progressBar.style.width = percent + '%';
+            progressBar.setAttribute('aria-valuenow', percent);
+            progressPercent.textContent = percent + '%';
+        }
+    }
+
+    function hideProgress() {
+        const progressContainer = document.getElementById('seoProgressContainer');
+        if (progressContainer) {
+            progressContainer.classList.add('d-none');
+        }
+    }
+
     // Änderungen anwenden
     function applySeo() {
         const seoTitle = generatedSeoTitle.value.trim();
@@ -434,6 +471,9 @@ document.addEventListener('DOMContentLoaded', function() {
             applyBtn.disabled = true;
         }
 
+        // Progress Bar anzeigen
+        showProgress('SEO-Daten werden zu Shopify übertragen...', 25);
+
         fetch('{% url "shopify_manager:apply_integrated_seo" %}', {
             method: 'POST',
             headers: {
@@ -447,13 +487,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 seo_description: seoDescription
             })
         })
-        .then(response => response.json())
+        .then(response => {
+            showProgress('Verarbeitung der Antwort...', 75);
+            return response.json();
+        })
         .then(data => {
             if (applyBtn) {
                 applyBtn.disabled = false;
             }
 
             if (data.success) {
+                showProgress('Erfolgreich gespeichert!', 100);
+                
                 // Erfolg anzeigen
                 const successTextEl = document.getElementById('successText');
                 if (successTextEl) {
@@ -462,6 +507,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (successMessage) {
                     successMessage.classList.remove('d-none');
                 }
+                
+                // Progress Bar nach kurzer Zeit ausblenden
+                setTimeout(() => {
+                    hideProgress();
+                }, 1000);
                 
                 // Zur entsprechenden Übersicht weiterleiten
                 setTimeout(() => {
@@ -472,6 +522,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     {% endif %}
                 }, 2000);
             } else {
+                hideProgress();
                 alert('Fehler: ' + data.error);
             }
         })
@@ -479,6 +530,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (applyBtn) {
                 applyBtn.disabled = false;
             }
+            hideProgress();
             alert('Netzwerkfehler: ' + error.message);
         });
     }

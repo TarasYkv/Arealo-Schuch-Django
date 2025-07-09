@@ -1,0 +1,566 @@
+{% extends "shopify_manager/base.html" %}
+{% load static %}
+
+{% block title %}Alt-Text Management - {{ blog_post.title }}{% endblock %}
+
+{% block shopify_content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-1">Alt-Text Management</h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item">
+                                <a href="{% url 'shopify_manager:blog_post_list' %}">Blog-Beiträge</a>
+                            </li>
+                            <li class="breadcrumb-item active">Alt-Text Management</li>
+                        </ol>
+                    </nav>
+                </div>
+                <a href="{% url 'shopify_manager:blog_post_list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück zur Blog-Liste
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Blog-Post Info -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-2">
+                            {% if blog_post.featured_image_url %}
+                                <img src="{{ blog_post.featured_image_url }}" 
+                                     alt="{{ blog_post.featured_image_alt|default:'Blog-Bild' }}" 
+                                     class="img-fluid rounded">
+                            {% else %}
+                                <div class="bg-light rounded d-flex align-items-center justify-content-center" 
+                                     style="height: 100px;">
+                                    <i class="fas fa-blog text-muted fa-2x"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-10">
+                            <h4>{{ blog_post.title }}</h4>
+                            <p class="text-muted mb-2">{{ blog_post.content|striptags|truncatechars:200 }}</p>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Blog:</strong> {{ blog_post.blog.title }}<br>
+                                    <strong>Store:</strong> {{ blog_post.blog.store.name }}<br>
+                                    <strong>Autor:</strong> {{ blog_post.author|default:"—" }}
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Status:</strong> 
+                                    <span class="badge bg-{% if blog_post.status == 'published' %}success{% elif blog_post.status == 'draft' %}warning{% else %}secondary{% endif %}">
+                                        {{ blog_post.get_status_display }}
+                                    </span><br>
+                                    <strong>Alt-Text-Status:</strong>
+                                    {% with alt_status=blog_post.get_alt_text_status %}
+                                        <span class="badge bg-{% if alt_status == 'good' %}success{% elif alt_status == 'warning' %}warning{% else %}danger{% endif %}">
+                                            {% if alt_status == 'good' %}
+                                                <i class="fas fa-check"></i> Gut
+                                            {% elif alt_status == 'warning' %}
+                                                <i class="fas fa-exclamation-triangle"></i> Mittelmäßig
+                                            {% else %}
+                                                <i class="fas fa-times"></i> Schlecht
+                                            {% endif %}
+                                        </span>
+                                    {% endwith %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bilder -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-images"></i> Blog-Bilder ({{ images|length }})
+                        <small class="text-muted ms-2">
+                            <i class="fas fa-info-circle"></i> Nur Hauptbilder (Featured Images)
+                        </small>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if images %}
+                        <div class="row">
+                            {% for image in images %}
+                            <div class="col-lg-6 col-xl-4 mb-4">
+                                <div class="card h-100">
+                                    <div class="position-relative">
+                                        <img src="{{ image.src }}" 
+                                             alt="{{ image.alt|default:'Bild ohne Alt-Text' }}" 
+                                             class="card-img-top" 
+                                             style="height: 250px; object-fit: cover;">
+                                        {% if image.is_featured %}
+                                            <span class="position-absolute top-0 start-0 m-2 badge bg-primary">
+                                                <i class="fas fa-star"></i> Hauptbild
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="card-body">
+                                        <h6 class="card-title">{{ image.name|default:"Bild" }}</h6>
+                                        <p class="text-muted small mb-3">
+                                            {{ image.width|default:"?" }}x{{ image.height|default:"?" }}px
+                                        </p>
+                                        
+                                        <!-- Alt-Text Form -->
+                                        <form class="alt-text-form" data-image-id="{{ image.id }}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="store_id" value="{{ blog_post.blog.store.id }}">
+                                            <input type="hidden" name="blog_post_id" value="{{ blog_post.shopify_id }}">
+                                            <input type="hidden" name="django_blog_post_id" value="{{ blog_post.id }}">
+                                            <input type="hidden" name="image_id" value="{{ image.id }}">
+                                            <input type="hidden" name="image_url" value="{{ image.src }}">
+                                            
+                                            <div class="mb-3">
+                                                <label for="alt_text_{{ image.id }}" class="form-label">Alt-Text</label>
+                                                <textarea class="form-control" 
+                                                          id="alt_text_{{ image.id }}" 
+                                                          name="alt_text" 
+                                                          rows="3" 
+                                                          placeholder="Beschreibung des Bildes für Screenreader...">{{ image.alt|default:"" }}</textarea>
+                                                <div class="form-text">
+                                                    <span class="char-count">{{ image.alt|default:""|length }}</span>/125 Zeichen
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="d-grid gap-2">
+                                                <button type="button" 
+                                                        class="btn btn-info btn-sm generate-alt-btn" 
+                                                        data-image-id="{{ image.id }}">
+                                                    <i class="fas fa-robot"></i> KI-Vorschlag generieren
+                                                </button>
+                                                <button type="submit" class="btn btn-success btn-sm">
+                                                    <i class="fas fa-save"></i> Speichern
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <!-- Bulk Actions -->
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6><i class="fas fa-magic"></i> Bulk-Aktionen</h6>
+                                        <div class="d-flex gap-2 mb-3">
+                                            <button type="button" class="btn btn-outline-info" id="generateAllBtn">
+                                                <i class="fas fa-robot"></i> Alle Alt-Texte generieren
+                                            </button>
+                                            <button type="button" class="btn btn-outline-success" id="saveAllBtn">
+                                                <i class="fas fa-cloud-upload-alt"></i> Speichern + zu Shopify
+                                            </button>
+                                        </div>
+                                        
+                                        <!-- Progress Bar Container -->
+                                        <div id="progressContainer" class="d-none">
+                                            <div class="mb-2">
+                                                <small id="progressText" class="text-muted">Lade...</small>
+                                            </div>
+                                            <div class="progress mb-2" style="height: 20px;">
+                                                <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                                     role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                                    <span id="progressPercent">0%</span>
+                                                </div>
+                                            </div>
+                                            <div id="progressDetails" class="small text-muted"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-image text-muted fa-3x mb-3"></i>
+                            <h5 class="text-muted">Keine bearbeitbaren Bilder gefunden</h5>
+                            <p class="text-muted">
+                                Dieser Blog-Post hat kein Hauptbild (Featured Image) oder die Bilder wurden noch nicht synchronisiert.<br>
+                                <small class="text-info">
+                                    <i class="fas fa-info-circle"></i> 
+                                    Nur Hauptbilder können zu Shopify synchronisiert werden. Content-Bilder werden nicht angezeigt.
+                                </small>
+                            </p>
+                            <a href="{% url 'shopify_manager:blog_post_list' %}" class="btn btn-primary">
+                                <i class="fas fa-arrow-left"></i> Zurück zur Blog-Liste
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Character counter for alt text inputs
+document.addEventListener('DOMContentLoaded', function() {
+    const altTextInputs = document.querySelectorAll('textarea[name="alt_text"]');
+    
+    altTextInputs.forEach(input => {
+        input.addEventListener('input', function() {
+            const charCount = this.closest('.mb-3').querySelector('.char-count');
+            charCount.textContent = this.value.length;
+            
+            // Visual feedback for character limit
+            if (this.value.length > 125) {
+                charCount.style.color = '#dc3545';
+            } else {
+                charCount.style.color = '#6c757d';
+            }
+        });
+    });
+});
+
+// Progress bar helper functions
+function updateProgress(percent, text, details = '') {
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const progressPercent = document.getElementById('progressPercent');
+    const progressText = document.getElementById('progressText');
+    const progressDetails = document.getElementById('progressDetails');
+    
+    progressContainer.classList.remove('d-none');
+    progressBar.style.width = percent + '%';
+    progressBar.setAttribute('aria-valuenow', percent);
+    progressPercent.textContent = percent + '%';
+    progressText.textContent = text;
+    progressDetails.textContent = details;
+    
+    // Change color based on progress
+    if (percent === 100) {
+        progressBar.classList.remove('bg-info', 'bg-warning');
+        progressBar.classList.add('bg-success');
+    } else if (percent > 50) {
+        progressBar.classList.remove('bg-info', 'bg-success');
+        progressBar.classList.add('bg-warning');
+    } else {
+        progressBar.classList.remove('bg-warning', 'bg-success');
+        progressBar.classList.add('bg-info');
+    }
+}
+
+function hideProgress() {
+    const progressContainer = document.getElementById('progressContainer');
+    progressContainer.classList.add('d-none');
+}
+
+// Generate all alt texts
+document.getElementById('generateAllBtn').addEventListener('click', function() {
+    const generateBtns = document.querySelectorAll('.generate-alt-btn');
+    const totalImages = generateBtns.length;
+    
+    if (totalImages === 0) {
+        alert('Keine Bilder zum Generieren gefunden.');
+        return;
+    }
+    
+    this.disabled = true;
+    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generiere...';
+    
+    let processedImages = 0;
+    
+    // Process each image sequentially
+    async function processNextImage(index) {
+        if (index >= totalImages) {
+            // All done
+            hideProgress();
+            document.getElementById('generateAllBtn').disabled = false;
+            document.getElementById('generateAllBtn').innerHTML = '<i class="fas fa-robot"></i> Alle Alt-Texte generieren';
+            alert('Alle Alt-Texte wurden generiert!');
+            return;
+        }
+        
+        const btn = generateBtns[index];
+        const imageId = btn.dataset.imageId;
+        const form = btn.closest('form');
+        const textarea = form.querySelector('textarea[name="alt_text"]');
+        
+        processedImages++;
+        const percent = Math.round((processedImages / totalImages) * 100);
+        updateProgress(percent, `Generiere Alt-Text...`, `Bild ${processedImages} von ${totalImages}`);
+        
+        // API call to generate alt text
+        try {
+            const formData = new FormData();
+            formData.append('image_url', form.querySelector('input[name="image_url"]').value);
+            formData.append('django_product_id', form.querySelector('input[name="django_blog_post_id"]').value);
+            formData.append('blog_post_title', '{{ blog_post.title|escapejs }}');
+            formData.append('blog_post_content', '{{ blog_post.content|striptags|escapejs }}');
+            
+            const response = await fetch('{% url "shopify_manager:generate_alt_text" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                textarea.value = data.alt_text;
+                textarea.dispatchEvent(new Event('input')); // Trigger character count update
+            } else {
+                console.error('Error generating alt text for image', imageId, ':', data.error);
+            }
+        } catch (error) {
+            console.error('Network error generating alt text for image', imageId, ':', error);
+        }
+        
+        // Process next image after a short delay
+        setTimeout(() => processNextImage(index + 1), 100);
+    }
+    
+    // Start processing
+    processNextImage(0);
+});
+
+// Save all alt texts
+document.getElementById('saveAllBtn').addEventListener('click', function() {
+    const forms = document.querySelectorAll('.alt-text-form');
+    const validForms = [];
+    
+    // Collect all forms with alt text
+    forms.forEach(form => {
+        const textarea = form.querySelector('textarea[name="alt_text"]');
+        const altTextValue = textarea.value.trim();
+        
+        if (altTextValue) {
+            const formData = new FormData(form);
+            const submitBtn = form.querySelector('button[type="submit"]');
+            validForms.push({form, formData, submitBtn, altTextValue});
+        }
+    });
+    
+    if (validForms.length === 0) {
+        alert('Keine Alt-Texte zum Speichern gefunden.');
+        return;
+    }
+    
+    if (!confirm(`${validForms.length} Alt-Texte speichern und zu Shopify übertragen?`)) {
+        return;
+    }
+    
+    this.disabled = true;
+    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Speichere...';
+    
+    let saveCount = 0;
+    let successCount = 0;
+    
+    // Process each form sequentially to avoid race conditions
+    async function processNextForm(index) {
+        if (index >= validForms.length) {
+            // All done
+            hideProgress();
+            document.getElementById('saveAllBtn').disabled = false;
+            document.getElementById('saveAllBtn').innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Speichern + zu Shopify';
+            
+            if (successCount > 0) {
+                alert(`${successCount} von ${validForms.length} Alt-Texten erfolgreich gespeichert!`);
+                // Redirect to blog post list
+                setTimeout(() => {
+                    window.location.href = '{% url "shopify_manager:blog_post_list" %}';
+                }, 1000);
+            }
+            return;
+        }
+        
+        const {form, formData, submitBtn, altTextValue} = validForms[index];
+        
+        saveCount++;
+        const percent = Math.round((saveCount / validForms.length) * 100);
+        updateProgress(percent, `${percent}%`, `Speichere ${saveCount}/${validForms.length} Alt-Texte zu Shopify...`);
+        
+        try {
+            const response = await fetch('{% url "shopify_manager:update_blog_alt_text" %}', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                successCount++;
+                submitBtn.innerHTML = '<i class="fas fa-check text-success"></i> Gespeichert';
+                submitBtn.disabled = true;
+                submitBtn.classList.remove('btn-success');
+                submitBtn.classList.add('btn-outline-success');
+            } else {
+                console.error('Error saving alt text:', data.error);
+                submitBtn.innerHTML = '<i class="fas fa-times text-danger"></i> Fehler';
+                submitBtn.classList.remove('btn-success');
+                submitBtn.classList.add('btn-outline-danger');
+            }
+        } catch (error) {
+            console.error('Network error saving alt text:', error);
+            submitBtn.innerHTML = '<i class="fas fa-times text-danger"></i> Fehler';
+            submitBtn.classList.remove('btn-success');
+            submitBtn.classList.add('btn-outline-danger');
+        }
+        
+        // Process next form after a short delay
+        setTimeout(() => processNextForm(index + 1), 100);
+    }
+    
+    // Start processing
+    processNextForm(0);
+});
+
+// Individual generate alt text buttons with progress tracking
+document.querySelectorAll('.generate-alt-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const imageId = this.dataset.imageId;
+        const form = this.closest('form');
+        const textarea = form.querySelector('textarea[name="alt_text"]');
+        
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generiere...';
+        
+        // Show progress for individual generation
+        updateProgress(10, 'KI-Analyse startet...', 'Bild wird analysiert...');
+        
+        const formData = new FormData();
+        formData.append('image_url', form.querySelector('input[name="image_url"]').value);
+        formData.append('django_product_id', form.querySelector('input[name="django_blog_post_id"]').value);
+        formData.append('blog_post_title', '{{ blog_post.title|escapejs }}');
+        formData.append('blog_post_content', '{{ blog_post.content|striptags|escapejs }}');
+        
+        fetch('{% url "shopify_manager:generate_alt_text" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: formData
+        })
+        .then(response => {
+            updateProgress(75, 'KI verarbeitet...', 'Alt-Text wird generiert...');
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                updateProgress(100, 'Alt-Text generiert!', 'KI-Analyse abgeschlossen');
+                textarea.value = data.alt_text;
+                textarea.dispatchEvent(new Event('input')); // Trigger character count update
+                
+                // Hide progress after short delay
+                setTimeout(() => {
+                    hideProgress();
+                }, 1500);
+            } else {
+                hideProgress();
+                alert('Fehler beim Generieren: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            hideProgress();
+            alert('Netzwerkfehler beim Generieren');
+        })
+        .finally(() => {
+            this.disabled = false;
+            this.innerHTML = '<i class="fas fa-robot"></i> KI-Vorschlag generieren';
+        });
+    });
+});
+
+// Individual save forms with progress tracking
+document.querySelectorAll('.alt-text-form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const textarea = this.querySelector('textarea[name="alt_text"]');
+        const altText = textarea.value.trim();
+        
+        if (!altText) {
+            alert('Bitte geben Sie einen Alt-Text ein.');
+            return;
+        }
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Speichere...';
+        
+        // Show individual progress for this form
+        updateProgress(25, 'Speichere Alt-Text...', 'Übertragung zu Shopify...');
+        
+        const formData = new FormData(this);
+        
+        fetch('{% url "shopify_manager:update_blog_alt_text" %}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            updateProgress(75, 'Verarbeitung...', 'Shopify-Antwort wird verarbeitet...');
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                updateProgress(100, 'Erfolgreich gespeichert!', data.message);
+                submitBtn.innerHTML = '<i class="fas fa-check"></i> Gespeichert';
+                submitBtn.classList.remove('btn-success');
+                submitBtn.classList.add('btn-outline-success');
+                
+                // Hide progress after short delay
+                setTimeout(() => {
+                    hideProgress();
+                }, 1500);
+                
+                // Re-enable after 3 seconds
+                setTimeout(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-save"></i> Speichern';
+                    submitBtn.classList.remove('btn-outline-success');
+                    submitBtn.classList.add('btn-success');
+                }, 3000);
+            } else {
+                hideProgress();
+                alert('Fehler beim Speichern: ' + data.error);
+                submitBtn.innerHTML = '<i class="fas fa-times text-danger"></i> Fehler';
+                submitBtn.classList.remove('btn-success');
+                submitBtn.classList.add('btn-outline-danger');
+                
+                // Reset after 3 seconds
+                setTimeout(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-save"></i> Speichern';
+                    submitBtn.classList.remove('btn-outline-danger');
+                    submitBtn.classList.add('btn-success');
+                }, 3000);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            hideProgress();
+            alert('Netzwerkfehler beim Speichern');
+            submitBtn.innerHTML = '<i class="fas fa-times text-danger"></i> Fehler';
+            submitBtn.classList.remove('btn-success');
+            submitBtn.classList.add('btn-outline-danger');
+            
+            // Reset after 3 seconds
+            setTimeout(() => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-save"></i> Speichern';
+                submitBtn.classList.remove('btn-outline-danger');
+                submitBtn.classList.add('btn-success');
+            }, 3000);
+        });
+    });
+});
+</script>
+{% endblock %}

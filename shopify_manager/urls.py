@@ -39,6 +39,10 @@ urlpatterns = [
     path('api/generate-integrated-seo/', views.generate_integrated_seo_view, name='generate_integrated_seo'),
     path('api/apply-integrated-seo/', views.apply_integrated_seo_view, name='apply_integrated_seo'),
     
+    # Separate SEO Optimization (spezifische Templates)
+    path('products/<int:product_id>/do-seo/', views.product_seo_optimization_view, name='product_seo_optimization'),
+    path('blog-posts/<int:blog_post_id>/do-seo/', views.blog_post_seo_optimization_view, name='blog_post_seo_optimization'),
+    
     # Alt-Text Manager
     path('alt-text-manager/', views.alt_text_manager_overview_view, name='alt_text_manager'),
     path('products/<int:product_id>/alt-text/', views.alt_text_manager_view, name='product_alt_text_manager'),
@@ -77,4 +81,7 @@ urlpatterns = [
     # Blog-Post Management APIs  
     path('api/blog-posts/<int:blog_post_id>/delete-local/', views.delete_blog_post_local_view, name='delete_blog_post_local'),
     path('api/blog-posts/<int:blog_post_id>/sync/', views.sync_blog_post_view, name='sync_blog_post'),
+    
+    # Blog-Post Alt-Text Manager
+    path('blog-posts/<int:blog_post_id>/alt-text/', views.blog_post_alt_text_manager_view, name='blog_post_alt_text_manager'),
 ]
