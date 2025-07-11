@@ -26,7 +26,7 @@ def chat_home(request):
     ).annotate(
         message_count=Count('messages'),
         last_message_time=Max('messages__created_at')
-    ).order_by('-last_message_at')
+    ).order_by('-last_message_at', '-created_at')
     
     # Get unread counts for each chat room
     for room in chat_rooms:
@@ -111,7 +111,7 @@ def start_chat(request, user_id):
     ).first()
     
     if existing_chat:
-        return redirect('chat:room_detail', room_id=existing_chat.id)
+        return redirect(f'/chat/?room={existing_chat.id}')
     
     # Create new private chat
     chat_room = ChatRoom.objects.create(
@@ -124,14 +124,18 @@ def start_chat(request, user_id):
     ChatRoomParticipant.objects.create(chat_room=chat_room, user=other_user)
     
     # Create welcome message
-    ChatMessage.objects.create(
+    welcome_message = ChatMessage.objects.create(
         chat_room=chat_room,
         sender=request.user,
         message_type='system',
         content=f"Chat gestartet zwischen {request.user.get_full_name() or request.user.username} und {other_user.get_full_name() or other_user.username}"
     )
     
-    return redirect('chat:room_detail', room_id=chat_room.id)
+    # Ensure last_message_at is set properly
+    chat_room.last_message_at = welcome_message.created_at
+    chat_room.save(update_fields=['last_message_at'])
+    
+    return redirect(f'/chat/?room={chat_room.id}')
 
 
 @login_required
@@ -359,15 +363,19 @@ def create_group_chat(request):
                 continue
         
         # Create welcome message
-        ChatMessage.objects.create(
+        welcome_message = ChatMessage.objects.create(
             chat_room=chat_room,
             sender=request.user,
             message_type='system',
             content=f"Gruppenchat '{name}' wurde von {request.user.get_full_name() or request.user.username} erstellt."
         )
         
+        # Ensure last_message_at is set properly
+        chat_room.last_message_at = welcome_message.created_at
+        chat_room.save(update_fields=['last_message_at'])
+        
         messages.success(request, f"Gruppenchat '{name}' wurde erstellt.")
-        return redirect('chat:room_detail', room_id=chat_room.id)
+        return redirect(f'/chat/?room={chat_room.id}')
     
     # GET request - show form
     users = User.objects.exclude(id=request.user.id).order_by('username')
@@ -426,3 +434,116 @@ def get_unread_count(request):
         return JsonResponse({'unread_count': unread_count})
     except Exception as e:
         return JsonResponse({'unread_count': 0, 'error': str(e)})
+
+
+@login_required
+def update_online_status(request):
+    """
+    Update user's online status
+    """
+    try:
+        # Update last_activity automatically updates via auto_now
+        request.user.is_online = True
+        request.user.save(update_fields=['is_online'])
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def redirect_to_chat(request, room_id):
+    """
+    Redirect room URLs to main chat page with room selected
+    """
+    # Verify user has access to this room
+    try:
+        chat_room = get_object_or_404(ChatRoom, id=room_id)
+        if not chat_room.participants.filter(id=request.user.id).exists():
+            messages.error(request, "Sie haben keinen Zugriff auf diesen Chat.")
+            return redirect('chat:home')
+    except ChatRoom.DoesNotExist:
+        messages.error(request, "Chat-Raum nicht gefunden.")
+        return redirect('chat:home')
+    
+    # Redirect to main chat page with room_id as parameter
+    return redirect(f'/chat/?room={room_id}')
+
+
+@login_required
+def delete_chat(request, room_id):
+    """
+    Delete a chat room (only for creator or remove user from participants)
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Nur POST-Anfragen erlaubt'})
+    
+    try:
+        chat_room = get_object_or_404(ChatRoom, id=room_id)
+        
+        # Check if user is participant
+        if not chat_room.participants.filter(id=request.user.id).exists():
+            return JsonResponse({'success': False, 'error': 'Zugriff verweigert'})
+        
+        # If user is the creator and it's a private chat, delete the entire chat
+        if chat_room.created_by == request.user and not chat_room.is_group_chat:
+            chat_room.delete()
+            return JsonResponse({'success': True, 'message': 'Chat wurde gelöscht'})
+        
+        # If it's a group chat and user is creator, delete entire chat
+        elif chat_room.created_by == request.user and chat_room.is_group_chat:
+            chat_room.delete()
+            return JsonResponse({'success': True, 'message': 'Gruppenchat wurde gelöscht'})
+        
+        # If user is not creator, just remove them from participants
+        else:
+            participant = ChatRoomParticipant.objects.get(chat_room=chat_room, user=request.user)
+            participant.delete()
+            return JsonResponse({'success': True, 'message': 'Sie haben den Chat verlassen'})
+            
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def get_chat_info(request, room_id):
+    """
+    Get chat room information including participant profiles
+    """
+    try:
+        chat_room = get_object_or_404(ChatRoom, id=room_id)
+        
+        # Check if user is participant
+        if not chat_room.participants.filter(id=request.user.id).exists():
+            return JsonResponse({'success': False, 'error': 'Zugriff verweigert'})
+        
+        # Get participants
+        participants = []
+        other_user_info = None
+        
+        for participant in chat_room.participants.all():
+            user_info = {
+                'id': participant.id,
+                'username': participant.username,
+                'name': participant.get_full_name() or participant.username,
+                'is_online': participant.is_currently_online(),
+                'profile_picture': participant.profile_picture.url if participant.profile_picture else None
+            }
+            participants.append(user_info['name'])
+            
+            # If it's a private chat, get info about the other user
+            if not chat_room.is_group_chat and participant != request.user:
+                other_user_info = user_info
+        
+        room_info = {
+            'id': chat_room.id,
+            'name': chat_room.name,
+            'is_group_chat': chat_room.is_group_chat,
+            'created_at': chat_room.created_at.strftime('%d.%m.%Y %H:%M'),
+            'participants': participants,
+            'other_user': other_user_info
+        }
+        
+        return JsonResponse({'success': True, 'room': room_info})
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

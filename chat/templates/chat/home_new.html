@@ -128,6 +128,25 @@
     text-align: center;
 }
 
+.user-avatar-img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.online-indicator {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 12px;
+    height: 12px;
+    background-color: #28a745;
+    border: 2px solid white;
+    border-radius: 50%;
+    z-index: 1;
+}
+
 .search-box {
     padding: 0.5rem;
     border: none;
@@ -173,17 +192,41 @@
                                 {% for room in chat_rooms %}
                                 <div class="chat-room-item" data-room-id="{{ room.id }}" onclick="loadChat({{ room.id }})">
                                     <div class="d-flex align-items-center">
-                                        <div class="user-avatar {% if room.is_group_chat %}bg-success{% else %}bg-primary{% endif %}">
+                                        <div class="position-relative">
                                             {% if room.is_group_chat %}
-                                                <i class="fas fa-users"></i>
+                                                <div class="user-avatar bg-success">
+                                                    <i class="fas fa-users"></i>
+                                                </div>
                                             {% else %}
                                                 {% with other_user=room|get_other_participant:request.user %}
                                                     {% if other_user %}
-                                                        {{ other_user.get_full_name.0|default:other_user.username.0|upper }}
+                                                        {% if other_user.profile_picture %}
+                                                            <img src="{{ other_user.profile_picture.url }}" alt="{{ other_user.get_full_name|default:other_user.username }}" class="user-avatar-img">
+                                                        {% else %}
+                                                            <div class="user-avatar bg-primary">
+                                                                {{ other_user.get_full_name.0|default:other_user.username.0|upper }}
+                                                            </div>
+                                                        {% endif %}
+                                                        <!-- Online-Status-Indikator -->
+                                                        {% if other_user.is_currently_online %}
+                                                            <span class="online-indicator"></span>
+                                                        {% endif %}
                                                     {% elif room.created_by %}
-                                                        {{ room.created_by.get_full_name.0|default:room.created_by.username.0|upper }}
+                                                        {% if room.created_by.profile_picture %}
+                                                            <img src="{{ room.created_by.profile_picture.url }}" alt="{{ room.created_by.get_full_name|default:room.created_by.username }}" class="user-avatar-img">
+                                                        {% else %}
+                                                            <div class="user-avatar bg-primary">
+                                                                {{ room.created_by.get_full_name.0|default:room.created_by.username.0|upper }}
+                                                            </div>
+                                                        {% endif %}
+                                                        <!-- Online-Status-Indikator -->
+                                                        {% if room.created_by.is_currently_online %}
+                                                            <span class="online-indicator"></span>
+                                                        {% endif %}
                                                     {% else %}
-                                                        <i class="fas fa-bug"></i>
+                                                        <div class="user-avatar bg-warning">
+                                                            <i class="fas fa-bug"></i>
+                                                        </div>
                                                     {% endif %}
                                                 {% endwith %}
                                             {% endif %}
@@ -191,7 +234,31 @@
                                         <div class="flex-grow-1">
                                             <div class="d-flex justify-content-between align-items-start">
                                                 <div>
-                                                    <h6 class="mb-0">{{ room.name|default:room }}</h6>
+                                                    <h6 class="mb-0">
+                                                        {% if room.is_group_chat %}
+                                                            {{ room.name|default:room }}
+                                                        {% else %}
+                                                            {% with other_user=room|get_other_participant:request.user %}
+                                                                {% if other_user %}
+                                                                    {{ other_user.get_full_name|default:other_user.username }}
+                                                                    {% if other_user.is_currently_online %}
+                                                                        <small class="text-success">• Online</small>
+                                                                    {% else %}
+                                                                        <small class="text-muted">• Offline</small>
+                                                                    {% endif %}
+                                                                {% elif room.created_by %}
+                                                                    {{ room.created_by.get_full_name|default:room.created_by.username }}
+                                                                    {% if room.created_by.is_currently_online %}
+                                                                        <small class="text-success">• Online</small>
+                                                                    {% else %}
+                                                                        <small class="text-muted">• Offline</small>
+                                                                    {% endif %}
+                                                                {% else %}
+                                                                    Bug-Meldung
+                                                                {% endif %}
+                                                            {% endwith %}
+                                                        {% endif %}
+                                                    </h6>
                                                     {% with last_message=room.get_last_message %}
                                                         {% if last_message %}
                                                             <small class="text-muted">
@@ -245,8 +312,8 @@
                                             <i class="fas fa-ellipsis-v"></i>
                                         </button>
                                         <ul class="dropdown-menu">
-                                            <li><a class="dropdown-item" href="#"><i class="fas fa-info-circle"></i> Info</a></li>
-                                            <li><a class="dropdown-item" href="#"><i class="fas fa-trash"></i> Löschen</a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="showChatInfo()"><i class="fas fa-info-circle"></i> Info</a></li>
+                                            <li><a class="dropdown-item text-danger" href="#" onclick="deleteChat()"><i class="fas fa-trash"></i> Löschen</a></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -588,5 +655,134 @@ setInterval(() => {
         loadChat(currentRoomId);
     }
 }, 5000);
+
+// Check for room parameter in URL and load chat
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get('room');
+    if (roomId) {
+        loadChat(parseInt(roomId));
+    }
+});
+
+// Update online status every 30 seconds
+setInterval(() => {
+    fetch('/chat/update-online-status/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (!data.success) {
+            console.error('Error updating online status:', data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error updating online status:', error);
+    });
+}, 30000);
+
+// Update online status immediately when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/chat/update-online-status/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        }
+    });
+});
+
+// Delete chat function
+function deleteChat() {
+    if (!currentRoomId) {
+        alert('Kein Chat ausgewählt');
+        return;
+    }
+    
+    if (confirm('Sind Sie sicher, dass Sie diesen Chat löschen möchten?')) {
+        fetch(`/chat/api/room/${currentRoomId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                // Remove chat from list
+                const chatItem = document.querySelector(`[data-room-id="${currentRoomId}"]`);
+                if (chatItem) {
+                    chatItem.remove();
+                }
+                // Clear chat area
+                document.getElementById('chatMessages').innerHTML = '';
+                document.getElementById('chatHeader').style.display = 'none';
+                document.getElementById('messageInput').style.display = 'none';
+                currentRoomId = null;
+                // Reload page to refresh chat list
+                window.location.reload();
+            } else {
+                alert('Fehler: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting chat:', error);
+            alert('Fehler beim Löschen des Chats');
+        });
+    }
+}
+
+// Show chat info function
+function showChatInfo() {
+    if (!currentRoomId) {
+        alert('Kein Chat ausgewählt');
+        return;
+    }
+    
+    // Get chat room data
+    const chatItem = document.querySelector(`[data-room-id="${currentRoomId}"]`);
+    if (!chatItem) {
+        alert('Chat-Informationen nicht gefunden');
+        return;
+    }
+    
+    // Show info modal or section
+    // For now, just show a simple alert with basic info
+    fetch(`/chat/api/room/${currentRoomId}/info/`, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            let infoText = `Chat-Informationen:\n\n`;
+            infoText += `Name: ${data.room.name || 'Privater Chat'}\n`;
+            infoText += `Typ: ${data.room.is_group_chat ? 'Gruppenchat' : 'Privater Chat'}\n`;
+            infoText += `Erstellt am: ${data.room.created_at}\n`;
+            infoText += `Teilnehmer: ${data.room.participants.join(', ')}\n`;
+            if (data.room.other_user) {
+                infoText += `\nProfil-Informationen:\n`;
+                infoText += `Name: ${data.room.other_user.name}\n`;
+                infoText += `Benutzername: ${data.room.other_user.username}\n`;
+                infoText += `Online: ${data.room.other_user.is_online ? 'Ja' : 'Nein'}\n`;
+            }
+            alert(infoText);
+        } else {
+            alert('Fehler beim Laden der Chat-Informationen: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error loading chat info:', error);
+        alert('Fehler beim Laden der Chat-Informationen');
+    });
+}
 </script>
 {% endblock %}

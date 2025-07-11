@@ -32,6 +32,10 @@ class CustomUser(AbstractUser):
     receive_anonymous_reports = models.BooleanField(default=False, verbose_name="Anonyme Meldungen empfangen",
                                                    help_text="Erhält auch Bug-Meldungen ohne angemeldeten User")
     
+    # Online-Status
+    last_activity = models.DateTimeField(auto_now=True, verbose_name="Letzte Aktivität")
+    is_online = models.BooleanField(default=False, verbose_name="Online")
+    
     def __str__(self):
         return self.username
     
@@ -43,6 +47,16 @@ class CustomUser(AbstractUser):
         for room in self.chat_rooms.all():
             total_unread += room.get_unread_count(self)
         return total_unread
+    
+    def is_currently_online(self):
+        """Prüft ob der User als online betrachtet wird (letzte Aktivität < 5 Minuten)"""
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        if not self.last_activity:
+            return False
+            
+        return timezone.now() - self.last_activity < timedelta(minutes=5)
 
 
 class AmpelCategory(models.Model):
