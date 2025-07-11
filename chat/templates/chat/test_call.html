@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+
+{% block title %}Anruf Test{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h4>WebRTC Anruf Test</h4>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label>Room auswählen:</label>
+                        <select id="roomId" class="form-select">
+                            {% for room in user_rooms %}
+                                <option value="{{ room.id }}" {% if room.id|stringformat:"s" == default_room_id %}selected{% endif %}>
+                                    {{ room.name }} (ID: {{ room.id }})
+                                </option>
+                            {% empty %}
+                                <option value="1">Keine Rooms verfügbar - Standard Room (ID: 1)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label>Dein Username:</label>
+                        <input type="text" id="username" class="form-control" value="{{ user.username }}" readonly />
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h5>WebSocket Status:</h5>
+                        <div id="wsStatus" class="alert alert-info">Nicht verbunden</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <button class="btn btn-primary" onclick="connectWS()">WebSocket verbinden</button>
+                        <button class="btn btn-success" onclick="testCall()">Test-Anruf starten</button>
+                        <button class="btn btn-info" onclick="sendTestMessage()">Test-Nachricht</button>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h5>Nachrichten:</h5>
+                        <div id="messages" class="border rounded p-3" style="height: 300px; overflow-y: auto;">
+                            <em>Keine Nachrichten</em>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let socket = null;
+const username = document.getElementById('username').value;
+
+function updateStatus(message, type = 'info') {
+    const statusDiv = document.getElementById('wsStatus');
+    statusDiv.className = `alert alert-${type}`;
+    statusDiv.textContent = message;
+}
+
+function addMessage(message, type = 'received') {
+    const messagesDiv = document.getElementById('messages');
+    const msgElement = document.createElement('div');
+    msgElement.className = `mb-2 ${type === 'sent' ? 'text-end' : ''}`;
+    msgElement.innerHTML = `
+        <small class="text-muted">${new Date().toLocaleTimeString()}</small>
+        <div class="${type === 'sent' ? 'text-primary' : 'text-dark'}">
+            ${type === 'sent' ? 'SENT: ' : 'RECEIVED: '}${message}
+        </div>
+    `;
+    messagesDiv.appendChild(msgElement);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+function connectWS() {
+    const roomId = document.getElementById('roomId').value;
+    
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        updateStatus('Bereits verbunden', 'success');
+        return;
+    }
+    
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsHost = window.location.hostname + ':' + window.location.port;
+    const wsUrl = `${protocol}//${wsHost}/ws/call/${roomId}/`;
+    
+    updateStatus(`Verbinde zu ${wsUrl}...`, 'warning');
+    
+    socket = new WebSocket(wsUrl);
+    
+    socket.onopen = function(e) {
+        updateStatus('✅ WebSocket verbunden', 'success');
+        addMessage('WebSocket Verbindung hergestellt');
+    };
+    
+    socket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        addMessage(JSON.stringify(data, null, 2));
+        
+        // Handle specific message types
+        if (data.type === 'call_initiated') {
+            if (data.caller !== username) {
+                alert(`Eingehender Anruf von ${data.caller}!`);
+            }
+        }
+    };
+    
+    socket.onclose = function(e) {
+        updateStatus(`❌ Verbindung getrennt (Code: ${e.code})`, 'danger');
+        addMessage(`WebSocket geschlossen: ${e.reason || 'Unbekannt'}`);
+    };
+    
+    socket.onerror = function(e) {
+        updateStatus('❌ WebSocket Fehler', 'danger');
+        addMessage('WebSocket Fehler aufgetreten');
+    };
+}
+
+function sendTestMessage() {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+        alert('Nicht verbunden!');
+        return;
+    }
+    
+    const message = {
+        type: 'test',
+        message: 'Test Nachricht von ' + username,
+        timestamp: new Date().toISOString()
+    };
+    
+    socket.send(JSON.stringify(message));
+    addMessage(JSON.stringify(message, null, 2), 'sent');
+}
+
+function testCall() {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+        alert('Nicht verbunden!');
+        return;
+    }
+    
+    const callMessage = {
+        type: 'call_initiate',
+        call_type: 'audio',
+        call_id: 'test-' + Date.now()
+    };
+    
+    socket.send(JSON.stringify(callMessage));
+    addMessage(JSON.stringify(callMessage, null, 2), 'sent');
+}
+
+// Auto-connect on load
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(connectWS, 500);
+});
+</script>
+{% endblock %}

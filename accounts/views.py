@@ -8,7 +8,7 @@ from django.views.generic import CreateView
 from django.views.decorators.http import require_http_methods
 from django.http import JsonResponse
 from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm, ApiKeyForm, CompanyInfoForm, UserProfileForm, CustomPasswordChangeForm, SuperUserManagementForm, BugChatSettingsForm
-from .models import CustomUser, AmpelCategory, CategoryKeyword
+from .models import CustomUser, AmpelCategory, CategoryKeyword, UserLoginHistory
 from naturmacher.models import APIBalance
 from .utils import redirect_with_params
 
@@ -356,7 +356,7 @@ def company_info_view(request):
     active_tab = request.GET.get('tab', 'company')
     
     # Prüfe ob User Super User ist für Bug-Chat-Tab
-    is_superuser = request.user.is_bug_chat_superuser
+    is_superuser = request.user.is_superuser
     
     if request.method == 'POST':
         # Prüfe welches Formular gesendet wurde
@@ -1162,6 +1162,167 @@ def delete_shopify_store(request):
             'success': False,
             'error': f'Fehler beim Löschen des Stores: {str(e)}'
         })
+
+
+@login_required
+def user_permissions(request):
+    """
+    View für Nutzerverwaltung und Call-Berechtigungen (nur für Superuser)
+    """
+    if not request.user.is_superuser:
+        messages.error(request, 'Sie haben keine Berechtigung für diese Seite.')
+        return redirect('accounts:dashboard')
+    
+    users = CustomUser.objects.all().order_by('username')
+    
+    if request.method == 'POST':
+        user_id = request.POST.get('user_id')
+        action = request.POST.get('action')
+        
+        try:
+            user = CustomUser.objects.get(id=user_id)
+            
+            if action == 'toggle_audio_calls':
+                user.can_make_audio_calls = not user.can_make_audio_calls
+                user.save()
+                status = "aktiviert" if user.can_make_audio_calls else "deaktiviert"
+                messages.success(request, f'Audioanrufe tätigen für {user.username} {status}.')
+                
+            elif action == 'toggle_video_calls':
+                user.can_make_video_calls = not user.can_make_video_calls
+                user.save()
+                status = "aktiviert" if user.can_make_video_calls else "deaktiviert"
+                messages.success(request, f'Videoanrufe tätigen für {user.username} {status}.')
+                
+            elif action == 'toggle_audio_receive':
+                user.can_receive_audio_calls = not user.can_receive_audio_calls
+                user.save()
+                status = "aktiviert" if user.can_receive_audio_calls else "deaktiviert"
+                messages.success(request, f'Audioanrufe empfangen für {user.username} {status}.')
+                
+            elif action == 'toggle_video_receive':
+                user.can_receive_video_calls = not user.can_receive_video_calls
+                user.save()
+                status = "aktiviert" if user.can_receive_video_calls else "deaktiviert"
+                messages.success(request, f'Videoanrufe empfangen für {user.username} {status}.')
+                
+            elif action == 'toggle_superuser':
+                # Verhindere, dass sich der User selbst den Superuser-Status entziehen kann
+                if user.id == request.user.id:
+                    messages.error(request, 'Sie können sich selbst nicht den Superuser-Status entziehen.')
+                else:
+                    user.is_superuser = not user.is_superuser
+                    user.is_staff = user.is_superuser  # Staff-Status sollte mit Superuser-Status übereinstimmen
+                    user.save()
+                    status = "aktiviert" if user.is_superuser else "deaktiviert"
+                    messages.success(request, f'Superuser-Status für {user.username} {status}.')
+                
+        except CustomUser.DoesNotExist:
+            messages.error(request, 'Benutzer nicht gefunden.')
+        except Exception as e:
+            messages.error(request, f'Fehler beim Aktualisieren der Berechtigungen: {str(e)}')
+        
+        return redirect('accounts:user_permissions')
+    
+    context = {
+        'users': users,
+    }
+    return render(request, 'accounts/user_permissions.html', context)
+
+
+@login_required
+def user_online_times(request, user_id):
+    """
+    Zeigt die Onlinezeiten eines Benutzers grafisch an (nur für Superuser)
+    """
+    if not request.user.is_superuser:
+        return JsonResponse({'error': 'Keine Berechtigung'}, status=403)
+    
+    try:
+        user = CustomUser.objects.get(id=user_id)
+        
+        # Letzte 30 Tage Login-Historie
+        from datetime import datetime, timedelta
+        from django.utils import timezone
+        
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        login_history = UserLoginHistory.objects.filter(
+            user=user,
+            login_time__gte=thirty_days_ago
+        ).order_by('-login_time')
+        
+        # Daten für Chart.js vorbereiten
+        chart_data = []
+        daily_stats = {}
+        
+        for login in login_history:
+            date_str = login.login_time.strftime('%Y-%m-%d')
+            if date_str not in daily_stats:
+                daily_stats[date_str] = {
+                    'date': date_str,
+                    'sessions': 0,
+                    'total_duration': 0,
+                    'first_login': login.login_time,
+                    'last_logout': login.logout_time if login.logout_time else timezone.now()
+                }
+            
+            daily_stats[date_str]['sessions'] += 1
+            if login.session_duration:
+                daily_stats[date_str]['total_duration'] += login.session_duration.total_seconds()
+        
+        # Daten für die letzten 30 Tage generieren (auch Tage ohne Login)
+        for i in range(30):
+            date = timezone.now() - timedelta(days=i)
+            date_str = date.strftime('%Y-%m-%d')
+            
+            if date_str in daily_stats:
+                chart_data.append({
+                    'date': date_str,
+                    'sessions': daily_stats[date_str]['sessions'],
+                    'duration_hours': daily_stats[date_str]['total_duration'] / 3600,
+                    'formatted_duration': f"{int(daily_stats[date_str]['total_duration'] / 3600):02d}:{int((daily_stats[date_str]['total_duration'] % 3600) / 60):02d}"
+                })
+            else:
+                chart_data.append({
+                    'date': date_str,
+                    'sessions': 0,
+                    'duration_hours': 0,
+                    'formatted_duration': "00:00"
+                })
+        
+        chart_data.reverse()  # Chronologische Reihenfolge
+        
+        # Detaillierte Session-Daten
+        sessions_data = []
+        for login in login_history[:20]:  # Letzte 20 Sessions
+            sessions_data.append({
+                'login_time': login.login_time.strftime('%d.%m.%Y %H:%M:%S'),
+                'logout_time': login.logout_time.strftime('%d.%m.%Y %H:%M:%S') if login.logout_time else 'Läuft noch',
+                'duration': login.get_duration_display(),
+                'ip_address': login.ip_address,
+                'is_active': login.is_active_session
+            })
+        
+        return JsonResponse({
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'full_name': user.get_full_name() or user.username,
+                'is_online': user.is_currently_online()
+            },
+            'chart_data': chart_data,
+            'sessions_data': sessions_data,
+            'summary': {
+                'total_sessions': login_history.count(),
+                'days_with_activity': len(daily_stats),
+                'avg_sessions_per_day': len(daily_stats) and login_history.count() / len(daily_stats) or 0
+            }
+        })
+        
+    except CustomUser.DoesNotExist:
+        return JsonResponse({'error': 'Benutzer nicht gefunden'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 # Separate Profile-Views wurden in company_info_view integriert

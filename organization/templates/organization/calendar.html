@@ -1,0 +1,319 @@
+{% extends 'base.html' %}
+
+{% block title %}Kalender - Organisation{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>Kalender</h1>
+                <a href="{% url 'organization:event_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Neuer Termin
+                </a>
+            </div>
+            
+            <!-- Ansichts-Auswahl und Navigation -->
+            <div class="card mb-4">
+                <div class="card-body p-2">
+                    <div class="row align-items-center">
+                        <div class="col-md-4">
+                            <div class="btn-group" role="group">
+                                <a href="?view=day&date={{ current_date|date:'Y-m-d' }}" 
+                                   class="btn btn-sm {% if view_mode == 'day' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                                    Tag
+                                </a>
+                                <a href="?view=week&date={{ current_date|date:'Y-m-d' }}" 
+                                   class="btn btn-sm {% if view_mode == 'week' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                                    Woche
+                                </a>
+                                <a href="?view=month&date={{ current_date|date:'Y-m-d' }}" 
+                                   class="btn btn-sm {% if view_mode == 'month' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                                    Monat
+                                </a>
+                                <a href="?view=year&date={{ current_date|date:'Y-m-d' }}" 
+                                   class="btn btn-sm {% if view_mode == 'year' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                                    Jahr
+                                </a>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 text-center">
+                            <div class="d-flex align-items-center justify-content-center">
+                                <a href="?view={{ view_mode }}&date={{ prev_date|date:'Y-m-d' }}" 
+                                   class="btn btn-sm btn-outline-secondary me-2">
+                                    <i class="fas fa-chevron-left"></i>
+                                </a>
+                                <h5 class="mb-0">{{ title }}</h5>
+                                <a href="?view={{ view_mode }}&date={{ next_date|date:'Y-m-d' }}" 
+                                   class="btn btn-sm btn-outline-secondary ms-2">
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 text-end">
+                            <a href="?view={{ view_mode }}" class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-calendar-day"></i> Heute
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            {% if view_mode == 'day' %}
+                <!-- Tagesansicht -->
+                <div class="card">
+                    <div class="card-body">
+                        {% if events %}
+                            <div class="day-view">
+                                {% for event in events %}
+                                    <div class="event-item mb-3 p-3 border rounded">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <h6 class="mb-1">
+                                                    <a href="{% url 'organization:event_detail' event.pk %}" class="text-decoration-none">
+                                                        {{ event.title }}
+                                                    </a>
+                                                    {% if event.priority == 'high' %}
+                                                        <span class="badge bg-warning">Hoch</span>
+                                                    {% elif event.priority == 'urgent' %}
+                                                        <span class="badge bg-danger">Dringend</span>
+                                                    {% endif %}
+                                                </h6>
+                                                <p class="mb-1">
+                                                    <i class="fas fa-clock"></i> {{ event.start_time|date:"H:i" }} - {{ event.end_time|date:"H:i" }}
+                                                    {% if event.location %}
+                                                        <br><i class="fas fa-map-marker-alt"></i> {{ event.location }}
+                                                    {% endif %}
+                                                </p>
+                                                {% if event.description %}
+                                                    <p class="text-muted mb-0">{{ event.description|truncatechars:100 }}</p>
+                                                {% endif %}
+                                            </div>
+                                            <div>
+                                                <a href="{% url 'organization:event_detail' event.pk %}" class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5">
+                                <i class="fas fa-calendar-day fa-3x text-muted mb-3"></i>
+                                <h5>Keine Termine für diesen Tag</h5>
+                                <a href="{% url 'organization:event_create' %}" class="btn btn-primary">
+                                    <i class="fas fa-plus"></i> Neuer Termin
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+            {% elif view_mode == 'week' %}
+                <!-- Wochenansicht -->
+                <div class="card">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-bordered mb-0">
+                                <thead>
+                                    <tr class="bg-light">
+                                        {% for day in week_days %}
+                                            <th class="text-center {% if day.is_today %}bg-primary text-white{% endif %}">
+                                                {{ day.day_name }}<br>
+                                                <small>{{ day.day_number }}</small>
+                                            </th>
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        {% for day in week_days %}
+                                            <td class="align-top p-2" style="width: 14.28%; min-height: 150px;">
+                                                {% for event in day.events %}
+                                                    <div class="event-block mb-1 p-1 rounded" 
+                                                         style="background-color: #e3f2fd; font-size: 0.85rem;">
+                                                        <a href="{% url 'organization:event_detail' event.pk %}" 
+                                                           class="text-decoration-none text-dark">
+                                                            <strong>{{ event.start_time|date:"H:i" }}</strong>
+                                                            {{ event.title|truncatechars:20 }}
+                                                        </a>
+                                                    </div>
+                                                {% endfor %}
+                                            </td>
+                                        {% endfor %}
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+            {% elif view_mode == 'month' %}
+                <!-- Monatsansicht -->
+                <div class="card">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-bordered mb-0">
+                                <thead>
+                                    <tr class="bg-light">
+                                        {% for day_name in weekday_names %}
+                                            <th class="text-center">{{ day_name }}</th>
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for week in calendar_weeks %}
+                                        <tr>
+                                            {% for day_data in week %}
+                                                <td class="p-0 position-relative" style="height: 100px; vertical-align: top;">
+                                                    {% if day_data.day %}
+                                                        <div class="p-2">
+                                                            <div class="d-flex justify-content-between align-items-start">
+                                                                <span class="{% if day_data.is_today %}badge bg-primary{% else %}text-muted{% endif %}">
+                                                                    {{ day_data.day }}
+                                                                </span>
+                                                                {% if day_data.event_count > 0 %}
+                                                                    <span class="badge bg-secondary">{{ day_data.event_count }}</span>
+                                                                {% endif %}
+                                                            </div>
+                                                            {% for event in day_data.events|slice:":3" %}
+                                                                <div class="event-item mt-1" style="font-size: 0.75rem;">
+                                                                    <a href="{% url 'organization:event_detail' event.pk %}" 
+                                                                       class="text-decoration-none">
+                                                                        <span class="badge bg-info text-dark">
+                                                                            {{ event.start_time|date:"H:i" }} {{ event.title|truncatechars:15 }}
+                                                                        </span>
+                                                                    </a>
+                                                                </div>
+                                                            {% endfor %}
+                                                            {% if day_data.event_count > 3 %}
+                                                                <small class="text-muted">+{{ day_data.event_count|add:"-3" }} weitere</small>
+                                                            {% endif %}
+                                                        </div>
+                                                    {% endif %}
+                                                </td>
+                                            {% endfor %}
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+            {% elif view_mode == 'year' %}
+                <!-- Jahresansicht -->
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row">
+                            {% for month_data in months_data %}
+                                <div class="col-md-3 col-sm-6 mb-3">
+                                    <div class="card h-100 {% if month_data.has_events %}border-primary{% endif %}">
+                                        <div class="card-body text-center">
+                                            <h6 class="card-title">{{ month_data.name }}</h6>
+                                            {% if month_data.has_events %}
+                                                <p class="card-text">
+                                                    <span class="badge bg-primary">{{ month_data.event_count }} Termine</span>
+                                                </p>
+                                                <a href="?view=month&date={{ current_date.year }}-{{ month_data.month|stringformat:'02d' }}-01" 
+                                                   class="btn btn-sm btn-outline-primary">
+                                                    Anzeigen
+                                                </a>
+                                            {% else %}
+                                                <p class="text-muted">Keine Termine</p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+/* Kalender-Stile */
+.event-block:hover {
+    background-color: #bbdefb !important;
+    cursor: pointer;
+}
+
+.event-item:hover {
+    opacity: 0.8;
+}
+
+/* Monatsansicht */
+.table td {
+    cursor: pointer;
+}
+
+.table td:hover {
+    background-color: #f5f5f5;
+}
+
+/* Responsive Anpassungen */
+@media (max-width: 768px) {
+    .btn-group {
+        display: flex;
+        width: 100%;
+    }
+    
+    .btn-group .btn {
+        flex: 1;
+    }
+    
+    .table {
+        font-size: 0.8rem;
+    }
+}
+
+/* Jahresansicht */
+.year-month-card:hover {
+    transform: scale(1.02);
+    transition: transform 0.2s;
+}
+
+/* Heute hervorheben */
+.today-highlight {
+    background-color: #e3f2fd;
+    font-weight: bold;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Tooltips für verkürzte Ereignistitel
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Klick auf Tageszelle in Monatsansicht
+    {% if view_mode == 'month' %}
+    document.querySelectorAll('td').forEach(function(cell) {
+        const daySpan = cell.querySelector('span:first-child');
+        if (daySpan && daySpan.textContent.trim() !== '') {
+            cell.style.cursor = 'pointer';
+            cell.addEventListener('click', function(e) {
+                if (!e.target.closest('a')) {
+                    const day = daySpan.textContent.trim();
+                    const date = '{{ current_date|date:"Y-m" }}-' + day.padStart(2, '0');
+                    window.location.href = '?view=day&date=' + date;
+                }
+            });
+        }
+    });
+    {% endif %}
+});
+</script>
+{% endblock %}

@@ -31,6 +31,7 @@ ALLOWED_HOSTS = [
     '10.63.100.139',
     '127.0.0.1',
     'localhost',
+    'testserver',  # For Django testing
 ]
 
 
@@ -57,6 +58,7 @@ INSTALLED_APPS = [
     'image_editor',
     'bug_report',
     'encrypted_model_fields',
+    'organization',
 ]
 
 
@@ -187,3 +189,16 @@ CHANNEL_LAYERS = {
         },
     },
 }
+
+# Fallback to in-memory channel layer if Redis is not available
+try:
+    import redis
+    redis_client = redis.Redis(host='127.0.0.1', port=6379, db=0)
+    redis_client.ping()
+except:
+    # Use in-memory channel layer as fallback
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        },
+    }

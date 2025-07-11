@@ -1,0 +1,703 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ board.title }} - Ideenboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>{{ board.title }}</h1>
+                <div>
+                    {% if board.creator == request.user %}
+                        <button type="button" class="btn btn-info me-2" data-bs-toggle="modal" data-bs-target="#inviteModal">
+                            <i class="fas fa-user-plus"></i> Personen einladen
+                        </button>
+                    {% endif %}
+                    <a href="{% url 'organization:board_list' %}" class="btn btn-secondary">Zurück zur Liste</a>
+                </div>
+            </div>
+            
+            {% if board.description %}
+                <p class="text-muted mb-4">{{ board.description }}</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-2">
+            <!-- Werkzeuge -->
+            <div class="card">
+                <div class="card-header">
+                    <h5>Werkzeuge</h5>
+                </div>
+                <div class="card-body">
+                    <div class="btn-group-vertical w-100" role="group">
+                        <button type="button" class="btn btn-outline-primary tool-btn" data-tool="pen">
+                            <i class="fas fa-pen"></i> Stift
+                        </button>
+                        <button type="button" class="btn btn-outline-primary tool-btn" data-tool="brush">
+                            <i class="fas fa-brush"></i> Pinsel
+                        </button>
+                        <button type="button" class="btn btn-outline-primary tool-btn" data-tool="eraser">
+                            <i class="fas fa-eraser"></i> Radierer
+                        </button>
+                        <button type="button" class="btn btn-outline-primary tool-btn" data-tool="text">
+                            <i class="fas fa-font"></i> Text
+                        </button>
+                        <button type="button" class="btn btn-outline-primary tool-btn" data-tool="rectangle">
+                            <i class="fas fa-square"></i> Rechteck
+                        </button>
+                        <button type="button" class="btn btn-outline-primary tool-btn" data-tool="circle">
+                            <i class="fas fa-circle"></i> Kreis
+                        </button>
+                        <button type="button" class="btn btn-outline-primary tool-btn" data-tool="triangle">
+                            <i class="fas fa-play"></i> Dreieck
+                        </button>
+                        <button type="button" class="btn btn-outline-primary tool-btn" data-tool="line">
+                            <i class="fas fa-minus"></i> Linie
+                        </button>
+                    </div>
+                    
+                    <hr>
+                    
+                    <!-- Farben -->
+                    <div class="mb-3">
+                        <label class="form-label">Farbe</label>
+                        <input type="color" class="form-control form-control-color" id="color-picker" value="#000000">
+                    </div>
+                    
+                    <!-- Strichstärke -->
+                    <div class="mb-3">
+                        <label class="form-label">Strichstärke</label>
+                        <input type="range" class="form-range" id="stroke-width" min="1" max="20" value="2">
+                        <span id="stroke-width-value">2</span>px
+                    </div>
+                    
+                    <!-- Transparenz -->
+                    <div class="mb-3">
+                        <label class="form-label">Transparenz</label>
+                        <input type="range" class="form-range" id="opacity" min="0" max="100" value="100">
+                        <span id="opacity-value">100</span>%
+                    </div>
+                    
+                    <hr>
+                    
+                    <button type="button" class="btn btn-warning w-100 mb-2" id="clear-canvas">
+                        <i class="fas fa-trash"></i> Canvas löschen
+                    </button>
+                    
+                    <button type="button" class="btn btn-success w-100" id="save-board">
+                        <i class="fas fa-save"></i> Speichern
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-10">
+            <!-- Canvas -->
+            <div class="card">
+                <div class="card-body p-0">
+                    <div id="canvas-container" style="position: relative; overflow: hidden;">
+                        <canvas id="drawing-canvas" 
+                                width="{{ board.width }}" 
+                                height="{{ board.height }}" 
+                                style="border: 1px solid #dee2e6; background-color: {{ board.background_color }}; cursor: crosshair;">
+                        </canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal für Personen einladen -->
+<div class="modal fade" id="inviteModal" tabindex="-1" aria-labelledby="inviteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="inviteModalLabel">Personen zu Board einladen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="inviteForm">
+                    <div class="mb-3">
+                        <label for="userSearch" class="form-label">Benutzer suchen</label>
+                        <input type="text" class="form-control" id="userSearch" placeholder="Benutzername oder Name eingeben...">
+                        <div id="searchResults" class="mt-2"></div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Aktuelle Mitarbeiter</label>
+                        <div id="currentCollaborators">
+                            {% for collaborator in board.collaborators.all %}
+                                <span class="badge bg-secondary me-1" data-user-id="{{ collaborator.id }}">
+                                    {{ collaborator.username }}
+                                    <button type="button" class="btn-close btn-close-white ms-1" style="font-size: 0.7em;" onclick="removeCollaborator({{ collaborator.id }})"></button>
+                                </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Neue Mitarbeiter</label>
+                        <div id="newCollaborators"></div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="saveInvitations()">Einladungen senden</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+class IdeaBoard {
+    constructor() {
+        this.canvas = document.getElementById('drawing-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.isDrawing = false;
+        this.currentTool = 'pen';
+        this.currentColor = '#000000';
+        this.currentStrokeWidth = 2;
+        this.currentOpacity = 1.0;
+        this.startX = 0;
+        this.startY = 0;
+        this.elements = [];
+        this.currentPath = [];
+        
+        this.initEventListeners();
+        this.loadExistingElements();
+    }
+    
+    initEventListeners() {
+        // Canvas Events
+        this.canvas.addEventListener('mousedown', (e) => this.startDrawing(e));
+        this.canvas.addEventListener('mousemove', (e) => this.draw(e));
+        this.canvas.addEventListener('mouseup', (e) => this.stopDrawing(e));
+        this.canvas.addEventListener('mouseout', (e) => this.stopDrawing(e));
+        
+        // Tool Selection
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                this.currentTool = e.target.dataset.tool;
+                this.updateCursor();
+            });
+        });
+        
+        // Color Picker
+        document.getElementById('color-picker').addEventListener('change', (e) => {
+            this.currentColor = e.target.value;
+        });
+        
+        // Stroke Width
+        document.getElementById('stroke-width').addEventListener('input', (e) => {
+            this.currentStrokeWidth = parseInt(e.target.value);
+            document.getElementById('stroke-width-value').textContent = e.target.value;
+        });
+        
+        // Opacity
+        document.getElementById('opacity').addEventListener('input', (e) => {
+            this.currentOpacity = parseFloat(e.target.value) / 100;
+            document.getElementById('opacity-value').textContent = e.target.value;
+        });
+        
+        // Clear Canvas
+        document.getElementById('clear-canvas').addEventListener('click', () => {
+            if (confirm('Möchten Sie das Canvas wirklich löschen?')) {
+                this.clearCanvas();
+            }
+        });
+        
+        // Save Board
+        document.getElementById('save-board').addEventListener('click', () => {
+            this.saveBoard();
+        });
+    }
+    
+    startDrawing(e) {
+        this.isDrawing = true;
+        const rect = this.canvas.getBoundingClientRect();
+        this.startX = e.clientX - rect.left;
+        this.startY = e.clientY - rect.top;
+        
+        if (this.currentTool === 'pen' || this.currentTool === 'brush') {
+            this.currentPath = [{x: this.startX, y: this.startY}];
+        }
+    }
+    
+    draw(e) {
+        if (!this.isDrawing) return;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const currentX = e.clientX - rect.left;
+        const currentY = e.clientY - rect.top;
+        
+        this.ctx.globalAlpha = this.currentOpacity;
+        this.ctx.strokeStyle = this.currentColor;
+        this.ctx.fillStyle = this.currentColor;
+        this.ctx.lineWidth = this.currentStrokeWidth;
+        this.ctx.lineCap = 'round';
+        this.ctx.lineJoin = 'round';
+        
+        // Temporäres Canvas für Vorschau bei Formen
+        if (['rectangle', 'circle', 'triangle', 'line'].includes(this.currentTool)) {
+            this.drawShapePreview(currentX, currentY);
+            return;
+        }
+        
+        switch (this.currentTool) {
+            case 'pen':
+            case 'brush':
+                this.ctx.beginPath();
+                this.ctx.moveTo(this.startX, this.startY);
+                this.ctx.lineTo(currentX, currentY);
+                this.ctx.stroke();
+                this.currentPath.push({x: currentX, y: currentY});
+                this.startX = currentX;
+                this.startY = currentY;
+                break;
+                
+            case 'eraser':
+                this.ctx.globalCompositeOperation = 'destination-out';
+                this.ctx.beginPath();
+                this.ctx.arc(currentX, currentY, this.currentStrokeWidth, 0, 2 * Math.PI);
+                this.ctx.fill();
+                this.ctx.globalCompositeOperation = 'source-over';
+                break;
+                
+            case 'text':
+                // Text wird beim Klick hinzugefügt
+                break;
+        }
+    }
+    
+    drawShapePreview(currentX, currentY) {
+        // Redraw canvas
+        this.redrawCanvas();
+        
+        // Draw preview
+        this.ctx.globalAlpha = this.currentOpacity;
+        this.ctx.strokeStyle = this.currentColor;
+        this.ctx.fillStyle = this.currentColor;
+        this.ctx.lineWidth = this.currentStrokeWidth;
+        
+        const width = currentX - this.startX;
+        const height = currentY - this.startY;
+        
+        switch (this.currentTool) {
+            case 'rectangle':
+                this.ctx.strokeRect(this.startX, this.startY, width, height);
+                break;
+                
+            case 'circle':
+                const radius = Math.sqrt(width * width + height * height);
+                this.ctx.beginPath();
+                this.ctx.arc(this.startX, this.startY, radius, 0, 2 * Math.PI);
+                this.ctx.stroke();
+                break;
+                
+            case 'triangle':
+                this.ctx.beginPath();
+                this.ctx.moveTo(this.startX, this.startY);
+                this.ctx.lineTo(currentX, currentY);
+                this.ctx.lineTo(this.startX - width, currentY);
+                this.ctx.closePath();
+                this.ctx.stroke();
+                break;
+                
+            case 'line':
+                this.ctx.beginPath();
+                this.ctx.moveTo(this.startX, this.startY);
+                this.ctx.lineTo(currentX, currentY);
+                this.ctx.stroke();
+                break;
+        }
+    }
+    
+    redrawCanvas() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Redraw all saved elements
+        this.elements.forEach(element => {
+            this.drawElement(element);
+        });
+    }
+    
+    drawElement(element) {
+        this.ctx.globalAlpha = element.opacity || 1.0;
+        this.ctx.strokeStyle = element.color || '#000000';
+        this.ctx.fillStyle = element.color || '#000000';
+        this.ctx.lineWidth = element.stroke_width || 2;
+        
+        const data = element.data;
+        
+        switch (element.element_type) {
+            case 'rectangle':
+                this.ctx.strokeRect(data.x, data.y, data.width, data.height);
+                break;
+                
+            case 'circle':
+                this.ctx.beginPath();
+                this.ctx.arc(data.x, data.y, data.radius, 0, 2 * Math.PI);
+                this.ctx.stroke();
+                break;
+                
+            case 'triangle':
+                this.ctx.beginPath();
+                this.ctx.moveTo(data.x1, data.y1);
+                this.ctx.lineTo(data.x2, data.y2);
+                this.ctx.lineTo(data.x3, data.y3);
+                this.ctx.closePath();
+                this.ctx.stroke();
+                break;
+                
+            case 'line':
+                this.ctx.beginPath();
+                this.ctx.moveTo(data.x1, data.y1);
+                this.ctx.lineTo(data.x2, data.y2);
+                this.ctx.stroke();
+                break;
+                
+            case 'freehand':
+                if (data.path && data.path.length > 1) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(data.path[0].x, data.path[0].y);
+                    for (let i = 1; i < data.path.length; i++) {
+                        this.ctx.lineTo(data.path[i].x, data.path[i].y);
+                    }
+                    this.ctx.stroke();
+                }
+                break;
+                
+            case 'text':
+                this.ctx.font = `${data.fontSize || 16}px Arial`;
+                this.ctx.fillText(data.text, data.x, data.y);
+                break;
+        }
+    }
+    
+    stopDrawing(event) {
+        if (!this.isDrawing) return;
+        this.isDrawing = false;
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const endX = event ? event.clientX - rect.left : this.startX;
+        const endY = event ? event.clientY - rect.top : this.startY;
+        
+        const width = endX - this.startX;
+        const height = endY - this.startY;
+        
+        switch (this.currentTool) {
+            case 'pen':
+            case 'brush':
+                this.saveElement('freehand', {
+                    path: this.currentPath,
+                    color: this.currentColor,
+                    strokeWidth: this.currentStrokeWidth,
+                    opacity: this.currentOpacity
+                });
+                break;
+                
+            case 'rectangle':
+                if (Math.abs(width) > 5 && Math.abs(height) > 5) {
+                    this.saveElement('rectangle', {
+                        x: this.startX,
+                        y: this.startY,
+                        width: width,
+                        height: height
+                    });
+                }
+                break;
+                
+            case 'circle':
+                const radius = Math.sqrt(width * width + height * height);
+                if (radius > 5) {
+                    this.saveElement('circle', {
+                        x: this.startX,
+                        y: this.startY,
+                        radius: radius
+                    });
+                }
+                break;
+                
+            case 'triangle':
+                if (Math.abs(width) > 5 && Math.abs(height) > 5) {
+                    this.saveElement('triangle', {
+                        x1: this.startX,
+                        y1: this.startY,
+                        x2: endX,
+                        y2: endY,
+                        x3: this.startX - width,
+                        y3: endY
+                    });
+                }
+                break;
+                
+            case 'line':
+                if (Math.abs(width) > 5 || Math.abs(height) > 5) {
+                    this.saveElement('line', {
+                        x1: this.startX,
+                        y1: this.startY,
+                        x2: endX,
+                        y2: endY
+                    });
+                }
+                break;
+                
+            case 'text':
+                this.addText(this.startX, this.startY);
+                break;
+        }
+    }
+    
+    addText(x, y) {
+        const text = prompt('Text eingeben:');
+        if (text && text.trim()) {
+            this.saveElement('text', {
+                text: text.trim(),
+                x: x,
+                y: y,
+                fontSize: 16
+            });
+            
+            // Sofort zeichnen
+            this.ctx.globalAlpha = this.currentOpacity;
+            this.ctx.fillStyle = this.currentColor;
+            this.ctx.font = '16px Arial';
+            this.ctx.fillText(text.trim(), x, y);
+        }
+    }
+    
+    saveElement(type, data) {
+        const element = {
+            element_type: type,
+            data: data,
+            position_x: this.startX,
+            position_y: this.startY,
+            color: this.currentColor,
+            stroke_width: this.currentStrokeWidth,
+            opacity: this.currentOpacity,
+            layer_index: this.elements.length
+        };
+        
+        fetch(`/organization/boards/{{ board.pk }}/save-element/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(element)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.elements.push(element);
+            }
+        });
+    }
+    
+    clearCanvas() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.elements = [];
+    }
+    
+    saveBoard() {
+        alert('Board gespeichert!');
+    }
+    
+    loadExistingElements() {
+        fetch(`/organization/boards/{{ board.pk }}/elements/`)
+            .then(response => response.json())
+            .then(data => {
+                this.elements = data.elements || [];
+                this.redrawCanvas();
+            })
+            .catch(error => {
+                console.error('Error loading elements:', error);
+            });
+    }
+    
+    updateCursor() {
+        switch (this.currentTool) {
+            case 'pen':
+            case 'brush':
+                this.canvas.style.cursor = 'crosshair';
+                break;
+            case 'eraser':
+                this.canvas.style.cursor = 'url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJMMTQgNEwyMCAxMEwxOCAxMkwxMiA2TDEyIDJaIiBmaWxsPSIjZmZmIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMiIvPgo8L3N2Zz4=) 12 12, auto';
+                break;
+            case 'text':
+                this.canvas.style.cursor = 'text';
+                break;
+            default:
+                this.canvas.style.cursor = 'crosshair';
+        }
+    }
+}
+
+// Initialisiere das Board wenn die Seite geladen ist
+document.addEventListener('DOMContentLoaded', function() {
+    new IdeaBoard();
+});
+
+// Benutzersuche für Einladungen
+let searchTimeout;
+const newCollaborators = new Set();
+
+document.getElementById('userSearch').addEventListener('input', function() {
+    const query = this.value.trim();
+    
+    clearTimeout(searchTimeout);
+    
+    if (query.length < 2) {
+        document.getElementById('searchResults').innerHTML = '';
+        return;
+    }
+    
+    searchTimeout = setTimeout(() => {
+        fetch(`/organization/api/user-search/?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                const resultsDiv = document.getElementById('searchResults');
+                resultsDiv.innerHTML = '';
+                
+                if (data.results.length === 0) {
+                    resultsDiv.innerHTML = '<div class="text-muted">Keine Benutzer gefunden</div>';
+                    return;
+                }
+                
+                data.results.forEach(user => {
+                    const userDiv = document.createElement('div');
+                    userDiv.className = 'border rounded p-2 mb-2 cursor-pointer';
+                    userDiv.style.cursor = 'pointer';
+                    userDiv.innerHTML = `
+                        <strong>${user.username}</strong> 
+                        <small class="text-muted">${user.full_name}</small>
+                    `;
+                    userDiv.onclick = () => addCollaborator(user);
+                    resultsDiv.appendChild(userDiv);
+                });
+            })
+            .catch(error => {
+                console.error('Fehler bei der Benutzersuche:', error);
+            });
+    }, 300);
+});
+
+function addCollaborator(user) {
+    // Prüfen ob bereits hinzugefügt
+    if (newCollaborators.has(user.id)) {
+        return;
+    }
+    
+    // Prüfen ob bereits Mitarbeiter
+    const existingCollaborator = document.querySelector(`[data-user-id="${user.id}"]`);
+    if (existingCollaborator) {
+        return;
+    }
+    
+    newCollaborators.add(user.id);
+    
+    const badge = document.createElement('span');
+    badge.className = 'badge bg-success me-1';
+    badge.dataset.userId = user.id;
+    badge.innerHTML = `
+        ${user.username}
+        <button type="button" class="btn-close btn-close-white ms-1" style="font-size: 0.7em;" onclick="removeNewCollaborator(${user.id})"></button>
+    `;
+    
+    document.getElementById('newCollaborators').appendChild(badge);
+    document.getElementById('userSearch').value = '';
+    document.getElementById('searchResults').innerHTML = '';
+}
+
+function removeNewCollaborator(userId) {
+    newCollaborators.delete(userId);
+    const badge = document.querySelector(`#newCollaborators [data-user-id="${userId}"]`);
+    if (badge) {
+        badge.remove();
+    }
+}
+
+function removeCollaborator(userId) {
+    if (confirm('Mitarbeiter wirklich entfernen?')) {
+        fetch(`/organization/boards/{{ board.pk }}/remove-collaborator/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({user_id: userId})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const badge = document.querySelector(`#currentCollaborators [data-user-id="${userId}"]`);
+                if (badge) {
+                    badge.remove();
+                }
+            } else {
+                alert('Fehler beim Entfernen des Mitarbeiters');
+            }
+        })
+        .catch(error => {
+            console.error('Fehler:', error);
+            alert('Fehler beim Entfernen des Mitarbeiters');
+        });
+    }
+}
+
+function saveInvitations() {
+    if (newCollaborators.size === 0) {
+        alert('Keine neuen Mitarbeiter ausgewählt');
+        return;
+    }
+    
+    const collaboratorIds = Array.from(newCollaborators);
+    
+    fetch(`/organization/boards/{{ board.pk }}/invite-collaborators/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({collaborator_ids: collaboratorIds})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Einladungen erfolgreich gesendet!');
+            location.reload(); // Seite neu laden um neue Mitarbeiter anzuzeigen
+        } else {
+            alert('Fehler beim Senden der Einladungen');
+        }
+    })
+    .catch(error => {
+        console.error('Fehler:', error);
+        alert('Fehler beim Senden der Einladungen');
+    });
+}
+</script>
+
+<style>
+.tool-btn.active {
+    background-color: #0d6efd;
+    color: white;
+}
+
+#canvas-container {
+    max-width: 100%;
+    overflow: auto;
+}
+
+.form-control-color {
+    width: 100%;
+    height: 40px;
+}
+</style>
+{% endblock %}

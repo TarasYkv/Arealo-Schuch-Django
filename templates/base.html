@@ -17,7 +17,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v={% now 'U' %}">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v={% now 'U' %}&call-update=1">
     <link rel="stylesheet" href="{% static 'css/naturmacher.css' %}">
     <link rel="stylesheet" href="{% static 'css/bug-button.css' %}">
 </head>
@@ -64,6 +64,9 @@
                     </a>
                     <a class="nav-link" href="{% url 'todos:home' %}">
                         <i class="fas fa-tasks"></i> ToDos
+                    </a>
+                    <a class="nav-link" href="{% url 'organization:dashboard' %}">
+                        <i class="fas fa-clipboard-list"></i> Organisation
                     </a>
                     <a class="nav-link position-relative" href="{% url 'chat:home' %}">
                         <i class="fas fa-comments"></i> Chat
@@ -525,14 +528,931 @@
             {% endif %}
         }
 
-        // Chat-Benachrichtigungen alle 30 Sekunden aktualisieren
+        // Chat-Benachrichtigungen alle 30 Sekunden aktualisieren (aber nicht während Anrufen)
         document.addEventListener('DOMContentLoaded', function() {
             {% if user.is_authenticated %}
             updateChatNotifications();
-            setInterval(updateChatNotifications, 30000); // Alle 30 Sekunden
+            setInterval(function() {
+                // Überprüfen ob ein Anruf aktiv ist
+                const callModal = document.getElementById('callModal');
+                const isCallActive = callModal && callModal.classList.contains('show');
+                
+                if (!isCallActive) {
+                    updateChatNotifications();
+                }
+            }, 30000); // Alle 30 Sekunden
+            
+            // Set user offline when leaving the page
+            window.addEventListener('beforeunload', function() {
+                navigator.sendBeacon('/chat/set-offline/');
+            });
             {% endif %}
         });
     </script>
+    
+    <!-- Floating Notification Circles -->
+    {% if user.is_authenticated %}
+    <div id="notification-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 10000;">
+        <!-- Message Notification -->
+        <div id="message-notification" class="floating-notification" style="display: none; margin-bottom: 10px;">
+            <div class="notification-circle bg-primary" onclick="handleMessageNotificationClick()" style="
+                width: 60px; height: 60px; border-radius: 50%; 
+                display: flex; align-items: center; justify-content: center;
+                cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                animation: pulse 2s infinite;
+            ">
+                <i class="fas fa-comments text-white" style="font-size: 24px;"></i>
+            </div>
+            <div class="notification-text bg-dark text-white p-2 rounded" style="
+                position: absolute; right: 70px; top: 50%; transform: translateY(-50%);
+                white-space: nowrap; font-size: 12px; max-width: 200px;
+            ">
+                <span id="message-notification-text">Neue Nachricht</span>
+            </div>
+        </div>
+        
+        <!-- Call Notification (Center Screen with Backdrop) -->
+        <div id="call-notification" class="call-notification-backdrop" style="display: none;">
+            <div class="call-notification-content">
+                <div class="call-avatar-circle" onclick="handleCallNotificationClick()">
+                    <i id="call-notification-icon" class="fas fa-phone text-white"></i>
+                </div>
+                <div class="call-notification-info">
+                    <h4 class="text-white mb-2" id="call-notification-text">Eingehender Anruf</h4>
+                    <div class="call-action-buttons">
+                        <button class="btn btn-danger btn-lg me-3" onclick="rejectCall()">
+                            <i class="fas fa-phone-slash"></i> Ablehnen
+                        </button>
+                        <button class="btn btn-success btn-lg" onclick="handleCallNotificationClick()">
+                            <i class="fas fa-phone"></i> Annehmen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Global Floating Call Window -->
+    <div id="globalFloatingCallWindow" class="floating-call-window" style="display: none;">
+        <div class="call-header">
+            <div class="call-info">
+                <i class="fas fa-phone" id="globalCallIcon"></i>
+                <span id="globalCallTitle">Anruf</span>
+                <span id="globalCallStatus" class="call-status-text">Verbinde...</span>
+            </div>
+            <div class="call-header-controls">
+                <button class="btn btn-sm btn-outline-light" id="globalMinimizeBtn" onclick="minimizeGlobalCallWindow()" title="Minimieren">
+                    <i class="fas fa-minus"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-light" id="globalMaximizeBtn" onclick="maximizeGlobalCallWindow()" title="Maximieren">
+                    <i class="fas fa-expand"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-light" onclick="endGlobalCall()" title="Beenden">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="call-content">
+            <div class="call-avatar-container" id="globalCallAvatarContainer">
+                <div class="call-avatar">
+                    <i class="fas fa-user-circle fa-3x text-primary"></i>
+                </div>
+                <h5 id="globalCallParticipantName">Teilnehmer</h5>
+            </div>
+            
+            <!-- Video Elements -->
+            <div class="video-container" id="globalVideoContainer" style="display: none;">
+                <video id="globalRemoteVideo" autoplay playsinline class="remote-video"></video>
+                <video id="globalLocalVideo" autoplay muted playsinline class="local-video"></video>
+            </div>
+        </div>
+        
+        <!-- Call Controls -->
+        <div class="call-controls">
+            <button class="btn btn-sm btn-outline-light" id="globalMuteBtn" onclick="toggleGlobalMute()" title="Stummschalten">
+                <i class="fas fa-microphone"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-light" id="globalVideoBtn" onclick="toggleGlobalVideo()" style="display: none;" title="Video ein/aus">
+                <i class="fas fa-video"></i>
+            </button>
+            <button class="btn btn-sm btn-danger" id="globalEndCallBtn" onclick="endGlobalCall()" title="Anruf beenden">
+                <i class="fas fa-phone-slash"></i>
+            </button>
+        </div>
+    </div>
+    
+    <style>
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .floating-notification:hover .notification-text {
+            opacity: 1;
+        }
+        
+        .notification-text {
+            opacity: 1;  /* Always visible for call notifications */
+            transition: opacity 0.3s;
+        }
+        
+        .floating-notification:hover .notification-text {
+            opacity: 1;
+        }
+        
+        /* Call Notification Backdrop Styles */
+        .call-notification-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        .call-notification-content {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 40px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        .call-avatar-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #28a745, #20c997);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            cursor: pointer;
+            box-shadow: 0 8px 24px rgba(40, 167, 69, 0.4);
+            animation: pulse 2s infinite;
+            transition: transform 0.2s ease;
+        }
+        
+        .call-avatar-circle:hover {
+            transform: scale(1.05);
+        }
+        
+        .call-avatar-circle i {
+            font-size: 48px;
+        }
+        
+        .call-notification-info h4 {
+            font-weight: 600;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .call-action-buttons {
+            margin-top: 30px;
+        }
+        
+        .call-action-buttons .btn {
+            border-radius: 50px;
+            padding: 12px 24px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s ease;
+        }
+        
+        .call-action-buttons .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        /* Global Floating Call Window Styles */
+        .floating-call-window {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 320px;
+            height: 240px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            z-index: 9999;
+            color: white;
+            font-size: 14px;
+            display: flex;
+            flex-direction: column;
+            resize: both;
+            overflow: hidden;
+            min-width: 280px;
+            min-height: 180px;
+            max-width: 600px;
+            max-height: 400px;
+            transition: all 0.3s ease;
+        }
+
+        .floating-call-window.minimized {
+            height: 60px;
+            width: 200px;
+        }
+
+        .floating-call-window.maximized {
+            width: 500px;
+            height: 350px;
+        }
+
+        .call-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px 12px 0 0;
+            cursor: move;
+            user-select: none;
+        }
+
+        .call-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+        }
+
+        .call-status-text {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .call-header-controls {
+            display: flex;
+            gap: 4px;
+        }
+
+        .call-header-controls .btn {
+            padding: 2px 6px;
+            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .call-header-controls .btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .call-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            position: relative;
+        }
+
+        .call-avatar-container {
+            text-align: center;
+        }
+
+        .call-avatar-container h5 {
+            margin: 8px 0 0 0;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .video-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            border-radius: 0 0 8px 8px;
+            overflow: hidden;
+        }
+
+        .remote-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .local-video {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 80px;
+            height: 60px;
+            border: 2px solid #fff;
+            border-radius: 6px;
+            object-fit: cover;
+            z-index: 10;
+        }
+
+        .call-controls {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 0 0 12px 12px;
+        }
+
+        .call-controls .btn {
+            padding: 6px 10px;
+            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+
+        .call-controls .btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .call-controls .btn-danger {
+            background: #dc3545;
+        }
+
+        .call-controls .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .floating-call-window.minimized .call-content,
+        .floating-call-window.minimized .call-controls {
+            display: none;
+        }
+    </style>
+    
+    <script>
+        // Global variables for notifications
+        let currentMessageNotification = null;
+        let currentCallNotification = null;
+        
+        // Connect to global notifications
+        function connectGlobalNotifications() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsHost = window.location.hostname + ':' + window.location.port;
+            const wsUrl = `${protocol}//${wsHost}/ws/notifications/`;
+            
+            console.log('🔌 Attempting to connect to global notifications:', wsUrl);
+            globalNotificationSocket = new WebSocket(wsUrl);
+            
+            globalNotificationSocket.onopen = function(e) {
+                console.log('✅ Global notifications WebSocket connected successfully');
+            };
+            
+            globalNotificationSocket.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                console.log('📨 Global notification received:', data);
+                
+                if (data.type === 'global_call_notification') {
+                    console.log('📞 Processing call notification:', data);
+                    showCallNotification(data.room_id, data.call_id, data.caller_full_name, data.call_type);
+                } else if (data.type === 'connection_established') {
+                    console.log('✅ Global notification connection established');
+                } else {
+                    console.log('❓ Unknown notification type:', data.type);
+                }
+            };
+            
+            globalNotificationSocket.onerror = function(e) {
+                console.error('Global notifications WebSocket error:', e);
+            };
+            
+            globalNotificationSocket.onclose = function(e) {
+                console.log('Global notifications WebSocket closed');
+                // Try to reconnect after 5 seconds
+                setTimeout(connectGlobalNotifications, 5000);
+            };
+        }
+        
+        // Test function for call notifications
+        window.testCallNotification = function() {
+            console.log('🧪 Testing call notification...');
+            showCallNotification('123', '456', 'Test User', 'video');
+        };
+        
+        // Test function for centered call notification
+        window.testCenteredCallNotification = function() {
+            console.log('🧪 Testing centered call notification...');
+            showCallNotification('123', '456', 'Test Benutzer', 'video');
+        };
+        
+        // Test function to check if elements exist
+        window.checkNotificationElements = function() {
+            console.log('🔍 Checking notification elements...');
+            const elements = {
+                'call-notification': document.getElementById('call-notification'),
+                'call-notification-icon': document.getElementById('call-notification-icon'),
+                'call-notification-text': document.getElementById('call-notification-text')
+            };
+            
+            for (const [id, element] of Object.entries(elements)) {
+                console.log(`${id}:`, {
+                    exists: !!element,
+                    display: element ? element.style.display : 'not found',
+                    computedDisplay: element ? window.getComputedStyle(element).display : 'not found'
+                });
+            }
+            return elements;
+        };
+        
+        // Start global notifications when page loads
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', connectGlobalNotifications);
+        } else {
+            connectGlobalNotifications();
+        }
+        
+        // Global call variables
+        let globalCallSocket = null;
+        let globalPeerConnection = null;
+        let globalLocalStream = null;
+        let globalCurrentCallId = null;
+        let globalIsCallActive = false;
+        let globalIsMuted = false;
+        let globalIsVideoEnabled = false;
+        let globalNotificationSocket = null;
+        
+        // Handle message notification click
+        function handleMessageNotificationClick() {
+            if (currentMessageNotification) {
+                // Navigate to chat with specific room
+                window.location.href = `/chat/?room=${currentMessageNotification.roomId}`;
+            }
+        }
+        
+        // Handle call notification click
+        function handleCallNotificationClick() {
+            if (currentCallNotification) {
+                // Show global call window and answer call
+                showGlobalCallWindow();
+                answerGlobalCall(currentCallNotification.callId, currentCallNotification.callType || 'audio', currentCallNotification.roomId);
+                hideCallNotification();
+            }
+        }
+        
+        // Global floating call window functions
+        function minimizeGlobalCallWindow() {
+            const floatingWindow = document.getElementById('globalFloatingCallWindow');
+            floatingWindow.classList.add('minimized');
+        }
+
+        function maximizeGlobalCallWindow() {
+            const floatingWindow = document.getElementById('globalFloatingCallWindow');
+            floatingWindow.classList.remove('minimized');
+            floatingWindow.classList.add('maximized');
+        }
+
+        function showGlobalCallWindow() {
+            const floatingWindow = document.getElementById('globalFloatingCallWindow');
+            floatingWindow.style.display = 'flex';
+            makeGlobalFloatingWindowDraggable();
+        }
+
+        function hideGlobalCallWindow() {
+            const floatingWindow = document.getElementById('globalFloatingCallWindow');
+            floatingWindow.style.display = 'none';
+            floatingWindow.classList.remove('minimized', 'maximized');
+        }
+
+        function makeGlobalFloatingWindowDraggable() {
+            const floatingWindow = document.getElementById('globalFloatingCallWindow');
+            const header = floatingWindow.querySelector('.call-header');
+            
+            let isDragging = false;
+            let startX, startY, startLeft, startTop;
+            
+            header.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                startLeft = parseInt(window.getComputedStyle(floatingWindow).left);
+                startTop = parseInt(window.getComputedStyle(floatingWindow).top);
+                
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+            
+            function onMouseMove(e) {
+                if (!isDragging) return;
+                
+                const deltaX = e.clientX - startX;
+                const deltaY = e.clientY - startY;
+                
+                floatingWindow.style.left = (startLeft + deltaX) + 'px';
+                floatingWindow.style.top = (startTop + deltaY) + 'px';
+                floatingWindow.style.right = 'auto';
+                floatingWindow.style.bottom = 'auto';
+            }
+            
+            function onMouseUp() {
+                isDragging = false;
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            }
+        }
+        
+        // Global call control functions
+        function toggleGlobalMute() {
+            if (globalLocalStream) {
+                const audioTrack = globalLocalStream.getAudioTracks()[0];
+                if (audioTrack) {
+                    audioTrack.enabled = !audioTrack.enabled;
+                    globalIsMuted = !audioTrack.enabled;
+                    
+                    const muteBtn = document.getElementById('globalMuteBtn');
+                    if (globalIsMuted) {
+                        muteBtn.classList.remove('btn-outline-light');
+                        muteBtn.classList.add('btn-danger');
+                        muteBtn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+                    } else {
+                        muteBtn.classList.remove('btn-danger');
+                        muteBtn.classList.add('btn-outline-light');
+                        muteBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+                    }
+                }
+            }
+        }
+
+        function toggleGlobalVideo() {
+            if (globalLocalStream) {
+                const videoTrack = globalLocalStream.getVideoTracks()[0];
+                if (videoTrack) {
+                    videoTrack.enabled = !videoTrack.enabled;
+                    globalIsVideoEnabled = videoTrack.enabled;
+                    
+                    const videoBtn = document.getElementById('globalVideoBtn');
+                    if (!globalIsVideoEnabled) {
+                        videoBtn.classList.remove('btn-outline-light');
+                        videoBtn.classList.add('btn-danger');
+                        videoBtn.innerHTML = '<i class="fas fa-video-slash"></i>';
+                    } else {
+                        videoBtn.classList.remove('btn-danger');
+                        videoBtn.classList.add('btn-outline-light');
+                        videoBtn.innerHTML = '<i class="fas fa-video"></i>';
+                    }
+                }
+            }
+        }
+
+        function endGlobalCall() {
+            // Send end call message
+            if (globalCallSocket && globalCallSocket.readyState === WebSocket.OPEN && globalCurrentCallId) {
+                globalCallSocket.send(JSON.stringify({
+                    type: 'call_end',
+                    call_id: globalCurrentCallId
+                }));
+            }
+            
+            // Close WebSocket
+            if (globalCallSocket) {
+                globalCallSocket.close();
+                globalCallSocket = null;
+            }
+            
+            // Clean up WebRTC
+            if (globalPeerConnection) {
+                globalPeerConnection.close();
+                globalPeerConnection = null;
+            }
+            
+            // Clean up media streams
+            if (globalLocalStream) {
+                globalLocalStream.getTracks().forEach(track => track.stop());
+                globalLocalStream = null;
+            }
+            
+            // Reset state
+            globalIsCallActive = false;
+            globalCurrentCallId = null;
+            globalIsMuted = false;
+            globalIsVideoEnabled = false;
+            
+            // Hide global call window
+            hideGlobalCallWindow();
+            
+            // Reset UI
+            document.getElementById('globalCallStatus').textContent = 'Verbinde...';
+            document.getElementById('globalMuteBtn').className = 'btn btn-sm btn-outline-light';
+            document.getElementById('globalMuteBtn').innerHTML = '<i class="fas fa-microphone"></i>';
+            document.getElementById('globalVideoBtn').className = 'btn btn-sm btn-outline-light';
+            document.getElementById('globalVideoBtn').innerHTML = '<i class="fas fa-video"></i>';
+            document.getElementById('globalLocalVideo').srcObject = null;
+            document.getElementById('globalRemoteVideo').srcObject = null;
+        }
+
+        // Answer global call
+        async function answerGlobalCall(callId, callType, roomId) {
+            try {
+                globalCurrentCallId = callId;
+                globalIsCallActive = true;
+                
+                // Update UI
+                document.getElementById('globalCallTitle').textContent = callType === 'video' ? 'Videoanruf' : 'Anruf';
+                document.getElementById('globalCallIcon').className = callType === 'video' ? 'fas fa-video' : 'fas fa-phone';
+                document.getElementById('globalCallStatus').textContent = 'Verbunden';
+                
+                // Get user media
+                const constraints = {
+                    audio: true,
+                    video: callType === 'video'
+                };
+                
+                globalLocalStream = await navigator.mediaDevices.getUserMedia(constraints);
+                
+                if (callType === 'video') {
+                    document.getElementById('globalLocalVideo').srcObject = globalLocalStream;
+                    document.getElementById('globalVideoContainer').style.display = 'block';
+                    document.getElementById('globalVideoBtn').style.display = 'inline-block';
+                    globalIsVideoEnabled = true;
+                }
+                
+                // Create WebSocket connection for this call
+                if (!globalCallSocket || globalCallSocket.readyState !== WebSocket.OPEN) {
+                    if (roomId) {
+                        await connectGlobalCallWebSocket(roomId);
+                    }
+                }
+                
+                // Send answer through WebSocket
+                if (globalCallSocket && globalCallSocket.readyState === WebSocket.OPEN) {
+                    globalCallSocket.send(JSON.stringify({
+                        type: 'call_answer',
+                        call_id: callId
+                    }));
+                }
+                
+                console.log('Global call answered:', callId, callType);
+                
+            } catch (error) {
+                console.error('Error answering global call:', error);
+                alert('Fehler beim Annehmen des Anrufs');
+                endGlobalCall();
+            }
+        }
+        
+        // Start global call
+        async function globalStartCall(roomId, callType) {
+            try {
+                console.log('📞 Starting global call:', roomId, callType);
+                
+                // Check if already in call
+                if (globalIsCallActive) {
+                    console.log('❌ Already in call, aborting');
+                    alert('Es läuft bereits ein Anruf');
+                    return;
+                }
+                
+                // Set up call state
+                globalIsCallActive = true;
+                globalCurrentCallId = null;
+                
+                // Update UI
+                document.getElementById('globalCallTitle').textContent = callType === 'video' ? 'Videoanruf' : 'Anruf';
+                document.getElementById('globalCallIcon').className = callType === 'video' ? 'fas fa-video' : 'fas fa-phone';
+                document.getElementById('globalCallStatus').textContent = 'Verbinde...';
+                
+                // Get user media
+                const constraints = {
+                    audio: true,
+                    video: callType === 'video'
+                };
+                
+                globalLocalStream = await navigator.mediaDevices.getUserMedia(constraints);
+                
+                if (callType === 'video') {
+                    document.getElementById('globalLocalVideo').srcObject = globalLocalStream;
+                    document.getElementById('globalVideoContainer').style.display = 'block';
+                    document.getElementById('globalVideoBtn').style.display = 'inline-block';
+                    globalIsVideoEnabled = true;
+                }
+                
+                // Show call window
+                document.getElementById('globalFloatingCallWindow').style.display = 'block';
+                
+                // Initiate call via API
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                                document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                
+                console.log('🔐 CSRF Token found:', csrfToken ? 'Yes' : 'No');
+                
+                if (!csrfToken) {
+                    throw new Error('CSRF-Token nicht gefunden. Bitte laden Sie die Seite neu.');
+                }
+                
+                const response = await fetch(`/chat/api/room/${roomId}/call/initiate/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({
+                        call_type: callType
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ HTTP Error:', response.status, errorText);
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+                const result = await response.json();
+                console.log('📋 Call initiation response:', result);
+                
+                if (!result.success) {
+                    throw new Error(result.error || 'Anruf konnte nicht gestartet werden');
+                }
+                
+                globalCurrentCallId = result.call_id;
+                
+                // Connect to WebSocket
+                console.log('🔌 Connecting to call WebSocket for room:', roomId);
+                await connectGlobalCallWebSocket(roomId);
+                
+                console.log('✅ Global call started successfully:', result.call_id);
+                
+            } catch (error) {
+                console.error('Error starting global call:', error);
+                alert('Fehler beim Starten des Anrufs: ' + error.message);
+                endGlobalCall();
+            }
+        }
+        
+        // Connect global call WebSocket
+        async function connectGlobalCallWebSocket(roomId) {
+            return new Promise((resolve, reject) => {
+                if (roomId) {
+                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    const wsHost = window.location.hostname + ':' + window.location.port;
+                    const wsUrl = `${protocol}//${wsHost}/ws/call/${roomId}/`;
+                    
+                    globalCallSocket = new WebSocket(wsUrl);
+                    
+                    globalCallSocket.onopen = function(e) {
+                        console.log('Global call WebSocket connected');
+                        resolve();
+                    };
+                    
+                    globalCallSocket.onerror = function(e) {
+                        console.error('Global call WebSocket error:', e);
+                        reject(e);
+                    };
+                    
+                    globalCallSocket.onmessage = function(e) {
+                        const data = JSON.parse(e.data);
+                        console.log('Global call WebSocket message:', data);
+                        // Handle WebRTC messages here if needed
+                    };
+                    
+                    globalCallSocket.onclose = function(e) {
+                        console.log('Global call WebSocket closed');
+                        globalCallSocket = null;
+                    };
+                } else {
+                    reject('No room ID available');
+                }
+            });
+        }
+        
+        // Show message notification
+        function showMessageNotification(roomId, senderName, message) {
+            currentMessageNotification = { roomId, senderName, message };
+            
+            document.getElementById('message-notification-text').textContent = 
+                `${senderName}: ${message.substring(0, 50)}${message.length > 50 ? '...' : ''}`;
+            document.getElementById('message-notification').style.display = 'block';
+            
+            // Auto-hide after 10 seconds
+            setTimeout(() => {
+                hideMessageNotification();
+            }, 10000);
+        }
+        
+        // Show call notification
+        function showCallNotification(roomId, callId, callerName, callType) {
+            console.log('🔔 NEW CENTERED: Showing call notification:', { roomId, callId, callerName, callType });
+            currentCallNotification = { roomId, callId, callerName, callType };
+            
+            const notificationElement = document.getElementById('call-notification');
+            const iconElement = document.getElementById('call-notification-icon');
+            const textElement = document.getElementById('call-notification-text');
+            
+            console.log('🔍 DOM Elements check:', {
+                notificationElement: !!notificationElement,
+                iconElement: !!iconElement,
+                textElement: !!textElement,
+                elementClasses: notificationElement ? notificationElement.className : 'not found'
+            });
+            
+            if (!notificationElement || !iconElement || !textElement) {
+                console.error('❌ Call notification elements not found!');
+                console.log('Available elements:', {
+                    notification: notificationElement,
+                    icon: iconElement,
+                    text: textElement
+                });
+                return;
+            }
+            
+            // Check if new centered design is loaded
+            if (notificationElement.classList.contains('call-notification-backdrop')) {
+                console.log('✅ NEW CENTERED DESIGN DETECTED!');
+            } else {
+                console.log('⚠️ OLD DESIGN STILL ACTIVE - Cache issue!');
+            }
+            
+            iconElement.className = 
+                callType === 'video' ? 'fas fa-video text-white' : 'fas fa-phone text-white';
+            textElement.textContent = 
+                `${callType === 'video' ? 'Video' : 'Audio'}-Anruf von ${callerName}`;
+            notificationElement.style.display = 'block';
+            
+            console.log('✅ Call notification displayed - Element style:', notificationElement.style.display);
+            console.log('✅ Notification element visibility:', window.getComputedStyle(notificationElement).display);
+            
+            // Auto-hide after 30 seconds
+            setTimeout(() => {
+                hideCallNotification();
+            }, 30000);
+        }
+        
+        // Hide message notification
+        function hideMessageNotification() {
+            document.getElementById('message-notification').style.display = 'none';
+            currentMessageNotification = null;
+        }
+        
+        // Hide call notification
+        function hideCallNotification() {
+            document.getElementById('call-notification').style.display = 'none';
+            currentCallNotification = null;
+        }
+        
+        // Reject call function
+        window.rejectCall = function() {
+            if (currentCallNotification) {
+                console.log('🚫 Rejecting call:', currentCallNotification.callId);
+                hideCallNotification();
+                
+                // Optional: Send reject notification to caller
+                // This would require additional backend implementation
+            }
+        };
+        
+        // Enhanced chat notifications that also show floating notifications
+        function updateChatNotifications() {
+            fetch('/chat/unread-count/')
+                .then(response => response.json())
+                .then(data => {
+                    const badge = document.getElementById('chat-notification-badge');
+                    const count = document.getElementById('chat-notification-count');
+                    
+                    if (data.unread_count > 0) {
+                        count.textContent = data.unread_count;
+                        badge.style.display = 'inline';
+                        
+                        // Show floating notification for new messages
+                        if (data.latest_message && !currentMessageNotification) {
+                            showMessageNotification(
+                                data.latest_message.room_id,
+                                data.latest_message.sender_name,
+                                data.latest_message.content
+                            );
+                        }
+                    } else {
+                        badge.style.display = 'none';
+                        hideMessageNotification();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error updating chat notifications:', error);
+                });
+        }
+    </script>
+    {% endif %}
 
     {% block scripts %}
     {% endblock %}

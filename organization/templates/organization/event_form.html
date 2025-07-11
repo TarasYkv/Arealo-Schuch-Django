@@ -1,0 +1,215 @@
+{% extends 'base.html' %}
+
+{% block title %}Neuer Termin - Organisation{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1>Neuen Termin erstellen</h1>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Titel <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="title" name="title" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Beschreibung</label>
+                            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="start_time" class="form-label">Startzeit <span class="text-danger">*</span></label>
+                                    <input type="datetime-local" class="form-control" id="start_time" name="start_time" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="end_time" class="form-label">Endzeit <span class="text-danger">*</span></label>
+                                    <input type="datetime-local" class="form-control" id="end_time" name="end_time" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="location" class="form-label">Ort</label>
+                            <input type="text" class="form-control" id="location" name="location" placeholder="z.B. Konferenzraum A, Online-Meeting">
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="priority" class="form-label">Priorität</label>
+                                    <select class="form-select" id="priority" name="priority">
+                                        <option value="low">Niedrig</option>
+                                        <option value="medium" selected>Mittel</option>
+                                        <option value="high">Hoch</option>
+                                        <option value="urgent">Dringend</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="reminder_minutes" class="form-label">Erinnerung (Minuten vorher)</label>
+                                    <input type="number" class="form-control" id="reminder_minutes" name="reminder_minutes" value="15" min="0" max="1440">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="is_all_day" name="is_all_day">
+                            <label class="form-check-label" for="is_all_day">
+                                Ganztägiger Termin
+                            </label>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="participants" class="form-label">Teilnehmer</label>
+                            <div id="participants-container">
+                                <div class="input-group mb-2">
+                                    <input type="text" class="form-control" id="participant-search" placeholder="Benutzername eingeben...">
+                                    <button type="button" class="btn btn-outline-secondary" id="add-participant">
+                                        <i class="fas fa-plus"></i> Hinzufügen
+                                    </button>
+                                </div>
+                                <div id="selected-participants">
+                                    <!-- Selected participants will be shown here -->
+                                </div>
+                                <div id="participant-results" class="mt-2">
+                                    <!-- Search results will be shown here -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Termin erstellen
+                            </button>
+                            <a href="{% url 'organization:calendar_view' %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Abbrechen
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Hinweise</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            <i class="fas fa-info-circle text-info"></i>
+                            Eingeladene Teilnehmer können den Termin annehmen oder ablehnen.
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-bell text-warning"></i>
+                            Erinnerungen werden über das Chat-System gesendet.
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-calendar text-primary"></i>
+                            Termine können später bearbeitet oder verschoben werden.
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedParticipants = [];
+
+// Benutzersuche für Teilnehmer
+document.getElementById('participant-search').addEventListener('input', function(e) {
+    const query = e.target.value;
+    const resultsDiv = document.getElementById('participant-results');
+    
+    if (query.length >= 2) {
+        fetch(`/organization/api/user-search/?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                resultsDiv.innerHTML = '';
+                data.results.forEach(user => {
+                    const userDiv = document.createElement('div');
+                    userDiv.className = 'participant-result p-2 border rounded mb-1 cursor-pointer';
+                    userDiv.innerHTML = `
+                        <strong>${user.username}</strong>
+                        <small class="text-muted">${user.full_name}</small>
+                    `;
+                    userDiv.addEventListener('click', function() {
+                        addParticipant(user);
+                        resultsDiv.innerHTML = '';
+                        document.getElementById('participant-search').value = '';
+                    });
+                    resultsDiv.appendChild(userDiv);
+                });
+            });
+    } else {
+        resultsDiv.innerHTML = '';
+    }
+});
+
+function addParticipant(user) {
+    if (!selectedParticipants.find(p => p.username === user.username)) {
+        selectedParticipants.push(user);
+        updateSelectedParticipants();
+    }
+}
+
+function removeParticipant(username) {
+    selectedParticipants = selectedParticipants.filter(p => p.username !== username);
+    updateSelectedParticipants();
+}
+
+function updateSelectedParticipants() {
+    const container = document.getElementById('selected-participants');
+    container.innerHTML = '';
+    
+    selectedParticipants.forEach(participant => {
+        const participantDiv = document.createElement('div');
+        participantDiv.className = 'badge bg-secondary me-1 mb-1';
+        participantDiv.innerHTML = `
+            ${participant.username}
+            <button type="button" class="btn-close btn-close-white ms-1" style="font-size: 0.7em;" onclick="removeParticipant('${participant.username}')"></button>
+            <input type="hidden" name="participants" value="${participant.username}">
+        `;
+        container.appendChild(participantDiv);
+    });
+}
+
+// Ganztägiger Termin
+document.getElementById('is_all_day').addEventListener('change', function() {
+    const startTime = document.getElementById('start_time');
+    const endTime = document.getElementById('end_time');
+    
+    if (this.checked) {
+        // Setze auf ganztägig (00:00 - 23:59)
+        const today = new Date().toISOString().split('T')[0];
+        startTime.value = today + 'T00:00';
+        endTime.value = today + 'T23:59';
+    }
+});
+</script>
+
+<style>
+.participant-result:hover {
+    background-color: #f8f9fa;
+    cursor: pointer;
+}
+</style>
+{% endblock %}

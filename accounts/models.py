@@ -36,6 +36,12 @@ class CustomUser(AbstractUser):
     last_activity = models.DateTimeField(auto_now=True, verbose_name="Letzte Aktivität")
     is_online = models.BooleanField(default=False, verbose_name="Online")
     
+    # Call-Berechtigungen
+    can_make_audio_calls = models.BooleanField(default=True, verbose_name="Darf Audioanrufe tätigen")
+    can_make_video_calls = models.BooleanField(default=True, verbose_name="Darf Videoanrufe tätigen")
+    can_receive_audio_calls = models.BooleanField(default=True, verbose_name="Darf Audioanrufe empfangen")
+    can_receive_video_calls = models.BooleanField(default=True, verbose_name="Darf Videoanrufe empfangen")
+    
     def __str__(self):
         return self.username
     
@@ -55,8 +61,16 @@ class CustomUser(AbstractUser):
         
         if not self.last_activity:
             return False
+        
+        # Check if user was active in the last 5 minutes AND is marked as online
+        is_recently_active = timezone.now() - self.last_activity < timedelta(minutes=5)
+        
+        # If user is not recently active, mark them as offline
+        if not is_recently_active and self.is_online:
+            self.is_online = False
+            self.save(update_fields=['is_online'])
             
-        return timezone.now() - self.last_activity < timedelta(minutes=5)
+        return is_recently_active and self.is_online
 
 
 class AmpelCategory(models.Model):
@@ -93,3 +107,31 @@ class CategoryKeyword(models.Model):
     
     def __str__(self):
         return f"{self.category.name}: {self.keyword}"
+
+
+class UserLoginHistory(models.Model):
+    """Trackt Login/Logout Zeiten für Benutzer"""
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='login_history')
+    login_time = models.DateTimeField(auto_now_add=True, verbose_name="Login Zeit")
+    logout_time = models.DateTimeField(null=True, blank=True, verbose_name="Logout Zeit")
+    session_duration = models.DurationField(null=True, blank=True, verbose_name="Session Dauer")
+    ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name="IP-Adresse")
+    user_agent = models.TextField(blank=True, verbose_name="User Agent")
+    is_active_session = models.BooleanField(default=True, verbose_name="Aktive Session")
+    
+    class Meta:
+        verbose_name = "Benutzer Login Historie"
+        verbose_name_plural = "Benutzer Login Historien"
+        ordering = ['-login_time']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.login_time.strftime('%d.%m.%Y %H:%M')}"
+    
+    def get_duration_display(self):
+        """Gibt die Session-Dauer in lesbarer Form zurück"""
+        if self.session_duration:
+            total_seconds = int(self.session_duration.total_seconds())
+            hours, remainder = divmod(total_seconds, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        return "Läuft noch"
