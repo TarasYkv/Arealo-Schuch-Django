@@ -104,4 +104,7 @@ urlpatterns = [
     # Product Cost Management
     path('product-costs/', sales_views.product_cost_management_view, name='product_cost_management'),
     path('api/update-product-cost/', sales_views.update_product_cost_view, name='update_product_cost'),
+    
+    # PayPal Analysis
+    path('sales/paypal-analysis/', sales_views.paypal_fees_analysis_view, name='paypal_fees_analysis'),
 ]

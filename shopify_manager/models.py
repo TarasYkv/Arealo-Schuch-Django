@@ -1001,6 +1001,9 @@ class SalesData(models.Model):
     # Steuern
     tax_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Mehrwertsteuer")
     
+    # Payment Gateway Information
+    payment_gateway = models.CharField(max_length=100, blank=True, help_text="Payment Gateway (z.B. paypal, shopify_payments, manual)")
+    
     # Legacy-Feld für Rückwärtskompatibilität
     shipping_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Versandkosten (Legacy - nutze shop_shipping_cost)")
     
