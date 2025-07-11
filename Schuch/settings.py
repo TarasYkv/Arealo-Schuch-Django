@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
+    'channels',
     'accounts',
     'sportplatzApp',
     'pdf_sucher',
@@ -173,3 +174,16 @@ LOGIN_REDIRECT_URL = '/accounts/dashboard/'
 LOGOUT_REDIRECT_URL = '/'
 
 FIELD_ENCRYPTION_KEY = 'JFkYsizDtDsUc1MTl5RogD_uPnyRB0wWFAZ5VtKRqow='
+
+# Channels Configuration
+ASGI_APPLICATION = 'Schuch.asgi.application'
+
+# Channel Layers (Redis)
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [('127.0.0.1', 6379)],
+        },
+    },
+}

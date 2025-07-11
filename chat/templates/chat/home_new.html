@@ -147,6 +147,53 @@
     z-index: 1;
 }
 
+.call-container {
+    text-align: center;
+}
+
+.call-avatar {
+    margin: 20px 0;
+}
+
+.video-container {
+    position: relative;
+    height: 300px;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.local-video {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 150px;
+    height: 100px;
+    border-radius: 8px;
+    border: 2px solid white;
+    z-index: 2;
+}
+
+.remote-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.call-controls {
+    padding: 15px;
+}
+
+.call-controls button {
+    margin: 0 10px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .search-box {
     padding: 0.5rem;
     border: none;
@@ -312,6 +359,9 @@
                                             <i class="fas fa-ellipsis-v"></i>
                                         </button>
                                         <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="#" onclick="initiateCall('audio')"><i class="fas fa-phone"></i> Anrufen</a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="initiateCall('video')"><i class="fas fa-video"></i> Videoanruf</a></li>
+                                            <li><hr class="dropdown-divider"></li>
                                             <li><a class="dropdown-item" href="#" onclick="showChatInfo()"><i class="fas fa-info-circle"></i> Info</a></li>
                                             <li><a class="dropdown-item text-danger" href="#" onclick="deleteChat()"><i class="fas fa-trash"></i> Löschen</a></li>
                                         </ul>
@@ -324,6 +374,51 @@
                                     <i class="fas fa-comments fa-4x mb-3"></i>
                                     <h5>Wählen Sie einen Chat aus</h5>
                                     <p>Klicken Sie auf einen Chat in der Seitenleiste, um die Unterhaltung zu beginnen.</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Call Modal -->
+                            <div class="modal fade" id="callModal" tabindex="-1" aria-labelledby="callModalLabel" aria-hidden="true">
+                                <div class="modal-dialog modal-lg">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="callModalLabel">
+                                                <i class="fas fa-phone" id="callIcon"></i>
+                                                <span id="callTitle">Anruf</span>
+                                            </h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="endCall()"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="call-container">
+                                                <div class="call-status text-center mb-3">
+                                                    <div class="call-avatar mb-2">
+                                                        <i class="fas fa-user-circle fa-4x text-primary"></i>
+                                                    </div>
+                                                    <h4 id="callParticipantName">Teilnehmer</h4>
+                                                    <p id="callStatus" class="text-muted">Verbinde...</p>
+                                                </div>
+                                                
+                                                <!-- Video Elements -->
+                                                <div class="video-container" id="videoContainer" style="display: none;">
+                                                    <video id="localVideo" autoplay muted playsinline class="local-video"></video>
+                                                    <video id="remoteVideo" autoplay playsinline class="remote-video"></video>
+                                                </div>
+                                                
+                                                <!-- Call Controls -->
+                                                <div class="call-controls text-center mt-3">
+                                                    <button class="btn btn-outline-secondary me-2" id="muteBtn" onclick="toggleMute()">
+                                                        <i class="fas fa-microphone"></i>
+                                                    </button>
+                                                    <button class="btn btn-outline-secondary me-2" id="videoBtn" onclick="toggleVideo()" style="display: none;">
+                                                        <i class="fas fa-video"></i>
+                                                    </button>
+                                                    <button class="btn btn-danger" id="endCallBtn" onclick="endCall()">
+                                                        <i class="fas fa-phone-slash"></i> Beenden
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             
@@ -783,6 +878,463 @@ function showChatInfo() {
         console.error('Error loading chat info:', error);
         alert('Fehler beim Laden der Chat-Informationen');
     });
+}
+
+// WebRTC and Call Variables
+let localStream = null;
+let remoteStream = null;
+let peerConnection = null;
+let callSocket = null;
+let currentCallId = null;
+let isCallActive = false;
+let isMuted = false;
+let isVideoEnabled = false;
+
+// WebRTC configuration
+const rtcConfig = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+};
+
+// Initiate a call
+function initiateCall(callType) {
+    if (!currentRoomId) {
+        alert('Kein Chat ausgewählt');
+        return;
+    }
+    
+    if (isCallActive) {
+        alert('Es läuft bereits ein Anruf');
+        return;
+    }
+    
+    // Show call modal
+    const callModal = new bootstrap.Modal(document.getElementById('callModal'));
+    callModal.show();
+    
+    // Update UI
+    document.getElementById('callTitle').textContent = callType === 'video' ? 'Videoanruf' : 'Anruf';
+    document.getElementById('callIcon').className = callType === 'video' ? 'fas fa-video' : 'fas fa-phone';
+    document.getElementById('callStatus').textContent = 'Startet Anruf...';
+    
+    // Show/hide video controls
+    if (callType === 'video') {
+        document.getElementById('videoBtn').style.display = 'inline-block';
+        document.getElementById('videoContainer').style.display = 'block';
+        isVideoEnabled = true;
+    } else {
+        document.getElementById('videoBtn').style.display = 'none';
+        document.getElementById('videoContainer').style.display = 'none';
+        isVideoEnabled = false;
+    }
+    
+    // Start call
+    startCall(callType);
+}
+
+// Start call process
+async function startCall(callType) {
+    try {
+        // Get user media
+        const constraints = {
+            audio: true,
+            video: callType === 'video'
+        };
+        
+        localStream = await navigator.mediaDevices.getUserMedia(constraints);
+        
+        if (callType === 'video') {
+            document.getElementById('localVideo').srcObject = localStream;
+        }
+        
+        // Create WebSocket connection
+        connectCallWebSocket();
+        
+        // Initiate call via API
+        const response = await fetch(`/chat/api/room/${currentRoomId}/call/initiate/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                call_type: callType
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            currentCallId = data.call_id;
+            isCallActive = true;
+            document.getElementById('callStatus').textContent = 'Ruft an...';
+            
+            // Send call initiation through WebSocket
+            if (callSocket && callSocket.readyState === WebSocket.OPEN) {
+                callSocket.send(JSON.stringify({
+                    type: 'call_initiate',
+                    call_type: callType,
+                    call_id: currentCallId
+                }));
+            }
+        } else {
+            alert('Fehler beim Starten des Anrufs: ' + data.error);
+            endCall();
+        }
+        
+    } catch (error) {
+        console.error('Error starting call:', error);
+        alert('Fehler beim Zugriff auf Mikrofon/Kamera');
+        endCall();
+    }
+}
+
+// Connect to call WebSocket
+function connectCallWebSocket() {
+    if (callSocket) {
+        callSocket.close();
+    }
+    
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/call/${currentRoomId}/`;
+    
+    callSocket = new WebSocket(wsUrl);
+    
+    callSocket.onopen = function(e) {
+        console.log('Call WebSocket connected');
+    };
+    
+    callSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        handleCallMessage(data);
+    };
+    
+    callSocket.onclose = function(e) {
+        console.log('Call WebSocket disconnected');
+    };
+    
+    callSocket.onerror = function(e) {
+        console.error('Call WebSocket error:', e);
+    };
+}
+
+// Handle call messages from WebSocket
+function handleCallMessage(data) {
+    switch(data.type) {
+        case 'call_initiated':
+            if (data.caller !== '{{ user.username }}') {
+                handleIncomingCall(data);
+            }
+            break;
+        case 'call_answered':
+            handleCallAnswered(data);
+            break;
+        case 'call_rejected':
+            handleCallRejected(data);
+            break;
+        case 'call_ended':
+            handleCallEnded(data);
+            break;
+        case 'webrtc_offer':
+            handleWebRTCOffer(data);
+            break;
+        case 'webrtc_answer':
+            handleWebRTCAnswer(data);
+            break;
+        case 'webrtc_ice_candidate':
+            handleWebRTCIceCandidate(data);
+            break;
+    }
+}
+
+// Handle incoming call
+function handleIncomingCall(data) {
+    if (isCallActive) {
+        return; // Already in a call
+    }
+    
+    const accept = confirm(`Eingehender ${data.call_type === 'video' ? 'Video' : 'Audio'}-Anruf von ${data.caller}. Annehmen?`);
+    
+    if (accept) {
+        answerCall(data.call_id, data.call_type);
+    } else {
+        rejectCall(data.call_id);
+    }
+}
+
+// Answer incoming call
+async function answerCall(callId, callType) {
+    try {
+        currentCallId = callId;
+        isCallActive = true;
+        
+        // Show call modal
+        const callModal = new bootstrap.Modal(document.getElementById('callModal'));
+        callModal.show();
+        
+        // Update UI
+        document.getElementById('callTitle').textContent = callType === 'video' ? 'Videoanruf' : 'Anruf';
+        document.getElementById('callIcon').className = callType === 'video' ? 'fas fa-video' : 'fas fa-phone';
+        document.getElementById('callStatus').textContent = 'Verbunden';
+        
+        // Get user media
+        const constraints = {
+            audio: true,
+            video: callType === 'video'
+        };
+        
+        localStream = await navigator.mediaDevices.getUserMedia(constraints);
+        
+        if (callType === 'video') {
+            document.getElementById('localVideo').srcObject = localStream;
+            document.getElementById('videoContainer').style.display = 'block';
+            document.getElementById('videoBtn').style.display = 'inline-block';
+            isVideoEnabled = true;
+        }
+        
+        // Create peer connection
+        createPeerConnection();
+        
+        // Send answer through WebSocket
+        if (callSocket && callSocket.readyState === WebSocket.OPEN) {
+            callSocket.send(JSON.stringify({
+                type: 'call_answer',
+                call_id: callId
+            }));
+        }
+        
+    } catch (error) {
+        console.error('Error answering call:', error);
+        alert('Fehler beim Annehmen des Anrufs');
+        endCall();
+    }
+}
+
+// Reject incoming call
+function rejectCall(callId) {
+    if (callSocket && callSocket.readyState === WebSocket.OPEN) {
+        callSocket.send(JSON.stringify({
+            type: 'call_reject',
+            call_id: callId
+        }));
+    }
+}
+
+// Create peer connection
+function createPeerConnection() {
+    peerConnection = new RTCPeerConnection(rtcConfig);
+    
+    // Add local stream to peer connection
+    if (localStream) {
+        localStream.getTracks().forEach(track => {
+            peerConnection.addTrack(track, localStream);
+        });
+    }
+    
+    // Handle remote stream
+    peerConnection.ontrack = function(event) {
+        remoteStream = event.streams[0];
+        document.getElementById('remoteVideo').srcObject = remoteStream;
+    };
+    
+    // Handle ICE candidates
+    peerConnection.onicecandidate = function(event) {
+        if (event.candidate && callSocket && callSocket.readyState === WebSocket.OPEN) {
+            callSocket.send(JSON.stringify({
+                type: 'webrtc_ice_candidate',
+                candidate: event.candidate
+            }));
+        }
+    };
+    
+    // Handle connection state changes
+    peerConnection.onconnectionstatechange = function() {
+        console.log('Connection state:', peerConnection.connectionState);
+        if (peerConnection.connectionState === 'connected') {
+            document.getElementById('callStatus').textContent = 'Verbunden';
+        } else if (peerConnection.connectionState === 'disconnected') {
+            endCall();
+        }
+    };
+}
+
+// Handle WebRTC offer
+async function handleWebRTCOffer(data) {
+    try {
+        if (!peerConnection) {
+            createPeerConnection();
+        }
+        
+        await peerConnection.setRemoteDescription(data.offer);
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        
+        if (callSocket && callSocket.readyState === WebSocket.OPEN) {
+            callSocket.send(JSON.stringify({
+                type: 'webrtc_answer',
+                answer: answer
+            }));
+        }
+    } catch (error) {
+        console.error('Error handling WebRTC offer:', error);
+    }
+}
+
+// Handle WebRTC answer
+async function handleWebRTCAnswer(data) {
+    try {
+        if (peerConnection) {
+            await peerConnection.setRemoteDescription(data.answer);
+        }
+    } catch (error) {
+        console.error('Error handling WebRTC answer:', error);
+    }
+}
+
+// Handle WebRTC ICE candidate
+async function handleWebRTCIceCandidate(data) {
+    try {
+        if (peerConnection) {
+            await peerConnection.addIceCandidate(data.candidate);
+        }
+    } catch (error) {
+        console.error('Error handling ICE candidate:', error);
+    }
+}
+
+// Toggle mute
+function toggleMute() {
+    if (localStream) {
+        const audioTrack = localStream.getAudioTracks()[0];
+        if (audioTrack) {
+            audioTrack.enabled = !audioTrack.enabled;
+            isMuted = !audioTrack.enabled;
+            
+            const muteBtn = document.getElementById('muteBtn');
+            if (isMuted) {
+                muteBtn.classList.remove('btn-outline-secondary');
+                muteBtn.classList.add('btn-danger');
+                muteBtn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+            } else {
+                muteBtn.classList.remove('btn-danger');
+                muteBtn.classList.add('btn-outline-secondary');
+                muteBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+            }
+        }
+    }
+}
+
+// Toggle video
+function toggleVideo() {
+    if (localStream) {
+        const videoTrack = localStream.getVideoTracks()[0];
+        if (videoTrack) {
+            videoTrack.enabled = !videoTrack.enabled;
+            isVideoEnabled = videoTrack.enabled;
+            
+            const videoBtn = document.getElementById('videoBtn');
+            if (!isVideoEnabled) {
+                videoBtn.classList.remove('btn-outline-secondary');
+                videoBtn.classList.add('btn-danger');
+                videoBtn.innerHTML = '<i class="fas fa-video-slash"></i>';
+            } else {
+                videoBtn.classList.remove('btn-danger');
+                videoBtn.classList.add('btn-outline-secondary');
+                videoBtn.innerHTML = '<i class="fas fa-video"></i>';
+            }
+        }
+    }
+}
+
+// End call
+function endCall() {
+    // Send end call message
+    if (callSocket && callSocket.readyState === WebSocket.OPEN && currentCallId) {
+        callSocket.send(JSON.stringify({
+            type: 'call_end',
+            call_id: currentCallId
+        }));
+    }
+    
+    // Clean up WebRTC
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+    
+    // Clean up media streams
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+    }
+    
+    if (remoteStream) {
+        remoteStream.getTracks().forEach(track => track.stop());
+        remoteStream = null;
+    }
+    
+    // Close WebSocket
+    if (callSocket) {
+        callSocket.close();
+        callSocket = null;
+    }
+    
+    // Reset state
+    isCallActive = false;
+    currentCallId = null;
+    isMuted = false;
+    isVideoEnabled = false;
+    
+    // Hide call modal
+    const callModal = bootstrap.Modal.getInstance(document.getElementById('callModal'));
+    if (callModal) {
+        callModal.hide();
+    }
+    
+    // Reset UI
+    document.getElementById('callStatus').textContent = 'Verbinde...';
+    document.getElementById('muteBtn').className = 'btn btn-outline-secondary me-2';
+    document.getElementById('muteBtn').innerHTML = '<i class="fas fa-microphone"></i>';
+    document.getElementById('videoBtn').className = 'btn btn-outline-secondary me-2';
+    document.getElementById('videoBtn').innerHTML = '<i class="fas fa-video"></i>';
+    document.getElementById('localVideo').srcObject = null;
+    document.getElementById('remoteVideo').srcObject = null;
+}
+
+// Handle call events
+function handleCallAnswered(data) {
+    document.getElementById('callStatus').textContent = 'Verbunden';
+    
+    // Create peer connection and send offer
+    createPeerConnection();
+    
+    setTimeout(async () => {
+        try {
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            
+            if (callSocket && callSocket.readyState === WebSocket.OPEN) {
+                callSocket.send(JSON.stringify({
+                    type: 'webrtc_offer',
+                    offer: offer
+                }));
+            }
+        } catch (error) {
+            console.error('Error creating offer:', error);
+        }
+    }, 1000);
+}
+
+function handleCallRejected(data) {
+    alert('Anruf wurde abgelehnt');
+    endCall();
+}
+
+function handleCallEnded(data) {
+    alert('Anruf wurde beendet');
+    endCall();
 }
 </script>
 {% endblock %}
