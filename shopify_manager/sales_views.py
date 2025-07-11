@@ -801,3 +801,167 @@ def paypal_fees_analysis_view(request):
     }
     
     return render(request, 'shopify_manager/paypal_fees_analysis.html', context)
+
+
+@login_required
+def orders_table_view(request):
+    """Detaillierte Tabelle aller Bestellungen mit Kosten und Provisionen"""
+    
+    # Hole den ausgewählten Store
+    store_id = request.GET.get('store')
+    if store_id:
+        store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
+    else:
+        store = ShopifyStore.objects.filter(user=request.user).first()
+        if not store:
+            messages.error(request, "Sie haben noch keine Shopify Stores konfiguriert.")
+            return redirect('shopify_manager:store_list')
+    
+    # Filter-Formular
+    filter_form = SalesFilterForm(request.GET or None)
+    
+    # Basis-Query
+    orders = SalesData.objects.filter(store=store).select_related('product')
+    
+    # Filter anwenden
+    if filter_form.is_valid():
+        if filter_form.cleaned_data.get('start_date'):
+            orders = orders.filter(order_date__date__gte=filter_form.cleaned_data['start_date'])
+        if filter_form.cleaned_data.get('end_date'):
+            orders = orders.filter(order_date__date__lte=filter_form.cleaned_data['end_date'])
+        if filter_form.cleaned_data.get('product'):
+            orders = orders.filter(product__title__icontains=filter_form.cleaned_data['product'])
+        if filter_form.cleaned_data.get('order_id'):
+            orders = orders.filter(shopify_order_id=filter_form.cleaned_data['order_id'])
+    
+    # Sortierung
+    sort_by = request.GET.get('sort', '-order_date')
+    orders = orders.order_by(sort_by)
+    
+    # Pagination
+    paginator = Paginator(orders, 50)
+    page = request.GET.get('page')
+    orders_page = paginator.get_page(page)
+    
+    # Hole Google Ads Daten für die Produkte
+    from .models import GoogleAdsProductData
+    for order in orders_page:
+        if order.product:
+            # Hole die aktuellsten Google Ads Daten für dieses Produkt
+            google_ads_data = GoogleAdsProductData.objects.filter(
+                product=order.product,
+                date__lte=order.order_date.date()
+            ).order_by('-date').first()
+            
+            if google_ads_data:
+                # Berechne anteilige Werbekosten basierend auf Conversions
+                if google_ads_data.conversions > 0:
+                    order.google_ads_cost = google_ads_data.cost / google_ads_data.conversions
+                else:
+                    order.google_ads_cost = 0
+                order.google_ads_campaign = google_ads_data.campaign_name
+            else:
+                order.google_ads_cost = 0
+                order.google_ads_campaign = None
+    
+    # Berechne Zusammenfassung für aktuelle Seite
+    summary = {
+        'total_revenue': sum(order.total_price or 0 for order in orders_page),
+        'total_cost': sum((order.cost_price or 0) * order.quantity for order in orders_page),
+        'total_shopify_fees': sum(order.shopify_fee or 0 for order in orders_page),
+        'total_paypal_fees': sum(order.paypal_fee or 0 for order in orders_page),
+        'total_payment_fees': sum(order.payment_gateway_fee or 0 for order in orders_page),
+        'total_profit': sum(order.profit or 0 for order in orders_page),
+    }
+    
+    # Alle Stores für Auswahl
+    stores = ShopifyStore.objects.filter(user=request.user)
+    
+    context = {
+        'store': store,
+        'stores': stores,
+        'orders': orders_page,
+        'filter_form': filter_form,
+        'summary': summary,
+        'sort_by': sort_by,
+    }
+    
+    return render(request, 'shopify_manager/orders_table.html', context)
+
+
+@login_required
+def google_ads_config_view(request):
+    """Google Ads API Konfiguration"""
+    
+    store_id = request.GET.get('store')
+    if store_id:
+        store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
+    else:
+        store = ShopifyStore.objects.filter(user=request.user).first()
+        if not store:
+            messages.error(request, "Sie haben noch keine Shopify Stores konfiguriert.")
+            return redirect('shopify_manager:store_list')
+    
+    if request.method == 'POST':
+        # Speichere Google Ads Konfiguration
+        store.google_ads_customer_id = request.POST.get('customer_id', '')
+        store.google_ads_developer_token = request.POST.get('developer_token', '')
+        store.google_ads_refresh_token = request.POST.get('refresh_token', '')
+        store.google_ads_client_id = request.POST.get('client_id', '')
+        store.google_ads_client_secret = request.POST.get('client_secret', '')
+        store.save()
+        
+        messages.success(request, "Google Ads Konfiguration gespeichert.")
+        return redirect('shopify_manager:google_ads_sync', store_id=store.id)
+    
+    context = {
+        'store': store,
+        'stores': ShopifyStore.objects.filter(user=request.user),
+    }
+    
+    return render(request, 'shopify_manager/google_ads_config.html', context)
+
+
+@login_required
+def google_ads_sync_view(request, store_id):
+    """Synchronisiert Google Ads Daten"""
+    
+    store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
+    
+    if request.method == 'POST':
+        try:
+            from .google_ads_service import GoogleAdsService
+            
+            service = GoogleAdsService(store)
+            days_back = int(request.POST.get('days_back', 30))
+            
+            success, message = service.sync_product_ads_data(days_back)
+            
+            if success:
+                messages.success(request, message)
+            else:
+                messages.error(request, message)
+                
+        except ValueError as e:
+            messages.error(request, str(e))
+        except Exception as e:
+            messages.error(request, f"Unerwarteter Fehler: {str(e)}")
+    
+    # Hole letzte Sync-Daten
+    from .models import GoogleAdsProductData
+    last_sync = GoogleAdsProductData.objects.filter(store=store).order_by('-created_at').first()
+    
+    context = {
+        'store': store,
+        'stores': ShopifyStore.objects.filter(user=request.user),
+        'last_sync': last_sync.created_at if last_sync else None,
+        'has_config': all([
+            store.google_ads_customer_id,
+            store.google_ads_developer_token,
+            store.google_ads_refresh_token,
+            store.google_ads_client_id,
+            store.google_ads_client_secret
+        ])
+    }
+    
+    return render(request, 'shopify_manager/google_ads_sync.html', context)

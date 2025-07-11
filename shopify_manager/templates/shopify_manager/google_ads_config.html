@@ -1,0 +1,206 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}Google Ads Konfiguration - {{ store.name }}{% endblock %}
+
+{% block shopify_content %}
+<style>
+    .config-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    .config-card {
+        background: white;
+        border-radius: 10px;
+        padding: 2rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .help-block {
+        background: #f8f9fa;
+        border-left: 4px solid #667eea;
+        padding: 1rem;
+        margin: 1rem 0;
+        border-radius: 0 5px 5px 0;
+    }
+    
+    .help-block h6 {
+        color: #667eea;
+        margin-bottom: 0.5rem;
+    }
+    
+    .step-number {
+        display: inline-block;
+        width: 30px;
+        height: 30px;
+        background: #667eea;
+        color: white;
+        text-align: center;
+        line-height: 30px;
+        border-radius: 50%;
+        margin-right: 0.5rem;
+        font-weight: bold;
+    }
+    
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    
+    .btn-primary {
+        background: #667eea;
+        border-color: #667eea;
+    }
+    
+    .btn-primary:hover {
+        background: #5a67d8;
+        border-color: #5a67d8;
+    }
+</style>
+
+<div class="config-container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fab fa-google"></i> Google Ads Konfiguration</h1>
+        <div>
+            <select class="form-select" onchange="changeStore(this.value)">
+                {% for s in stores %}
+                <option value="{{ s.id }}" {% if s.id == store.id %}selected{% endif %}>
+                    {{ s.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    
+    <div class="config-card">
+        <h5 class="mb-4">API Zugangsdaten</h5>
+        
+        <div class="help-block">
+            <h6><i class="fas fa-info-circle"></i> Anleitung</h6>
+            <p class="mb-2">Um Google Ads mit Ihrer Shopify App zu verbinden, benötigen Sie:</p>
+            <ol class="mb-0">
+                <li>Ein Google Ads Konto mit API-Zugriff</li>
+                <li>Ein Google Cloud Projekt mit aktivierter Google Ads API</li>
+                <li>OAuth2 Credentials (Client ID & Secret)</li>
+                <li>Ein Developer Token von Google Ads</li>
+            </ol>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="mb-4">
+                <label class="form-label">
+                    <span class="step-number">1</span>
+                    Google Ads Customer ID
+                </label>
+                <input type="text" 
+                       name="customer_id" 
+                       class="form-control" 
+                       value="{{ store.google_ads_customer_id }}"
+                       placeholder="z.B. 123-456-7890"
+                       pattern="[0-9]{3}-[0-9]{3}-[0-9]{4}"
+                       title="Format: 123-456-7890">
+                <small class="form-text text-muted">
+                    Ihre Google Ads Kundennummer (mit Bindestrichen)
+                </small>
+            </div>
+            
+            <div class="mb-4">
+                <label class="form-label">
+                    <span class="step-number">2</span>
+                    Developer Token
+                </label>
+                <input type="text" 
+                       name="developer_token" 
+                       class="form-control" 
+                       value="{{ store.google_ads_developer_token }}"
+                       placeholder="Ihr Developer Token">
+                <small class="form-text text-muted">
+                    Erhalten Sie im Google Ads API Center
+                </small>
+            </div>
+            
+            <div class="mb-4">
+                <label class="form-label">
+                    <span class="step-number">3</span>
+                    OAuth2 Client ID
+                </label>
+                <input type="text" 
+                       name="client_id" 
+                       class="form-control" 
+                       value="{{ store.google_ads_client_id }}"
+                       placeholder="z.B. 123456789012-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com">
+                <small class="form-text text-muted">
+                    Aus Ihrer Google Cloud Console
+                </small>
+            </div>
+            
+            <div class="mb-4">
+                <label class="form-label">
+                    <span class="step-number">4</span>
+                    OAuth2 Client Secret
+                </label>
+                <input type="password" 
+                       name="client_secret" 
+                       class="form-control" 
+                       value="{{ store.google_ads_client_secret }}"
+                       placeholder="Ihr Client Secret">
+                <small class="form-text text-muted">
+                    Aus Ihrer Google Cloud Console
+                </small>
+            </div>
+            
+            <div class="mb-4">
+                <label class="form-label">
+                    <span class="step-number">5</span>
+                    OAuth2 Refresh Token
+                </label>
+                <input type="text" 
+                       name="refresh_token" 
+                       class="form-control" 
+                       value="{{ store.google_ads_refresh_token }}"
+                       placeholder="Ihr Refresh Token">
+                <small class="form-text text-muted">
+                    Generiert durch OAuth2 Authentifizierung
+                </small>
+            </div>
+            
+            <div class="d-flex justify-content-between align-items-center">
+                <a href="{% url 'shopify_manager:sales_dashboard' %}?store={{ store.id }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Speichern und Weiter
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <div class="config-card">
+        <h5 class="mb-3"><i class="fas fa-question-circle"></i> Hilfe</h5>
+        <p><strong>Refresh Token generieren:</strong></p>
+        <ol>
+            <li>Besuchen Sie die <a href="https://developers.google.com/oauthplayground" target="_blank">OAuth 2.0 Playground</a></li>
+            <li>Klicken Sie auf das Zahnrad-Symbol (Settings) und aktivieren Sie "Use your own OAuth credentials"</li>
+            <li>Geben Sie Ihre Client ID und Client Secret ein</li>
+            <li>Wählen Sie im Schritt 1 den Scope: <code>https://www.googleapis.com/auth/adwords</code></li>
+            <li>Autorisieren Sie den Zugriff und tauschen Sie den Authorization Code gegen ein Refresh Token</li>
+        </ol>
+        
+        <p class="mt-3"><strong>Weitere Informationen:</strong></p>
+        <ul>
+            <li><a href="https://developers.google.com/google-ads/api/docs/first-call" target="_blank">Google Ads API Dokumentation</a></li>
+            <li><a href="https://developers.google.com/google-ads/api/docs/get-started/dev-token" target="_blank">Developer Token beantragen</a></li>
+            <li><a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
+        </ul>
+    </div>
+</div>
+
+<script>
+function changeStore(storeId) {
+    window.location.href = '{% url "shopify_manager:google_ads_config" %}?store=' + storeId;
+}
+</script>
+{% endblock %}

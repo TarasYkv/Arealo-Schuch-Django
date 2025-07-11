@@ -1,0 +1,224 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}Google Ads Synchronisation - {{ store.name }}{% endblock %}
+
+{% block shopify_content %}
+<style>
+    .sync-container {
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+    
+    .status-card {
+        background: white;
+        border-radius: 10px;
+        padding: 2rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .status-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+    
+    .status-configured {
+        color: #28a745;
+    }
+    
+    .status-not-configured {
+        color: #dc3545;
+    }
+    
+    .sync-form {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .info-box {
+        background: #e3f2fd;
+        border-left: 4px solid #2196f3;
+        padding: 1rem;
+        margin: 1rem 0;
+        border-radius: 0 5px 5px 0;
+    }
+    
+    .btn-sync {
+        background: #4285f4;
+        color: white;
+        border: none;
+        padding: 0.75rem 2rem;
+        font-size: 1.1rem;
+        border-radius: 5px;
+        transition: all 0.3s;
+    }
+    
+    .btn-sync:hover {
+        background: #3367d6;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    .loading {
+        display: inline-block;
+        animation: spin 1s linear infinite;
+        margin-left: 0.5rem;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+
+<div class="sync-container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fab fa-google"></i> Google Ads Synchronisation</h1>
+        <div>
+            <select class="form-select" onchange="changeStore(this.value)">
+                {% for s in stores %}
+                <option value="{{ s.id }}" {% if s.id == store.id %}selected{% endif %}>
+                    {{ s.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    
+    <!-- Status -->
+    <div class="status-card text-center">
+        {% if has_config %}
+            <div class="status-icon status-configured">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <h3>Google Ads API konfiguriert</h3>
+            <p class="text-muted mb-0">Die Verbindung zu Google Ads ist eingerichtet.</p>
+            {% if last_sync %}
+                <p class="text-muted mt-2">
+                    <i class="fas fa-clock"></i> Letzte Synchronisation: {{ last_sync|date:"d.m.Y H:i" }}
+                </p>
+            {% endif %}
+        {% else %}
+            <div class="status-icon status-not-configured">
+                <i class="fas fa-exclamation-circle"></i>
+            </div>
+            <h3>Google Ads API nicht konfiguriert</h3>
+            <p class="text-muted">Bitte konfigurieren Sie zuerst die API-Zugangsdaten.</p>
+            <a href="{% url 'shopify_manager:google_ads_config' %}?store={{ store.id }}" class="btn btn-primary mt-3">
+                <i class="fas fa-cog"></i> Zur Konfiguration
+            </a>
+        {% endif %}
+    </div>
+    
+    {% if has_config %}
+    <!-- Sync Formular -->
+    <div class="sync-form">
+        <h5 class="mb-3"><i class="fas fa-sync"></i> Daten synchronisieren</h5>
+        
+        <form method="post" id="syncForm">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+                <label class="form-label">Zeitraum (Tage zurück)</label>
+                <select name="days_back" class="form-select">
+                    <option value="7">Letzte 7 Tage</option>
+                    <option value="30" selected>Letzte 30 Tage</option>
+                    <option value="60">Letzte 60 Tage</option>
+                    <option value="90">Letzte 90 Tage</option>
+                    <option value="180">Letzte 180 Tage</option>
+                    <option value="365">Letztes Jahr</option>
+                </select>
+                <small class="form-text text-muted">
+                    Wählen Sie den Zeitraum für den Import der Google Ads Daten
+                </small>
+            </div>
+            
+            <div class="info-box">
+                <p class="mb-0"><strong>Was wird synchronisiert?</strong></p>
+                <ul class="mb-0 mt-2">
+                    <li>Shopping Campaign Performance Daten</li>
+                    <li>Produkt-spezifische Werbekosten</li>
+                    <li>Klicks, Impressionen und Conversions</li>
+                    <li>ROAS und andere Performance-Metriken</li>
+                </ul>
+            </div>
+            
+            <button type="submit" class="btn btn-sync" id="syncButton">
+                <i class="fas fa-download"></i> Synchronisation starten
+            </button>
+        </form>
+    </div>
+    
+    <!-- Aktuelle Daten -->
+    <div class="status-card">
+        <h5 class="mb-3"><i class="fas fa-chart-bar"></i> Google Ads Übersicht</h5>
+        <p class="text-muted">Nach der Synchronisation werden hier Ihre Google Ads Daten angezeigt.</p>
+        
+        <div class="row mt-4">
+            <div class="col-md-3">
+                <div class="text-center">
+                    <i class="fas fa-ad fa-2x text-primary mb-2"></i>
+                    <h6>Aktive Kampagnen</h6>
+                    <p class="h4 mb-0">-</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <i class="fas fa-euro-sign fa-2x text-success mb-2"></i>
+                    <h6>Gesamtkosten</h6>
+                    <p class="h4 mb-0">-</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <i class="fas fa-mouse-pointer fa-2x text-info mb-2"></i>
+                    <h6>Klicks</h6>
+                    <p class="h4 mb-0">-</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <i class="fas fa-chart-line fa-2x text-warning mb-2"></i>
+                    <h6>ROAS</h6>
+                    <p class="h4 mb-0">-</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Navigation -->
+    <div class="mt-4">
+        <a href="{% url 'shopify_manager:sales_dashboard' %}?store={{ store.id }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Zum Dashboard
+        </a>
+        {% if has_config %}
+        <a href="{% url 'shopify_manager:orders_table' %}?store={{ store.id }}" class="btn btn-primary">
+            <i class="fas fa-table"></i> Zur Bestellübersicht
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function changeStore(storeId) {
+    const currentPath = window.location.pathname;
+    if (currentPath.includes('/sync/')) {
+        // Wir sind auf der Sync-Seite mit store_id in der URL
+        const newPath = currentPath.replace(/\/\d+\/sync\/$/, `/${storeId}/sync/`);
+        window.location.href = newPath;
+    } else {
+        window.location.href = '{% url "shopify_manager:google_ads_config" %}?store=' + storeId;
+    }
+}
+
+// Form Submit Handler
+document.getElementById('syncForm')?.addEventListener('submit', function(e) {
+    const button = document.getElementById('syncButton');
+    button.innerHTML = '<i class="fas fa-spinner loading"></i> Synchronisiere...';
+    button.disabled = true;
+});
+</script>
+{% endblock %}

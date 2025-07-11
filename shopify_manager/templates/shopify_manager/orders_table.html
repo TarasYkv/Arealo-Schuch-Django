@@ -1,0 +1,347 @@
+{% extends 'shopify_manager/base.html' %}
+{% load humanize %}
+
+{% block title %}Bestellübersicht - {{ store.name }}{% endblock %}
+
+{% block shopify_content %}
+<style>
+    .table-container {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .filter-card {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .summary-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .summary-item {
+        display: inline-block;
+        margin-right: 2rem;
+    }
+    
+    .summary-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    .summary-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    
+    .orders-table {
+        font-size: 0.9rem;
+    }
+    
+    .orders-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    
+    .orders-table td {
+        vertical-align: middle;
+    }
+    
+    .sort-link {
+        color: inherit;
+        text-decoration: none;
+    }
+    
+    .sort-link:hover {
+        color: #667eea;
+    }
+    
+    .sort-link.active {
+        color: #667eea;
+        font-weight: bold;
+    }
+    
+    .profit-positive {
+        color: #28a745;
+        font-weight: bold;
+    }
+    
+    .profit-negative {
+        color: #dc3545;
+        font-weight: bold;
+    }
+    
+    .fee-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 5px;
+        font-size: 0.8rem;
+        margin: 0.1rem;
+    }
+    
+    .fee-shopify {
+        background: #96bf48;
+        color: white;
+    }
+    
+    .fee-paypal {
+        background: #0070ba;
+        color: white;
+    }
+    
+    .fee-other {
+        background: #6c757d;
+        color: white;
+    }
+</style>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-table"></i> Bestellübersicht</h1>
+        <div>
+            <select class="form-select" onchange="changeStore(this.value)">
+                {% for s in stores %}
+                <option value="{{ s.id }}" {% if s.id == store.id %}selected{% endif %}>
+                    {{ s.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    
+    <!-- Filter -->
+    <div class="filter-card">
+        <h5 class="mb-3"><i class="fas fa-filter"></i> Filter</h5>
+        <form method="get" class="row g-3">
+            <input type="hidden" name="store" value="{{ store.id }}">
+            
+            <div class="col-md-3">
+                <label class="form-label">Von Datum</label>
+                <input type="date" name="start_date" value="{{ filter_form.start_date.value|default:'' }}" class="form-control">
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Bis Datum</label>
+                <input type="date" name="end_date" value="{{ filter_form.end_date.value|default:'' }}" class="form-control">
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Produkt</label>
+                <input type="text" name="product" value="{{ filter_form.product.value|default:'' }}" class="form-control" placeholder="Produktname...">
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Bestellnummer</label>
+                <input type="text" name="order_id" value="{{ filter_form.order_id.value|default:'' }}" class="form-control" placeholder="#1234">
+            </div>
+            
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search"></i> Filtern
+                </button>
+                <a href="{% url 'shopify_manager:orders_table' %}?store={{ store.id }}" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Zurücksetzen
+                </a>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Zusammenfassung -->
+    <div class="summary-card">
+        <h5 class="mb-3"><i class="fas fa-chart-bar"></i> Zusammenfassung (aktuelle Seite)</h5>
+        <div class="d-flex flex-wrap">
+            <div class="summary-item">
+                <div class="summary-label">Umsatz</div>
+                <div class="summary-value">{{ summary.total_revenue|floatformat:2|intcomma }} €</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Kosten</div>
+                <div class="summary-value">{{ summary.total_cost|floatformat:2|intcomma }} €</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Gebühren</div>
+                <div class="summary-value">{{ summary.total_shopify_fees|add:summary.total_paypal_fees|add:summary.total_payment_fees|floatformat:2|intcomma }} €</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Gewinn</div>
+                <div class="summary-value {% if summary.total_profit > 0 %}profit-positive{% else %}profit-negative{% endif %}">
+                    {{ summary.total_profit|floatformat:2|intcomma }} €
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabelle -->
+    <div class="table-container">
+        <div class="table-responsive">
+            <table class="table table-hover orders-table">
+                <thead>
+                    <tr>
+                        <th>
+                            <a href="?{% if sort_by == '-order_date' %}sort=order_date{% else %}sort=-order_date{% endif %}&store={{ store.id }}" 
+                               class="sort-link {% if sort_by == '-order_date' or sort_by == 'order_date' %}active{% endif %}">
+                                Datum <i class="fas fa-sort"></i>
+                            </a>
+                        </th>
+                        <th>Bestellung</th>
+                        <th>Produkt</th>
+                        <th>Menge</th>
+                        <th>
+                            <a href="?{% if sort_by == '-total_price' %}sort=total_price{% else %}sort=-total_price{% endif %}&store={{ store.id }}" 
+                               class="sort-link {% if sort_by == '-total_price' or sort_by == 'total_price' %}active{% endif %}">
+                                Verkaufspreis <i class="fas fa-sort"></i>
+                            </a>
+                        </th>
+                        <th>Einkaufspreis</th>
+                        <th>Gebühren</th>
+                        <th>Google Ads</th>
+                        <th>Versand</th>
+                        <th>Steuern</th>
+                        <th>
+                            <a href="?{% if sort_by == '-profit' %}sort=profit{% else %}sort=-profit{% endif %}&store={{ store.id }}" 
+                               class="sort-link {% if sort_by == '-profit' or sort_by == 'profit' %}active{% endif %}">
+                                Gewinn <i class="fas fa-sort"></i>
+                            </a>
+                        </th>
+                        <th>Zahlungsart</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td>{{ order.order_date|date:"d.m.Y H:i" }}</td>
+                        <td>
+                            <a href="https://{{ store.domain }}/admin/orders/{{ order.shopify_order_id }}" target="_blank">
+                                #{{ order.shopify_order_name|default:order.shopify_order_id }}
+                            </a>
+                        </td>
+                        <td>
+                            {% if order.product %}
+                                <a href="{% url 'shopify_manager:product_detail' order.product.id %}">
+                                    {{ order.product.title|truncatechars:40 }}
+                                </a>
+                            {% else %}
+                                <span class="text-muted">Unbekanntes Produkt</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ order.quantity }}</td>
+                        <td>{{ order.total_price|floatformat:2 }} €</td>
+                        <td>{{ order.cost_price|floatformat:2 }} €</td>
+                        <td>
+                            {% if order.shopify_fee > 0 %}
+                                <span class="fee-badge fee-shopify">
+                                    Shopify: {{ order.shopify_fee|floatformat:2 }} €
+                                </span>
+                            {% endif %}
+                            {% if order.paypal_fee > 0 %}
+                                <span class="fee-badge fee-paypal">
+                                    PayPal: {{ order.paypal_fee|floatformat:2 }} €
+                                </span>
+                            {% endif %}
+                            {% if order.payment_gateway_fee > 0 %}
+                                <span class="fee-badge fee-other">
+                                    Sonstige: {{ order.payment_gateway_fee|floatformat:2 }} €
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if order.google_ads_cost > 0 %}
+                                <span class="fee-badge" style="background: #4285f4; color: white;">
+                                    {{ order.google_ads_cost|floatformat:2 }} €
+                                </span>
+                                {% if order.google_ads_campaign %}
+                                    <br><small class="text-muted">{{ order.google_ads_campaign|truncatechars:20 }}</small>
+                                {% endif %}
+                            {% else %}
+                                <small class="text-muted">-</small>
+                            {% endif %}
+                        </td>
+                        <td>{{ order.shipping_cost|floatformat:2 }} €</td>
+                        <td>{{ order.tax_amount|floatformat:2 }} €</td>
+                        <td class="{% if order.profit > 0 %}profit-positive{% else %}profit-negative{% endif %}">
+                            {{ order.profit|floatformat:2 }} €
+                        </td>
+                        <td>
+                            {% if order.payment_gateway %}
+                                <small>{{ order.payment_gateway }}</small>
+                            {% else %}
+                                <small class="text-muted">-</small>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="12" class="text-center py-4">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">Keine Bestellungen gefunden</p>
+                            <a href="{% url 'shopify_manager:import_sales_data' %}?store={{ store.id }}" class="btn btn-primary">
+                                <i class="fas fa-download"></i> Daten importieren
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if orders.has_other_pages %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if orders.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ orders.previous_page_number }}&store={{ store.id }}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    </li>
+                {% endif %}
+                
+                {% for num in orders.paginator.page_range %}
+                    {% if orders.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > orders.number|add:'-3' and num < orders.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}&store={{ store.id }}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if orders.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ orders.next_page_number }}&store={{ store.id }}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+    
+    <!-- Aktionen -->
+    <div class="mt-4">
+        <a href="{% url 'shopify_manager:sales_dashboard' %}?store={{ store.id }}" class="btn btn-secondary">
+            <i class="fas fa-chart-line"></i> Zum Dashboard
+        </a>
+        <a href="{% url 'shopify_manager:import_sales_data' %}?store={{ store.id }}" class="btn btn-primary">
+            <i class="fas fa-download"></i> Neue Daten importieren
+        </a>
+    </div>
+</div>
+
+<script>
+function changeStore(storeId) {
+    window.location.href = '{% url "shopify_manager:orders_table" %}?store=' + storeId;
+}
+</script>
+{% endblock %}

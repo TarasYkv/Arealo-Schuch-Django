@@ -107,4 +107,11 @@ urlpatterns = [
     
     # PayPal Analysis
     path('sales/paypal-analysis/', sales_views.paypal_fees_analysis_view, name='paypal_fees_analysis'),
+    
+    # Orders Table
+    path('sales/orders/', sales_views.orders_table_view, name='orders_table'),
+    
+    # Google Ads Integration
+    path('google-ads/config/', sales_views.google_ads_config_view, name='google_ads_config'),
+    path('google-ads/<int:store_id>/sync/', sales_views.google_ads_sync_view, name='google_ads_sync'),
 ]

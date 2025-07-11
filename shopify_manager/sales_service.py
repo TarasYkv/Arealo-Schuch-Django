@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from django.utils import timezone
 from django.db import transaction
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count, Q, F
 import requests
 import json
 from .models import (
@@ -497,7 +497,7 @@ class SalesStatisticsService:
         total_orders = sales_data.values('shopify_order_id').distinct().count()
         total_revenue = sales_data.aggregate(Sum('total_price'))['total_price__sum'] or Decimal('0.00')
         total_cost = sales_data.aggregate(
-            total_cost=Sum('cost_price') * Sum('quantity')
+            total_cost=Sum(F('cost_price') * F('quantity'))
         )['total_cost'] or Decimal('0.00')
         
         # Einzelne Kostenarten
