@@ -50,6 +50,33 @@ class ShopifyStore(models.Model):
         help_text="Handler Account Fixgebühr (Standard: 0.35€)"
     )
     
+    # Google Ads API Zugangsdaten
+    google_ads_customer_id = models.CharField(
+        max_length=20, 
+        blank=True, 
+        help_text="Google Ads Customer ID (z.B. 123-456-7890)"
+    )
+    google_ads_developer_token = models.CharField(
+        max_length=100, 
+        blank=True, 
+        help_text="Google Ads Developer Token"
+    )
+    google_ads_refresh_token = models.CharField(
+        max_length=200, 
+        blank=True, 
+        help_text="Google Ads OAuth2 Refresh Token"
+    )
+    google_ads_client_id = models.CharField(
+        max_length=100, 
+        blank=True, 
+        help_text="Google OAuth2 Client ID"
+    )
+    google_ads_client_secret = models.CharField(
+        max_length=100, 
+        blank=True, 
+        help_text="Google OAuth2 Client Secret"
+    )
+    
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1184,6 +1211,55 @@ class AdsCost(models.Model):
     class Meta:
         verbose_name = "Werbekosten"
         verbose_name_plural = "Werbekosten"
+        ordering = ['-date']
+
+
+class GoogleAdsProductData(models.Model):
+    """Google Ads Daten pro Produkt"""
+    store = models.ForeignKey(ShopifyStore, on_delete=models.CASCADE, related_name='google_ads_product_data')
+    product = models.ForeignKey(ShopifyProduct, on_delete=models.CASCADE, related_name='google_ads_data')
+    
+    # Google Ads Identifikatoren
+    campaign_id = models.CharField(max_length=100, help_text="Google Ads Campaign ID")
+    campaign_name = models.CharField(max_length=200, help_text="Campaign Name")
+    ad_group_id = models.CharField(max_length=100, null=True, blank=True, help_text="Ad Group ID")
+    ad_group_name = models.CharField(max_length=200, null=True, blank=True, help_text="Ad Group Name")
+    
+    # Performance Metriken
+    impressions = models.PositiveIntegerField(default=0, help_text="Anzahl Impressionen")
+    clicks = models.PositiveIntegerField(default=0, help_text="Anzahl Klicks")
+    cost = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Werbekosten")
+    conversions = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Anzahl Conversions")
+    conversion_value = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Conversion Wert")
+    
+    # Zeitraum
+    date = models.DateField(help_text="Datum der Daten")
+    
+    # Berechnete Metriken
+    ctr = models.DecimalField(max_digits=6, decimal_places=4, default=0.0000, help_text="Click-Through-Rate")
+    cpc = models.DecimalField(max_digits=8, decimal_places=2, default=0.00, help_text="Cost per Click")
+    conversion_rate = models.DecimalField(max_digits=6, decimal_places=4, default=0.0000, help_text="Conversion Rate")
+    roas = models.DecimalField(max_digits=8, decimal_places=2, default=0.00, help_text="Return on Ad Spend")
+    
+    # Metadaten
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def save(self, *args, **kwargs):
+        # Berechne abgeleitete Metriken
+        if self.impressions > 0:
+            self.ctr = self.clicks / self.impressions
+        if self.clicks > 0:
+            self.cpc = self.cost / self.clicks
+            self.conversion_rate = self.conversions / self.clicks
+        if self.cost > 0:
+            self.roas = self.conversion_value / self.cost
+        super().save(*args, **kwargs)
+    
+    class Meta:
+        verbose_name = "Google Ads Produktdaten"
+        verbose_name_plural = "Google Ads Produktdaten"
+        unique_together = [['store', 'product', 'campaign_id', 'date']]
         ordering = ['-date']
 
 

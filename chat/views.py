@@ -414,3 +414,15 @@ def mark_messages_read(request, room_id):
         
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def get_unread_count(request):
+    """
+    Get total unread message count for the current user
+    """
+    try:
+        unread_count = request.user.get_unread_chat_count()
+        return JsonResponse({'unread_count': unread_count})
+    except Exception as e:
+        return JsonResponse({'unread_count': 0, 'error': str(e)})

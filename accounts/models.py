@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from encrypted_model_fields.fields import EncryptedCharField
+from django.db.models import Sum, Q
 
 
 class CustomUser(AbstractUser):
@@ -33,6 +34,15 @@ class CustomUser(AbstractUser):
     
     def __str__(self):
         return self.username
+    
+    def get_unread_chat_count(self):
+        """Gibt die Anzahl ungelesener Chat-Nachrichten zurück"""
+        from chat.models import ChatRoom
+        
+        total_unread = 0
+        for room in self.chat_rooms.all():
+            total_unread += room.get_unread_count(self)
+        return total_unread
 
 
 class AmpelCategory(models.Model):
