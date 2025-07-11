@@ -176,3 +176,70 @@ class ChatMessageAttachment(models.Model):
     def is_audio(self):
         """Check if file is an audio file"""
         return self.file_type.startswith('audio/')
+
+
+class Call(models.Model):
+    """
+    Represents a voice/video call in a chat room
+    """
+    CALL_TYPES = [
+        ('audio', 'Audio'),
+        ('video', 'Video'),
+    ]
+    
+    CALL_STATUS = [
+        ('initiated', 'Initiated'),
+        ('ringing', 'Ringing'),
+        ('connected', 'Connected'),
+        ('ended', 'Ended'),
+        ('missed', 'Missed'),
+        ('rejected', 'Rejected'),
+    ]
+    
+    chat_room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE, related_name='calls')
+    caller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='initiated_calls')
+    call_type = models.CharField(max_length=10, choices=CALL_TYPES, default='audio')
+    status = models.CharField(max_length=20, choices=CALL_STATUS, default='initiated')
+    started_at = models.DateTimeField(auto_now_add=True)
+    connected_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    duration = models.DurationField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-started_at']
+    
+    def __str__(self):
+        return f"{self.caller.username} - {self.get_call_type_display()} Call ({self.status})"
+    
+    def get_duration_display(self):
+        """Get formatted duration"""
+        if self.duration:
+            total_seconds = int(self.duration.total_seconds())
+            minutes = total_seconds // 60
+            seconds = total_seconds % 60
+            return f"{minutes:02d}:{seconds:02d}"
+        return "00:00"
+
+
+class CallParticipant(models.Model):
+    """
+    Represents a participant in a call
+    """
+    PARTICIPANT_STATUS = [
+        ('invited', 'Invited'),
+        ('joined', 'Joined'),
+        ('left', 'Left'),
+        ('rejected', 'Rejected'),
+    ]
+    
+    call = models.ForeignKey(Call, on_delete=models.CASCADE, related_name='participants')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='call_participations')
+    status = models.CharField(max_length=20, choices=PARTICIPANT_STATUS, default='invited')
+    joined_at = models.DateTimeField(null=True, blank=True)
+    left_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        unique_together = ('call', 'user')
+    
+    def __str__(self):
+        return f"{self.user.username} in Call {self.call.id} ({self.status})"

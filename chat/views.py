@@ -547,3 +547,130 @@ def get_chat_info(request, room_id):
         
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def initiate_call(request, room_id):
+    """
+    Initiate a call in a chat room
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Nur POST-Anfragen erlaubt'})
+    
+    try:
+        data = json.loads(request.body)
+        call_type = data.get('call_type', 'audio')
+        
+        chat_room = get_object_or_404(ChatRoom, id=room_id)
+        
+        # Check if user is participant
+        if not chat_room.participants.filter(id=request.user.id).exists():
+            return JsonResponse({'success': False, 'error': 'Zugriff verweigert'})
+        
+        # Check if there's already an active call
+        from .models import Call, CallParticipant
+        active_call = Call.objects.filter(
+            chat_room=chat_room,
+            status__in=['initiated', 'ringing', 'connected']
+        ).first()
+        
+        if active_call:
+            return JsonResponse({'success': False, 'error': 'Es läuft bereits ein Anruf in diesem Chat'})
+        
+        # Create new call
+        call = Call.objects.create(
+            chat_room=chat_room,
+            caller=request.user,
+            call_type=call_type,
+            status='initiated'
+        )
+        
+        # Add all participants to the call
+        for participant in chat_room.participants.all():
+            CallParticipant.objects.create(
+                call=call,
+                user=participant,
+                status='invited'
+            )
+        
+        return JsonResponse({
+            'success': True,
+            'call_id': call.id,
+            'call_type': call_type,
+            'message': 'Anruf gestartet'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def end_call(request, call_id):
+    """
+    End an active call
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Nur POST-Anfragen erlaubt'})
+    
+    try:
+        from .models import Call
+        call = get_object_or_404(Call, id=call_id)
+        
+        # Check if user is participant
+        if not call.participants.filter(user=request.user).exists():
+            return JsonResponse({'success': False, 'error': 'Zugriff verweigert'})
+        
+        # Update call status
+        call.status = 'ended'
+        call.ended_at = timezone.now()
+        
+        # Calculate duration if call was connected
+        if call.connected_at:
+            call.duration = call.ended_at - call.connected_at
+        
+        call.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Anruf beendet',
+            'duration': call.get_duration_display()
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def get_call_history(request, room_id):
+    """
+    Get call history for a chat room
+    """
+    try:
+        chat_room = get_object_or_404(ChatRoom, id=room_id)
+        
+        # Check if user is participant
+        if not chat_room.participants.filter(id=request.user.id).exists():
+            return JsonResponse({'success': False, 'error': 'Zugriff verweigert'})
+        
+        # Get recent calls
+        from .models import Call
+        calls = Call.objects.filter(chat_room=chat_room).order_by('-started_at')[:10]
+        
+        call_history = []
+        for call in calls:
+            call_history.append({
+                'id': call.id,
+                'caller': call.caller.username,
+                'call_type': call.get_call_type_display(),
+                'status': call.get_status_display(),
+                'started_at': call.started_at.strftime('%d.%m.%Y %H:%M'),
+                'duration': call.get_duration_display() if call.duration else '00:00'
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'calls': call_history
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
