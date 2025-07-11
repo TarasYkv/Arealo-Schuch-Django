@@ -320,6 +320,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     lastMessageId = Math.max(lastMessageId, message.id);
                 });
                 scrollToBottom();
+                // Mark new messages as read
+                markMessagesAsRead();
             }
         })
         .catch(error => {
@@ -366,11 +368,41 @@ document.addEventListener('DOMContentLoaded', function() {
         messagesContainer.appendChild(messageDiv);
     }
     
+    // Mark messages as read
+    function markMessagesAsRead() {
+        fetch(`/chat/api/room/{{ chat_room.id }}/mark_read/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update chat notification counter in parent window
+                if (window.parent && window.parent.updateChatNotifications) {
+                    window.parent.updateChatNotifications();
+                }
+                // Update counter in same window
+                if (window.updateChatNotifications) {
+                    window.updateChatNotifications();
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error marking messages as read:', error);
+        });
+    }
+    
     // Auto-resize textarea
     messageInput.addEventListener('input', function() {
         this.style.height = 'auto';
         this.style.height = Math.min(this.scrollHeight, 100) + 'px';
     });
+    
+    // Mark messages as read when page loads
+    markMessagesAsRead();
     
     // Poll for new messages every 2 seconds
     setInterval(loadNewMessages, 2000);

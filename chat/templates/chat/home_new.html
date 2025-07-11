@@ -303,6 +303,9 @@ function loadChat(roomId) {
     
     currentRoomId = roomId;
     
+    // Mark messages as read when chat is loaded
+    markMessagesAsRead(roomId);
+    
     // Show chat header and input
     document.getElementById('chatHeader').style.display = 'block';
     document.getElementById('messageInput').style.display = 'block';
@@ -525,6 +528,58 @@ function formatFileSize(bytes) {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Mark messages as read
+function markMessagesAsRead(roomId) {
+    fetch(`/chat/api/room/${roomId}/mark_read/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update chat notification counter
+            if (window.updateChatNotifications) {
+                window.updateChatNotifications();
+            }
+            // Update unread badges in chat list
+            updateUnreadBadges();
+        }
+    })
+    .catch(error => {
+        console.error('Error marking messages as read:', error);
+    });
+}
+
+// Update unread badges in chat list
+function updateUnreadBadges() {
+    const roomItem = document.querySelector(`[data-room-id="${currentRoomId}"]`);
+    if (roomItem) {
+        const unreadBadge = roomItem.querySelector('.badge-unread');
+        if (unreadBadge) {
+            unreadBadge.style.display = 'none';
+        }
+    }
+}
+
+// Get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
 }
 
 // Auto-refresh messages every 5 seconds
