@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator
-from django.db.models import Sum, Count, Q, Avg
+from django.db.models import Sum, Count, Q, Avg, F
 from django.urls import reverse_lazy
 from django.utils import timezone
 from datetime import datetime, timedelta
@@ -658,3 +658,146 @@ def assign_shipping_profile_view(request):
     }
     
     return render(request, 'shopify_manager/assign_shipping_profile.html', context)
+
+
+@login_required
+def paypal_fees_analysis_view(request):
+    """Detaillierte PayPal-Gebührenanalyse aus Shopify-Daten"""
+    
+    store_id = request.GET.get('store')
+    if not store_id:
+        messages.error(request, "Bitte wählen Sie einen Store aus.")
+        return redirect('shopify_manager:sales_dashboard')
+    
+    store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
+    
+    # Zeitraum-Form
+    form = DateRangeForm(request.GET or None)
+    
+    start_date = timezone.now().date() - timedelta(days=30)
+    end_date = timezone.now().date()
+    
+    if form.is_valid():
+        start_date = form.cleaned_data['start_date']
+        end_date = form.cleaned_data['end_date']
+    
+    # Konvertiere zu datetime
+    start_datetime = timezone.datetime.combine(start_date, timezone.datetime.min.time())
+    end_datetime = timezone.datetime.combine(end_date, timezone.datetime.max.time())
+    
+    if timezone.is_aware(start_datetime):
+        start_datetime = timezone.make_aware(start_datetime)
+        end_datetime = timezone.make_aware(end_datetime)
+    
+    # Hole alle PayPal-Transaktionen
+    paypal_sales = SalesData.objects.filter(
+        store=store,
+        order_date__range=[start_datetime, end_datetime]
+    ).filter(
+        Q(payment_gateway__icontains='paypal') | Q(paypal_fee__gt=0)
+    )
+    
+    # Gruppiere nach Bestellungen
+    paypal_orders = paypal_sales.values('shopify_order_id').annotate(
+        order_total=Sum('total_price'),
+        order_paypal_fee=Sum('paypal_fee'),
+        items_count=Count('id')
+    ).order_by('-order_date')
+    
+    # Berechne Gesamtstatistiken
+    total_stats = paypal_sales.aggregate(
+        total_revenue=Sum('total_price'),
+        total_fees=Sum('paypal_fee'),
+        total_orders=Count('shopify_order_id', distinct=True),
+        total_items=Count('id')
+    )
+    
+    # Berechne durchschnittliche Gebühren
+    if total_stats['total_revenue'] and total_stats['total_revenue'] > 0 and total_stats['total_fees']:
+        avg_fee_percentage = (total_stats['total_fees'] / total_stats['total_revenue']) * 100
+    else:
+        avg_fee_percentage = 0
+    
+    # Monatliche PayPal-Gebühren für Trend
+    monthly_fees = paypal_sales.extra(
+        select={'month': "strftime('%%Y-%%m', order_date)"}
+    ).values('month').annotate(
+        revenue=Sum('total_price'),
+        fees=Sum('paypal_fee'),
+        orders=Count('shopify_order_id', distinct=True)
+    ).order_by('month')
+    
+    # Gebühren nach Betragsbereichen
+    fee_ranges = [
+        {'range': '0-50€', 'min': 0, 'max': 50},
+        {'range': '50-100€', 'min': 50, 'max': 100},
+        {'range': '100-250€', 'min': 100, 'max': 250},
+        {'range': '250-500€', 'min': 250, 'max': 500},
+        {'range': '500€+', 'min': 500, 'max': 999999}
+    ]
+    
+    for fee_range in fee_ranges:
+        range_data = paypal_orders.filter(
+            order_total__gte=fee_range['min'],
+            order_total__lt=fee_range['max']
+        ).aggregate(
+            count=Count('shopify_order_id'),
+            total_fees=Sum('order_paypal_fee'),
+            total_revenue=Sum('order_total')
+        )
+        fee_range.update(range_data)
+        if range_data['total_revenue'] and range_data['total_revenue'] > 0:
+            fee_range['avg_percentage'] = (range_data['total_fees'] / range_data['total_revenue']) * 100
+        else:
+            fee_range['avg_percentage'] = 0
+    
+    # PayPal Account-Typ Info
+    paypal_config = {
+        'account_type': store.paypal_account_type,
+        'monthly_volume': store.paypal_monthly_volume,
+        'handler_rate': store.paypal_handler_rate,
+        'handler_fixed_fee': store.paypal_handler_fixed_fee
+    }
+    
+    # Berechne potentielle Ersparnis mit Handler Account
+    if store.paypal_account_type != 'handler':
+        # Simuliere Handler-Gebühren
+        handler_fees = Decimal('0')
+        for order in paypal_orders:
+            # Handler: 1.99% + 0.35€
+            order_total = order['order_total'] or Decimal('0')
+            simulated_fee = (order_total * Decimal('0.0199')) + Decimal('0.35')
+            handler_fees += simulated_fee
+        
+        # Debug: Prüfe auf None-Werte
+        print(f"DEBUG: total_stats = {total_stats}")
+        print(f"DEBUG: total_stats['total_fees'] = {total_stats['total_fees']}")
+        print(f"DEBUG: handler_fees = {handler_fees}")
+        
+        current_fees = total_stats['total_fees'] if total_stats['total_fees'] is not None else Decimal('0')
+        handler_fees = handler_fees if handler_fees is not None else Decimal('0')
+        
+        print(f"DEBUG: current_fees = {current_fees}")
+        print(f"DEBUG: handler_fees after check = {handler_fees}")
+        
+        potential_savings = current_fees - handler_fees
+        print(f"DEBUG: potential_savings = {potential_savings}")
+    else:
+        potential_savings = Decimal('0')
+    
+    context = {
+        'store': store,
+        'form': form,
+        'paypal_orders': paypal_orders[:50],  # Erste 50 Bestellungen
+        'total_stats': total_stats,
+        'avg_fee_percentage': avg_fee_percentage,
+        'monthly_fees': list(monthly_fees),
+        'fee_ranges': fee_ranges,
+        'paypal_config': paypal_config,
+        'potential_savings': potential_savings,
+        'start_date': start_date,
+        'end_date': end_date,
+        'stores': ShopifyStore.objects.filter(user=request.user)
+    }
+    
+    return render(request, 'shopify_manager/paypal_fees_analysis.html', context)

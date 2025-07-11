@@ -195,6 +195,7 @@ class SalesDataImportService:
                     'paypal_fee': item_paypal_fee,
                     'payment_gateway_fee': self._calculate_payment_gateway_fee(order, item_percentage),
                     'tax_amount': line_item_tax,
+                    'payment_gateway': order.get('gateway', ''),  # Payment Gateway Information
                 }
             )
             
