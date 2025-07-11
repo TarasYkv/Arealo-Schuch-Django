@@ -1,0 +1,57 @@
+<div class="row">
+    {% for board in board_list %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">
+                        {{ board.title }}
+                        {% if board.creator == request.user %}
+                            <span class="badge bg-primary">Eigenes</span>
+                        {% elif request.user in board.collaborators.all %}
+                            <span class="badge bg-success">Geteilt</span>
+                        {% endif %}
+                    </h5>
+                    {% if board.description %}
+                        <p class="card-text">{{ board.description|truncatechars:80 }}</p>
+                    {% endif %}
+                    
+                    <div class="mb-2">
+                        <small class="text-muted">
+                            <i class="fas fa-ruler-combined"></i> 
+                            {{ board.width }} × {{ board.height }} px
+                        </small>
+                    </div>
+                    
+                    {% if board.collaborators.all %}
+                        <div class="mb-2">
+                            <small class="text-muted">
+                                <i class="fas fa-users"></i> Mitarbeiter: 
+                                {% for collaborator in board.collaborators.all %}
+                                    <span class="badge bg-light text-dark">{{ collaborator.username }}</span>
+                                {% endfor %}
+                            </small>
+                        </div>
+                    {% endif %}
+                    
+                    <div class="d-flex justify-content-between align-items-center mt-auto">
+                        <small class="text-muted">
+                            <i class="fas fa-user"></i> {{ board.creator.username }}
+                            <br>
+                            <i class="fas fa-clock"></i> {{ board.updated_at|date:"d.m.Y H:i" }}
+                        </small>
+                        {% if board.is_public %}
+                            <span class="badge bg-success">Öffentlich</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Privat</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a href="{% url 'organization:board_detail' board.pk %}" class="btn btn-primary w-100">
+                        <i class="fas fa-paint-brush"></i> Board öffnen
+                    </a>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+</div>

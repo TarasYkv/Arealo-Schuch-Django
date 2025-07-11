@@ -29,6 +29,10 @@ urlpatterns = [
     path('api/test-shopify-connection/', views.test_shopify_connection, name='test_shopify_connection'),
     path('api/delete-shopify-store/', views.delete_shopify_store, name='delete_shopify_store'),
     
+    # User permissions management
+    path('nutzerrechte/', views.user_permissions, name='user_permissions'),
+    path('api/user-online-times/<int:user_id>/', views.user_online_times, name='user_online_times'),
+    
     # Kategorie-Management
     path('kategorien/', views.category_list, name='category_list'),
     path('kategorien/neu/', views.category_create, name='category_create'),

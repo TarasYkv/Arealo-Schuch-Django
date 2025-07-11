@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+
+{% block title %}Neues Ideenboard - Organisation{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1>Neues Ideenboard erstellen</h1>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Titel <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="title" name="title" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Beschreibung</label>
+                            <textarea class="form-control" id="description" name="description" rows="3" 
+                                      placeholder="Kurze Beschreibung des Ideenboards..."></textarea>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="width" class="form-label">Breite (px)</label>
+                                    <input type="number" class="form-control" id="width" name="width" value="1200" min="800" max="3000">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="height" class="form-label">Höhe (px)</label>
+                                    <input type="number" class="form-control" id="height" name="height" value="800" min="600" max="2000">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="background_color" class="form-label">Hintergrundfarbe</label>
+                            <input type="color" class="form-control form-control-color" id="background_color" name="background_color" value="#ffffff">
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="is_public" name="is_public">
+                            <label class="form-check-label" for="is_public">
+                                Öffentlich sichtbar
+                            </label>
+                            <div class="form-text">
+                                Öffentliche Boards sind für alle Benutzer sichtbar.
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="collaborators" class="form-label">Mitarbeiter</label>
+                            <div id="collaborators-container">
+                                <div class="input-group mb-2">
+                                    <input type="text" class="form-control" id="collaborator-search" placeholder="Benutzername eingeben...">
+                                    <button type="button" class="btn btn-outline-secondary" id="add-collaborator">
+                                        <i class="fas fa-plus"></i> Hinzufügen
+                                    </button>
+                                </div>
+                                <div id="selected-collaborators">
+                                    <!-- Selected collaborators will be shown here -->
+                                </div>
+                                <div id="collaborator-results" class="mt-2">
+                                    <!-- Search results will be shown here -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paint-brush"></i> Board erstellen
+                            </button>
+                            <a href="{% url 'organization:board_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Abbrechen
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Funktionen</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            <i class="fas fa-pen text-primary"></i>
+                            <strong>Zeichnen:</strong> Freihand mit verschiedenen Stiften
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-shapes text-success"></i>
+                            <strong>Formen:</strong> Rechtecke, Kreise, Dreiecke
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-font text-info"></i>
+                            <strong>Text:</strong> Textfelder hinzufügen
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-eraser text-warning"></i>
+                            <strong>Radierer:</strong> Fehler korrigieren
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-palette text-danger"></i>
+                            <strong>Farben:</strong> Verschiedene Farben und Transparenz
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-users text-secondary"></i>
+                            <strong>Kollaboration:</strong> Gemeinsam in Echtzeit arbeiten
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5>Empfohlene Größen</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-1">
+                            <button type="button" class="btn btn-link btn-sm p-0" onclick="setSize(1920, 1080)">
+                                Full HD (1920×1080)
+                            </button>
+                        </li>
+                        <li class="mb-1">
+                            <button type="button" class="btn btn-link btn-sm p-0" onclick="setSize(1200, 800)">
+                                Standard (1200×800)
+                            </button>
+                        </li>
+                        <li class="mb-1">
+                            <button type="button" class="btn btn-link btn-sm p-0" onclick="setSize(800, 600)">
+                                Kompakt (800×600)
+                            </button>
+                        </li>
+                        <li class="mb-1">
+                            <button type="button" class="btn btn-link btn-sm p-0" onclick="setSize(2560, 1440)">
+                                4K (2560×1440)
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedCollaborators = [];
+
+// Größe-Buttons
+function setSize(width, height) {
+    document.getElementById('width').value = width;
+    document.getElementById('height').value = height;
+}
+
+// Benutzersuche für Mitarbeiter
+document.getElementById('collaborator-search').addEventListener('input', function(e) {
+    const query = e.target.value;
+    const resultsDiv = document.getElementById('collaborator-results');
+    
+    if (query.length >= 2) {
+        fetch(`/organization/api/user-search/?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                resultsDiv.innerHTML = '';
+                data.results.forEach(user => {
+                    const userDiv = document.createElement('div');
+                    userDiv.className = 'collaborator-result p-2 border rounded mb-1 cursor-pointer';
+                    userDiv.innerHTML = `
+                        <strong>${user.username}</strong>
+                        <small class="text-muted">${user.full_name}</small>
+                    `;
+                    userDiv.addEventListener('click', function() {
+                        addCollaborator(user);
+                        resultsDiv.innerHTML = '';
+                        document.getElementById('collaborator-search').value = '';
+                    });
+                    resultsDiv.appendChild(userDiv);
+                });
+            });
+    } else {
+        resultsDiv.innerHTML = '';
+    }
+});
+
+function addCollaborator(user) {
+    if (!selectedCollaborators.find(c => c.username === user.username)) {
+        selectedCollaborators.push(user);
+        updateSelectedCollaborators();
+    }
+}
+
+function removeCollaborator(username) {
+    selectedCollaborators = selectedCollaborators.filter(c => c.username !== username);
+    updateSelectedCollaborators();
+}
+
+function updateSelectedCollaborators() {
+    const container = document.getElementById('selected-collaborators');
+    container.innerHTML = '';
+    
+    selectedCollaborators.forEach(collaborator => {
+        const collaboratorDiv = document.createElement('div');
+        collaboratorDiv.className = 'badge bg-secondary me-1 mb-1';
+        collaboratorDiv.innerHTML = `
+            ${collaborator.username}
+            <button type="button" class="btn-close btn-close-white ms-1" style="font-size: 0.7em;" onclick="removeCollaborator('${collaborator.username}')"></button>
+            <input type="hidden" name="collaborators" value="${collaborator.username}">
+        `;
+        container.appendChild(collaboratorDiv);
+    });
+}
+</script>
+
+<style>
+.collaborator-result:hover {
+    background-color: #f8f9fa;
+    cursor: pointer;
+}
+
+.form-control-color {
+    width: 100%;
+    height: 40px;
+}
+</style>
+{% endblock %}

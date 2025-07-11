@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block title %}Organisation - Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">Organisation Dashboard</h1>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Notizen -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>Aktuelle Notizen</h5>
+                    <a href="{% url 'organization:note_create' %}" class="btn btn-primary btn-sm">Neue Notiz</a>
+                </div>
+                <div class="card-body">
+                    {% if user_notes %}
+                        <div class="list-group">
+                            {% for note in user_notes %}
+                                <a href="{% url 'organization:note_detail' note.pk %}" class="list-group-item list-group-item-action">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">{{ note.title }}</h6>
+                                        <small>{{ note.updated_at|date:"d.m.Y H:i" }}</small>
+                                    </div>
+                                    <p class="mb-1">{{ note.content|truncatechars:80 }}</p>
+                                    <small>von {{ note.author.username }}</small>
+                                </a>
+                            {% endfor %}
+                        </div>
+                        <div class="mt-3">
+                            <a href="{% url 'organization:note_list' %}" class="btn btn-outline-secondary">Alle Notizen anzeigen</a>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Noch keine Notizen vorhanden.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Termine -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>Nächste Termine</h5>
+                    <a href="{% url 'organization:event_create' %}" class="btn btn-primary btn-sm">Neuer Termin</a>
+                </div>
+                <div class="card-body">
+                    {% if upcoming_events %}
+                        <div class="list-group">
+                            {% for event in upcoming_events %}
+                                <a href="{% url 'organization:event_detail' event.pk %}" class="list-group-item list-group-item-action">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">{{ event.title }}</h6>
+                                        <small class="text-muted">{{ event.start_time|date:"d.m.Y H:i" }}</small>
+                                    </div>
+                                    {% if event.location %}
+                                        <p class="mb-1"><i class="fas fa-map-marker-alt"></i> {{ event.location }}</p>
+                                    {% endif %}
+                                    <small>Organisiert von {{ event.organizer.username }}</small>
+                                </a>
+                            {% endfor %}
+                        </div>
+                        <div class="mt-3">
+                            <a href="{% url 'organization:calendar_view' %}" class="btn btn-outline-secondary">Kalender anzeigen</a>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Keine anstehenden Termine.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <!-- Ideenboards -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>Ideenboards</h5>
+                    <a href="{% url 'organization:board_create' %}" class="btn btn-primary btn-sm">Neues Board</a>
+                </div>
+                <div class="card-body">
+                    {% if user_boards %}
+                        <div class="list-group">
+                            {% for board in user_boards %}
+                                <a href="{% url 'organization:board_detail' board.pk %}" class="list-group-item list-group-item-action">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">{{ board.title }}</h6>
+                                        <small>{{ board.updated_at|date:"d.m.Y H:i" }}</small>
+                                    </div>
+                                    {% if board.description %}
+                                        <p class="mb-1">{{ board.description|truncatechars:60 }}</p>
+                                    {% endif %}
+                                    <small>von {{ board.creator.username }}</small>
+                                </a>
+                            {% endfor %}
+                        </div>
+                        <div class="mt-3">
+                            <a href="{% url 'organization:board_list' %}" class="btn btn-outline-secondary">Alle Boards anzeigen</a>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Noch keine Ideenboards vorhanden.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Ausstehende Terminanfragen -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Ausstehende Terminanfragen</h5>
+                </div>
+                <div class="card-body">
+                    {% if pending_invitations %}
+                        <div class="list-group">
+                            {% for invitation in pending_invitations %}
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">{{ invitation.event.title }}</h6>
+                                        <small class="text-muted">{{ invitation.event.start_time|date:"d.m.Y H:i" }}</small>
+                                    </div>
+                                    <p class="mb-1">von {{ invitation.event.organizer.username }}</p>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{% url 'organization:event_respond' invitation.event.pk %}" class="btn btn-outline-primary">Antworten</a>
+                                        <a href="{% url 'organization:event_detail' invitation.event.pk %}" class="btn btn-outline-secondary">Details</a>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Keine ausstehenden Terminanfragen.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

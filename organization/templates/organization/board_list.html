@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block title %}Ideenboards - Organisation{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>Ideenboards</h1>
+                <a href="{% url 'organization:board_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Neues Board
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            <!-- Debug Info (entfernen in Produktion) -->
+            <div class="alert alert-info">
+                <strong>Debug Info:</strong> 
+                Eigene Boards: {{ created_boards.count }} | 
+                Geteilte Boards: {{ collaborated_boards.count }} | 
+                Gesamt: {{ boards.count }}
+            </div>
+            
+            <!-- Navigation Tabs -->
+            <ul class="nav nav-tabs mb-4" id="boardTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all-boards" 
+                            type="button" role="tab">
+                        Alle Boards <span class="badge bg-secondary">{{ boards.count }}</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="created-tab" data-bs-toggle="tab" data-bs-target="#created-boards" 
+                            type="button" role="tab">
+                        Meine Boards <span class="badge bg-primary">{{ created_boards.count }}</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="shared-tab" data-bs-toggle="tab" data-bs-target="#shared-boards" 
+                            type="button" role="tab">
+                        Geteilte Boards <span class="badge bg-success">{{ collaborated_boards.count }}</span>
+                    </button>
+                </li>
+            </ul>
+            
+            <div class="tab-content" id="boardTabsContent">
+                <!-- Alle Boards -->
+                <div class="tab-pane fade show active" id="all-boards" role="tabpanel">
+                    {% if boards %}
+                        {% include 'organization/board_grid.html' with board_list=boards %}
+                    {% else %}
+                        {% include 'organization/no_boards.html' %}
+                    {% endif %}
+                </div>
+                
+                <!-- Eigene Boards -->
+                <div class="tab-pane fade" id="created-boards" role="tabpanel">
+                    {% if created_boards %}
+                        {% include 'organization/board_grid.html' with board_list=created_boards %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-chalkboard fa-3x text-muted mb-3"></i>
+                            <h4>Keine eigenen Boards</h4>
+                            <p class="text-muted">Sie haben noch keine eigenen Ideenboards erstellt.</p>
+                            <a href="{% url 'organization:board_create' %}" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> Erstes Board erstellen
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Geteilte Boards -->
+                <div class="tab-pane fade" id="shared-boards" role="tabpanel">
+                    {% if collaborated_boards %}
+                        {% include 'organization/board_grid.html' with board_list=collaborated_boards %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-share-alt fa-3x text-muted mb-3"></i>
+                            <h4>Keine geteilten Boards</h4>
+                            <p class="text-muted">Es wurden noch keine Boards mit Ihnen geteilt.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Separate Template für Board-Grid -->
+    {% comment %}
+    Erstelle separate Templates für wiederverwendbare Komponenten
+    {% endcomment %}
+    <template id="board-grid-template" style="display: none;">
+        <div class="row">
+            <!-- Board-Karten werden hier eingefügt -->
+        </div>
+    </template>
+    
+</div>
+{% endblock %}

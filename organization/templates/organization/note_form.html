@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    {% if note %}Notiz bearbeiten{% else %}Neue Notiz{% endif %} - Organisation
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1>{% if note %}Notiz bearbeiten{% else %}Neue Notiz erstellen{% endif %}</h1>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <div class="mb-3">
+                    <label for="title" class="form-label">Titel <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="title" name="title" 
+                           value="{{ note.title|default:'' }}" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="content" class="form-label">Inhalt</label>
+                    <textarea class="form-control" id="content" name="content" rows="8" 
+                              placeholder="Verwenden Sie @benutzername um andere Benutzer zu erwähnen...">{{ note.content|default:'' }}</textarea>
+                    <div class="form-text">
+                        Tipp: Verwenden Sie @benutzername um andere Benutzer zu erwähnen. Diese erhalten dann Zugriff auf die Notiz.
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="image" class="form-label">Bild</label>
+                    <input type="file" class="form-control" id="image" name="image" accept="image/*">
+                    {% if note.image %}
+                        <div class="mt-2">
+                            <img src="{{ note.image.url }}" alt="Aktuelles Bild" class="img-thumbnail" style="max-width: 200px;">
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="is_public" name="is_public" 
+                           {% if note.is_public %}checked{% endif %}>
+                    <label class="form-check-label" for="is_public">
+                        Öffentlich sichtbar
+                    </label>
+                    <div class="form-text">
+                        Öffentliche Notizen sind für alle Benutzer sichtbar.
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <button type="submit" class="btn btn-primary">
+                        {% if note %}Notiz aktualisieren{% else %}Notiz erstellen{% endif %}
+                    </button>
+                    <a href="{% if note %}{% url 'organization:note_detail' note.pk %}{% else %}{% url 'organization:note_list' %}{% endif %}" 
+                       class="btn btn-secondary">Abbrechen</a>
+                </div>
+            </form>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Benutzer suchen</h5>
+                </div>
+                <div class="card-body">
+                    <input type="text" class="form-control" id="user-search" 
+                           placeholder="Benutzername eingeben...">
+                    <div id="user-results" class="mt-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Benutzersuche für Erwähnungen
+document.getElementById('user-search').addEventListener('input', function(e) {
+    const query = e.target.value;
+    const resultsDiv = document.getElementById('user-results');
+    
+    if (query.length >= 2) {
+        fetch(`/organization/api/user-search/?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                resultsDiv.innerHTML = '';
+                data.results.forEach(user => {
+                    const userDiv = document.createElement('div');
+                    userDiv.className = 'user-result p-2 border rounded mb-1 cursor-pointer';
+                    userDiv.innerHTML = `
+                        <strong>${user.username}</strong>
+                        <small class="text-muted">${user.full_name}</small>
+                    `;
+                    userDiv.addEventListener('click', function() {
+                        const contentTextarea = document.getElementById('content');
+                        contentTextarea.value += `@${user.username} `;
+                        contentTextarea.focus();
+                        resultsDiv.innerHTML = '';
+                        document.getElementById('user-search').value = '';
+                    });
+                    resultsDiv.appendChild(userDiv);
+                });
+            });
+    } else {
+        resultsDiv.innerHTML = '';
+    }
+});
+</script>
+
+<style>
+.user-result:hover {
+    background-color: #f8f9fa;
+    cursor: pointer;
+}
+</style>
+{% endblock %}

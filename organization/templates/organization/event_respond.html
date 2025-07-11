@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+
+{% block title %}Auf Termineinladung antworten{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-6 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">Termineinladung beantworten</h3>
+                </div>
+                <div class="card-body">
+                    <h5>{{ event.title }}</h5>
+                    
+                    <div class="mb-4">
+                        <p class="mb-2">
+                            <i class="fas fa-calendar"></i> <strong>Datum:</strong> {{ event.start_time|date:"d.m.Y" }}<br>
+                            <i class="fas fa-clock"></i> <strong>Zeit:</strong> {{ event.start_time|date:"H:i" }} - {{ event.end_time|date:"H:i" }}<br>
+                            {% if event.location %}
+                                <i class="fas fa-map-marker-alt"></i> <strong>Ort:</strong> {{ event.location }}<br>
+                            {% endif %}
+                            <i class="fas fa-user"></i> <strong>Organisator:</strong> {{ event.organizer.username }}
+                        </p>
+                        
+                        {% if event.description %}
+                            <div class="alert alert-info">
+                                <strong>Beschreibung:</strong><br>
+                                {{ event.description|linebreaks }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Ihre Antwort:</strong></label>
+                            <div class="d-grid gap-2">
+                                <button type="submit" name="response" value="accepted" class="btn btn-success">
+                                    <i class="fas fa-check"></i> Zusagen
+                                </button>
+                                <button type="submit" name="response" value="maybe" class="btn btn-warning">
+                                    <i class="fas fa-question"></i> Vielleicht
+                                </button>
+                                <button type="submit" name="response" value="declined" class="btn btn-danger">
+                                    <i class="fas fa-times"></i> Absagen
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Notiz (optional)</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3" 
+                                      placeholder="Fügen Sie eine Notiz für den Organisator hinzu..."></textarea>
+                        </div>
+                    </form>
+                    
+                    <div class="text-center mt-3">
+                        <a href="{% url 'organization:event_detail' event.pk %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Zurück zum Termin
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

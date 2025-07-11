@@ -17,9 +17,14 @@ urlpatterns = [
     path('api/room/<int:room_id>/mark_read/', views.mark_messages_read, name='mark_messages_read'),
     path('unread-count/', views.get_unread_count, name='get_unread_count'),
     path('update-online-status/', views.update_online_status, name='update_online_status'),
+    path('set-offline/', views.set_offline, name='set_offline'),
     path('api/room/<int:room_id>/delete/', views.delete_chat, name='delete_chat'),
     path('api/room/<int:room_id>/info/', views.get_chat_info, name='get_chat_info'),
     path('api/room/<int:room_id>/call/initiate/', views.initiate_call, name='initiate_call'),
     path('api/call/<int:call_id>/end/', views.end_call, name='end_call'),
     path('api/room/<int:room_id>/calls/', views.get_call_history, name='get_call_history'),
+    
+    # Test pages
+    path('websocket-test/', views.websocket_test, name='websocket_test'),
+    path('test-call/', views.test_call, name='test_call'),
 ]

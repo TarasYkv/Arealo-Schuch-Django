@@ -66,6 +66,26 @@ class CallConsumer(AsyncWebsocketConsumer):
         self.room_group_name = f'call_{self.room_id}'
         self.user = self.scope['user']
         
+        print(f"DEBUG: CallConsumer connect - User: {self.user}, Room: {self.room_id}")
+        
+        # Check if user is authenticated
+        if not self.user or self.user.is_anonymous:
+            print("DEBUG: User not authenticated, closing connection")
+            await self.close(code=4001)
+            return
+        
+        # Check if user has access to the room
+        try:
+            has_access = await self.check_room_access(self.room_id, self.user)
+            if not has_access:
+                print(f"DEBUG: User {self.user.username} does not have access to room {self.room_id}")
+                await self.close(code=4003)
+                return
+        except Exception as e:
+            print(f"DEBUG: Error checking room access: {e}")
+            await self.close(code=4004)
+            return
+        
         # Join room group
         await self.channel_layer.group_add(
             self.room_group_name,
@@ -73,6 +93,7 @@ class CallConsumer(AsyncWebsocketConsumer):
         )
         
         await self.accept()
+        print(f"DEBUG: User {self.user.username} joined call group {self.room_group_name}")
 
     async def disconnect(self, close_code):
         # Leave room group
@@ -89,7 +110,16 @@ class CallConsumer(AsyncWebsocketConsumer):
             text_data_json = json.loads(text_data)
             message_type = text_data_json.get('type')
             
-            if message_type == 'call_initiate':
+            print(f"DEBUG: Received message - Type: {message_type}, User: {self.user.username}")
+            
+            if message_type == 'test':
+                # Echo test message back
+                await self.send(text_data=json.dumps({
+                    'type': 'test_response',
+                    'message': f"Test received from {self.user.username}",
+                    'original': text_data_json
+                }))
+            elif message_type == 'call_initiate':
                 await self.handle_call_initiate(text_data_json)
             elif message_type == 'call_answer':
                 await self.handle_call_answer(text_data_json)
@@ -105,6 +135,7 @@ class CallConsumer(AsyncWebsocketConsumer):
                 await self.handle_webrtc_ice_candidate(text_data_json)
                 
         except Exception as e:
+            print(f"DEBUG: Error in receive: {str(e)}")
             await self.send(text_data=json.dumps({
                 'type': 'error',
                 'message': str(e)
@@ -112,21 +143,23 @@ class CallConsumer(AsyncWebsocketConsumer):
 
     async def handle_call_initiate(self, data):
         call_type = data.get('call_type', 'audio')
+        call_id = data.get('call_id')
         
-        # Create call in database
-        call = await self.create_call(self.room_id, self.user.id, call_type)
+        print(f"DEBUG: handle_call_initiate - User: {self.user.username}, Room: {self.room_id}, Type: {call_type}")
         
         # Notify all participants in the room
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 'type': 'call_initiated',
-                'call_id': call.id,
+                'call_id': call_id,
                 'caller': self.user.username,
                 'call_type': call_type,
+                'room_id': self.room_id,
                 'timestamp': timezone.now().isoformat()
             }
         )
+        print(f"DEBUG: Call initiate message sent to group {self.room_group_name}")
 
     async def handle_call_answer(self, data):
         call_id = data.get('call_id')
@@ -249,6 +282,16 @@ class CallConsumer(AsyncWebsocketConsumer):
 
     # Database operations
     @database_sync_to_async
+    def check_room_access(self, room_id, user):
+        """Check if user has access to the chat room"""
+        try:
+            from .models import ChatRoom
+            chat_room = ChatRoom.objects.get(id=room_id)
+            return chat_room.participants.filter(id=user.id).exists()
+        except ChatRoom.DoesNotExist:
+            return False
+    
+    @database_sync_to_async
     def create_call(self, room_id, caller_id, call_type):
         from .models import ChatRoom, Call, CallParticipant
         
@@ -287,3 +330,60 @@ class CallConsumer(AsyncWebsocketConsumer):
             return call
         except Call.DoesNotExist:
             return None
+
+
+class GlobalNotificationConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.user = self.scope['user']
+        
+        # Check for authentication
+        if not self.user.is_authenticated:
+            print(f"❌ Unauthenticated user attempted to connect to global notifications")
+            await self.close(code=4001)
+            return
+        
+        # Join user-specific group for global notifications
+        self.user_group_name = f'user_{self.user.id}'
+        await self.channel_layer.group_add(
+            self.user_group_name,
+            self.channel_name
+        )
+        
+        await self.accept()
+        
+        # Log connection
+        await self.send(text_data=json.dumps({
+            'type': 'connection_established',
+            'message': 'Global notification WebSocket connected'
+        }))
+        
+        print(f"✅ User {self.user.username} (ID: {self.user.id}) connected to global notifications")
+    
+    async def disconnect(self, close_code):
+        # Leave user group
+        await self.channel_layer.group_discard(
+            self.user_group_name,
+            self.channel_name
+        )
+        print(f"User {self.user.username} disconnected from global notifications")
+    
+    async def receive(self, text_data):
+        # Handle any incoming messages if needed
+        pass
+    
+    # Event handlers for global notifications
+    async def global_call_notification(self, event):
+        print(f"📞 Sending call notification to user {self.user.username}: {event}")
+        await self.send(text_data=json.dumps(event))
+    
+    async def reminder_message(self, event):
+        """Handle reminder messages from organization app"""
+        await self.send(text_data=json.dumps({
+            'type': 'reminder_message',
+            'message': event['message'],
+            'event_id': event['event_id'],
+            'event_title': event['event_title'],
+            'event_start_time': event['event_start_time'],
+            'event_location': event['event_location'],
+            'timestamp': timezone.now().isoformat()
+        }))

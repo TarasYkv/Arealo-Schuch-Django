@@ -431,7 +431,31 @@ def get_unread_count(request):
     """
     try:
         unread_count = request.user.get_unread_chat_count()
-        return JsonResponse({'unread_count': unread_count})
+        
+        # Get latest unread message for notification
+        latest_message = None
+        if unread_count > 0:
+            # Find the latest unread message
+            unread_messages = ChatMessage.objects.filter(
+                chat_room__participants=request.user
+            ).exclude(
+                read_by__user=request.user
+            ).exclude(
+                sender=request.user
+            ).select_related('sender', 'chat_room').order_by('-created_at').first()
+            
+            if unread_messages:
+                latest_message = {
+                    'room_id': unread_messages.chat_room.id,
+                    'sender_name': unread_messages.sender.get_full_name() or unread_messages.sender.username if unread_messages.sender else 'Anonym',
+                    'content': unread_messages.content[:100],
+                    'created_at': unread_messages.created_at.isoformat()
+                }
+        
+        return JsonResponse({
+            'unread_count': unread_count,
+            'latest_message': latest_message
+        })
     except Exception as e:
         return JsonResponse({'unread_count': 0, 'error': str(e)})
 
@@ -442,8 +466,23 @@ def update_online_status(request):
     Update user's online status
     """
     try:
-        # Update last_activity automatically updates via auto_now
+        # Update both is_online and last_activity
         request.user.is_online = True
+        request.user.last_activity = timezone.now()
+        request.user.save(update_fields=['is_online', 'last_activity'])
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@csrf_exempt
+@login_required
+def set_offline(request):
+    """
+    Set user offline when leaving the page
+    """
+    try:
+        request.user.is_online = False
         request.user.save(update_fields=['is_online'])
         return JsonResponse({'success': True})
     except Exception as e:
@@ -516,30 +555,52 @@ def get_chat_info(request, room_id):
         if not chat_room.participants.filter(id=request.user.id).exists():
             return JsonResponse({'success': False, 'error': 'Zugriff verweigert'})
         
-        # Get participants
+        # Get participants with detailed info
         participants = []
+        participants_detailed = []
         other_user_info = None
         
         for participant in chat_room.participants.all():
             user_info = {
                 'id': participant.id,
                 'username': participant.username,
+                'first_name': participant.first_name,
+                'last_name': participant.last_name,
                 'name': participant.get_full_name() or participant.username,
+                'email': participant.email if participant == request.user or request.user.is_superuser else None,
                 'is_online': participant.is_currently_online(),
-                'profile_picture': participant.profile_picture.url if participant.profile_picture else None
+                'last_activity': participant.last_activity.strftime('%d.%m.%Y %H:%M') if participant.last_activity else None,
+                'date_joined': participant.date_joined.strftime('%d.%m.%Y'),
+                'profile_picture': participant.profile_picture.url if participant.profile_picture else None,
+                'is_current_user': participant == request.user
             }
             participants.append(user_info['name'])
+            participants_detailed.append(user_info)
             
             # If it's a private chat, get info about the other user
             if not chat_room.is_group_chat and participant != request.user:
                 other_user_info = user_info
+        
+        # Get recent messages count
+        recent_messages_count = chat_room.messages.filter(
+            created_at__gte=timezone.now() - timezone.timedelta(days=7)
+        ).count()
         
         room_info = {
             'id': chat_room.id,
             'name': chat_room.name,
             'is_group_chat': chat_room.is_group_chat,
             'created_at': chat_room.created_at.strftime('%d.%m.%Y %H:%M'),
+            'created_by': {
+                'name': chat_room.created_by.get_full_name() or chat_room.created_by.username,
+                'username': chat_room.created_by.username
+            } if chat_room.created_by else None,
             'participants': participants,
+            'participants_detailed': participants_detailed,
+            'participants_count': chat_room.participants.count(),
+            'total_messages': chat_room.messages.count(),
+            'recent_messages_count': recent_messages_count,
+            'last_message_at': chat_room.last_message_at.strftime('%d.%m.%Y %H:%M') if chat_room.last_message_at else None,
             'other_user': other_user_info
         }
         
@@ -569,13 +630,41 @@ def initiate_call(request, room_id):
         
         # Check if there's already an active call
         from .models import Call, CallParticipant
+        
+        # First, clean up any stale calls (older than 2 minutes) - more aggressive cleanup
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        stale_calls = Call.objects.filter(
+            chat_room=chat_room,
+            status__in=['initiated', 'ringing'],
+            started_at__lt=timezone.now() - timedelta(minutes=2)
+        )
+        stale_calls.update(status='missed')
+        
+        # Also clean up calls that are still "connected" but older than 30 minutes
+        old_connected_calls = Call.objects.filter(
+            chat_room=chat_room,
+            status='connected',
+            started_at__lt=timezone.now() - timedelta(minutes=30)
+        )
+        old_connected_calls.update(status='ended')
+        
+        # Now check for active calls
         active_call = Call.objects.filter(
             chat_room=chat_room,
             status__in=['initiated', 'ringing', 'connected']
         ).first()
         
         if active_call:
-            return JsonResponse({'success': False, 'error': 'Es läuft bereits ein Anruf in diesem Chat'})
+            # Force cleanup if call is too old (older than 30 seconds for more aggressive cleanup)
+            if active_call.started_at < timezone.now() - timedelta(seconds=30):
+                active_call.status = 'missed'
+                active_call.save()
+                print(f"DEBUG: Force cleaned up old call {active_call.id}")
+            else:
+                print(f"DEBUG: Active call found: {active_call.id}, started: {active_call.started_at}, caller: {active_call.caller}")
+                return JsonResponse({'success': False, 'error': 'Es läuft bereits ein Anruf in diesem Chat'})
         
         # Create new call
         call = Call.objects.create(
@@ -591,6 +680,31 @@ def initiate_call(request, room_id):
                 call=call,
                 user=participant,
                 status='invited'
+            )
+        
+        # Send global notification to all participants (except caller)
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        
+        channel_layer = get_channel_layer()
+        
+        participants = chat_room.participants.exclude(id=request.user.id)
+        print(f"🔔 Sending call notifications to {participants.count()} participants")
+        
+        for participant in participants:
+            print(f"📤 Sending notification to user {participant.username} (ID: {participant.id})")
+            async_to_sync(channel_layer.group_send)(
+                f'user_{participant.id}',
+                {
+                    'type': 'global_call_notification',
+                    'call_id': call.id,
+                    'caller': request.user.username,
+                    'caller_full_name': request.user.get_full_name() or request.user.username,
+                    'call_type': call_type,
+                    'room_id': str(chat_room.id),
+                    'room_name': str(chat_room),
+                    'timestamp': timezone.now().isoformat()
+                }
             )
         
         return JsonResponse({
@@ -674,3 +788,26 @@ def get_call_history(request, room_id):
         
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def websocket_test(request):
+    """
+    WebSocket connection test page
+    """
+    return render(request, 'chat/websocket_test.html')
+
+
+@login_required
+def test_call(request):
+    """
+    WebRTC call test page
+    """
+    # Get rooms where user is a participant
+    user_rooms = ChatRoom.objects.filter(participants=request.user).order_by('-created_at')
+    
+    context = {
+        'user_rooms': user_rooms,
+        'default_room_id': request.GET.get('room_id', '1')
+    }
+    return render(request, 'chat/test_call.html', context)

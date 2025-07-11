@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+</head>
+<body>
+    <h1>WebSocket Test</h1>
+    <div id="status"></div>
+    <div id="messages"></div>
+    
+    <script>
+        const status = document.getElementById('status');
+        const messages = document.getElementById('messages');
+        
+        // Test WebSocket connection
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//127.0.0.1:8001/ws/call/1/`;
+        
+        status.innerHTML = `Connecting to: ${wsUrl}`;
+        
+        const socket = new WebSocket(wsUrl);
+        
+        socket.onopen = function(e) {
+            status.innerHTML = '✅ WebSocket Connected Successfully!';
+            status.style.color = 'green';
+        };
+        
+        socket.onmessage = function(e) {
+            const message = document.createElement('div');
+            message.textContent = 'Received: ' + e.data;
+            messages.appendChild(message);
+        };
+        
+        socket.onclose = function(e) {
+            status.innerHTML = '❌ WebSocket Connection Closed';
+            status.style.color = 'red';
+        };
+        
+        socket.onerror = function(e) {
+            status.innerHTML = '❌ WebSocket Error: ' + e;
+            status.style.color = 'red';
+        };
+        
+        // Send test message after 2 seconds
+        setTimeout(() => {
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    type: 'test',
+                    message: 'Hello WebSocket!'
+                }));
+            }
+        }, 2000);
+    </script>
+</body>
+</html>
