@@ -6,7 +6,7 @@ app_name = 'chat'
 urlpatterns = [
     # Main chat pages
     path('', views.chat_home, name='home'),
-    path('room/<int:room_id>/', views.room_detail, name='room_detail'),
+    path('room/<int:room_id>/', views.redirect_to_chat, name='room_detail'),
     path('start/<int:user_id>/', views.start_chat, name='start_chat'),
     path('search/', views.user_search, name='user_search'),
     path('group/create/', views.create_group_chat, name='create_group_chat'),
@@ -16,4 +16,7 @@ urlpatterns = [
     path('api/room/<int:room_id>/messages/', views.get_messages, name='get_messages'),
     path('api/room/<int:room_id>/mark_read/', views.mark_messages_read, name='mark_messages_read'),
     path('unread-count/', views.get_unread_count, name='get_unread_count'),
+    path('update-online-status/', views.update_online_status, name='update_online_status'),
+    path('api/room/<int:room_id>/delete/', views.delete_chat, name='delete_chat'),
+    path('api/room/<int:room_id>/info/', views.get_chat_info, name='get_chat_info'),
 ]
