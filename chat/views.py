@@ -493,6 +493,168 @@ def set_offline(request):
 
 
 @login_required
+@csrf_exempt
+def send_call_notification(request):
+    """
+    Send call notification to other chat participants
+    """
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            room_id = data.get('room_id')
+            call_type = data.get('call_type')
+            channel_name = data.get('channel_name')
+            
+            # Get the chat room
+            room = get_object_or_404(ChatRoom, id=room_id)
+            
+            # Check if user is participant
+            if not room.participants.filter(id=request.user.id).exists():
+                return JsonResponse({'success': False, 'error': 'No permission'})
+            
+            # Remove any existing call notifications for this room to avoid duplicates
+            ChatMessage.objects.filter(
+                chat_room=room,
+                content__startswith='AGORA_CALL:',
+                message_type='system'
+            ).delete()
+            
+            # Create a single call notification message
+            call_message = ChatMessage.objects.create(
+                chat_room=room,
+                sender=request.user,
+                content=f"AGORA_CALL:{call_type}:{channel_name}",
+                message_type='system'
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message_id': call_message.id
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Method not allowed'})
+
+
+@login_required
+def check_incoming_calls(request):
+    """
+    Check for incoming calls for the current user across all chat rooms
+    """
+    try:
+        # Get the room_id from query params (optional, for backward compatibility)
+        room_id = request.GET.get('room_id')
+        
+        # Check for recent call messages across all user's chat rooms
+        recent_time = timezone.now() - timezone.timedelta(seconds=30)  # Check last 30 seconds
+        
+        # Get all rooms where user is a participant
+        user_rooms = ChatRoom.objects.filter(participants=request.user)
+        
+        if room_id:
+            # If room_id is specified, check only that room
+            call_messages = ChatMessage.objects.filter(
+                chat_room_id=room_id,
+                created_at__gte=recent_time,
+                content__startswith='AGORA_CALL:'
+            ).exclude(sender=request.user).order_by('-created_at')
+        else:
+            # Check all user's chat rooms for incoming calls
+            call_messages = ChatMessage.objects.filter(
+                chat_room__in=user_rooms,
+                created_at__gte=recent_time,
+                content__startswith='AGORA_CALL:'
+            ).exclude(sender=request.user).order_by('-created_at')
+        
+        if call_messages.exists():
+            latest_call = call_messages.first()
+            parts = latest_call.content.split(':')
+            
+            return JsonResponse({
+                'has_call': True,
+                'call_type': parts[1] if len(parts) > 1 else 'audio',
+                'channel_name': parts[2] if len(parts) > 2 else '',
+                'caller_name': latest_call.sender.get_full_name() or latest_call.sender.username,
+                'caller_id': latest_call.sender.id,
+                'room_id': latest_call.chat_room.id,
+                'message_id': latest_call.id
+            })
+        
+        return JsonResponse({'has_call': False})
+        
+    except Exception as e:
+        return JsonResponse({'has_call': False, 'error': str(e)})
+
+
+@login_required
+@csrf_exempt
+def clear_call_notification(request):
+    """
+    Clear call notification after answering/rejecting
+    """
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            message_id = data.get('message_id')
+            
+            if message_id:
+                # Delete the specific call message
+                ChatMessage.objects.filter(
+                    id=message_id,
+                    message_type='system',
+                    content__startswith='AGORA_CALL:'
+                ).delete()
+            
+            return JsonResponse({'success': True})
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Method not allowed'})
+
+
+@login_required
+@csrf_exempt
+def end_call_notification(request):
+    """
+    End call and clear all related notifications
+    """
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            room_id = data.get('room_id')
+            
+            if not room_id:
+                return JsonResponse({'success': False, 'error': 'Room ID required'})
+            
+            # Get the chat room
+            room = get_object_or_404(ChatRoom, id=room_id)
+            
+            # Check if user is participant
+            if not room.participants.filter(id=request.user.id).exists():
+                return JsonResponse({'success': False, 'error': 'No permission'})
+            
+            # Remove all call notifications for this room
+            deleted_count = ChatMessage.objects.filter(
+                chat_room=room,
+                content__startswith='AGORA_CALL:',
+                message_type='system'
+            ).delete()[0]
+            
+            return JsonResponse({
+                'success': True,
+                'cleared_notifications': deleted_count
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Method not allowed'})
+
+
+@login_required
 def redirect_to_chat(request, room_id):
     """
     Redirect room URLs to main chat page with room selected
