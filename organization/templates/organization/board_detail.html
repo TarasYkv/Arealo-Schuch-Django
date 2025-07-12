@@ -25,14 +25,14 @@
     </div>
     
     <div class="row">
-        <div class="col-2">
+        <div class="col-12 col-lg-2">
             <!-- Werkzeuge -->
             <div class="card">
-                <div class="card-header">
+                <div class="card-header d-lg-block d-none">
                     <h5>Werkzeuge</h5>
                 </div>
-                <div class="card-body">
-                    <div class="btn-group-vertical w-100" role="group">
+                <div class="card-body p-2">
+                    <div class="btn-group-vertical btn-group-horizontal-mobile w-100" role="group">
                         <button type="button" class="btn btn-outline-primary tool-btn active" data-tool="select">
                             <i class="fas fa-mouse-pointer"></i> Auswählen
                         </button>
@@ -41,9 +41,6 @@
                         </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="brush">
                             <i class="fas fa-brush"></i> Pinsel
-                        </button>
-                        <button type="button" class="btn btn-outline-primary tool-btn" data-tool="eraser">
-                            <i class="fas fa-eraser"></i> Radierer
                         </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="text">
                             <i class="fas fa-font"></i> Text
@@ -59,6 +56,9 @@
                         </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="line">
                             <i class="fas fa-minus"></i> Linie
+                        </button>
+                        <button type="button" class="btn btn-outline-primary tool-btn" data-tool="arrow">
+                            <i class="fas fa-arrow-right"></i> Pfeil
                         </button>
                     </div>
                     
@@ -97,7 +97,7 @@
             </div>
         </div>
         
-        <div class="col-10">
+        <div class="col-12 col-lg-10">
             <!-- Canvas -->
             <div class="card">
                 <div class="card-body p-0">
@@ -105,7 +105,7 @@
                         <canvas id="drawing-canvas" 
                                 width="{{ board.width }}" 
                                 height="{{ board.height }}" 
-                                style="border: 1px solid #dee2e6; background-color: {{ board.background_color }}; cursor: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTMgM0w5IDE5TDEyIDE1TDE5IDEySjMgM1oiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIxIi8+Cjwvc3ZnPg==) 3 3, pointer;">
+                                style="border: 1px solid #dee2e6; background-color: {{ board.background_color }}; max-width: 100%; height: auto; cursor: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTMgM0w5IDE5TDEyIDE1TDE5IDEySjMgM1oiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIxIi8+Cjwvc3ZnPg==) 3 3, pointer;">
                         </canvas>
                     </div>
                 </div>
@@ -185,11 +185,38 @@ class IdeaBoard {
     }
     
     initEventListeners() {
-        // Canvas Events
+        // Canvas Events - Mouse
         this.canvas.addEventListener('mousedown', (e) => this.startDrawing(e));
         this.canvas.addEventListener('mousemove', (e) => this.draw(e));
         this.canvas.addEventListener('mouseup', (e) => this.stopDrawing(e));
         this.canvas.addEventListener('mouseout', (e) => this.stopDrawing(e));
+        
+        // Canvas Events - Touch (for mobile)
+        this.canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousedown', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            this.startDrawing(mouseEvent);
+        });
+        
+        this.canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent('mousemove', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            this.draw(mouseEvent);
+        });
+        
+        this.canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            const mouseEvent = new MouseEvent('mouseup', {});
+            this.stopDrawing(mouseEvent);
+        });
         
         // Tool Selection
         document.querySelectorAll('.tool-btn').forEach(btn => {
@@ -234,10 +261,21 @@ class IdeaBoard {
         });
     }
     
-    startDrawing(e) {
+    getCanvasCoordinates(e) {
         const rect = this.canvas.getBoundingClientRect();
-        this.startX = e.clientX - rect.left;
-        this.startY = e.clientY - rect.top;
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        
+        return {
+            x: (e.clientX - rect.left) * scaleX,
+            y: (e.clientY - rect.top) * scaleY
+        };
+    }
+    
+    startDrawing(e) {
+        const coords = this.getCanvasCoordinates(e);
+        this.startX = coords.x;
+        this.startY = coords.y;
         
         if (this.currentTool === 'select') {
             this.handleSelection(this.startX, this.startY);
@@ -252,9 +290,9 @@ class IdeaBoard {
     }
     
     draw(e) {
-        const rect = this.canvas.getBoundingClientRect();
-        const currentX = e.clientX - rect.left;
-        const currentY = e.clientY - rect.top;
+        const coords = this.getCanvasCoordinates(e);
+        const currentX = coords.x;
+        const currentY = coords.y;
         
         if (this.currentTool === 'select') {
             this.handleDragOrResize(currentX, currentY);
@@ -271,7 +309,7 @@ class IdeaBoard {
         this.ctx.lineJoin = 'round';
         
         // Temporäres Canvas für Vorschau bei Formen
-        if (['rectangle', 'circle', 'triangle', 'line'].includes(this.currentTool)) {
+        if (['rectangle', 'circle', 'triangle', 'line', 'arrow'].includes(this.currentTool)) {
             this.drawShapePreview(currentX, currentY);
             return;
         }
@@ -288,13 +326,6 @@ class IdeaBoard {
                 this.startY = currentY;
                 break;
                 
-            case 'eraser':
-                this.ctx.globalCompositeOperation = 'destination-out';
-                this.ctx.beginPath();
-                this.ctx.arc(currentX, currentY, this.currentStrokeWidth, 0, 2 * Math.PI);
-                this.ctx.fill();
-                this.ctx.globalCompositeOperation = 'source-over';
-                break;
                 
             case 'text':
                 // Text wird beim Klick hinzugefügt
@@ -346,7 +377,32 @@ class IdeaBoard {
                 this.ctx.lineTo(currentX, currentY);
                 this.ctx.stroke();
                 break;
+                
+            case 'arrow':
+                this.drawArrow(this.startX, this.startY, currentX, currentY);
+                break;
         }
+    }
+    
+    drawArrow(fromX, fromY, toX, toY) {
+        const headLen = 10; // length of head in pixels
+        const dx = toX - fromX;
+        const dy = toY - fromY;
+        const angle = Math.atan2(dy, dx);
+        
+        // Draw the line
+        this.ctx.beginPath();
+        this.ctx.moveTo(fromX, fromY);
+        this.ctx.lineTo(toX, toY);
+        this.ctx.stroke();
+        
+        // Draw the arrow head
+        this.ctx.beginPath();
+        this.ctx.moveTo(toX, toY);
+        this.ctx.lineTo(toX - headLen * Math.cos(angle - Math.PI / 6), toY - headLen * Math.sin(angle - Math.PI / 6));
+        this.ctx.moveTo(toX, toY);
+        this.ctx.lineTo(toX - headLen * Math.cos(angle + Math.PI / 6), toY - headLen * Math.sin(angle + Math.PI / 6));
+        this.ctx.stroke();
     }
     
     redrawCanvas() {
@@ -362,7 +418,8 @@ class IdeaBoard {
     }
     
     drawElement(element) {
-        this.ctx.globalAlpha = element.opacity || 1.0;
+        // Handle opacity correctly - use 1.0 only if opacity is undefined, not if it's 0
+        this.ctx.globalAlpha = element.opacity !== undefined ? element.opacity : 1.0;
         this.ctx.strokeStyle = element.color || '#000000';
         this.ctx.fillStyle = element.color || '#000000';
         this.ctx.lineWidth = element.stroke_width || 2;
@@ -370,6 +427,20 @@ class IdeaBoard {
         // Set consistent line rendering properties
         this.ctx.lineCap = 'round';
         this.ctx.lineJoin = 'round';
+        
+        // Apply rotation if present
+        if (element.rotation && element.rotation !== 0) {
+            const bounds = this.getElementBounds(element);
+            const centerX = bounds.x + bounds.width / 2;
+            const centerY = bounds.y + bounds.height / 2;
+            
+            console.log(`Drawing element ${element.id} with rotation ${element.rotation}°`);
+            
+            this.ctx.save();
+            this.ctx.translate(centerX, centerY);
+            this.ctx.rotate(element.rotation * Math.PI / 180);
+            this.ctx.translate(-centerX, -centerY);
+        }
         
         const data = element.data;
         
@@ -400,6 +471,10 @@ class IdeaBoard {
                 this.ctx.stroke();
                 break;
                 
+            case 'arrow':
+                this.drawArrow(data.x1, data.y1, data.x2, data.y2);
+                break;
+                
             case 'freehand':
                 if (data.path && data.path.length > 1) {
                     this.ctx.beginPath();
@@ -416,12 +491,18 @@ class IdeaBoard {
                 this.ctx.fillText(data.text, data.x, data.y);
                 break;
         }
+        
+        // Restore transformation if rotation was applied
+        if (element.rotation && element.rotation !== 0) {
+            this.ctx.restore();
+        }
     }
     
     stopDrawing(event) {
         if (this.currentTool === 'select') {
             this.isDragging = false;
             this.isResizing = false;
+            this.isRotating = false;
             this.resizeHandle = null;
             return;
         }
@@ -429,9 +510,9 @@ class IdeaBoard {
         if (!this.isDrawing) return;
         this.isDrawing = false;
         
-        const rect = this.canvas.getBoundingClientRect();
-        const endX = event ? event.clientX - rect.left : this.startX;
-        const endY = event ? event.clientY - rect.top : this.startY;
+        const coords = event ? this.getCanvasCoordinates(event) : {x: this.startX, y: this.startY};
+        const endX = coords.x;
+        const endY = coords.y;
         
         const width = endX - this.startX;
         const height = endY - this.startY;
@@ -493,6 +574,17 @@ class IdeaBoard {
                 }
                 break;
                 
+            case 'arrow':
+                if (Math.abs(width) > 5 || Math.abs(height) > 5) {
+                    this.saveElement('arrow', {
+                        x1: this.startX,
+                        y1: this.startY,
+                        x2: endX,
+                        y2: endY
+                    });
+                }
+                break;
+                
             case 'text':
                 this.addText(this.startX, this.startY);
                 break;
@@ -526,6 +618,7 @@ class IdeaBoard {
             color: this.currentColor,
             stroke_width: this.currentStrokeWidth,
             opacity: this.currentOpacity,
+            rotation: 0, // Default rotation
             layer_index: this.elements.length
         };
         
@@ -569,13 +662,25 @@ class IdeaBoard {
     }
     
     handleSelection(x, y) {
-        // Check if clicking on resize handle
+        // Check if clicking on resize/rotate handle
         if (this.selectedElement) {
             const handle = this.getResizeHandle(x, y);
             if (handle) {
-                this.isResizing = true;
-                this.resizeHandle = handle;
-                console.log('Resize handle clicked:', handle);
+                if (handle === 'rotate') {
+                    this.isRotating = true;
+                    const bounds = this.getElementBounds(this.selectedElement);
+                    this.rotationCenter = {
+                        x: bounds.x + bounds.width / 2,
+                        y: bounds.y + bounds.height / 2
+                    };
+                    this.initialAngle = Math.atan2(y - this.rotationCenter.y, x - this.rotationCenter.x);
+                    this.selectedElement.rotation = this.selectedElement.rotation || 0;
+                    console.log('Rotation handle clicked');
+                } else {
+                    this.isResizing = true;
+                    this.resizeHandle = handle;
+                    console.log('Resize handle clicked:', handle);
+                }
                 return;
             }
         }
@@ -613,7 +718,9 @@ class IdeaBoard {
     }
     
     handleDragOrResize(x, y) {
-        if (this.isResizing && this.selectedElement) {
+        if (this.isRotating && this.selectedElement) {
+            this.rotateElement(x, y);
+        } else if (this.isResizing && this.selectedElement) {
             this.resizeElement(x, y);
         } else if (this.isDragging && this.selectedElement) {
             this.dragElement(x, y);
@@ -653,6 +760,7 @@ class IdeaBoard {
                 return x >= minX && x <= maxX && y >= minY && y <= maxY;
             
             case 'line':
+            case 'arrow':
                 // Check if point is near line (within stroke width)
                 const dist = this.distanceToLine(x, y, data.x1, data.y1, data.x2, data.y2);
                 return dist <= (element.stroke_width || 2) + 5;
@@ -738,6 +846,21 @@ class IdeaBoard {
                 data.x = newX;
                 data.y = newY;
                 break;
+            case 'line':
+            case 'arrow':
+                data.x1 += deltaX;
+                data.y1 += deltaY;
+                data.x2 += deltaX;
+                data.y2 += deltaY;
+                break;
+            case 'triangle':
+                data.x1 += deltaX;
+                data.y1 += deltaY;
+                data.x2 += deltaX;
+                data.y2 += deltaY;
+                data.x3 += deltaX;
+                data.y3 += deltaY;
+                break;
             case 'freehand':
                 // Move all points in the path
                 if (data.path) {
@@ -753,13 +876,40 @@ class IdeaBoard {
         this.updateElementOnServer(this.selectedElement);
     }
     
+    rotateElement(x, y) {
+        if (!this.selectedElement) return;
+        
+        const currentAngle = Math.atan2(y - this.rotationCenter.y, x - this.rotationCenter.x);
+        const angleDiff = currentAngle - this.initialAngle;
+        
+        // Update rotation (convert to degrees for easier handling)
+        const oldRotation = this.selectedElement.rotation || 0;
+        this.selectedElement.rotation = (oldRotation + angleDiff * (180 / Math.PI)) % 360;
+        
+        console.log(`Rotating element ${this.selectedElement.id}: ${oldRotation}° -> ${this.selectedElement.rotation}°`);
+        
+        this.initialAngle = currentAngle;
+        this.redrawCanvas();
+        this.updateElementOnServer(this.selectedElement);
+    }
+    
     getResizeHandle(x, y) {
         if (!this.selectedElement) return null;
         
         const bounds = this.getElementBounds(this.selectedElement);
         const handleSize = 10; // Match the drawing size
         
-        // Check each corner
+        // Check rotation handle first (higher priority)
+        const centerX = bounds.x + bounds.width / 2;
+        const centerY = bounds.y + bounds.height / 2;
+        const rotateHandleX = centerX;
+        const rotateHandleY = bounds.y - 20; // 20px above the element
+        
+        if (Math.abs(x - rotateHandleX) <= handleSize && Math.abs(y - rotateHandleY) <= handleSize) {
+            return 'rotate';
+        }
+        
+        // Check resize corners
         const handles = [
             { name: 'nw', x: bounds.x, y: bounds.y },
             { name: 'ne', x: bounds.x + bounds.width, y: bounds.y },
@@ -801,6 +951,29 @@ class IdeaBoard {
                     y: data.y - 16,
                     width: textWidth,
                     height: 16
+                };
+            case 'line':
+            case 'arrow':
+                const minX = Math.min(data.x1, data.x2);
+                const maxX = Math.max(data.x1, data.x2);
+                const minY = Math.min(data.y1, data.y2);
+                const maxY = Math.max(data.y1, data.y2);
+                return {
+                    x: minX,
+                    y: minY,
+                    width: Math.max(maxX - minX, 10), // Minimum width for selection
+                    height: Math.max(maxY - minY, 10) // Minimum height for selection
+                };
+            case 'triangle':
+                const triMinX = Math.min(data.x1, data.x2, data.x3);
+                const triMaxX = Math.max(data.x1, data.x2, data.x3);
+                const triMinY = Math.min(data.y1, data.y2, data.y3);
+                const triMaxY = Math.max(data.y1, data.y2, data.y3);
+                return {
+                    x: triMinX,
+                    y: triMinY,
+                    width: triMaxX - triMinX,
+                    height: triMaxY - triMinY
                 };
             default:
                 return { x: 0, y: 0, width: 0, height: 0 };
@@ -883,27 +1056,77 @@ class IdeaBoard {
             this.ctx.fillRect(handle.x - handleSize/2, handle.y - handleSize/2, handleSize, handleSize);
             this.ctx.strokeRect(handle.x - handleSize/2, handle.y - handleSize/2, handleSize, handleSize);
         }
+        
+        // Draw rotation handle
+        const centerX = bounds.x + bounds.width / 2;
+        const rotateHandleY = bounds.y - 20;
+        
+        // Draw connection line to rotation handle
+        this.ctx.strokeStyle = '#007bff';
+        this.ctx.lineWidth = 1;
+        this.ctx.setLineDash([3, 3]);
+        this.ctx.beginPath();
+        this.ctx.moveTo(centerX, bounds.y);
+        this.ctx.lineTo(centerX, rotateHandleY);
+        this.ctx.stroke();
+        this.ctx.setLineDash([]);
+        
+        // Draw rotation handle (circular)
+        this.ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        this.ctx.beginPath();
+        this.ctx.arc(centerX + 1, rotateHandleY + 1, handleSize/2, 0, 2 * Math.PI);
+        this.ctx.fill();
+        
+        this.ctx.fillStyle = '#28a745'; // Green color for rotation
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.arc(centerX, rotateHandleY, handleSize/2, 0, 2 * Math.PI);
+        this.ctx.fill();
+        this.ctx.stroke();
+        
+        // Draw rotation icon (small arrow)
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.lineWidth = 1;
+        this.ctx.beginPath();
+        this.ctx.arc(centerX, rotateHandleY, 3, 0, 1.5 * Math.PI);
+        this.ctx.stroke();
+        // Arrow head
+        this.ctx.beginPath();
+        this.ctx.moveTo(centerX - 3, rotateHandleY - 3);
+        this.ctx.lineTo(centerX - 1, rotateHandleY - 3);
+        this.ctx.lineTo(centerX - 1, rotateHandleY - 1);
+        this.ctx.stroke();
     }
     
     updateElementOnServer(element) {
+        const updateData = {
+            element_id: element.id,
+            data: element.data,
+            position_x: element.position_x,
+            position_y: element.position_y,
+            rotation: element.rotation || 0
+        };
+        
+        console.log('Sending update to server:', updateData);
+        
         fetch(`/organization/boards/{{ board.pk }}/update-element/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': '{{ csrf_token }}'
             },
-            body: JSON.stringify({
-                element_id: element.id,
-                data: element.data,
-                position_x: element.position_x,
-                position_y: element.position_y
-            })
+            body: JSON.stringify(updateData)
         })
         .then(response => response.json())
         .then(data => {
+            console.log('Server response:', data);
             if (data.success) {
                 this.lastUpdate = Date.now();
             }
+        })
+        .catch(error => {
+            console.error('Error updating element:', error);
         });
     }
     
@@ -911,7 +1134,7 @@ class IdeaBoard {
         this.lastUpdate = Date.now();
         this.pollingInterval = setInterval(() => {
             this.checkForUpdates();
-        }, 2000); // Check every 2 seconds
+        }, 1000); // Check every 1 second for faster synchronization
     }
     
     checkForUpdates() {
@@ -919,8 +1142,14 @@ class IdeaBoard {
             .then(response => response.json())
             .then(data => {
                 if (data.updated && data.elements) {
+                    console.log('Received elements from server:', data.elements.map(e => ({
+                        id: e.id,
+                        type: e.element_type,
+                        rotation: e.rotation
+                    })));
                     // Only update if there are actual changes
                     if (this.hasElementsChanged(data.elements)) {
+                        console.log('Elements changed, updating canvas');
                         this.elements = data.elements;
                         this.redrawCanvas();
                     }
@@ -944,7 +1173,9 @@ class IdeaBoard {
             if (!oldEl || newEl.id !== oldEl.id || 
                 JSON.stringify(newEl.data) !== JSON.stringify(oldEl.data) ||
                 newEl.position_x !== oldEl.position_x ||
-                newEl.position_y !== oldEl.position_y) {
+                newEl.position_y !== oldEl.position_y ||
+                newEl.rotation !== oldEl.rotation) {
+                console.log(`Element ${newEl.id} changed - rotation: ${oldEl?.rotation} -> ${newEl.rotation}`);
                 return true;
             }
         }
@@ -969,13 +1200,13 @@ class IdeaBoard {
                 // Dark crosshair for better visibility
                 this.canvas.style.cursor = 'url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGxpbmUgeDE9IjEyIiB5MT0iMyIgeDI9IjEyIiB5Mj0iMjEiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxsaW5lIHgxPSIzIiB5MT0iMTIiIHgyPSIyMSIgeTI9IjEyIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMiIvPgo8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIyIiBmaWxsPSIjZmZmIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMSIvPgo8L3N2Zz4=) 12 12, crosshair';
                 break;
-            case 'eraser':
-                // Improved eraser cursor with better visibility
-                this.canvas.style.cursor = 'url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3QgeD0iOCIgeT0iMTIiIHdpZHRoPSI4IiBoZWlnaHQ9IjQiIGZpbGw9IiNmZjY5YjQiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIxIi8+CjxyZWN0IHg9IjYiIHk9IjciIHdpZHRoPSIxMiIgaGVpZ2h0PSI1IiBmaWxsPSIjZmZkZGRkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMSIvPgo8L3N2Zz4=) 12 12, auto';
-                break;
             case 'text':
                 // Dark text cursor
                 this.canvas.style.cursor = 'url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGxpbmUgeDE9IjEyIiB5MT0iMyIgeDI9IjEyIiB5Mj0iMjEiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxsaW5lIHgxPSI5IiB5MT0iMyIgeDI9IjE1IiB5Mj0iMyIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiLz4KPGxpbmUgeDE9IjkiIHkxPSIyMSIgeDI9IjE1IiB5Mj0iMjEiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjwvc3ZnPg==) 12 12, text';
+                break;
+            case 'arrow':
+                // Arrow cursor
+                this.canvas.style.cursor = 'url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGxpbmUgeDE9IjMiIHkxPSIxMiIgeDI9IjIxIiB5Mj0iMTIiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjxwb2x5bGluZSBwb2ludHM9IjE1LDYgMjEsMTIgMTUsMTgiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIi8+Cjwvc3ZnPg==) 12 12, crosshair';
                 break;
             default:
                 // Default dark crosshair
@@ -1150,6 +1381,87 @@ function saveInvitations() {
 .form-control-color {
     width: 100%;
     height: 40px;
+}
+
+/* Mobile responsive styles */
+@media (max-width: 991.98px) {
+    /* Transform vertical button group to horizontal on mobile */
+    .btn-group-horizontal-mobile {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+    }
+    
+    .btn-group-horizontal-mobile .tool-btn {
+        flex: 1 1 calc(20% - 4px) !important;
+        min-width: 60px !important;
+        padding: 8px 4px !important;
+        font-size: 12px !important;
+        border-radius: 6px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    
+    /* Hide text on very small screens, show only icons */
+    .btn-group-horizontal-mobile .tool-btn i {
+        display: block !important;
+        margin-right: 0 !important;
+        font-size: 16px !important;
+    }
+    
+    /* Canvas container adjustments for mobile */
+    #canvas-container {
+        overflow-x: auto !important;
+        overflow-y: auto !important;
+        max-width: 100vw !important;
+        padding: 10px !important;
+    }
+    
+    #drawing-canvas {
+        max-width: 100% !important;
+        height: auto !important;
+        touch-action: none !important; /* Prevent page scrolling while drawing */
+    }
+    
+    /* Mobile card adjustments */
+    .card-body {
+        padding: 0.75rem !important;
+    }
+    
+    /* Smaller controls on mobile */
+    .form-control, .form-select {
+        font-size: 14px !important;
+        padding: 6px 8px !important;
+    }
+    
+    .btn {
+        font-size: 14px !important;
+        padding: 6px 12px !important;
+    }
+}
+
+@media (max-width: 575.98px) {
+    /* Even more compact on very small screens */
+    .btn-group-horizontal-mobile .tool-btn {
+        flex: 1 1 calc(25% - 3px) !important;
+        padding: 6px 2px !important;
+        font-size: 0 !important; /* Hide text completely */
+    }
+    
+    .btn-group-horizontal-mobile .tool-btn i {
+        font-size: 14px !important;
+    }
+    
+    /* Stack canvas below tools on very small screens */
+    .row {
+        margin: 0 !important;
+    }
+    
+    .col-12 {
+        padding: 0.25rem !important;
+    }
 }
 </style>
 {% endblock %}

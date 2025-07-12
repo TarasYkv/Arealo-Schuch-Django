@@ -561,6 +561,7 @@ def board_get_elements(request, pk):
             'color': element.color,
             'stroke_width': element.stroke_width,
             'opacity': element.opacity,
+            'rotation': element.rotation if element.rotation is not None else 0,
             'layer_index': element.layer_index,
         })
     
@@ -619,6 +620,7 @@ def board_update_element(request, pk):
             element.data = data.get('data', element.data)
             element.position_x = data.get('position_x', element.position_x)
             element.position_y = data.get('position_y', element.position_y)
+            element.rotation = data.get('rotation', element.rotation)
             element.save()
             
             # Update board's updated_at timestamp for polling
@@ -631,6 +633,7 @@ def board_update_element(request, pk):
             return JsonResponse({'error': 'Element nicht gefunden'}, status=404)
     
     return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
+
 
 
 @login_required
