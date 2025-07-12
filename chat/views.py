@@ -8,9 +8,11 @@ from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib import messages
 from django.core.paginator import Paginator
+from django.conf import settings
 import json
 
 from .models import ChatRoom, ChatMessage, ChatRoomParticipant, ChatMessageRead, ChatMessageAttachment
+from .agora_utils import generate_agora_token
 
 User = get_user_model()
 
@@ -40,6 +42,7 @@ def chat_home(request):
     context = {
         'chat_rooms': chat_rooms,
         'recent_users': recent_users,
+        'agora_app_id': settings.AGORA_APP_ID,
     }
     
     return render(request, 'chat/home_new.html', context)
@@ -811,3 +814,48 @@ def test_call(request):
         'default_room_id': request.GET.get('room_id', '1')
     }
     return render(request, 'chat/test_call.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def get_agora_token(request):
+    """
+    Generate Agora token for video/audio calls
+    """
+    try:
+        data = json.loads(request.body)
+        channel = data.get('channel')
+        uid = data.get('uid', 0)
+        
+        if not channel:
+            return JsonResponse({
+                'success': False,
+                'error': 'Channel name required'
+            })
+        
+        # Generate token
+        result = generate_agora_token(channel, uid)
+        
+        if result['success']:
+            return JsonResponse({
+                'success': True,
+                'token': result['token'],
+                'uid': result['uid'],
+                'expire_time': result['expire_time']
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': result['error']
+            })
+            
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid JSON data'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })

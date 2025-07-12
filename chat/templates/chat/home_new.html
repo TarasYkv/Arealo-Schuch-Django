@@ -589,6 +589,9 @@ body.modal-open {
                                             <i class="fas fa-ellipsis-v"></i>
                                         </button>
                                         <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="#" onclick="startAgoraCall('audio')"><i class="fas fa-phone"></i> Anrufen</a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="startAgoraCall('video')"><i class="fas fa-video"></i> Videoanruf</a></li>
+                                            <li><hr class="dropdown-divider"></li>
                                             <li><a class="dropdown-item" href="#" onclick="showChatInfo()"><i class="fas fa-info-circle"></i> Info</a></li>
                                             <li><a class="dropdown-item text-danger" href="#" onclick="deleteChat()"><i class="fas fa-trash"></i> Löschen</a></li>
                                         </ul>
@@ -604,6 +607,47 @@ body.modal-open {
                                 </div>
                             </div>
                             
+                            <!-- Agora Video Call Modal -->
+                            <div class="modal fade" id="agoraCallModal" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog modal-lg">
+                                    <div class="modal-content bg-dark text-white">
+                                        <div class="modal-header border-secondary">
+                                            <h5 class="modal-title" id="callModalTitle">
+                                                <i class="fas fa-phone" id="callModalIcon"></i>
+                                                <span id="callModalText">Anruf</span>
+                                            </h5>
+                                            <button type="button" class="btn-close btn-close-white" onclick="endAgoraCall()"></button>
+                                        </div>
+                                        <div class="modal-body p-0">
+                                            <!-- Video Container -->
+                                            <div id="videoContainer" style="position: relative; height: 400px; background: #000;">
+                                                <div id="localVideoContainer" style="position: fixed; bottom: 20px; right: 20px; width: 120px; height: 90px; z-index: 1000; border: 2px solid #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                                                </div>
+                                                <div id="remoteVideoContainer" style="width: 100%; height: 100%;">
+                                                    <div class="d-flex align-items-center justify-content-center h-100" id="waitingScreen">
+                                                        <div class="text-center">
+                                                            <div class="spinner-border text-primary mb-3" role="status"></div>
+                                                            <h5>Warte auf Antwort...</h5>
+                                                            <p id="callStatus">Verbinde...</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer border-secondary justify-content-center">
+                                            <button type="button" class="btn btn-outline-light" id="muteBtn" onclick="toggleMute()">
+                                                <i class="fas fa-microphone"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-outline-light" id="videoBtn" onclick="toggleVideo()" style="display: none;">
+                                                <i class="fas fa-video"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-danger" onclick="endAgoraCall()">
+                                                <i class="fas fa-phone-slash"></i> Beenden
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             
                             <div class="message-input-area" id="messageInput" style="display: none;">
                                 <div class="d-flex align-items-end gap-2">
@@ -1998,5 +2042,248 @@ function handleCallEnded(data) {
         </div>
     </div>
 </div>
+
+<!-- Agora SDK -->
+<script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.21.0.js"></script>
+
+<script>
+// Agora Video/Audio Call Integration
+let agoraClient = null;
+let localAudioTrack = null;
+let localVideoTrack = null;
+let currentCallType = null;
+let currentChannelName = null;
+let isCallActive = false;
+let callModal = null;
+
+// Agora Configuration - App ID wird vom Backend geholt
+const agoraConfig = {
+    appId: "{{ agora_app_id }}",
+    channel: null,
+    uid: null,
+    token: null
+};
+
+// Initialize Agora client
+function initAgoraClient() {
+    agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+    
+    // Event handlers
+    agoraClient.on("user-published", async (user, mediaType) => {
+        await agoraClient.subscribe(user, mediaType);
+        console.log("User published:", user, mediaType);
+        
+        if (mediaType === "video") {
+            const remoteVideoTrack = user.videoTrack;
+            const remoteContainer = document.getElementById("remoteVideoContainer");
+            remoteContainer.innerHTML = "";
+            remoteVideoTrack.play(remoteContainer);
+            
+            // Hide waiting screen
+            document.getElementById("waitingScreen").style.display = "none";
+        }
+        
+        if (mediaType === "audio") {
+            const remoteAudioTrack = user.audioTrack;
+            remoteAudioTrack.play();
+        }
+    });
+    
+    agoraClient.on("user-unpublished", (user) => {
+        console.log("User unpublished:", user);
+        // Show waiting screen again
+        document.getElementById("waitingScreen").style.display = "block";
+    });
+    
+    agoraClient.on("user-left", (user) => {
+        console.log("User left:", user);
+        document.getElementById("callStatus").textContent = "Anruf beendet";
+        setTimeout(() => {
+            endAgoraCall();
+        }, 2000);
+    });
+}
+
+// Start Agora call
+async function startAgoraCall(callType) {
+    if (!currentRoomId) {
+        alert('Bitte wählen Sie zuerst einen Chat aus.');
+        return;
+    }
+    
+    if (isCallActive) {
+        alert('Es läuft bereits ein Anruf.');
+        return;
+    }
+    
+    try {
+        currentCallType = callType;
+        currentChannelName = `chat_${currentRoomId}`;
+        
+        // Get Agora token from backend
+        const response = await fetch('/chat/get-agora-token/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrf-token]').content
+            },
+            body: JSON.stringify({
+                channel: currentChannelName,
+                uid: 0
+            })
+        });
+        
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to get Agora token');
+        }
+        
+        agoraConfig.channel = currentChannelName;
+        agoraConfig.uid = data.uid;
+        agoraConfig.token = data.token;
+        
+        // Initialize Agora client
+        initAgoraClient();
+        
+        // Show call modal
+        showCallModal(callType);
+        
+        // Join channel
+        await agoraClient.join(agoraConfig.appId, agoraConfig.channel, agoraConfig.token, agoraConfig.uid);
+        
+        // Create and publish local tracks
+        localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        
+        if (callType === 'video') {
+            localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+            localVideoTrack.play("localVideoContainer");
+            await agoraClient.publish([localAudioTrack, localVideoTrack]);
+            document.getElementById("videoBtn").style.display = "inline-block";
+        } else {
+            await agoraClient.publish([localAudioTrack]);
+        }
+        
+        isCallActive = true;
+        document.getElementById("callStatus").textContent = "Im Anruf - Warte auf anderen Teilnehmer";
+        
+    } catch (error) {
+        console.error('Error starting Agora call:', error);
+        alert('Fehler beim Starten des Anrufs: ' + error.message);
+        endAgoraCall();
+    }
+}
+
+// Show call modal
+function showCallModal(callType) {
+    const modal = document.getElementById("agoraCallModal");
+    const icon = document.getElementById("callModalIcon");
+    const text = document.getElementById("callModalText");
+    
+    if (callType === 'video') {
+        icon.className = "fas fa-video";
+        text.textContent = "Videoanruf";
+    } else {
+        icon.className = "fas fa-phone";
+        text.textContent = "Anruf";
+    }
+    
+    callModal = new bootstrap.Modal(modal, {
+        backdrop: 'static',
+        keyboard: false
+    });
+    callModal.show();
+}
+
+// End Agora call
+async function endAgoraCall() {
+    try {
+        // Stop local tracks
+        if (localAudioTrack) {
+            localAudioTrack.stop();
+            localAudioTrack.close();
+            localAudioTrack = null;
+        }
+        
+        if (localVideoTrack) {
+            localVideoTrack.stop();
+            localVideoTrack.close();
+            localVideoTrack = null;
+        }
+        
+        // Leave channel
+        if (agoraClient) {
+            await agoraClient.leave();
+            agoraClient = null;
+        }
+        
+        // Hide modal
+        if (callModal) {
+            callModal.hide();
+            callModal = null;
+        }
+        
+        // Reset state
+        isCallActive = false;
+        currentCallType = null;
+        currentChannelName = null;
+        
+        // Reset UI
+        document.getElementById("waitingScreen").style.display = "block";
+        document.getElementById("remoteVideoContainer").innerHTML = `
+            <div class="d-flex align-items-center justify-content-center h-100" id="waitingScreen">
+                <div class="text-center">
+                    <div class="spinner-border text-primary mb-3" role="status"></div>
+                    <h5>Warte auf Antwort...</h5>
+                    <p id="callStatus">Verbinde...</p>
+                </div>
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('Error ending call:', error);
+    }
+}
+
+// Toggle mute
+async function toggleMute() {
+    if (localAudioTrack) {
+        const muteBtn = document.getElementById("muteBtn");
+        if (localAudioTrack.enabled) {
+            await localAudioTrack.setEnabled(false);
+            muteBtn.classList.remove("btn-outline-light");
+            muteBtn.classList.add("btn-danger");
+            muteBtn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+        } else {
+            await localAudioTrack.setEnabled(true);
+            muteBtn.classList.remove("btn-danger");
+            muteBtn.classList.add("btn-outline-light");
+            muteBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+        }
+    }
+}
+
+// Toggle video
+async function toggleVideo() {
+    if (localVideoTrack) {
+        const videoBtn = document.getElementById("videoBtn");
+        if (localVideoTrack.enabled) {
+            await localVideoTrack.setEnabled(false);
+            videoBtn.classList.remove("btn-outline-light");
+            videoBtn.classList.add("btn-danger");
+            videoBtn.innerHTML = '<i class="fas fa-video-slash"></i>';
+        } else {
+            await localVideoTrack.setEnabled(true);
+            videoBtn.classList.remove("btn-danger");
+            videoBtn.classList.add("btn-outline-light");
+            videoBtn.innerHTML = '<i class="fas fa-video"></i>';
+        }
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Agora integration loaded');
+});
+</script>
 
 {% endblock %}

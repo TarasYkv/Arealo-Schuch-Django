@@ -3,6 +3,9 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from PIL import Image
 import os
+import uuid
+import json
+import re
 
 User = get_user_model()
 
@@ -204,3 +207,90 @@ class EventReminder(models.Model):
     
     def __str__(self):
         return f"Erinnerung: {self.event.title} für {self.user.username}"
+
+
+class VideoCall(models.Model):
+    """Video/Audio Call Model für Agora Integration."""
+    STATUS_CHOICES = [
+        ('waiting', 'Wartend'),
+        ('active', 'Aktiv'),
+        ('ended', 'Beendet'),
+        ('missed', 'Verpasst'),
+    ]
+    
+    CALL_TYPE_CHOICES = [
+        ('video', 'Video-Anruf'),
+        ('audio', 'Audio-Anruf'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    channel_name = models.CharField(max_length=100, unique=True, verbose_name="Kanal-Name")
+    caller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='made_calls', verbose_name="Anrufer")
+    participants = models.ManyToManyField(User, through='CallParticipant', verbose_name="Teilnehmer")
+    call_type = models.CharField(max_length=10, choices=CALL_TYPE_CHOICES, default='video', verbose_name="Anruf-Typ")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='waiting', verbose_name="Status")
+    started_at = models.DateTimeField(null=True, blank=True, verbose_name="Gestartet um")
+    ended_at = models.DateTimeField(null=True, blank=True, verbose_name="Beendet um")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Erstellt am")
+    
+    # Agora-spezifische Felder
+    agora_token = models.TextField(blank=True, verbose_name="Agora Token")
+    token_expires_at = models.DateTimeField(null=True, blank=True, verbose_name="Token läuft ab")
+    
+    class Meta:
+        verbose_name = "Video-Anruf"
+        verbose_name_plural = "Video-Anrufe"
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.call_type} - {self.caller.username} - {self.status}"
+    
+    def get_duration(self):
+        """Berechnet die Dauer des Anrufs."""
+        if self.started_at and self.ended_at:
+            return self.ended_at - self.started_at
+        return None
+    
+    def is_active(self):
+        """Prüft ob der Anruf aktiv ist."""
+        return self.status == 'active'
+    
+    def generate_channel_name(self):
+        """Generiert einen eindeutigen Kanal-Namen."""
+        if not self.channel_name:
+            self.channel_name = f"call_{self.id}_{int(timezone.now().timestamp())}"
+            self.save()
+        return self.channel_name
+
+
+class CallParticipant(models.Model):
+    """Teilnehmer eines Video/Audio-Anrufs."""
+    STATUS_CHOICES = [
+        ('invited', 'Eingeladen'),
+        ('joined', 'Beigetreten'),
+        ('left', 'Verlassen'),
+        ('declined', 'Abgelehnt'),
+    ]
+    
+    call = models.ForeignKey(VideoCall, on_delete=models.CASCADE, verbose_name="Anruf")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Benutzer")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='invited', verbose_name="Status")
+    joined_at = models.DateTimeField(null=True, blank=True, verbose_name="Beigetreten um")
+    left_at = models.DateTimeField(null=True, blank=True, verbose_name="Verlassen um")
+    agora_uid = models.IntegerField(null=True, blank=True, verbose_name="Agora User ID")
+    
+    class Meta:
+        verbose_name = "Anruf-Teilnehmer"
+        verbose_name_plural = "Anruf-Teilnehmer"
+        unique_together = ['call', 'user']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.call.channel_name} ({self.status})"
+    
+    def get_duration(self):
+        """Berechnet die Teilnahmedauer."""
+        if self.joined_at and self.left_at:
+            return self.left_at - self.joined_at
+        elif self.joined_at:
+            return timezone.now() - self.joined_at
+        return None
