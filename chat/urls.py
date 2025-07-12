@@ -26,6 +26,10 @@ urlpatterns = [
     
     # Agora Video/Audio calls
     path('get-agora-token/', views.get_agora_token, name='get_agora_token'),
+    path('send-call-notification/', views.send_call_notification, name='send_call_notification'),
+    path('check-incoming-calls/', views.check_incoming_calls, name='check_incoming_calls'),
+    path('clear-call-notification/', views.clear_call_notification, name='clear_call_notification'),
+    path('end-call-notification/', views.end_call_notification, name='end_call_notification'),
     
     # Test pages
     path('websocket-test/', views.websocket_test, name='websocket_test'),
