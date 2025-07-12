@@ -621,7 +621,7 @@ body.modal-open {
                                         <div class="modal-body p-0">
                                             <!-- Video Container -->
                                             <div id="videoContainer" style="position: relative; height: 400px; background: #000;">
-                                                <div id="localVideoContainer" style="position: fixed; bottom: 20px; right: 20px; width: 120px; height: 90px; z-index: 1000; border: 2px solid #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                                                <div id="localVideoContainer" style="position: fixed; bottom: 20px; right: 20px; width: 80px; height: 60px; z-index: 1000; border: 2px solid #fff; border-radius: 6px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
                                                 </div>
                                                 <div id="remoteVideoContainer" style="width: 100%; height: 100%;">
                                                     <div class="d-flex align-items-center justify-content-center h-100" id="waitingScreen">
@@ -2075,12 +2075,21 @@ function initAgoraClient() {
         
         if (mediaType === "video") {
             const remoteVideoTrack = user.videoTrack;
-            const remoteContainer = document.getElementById("remoteVideoContainer");
-            remoteContainer.innerHTML = "";
-            remoteVideoTrack.play(remoteContainer);
             
-            // Hide waiting screen
-            document.getElementById("waitingScreen").style.display = "none";
+            // Try small window first, fallback to modal
+            const smallRemoteContainer = document.getElementById("smallRemoteVideo");
+            const modalRemoteContainer = document.getElementById("remoteVideoContainer");
+            
+            if (smallRemoteContainer && document.getElementById("smallCallWindow").style.display !== "none") {
+                // Use small window
+                smallRemoteContainer.innerHTML = "";
+                remoteVideoTrack.play(smallRemoteContainer);
+            } else if (modalRemoteContainer) {
+                // Use modal (fallback)
+                modalRemoteContainer.innerHTML = "";
+                remoteVideoTrack.play(modalRemoteContainer);
+                document.getElementById("waitingScreen").style.display = "none";
+            }
         }
         
         if (mediaType === "audio") {
@@ -2145,8 +2154,8 @@ async function startAgoraCall(callType) {
         // Initialize Agora client
         initAgoraClient();
         
-        // Show call modal
-        showCallModal(callType);
+        // Show small call window instead of modal
+        showSmallCallWindow(callType);
         
         // Join channel
         await agoraClient.join(agoraConfig.appId, agoraConfig.channel, agoraConfig.token, agoraConfig.uid);
@@ -2156,7 +2165,7 @@ async function startAgoraCall(callType) {
         
         if (callType === 'video') {
             localVideoTrack = await AgoraRTC.createCameraVideoTrack();
-            localVideoTrack.play("localVideoContainer");
+            localVideoTrack.play("smallLocalVideo");
             await agoraClient.publish([localAudioTrack, localVideoTrack]);
             document.getElementById("videoBtn").style.display = "inline-block";
         } else {
@@ -2283,7 +2292,175 @@ async function toggleVideo() {
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Agora integration loaded');
+    
+    // Optional: Automatically show local video when page loads
+    // Uncomment the next line if you want video to appear automatically
+    // showPermanentVideo();
 });
+</script>
+
+<!-- Small Call Window (outside modal) -->
+<div id="smallCallWindow" style="position: fixed; bottom: 20px; right: 20px; width: 320px; z-index: 1000; display: none;">
+    <div class="card shadow-lg">
+        <div class="card-header bg-dark text-white p-2 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-phone me-2" id="smallCallIcon"></i>
+                <span id="smallCallTitle">Anruf</span>
+            </div>
+            <div>
+                <button type="button" class="btn btn-sm btn-light me-1" onclick="toggleCallWindow()">
+                    <i class="fas fa-minus"></i>
+                </button>
+                <button type="button" class="btn-close btn-close-white" onclick="endSmallCallWindow()"></button>
+            </div>
+        </div>
+        <div class="card-body p-0 bg-dark" id="smallCallBody">
+            <!-- Video Container -->
+            <div style="height: 240px; position: relative; background: #000;">
+                <div id="smallRemoteVideo" style="width: 100%; height: 100%;"></div>
+                <div id="smallLocalVideo" style="position: absolute; bottom: 10px; right: 10px; width: 80px; height: 60px; border: 2px solid #fff; border-radius: 6px; overflow: hidden;"></div>
+            </div>
+            <!-- Call Controls -->
+            <div class="p-2 bg-secondary d-flex justify-content-center gap-2">
+                <button class="btn btn-sm btn-dark" id="smallMuteBtn" onclick="toggleSmallMute()">
+                    <i class="fas fa-microphone"></i>
+                </button>
+                <button class="btn btn-sm btn-dark" id="smallVideoBtn" onclick="toggleSmallVideo()" style="display: none;">
+                    <i class="fas fa-video"></i>
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="endSmallCallWindow()">
+                    <i class="fas fa-phone-slash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Minimized Call Indicator -->
+<div id="minimizedCallIndicator" style="position: fixed; bottom: 20px; right: 20px; display: none;">
+    <button class="btn btn-success btn-sm shadow" onclick="toggleCallWindow()">
+        <i class="fas fa-phone-alt me-1"></i>
+        <span id="callDuration">00:00</span>
+    </button>
+</div>
+
+<script>
+// Small call window functions
+let callStartTime = null;
+let callDurationInterval = null;
+
+function showSmallCallWindow(callType) {
+    const window = document.getElementById('smallCallWindow');
+    const icon = document.getElementById('smallCallIcon');
+    const title = document.getElementById('smallCallTitle');
+    const videoBtn = document.getElementById('smallVideoBtn');
+    
+    // Update UI based on call type
+    if (callType === 'video') {
+        icon.className = 'fas fa-video me-2';
+        title.textContent = 'Videoanruf';
+        videoBtn.style.display = 'inline-block';
+    } else {
+        icon.className = 'fas fa-phone me-2';
+        title.textContent = 'Anruf';
+        videoBtn.style.display = 'none';
+    }
+    
+    // Show window
+    window.style.display = 'block';
+    
+    // Start duration timer
+    callStartTime = new Date();
+    updateCallDuration();
+    callDurationInterval = setInterval(updateCallDuration, 1000);
+    
+    isCallActive = true;
+}
+
+function endSmallCallWindow() {
+    // End the call
+    endAgoraCall();
+    
+    // Hide window
+    document.getElementById('smallCallWindow').style.display = 'none';
+    document.getElementById('minimizedCallIndicator').style.display = 'none';
+    
+    // Stop duration timer
+    if (callDurationInterval) {
+        clearInterval(callDurationInterval);
+        callDurationInterval = null;
+    }
+}
+
+function toggleCallWindow() {
+    const window = document.getElementById('smallCallWindow');
+    const indicator = document.getElementById('minimizedCallIndicator');
+    const body = document.getElementById('smallCallBody');
+    
+    if (body.style.display === 'none') {
+        // Maximize
+        body.style.display = 'block';
+        indicator.style.display = 'none';
+        window.style.display = 'block';
+    } else {
+        // Minimize
+        body.style.display = 'none';
+        window.style.display = 'none';
+        indicator.style.display = 'block';
+    }
+}
+
+function updateCallDuration() {
+    if (!callStartTime) return;
+    
+    const now = new Date();
+    const duration = Math.floor((now - callStartTime) / 1000);
+    const minutes = Math.floor(duration / 60).toString().padStart(2, '0');
+    const seconds = (duration % 60).toString().padStart(2, '0');
+    
+    const durationText = `${minutes}:${seconds}`;
+    document.getElementById('callDuration').textContent = durationText;
+}
+
+let isSmallMuted = false;
+function toggleSmallMute() {
+    const btn = document.getElementById('smallMuteBtn');
+    isSmallMuted = !isSmallMuted;
+    
+    if (localAudioTrack) {
+        localAudioTrack.setEnabled(!isSmallMuted);
+    }
+    
+    if (isSmallMuted) {
+        btn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+        btn.classList.add('btn-danger');
+        btn.classList.remove('btn-dark');
+    } else {
+        btn.innerHTML = '<i class="fas fa-microphone"></i>';
+        btn.classList.remove('btn-danger');
+        btn.classList.add('btn-dark');
+    }
+}
+
+let isSmallVideoOff = false;
+function toggleSmallVideo() {
+    const btn = document.getElementById('smallVideoBtn');
+    isSmallVideoOff = !isSmallVideoOff;
+    
+    if (localVideoTrack) {
+        localVideoTrack.setEnabled(!isSmallVideoOff);
+    }
+    
+    if (isSmallVideoOff) {
+        btn.innerHTML = '<i class="fas fa-video-slash"></i>';
+        btn.classList.add('btn-danger');
+        btn.classList.remove('btn-dark');
+    } else {
+        btn.innerHTML = '<i class="fas fa-video"></i>';
+        btn.classList.remove('btn-danger');
+        btn.classList.add('btn-dark');
+    }
+}
 </script>
 
 {% endblock %}
