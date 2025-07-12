@@ -1571,8 +1571,10 @@ function connectCallWebSocket() {
     }
     
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Use the same host and port as the current page
-    const wsHost = window.location.host;
+    // PythonAnywhere compatible WebSocket URL
+    const wsHost = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' 
+        ? '127.0.0.1:8001' 
+        : window.location.host;
     const wsUrl = `${protocol}//${wsHost}/ws/call/${currentRoomId}/`;
     
     console.log('🔌 Connecting to Call WebSocket:', wsUrl);

@@ -13,5 +13,5 @@ else
 fi
 
 # Start ASGI server for WebSocket support
-echo "Starting ASGI server on port 8000..."
-daphne -b 127.0.0.1 -p 8000 Schuch.asgi:application
+echo "Starting ASGI server on port 8001..."
+daphne -b 127.0.0.1 -p 8001 Schuch.asgi:application
