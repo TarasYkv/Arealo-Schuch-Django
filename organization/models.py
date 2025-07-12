@@ -160,6 +160,7 @@ class BoardElement(models.Model):
     """Einzelne Elemente auf dem Ideenboard."""
     ELEMENT_TYPES = [
         ('line', 'Linie'),
+        ('arrow', 'Pfeil'),
         ('rectangle', 'Rechteck'),
         ('circle', 'Kreis'),
         ('triangle', 'Dreieck'),
@@ -178,6 +179,7 @@ class BoardElement(models.Model):
     color = models.CharField(max_length=7, default='#000000', verbose_name="Farbe")
     stroke_width = models.IntegerField(default=2, verbose_name="Strichstärke")
     opacity = models.FloatField(default=1.0, verbose_name="Transparenz")
+    rotation = models.FloatField(default=0.0, verbose_name="Rotation (Grad)")
     layer_index = models.IntegerField(default=0, verbose_name="Ebenen-Index")
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Erstellt von")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Erstellt am")
