@@ -45,7 +45,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
-    'channels',
     'accounts',
     'sportplatzApp',
     'pdf_sucher',
@@ -177,28 +176,4 @@ LOGOUT_REDIRECT_URL = '/'
 
 FIELD_ENCRYPTION_KEY = 'JFkYsizDtDsUc1MTl5RogD_uPnyRB0wWFAZ5VtKRqow='
 
-# Channels Configuration
-ASGI_APPLICATION = 'Schuch.asgi.application'
-
-# Channel Layers (Redis)
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            'hosts': [('127.0.0.1', 6379)],
-        },
-    },
-}
-
-# Fallback to in-memory channel layer if Redis is not available
-try:
-    import redis
-    redis_client = redis.Redis(host='127.0.0.1', port=6379, db=0)
-    redis_client.ping()
-except:
-    # Use in-memory channel layer as fallback
-    CHANNEL_LAYERS = {
-        'default': {
-            'BACKEND': 'channels.layers.InMemoryChannelLayer',
-        },
-    }
+# WebSocket support removed - using standard Django WSGI
