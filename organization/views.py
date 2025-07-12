@@ -7,7 +7,8 @@ from django.utils import timezone
 from django.db.models import Q
 from django.core.paginator import Paginator
 from django.contrib.auth import get_user_model
-from .models import Note, Event, EventParticipant, IdeaBoard, BoardElement, EventReminder
+from .models import Note, Event, EventParticipant, IdeaBoard, BoardElement, EventReminder, VideoCall, CallParticipant
+from .agora_utils import generate_agora_token, get_agora_config, CallRoles
 import json
 import re
 
@@ -607,6 +608,204 @@ def board_remove_collaborator(request, pk):
             return JsonResponse({'error': 'Benutzer nicht gefunden'}, status=404)
     
     return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
+
+
+@login_required
+def call_start_page(request):
+    """Zeige die Seite zum Starten eines Anrufs."""
+    return render(request, 'organization/call_start.html')
+
+
+@login_required
+@csrf_exempt
+def call_start(request):
+    """Starte einen neuen Video/Audio-Anruf."""
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        call_type = data.get('call_type', 'video')
+        participant_ids = data.get('participants', [])
+        
+        # Erstelle neuen Anruf
+        call = VideoCall.objects.create(
+            caller=request.user,
+            call_type=call_type
+        )
+        call.generate_channel_name()
+        
+        # Füge Teilnehmer hinzu
+        for user_id in participant_ids:
+            try:
+                user = User.objects.get(id=user_id)
+                CallParticipant.objects.create(
+                    call=call,
+                    user=user,
+                    agora_uid=user_id  # Verwende User-ID als Agora UID
+                )
+            except User.DoesNotExist:
+                continue
+        
+        # Füge Anrufer als Teilnehmer hinzu
+        CallParticipant.objects.create(
+            call=call,
+            user=request.user,
+            status='joined',
+            joined_at=timezone.now(),
+            agora_uid=request.user.id
+        )
+        
+        try:
+            # Generiere Agora Token
+            token = generate_agora_token(
+                channel_name=call.channel_name,
+                uid=request.user.id,
+                role=CallRoles.PUBLISHER
+            )
+            call.agora_token = token
+            call.token_expires_at = timezone.now() + timezone.timedelta(hours=1)
+            call.status = 'active'
+            call.started_at = timezone.now()
+            call.save()
+            
+            return JsonResponse({
+                'success': True,
+                'call_id': str(call.id),
+                'channel_name': call.channel_name,
+                'token': token,
+                'agora_config': get_agora_config()
+            })
+            
+        except ValueError as e:
+            call.delete()
+            return JsonResponse({'error': str(e)}, status=400)
+    
+    return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
+
+
+@login_required 
+def call_join(request, call_id):
+    """Tritt einem bestehenden Anruf bei oder zeige Call Interface."""
+    call = get_object_or_404(VideoCall, id=call_id)
+    
+    # Prüfe ob Benutzer Teilnehmer ist
+    try:
+        participant = CallParticipant.objects.get(call=call, user=request.user)
+    except CallParticipant.DoesNotExist:
+        messages.error(request, 'Sie sind nicht zu diesem Anruf eingeladen.')
+        return redirect('organization:dashboard')
+    
+    if call.status != 'active':
+        messages.error(request, 'Anruf ist nicht mehr aktiv.')
+        return redirect('organization:dashboard')
+    
+    try:
+        # Generiere Token für Teilnehmer
+        token = generate_agora_token(
+            channel_name=call.channel_name,
+            uid=request.user.id,
+            role=CallRoles.PUBLISHER
+        )
+        
+        # Update Teilnehmer-Status
+        participant.status = 'joined'
+        participant.joined_at = timezone.now()
+        participant.save()
+        
+        # Zeige Call Interface
+        context = {
+            'call': call,
+            'channel_name': call.channel_name,
+            'token': token,
+            'agora_config': get_agora_config()
+        }
+        return render(request, 'organization/call_interface.html', context)
+        
+    except ValueError as e:
+        messages.error(request, f'Fehler beim Beitreten: {str(e)}')
+        return redirect('organization:dashboard')
+
+
+@login_required
+@csrf_exempt
+def call_end(request, call_id):
+    """Beende einen Anruf."""
+    if request.method == 'POST':
+        call = get_object_or_404(VideoCall, id=call_id)
+        
+        # Nur Anrufer kann Anruf beenden
+        if call.caller != request.user:
+            return JsonResponse({'error': 'Nur der Anrufer kann den Anruf beenden'}, status=403)
+        
+        call.status = 'ended'
+        call.ended_at = timezone.now()
+        call.save()
+        
+        # Update alle Teilnehmer die noch aktiv sind
+        active_participants = CallParticipant.objects.filter(
+            call=call,
+            status='joined',
+            left_at__isnull=True
+        )
+        
+        for participant in active_participants:
+            participant.status = 'left'
+            participant.left_at = timezone.now()
+            participant.save()
+        
+        return JsonResponse({'success': True})
+    
+    return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
+
+
+@login_required
+@csrf_exempt  
+def call_leave(request, call_id):
+    """Verlasse einen Anruf."""
+    if request.method == 'POST':
+        call = get_object_or_404(VideoCall, id=call_id)
+        
+        try:
+            participant = CallParticipant.objects.get(call=call, user=request.user)
+            participant.status = 'left'
+            participant.left_at = timezone.now()
+            participant.save()
+            
+            return JsonResponse({'success': True})
+            
+        except CallParticipant.DoesNotExist:
+            return JsonResponse({'error': 'Sie sind kein Teilnehmer dieses Anrufs'}, status=400)
+    
+    return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
+
+
+@login_required
+def call_status(request, call_id):
+    """Rufe den Status eines Anrufs ab."""
+    call = get_object_or_404(VideoCall, id=call_id)
+    
+    # Prüfe Berechtigung
+    is_participant = CallParticipant.objects.filter(call=call, user=request.user).exists()
+    if not (call.caller == request.user or is_participant):
+        return JsonResponse({'error': 'Keine Berechtigung'}, status=403)
+    
+    participants = []
+    for participant in call.participants.through.objects.filter(call=call):
+        participants.append({
+            'user_id': participant.user.id,
+            'username': participant.user.username,
+            'status': participant.status,
+            'joined_at': participant.joined_at.isoformat() if participant.joined_at else None,
+            'left_at': participant.left_at.isoformat() if participant.left_at else None
+        })
+    
+    return JsonResponse({
+        'call_id': str(call.id),
+        'status': call.status,
+        'call_type': call.call_type,
+        'caller': call.caller.username,
+        'participants': participants,
+        'started_at': call.started_at.isoformat() if call.started_at else None,
+        'ended_at': call.ended_at.isoformat() if call.ended_at else None
+    })
 
 
 @login_required

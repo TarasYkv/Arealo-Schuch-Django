@@ -24,6 +24,9 @@ urlpatterns = [
     path('api/call/<int:call_id>/end/', views.end_call, name='end_call'),
     path('api/room/<int:room_id>/calls/', views.get_call_history, name='get_call_history'),
     
+    # Agora Video/Audio calls
+    path('get-agora-token/', views.get_agora_token, name='get_agora_token'),
+    
     # Test pages
     path('websocket-test/', views.websocket_test, name='websocket_test'),
     path('test-call/', views.test_call, name='test_call'),

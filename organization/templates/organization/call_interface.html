@@ -1,0 +1,517 @@
+{% extends 'base.html' %}
+
+{% block title %}Video/Audio Call{% endblock %}
+
+{% block content %}
+<div class="container-fluid vh-100">
+    <div class="row h-100">
+        <!-- Video/Audio Interface -->
+        <div class="col-12 col-lg-9 h-100 d-flex flex-column">
+            <!-- Call Controls Header -->
+            <div class="bg-dark text-white p-3 d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="mb-0">
+                        <i class="fas fa-video me-2"></i>
+                        <span id="call-title">Video-Anruf</span>
+                    </h5>
+                    <small id="call-status" class="text-muted">Verbinde...</small>
+                </div>
+                <div>
+                    <span id="call-duration" class="badge bg-secondary">00:00</span>
+                </div>
+            </div>
+            
+            <!-- Main Video Area -->
+            <div class="flex-grow-1 position-relative bg-dark">
+                <!-- Remote Video Streams -->
+                <div id="remote-streams" class="h-100 position-relative">
+                    <!-- Remote video players will be added here dynamically -->
+                </div>
+                
+                <!-- Local Video (Picture-in-Picture) -->
+                <div id="local-video-container" class="position-fixed" style="bottom: 20px; right: 20px; width: 120px; height: 90px; z-index: 1000;">
+                    <div id="local-video" class="w-100 h-100 border border-white rounded shadow"></div>
+                </div>
+                
+                <!-- No Video Message -->
+                <div id="no-video-message" class="d-flex align-items-center justify-content-center h-100 text-white text-center">
+                    <div>
+                        <i class="fas fa-video-slash fa-3x mb-3"></i>
+                        <h4>Warten auf Teilnehmer...</h4>
+                        <p class="text-muted">Der Anruf wird gestartet, sobald Teilnehmer beitreten.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Call Controls Footer -->
+            <div class="bg-dark text-white p-3">
+                <div class="d-flex justify-content-center align-items-center">
+                    <div class="btn-group" role="group">
+                        <!-- Audio Toggle -->
+                        <button type="button" class="btn btn-outline-light" id="audio-toggle" title="Audio stumm/laut">
+                            <i class="fas fa-microphone"></i>
+                        </button>
+                        
+                        <!-- Video Toggle -->
+                        <button type="button" class="btn btn-outline-light" id="video-toggle" title="Video an/aus">
+                            <i class="fas fa-video"></i>
+                        </button>
+                        
+                        <!-- Screen Share -->
+                        <button type="button" class="btn btn-outline-light" id="screen-share" title="Bildschirm teilen">
+                            <i class="fas fa-desktop"></i>
+                        </button>
+                        
+                        <!-- Settings -->
+                        <button type="button" class="btn btn-outline-light" id="settings-btn" title="Einstellungen">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                        
+                        <!-- End Call -->
+                        <button type="button" class="btn btn-danger" id="end-call" title="Anruf beenden">
+                            <i class="fas fa-phone-slash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar with Participants and Chat -->
+        <div class="col-12 col-lg-3 bg-light border-start h-100 d-flex flex-column">
+            <!-- Participants -->
+            <div class="p-3 border-bottom">
+                <h6 class="mb-3">
+                    <i class="fas fa-users me-2"></i>
+                    Teilnehmer (<span id="participant-count">0</span>)
+                </h6>
+                <div id="participants-list">
+                    <!-- Participants will be listed here -->
+                </div>
+            </div>
+            
+            <!-- Chat Area -->
+            <div class="flex-grow-1 d-flex flex-column">
+                <div class="p-3 border-bottom">
+                    <h6 class="mb-0">
+                        <i class="fas fa-comments me-2"></i>
+                        Chat
+                    </h6>
+                </div>
+                
+                <!-- Chat Messages -->
+                <div class="flex-grow-1 overflow-auto p-3" id="chat-messages" style="max-height: 300px;">
+                    <!-- Chat messages will appear here -->
+                </div>
+                
+                <!-- Chat Input -->
+                <div class="p-3 border-top">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="chat-input" placeholder="Nachricht eingeben..." maxlength="500">
+                        <button class="btn btn-primary" type="button" id="send-message">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Call Settings Modal -->
+<div class="modal fade" id="settingsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Anruf-Einstellungen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Kamera</label>
+                    <select class="form-select" id="camera-select">
+                        <option>Lade Kameras...</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Mikrofon</label>
+                    <select class="form-select" id="microphone-select">
+                        <option>Lade Mikrofone...</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Lautsprecher</label>
+                    <select class="form-select" id="speaker-select">
+                        <option>Lade Lautsprecher...</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                <button type="button" class="btn btn-primary" id="save-settings">Speichern</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.18.0.js"></script>
+<script>
+// Global variables
+let agoraClient;
+let localAudioTrack;
+let localVideoTrack;
+let remoteUsers = {};
+let isAudioMuted = false;
+let isVideoMuted = false;
+let callStartTime = new Date();
+let durationInterval;
+
+// Call configuration (will be set by the backend)
+const CALL_CONFIG = {
+    appId: '{{ agora_config.app_id }}',
+    channel: '{{ channel_name }}',
+    token: '{{ token }}',
+    uid: {{ user.id }}
+};
+
+// Initialize call when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCall();
+    setupEventListeners();
+    startDurationCounter();
+});
+
+async function initializeCall() {
+    try {
+        // Create Agora client
+        agoraClient = AgoraRTC.createClient({ 
+            mode: "rtc", 
+            codec: "vp8" 
+        });
+        
+        // Set up event listeners for remote users
+        agoraClient.on("user-published", handleUserPublished);
+        agoraClient.on("user-unpublished", handleUserUnpublished);
+        agoraClient.on("user-left", handleUserLeft);
+        
+        // Join the channel
+        await agoraClient.join(
+            CALL_CONFIG.appId, 
+            CALL_CONFIG.channel, 
+            CALL_CONFIG.token, 
+            CALL_CONFIG.uid
+        );
+        
+        // Create local tracks
+        localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+        
+        // Publish local tracks
+        await agoraClient.publish([localAudioTrack, localVideoTrack]);
+        
+        // Play local video
+        localVideoTrack.play("local-video");
+        
+        updateCallStatus("Verbunden");
+        hideNoVideoMessage();
+        
+    } catch (error) {
+        console.error("Fehler beim Initialisieren des Anrufs:", error);
+        updateCallStatus("Verbindungsfehler");
+    }
+}
+
+function setupEventListeners() {
+    // Audio toggle
+    document.getElementById('audio-toggle').addEventListener('click', toggleAudio);
+    
+    // Video toggle
+    document.getElementById('video-toggle').addEventListener('click', toggleVideo);
+    
+    // End call
+    document.getElementById('end-call').addEventListener('click', endCall);
+    
+    // Settings
+    document.getElementById('settings-btn').addEventListener('click', () => {
+        new bootstrap.Modal(document.getElementById('settingsModal')).show();
+    });
+    
+    // Chat
+    document.getElementById('send-message').addEventListener('click', sendChatMessage);
+    document.getElementById('chat-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendChatMessage();
+    });
+}
+
+async function handleUserPublished(user, mediaType) {
+    const id = user.uid;
+    remoteUsers[id] = user;
+    
+    // Subscribe to remote user
+    await agoraClient.subscribe(user, mediaType);
+    
+    if (mediaType === 'video') {
+        // Create video container for remote user
+        const videoContainer = document.createElement('div');
+        videoContainer.id = `user-${id}`;
+        videoContainer.className = 'remote-video-container';
+        videoContainer.style.cssText = `
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: #000;
+        `;
+        
+        document.getElementById('remote-streams').appendChild(videoContainer);
+        user.videoTrack.play(`user-${id}`);
+        
+        hideNoVideoMessage();
+    }
+    
+    if (mediaType === 'audio') {
+        user.audioTrack.play();
+    }
+    
+    updateParticipantsList();
+}
+
+function handleUserUnpublished(user, mediaType) {
+    if (mediaType === 'video') {
+        const videoContainer = document.getElementById(`user-${user.uid}`);
+        if (videoContainer) {
+            videoContainer.remove();
+        }
+    }
+    
+    // If no more remote videos, show no video message
+    if (Object.keys(remoteUsers).length === 0) {
+        showNoVideoMessage();
+    }
+}
+
+function handleUserLeft(user) {
+    delete remoteUsers[user.uid];
+    const videoContainer = document.getElementById(`user-${user.uid}`);
+    if (videoContainer) {
+        videoContainer.remove();
+    }
+    
+    updateParticipantsList();
+    
+    if (Object.keys(remoteUsers).length === 0) {
+        showNoVideoMessage();
+    }
+}
+
+async function toggleAudio() {
+    const button = document.getElementById('audio-toggle');
+    
+    if (isAudioMuted) {
+        await localAudioTrack.setMuted(false);
+        button.innerHTML = '<i class="fas fa-microphone"></i>';
+        button.classList.remove('btn-outline-danger');
+        button.classList.add('btn-outline-light');
+        isAudioMuted = false;
+    } else {
+        await localAudioTrack.setMuted(true);
+        button.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+        button.classList.remove('btn-outline-light');
+        button.classList.add('btn-outline-danger');
+        isAudioMuted = true;
+    }
+}
+
+async function toggleVideo() {
+    const button = document.getElementById('video-toggle');
+    
+    if (isVideoMuted) {
+        await localVideoTrack.setMuted(false);
+        button.innerHTML = '<i class="fas fa-video"></i>';
+        button.classList.remove('btn-outline-danger');
+        button.classList.add('btn-outline-light');
+        isVideoMuted = false;
+    } else {
+        await localVideoTrack.setMuted(true);
+        button.innerHTML = '<i class="fas fa-video-slash"></i>';
+        button.classList.remove('btn-outline-light');
+        button.classList.add('btn-outline-danger');
+        isVideoMuted = true;
+    }
+}
+
+async function endCall() {
+    if (confirm('Anruf wirklich beenden?')) {
+        try {
+            // Leave the channel
+            await agoraClient.leave();
+            
+            // Close local tracks
+            if (localAudioTrack) {
+                localAudioTrack.close();
+            }
+            if (localVideoTrack) {
+                localVideoTrack.close();
+            }
+            
+            // Stop duration counter
+            if (durationInterval) {
+                clearInterval(durationInterval);
+            }
+            
+            updateCallStatus("Anruf beendet");
+            
+            // Redirect back to organization dashboard
+            window.location.href = '/organization/';
+            
+        } catch (error) {
+            console.error("Fehler beim Beenden des Anrufs:", error);
+        }
+    }
+}
+
+function updateCallStatus(status) {
+    document.getElementById('call-status').textContent = status;
+}
+
+function updateParticipantsList() {
+    const participantsList = document.getElementById('participants-list');
+    const participantCount = document.getElementById('participant-count');
+    
+    // Clear current list
+    participantsList.innerHTML = '';
+    
+    // Add current user
+    const currentUserDiv = document.createElement('div');
+    currentUserDiv.className = 'participant-item d-flex align-items-center mb-2';
+    currentUserDiv.innerHTML = `
+        <i class="fas fa-user-circle me-2"></i>
+        <span>Sie</span>
+        <span class="badge bg-success ms-auto">Online</span>
+    `;
+    participantsList.appendChild(currentUserDiv);
+    
+    // Add remote users
+    Object.keys(remoteUsers).forEach(uid => {
+        const userDiv = document.createElement('div');
+        userDiv.className = 'participant-item d-flex align-items-center mb-2';
+        userDiv.innerHTML = `
+            <i class="fas fa-user-circle me-2"></i>
+            <span>Benutzer ${uid}</span>
+            <span class="badge bg-success ms-auto">Online</span>
+        `;
+        participantsList.appendChild(userDiv);
+    });
+    
+    participantCount.textContent = Object.keys(remoteUsers).length + 1;
+}
+
+function sendChatMessage() {
+    const input = document.getElementById('chat-input');
+    const message = input.value.trim();
+    
+    if (message) {
+        // Add message to chat
+        addChatMessage('Sie', message, true);
+        input.value = '';
+        
+        // In a real implementation, you would send this via WebSocket or API
+        // For now, we just add it locally
+    }
+}
+
+function addChatMessage(sender, message, isOwnMessage = false) {
+    const chatMessages = document.getElementById('chat-messages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `mb-2 ${isOwnMessage ? 'text-end' : ''}`;
+    
+    const time = new Date().toLocaleTimeString('de-DE', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+    });
+    
+    messageDiv.innerHTML = `
+        <div class="chat-message ${isOwnMessage ? 'bg-primary text-white' : 'bg-light'} rounded p-2 d-inline-block">
+            <small class="fw-bold">${sender}</small>
+            <div>${message}</div>
+            <small class="text-muted">${time}</small>
+        </div>
+    `;
+    
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function startDurationCounter() {
+    durationInterval = setInterval(() => {
+        const now = new Date();
+        const duration = new Date(now - callStartTime);
+        const minutes = String(duration.getMinutes()).padStart(2, '0');
+        const seconds = String(duration.getSeconds()).padStart(2, '0');
+        
+        document.getElementById('call-duration').textContent = `${minutes}:${seconds}`;
+    }, 1000);
+}
+
+function showNoVideoMessage() {
+    document.getElementById('no-video-message').style.display = 'flex';
+}
+
+function hideNoVideoMessage() {
+    document.getElementById('no-video-message').style.display = 'none';
+}
+
+// Handle page unload
+window.addEventListener('beforeunload', async () => {
+    if (agoraClient) {
+        await agoraClient.leave();
+    }
+    if (localAudioTrack) {
+        localAudioTrack.close();
+    }
+    if (localVideoTrack) {
+        localVideoTrack.close();
+    }
+});
+</script>
+
+<style>
+.remote-video-container {
+    border: 2px solid #fff;
+    border-radius: 8px;
+}
+
+.participant-item {
+    padding: 8px;
+    border-radius: 4px;
+    background-color: rgba(0,0,0,0.05);
+}
+
+.chat-message {
+    max-width: 80%;
+    word-wrap: break-word;
+}
+
+#local-video-container {
+    border: 2px solid #fff;
+    border-radius: 8px;
+    background: #000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: all 0.3s ease;
+}
+
+#local-video-container:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+}
+
+#chat-messages {
+    min-height: 200px;
+}
+
+.btn-group .btn {
+    margin: 0 5px;
+    border-radius: 50px !important;
+    width: 50px;
+    height: 50px;
+}
+</style>
+{% endblock %}

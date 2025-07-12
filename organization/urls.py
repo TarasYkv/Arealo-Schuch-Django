@@ -28,6 +28,14 @@ urlpatterns = [
     path('boards/<int:pk>/invite-collaborators/', views.board_invite_collaborators, name='board_invite_collaborators'),
     path('boards/<int:pk>/remove-collaborator/', views.board_remove_collaborator, name='board_remove_collaborator'),
     
+    # Video/Audio Calls
+    path('calls/', views.call_start_page, name='call_start_page'),
+    path('calls/start/', views.call_start, name='call_start'),
+    path('calls/<uuid:call_id>/', views.call_join, name='call_join'),
+    path('calls/<uuid:call_id>/end/', views.call_end, name='call_end'),
+    path('calls/<uuid:call_id>/leave/', views.call_leave, name='call_leave'),
+    path('calls/<uuid:call_id>/status/', views.call_status, name='call_status'),
+    
     # API
     path('api/user-search/', views.user_search, name='user_search'),
 ]

@@ -1,0 +1,310 @@
+{% extends 'base.html' %}
+
+{% block title %}Anruf starten - Organisation{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-phone me-2"></i>
+                        Neuen Anruf starten
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form id="startCallForm">
+                        <!-- Call Type -->
+                        <div class="mb-4">
+                            <label class="form-label">Anruf-Typ</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="call_type" id="video-call" value="video" checked>
+                                <label class="btn btn-outline-primary" for="video-call">
+                                    <i class="fas fa-video me-2"></i>Video-Anruf
+                                </label>
+                                
+                                <input type="radio" class="btn-check" name="call_type" id="audio-call" value="audio">
+                                <label class="btn btn-outline-primary" for="audio-call">
+                                    <i class="fas fa-phone me-2"></i>Audio-Anruf
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Participants Search -->
+                        <div class="mb-3">
+                            <label for="userSearch" class="form-label">Teilnehmer einladen</label>
+                            <input type="text" class="form-control" id="userSearch" placeholder="Benutzername oder Name eingeben...">
+                            <div id="searchResults" class="mt-2"></div>
+                        </div>
+                        
+                        <!-- Selected Participants -->
+                        <div class="mb-4">
+                            <label class="form-label">Ausgewählte Teilnehmer</label>
+                            <div id="selectedParticipants" class="border rounded p-3 min-height-50">
+                                <div class="text-muted text-center">Keine Teilnehmer ausgewählt</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Quick Actions -->
+                        <div class="mb-4">
+                            <label class="form-label">Schnelle Einladungen</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addRecentUsers()">
+                                    <i class="fas fa-clock me-1"></i>Kürzlich kontaktiert
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addTeamMembers()">
+                                    <i class="fas fa-users me-1"></i>Team-Mitglieder
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Call Options -->
+                        <div class="mb-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="startWithVideo" checked>
+                                <label class="form-check-label" for="startWithVideo">
+                                    Mit Video starten
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="startWithAudio" checked>
+                                <label class="form-check-label" for="startWithAudio">
+                                    Mit Audio starten
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg" id="startCallBtn">
+                                <i class="fas fa-phone me-2"></i>
+                                Anruf starten
+                            </button>
+                            <a href="{% url 'organization:dashboard' %}" class="btn btn-outline-secondary">
+                                Abbrechen
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Recent Calls -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-history me-2"></i>
+                        Letzte Anrufe
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div id="recentCalls">
+                        <div class="text-muted text-center py-3">
+                            Keine letzten Anrufe verfügbar
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Global variables
+let searchTimeout;
+let selectedParticipants = new Set();
+
+document.addEventListener('DOMContentLoaded', function() {
+    setupEventListeners();
+    loadRecentCalls();
+});
+
+function setupEventListeners() {
+    // User search
+    document.getElementById('userSearch').addEventListener('input', handleUserSearch);
+    
+    // Form submission
+    document.getElementById('startCallForm').addEventListener('submit', handleStartCall);
+}
+
+function handleUserSearch() {
+    const query = document.getElementById('userSearch').value.trim();
+    
+    clearTimeout(searchTimeout);
+    
+    if (query.length < 2) {
+        document.getElementById('searchResults').innerHTML = '';
+        return;
+    }
+    
+    searchTimeout = setTimeout(() => {
+        fetch(`/organization/api/user-search/?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                displaySearchResults(data.results);
+            })
+            .catch(error => {
+                console.error('Fehler bei der Benutzersuche:', error);
+            });
+    }, 300);
+}
+
+function displaySearchResults(users) {
+    const resultsDiv = document.getElementById('searchResults');
+    resultsDiv.innerHTML = '';
+    
+    if (users.length === 0) {
+        resultsDiv.innerHTML = '<div class="text-muted">Keine Benutzer gefunden</div>';
+        return;
+    }
+    
+    users.forEach(user => {
+        const userDiv = document.createElement('div');
+        userDiv.className = 'border rounded p-2 mb-2 cursor-pointer user-search-result';
+        userDiv.style.cursor = 'pointer';
+        userDiv.innerHTML = `
+            <div class="d-flex align-items-center">
+                <i class="fas fa-user-circle me-2 text-muted"></i>
+                <div>
+                    <div><strong>${user.username}</strong></div>
+                    <small class="text-muted">${user.full_name}</small>
+                </div>
+                ${selectedParticipants.has(user.id) ? 
+                    '<span class="badge bg-success ms-auto">Ausgewählt</span>' : 
+                    '<span class="badge bg-primary ms-auto">Hinzufügen</span>'
+                }
+            </div>
+        `;
+        
+        if (!selectedParticipants.has(user.id)) {
+            userDiv.onclick = () => addParticipant(user);
+        }
+        
+        resultsDiv.appendChild(userDiv);
+    });
+}
+
+function addParticipant(user) {
+    if (selectedParticipants.has(user.id)) {
+        return;
+    }
+    
+    selectedParticipants.add(user.id);
+    updateSelectedParticipants();
+    
+    // Clear search
+    document.getElementById('userSearch').value = '';
+    document.getElementById('searchResults').innerHTML = '';
+}
+
+function removeParticipant(userId) {
+    selectedParticipants.delete(userId);
+    updateSelectedParticipants();
+}
+
+function updateSelectedParticipants() {
+    const container = document.getElementById('selectedParticipants');
+    
+    if (selectedParticipants.size === 0) {
+        container.innerHTML = '<div class="text-muted text-center">Keine Teilnehmer ausgewählt</div>';
+        return;
+    }
+    
+    // For simplicity, we'll store user data in a global object
+    // In a real app, you'd fetch user details from the API
+    container.innerHTML = '';
+    
+    selectedParticipants.forEach(userId => {
+        const participantDiv = document.createElement('div');
+        participantDiv.className = 'participant-badge d-inline-block me-2 mb-2';
+        participantDiv.innerHTML = `
+            <span class="badge bg-primary">
+                Benutzer ${userId}
+                <button type="button" class="btn-close btn-close-white ms-1" 
+                        onclick="removeParticipant(${userId})" style="font-size: 0.7em;"></button>
+            </span>
+        `;
+        container.appendChild(participantDiv);
+    });
+}
+
+async function handleStartCall(event) {
+    event.preventDefault();
+    
+    if (selectedParticipants.size === 0) {
+        alert('Bitte wählen Sie mindestens einen Teilnehmer aus.');
+        return;
+    }
+    
+    const formData = new FormData(event.target);
+    const callType = formData.get('call_type');
+    const participantIds = Array.from(selectedParticipants);
+    
+    // Show loading
+    const startBtn = document.getElementById('startCallBtn');
+    const originalText = startBtn.innerHTML;
+    startBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Starte Anruf...';
+    startBtn.disabled = true;
+    
+    try {
+        const response = await fetch('/organization/calls/start/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                call_type: callType,
+                participants: participantIds
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Redirect to call interface
+            window.location.href = `/organization/calls/${data.call_id}/`;
+        } else {
+            throw new Error(data.error || 'Unbekannter Fehler');
+        }
+        
+    } catch (error) {
+        console.error('Fehler beim Starten des Anrufs:', error);
+        alert('Fehler beim Starten des Anrufs: ' + error.message);
+        
+        // Restore button
+        startBtn.innerHTML = originalText;
+        startBtn.disabled = false;
+    }
+}
+
+function addRecentUsers() {
+    // This would typically fetch recent contacts from the API
+    alert('Funktion noch nicht implementiert');
+}
+
+function addTeamMembers() {
+    // This would typically fetch team members from the API
+    alert('Funktion noch nicht implementiert');
+}
+
+function loadRecentCalls() {
+    // This would typically fetch recent calls from the API
+    // For now, we'll leave it empty
+}
+</script>
+
+<style>
+.min-height-50 {
+    min-height: 50px;
+}
+
+.user-search-result:hover {
+    background-color: rgba(0,123,255,0.1);
+}
+
+.participant-badge .badge {
+    font-size: 0.9em;
+}
+</style>
+{% endblock %}
