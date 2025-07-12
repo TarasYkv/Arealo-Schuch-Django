@@ -33,6 +33,9 @@
                 </div>
                 <div class="card-body">
                     <div class="btn-group-vertical w-100" role="group">
+                        <button type="button" class="btn btn-outline-primary tool-btn active" data-tool="select">
+                            <i class="fas fa-mouse-pointer"></i> Auswählen
+                        </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="pen">
                             <i class="fas fa-pen"></i> Stift
                         </button>
@@ -102,7 +105,7 @@
                         <canvas id="drawing-canvas" 
                                 width="{{ board.width }}" 
                                 height="{{ board.height }}" 
-                                style="border: 1px solid #dee2e6; background-color: {{ board.background_color }}; cursor: crosshair;">
+                                style="border: 1px solid #dee2e6; background-color: {{ board.background_color }}; cursor: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTMgM0w5IDE5TDEyIDE1TDE5IDEySjMgM1oiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIxIi8+Cjwvc3ZnPg==) 3 3, pointer;">
                         </canvas>
                     </div>
                 </div>
@@ -159,7 +162,7 @@ class IdeaBoard {
         this.canvas = document.getElementById('drawing-canvas');
         this.ctx = this.canvas.getContext('2d');
         this.isDrawing = false;
-        this.currentTool = 'pen';
+        this.currentTool = 'select';
         this.currentColor = '#000000';
         this.currentStrokeWidth = 2;
         this.currentOpacity = 1.0;
@@ -167,9 +170,18 @@ class IdeaBoard {
         this.startY = 0;
         this.elements = [];
         this.currentPath = [];
+        this.selectedElement = null;
+        this.isDragging = false;
+        this.isResizing = false;
+        this.resizeHandle = null;
+        this.dragOffset = {x: 0, y: 0};
         
         this.initEventListeners();
         this.loadExistingElements();
+        this.setupPolling();
+        
+        // Set initial cursor for default tool (select)
+        this.updateCursor();
     }
     
     initEventListeners() {
@@ -183,8 +195,11 @@ class IdeaBoard {
         document.querySelectorAll('.tool-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                this.currentTool = e.target.dataset.tool;
+                // Get the button element, not the icon inside
+                const button = e.target.closest('.tool-btn');
+                button.classList.add('active');
+                this.currentTool = button.dataset.tool;
+                console.log('Tool selected:', this.currentTool); // Debug log
                 this.updateCursor();
             });
         });
@@ -220,10 +235,16 @@ class IdeaBoard {
     }
     
     startDrawing(e) {
-        this.isDrawing = true;
         const rect = this.canvas.getBoundingClientRect();
         this.startX = e.clientX - rect.left;
         this.startY = e.clientY - rect.top;
+        
+        if (this.currentTool === 'select') {
+            this.handleSelection(this.startX, this.startY);
+            return;
+        }
+        
+        this.isDrawing = true;
         
         if (this.currentTool === 'pen' || this.currentTool === 'brush') {
             this.currentPath = [{x: this.startX, y: this.startY}];
@@ -231,11 +252,16 @@ class IdeaBoard {
     }
     
     draw(e) {
-        if (!this.isDrawing) return;
-        
         const rect = this.canvas.getBoundingClientRect();
         const currentX = e.clientX - rect.left;
         const currentY = e.clientY - rect.top;
+        
+        if (this.currentTool === 'select') {
+            this.handleDragOrResize(currentX, currentY);
+            return;
+        }
+        
+        if (!this.isDrawing) return;
         
         this.ctx.globalAlpha = this.currentOpacity;
         this.ctx.strokeStyle = this.currentColor;
@@ -286,6 +312,10 @@ class IdeaBoard {
         this.ctx.fillStyle = this.currentColor;
         this.ctx.lineWidth = this.currentStrokeWidth;
         
+        // Set consistent line rendering properties for preview
+        this.ctx.lineCap = 'round';
+        this.ctx.lineJoin = 'round';
+        
         const width = currentX - this.startX;
         const height = currentY - this.startY;
         
@@ -326,6 +356,9 @@ class IdeaBoard {
         this.elements.forEach(element => {
             this.drawElement(element);
         });
+        
+        // Draw selection handles if an element is selected
+        this.drawSelectionHandles();
     }
     
     drawElement(element) {
@@ -333,6 +366,10 @@ class IdeaBoard {
         this.ctx.strokeStyle = element.color || '#000000';
         this.ctx.fillStyle = element.color || '#000000';
         this.ctx.lineWidth = element.stroke_width || 2;
+        
+        // Set consistent line rendering properties
+        this.ctx.lineCap = 'round';
+        this.ctx.lineJoin = 'round';
         
         const data = element.data;
         
@@ -382,6 +419,13 @@ class IdeaBoard {
     }
     
     stopDrawing(event) {
+        if (this.currentTool === 'select') {
+            this.isDragging = false;
+            this.isResizing = false;
+            this.resizeHandle = null;
+            return;
+        }
+        
         if (!this.isDrawing) return;
         this.isDrawing = false;
         
@@ -496,7 +540,9 @@ class IdeaBoard {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                element.id = data.id;
                 this.elements.push(element);
+                this.lastUpdate = Date.now();
             }
         });
     }
@@ -522,27 +568,433 @@ class IdeaBoard {
             });
     }
     
-    updateCursor() {
-        switch (this.currentTool) {
-            case 'pen':
-            case 'brush':
-                this.canvas.style.cursor = 'crosshair';
+    handleSelection(x, y) {
+        // Check if clicking on resize handle
+        if (this.selectedElement) {
+            const handle = this.getResizeHandle(x, y);
+            if (handle) {
+                this.isResizing = true;
+                this.resizeHandle = handle;
+                console.log('Resize handle clicked:', handle);
+                return;
+            }
+        }
+        
+        // Check if clicking on existing element
+        const clickedElement = this.getElementAt(x, y);
+        console.log('Clicked at:', x, y, 'Found element:', clickedElement);
+        
+        if (clickedElement) {
+            if (this.selectedElement !== clickedElement) {
+                this.selectedElement = clickedElement;
+                this.redrawCanvas();
+            }
+            this.isDragging = true;
+            
+            // Ensure position_x and position_y exist
+            if (clickedElement.position_x === undefined) {
+                clickedElement.position_x = clickedElement.data.x || 0;
+            }
+            if (clickedElement.position_y === undefined) {
+                clickedElement.position_y = clickedElement.data.y || 0;
+            }
+            
+            this.dragOffset = {
+                x: x - clickedElement.position_x,
+                y: y - clickedElement.position_y
+            };
+            
+            console.log('Starting drag with offset:', this.dragOffset, 'Element position:', clickedElement.position_x, clickedElement.position_y);
+        } else {
+            // Clicked on empty space - deselect
+            this.selectedElement = null;
+            this.redrawCanvas();
+        }
+    }
+    
+    handleDragOrResize(x, y) {
+        if (this.isResizing && this.selectedElement) {
+            this.resizeElement(x, y);
+        } else if (this.isDragging && this.selectedElement) {
+            this.dragElement(x, y);
+        }
+    }
+    
+    getElementAt(x, y) {
+        // Search from top to bottom (reverse order)
+        for (let i = this.elements.length - 1; i >= 0; i--) {
+            const element = this.elements[i];
+            if (this.isPointInElement(x, y, element)) {
+                return element;
+            }
+        }
+        return null;
+    }
+    
+    isPointInElement(x, y, element) {
+        const data = element.data;
+        
+        switch (element.element_type) {
+            case 'rectangle':
+                return x >= data.x && x <= data.x + data.width &&
+                       y >= data.y && y <= data.y + data.height;
+            
+            case 'circle':
+                const dx = x - data.x;
+                const dy = y - data.y;
+                return (dx * dx + dy * dy) <= (data.radius * data.radius);
+            
+            case 'triangle':
+                // Simple bounding box check for triangles
+                const minX = Math.min(data.x1, data.x2, data.x3);
+                const maxX = Math.max(data.x1, data.x2, data.x3);
+                const minY = Math.min(data.y1, data.y2, data.y3);
+                const maxY = Math.max(data.y1, data.y2, data.y3);
+                return x >= minX && x <= maxX && y >= minY && y <= maxY;
+            
+            case 'line':
+                // Check if point is near line (within stroke width)
+                const dist = this.distanceToLine(x, y, data.x1, data.y1, data.x2, data.y2);
+                return dist <= (element.stroke_width || 2) + 5;
+            
+            case 'text':
+                // Simple bounding box for text
+                const textWidth = this.ctx.measureText(data.text).width;
+                return x >= data.x && x <= data.x + textWidth &&
+                       y >= data.y - 16 && y <= data.y;
+            
+            case 'freehand':
+                // Check if point is near any point in the path
+                for (let point of data.path) {
+                    const dx = x - point.x;
+                    const dy = y - point.y;
+                    if (Math.sqrt(dx * dx + dy * dy) <= (element.stroke_width || 2) + 3) {
+                        return true;
+                    }
+                }
+                return false;
+        }
+        return false;
+    }
+    
+    distanceToLine(px, py, x1, y1, x2, y2) {
+        const A = px - x1;
+        const B = py - y1;
+        const C = x2 - x1;
+        const D = y2 - y1;
+        
+        const dot = A * C + B * D;
+        const lenSq = C * C + D * D;
+        let param = -1;
+        if (lenSq !== 0) {
+            param = dot / lenSq;
+        }
+        
+        let xx, yy;
+        if (param < 0) {
+            xx = x1;
+            yy = y1;
+        } else if (param > 1) {
+            xx = x2;
+            yy = y2;
+        } else {
+            xx = x1 + param * C;
+            yy = y1 + param * D;
+        }
+        
+        const dx = px - xx;
+        const dy = py - yy;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    dragElement(x, y) {
+        if (!this.selectedElement) return;
+        
+        const newX = x - this.dragOffset.x;
+        const newY = y - this.dragOffset.y;
+        
+        console.log('Dragging to:', x, y, 'New position:', newX, newY, 'Offset:', this.dragOffset);
+        
+        // Calculate delta before updating position
+        const deltaX = newX - this.selectedElement.position_x;
+        const deltaY = newY - this.selectedElement.position_y;
+        
+        this.selectedElement.position_x = newX;
+        this.selectedElement.position_y = newY;
+        
+        // Update data based on element type
+        const data = this.selectedElement.data;
+        
+        switch (this.selectedElement.element_type) {
+            case 'rectangle':
+                data.x = newX;
+                data.y = newY;
                 break;
-            case 'eraser':
-                this.canvas.style.cursor = 'url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJMMTQgNEwyMCAxMEwxOCAxMkwxMiA2TDEyIDJaIiBmaWxsPSIjZmZmIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMiIvPgo8L3N2Zz4=) 12 12, auto';
+            case 'circle':
+                data.x = newX;
+                data.y = newY;
                 break;
             case 'text':
-                this.canvas.style.cursor = 'text';
+                data.x = newX;
+                data.y = newY;
+                break;
+            case 'freehand':
+                // Move all points in the path
+                if (data.path) {
+                    for (let point of data.path) {
+                        point.x += deltaX;
+                        point.y += deltaY;
+                    }
+                }
+                break;
+        }
+        
+        this.redrawCanvas();
+        this.updateElementOnServer(this.selectedElement);
+    }
+    
+    getResizeHandle(x, y) {
+        if (!this.selectedElement) return null;
+        
+        const bounds = this.getElementBounds(this.selectedElement);
+        const handleSize = 10; // Match the drawing size
+        
+        // Check each corner
+        const handles = [
+            { name: 'nw', x: bounds.x, y: bounds.y },
+            { name: 'ne', x: bounds.x + bounds.width, y: bounds.y },
+            { name: 'sw', x: bounds.x, y: bounds.y + bounds.height },
+            { name: 'se', x: bounds.x + bounds.width, y: bounds.y + bounds.height }
+        ];
+        
+        for (let handle of handles) {
+            if (Math.abs(x - handle.x) <= handleSize && Math.abs(y - handle.y) <= handleSize) {
+                return handle.name;
+            }
+        }
+        
+        return null;
+    }
+    
+    getElementBounds(element) {
+        const data = element.data;
+        
+        switch (element.element_type) {
+            case 'rectangle':
+                return {
+                    x: data.x,
+                    y: data.y,
+                    width: data.width,
+                    height: data.height
+                };
+            case 'circle':
+                return {
+                    x: data.x - data.radius,
+                    y: data.y - data.radius,
+                    width: data.radius * 2,
+                    height: data.radius * 2
+                };
+            case 'text':
+                const textWidth = this.ctx.measureText(data.text).width;
+                return {
+                    x: data.x,
+                    y: data.y - 16,
+                    width: textWidth,
+                    height: 16
+                };
+            default:
+                return { x: 0, y: 0, width: 0, height: 0 };
+        }
+    }
+    
+    resizeElement(x, y) {
+        if (!this.selectedElement || !this.resizeHandle) return;
+        
+        const data = this.selectedElement.data;
+        console.log('Resizing element:', this.selectedElement.element_type, 'Handle:', this.resizeHandle, 'To position:', x, y);
+        
+        switch (this.selectedElement.element_type) {
+            case 'rectangle':
+                if (this.resizeHandle.includes('e')) {
+                    data.width = Math.max(10, x - data.x); // Minimum width of 10px
+                }
+                if (this.resizeHandle.includes('s')) {
+                    data.height = Math.max(10, y - data.y); // Minimum height of 10px
+                }
+                if (this.resizeHandle.includes('w')) {
+                    const oldWidth = data.width;
+                    data.width = Math.max(10, data.x + oldWidth - x);
+                    data.x = x;
+                }
+                if (this.resizeHandle.includes('n')) {
+                    const oldHeight = data.height;
+                    data.height = Math.max(10, data.y + oldHeight - y);
+                    data.y = y;
+                }
+                break;
+            case 'circle':
+                const dx = x - data.x;
+                const dy = y - data.y;
+                data.radius = Math.max(5, Math.sqrt(dx * dx + dy * dy)); // Minimum radius of 5px
+                break;
+        }
+        
+        // Update position_x and position_y to match data
+        this.selectedElement.position_x = data.x;
+        this.selectedElement.position_y = data.y;
+        
+        this.redrawCanvas();
+        this.updateElementOnServer(this.selectedElement);
+    }
+    
+    drawSelectionHandles() {
+        if (!this.selectedElement) return;
+        
+        const bounds = this.getElementBounds(this.selectedElement);
+        const handleSize = 10; // Increased size for better visibility
+        
+        // Draw selection border first
+        this.ctx.strokeStyle = '#007bff';
+        this.ctx.lineWidth = 2;
+        this.ctx.setLineDash([5, 5]); // Dashed border
+        this.ctx.strokeRect(bounds.x - 2, bounds.y - 2, bounds.width + 4, bounds.height + 4);
+        this.ctx.setLineDash([]); // Reset to solid line
+        
+        // Draw corner handles with better visibility
+        this.ctx.fillStyle = '#007bff';
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.lineWidth = 2;
+        
+        // Draw corner handles
+        const handles = [
+            { x: bounds.x, y: bounds.y },
+            { x: bounds.x + bounds.width, y: bounds.y },
+            { x: bounds.x, y: bounds.y + bounds.height },
+            { x: bounds.x + bounds.width, y: bounds.y + bounds.height }
+        ];
+        
+        for (let handle of handles) {
+            // Draw shadow for better visibility
+            this.ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            this.ctx.fillRect(handle.x - handleSize/2 + 1, handle.y - handleSize/2 + 1, handleSize, handleSize);
+            
+            // Draw main handle
+            this.ctx.fillStyle = '#007bff';
+            this.ctx.fillRect(handle.x - handleSize/2, handle.y - handleSize/2, handleSize, handleSize);
+            this.ctx.strokeRect(handle.x - handleSize/2, handle.y - handleSize/2, handleSize, handleSize);
+        }
+    }
+    
+    updateElementOnServer(element) {
+        fetch(`/organization/boards/{{ board.pk }}/update-element/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                element_id: element.id,
+                data: element.data,
+                position_x: element.position_x,
+                position_y: element.position_y
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.lastUpdate = Date.now();
+            }
+        });
+    }
+    
+    setupPolling() {
+        this.lastUpdate = Date.now();
+        this.pollingInterval = setInterval(() => {
+            this.checkForUpdates();
+        }, 2000); // Check every 2 seconds
+    }
+    
+    checkForUpdates() {
+        fetch(`/organization/boards/{{ board.pk }}/elements/?since=${this.lastUpdate}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.updated && data.elements) {
+                    // Only update if there are actual changes
+                    if (this.hasElementsChanged(data.elements)) {
+                        this.elements = data.elements;
+                        this.redrawCanvas();
+                    }
+                    this.lastUpdate = Date.now();
+                }
+            })
+            .catch(error => {
+                console.error('Error checking for updates:', error);
+            });
+    }
+    
+    hasElementsChanged(newElements) {
+        if (newElements.length !== this.elements.length) {
+            return true;
+        }
+        
+        for (let i = 0; i < newElements.length; i++) {
+            const newEl = newElements[i];
+            const oldEl = this.elements[i];
+            
+            if (!oldEl || newEl.id !== oldEl.id || 
+                JSON.stringify(newEl.data) !== JSON.stringify(oldEl.data) ||
+                newEl.position_x !== oldEl.position_x ||
+                newEl.position_y !== oldEl.position_y) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    cleanup() {
+        if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
+        }
+    }
+    
+    updateCursor() {
+        switch (this.currentTool) {
+            case 'select':
+                // Dark pointer cursor for better visibility
+                this.canvas.style.cursor = 'url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTMgM0w5IDE5TDEyIDE1TDE5IDEySjMgM1oiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIxIi8+Cjwvc3ZnPg==) 3 3, pointer';
+                break;
+            case 'pen':
+            case 'brush':
+                // Dark crosshair for better visibility
+                this.canvas.style.cursor = 'url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGxpbmUgeDE9IjEyIiB5MT0iMyIgeDI9IjEyIiB5Mj0iMjEiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxsaW5lIHgxPSIzIiB5MT0iMTIiIHgyPSIyMSIgeTI9IjEyIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMiIvPgo8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIyIiBmaWxsPSIjZmZmIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMSIvPgo8L3N2Zz4=) 12 12, crosshair';
+                break;
+            case 'eraser':
+                // Improved eraser cursor with better visibility
+                this.canvas.style.cursor = 'url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3QgeD0iOCIgeT0iMTIiIHdpZHRoPSI4IiBoZWlnaHQ9IjQiIGZpbGw9IiNmZjY5YjQiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIxIi8+CjxyZWN0IHg9IjYiIHk9IjciIHdpZHRoPSIxMiIgaGVpZ2h0PSI1IiBmaWxsPSIjZmZkZGRkIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMSIvPgo8L3N2Zz4=) 12 12, auto';
+                break;
+            case 'text':
+                // Dark text cursor
+                this.canvas.style.cursor = 'url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGxpbmUgeDE9IjEyIiB5MT0iMyIgeDI9IjEyIiB5Mj0iMjEiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxsaW5lIHgxPSI5IiB5MT0iMyIgeDI9IjE1IiB5Mj0iMyIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiLz4KPGxpbmUgeDE9IjkiIHkxPSIyMSIgeDI9IjE1IiB5Mj0iMjEiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjwvc3ZnPg==) 12 12, text';
                 break;
             default:
-                this.canvas.style.cursor = 'crosshair';
+                // Default dark crosshair
+                this.canvas.style.cursor = 'url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGxpbmUgeDE9IjEyIiB5MT0iMyIgeDI9IjEyIiB5Mj0iMjEiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxsaW5lIHgxPSIzIiB5MT0iMTIiIHgyPSIyMSIgeTI9IjEyIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMiIvPgo8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIyIiBmaWxsPSIjZmZmIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMSIvPgo8L3N2Zz4=) 12 12, crosshair';
         }
     }
 }
 
 // Initialisiere das Board wenn die Seite geladen ist
+let ideaBoard;
 document.addEventListener('DOMContentLoaded', function() {
-    new IdeaBoard();
+    ideaBoard = new IdeaBoard();
+});
+
+// Cleanup when page is unloaded
+window.addEventListener('beforeunload', function() {
+    if (ideaBoard) {
+        ideaBoard.cleanup();
+    }
 });
 
 // Benutzersuche für Einladungen
