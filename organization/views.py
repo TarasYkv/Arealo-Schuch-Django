@@ -518,6 +518,10 @@ def board_save_element(request, pk):
             created_by=request.user
         )
         
+        # Update board's updated_at timestamp for polling
+        board.updated_at = timezone.now()
+        board.save()
+        
         return JsonResponse({'id': element.id, 'success': True})
     
     return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
@@ -531,6 +535,16 @@ def board_get_elements(request, pk):
     # Zugriffsberechtigung prüfen
     if not (board.creator == request.user or request.user in board.collaborators.all() or board.is_public):
         return JsonResponse({'error': 'Keine Berechtigung'}, status=403)
+    
+    # Check if client provided a timestamp for polling
+    since_timestamp = request.GET.get('since')
+    if since_timestamp:
+        try:
+            since_time = timezone.datetime.fromtimestamp(int(since_timestamp) / 1000, tz=timezone.get_current_timezone())
+            if board.updated_at <= since_time:
+                return JsonResponse({'updated': False})
+        except (ValueError, TypeError):
+            pass
     
     elements = board.elements.all().order_by('layer_index', 'created_at')
     
@@ -550,7 +564,7 @@ def board_get_elements(request, pk):
             'layer_index': element.layer_index,
         })
     
-    return JsonResponse({'elements': elements_data})
+    return JsonResponse({'elements': elements_data, 'updated': True})
 
 
 @login_required
@@ -582,6 +596,39 @@ def board_invite_collaborators(request, pk):
             'success': True,
             'message': f'{success_count} Mitarbeiter erfolgreich eingeladen'
         })
+    
+    return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
+
+
+@login_required
+@csrf_exempt
+def board_update_element(request, pk):
+    """Aktualisiere ein Element auf dem Ideenboard."""
+    if request.method == 'POST':
+        board = get_object_or_404(IdeaBoard, pk=pk)
+        
+        # Zugriffsberechtigung prüfen
+        if not (board.creator == request.user or request.user in board.collaborators.all()):
+            return JsonResponse({'error': 'Keine Berechtigung'}, status=403)
+        
+        data = json.loads(request.body)
+        element_id = data.get('element_id')
+        
+        try:
+            element = BoardElement.objects.get(id=element_id, board=board)
+            element.data = data.get('data', element.data)
+            element.position_x = data.get('position_x', element.position_x)
+            element.position_y = data.get('position_y', element.position_y)
+            element.save()
+            
+            # Update board's updated_at timestamp for polling
+            board.updated_at = timezone.now()
+            board.save()
+            
+            return JsonResponse({'success': True})
+            
+        except BoardElement.DoesNotExist:
+            return JsonResponse({'error': 'Element nicht gefunden'}, status=404)
     
     return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
 
