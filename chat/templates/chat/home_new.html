@@ -589,9 +589,6 @@ body.modal-open {
                                             <i class="fas fa-ellipsis-v"></i>
                                         </button>
                                         <ul class="dropdown-menu">
-                                            <li><a class="dropdown-item" href="#" onclick="startCallWithValidation('audio')"><i class="fas fa-phone"></i> Anrufen</a></li>
-                                            <li><a class="dropdown-item" href="#" onclick="startCallWithValidation('video')"><i class="fas fa-video"></i> Videoanruf</a></li>
-                                            <li><hr class="dropdown-divider"></li>
                                             <li><a class="dropdown-item" href="#" onclick="showChatInfo()"><i class="fas fa-info-circle"></i> Info</a></li>
                                             <li><a class="dropdown-item text-danger" href="#" onclick="deleteChat()"><i class="fas fa-trash"></i> Löschen</a></li>
                                         </ul>
@@ -607,55 +604,6 @@ body.modal-open {
                                 </div>
                             </div>
                             
-                            <!-- Floating Call Window -->
-                            <div id="floatingCallWindow" class="floating-call-window" style="display: none;">
-                                <div class="call-header">
-                                    <div class="call-info">
-                                        <i class="fas fa-phone" id="callIcon"></i>
-                                        <span id="callTitle">Anruf</span>
-                                        <span id="callStatus" class="call-status-text">Verbinde...</span>
-                                    </div>
-                                    <div class="call-header-controls">
-                                        <button class="btn btn-sm btn-outline-light" id="minimizeBtn" onclick="minimizeCallWindow()" title="Minimieren">
-                                            <i class="fas fa-minus"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-light" id="maximizeBtn" onclick="maximizeCallWindow()" title="Maximieren">
-                                            <i class="fas fa-expand"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-light" onclick="endCall()" title="Beenden">
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <div class="call-content">
-                                    <div class="call-avatar-container" id="callAvatarContainer">
-                                        <div class="call-avatar">
-                                            <i class="fas fa-user-circle fa-3x text-primary"></i>
-                                        </div>
-                                        <h5 id="callParticipantName">Teilnehmer</h5>
-                                    </div>
-                                    
-                                    <!-- Video Elements -->
-                                    <div class="video-container" id="videoContainer" style="display: none;">
-                                        <video id="remoteVideo" autoplay playsinline class="remote-video"></video>
-                                        <video id="localVideo" autoplay muted playsinline class="local-video"></video>
-                                    </div>
-                                </div>
-                                
-                                <!-- Call Controls -->
-                                <div class="call-controls">
-                                    <button class="btn btn-sm btn-outline-light" id="muteBtn" onclick="toggleMute()" title="Stummschalten">
-                                        <i class="fas fa-microphone"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-light" id="videoBtn" onclick="toggleVideo()" style="display: none;" title="Video ein/aus">
-                                        <i class="fas fa-video"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-danger" id="endCallBtn" onclick="endCall()" title="Anruf beenden">
-                                        <i class="fas fa-phone-slash"></i>
-                                    </button>
-                                </div>
-                            </div>
                             
                             <div class="message-input-area" id="messageInput" style="display: none;">
                                 <div class="d-flex align-items-end gap-2">
@@ -703,8 +651,6 @@ function loadChat(roomId) {
     
     currentRoomId = roomId;
     
-    // Connect WebSocket for this room
-    connectCallWebSocket();
     
     // Mark messages as read when chat is loaded
     markMessagesAsRead(roomId);
@@ -998,11 +944,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const roomId = urlParams.get('room');
     if (roomId) {
         loadChat(parseInt(roomId));
-        // Connect WebSocket for calls when room is loaded
-        setTimeout(() => {
-            currentRoomId = parseInt(roomId);
-            connectCallWebSocket();
-        }, 500);
         
         // Check if we should auto-answer a call
         const answerCallId = urlParams.get('answerCall');
