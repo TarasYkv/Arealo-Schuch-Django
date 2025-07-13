@@ -86,11 +86,11 @@
                     
                     <hr>
                     
-                    <button type="button" class="btn btn-warning w-100 mb-2" id="clear-canvas">
+                    <button type="button" class="btn btn-warning btn-sm mb-2" id="clear-canvas">
                         <i class="fas fa-trash"></i> Canvas löschen
                     </button>
                     
-                    <button type="button" class="btn btn-success w-100" id="save-board">
+                    <button type="button" class="btn btn-success btn-sm" id="save-board">
                         <i class="fas fa-save"></i> Speichern
                     </button>
                 </div>
@@ -102,6 +102,53 @@
             <div class="card">
                 <div class="card-body p-0">
                     <div id="canvas-container" style="position: relative; overflow: hidden;">
+                        <!-- Undo Button - Top Right -->
+                        <div style="position: absolute; top: 10px; right: 10px; z-index: 10;">
+                            <button type="button" class="btn btn-secondary btn-sm" id="undo-action">
+                                <i class="fas fa-undo"></i> Rückgängig
+                            </button>
+                        </div>
+                        
+                        <!-- Zoom Controls - Top Left -->
+                        <div style="position: absolute; top: 10px; left: 10px; z-index: 10;">
+                            <div class="btn-group-vertical" role="group">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="zoom-in">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="hand-tool" title="Board verschieben">
+                                    <i class="fas fa-hand-paper"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="zoom-out">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Navigation Controls - Bottom Right -->
+                        <div style="position: absolute; bottom: 10px; right: 10px; z-index: 10;">
+                            <div class="d-grid" style="grid-template-columns: repeat(3, 1fr); gap: 2px; width: 90px;">
+                                <div></div>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="nav-up">
+                                    <i class="fas fa-arrow-up"></i>
+                                </button>
+                                <div></div>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="nav-left">
+                                    <i class="fas fa-arrow-left"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="nav-center">
+                                    <i class="fas fa-dot-circle"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="nav-right">
+                                    <i class="fas fa-arrow-right"></i>
+                                </button>
+                                <div></div>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="nav-down">
+                                    <i class="fas fa-arrow-down"></i>
+                                </button>
+                                <div></div>
+                            </div>
+                        </div>
+                        
                         <canvas id="drawing-canvas" 
                                 width="{{ board.width }}" 
                                 height="{{ board.height }}" 
@@ -159,7 +206,14 @@
 <script>
 class IdeaBoard {
     constructor() {
+        console.log('IdeaBoard constructor starting...');
+        
         this.canvas = document.getElementById('drawing-canvas');
+        if (!this.canvas) {
+            console.error('Canvas not found!');
+            return;
+        }
+        
         this.ctx = this.canvas.getContext('2d');
         this.isDrawing = false;
         this.currentTool = 'select';
@@ -176,15 +230,33 @@ class IdeaBoard {
         this.resizeHandle = null;
         this.dragOffset = {x: 0, y: 0};
         
+        // Zoom and pan variables
+        this.zoomLevel = 1;
+        this.panX = 0;
+        this.panY = 0;
+        this.handToolActive = false;
+        this.isPanning = false;
+        this.lastPanX = 0;
+        this.lastPanY = 0;
+        
+        console.log('Calling initEventListeners...');
         this.initEventListeners();
+        
+        console.log('Loading existing elements...');
         this.loadExistingElements();
+        
+        console.log('Setting up polling...');
         this.setupPolling();
         
         // Set initial cursor for default tool (select)
         this.updateCursor();
+        
+        console.log('IdeaBoard constructor completed');
     }
     
     initEventListeners() {
+        console.log('initEventListeners called');
+        
         // Canvas Events - Mouse
         this.canvas.addEventListener('mousedown', (e) => this.startDrawing(e));
         this.canvas.addEventListener('mousemove', (e) => this.draw(e));
@@ -218,17 +290,40 @@ class IdeaBoard {
             this.stopDrawing(mouseEvent);
         });
         
-        // Tool Selection
-        document.querySelectorAll('.tool-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+        // Tool Selection - Force event handling
+        const toolButtons = document.querySelectorAll('.tool-btn');
+        console.log('Found tool buttons:', toolButtons.length);
+        
+        toolButtons.forEach((btn, index) => {
+            console.log(`Button ${index}:`, btn.getAttribute('data-tool'));
+            
+            // Remove any existing event listeners by cloning
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            newBtn.addEventListener('click', (e) => {
+                console.log('Button clicked:', newBtn.getAttribute('data-tool'));
+                
+                // Remove active class from all buttons
                 document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-                // Get the button element, not the icon inside
-                const button = e.target.closest('.tool-btn');
-                button.classList.add('active');
-                this.currentTool = button.dataset.tool;
-                console.log('Tool selected:', this.currentTool); // Debug log
+                
+                // Add active class to clicked button
+                newBtn.classList.add('active');
+                
+                // Set the tool
+                this.currentTool = newBtn.getAttribute('data-tool');
+                
+                // Deactivate hand tool when any drawing tool is selected
+                if (this.handToolActive) {
+                    this.deactivateHandTool();
+                }
+                
                 this.updateCursor();
-            });
+                console.log('Tool set to:', this.currentTool);
+                
+                e.preventDefault();
+                e.stopPropagation();
+            }, true);
         });
         
         // Color Picker
@@ -248,6 +343,11 @@ class IdeaBoard {
             document.getElementById('opacity-value').textContent = e.target.value;
         });
         
+        // Undo Button
+        document.getElementById('undo-action').addEventListener('click', () => {
+            this.undoLastAction();
+        });
+        
         // Clear Canvas
         document.getElementById('clear-canvas').addEventListener('click', () => {
             if (confirm('Möchten Sie das Canvas wirklich löschen?')) {
@@ -258,6 +358,40 @@ class IdeaBoard {
         // Save Board
         document.getElementById('save-board').addEventListener('click', () => {
             this.saveBoard();
+        });
+        
+        // Zoom controls
+        document.getElementById('zoom-in').addEventListener('click', () => {
+            this.zoomIn();
+        });
+        
+        document.getElementById('hand-tool').addEventListener('click', () => {
+            this.toggleHandTool();
+        });
+        
+        document.getElementById('zoom-out').addEventListener('click', () => {
+            this.zoomOut();
+        });
+        
+        // Navigation controls
+        document.getElementById('nav-up').addEventListener('click', () => {
+            this.panCanvas(0, -50);
+        });
+        
+        document.getElementById('nav-down').addEventListener('click', () => {
+            this.panCanvas(0, 50);
+        });
+        
+        document.getElementById('nav-left').addEventListener('click', () => {
+            this.panCanvas(-50, 0);
+        });
+        
+        document.getElementById('nav-right').addEventListener('click', () => {
+            this.panCanvas(50, 0);
+        });
+        
+        document.getElementById('nav-center').addEventListener('click', () => {
+            this.resetCanvasView();
         });
     }
     
@@ -277,6 +411,15 @@ class IdeaBoard {
         this.startX = coords.x;
         this.startY = coords.y;
         
+        // Handle hand tool panning
+        if (this.handToolActive) {
+            this.isPanning = true;
+            this.lastPanX = e.clientX;
+            this.lastPanY = e.clientY;
+            this.canvas.style.cursor = 'grabbing';
+            return;
+        }
+        
         if (this.currentTool === 'select') {
             this.handleSelection(this.startX, this.startY);
             return;
@@ -293,6 +436,20 @@ class IdeaBoard {
         const coords = this.getCanvasCoordinates(e);
         const currentX = coords.x;
         const currentY = coords.y;
+        
+        // Handle hand tool panning
+        if (this.isPanning && this.handToolActive) {
+            const deltaX = e.clientX - this.lastPanX;
+            const deltaY = e.clientY - this.lastPanY;
+            
+            this.panX += deltaX;
+            this.panY += deltaY;
+            this.applyCanvasTransform();
+            
+            this.lastPanX = e.clientX;
+            this.lastPanY = e.clientY;
+            return;
+        }
         
         if (this.currentTool === 'select') {
             this.handleDragOrResize(currentX, currentY);
@@ -434,7 +591,6 @@ class IdeaBoard {
             const centerX = bounds.x + bounds.width / 2;
             const centerY = bounds.y + bounds.height / 2;
             
-            console.log(`Drawing element ${element.id} with rotation ${element.rotation}°`);
             
             this.ctx.save();
             this.ctx.translate(centerX, centerY);
@@ -499,6 +655,13 @@ class IdeaBoard {
     }
     
     stopDrawing(event) {
+        // Handle hand tool panning
+        if (this.isPanning && this.handToolActive) {
+            this.isPanning = false;
+            this.canvas.style.cursor = 'grab';
+            return;
+        }
+        
         if (this.currentTool === 'select') {
             this.isDragging = false;
             this.isResizing = false;
@@ -640,9 +803,64 @@ class IdeaBoard {
         });
     }
     
+    undoLastAction() {
+        if (this.elements.length === 0) {
+            alert('Keine Aktion zum Rückgängigmachen vorhanden');
+            return;
+        }
+        
+        // Get the last element
+        const lastElement = this.elements[this.elements.length - 1];
+        
+        // Delete the last element from server
+        fetch(`/organization/boards/{{ board.pk }}/elements/${lastElement.id}/delete/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        }).then(response => {
+            if (response.ok) {
+                // Remove from local array
+                this.elements.pop();
+                this.redrawCanvas();
+                // Force update check
+                setTimeout(() => this.checkForUpdates(), 100);
+            } else {
+                alert('Fehler beim Rückgängigmachen');
+            }
+        }).catch(error => {
+            console.error('Error undoing action:', error);
+            alert('Fehler beim Rückgängigmachen');
+        });
+    }
+    
     clearCanvas() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.elements = [];
+        // Clear all elements on server
+        fetch(`/organization/boards/{{ board.pk }}/clear-elements/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Clear local canvas
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                this.elements = [];
+                // Force update for all users
+                this.lastUpdate = 0;
+                this.checkForUpdates();
+            } else {
+                alert('Fehler beim Löschen des Canvas');
+            }
+        })
+        .catch(error => {
+            console.error('Error clearing canvas:', error);
+            alert('Fehler beim Löschen des Canvas');
+        });
     }
     
     saveBoard() {
@@ -654,6 +872,10 @@ class IdeaBoard {
             .then(response => response.json())
             .then(data => {
                 this.elements = data.elements || [];
+                // Ensure all loaded elements have position values
+                this.elements.forEach(element => {
+                    this.ensureElementPosition(element);
+                });
                 this.redrawCanvas();
             })
             .catch(error => {
@@ -675,11 +897,9 @@ class IdeaBoard {
                     };
                     this.initialAngle = Math.atan2(y - this.rotationCenter.y, x - this.rotationCenter.x);
                     this.selectedElement.rotation = this.selectedElement.rotation || 0;
-                    console.log('Rotation handle clicked');
                 } else {
                     this.isResizing = true;
                     this.resizeHandle = handle;
-                    console.log('Resize handle clicked:', handle);
                 }
                 return;
             }
@@ -687,7 +907,6 @@ class IdeaBoard {
         
         // Check if clicking on existing element
         const clickedElement = this.getElementAt(x, y);
-        console.log('Clicked at:', x, y, 'Found element:', clickedElement);
         
         if (clickedElement) {
             if (this.selectedElement !== clickedElement) {
@@ -696,20 +915,14 @@ class IdeaBoard {
             }
             this.isDragging = true;
             
-            // Ensure position_x and position_y exist
-            if (clickedElement.position_x === undefined) {
-                clickedElement.position_x = clickedElement.data.x || 0;
-            }
-            if (clickedElement.position_y === undefined) {
-                clickedElement.position_y = clickedElement.data.y || 0;
-            }
+            // Ensure position_x and position_y exist and are correct
+            this.ensureElementPosition(clickedElement);
             
             this.dragOffset = {
                 x: x - clickedElement.position_x,
                 y: y - clickedElement.position_y
             };
             
-            console.log('Starting drag with offset:', this.dragOffset, 'Element position:', clickedElement.position_x, clickedElement.position_y);
         } else {
             // Clicked on empty space - deselect
             this.selectedElement = null;
@@ -767,9 +980,11 @@ class IdeaBoard {
             
             case 'text':
                 // Simple bounding box for text
+                const fontSize = data.fontSize || 16;
+                this.ctx.font = `${fontSize}px Arial`;
                 const textWidth = this.ctx.measureText(data.text).width;
                 return x >= data.x && x <= data.x + textWidth &&
-                       y >= data.y - 16 && y <= data.y;
+                       y >= data.y - fontSize && y <= data.y;
             
             case 'freehand':
                 // Check if point is near any point in the path
@@ -820,8 +1035,6 @@ class IdeaBoard {
         
         const newX = x - this.dragOffset.x;
         const newY = y - this.dragOffset.y;
-        
-        console.log('Dragging to:', x, y, 'New position:', newX, newY, 'Offset:', this.dragOffset);
         
         // Calculate delta before updating position
         const deltaX = newX - this.selectedElement.position_x;
@@ -886,7 +1099,6 @@ class IdeaBoard {
         const oldRotation = this.selectedElement.rotation || 0;
         this.selectedElement.rotation = (oldRotation + angleDiff * (180 / Math.PI)) % 360;
         
-        console.log(`Rotating element ${this.selectedElement.id}: ${oldRotation}° -> ${this.selectedElement.rotation}°`);
         
         this.initialAngle = currentAngle;
         this.redrawCanvas();
@@ -945,12 +1157,14 @@ class IdeaBoard {
                     height: data.radius * 2
                 };
             case 'text':
+                const fontSize = data.fontSize || 16;
+                this.ctx.font = `${fontSize}px Arial`;
                 const textWidth = this.ctx.measureText(data.text).width;
                 return {
                     x: data.x,
-                    y: data.y - 16,
+                    y: data.y - fontSize,
                     width: textWidth,
-                    height: 16
+                    height: fontSize
                 };
             case 'line':
             case 'arrow':
@@ -984,7 +1198,6 @@ class IdeaBoard {
         if (!this.selectedElement || !this.resizeHandle) return;
         
         const data = this.selectedElement.data;
-        console.log('Resizing element:', this.selectedElement.element_type, 'Handle:', this.resizeHandle, 'To position:', x, y);
         
         switch (this.selectedElement.element_type) {
             case 'rectangle':
@@ -1010,11 +1223,66 @@ class IdeaBoard {
                 const dy = y - data.y;
                 data.radius = Math.max(5, Math.sqrt(dx * dx + dy * dy)); // Minimum radius of 5px
                 break;
+                
+            case 'line':
+            case 'arrow':
+                // Resize by changing the end point
+                if (this.resizeHandle.includes('e') || this.resizeHandle.includes('s')) {
+                    data.x2 = x;
+                    data.y2 = y;
+                } else if (this.resizeHandle.includes('w') || this.resizeHandle.includes('n')) {
+                    data.x1 = x;
+                    data.y1 = y;
+                }
+                // Update position to match the top-left of bounding box
+                const minX = Math.min(data.x1, data.x2);
+                const minY = Math.min(data.y1, data.y2);
+                this.selectedElement.position_x = minX;
+                this.selectedElement.position_y = minY;
+                break;
+                
+            case 'triangle':
+                // Resize triangle by adjusting points based on handle
+                const bounds = this.getElementBounds(this.selectedElement);
+                const centerX = bounds.x + bounds.width / 2;
+                const centerY = bounds.y + bounds.height / 2;
+                
+                if (this.resizeHandle.includes('e')) {
+                    const scale = (x - bounds.x) / bounds.width;
+                    data.x2 = bounds.x + bounds.width * scale;
+                    data.x3 = bounds.x + (data.x3 - bounds.x) * scale;
+                }
+                if (this.resizeHandle.includes('s')) {
+                    const scale = (y - bounds.y) / bounds.height;
+                    data.y2 = bounds.y + bounds.height * scale;
+                    data.y3 = bounds.y + (data.y3 - bounds.y) * scale;
+                }
+                break;
+                
+            case 'text':
+                // For text, resize by changing font size
+                const currentSize = data.fontSize || 16;
+                const textBounds = this.getElementBounds(this.selectedElement);
+                
+                if (this.resizeHandle.includes('e') || this.resizeHandle.includes('s')) {
+                    // Calculate scale factor based on distance from text origin
+                    const distance = Math.sqrt((x - data.x) * (x - data.x) + (y - data.y) * (y - data.y));
+                    const baseDistance = Math.sqrt(textBounds.width * textBounds.width + textBounds.height * textBounds.height);
+                    const scale = distance / baseDistance;
+                    data.fontSize = Math.max(8, Math.min(72, currentSize * scale)); // Limit between 8px and 72px
+                }
+                
+                // Update position for text
+                this.selectedElement.position_x = data.x;
+                this.selectedElement.position_y = data.y;
+                break;
         }
         
-        // Update position_x and position_y to match data
-        this.selectedElement.position_x = data.x;
-        this.selectedElement.position_y = data.y;
+        // Update position_x and position_y to match data (for rectangles and circles)
+        if (this.selectedElement.element_type === 'rectangle' || this.selectedElement.element_type === 'circle') {
+            this.selectedElement.position_x = data.x;
+            this.selectedElement.position_y = data.y;
+        }
         
         this.redrawCanvas();
         this.updateElementOnServer(this.selectedElement);
@@ -1108,7 +1376,6 @@ class IdeaBoard {
             rotation: element.rotation || 0
         };
         
-        console.log('Sending update to server:', updateData);
         
         fetch(`/organization/boards/{{ board.pk }}/update-element/`, {
             method: 'POST',
@@ -1120,7 +1387,6 @@ class IdeaBoard {
         })
         .then(response => response.json())
         .then(data => {
-            console.log('Server response:', data);
             if (data.success) {
                 this.lastUpdate = Date.now();
             }
@@ -1142,15 +1408,11 @@ class IdeaBoard {
             .then(response => response.json())
             .then(data => {
                 if (data.updated && data.elements) {
-                    console.log('Received elements from server:', data.elements.map(e => ({
-                        id: e.id,
-                        type: e.element_type,
-                        rotation: e.rotation
-                    })));
                     // Only update if there are actual changes
                     if (this.hasElementsChanged(data.elements)) {
-                        console.log('Elements changed, updating canvas');
                         this.elements = data.elements;
+                        // Ensure all elements have correct position values
+                        this.elements.forEach(element => this.ensureElementPosition(element));
                         this.redrawCanvas();
                     }
                     this.lastUpdate = Date.now();
@@ -1175,7 +1437,6 @@ class IdeaBoard {
                 newEl.position_x !== oldEl.position_x ||
                 newEl.position_y !== oldEl.position_y ||
                 newEl.rotation !== oldEl.rotation) {
-                console.log(`Element ${newEl.id} changed - rotation: ${oldEl?.rotation} -> ${newEl.rotation}`);
                 return true;
             }
         }
@@ -1183,10 +1444,102 @@ class IdeaBoard {
         return false;
     }
     
+    ensureElementPosition(element) {
+        // Ensure position_x and position_y are correctly set for all element types
+        const data = element.data;
+        
+        switch (element.element_type) {
+            case 'rectangle':
+            case 'circle':
+            case 'text':
+                if (element.position_x === undefined) element.position_x = data.x || 0;
+                if (element.position_y === undefined) element.position_y = data.y || 0;
+                break;
+                
+            case 'line':
+            case 'arrow':
+                const minX = Math.min(data.x1, data.x2);
+                const minY = Math.min(data.y1, data.y2);
+                if (element.position_x === undefined) element.position_x = minX;
+                if (element.position_y === undefined) element.position_y = minY;
+                break;
+                
+            case 'triangle':
+                const triMinX = Math.min(data.x1, data.x2, data.x3);
+                const triMinY = Math.min(data.y1, data.y2, data.y3);
+                if (element.position_x === undefined) element.position_x = triMinX;
+                if (element.position_y === undefined) element.position_y = triMinY;
+                break;
+                
+            case 'freehand':
+                if (data.path && data.path.length > 0) {
+                    const pathMinX = Math.min(...data.path.map(p => p.x));
+                    const pathMinY = Math.min(...data.path.map(p => p.y));
+                    if (element.position_x === undefined) element.position_x = pathMinX;
+                    if (element.position_y === undefined) element.position_y = pathMinY;
+                }
+                break;
+        }
+    }
+    
     cleanup() {
         if (this.pollingInterval) {
             clearInterval(this.pollingInterval);
         }
+    }
+    
+    zoomIn() {
+        this.zoomLevel = Math.min(this.zoomLevel * 1.2, 5); // Max zoom 5x
+        this.applyCanvasTransform();
+    }
+    
+    zoomOut() {
+        this.zoomLevel = Math.max(this.zoomLevel / 1.2, 0.1); // Min zoom 0.1x
+        this.applyCanvasTransform();
+    }
+    
+    panCanvas(deltaX, deltaY) {
+        this.panX += deltaX;
+        this.panY += deltaY;
+        this.applyCanvasTransform();
+    }
+    
+    resetCanvasView() {
+        this.zoomLevel = 1;
+        this.panX = 0;
+        this.panY = 0;
+        this.applyCanvasTransform();
+    }
+    
+    applyCanvasTransform() {
+        const container = document.getElementById('canvas-container');
+        this.canvas.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoomLevel})`;
+        this.canvas.style.transformOrigin = 'top left';
+    }
+    
+    toggleHandTool() {
+        if (this.handToolActive) {
+            this.deactivateHandTool();
+        } else {
+            this.activateHandTool();
+        }
+    }
+    
+    activateHandTool() {
+        this.handToolActive = true;
+        const handButton = document.getElementById('hand-tool');
+        handButton.classList.remove('btn-outline-secondary');
+        handButton.classList.add('btn-secondary');
+        this.canvas.style.cursor = 'grab';
+    }
+    
+    deactivateHandTool() {
+        this.handToolActive = false;
+        this.isPanning = false; // Stop any active panning
+        const handButton = document.getElementById('hand-tool');
+        handButton.classList.remove('btn-secondary');
+        handButton.classList.add('btn-outline-secondary');
+        this.updateCursor(); // Reset to normal cursor based on current tool
     }
     
     updateCursor() {
@@ -1217,9 +1570,19 @@ class IdeaBoard {
 
 // Initialisiere das Board wenn die Seite geladen ist
 let ideaBoard;
-document.addEventListener('DOMContentLoaded', function() {
+
+function initializeBoard() {
+    console.log('Initializing IdeaBoard...');
     ideaBoard = new IdeaBoard();
-});
+    console.log('IdeaBoard initialized:', ideaBoard);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeBoard);
+} else {
+    // DOM is already loaded
+    initializeBoard();
+}
 
 // Cleanup when page is unloaded
 window.addEventListener('beforeunload', function() {
