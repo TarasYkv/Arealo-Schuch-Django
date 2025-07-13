@@ -638,6 +638,56 @@ def board_update_element(request, pk):
 
 @login_required
 @csrf_exempt
+def board_clear_elements(request, pk):
+    """Lösche alle Elemente vom Board."""
+    if request.method == 'POST':
+        board = get_object_or_404(IdeaBoard, pk=pk)
+        
+        # Zugriffsberechtigung prüfen
+        if not (board.creator == request.user or request.user in board.collaborators.all()):
+            return JsonResponse({'error': 'Keine Berechtigung'}, status=403)
+        
+        # Delete all elements
+        board.elements.all().delete()
+        
+        # Update board's updated_at timestamp for polling
+        board.updated_at = timezone.now()
+        board.save()
+        
+        return JsonResponse({'success': True})
+    
+    return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
+
+
+@login_required
+@csrf_exempt
+def board_delete_element(request, pk, element_id):
+    """Lösche ein Element vom Ideenboard."""
+    if request.method == 'DELETE':
+        board = get_object_or_404(IdeaBoard, pk=pk)
+        
+        # Zugriffsberechtigung prüfen
+        if not (board.creator == request.user or request.user in board.collaborators.all()):
+            return JsonResponse({'error': 'Keine Berechtigung'}, status=403)
+        
+        try:
+            element = BoardElement.objects.get(id=element_id, board=board)
+            element.delete()
+            
+            # Update board's updated_at timestamp for polling
+            board.updated_at = timezone.now()
+            board.save()
+            
+            return JsonResponse({'success': True})
+            
+        except BoardElement.DoesNotExist:
+            return JsonResponse({'error': 'Element nicht gefunden'}, status=404)
+    
+    return JsonResponse({'error': 'Nur DELETE erlaubt'}, status=405)
+
+
+@login_required
+@csrf_exempt
 def board_remove_collaborator(request, pk):
     """Entferne einen Mitarbeiter von einem Board."""
     if request.method == 'POST':

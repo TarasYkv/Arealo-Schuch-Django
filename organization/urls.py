@@ -26,6 +26,8 @@ urlpatterns = [
     path('boards/<int:pk>/save-element/', views.board_save_element, name='board_save_element'),
     path('boards/<int:pk>/elements/', views.board_get_elements, name='board_get_elements'),
     path('boards/<int:pk>/update-element/', views.board_update_element, name='board_update_element'),
+    path('boards/<int:pk>/clear-elements/', views.board_clear_elements, name='board_clear_elements'),
+    path('boards/<int:pk>/elements/<int:element_id>/delete/', views.board_delete_element, name='board_delete_element'),
     path('boards/<int:pk>/invite-collaborators/', views.board_invite_collaborators, name='board_invite_collaborators'),
     path('boards/<int:pk>/remove-collaborator/', views.board_remove_collaborator, name='board_remove_collaborator'),
     
