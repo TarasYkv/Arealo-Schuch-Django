@@ -1,0 +1,312 @@
+{% if False %}
+<div id="editableContentToolbar" class="editable-content-toolbar">
+    <div class="toolbar-content">
+        <span class="toolbar-title">
+            <i class="fas fa-edit me-2"></i>Content Editor
+        </span>
+        <div class="toolbar-actions">
+            <button class="btn btn-sm btn-outline-light me-2" onclick="toggleEditMode()" id="editModeToggle">
+                <i class="fas fa-pencil-alt me-1"></i>Bearbeiten
+            </button>
+            <a href="{% url 'accounts:content_editor' %}?page={{ current_page }}" class="btn btn-sm btn-primary">
+                <i class="fas fa-cog me-1"></i>Editor öffnen
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+.editable-content-toolbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    z-index: 9999;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    transform: translateY(-100%);
+    transition: transform 0.3s ease;
+}
+
+.editable-content-toolbar.show {
+    transform: translateY(0);
+}
+
+.toolbar-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.toolbar-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.toolbar-actions .btn {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.75rem;
+}
+
+.editable-element {
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.edit-mode .editable-element:hover {
+    outline: 2px dashed #667eea;
+    outline-offset: 2px;
+    cursor: pointer;
+}
+
+.editable-element.editing {
+    outline: 2px solid #28a745;
+    outline-offset: 2px;
+}
+
+.edit-overlay {
+    position: absolute;
+    top: -30px;
+    right: 0;
+    background: #28a745;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.edit-mode .editable-element:hover .edit-overlay {
+    opacity: 1;
+}
+
+/* Push content down when toolbar is visible */
+body.toolbar-visible {
+    padding-top: 50px;
+}
+</style>
+
+<script>
+let editMode = false;
+
+// Toolbar is disabled
+/*
+document.addEventListener('DOMContentLoaded', function() {
+    // Show toolbar after page load
+    setTimeout(() => {
+        document.getElementById('editableContentToolbar').classList.add('show');
+        document.body.classList.add('toolbar-visible');
+    }, 1000);
+    
+    // Add edit overlays to editable elements
+    addEditOverlays();
+    
+    // Auto-hide toolbar after 5 seconds if not in edit mode
+    setTimeout(() => {
+        if (!editMode) {
+            hideToolbar();
+        }
+    }, 8000);
+});
+*/
+
+function toggleEditMode() {
+    editMode = !editMode;
+    const body = document.body;
+    const toggleBtn = document.getElementById('editModeToggle');
+    
+    if (editMode) {
+        body.classList.add('edit-mode');
+        toggleBtn.innerHTML = '<i class="fas fa-eye me-1"></i>Ansehen';
+        toggleBtn.classList.remove('btn-outline-light');
+        toggleBtn.classList.add('btn-warning');
+        
+        // Add click handlers to editable elements
+        addEditClickHandlers();
+    } else {
+        body.classList.remove('edit-mode');
+        toggleBtn.innerHTML = '<i class="fas fa-pencil-alt me-1"></i>Bearbeiten';
+        toggleBtn.classList.remove('btn-warning');
+        toggleBtn.classList.add('btn-outline-light');
+        
+        // Remove click handlers
+        removeEditClickHandlers();
+    }
+}
+
+function addEditOverlays() {
+    const editableElements = document.querySelectorAll('[data-editable-key]');
+    editableElements.forEach(element => {
+        if (!element.classList.contains('editable-element')) {
+            element.classList.add('editable-element');
+            
+            const overlay = document.createElement('div');
+            overlay.className = 'edit-overlay';
+            overlay.textContent = `Bearbeiten: ${element.dataset.editableKey}`;
+            element.style.position = 'relative';
+            element.appendChild(overlay);
+        }
+    });
+}
+
+function addEditClickHandlers() {
+    const editableElements = document.querySelectorAll('[data-editable-key]');
+    editableElements.forEach(element => {
+        element.addEventListener('click', handleEditClick);
+    });
+}
+
+function removeEditClickHandlers() {
+    const editableElements = document.querySelectorAll('[data-editable-key]');
+    editableElements.forEach(element => {
+        element.removeEventListener('click', handleEditClick);
+        element.classList.remove('editing');
+    });
+}
+
+function handleEditClick(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const element = event.currentTarget;
+    const contentId = element.dataset.editableId;
+    const contentKey = element.dataset.editableKey;
+    const contentType = element.dataset.editableType;
+    
+    // Mark as editing
+    document.querySelectorAll('.editable-element').forEach(el => el.classList.remove('editing'));
+    element.classList.add('editing');
+    
+    // Open edit modal or inline editor
+    openQuickEditor(element, contentId, contentKey, contentType);
+}
+
+function openQuickEditor(element, contentId, contentKey, contentType) {
+    // Create quick edit modal
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.id = 'quickEditModal';
+    modal.innerHTML = `
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Schnell bearbeiten: ${contentKey}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="quickEditForm">
+                        <input type="hidden" id="quickContentId" value="${contentId}">
+                        <input type="hidden" id="quickContentKey" value="${contentKey}">
+                        <input type="hidden" id="quickContentType" value="${contentType}">
+                        
+                        ${contentType === 'image' ? `
+                            <div class="mb-3">
+                                <label class="form-label">Neues Bild</label>
+                                <input type="file" class="form-control" id="quickImageFile" accept="image/*">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Alt-Text</label>
+                                <input type="text" class="form-control" id="quickImageAlt">
+                            </div>
+                        ` : `
+                            <div class="mb-3">
+                                <label class="form-label">Text</label>
+                                <textarea class="form-control" id="quickTextContent" rows="3">${element.textContent.trim()}</textarea>
+                            </div>
+                        `}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Link URL (optional)</label>
+                            <input type="url" class="form-control" id="quickLinkUrl">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" onclick="saveQuickEdit()">Speichern</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+    
+    // Clean up when modal is closed
+    modal.addEventListener('hidden.bs.modal', function() {
+        element.classList.remove('editing');
+        document.body.removeChild(modal);
+    });
+}
+
+function saveQuickEdit() {
+    const formData = new FormData();
+    formData.append('content_id', document.getElementById('quickContentId').value);
+    formData.append('content_key', document.getElementById('quickContentKey').value);
+    formData.append('content_type', document.getElementById('quickContentType').value);
+    formData.append('page', '{{ current_page }}');
+    
+    const contentType = document.getElementById('quickContentType').value;
+    
+    if (contentType === 'image') {
+        const imageFile = document.getElementById('quickImageFile').files[0];
+        if (imageFile) {
+            formData.append('image_content', imageFile);
+        }
+        formData.append('image_alt_text', document.getElementById('quickImageAlt').value);
+    } else {
+        formData.append('text_content', document.getElementById('quickTextContent').value);
+    }
+    
+    formData.append('link_url', document.getElementById('quickLinkUrl').value);
+    
+    fetch('{% url "accounts:update_content" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('quickEditModal')).hide();
+            location.reload(); // Reload to show changes
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Fehler beim Speichern');
+    });
+}
+
+function hideToolbar() {
+    document.getElementById('editableContentToolbar').classList.remove('show');
+    document.body.classList.remove('toolbar-visible');
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endif %}

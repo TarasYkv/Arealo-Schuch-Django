@@ -1,0 +1,231 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}{{ collection.title }} bearbeiten - Shopify Manager{% endblock %}
+
+{% block shopify_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Kategorie bearbeiten: {{ collection.title }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{% url 'shopify_manager:collection_detail' collection.pk %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Zurück
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-edit"></i> Kategorie-Informationen
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.title.id_for_label }}" class="form-label">Titel</label>
+                        {{ form.title }}
+                        {% if form.title.errors %}
+                        <div class="text-danger">
+                            {% for error in form.title.errors %}
+                            <small>{{ error }}</small>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.description.id_for_label }}" class="form-label">Beschreibung</label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                        <div class="text-danger">
+                            {% for error in form.description.errors %}
+                            <small>{{ error }}</small>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.seo_title.id_for_label }}" class="form-label">
+                            SEO-Titel
+                            <small class="text-muted">(max. 70 Zeichen)</small>
+                        </label>
+                        {{ form.seo_title }}
+                        <div class="form-text">
+                            <span id="seo-title-count">0</span>/70 Zeichen
+                        </div>
+                        {% if form.seo_title.errors %}
+                        <div class="text-danger">
+                            {% for error in form.seo_title.errors %}
+                            <small>{{ error }}</small>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.seo_description.id_for_label }}" class="form-label">
+                            SEO-Beschreibung
+                            <small class="text-muted">(max. 160 Zeichen)</small>
+                        </label>
+                        {{ form.seo_description }}
+                        <div class="form-text">
+                            <span id="seo-description-count">0</span>/160 Zeichen
+                        </div>
+                        {% if form.seo_description.errors %}
+                        <div class="text-danger">
+                            {% for error in form.seo_description.errors %}
+                            <small>{{ error }}</small>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if collection.image_url %}
+                    <div class="mb-3">
+                        <label for="{{ form.image_alt.id_for_label }}" class="form-label">
+                            Alt-Text für Kategorie-Bild
+                        </label>
+                        {{ form.image_alt }}
+                        {% if form.image_alt.errors %}
+                        <div class="text-danger">
+                            {% for error in form.image_alt.errors %}
+                            <small>{{ error }}</small>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'shopify_manager:collection_detail' collection.pk %}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Abbrechen
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Speichern
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <!-- Kategorie-Vorschau -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-eye"></i> Vorschau
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if collection.image_url %}
+                <img src="{{ collection.image_url }}" class="img-fluid rounded mb-3" alt="{{ collection.image_alt|default:collection.title }}">
+                {% else %}
+                <div class="bg-light rounded d-flex align-items-center justify-content-center mb-3" style="height: 150px;">
+                    <i class="fas fa-layer-group fa-2x text-muted"></i>
+                </div>
+                {% endif %}
+                
+                <h6>{{ collection.title }}</h6>
+                <p class="text-muted">{{ collection.handle }}</p>
+                
+                {% if collection.description %}
+                <p class="small">{{ collection.description|truncatewords:20 }}</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- SEO-Hilfe -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-lightbulb"></i> SEO-Tipps
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <h6>SEO-Titel:</h6>
+                    <ul class="small">
+                        <li>Optimal: 30-70 Zeichen</li>
+                        <li>Wichtigste Keywords am Anfang</li>
+                        <li>Eindeutig und beschreibend</li>
+                    </ul>
+                </div>
+                
+                <div class="mb-3">
+                    <h6>SEO-Beschreibung:</h6>
+                    <ul class="small">
+                        <li>Optimal: 120-160 Zeichen</li>
+                        <li>Verkaufsorientiert und informativ</li>
+                        <li>Call-to-Action einbauen</li>
+                    </ul>
+                </div>
+                
+                <div class="mb-3">
+                    <h6>Alt-Text:</h6>
+                    <ul class="small">
+                        <li>Beschreibt das Bild präzise</li>
+                        <li>Für Screenreader wichtig</li>
+                        <li>Verbesserung der Accessibility</li>
+                    </ul>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-robot"></i> 
+                    <strong>Tipp:</strong> Nutze die "Do-SEO" Funktion für KI-generierte Vorschläge!
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Zeichenzähler für SEO-Felder
+document.addEventListener('DOMContentLoaded', function() {
+    const seoTitleInput = document.getElementById('{{ form.seo_title.id_for_label }}');
+    const seoDescriptionInput = document.getElementById('{{ form.seo_description.id_for_label }}');
+    const seoTitleCount = document.getElementById('seo-title-count');
+    const seoDescriptionCount = document.getElementById('seo-description-count');
+    
+    // Funktion zum Aktualisieren der Zeichenzähler
+    function updateCharCount(input, counter, maxLength) {
+        const currentLength = input.value.length;
+        counter.textContent = currentLength;
+        
+        // Farbe basierend auf Länge
+        if (currentLength > maxLength) {
+            counter.className = 'text-danger';
+        } else if (currentLength < maxLength * 0.5) {
+            counter.className = 'text-warning';
+        } else {
+            counter.className = 'text-success';
+        }
+    }
+    
+    // Event Listener für SEO-Titel
+    if (seoTitleInput) {
+        updateCharCount(seoTitleInput, seoTitleCount, 70);
+        seoTitleInput.addEventListener('input', function() {
+            updateCharCount(this, seoTitleCount, 70);
+        });
+    }
+    
+    // Event Listener für SEO-Beschreibung
+    if (seoDescriptionInput) {
+        updateCharCount(seoDescriptionInput, seoDescriptionCount, 160);
+        seoDescriptionInput.addEventListener('input', function() {
+            updateCharCount(this, seoDescriptionCount, 160);
+        });
+    }
+});
+</script>
+{% endblock %}

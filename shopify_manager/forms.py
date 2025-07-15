@@ -1,5 +1,5 @@
 from django import forms
-from .models import ShopifyStore, ShopifyProduct, ProductSEOOptimization, ShopifyBlogPost, BlogPostSEOOptimization
+from .models import ShopifyStore, ShopifyProduct, ProductSEOOptimization, ShopifyBlogPost, BlogPostSEOOptimization, ShopifyCollection, CollectionSEOOptimization
 
 
 class ShopifyStoreForm(forms.ModelForm):

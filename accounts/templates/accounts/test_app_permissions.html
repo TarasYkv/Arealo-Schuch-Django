@@ -1,0 +1,251 @@
+{% extends 'base.html' %}
+{% load app_permissions %}
+
+{% block title %}App-Berechtigungen Test{% endblock %}
+
+{% block content %}
+<div class="container-main">
+    <div class="row">
+        <div class="col-md-10 mx-auto">
+            <h1 class="text-primary mb-4">
+                <i class="bi bi-shield-check"></i> App-Berechtigungen Test
+            </h1>
+            
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i>
+                Diese Seite zeigt, welche Apps für Sie sichtbar und zugänglich sind.
+            </div>
+            
+            <!-- Apps die im Frontend sichtbar sind -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="bi bi-eye"></i> Im Frontend sichtbare Apps</h5>
+                    <small class="text-muted">Diese Apps werden in der Navigation angezeigt</small>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% if user|can_see_app_in_frontend:"schulungen" %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-success">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-mortarboard fs-2 text-success"></i>
+                                    <h6 class="mt-2">Schulungen</h6>
+                                    <span class="badge bg-success">Sichtbar</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if user|can_see_app_in_frontend:"shopify" %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-success">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-shopping-cart fs-2 text-success"></i>
+                                    <h6 class="mt-2">Shopify</h6>
+                                    <span class="badge bg-success">Sichtbar</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if user|can_see_app_in_frontend:"bilder" %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-success">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-images fs-2 text-success"></i>
+                                    <h6 class="mt-2">Bilder</h6>
+                                    <span class="badge bg-success">Sichtbar</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if user|can_see_app_in_frontend:"todos" %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-success">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-tasks fs-2 text-success"></i>
+                                    <h6 class="mt-2">ToDos</h6>
+                                    <span class="badge bg-success">Sichtbar</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if user|can_see_app_in_frontend:"chat" %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-success">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-comments fs-2 text-success"></i>
+                                    <h6 class="mt-2">Chat</h6>
+                                    <span class="badge bg-success">Sichtbar</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if user|can_see_app_in_frontend:"organisation" %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-success">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-clipboard-list fs-2 text-success"></i>
+                                    <h6 class="mt-2">Organisation</h6>
+                                    <span class="badge bg-success">Sichtbar</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Versteckte Apps -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="bi bi-eye-slash"></i> Versteckte oder gesperrte Apps</h5>
+                    <small class="text-muted">Diese Apps sind für Sie nicht sichtbar oder zugänglich</small>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% if not user|can_see_app_in_frontend:"schulungen" %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-danger">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-mortarboard fs-2 text-danger"></i>
+                                    <h6 class="mt-2">Schulungen</h6>
+                                    {% if user|has_app_permission:"schulungen" %}
+                                        <span class="badge bg-warning">Versteckt</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Gesperrt</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if not user|can_see_app_in_frontend:"shopify" %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-danger">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-shopping-cart fs-2 text-danger"></i>
+                                    <h6 class="mt-2">Shopify</h6>
+                                    {% if user|has_app_permission:"shopify" %}
+                                        <span class="badge bg-warning">Versteckt</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Gesperrt</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if not user|can_see_app_in_frontend:"bilder" %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-danger">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-images fs-2 text-danger"></i>
+                                    <h6 class="mt-2">Bilder</h6>
+                                    {% if user|has_app_permission:"bilder" %}
+                                        <span class="badge bg-warning">Versteckt</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Gesperrt</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if not user|can_see_app_in_frontend:"todos" %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-danger">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-tasks fs-2 text-danger"></i>
+                                    <h6 class="mt-2">ToDos</h6>
+                                    {% if user|has_app_permission:"todos" %}
+                                        <span class="badge bg-warning">Versteckt</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Gesperrt</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if not user|can_see_app_in_frontend:"chat" %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-danger">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-comments fs-2 text-danger"></i>
+                                    <h6 class="mt-2">Chat</h6>
+                                    {% if user|has_app_permission:"chat" %}
+                                        <span class="badge bg-warning">Versteckt</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Gesperrt</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if not user|can_see_app_in_frontend:"organisation" %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-danger">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-clipboard-list fs-2 text-danger"></i>
+                                    <h6 class="mt-2">Organisation</h6>
+                                    {% if user|has_app_permission:"organisation" %}
+                                        <span class="badge bg-warning">Versteckt</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Gesperrt</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Benutzer-Info -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="bi bi-person"></i> Ihre Benutzer-Informationen</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <strong>Benutzername:</strong>
+                            <span>{{ user.username }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <strong>Superuser:</strong>
+                            {% if user.is_superuser %}
+                                <span class="badge bg-success">Ja</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Nein</span>
+                            {% endif %}
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <strong>App-Freigabe verwalten:</strong>
+                            {% if user.can_manage_app_permissions %}
+                                <span class="badge bg-success">Ja</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Nein</span>
+                            {% endif %}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="text-center mt-4">
+                <a href="{% url 'accounts:company_info' %}?tab=app_permissions" class="btn btn-primary">
+                    <i class="bi bi-gear"></i> App-Freigaben verwalten
+                </a>
+                <a href="{% url 'accounts:dashboard' %}" class="btn btn-secondary">
+                    <i class="bi bi-house"></i> Zurück zum Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

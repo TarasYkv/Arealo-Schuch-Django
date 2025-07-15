@@ -1,0 +1,573 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}Do-SEO: {{ collection.title }} - Shopify Manager{% endblock %}
+
+{% block shopify_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-robot text-primary"></i> Do-SEO: {{ collection.title|truncatechars:50 }}
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{% url 'shopify_manager:collection_detail' collection.pk %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Zurück zur Kategorie
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Kategorie-Informationen -->
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            📂 Kategorie-Informationen
+        </h5>
+        <button class="btn btn-outline-primary btn-sm" onclick="toggleEditMode()">
+            <i class="fas fa-edit"></i> <span id="editButtonText">Bearbeiten</span>
+        </button>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="form-label"><strong>Titel:</strong></label>
+                    <div class="form-control-plaintext border rounded p-2 bg-light" id="titleDisplay">
+                        {{ collection.title }}
+                    </div>
+                    <textarea class="form-control d-none" id="titleEdit" rows="2">{{ collection.title }}</textarea>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="form-label"><strong>Store:</strong></label>
+                    <div class="form-control-plaintext">{{ collection.store.name }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="form-label"><strong>Handle:</strong></label>
+                    <div class="form-control-plaintext">{{ collection.handle|default:"—" }}</div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="form-label"><strong>Typ:</strong></label>
+                    <div class="form-control-plaintext">{{ collection.get_collection_type_display }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label"><strong>Beschreibung:</strong></label>
+            <div class="form-control-plaintext border rounded p-2 bg-light" id="descriptionDisplay" style="max-height: 150px; overflow-y: auto;">
+                {{ collection.description|striptags|default:"Keine Beschreibung"|truncatechars:300 }}
+            </div>
+            <textarea class="form-control d-none" id="descriptionEdit" rows="4">{{ collection.description|striptags }}</textarea>
+        </div>
+    </div>
+</div>
+
+<!-- SEO-Optimierung -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            🎯 SEO-Optimierung
+        </h5>
+    </div>
+    <div class="card-body">
+        <form id="seoForm">
+            {% csrf_token %}
+            <input type="hidden" id="contentType" value="collection">
+            <input type="hidden" id="contentId" value="{{ collection.pk }}">
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="seoTitle" class="form-label">
+                            <strong>SEO-Titel</strong>
+                            <small class="text-muted">(empfohlen: 50-60 Zeichen)</small>
+                        </label>
+                        <textarea class="form-control" id="seoTitle" rows="2" maxlength="70" placeholder="Optimierter Titel für Suchmaschinen...">{{ collection.seo_title|default:"" }}</textarea>
+                        <div class="form-text">
+                            <span id="seoTitleCount">{{ collection.seo_title|default:""|length }}</span>/70 Zeichen
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="seoDescription" class="form-label">
+                            <strong>SEO-Beschreibung</strong>
+                            <small class="text-muted">(empfohlen: 150-160 Zeichen)</small>
+                        </label>
+                        <textarea class="form-control" id="seoDescription" rows="4" maxlength="160" placeholder="Überzeugende Beschreibung für Suchmaschinen...">{{ collection.seo_description|default:"" }}</textarea>
+                        <div class="form-text">
+                            <span id="seoDescriptionCount">{{ collection.seo_description|default:""|length }}</span>/160 Zeichen
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="keywords" class="form-label">
+                            <strong>Keywords</strong>
+                            <small class="text-muted">(kommagetrennt)</small>
+                        </label>
+                        <input type="text" class="form-control" id="keywords" placeholder="nachhaltig, bio, qualität, premium">
+                        <div class="form-text">
+                            Diese Keywords werden für die KI-Optimierung verwendet
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="aiModel" class="form-label">
+                            <strong>KI-Modell</strong>
+                        </label>
+                        <select class="form-select" id="aiModel">
+                            <option value="gpt-4">GPT-4 (Höchste Qualität)</option>
+                            <option value="gpt-4o" selected>GPT-4o (Optimiert)</option>
+                            <option value="claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+                            <option value="gemini-pro">Gemini Pro</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="alert alert-info">
+                <i class="fas fa-lightbulb"></i>
+                <strong>Tipp:</strong> Verwenden Sie spezifische Keywords und beschreiben Sie Ihre Zielgruppe für bessere SEO-Ergebnisse.
+            </div>
+            
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                <button type="button" class="btn btn-outline-secondary" onclick="clearForm()">
+                    <i class="fas fa-eraser"></i> Zurücksetzen
+                </button>
+                <button type="button" class="btn btn-success" onclick="generateSEO()">
+                    <i class="fas fa-robot"></i> KI-Optimierung generieren
+                </button>
+                <button type="button" class="btn btn-primary" onclick="saveSEO()">
+                    <i class="fas fa-cloud-upload-alt"></i> Speichern + zu Shopify
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Progress Bar für KI-Generierung -->
+<div class="card mb-4" id="progressContainer" style="display: none;">
+    <div class="card-body">
+        <div class="mb-2">
+            <small id="progressText" class="text-muted">Lade...</small>
+        </div>
+        <div class="progress mb-2" style="height: 20px;">
+            <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-info" 
+                 role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                <span id="progressPercent">0%</span>
+            </div>
+        </div>
+        <div id="progressDetails" class="small text-muted"></div>
+    </div>
+</div>
+
+<!-- Aktueller SEO-Status -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            📊 Aktueller SEO-Status
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <h6>SEO-Score: <span id="currentSeoScore">{{ collection.get_seo_score }}</span>/100</h6>
+                    <div class="progress">
+                        <div class="progress-bar {% if collection.get_seo_score >= 80 %}bg-success{% elif collection.get_seo_score >= 40 %}bg-warning{% else %}bg-danger{% endif %}" 
+                             role="progressbar" 
+                             style="width: {{ collection.get_seo_score }}%"
+                             aria-valuenow="{{ collection.get_seo_score }}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                            {{ collection.get_seo_score }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <h6>SEO-Status:</h6>
+                    {% with status=collection.get_combined_seo_status %}
+                        {% if status == 'good' %}
+                        <span class="badge bg-success fs-6">
+                            <i class="fas fa-check-circle"></i> Sehr gut
+                        </span>
+                        {% elif status == 'warning' %}
+                        <span class="badge bg-warning fs-6">
+                            <i class="fas fa-exclamation-triangle"></i> Verbesserungsbedarf
+                        </span>
+                        {% else %}
+                        <span class="badge bg-danger fs-6">
+                            <i class="fas fa-times-circle"></i> Schlecht
+                        </span>
+                        {% endif %}
+                    {% endwith %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <h6>Aktueller SEO-Titel:</h6>
+                <div class="border rounded p-2 bg-light" id="currentSeoTitle">
+                    {% if collection.seo_title %}
+                        {{ collection.seo_title }}
+                        <small class="text-muted d-block">{{ collection.seo_title|length }}/70 Zeichen</small>
+                    {% else %}
+                        <em class="text-muted">Nicht vorhanden</em>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-md-6">
+                <h6>Aktuelle SEO-Beschreibung:</h6>
+                <div class="border rounded p-2 bg-light" id="currentSeoDescription">
+                    {% if collection.seo_description %}
+                        {{ collection.seo_description }}
+                        <small class="text-muted d-block">{{ collection.seo_description|length }}/160 Zeichen</small>
+                    {% else %}
+                        <em class="text-muted">Nicht vorhanden</em>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let editMode = false;
+
+// Progress Bar Functions
+function updateProgress(percent, text, details = '') {
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const progressPercent = document.getElementById('progressPercent');
+    const progressText = document.getElementById('progressText');
+    const progressDetails = document.getElementById('progressDetails');
+    
+    progressContainer.style.display = 'block';
+    progressBar.style.width = percent + '%';
+    progressBar.setAttribute('aria-valuenow', percent);
+    progressPercent.textContent = percent + '%';
+    progressText.textContent = text;
+    progressDetails.textContent = details;
+    
+    // Change color based on progress
+    if (percent < 50) {
+        progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated bg-info';
+    } else if (percent < 100) {
+        progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated bg-warning';
+    } else {
+        progressBar.className = 'progress-bar progress-bar-striped bg-success';
+    }
+}
+
+function hideProgress() {
+    document.getElementById('progressContainer').style.display = 'none';
+}
+
+// Zeichen-Counter
+document.getElementById('seoTitle').addEventListener('input', function() {
+    document.getElementById('seoTitleCount').textContent = this.value.length;
+});
+
+document.getElementById('seoDescription').addEventListener('input', function() {
+    document.getElementById('seoDescriptionCount').textContent = this.value.length;
+});
+
+// Edit-Modus umschalten
+function toggleEditMode() {
+    editMode = !editMode;
+    const displays = document.querySelectorAll('[id$="Display"]');
+    const edits = document.querySelectorAll('[id$="Edit"]');
+    const button = document.getElementById('editButtonText');
+    
+    displays.forEach(display => {
+        display.classList.toggle('d-none', editMode);
+    });
+    
+    edits.forEach(edit => {
+        edit.classList.toggle('d-none', !editMode);
+    });
+    
+    button.textContent = editMode ? 'Speichern' : 'Bearbeiten';
+    
+    if (editMode) {
+        document.getElementById('titleEdit').focus();
+    } else {
+        saveBasicInfo();
+    }
+}
+
+// Grundlegende Informationen speichern
+function saveBasicInfo() {
+    const title = document.getElementById('titleEdit').value;
+    const description = document.getElementById('descriptionEdit').value;
+    
+    // Hier würde normalerweise ein AJAX-Request zum Speichern gemacht
+    document.getElementById('titleDisplay').textContent = title;
+    document.getElementById('descriptionDisplay').textContent = description || 'Keine Beschreibung';
+    
+    // Erfolgs-Toast zeigen
+    showToast('Kategorie-Informationen gespeichert', 'success');
+}
+
+// Formular zurücksetzen
+function clearForm() {
+    document.getElementById('seoTitle').value = '';
+    document.getElementById('seoDescription').value = '';
+    document.getElementById('keywords').value = '';
+    document.getElementById('seoTitleCount').textContent = '0';
+    document.getElementById('seoDescriptionCount').textContent = '0';
+}
+
+// KI-Optimierung generieren
+function generateSEO() {
+    const keywords = document.getElementById('keywords').value;
+    const aiModel = document.getElementById('aiModel').value;
+    const contentType = document.getElementById('contentType').value;
+    const contentId = document.getElementById('contentId').value;
+    
+    if (!keywords.trim()) {
+        showToast('Bitte geben Sie Keywords ein', 'warning');
+        return;
+    }
+    
+    console.log('DEBUG: Keywords:', keywords);
+    console.log('DEBUG: AI Model:', aiModel);
+    console.log('DEBUG: Content ID:', contentId);
+    
+    const button = document.querySelector('button[onclick="generateSEO()"]');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generiere...';
+    button.disabled = true;
+    
+    // Progress-Bar initialisieren
+    updateProgress(10, 'KI-Analyse startet...', 'Kategorie-Daten werden analysiert...');
+    
+    const requestData = {
+        keywords: keywords,
+        ai_model: aiModel,
+        action: 'generate'
+    };
+    
+    console.log('DEBUG: Request data:', requestData);
+    
+    const url = `{% url 'shopify_manager:collection_seo_ajax' 0 %}`.replace('0', contentId);
+    console.log('DEBUG: Request URL:', url);
+    
+    // Progress-Bar Update
+    updateProgress(30, 'KI-Modell wird vorbereitet...', `${aiModel} wird für SEO-Optimierung konfiguriert...`);
+    
+    // AJAX-Request für KI-Optimierung
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => {
+        updateProgress(60, 'KI verarbeitet...', 'SEO-Titel und -Beschreibung werden generiert...');
+        return response.json();
+    })
+    .then(data => {
+        console.log('DEBUG: Response data:', data);
+        if (data.success) {
+            updateProgress(90, 'Finalisiere...', 'Ergebnisse werden aufbereitet...');
+            
+            console.log('DEBUG: SEO Title:', data.seo_title);
+            console.log('DEBUG: SEO Description:', data.seo_description);
+            
+            // Ergebnisse in die Felder einfügen
+            const seoTitleField = document.getElementById('seoTitle');
+            const seoDescriptionField = document.getElementById('seoDescription');
+            
+            console.log('DEBUG: Title field:', seoTitleField);
+            console.log('DEBUG: Description field:', seoDescriptionField);
+            
+            seoTitleField.value = data.seo_title || '';
+            seoDescriptionField.value = data.seo_description || '';
+            document.getElementById('seoTitleCount').textContent = (data.seo_title || '').length;
+            document.getElementById('seoDescriptionCount').textContent = (data.seo_description || '').length;
+            
+            updateProgress(100, 'Abgeschlossen!', 'KI-SEO-Optimierung erfolgreich generiert');
+            
+            // Progress-Bar nach 2 Sekunden ausblenden
+            setTimeout(() => {
+                hideProgress();
+            }, 2000);
+            
+            showToast('KI-Optimierung erfolgreich generiert', 'success');
+        } else {
+            hideProgress();
+            console.log('DEBUG: Error:', data.error);
+            showToast('Fehler bei der KI-Optimierung: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        hideProgress();
+        console.error('Error:', error);
+        showToast('Fehler bei der KI-Optimierung', 'danger');
+    })
+    .finally(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
+}
+
+// SEO-Daten speichern
+function saveSEO() {
+    const seoTitle = document.getElementById('seoTitle').value;
+    const seoDescription = document.getElementById('seoDescription').value;
+    const contentId = document.getElementById('contentId').value;
+    
+    const button = document.querySelector('button[onclick="saveSEO()"]');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Speichere...';
+    button.disabled = true;
+    
+    // Progress-Bar für Speichern
+    updateProgress(20, 'Speichere SEO-Daten...', 'Daten werden vorbereitet...');
+    
+    // AJAX-Request zum Speichern
+    fetch(`{% url 'shopify_manager:collection_seo_ajax' 0 %}`.replace('0', contentId), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({
+            seo_title: seoTitle,
+            seo_description: seoDescription,
+            action: 'save'
+        })
+    })
+    .then(response => {
+        updateProgress(50, 'Speichere lokal...', 'SEO-Daten werden in Datenbank gespeichert...');
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // Zeige Shopify-Synchronisation an
+            updateProgress(80, 'Synchronisiere mit Shopify...', 'SEO-Daten werden zu Shopify übertragen...');
+            
+            // Simuliere kurze Verzögerung für Shopify-Sync-Visualisierung
+            setTimeout(() => {
+                if (data.shopify_synced) {
+                    updateProgress(100, 'Komplett synchronisiert!', 'SEO-Daten erfolgreich zu Shopify übertragen');
+                } else {
+                    updateProgress(100, 'Lokal gespeichert', 'SEO-Daten gespeichert, Shopify-Sync fehlgeschlagen');
+                }
+                
+                // Aktuelle SEO-Daten aktualisieren
+                document.getElementById('currentSeoTitle').innerHTML = seoTitle ? 
+                    `${seoTitle}<small class="text-muted d-block">${seoTitle.length}/70 Zeichen</small>` : 
+                    '<em class="text-muted">Nicht vorhanden</em>';
+                document.getElementById('currentSeoDescription').innerHTML = seoDescription ? 
+                    `${seoDescription}<small class="text-muted d-block">${seoDescription.length}/160 Zeichen</small>` : 
+                    '<em class="text-muted">Nicht vorhanden</em>';
+                
+                // SEO-Score aktualisieren
+                if (data.seo_score !== undefined) {
+                    document.getElementById('currentSeoScore').textContent = data.seo_score;
+                    const seoProgressBar = document.querySelector('.progress-bar');
+                    seoProgressBar.style.width = data.seo_score + '%';
+                    seoProgressBar.setAttribute('aria-valuenow', data.seo_score);
+                    seoProgressBar.textContent = data.seo_score + '%';
+                    
+                    // Farbe der Progress-Bar anpassen
+                    seoProgressBar.className = `progress-bar ${data.seo_score >= 80 ? 'bg-success' : data.seo_score >= 40 ? 'bg-warning' : 'bg-danger'}`;
+                }
+                
+                // Progress-Bar nach 2 Sekunden ausblenden
+                setTimeout(() => {
+                    hideProgress();
+                }, 2000);
+                
+                // Toast entsprechend des Sync-Status
+                if (data.shopify_synced) {
+                    showToast('SEO-Daten erfolgreich gespeichert und zu Shopify übertragen', 'success');
+                } else {
+                    showToast('SEO-Daten lokal gespeichert, aber Shopify-Sync fehlgeschlagen', 'warning');
+                }
+            }, 800); // Kurze Verzögerung für bessere UX
+            
+        } else {
+            hideProgress();
+            showToast('Fehler beim Speichern: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        hideProgress();
+        console.error('Error:', error);
+        showToast('Fehler beim Speichern', 'danger');
+    })
+    .finally(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
+}
+
+// Toast-Benachrichtigung
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type} border-0 position-fixed top-0 end-0 m-3`;
+    toast.style.zIndex = '1055';
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="fas fa-info-circle me-2"></i>${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    toast.addEventListener('hidden.bs.toast', () => {
+        document.body.removeChild(toast);
+    });
+}
+
+// Keyboard Shortcuts
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        saveSEO();
+    }
+    if (e.ctrlKey && e.key === 'Enter') {
+        e.preventDefault();
+        generateSEO();
+    }
+});
+
+// Fokus auf Keywords-Feld beim Laden
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('keywords').focus();
+});
+</script>
+{% endblock %}

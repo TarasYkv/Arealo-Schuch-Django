@@ -7,8 +7,10 @@ from django.urls import reverse_lazy
 from django.views.generic import CreateView
 from django.views.decorators.http import require_http_methods
 from django.http import JsonResponse
-from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm, ApiKeyForm, CompanyInfoForm, UserProfileForm, CustomPasswordChangeForm, SuperUserManagementForm, BugChatSettingsForm
-from .models import CustomUser, AmpelCategory, CategoryKeyword, UserLoginHistory
+from django.db import models
+import json
+from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm, ApiKeyForm, CompanyInfoForm, UserProfileForm, CustomPasswordChangeForm, SuperUserManagementForm, BugChatSettingsForm, AppPermissionForm
+from .models import CustomUser, AmpelCategory, CategoryKeyword, UserLoginHistory, EditableContent, CustomPage, SEOSettings
 from naturmacher.models import APIBalance
 from .utils import redirect_with_params
 
@@ -358,6 +360,9 @@ def company_info_view(request):
     # Prüfe ob User Super User ist für Bug-Chat-Tab
     is_superuser = request.user.is_superuser
     
+    # Prüfe ob User App-Freigaben verwalten darf
+    can_manage_apps = request.user.is_superuser or request.user.can_manage_app_permissions
+    
     if request.method == 'POST':
         # Prüfe welches Formular gesendet wurde
         if 'company_form' in request.POST:
@@ -407,6 +412,7 @@ def company_info_view(request):
             password_form = CustomPasswordChangeForm(request.user, request.POST)
             bug_chat_form = BugChatSettingsForm(instance=request.user)
             superuser_form = SuperUserManagementForm(current_user=request.user) if is_superuser else None
+            app_permission_form = AppPermissionForm() if can_manage_apps else None
             
             if password_form.is_valid():
                 password_form.save()
@@ -463,6 +469,22 @@ def company_info_view(request):
                 return redirect('accounts:company_info')
             active_tab = 'bug_chat'
             
+        elif 'app_permission_form' in request.POST and can_manage_apps:
+            # App-Freigabe-Einstellungen
+            company_form = CompanyInfoForm(instance=request.user)
+            profile_form = UserProfileForm(instance=request.user)
+            password_form = CustomPasswordChangeForm(request.user)
+            bug_chat_form = BugChatSettingsForm(instance=request.user)
+            superuser_form = SuperUserManagementForm(current_user=request.user) if is_superuser else None
+            app_permission_form = AppPermissionForm() if can_manage_apps else None
+            app_permission_form = AppPermissionForm(request.POST)
+            
+            if app_permission_form.is_valid():
+                app_permission_form.save()
+                messages.success(request, 'App-Freigabe-Einstellungen wurden erfolgreich gespeichert!')
+                return redirect_with_params('accounts:company_info', tab='app_permissions')
+            active_tab = 'app_permissions'
+            
         else:
             # Fallback: Alle Formulare initialisieren
             company_form = CompanyInfoForm(instance=request.user)
@@ -470,6 +492,7 @@ def company_info_view(request):
             password_form = CustomPasswordChangeForm(request.user)
             bug_chat_form = BugChatSettingsForm(instance=request.user)
             superuser_form = SuperUserManagementForm(current_user=request.user) if is_superuser else None
+            app_permission_form = AppPermissionForm() if can_manage_apps else None
             
     else:
         # GET-Request: Alle Formulare mit aktuellen Daten initialisieren
@@ -478,6 +501,7 @@ def company_info_view(request):
         password_form = CustomPasswordChangeForm(request.user)
         bug_chat_form = BugChatSettingsForm(instance=request.user)
         superuser_form = SuperUserManagementForm(current_user=request.user) if is_superuser else None
+        app_permission_form = AppPermissionForm() if can_manage_apps else None
     
     return render(request, 'accounts/company_info.html', {
         'company_form': company_form,
@@ -485,10 +509,44 @@ def company_info_view(request):
         'password_form': password_form,
         'bug_chat_form': bug_chat_form,
         'superuser_form': superuser_form,
+        'app_permission_form': app_permission_form if can_manage_apps else None,
         'active_tab': active_tab,
         'is_superuser': is_superuser,
+        'can_manage_apps': can_manage_apps,
         'user': request.user,
     })
+
+
+@login_required
+def test_app_permissions_view(request):
+    """Test-Seite für App-Berechtigungen"""
+    return render(request, 'accounts/test_app_permissions.html')
+
+
+@login_required
+def get_all_users_api(request):
+    """API Endpoint um alle aktiven Nutzer zu holen"""
+    if not request.user.is_superuser and not request.user.can_manage_app_permissions:
+        return JsonResponse({'error': 'Keine Berechtigung'}, status=403)
+    
+    users = CustomUser.objects.filter(is_active=True).values('id', 'username', 'email', 'first_name', 'last_name')
+    users_list = []
+    
+    for user in users:
+        display_name = user['username']
+        if user['first_name'] and user['last_name']:
+            display_name = f"{user['first_name']} {user['last_name']} ({user['username']})"
+        elif user['first_name']:
+            display_name = f"{user['first_name']} ({user['username']})"
+        
+        users_list.append({
+            'id': str(user['id']),
+            'username': user['username'],
+            'display_name': display_name,
+            'email': user['email'] or ''
+        })
+    
+    return JsonResponse({'users': users_list})
 
 
 def logout_view(request):
@@ -1335,3 +1393,658 @@ def user_online_times(request, user_id):
 # def change_password_view(request):
 #     """Passwort ändern - INTEGRIERT IN COMPANY_INFO_VIEW"""
 #     pass
+
+
+@login_required
+def content_editor(request):
+    """Editor für anpassbare Inhalte"""
+    page = request.GET.get('page', 'startseite')
+    
+    # Hole existierende Inhalte für diese Seite
+    contents = EditableContent.objects.filter(user=request.user, page=page).order_by('sort_order', 'created_at')
+    
+    # Dynamische Seiten-Choices basierend auf benutzerdefinierten Seiten
+    page_choices = CustomPage.get_all_page_choices(request.user)
+    
+    context = {
+        'page': page,
+        'contents': contents,
+        'page_choices': page_choices,
+        'content_type_choices': EditableContent.CONTENT_TYPE_CHOICES,
+    }
+    return render(request, 'accounts/content_editor.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def update_content(request):
+    """AJAX-View zum Aktualisieren von Inhalten"""
+    # Check if this is a sort order update request
+    if request.content_type == 'application/json':
+        try:
+            data = json.loads(request.body)
+            if data.get('action') == 'update_sort_order':
+                updates = data.get('updates', [])
+                for update in updates:
+                    content_id = update.get('id')
+                    sort_order = update.get('sort_order')
+                    try:
+                        content = EditableContent.objects.get(id=content_id, user=request.user)
+                        content.sort_order = sort_order
+                        content.save(update_fields=['sort_order'])
+                    except EditableContent.DoesNotExist:
+                        continue
+                return JsonResponse({'success': True})
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': 'Invalid JSON'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    try:
+        content_id = request.POST.get('content_id')
+        page = request.POST.get('page')
+        content_key = request.POST.get('content_key')
+        content_type = request.POST.get('content_type')
+        text_content = request.POST.get('text_content', '')
+        image_alt_text = request.POST.get('image_alt_text', '')
+        link_url = request.POST.get('link_url', '')
+        sort_order = request.POST.get('sort_order')
+        
+        if content_id:
+            # Update existing content
+            content = get_object_or_404(EditableContent, id=content_id, user=request.user)
+        else:
+            # Create new content - handle sort order
+            if sort_order is None:
+                # Default: append at the end
+                max_sort_order = EditableContent.objects.filter(
+                    user=request.user, 
+                    page=page
+                ).aggregate(models.Max('sort_order'))['sort_order__max'] or 0
+                sort_order = max_sort_order + 1
+            else:
+                sort_order = int(sort_order)
+                # If inserting at top (sort_order = 0), shift other elements down
+                if sort_order == 0:
+                    EditableContent.objects.filter(
+                        user=request.user,
+                        page=page
+                    ).update(sort_order=models.F('sort_order') + 1)
+            
+            content = EditableContent.objects.create(
+                user=request.user,
+                page=page,
+                content_key=content_key,
+                content_type=content_type,
+                sort_order=sort_order
+            )
+        
+        content.text_content = text_content
+        content.image_alt_text = image_alt_text
+        content.link_url = link_url
+        
+        # Handle HTML and CSS content
+        html_content = request.POST.get('html_content', '')
+        css_content = request.POST.get('css_content', '')
+        ai_prompt = request.POST.get('ai_prompt', '')
+        
+        # Handle font styling options for text content
+        if content_type in ['text', 'section_title', 'section_text', 'hero_title', 'hero_subtitle', 'button_text']:
+            font_family = request.POST.get('font_family', '')
+            font_size = request.POST.get('font_size', '')
+            font_weight = request.POST.get('font_weight', '')
+            font_color = request.POST.get('font_color', '')
+            text_align = request.POST.get('text_align', '')
+            font_style = request.POST.get('font_style', '')
+            text_decoration = request.POST.get('text_decoration', '')
+            
+            # Build CSS from font styling options
+            css_rules = []
+            if font_family:
+                css_rules.append(f"font-family: {font_family};")
+            if font_size:
+                css_rules.append(f"font-size: {font_size};")
+            if font_weight:
+                css_rules.append(f"font-weight: {font_weight};")
+            if font_color:
+                css_rules.append(f"color: {font_color};")
+            if text_align:
+                css_rules.append(f"text-align: {text_align};")
+            if font_style:
+                css_rules.append(f"font-style: {font_style};")
+            if text_decoration:
+                css_rules.append(f"text-decoration: {text_decoration};")
+            
+            # If we have font styling rules, merge them with existing CSS
+            if css_rules:
+                font_css = " ".join(css_rules)
+                if css_content:
+                    # Merge with existing CSS
+                    css_content = css_content + " " + font_css
+                else:
+                    css_content = font_css
+        
+        if html_content:
+            content.html_content = html_content
+        if css_content:
+            content.css_content = css_content
+        if ai_prompt:
+            content.ai_prompt = ai_prompt
+        
+        # Handle image upload
+        if 'image_content' in request.FILES:
+            content.image_content = request.FILES['image_content']
+        
+        content.save()
+        
+        return JsonResponse({
+            'success': True,
+            'content_id': content.id,
+            'display_content': content.get_display_content()
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_http_methods(["POST"])
+def delete_content(request):
+    """AJAX-View zum Löschen von Inhalten"""
+    try:
+        content_id = request.POST.get('content_id')
+        content = get_object_or_404(EditableContent, id=content_id, user=request.user)
+        content.delete()
+        
+        return JsonResponse({'success': True})
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def get_content(request, content_id):
+    """AJAX-View zum Laden eines einzelnen Inhalts"""
+    try:
+        content = get_object_or_404(EditableContent, id=content_id, user=request.user)
+        
+        return JsonResponse({
+            'success': True,
+            'content': {
+                'id': content.id,
+                'page': content.page,
+                'content_key': content.content_key,
+                'content_type': content.content_type,
+                'text_content': content.text_content,
+                'image_content': content.image_content.url if content.image_content else None,
+                'image_alt_text': content.image_alt_text,
+                'link_url': content.link_url,
+            }
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_http_methods(["POST"])
+def generate_ai_content(request):
+    """AJAX-View für KI-gestützte Content-Generierung"""
+    try:
+        import json
+        from naturmacher.services.ai_service import generate_html_content
+        
+        data = json.loads(request.body)
+        prompt = data.get('prompt', '')
+        content_type = data.get('content_type', 'ai_generated')
+        page = data.get('page', 'startseite')
+        
+        if not prompt:
+            return JsonResponse({'success': False, 'error': 'Prompt ist erforderlich'})
+        
+        # Nutze den bestehenden AI Service
+        try:
+            result = generate_html_content(request.user, prompt)
+            
+            if result.get('success'):
+                html_content = result.get('html', '')
+                css_content = result.get('css', '')
+                
+                return JsonResponse({
+                    'success': True,
+                    'html_content': html_content,
+                    'css_content': css_content,
+                    'prompt': prompt
+                })
+            else:
+                return JsonResponse({'success': False, 'error': result.get('error', 'KI-Generierung fehlgeschlagen')})
+                
+        except Exception as ai_error:
+            return JsonResponse({'success': False, 'error': f'KI-Service Fehler: {str(ai_error)}'})
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_http_methods(["POST"])
+def ai_edit_content(request):
+    """AJAX-View für KI-gestützte Container/Element-Bearbeitung"""
+    try:
+        from naturmacher.services.ai_service import generate_html_content
+        
+        content_id = request.POST.get('content_id')
+        structure_prompt = request.POST.get('structure_prompt', '').strip()
+        style_prompt = request.POST.get('style_prompt', '').strip()
+        
+        if not content_id:
+            return JsonResponse({'success': False, 'error': 'Content ID ist erforderlich'})
+        
+        if not structure_prompt and not style_prompt:
+            return JsonResponse({'success': False, 'error': 'Mindestens eine Struktur- oder Style-Änderung ist erforderlich'})
+        
+        # Get the content object
+        try:
+            content = EditableContent.objects.get(id=content_id, user=request.user)
+        except EditableContent.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Content nicht gefunden'})
+        
+        # Prepare the AI prompt
+        current_html = content.html_content or ''
+        current_css = content.css_content or ''
+        current_text = content.text_content or ''
+        
+        # Build comprehensive prompt for AI
+        ai_prompt = f"""Bitte bearbeite das folgende HTML/CSS-Element entsprechend den Anweisungen:
+
+AKTUELLER HTML-CODE:
+{current_html}
+
+AKTUELLER CSS-CODE:
+{current_css}
+
+AKTUELLER TEXT-INHALT:
+{current_text}
+
+STRUKTUR-ÄNDERUNGEN:
+{structure_prompt if structure_prompt else 'Keine Struktur-Änderungen'}
+
+STYLE-ÄNDERUNGEN:
+{style_prompt if style_prompt else 'Keine Style-Änderungen'}
+
+Bitte gib den überarbeiteten HTML- und CSS-Code zurück, der die gewünschten Änderungen umsetzt. Behalte die Funktionalität bei und verbessere das Design entsprechend den Anweisungen."""
+
+        # Use AI service to generate modified content
+        try:
+            result = generate_html_content(request.user, ai_prompt)
+            
+            if result.get('success'):
+                new_html = result.get('html', current_html)
+                new_css = result.get('css', current_css)
+                
+                # Update the content
+                content.html_content = new_html
+                content.css_content = new_css
+                content.ai_prompt = ai_prompt  # Store the prompt for reference
+                content.save()
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Element erfolgreich mit KI bearbeitet'
+                })
+            else:
+                return JsonResponse({'success': False, 'error': result.get('error', 'KI-Bearbeitung fehlgeschlagen')})
+                
+        except Exception as ai_error:
+            return JsonResponse({'success': False, 'error': f'KI-Service Fehler: {str(ai_error)}'})
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_http_methods(["POST"])
+def ai_rephrase_content(request):
+    """AJAX-View für KI-gestützte Text-Umformulierung"""
+    try:
+        from naturmacher.services.ai_service import generate_html_content
+        
+        content_id = request.POST.get('content_id')
+        rephrase_prompt = request.POST.get('rephrase_prompt', '').strip()
+        
+        if not content_id:
+            return JsonResponse({'success': False, 'error': 'Content ID ist erforderlich'})
+        
+        # Get the content object
+        try:
+            content = EditableContent.objects.get(id=content_id, user=request.user)
+        except EditableContent.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Content nicht gefunden'})
+        
+        current_text = content.text_content or ''
+        if not current_text:
+            return JsonResponse({'success': False, 'error': 'Kein Text zum Umformulieren vorhanden'})
+        
+        # Build AI prompt for text rephrasing
+        ai_prompt = f"""Bitte formuliere den folgenden Text um:
+
+AKTUELLER TEXT:
+"{current_text}"
+
+ANWEISUNGEN:
+{rephrase_prompt if rephrase_prompt else 'Formuliere den Text neu, behalte aber die Bedeutung bei. Mache ihn ansprechender und klarer.'}
+
+Gib nur den umformulierten Text zurück, ohne zusätzliche Erklärungen oder Formatierung."""
+
+        # Use AI service to rephrase text
+        try:
+            result = generate_html_content(request.user, ai_prompt)
+            
+            if result.get('success'):
+                # For text rephrasing, we expect the result in the HTML field
+                new_text = result.get('html', '').strip()
+                
+                # Clean up the response (remove HTML tags if any)
+                import re
+                new_text = re.sub(r'<[^>]+>', '', new_text)
+                new_text = new_text.strip()
+                
+                if not new_text:
+                    return JsonResponse({'success': False, 'error': 'KI hat keinen umformulierten Text zurückgegeben'})
+                
+                return JsonResponse({
+                    'success': True,
+                    'new_text': new_text,
+                    'message': 'Text erfolgreich umformuliert'
+                })
+            else:
+                return JsonResponse({'success': False, 'error': result.get('error', 'Text-Umformulierung fehlgeschlagen')})
+                
+        except Exception as ai_error:
+            return JsonResponse({'success': False, 'error': f'KI-Service Fehler: {str(ai_error)}'})
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_http_methods(["POST"])
+def create_page(request):
+    """Erstellt eine neue benutzerdefinierte Seite"""
+    try:
+        data = json.loads(request.body)
+        page_name = data.get('page_name', '').strip().lower()
+        display_name = data.get('display_name', '').strip()
+        page_type = data.get('page_type', 'custom')
+        description = data.get('description', '').strip()
+        
+        # Validation
+        if not page_name or not display_name:
+            return JsonResponse({'success': False, 'error': 'Seiten-Name und Anzeigename sind erforderlich'})
+        
+        # Check if page already exists
+        if CustomPage.objects.filter(user=request.user, page_name=page_name).exists():
+            return JsonResponse({'success': False, 'error': 'Eine Seite mit diesem Namen existiert bereits'})
+        
+        # Create new page
+        new_page = CustomPage.objects.create(
+            user=request.user,
+            page_name=page_name,
+            display_name=display_name,
+            page_type=page_type,
+            description=description
+        )
+        
+        # Don't create initial content - pages should start empty
+        
+        return JsonResponse({
+            'success': True,
+            'page_name': page_name,
+            'display_name': display_name,
+            'redirect_url': f'/accounts/content-editor/?page={page_name}'
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültige JSON-Daten'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+def create_initial_content(user, page_name, page_type, display_name, description):
+    """Erstellt initial Content basierend auf Seitentyp"""
+    
+    # Base content for all page types
+    initial_contents = []
+    
+    if page_type == 'landing':
+        initial_contents = [
+            {
+                'content_key': 'hero_title',
+                'content_type': 'hero_title',
+                'text_content': f'Willkommen bei {display_name}',
+                'sort_order': 0
+            },
+            {
+                'content_key': 'hero_subtitle', 
+                'content_type': 'hero_subtitle',
+                'text_content': description or 'Ihre Lösung für erfolgreiche Projekte',
+                'sort_order': 1
+            },
+            {
+                'content_key': 'features_title',
+                'content_type': 'section_title', 
+                'text_content': 'Unsere Leistungen',
+                'sort_order': 2
+            },
+            {
+                'content_key': 'cta_button',
+                'content_type': 'button_text',
+                'text_content': 'Jetzt starten',
+                'sort_order': 3
+            }
+        ]
+    elif page_type == 'about':
+        initial_contents = [
+            {
+                'content_key': 'about_title',
+                'content_type': 'section_title',
+                'text_content': f'Über {display_name}',
+                'sort_order': 0
+            },
+            {
+                'content_key': 'about_intro',
+                'content_type': 'section_text',
+                'text_content': description or 'Erfahren Sie mehr über unser Unternehmen und unsere Mission.',
+                'sort_order': 1
+            },
+            {
+                'content_key': 'mission_title',
+                'content_type': 'section_title',
+                'text_content': 'Unsere Mission',
+                'sort_order': 2
+            }
+        ]
+    elif page_type == 'contact':
+        initial_contents = [
+            {
+                'content_key': 'contact_title',
+                'content_type': 'section_title',
+                'text_content': 'Kontakt',
+                'sort_order': 0
+            },
+            {
+                'content_key': 'contact_intro',
+                'content_type': 'section_text',
+                'text_content': 'Nehmen Sie Kontakt mit uns auf - wir freuen uns auf Ihre Nachricht!',
+                'sort_order': 1
+            }
+        ]
+    elif page_type == 'services':
+        initial_contents = [
+            {
+                'content_key': 'services_title',
+                'content_type': 'section_title',
+                'text_content': 'Unsere Services',
+                'sort_order': 0
+            },
+            {
+                'content_key': 'services_intro',
+                'content_type': 'section_text',
+                'text_content': description or 'Entdecken Sie unser umfangreiches Leistungsportfolio.',
+                'sort_order': 1
+            }
+        ]
+    else:  # custom, blog, gallery
+        initial_contents = [
+            {
+                'content_key': f'{page_name}_title',
+                'content_type': 'section_title',
+                'text_content': display_name,
+                'sort_order': 0
+            },
+            {
+                'content_key': f'{page_name}_content',
+                'content_type': 'section_text',
+                'text_content': description or f'Willkommen auf der {display_name} Seite.',
+                'sort_order': 1
+            }
+        ]
+    
+    # Create content objects
+    for content_data in initial_contents:
+        EditableContent.objects.create(
+            user=user,
+            page=page_name,
+            **content_data
+        )
+
+
+@login_required
+@require_http_methods(["POST"])
+def delete_page(request):
+    """Löscht eine benutzerdefinierte Seite und alle zugehörigen Inhalte"""
+    try:
+        data = json.loads(request.body)
+        page_name = data.get('page_name', '').strip()
+        
+        if not page_name:
+            return JsonResponse({'success': False, 'error': 'Seiten-Name ist erforderlich'})
+        
+        # Prüfe ob es eine benutzerdefinierte Seite ist (Startseite kann nicht gelöscht werden)
+        if page_name == 'startseite':
+            return JsonResponse({'success': False, 'error': 'Die Startseite kann nicht gelöscht werden'})
+        
+        # Lösche die Seite
+        page = CustomPage.objects.filter(user=request.user, page_name=page_name).first()
+        if not page:
+            return JsonResponse({'success': False, 'error': 'Seite nicht gefunden'})
+        
+        # Lösche alle zugehörigen Inhalte
+        EditableContent.objects.filter(user=request.user, page=page_name).delete()
+        
+        # Lösche die Seite
+        page.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Seite "{page.display_name}" wurde erfolgreich gelöscht'
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültige JSON-Daten'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def get_seo_settings(request):
+    """Lädt SEO-Einstellungen für eine Seite"""
+    page = request.GET.get('page', 'startseite')
+    
+    try:
+        seo_settings = SEOSettings.objects.get(user=request.user, page=page)
+        return JsonResponse({
+            'success': True,
+            'seo_title': seo_settings.seo_title,
+            'seo_description': seo_settings.seo_description,
+            'keywords': seo_settings.keywords,
+            'canonical_url': seo_settings.canonical_url,
+            'noindex': seo_settings.noindex,
+        })
+    except SEOSettings.DoesNotExist:
+        return JsonResponse({
+            'success': True,
+            'seo_title': '',
+            'seo_description': '',
+            'keywords': '',
+            'canonical_url': '',
+            'noindex': False,
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_http_methods(["POST"])
+def save_seo_settings(request):
+    """Speichert SEO-Einstellungen für eine Seite"""
+    try:
+        page = request.POST.get('page')
+        seo_title = request.POST.get('seo_title', '')
+        seo_description = request.POST.get('seo_description', '')
+        keywords = request.POST.get('keywords', '')
+        canonical_url = request.POST.get('canonical_url', '')
+        noindex = request.POST.get('noindex') == 'on'
+        
+        # Update or create SEO settings
+        seo_settings, created = SEOSettings.objects.update_or_create(
+            user=request.user,
+            page=page,
+            defaults={
+                'seo_title': seo_title,
+                'seo_description': seo_description,
+                'keywords': keywords,
+                'canonical_url': canonical_url,
+                'noindex': noindex,
+            }
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'SEO Einstellungen erfolgreich gespeichert'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def get_alt_texts(request):
+    """Lädt alle Alt-Texte für Bilder einer Seite"""
+    page = request.GET.get('page', 'startseite')
+    
+    try:
+        # Hole alle Bild-Inhalte für diese Seite
+        image_contents = EditableContent.objects.filter(
+            user=request.user,
+            page=page,
+            content_type='image'
+        ).exclude(image_content='')
+        
+        alt_texts = []
+        for content in image_contents:
+            if content.image_content:
+                alt_texts.append({
+                    'id': content.id,
+                    'content_key': content.content_key,
+                    'image_url': content.image_content.url,
+                    'alt_text': content.image_alt_text or '',
+                })
+        
+        return JsonResponse({
+            'success': True,
+            'alt_texts': alt_texts
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

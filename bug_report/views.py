@@ -29,7 +29,8 @@ def submit_bug_report(request):
             sender=request.user if request.user.is_authenticated else None,
             sender_name=data.get('sender_name', ''),
             sender_email=data.get('sender_email', ''),
-            subject=data.get('subject', 'Bug-Meldung'),
+            category_type=data.get('category_type', 'bug'),
+            subject=data.get('subject', 'Meldung'),
             message=data.get('message', ''),
             browser_info=data.get('browser_info', ''),
             url=data.get('url', ''),
@@ -67,7 +68,7 @@ def submit_bug_report(request):
         
         return JsonResponse({
             'success': True,
-            'message': 'Bug-Meldung erfolgreich gesendet!',
+            'message': 'Ihre Nachricht wurde erfolgreich gesendet!',
             'bug_report_id': bug_report.id,
             'chat_room_id': chat_room.id if chat_room else None,
             'chat_room_url': chat_room.get_absolute_url() if chat_room else None
@@ -93,7 +94,8 @@ def create_bug_chat_room(bug_report):
         superusers = superusers.filter(receive_anonymous_reports=True)
     
     # Erstelle Chat-Raum
-    room_name = f"Bug-Meldung: {bug_report.subject}"
+    category_display = bug_report.get_category_type_display()
+    room_name = f"{category_display}: {bug_report.subject}"
     chat_room = ChatRoom.objects.create(
         name=room_name,
         created_by=bug_report.sender,
@@ -109,13 +111,23 @@ def create_bug_chat_room(bug_report):
         chat_room.participants.add(bug_report.sender)
     
     # Erstelle initiale Chat-Nachricht
-    initial_message = f"🐛 **Bug-Meldung**\n\n"
+    category_icons = {
+        'bug': '🐛',
+        'idea': '💡',
+        'cooperation': '🤝',
+        'heart': '💭',
+        'other': '📝'
+    }
+    icon = category_icons.get(bug_report.category_type, '📝')
+    category_display = bug_report.get_category_type_display()
+    
+    initial_message = f"{icon} **{category_display}**\n\n"
     initial_message += f"**Betreff:** {bug_report.subject}\n"
     initial_message += f"**Von:** {bug_report.get_sender_name()}\n"
     if bug_report.get_sender_email():
         initial_message += f"**E-Mail:** {bug_report.get_sender_email()}\n"
     initial_message += f"**URL:** {bug_report.url}\n\n"
-    initial_message += f"**Beschreibung:**\n{bug_report.message}"
+    initial_message += f"**Nachricht:**\n{bug_report.message}"
     
     # Füge Console Log hinzu falls vorhanden
     if bug_report.console_log:

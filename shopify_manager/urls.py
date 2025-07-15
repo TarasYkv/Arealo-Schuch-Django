@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from . import sales_views
+from . import collection_views
 
 app_name = 'shopify_manager'
 
@@ -75,6 +76,24 @@ urlpatterns = [
     
     # Blog-Post Alt-Text Manager
     path('blog-posts/<int:blog_post_id>/alt-text/', views.blog_post_alt_text_manager_view, name='blog_post_alt_text_manager'),
+    
+    # Collection Management
+    path('collections/', collection_views.ShopifyCollectionListView.as_view(), name='collection_list'),
+    path('collections/<int:pk>/', collection_views.ShopifyCollectionDetailView.as_view(), name='collection_detail'),
+    path('collections/<int:pk>/edit/', collection_views.ShopifyCollectionUpdateView.as_view(), name='collection_edit'),
+    
+    # Collection SEO Optimization
+    path('collections/<int:collection_id>/do-seo/', collection_views.collection_seo_optimization_view, name='collection_seo_optimization'),
+    path('collections/<int:collection_id>/seo-optimization/', collection_views.collection_seo_ajax_view, name='collection_seo_ajax'),
+    path('api/collections/seo-optimization/<int:optimization_id>/apply/', collection_views.apply_collection_seo_optimization_view, name='apply_collection_seo_optimization'),
+    
+    # Collection Alt-Text Manager
+    path('collections/<int:collection_id>/alt-text/', collection_views.collection_alt_text_manager_view, name='collection_alt_text_manager'),
+    
+    # Collection API Endpoints
+    path('api/collections/import/', collection_views.collection_import_view, name='collection_import'),
+    path('api/collections/<int:collection_id>/alt-text/', collection_views.update_collection_alt_text_view, name='update_collection_alt_text'),
+    path('api/collections/<int:collection_id>/alt-text-suggestion/', collection_views.generate_collection_alt_text_view, name='generate_collection_alt_text'),
     
     # Sales Statistics
     path('sales/', sales_views.sales_dashboard_view, name='sales_dashboard'),

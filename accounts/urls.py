@@ -18,6 +18,8 @@ urlpatterns = [
     path('canva-disconnect/', views.canva_disconnect, name='canva_disconnect'),
     path('neue-api-einstellungen/', views.neue_api_einstellungen_view, name='neue_api_einstellungen'),
     path('firmeninfo/', views.company_info_view, name='company_info'),
+    path('test-app-permissions/', views.test_app_permissions_view, name='test_app_permissions'),
+    path('api/users/', views.get_all_users_api, name='get_all_users_api'),
     path('api/validate-key/', views.validate_api_key, name='validate_api_key'),
     path('api/balances/', views.get_api_balances, name='get_api_balances'),
     path('api/balances/update/', views.update_api_balance, name='update_api_balance'),
@@ -48,4 +50,20 @@ urlpatterns = [
     # Profil-Management (integriert in Firmeninfo)
     # path('profil/', views.profile_view, name='profile'),
     # path('passwort-aendern/', views.change_password_view, name='change_password'),
+    
+    # Content Editor
+    path('content-editor/', views.content_editor, name='content_editor'),
+    path('content/update/', views.update_content, name='update_content'),
+    path('content/delete/', views.delete_content, name='delete_content'),
+    path('content/<int:content_id>/', views.get_content, name='get_content'),
+    path('content/generate-ai/', views.generate_ai_content, name='generate_ai_content'),
+    path('content/ai-edit/', views.ai_edit_content, name='ai_edit_content'),
+    path('content/ai-rephrase/', views.ai_rephrase_content, name='ai_rephrase_content'),
+    path('page/create/', views.create_page, name='create_page'),
+    path('page/delete/', views.delete_page, name='delete_page'),
+    
+    # SEO Editor
+    path('seo/get/', views.get_seo_settings, name='get_seo_settings'),
+    path('seo/save/', views.save_seo_settings, name='save_seo_settings'),
+    path('seo/alt-texts/', views.get_alt_texts, name='get_alt_texts'),
 ]

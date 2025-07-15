@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% load static %}
+{% load editable_content %}
+
+{% block title %}{{ page_title|default:"Seite" }}{% endblock %}
+
+{% block content %}
+<style>
+.dynamic-page-container {
+    min-height: 70vh;
+    padding: 2rem 0;
+}
+
+.dynamic-content-item {
+    margin-bottom: 2rem;
+}
+
+.empty-page-message {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #6c757d;
+}
+
+.empty-page-message i {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+</style>
+
+<div class="container">
+<div class="dynamic-page-container">
+    {% if user.is_authenticated %}
+        {% with page_contents=user.editable_contents.all|dictsort:"sort_order" %}
+            {% regroup page_contents by page as pages %}
+            {% for page_group in pages %}
+                {% if page_group.grouper == current_page %}
+                    {% for content in page_group.list %}
+                        {% if content.is_active %}
+                            {% if content.content_type == 'html_block' or content.content_type == 'ai_generated' %}
+                                <!-- HTML Block Content -->
+                                <div class="dynamic-content-item" data-editable-id="{{ content.id }}" data-editable-key="{{ content.content_key }}" data-editable-type="{{ content.content_type }}">
+                                    {% if content.css_content %}
+                                        <style>{{ content.css_content|safe }}</style>
+                                    {% endif %}
+                                    {{ content.html_content|safe }}
+                                </div>
+                            {% elif content.content_type == 'hero_title' %}
+                                <!-- Hero Title -->
+                                <div class="text-center mb-4">
+                                    {% if content.css_content %}
+                                        <style>.content-{{ content.id }} { {{ content.css_content|safe }} }</style>
+                                    {% endif %}
+                                    <h1 class="display-4 {% if content.css_content %}content-{{ content.id }}{% endif %}" data-editable-id="{{ content.id }}" data-editable-key="{{ content.content_key }}" data-editable-type="{{ content.content_type }}">
+                                        {{ content.text_content|default:"Willkommen" }}
+                                    </h1>
+                                </div>
+                            {% elif content.content_type == 'hero_subtitle' %}
+                                <!-- Hero Subtitle -->
+                                <div class="text-center mb-5">
+                                    {% if content.css_content %}
+                                        <style>.content-{{ content.id }} { {{ content.css_content|safe }} }</style>
+                                    {% endif %}
+                                    <p class="lead {% if content.css_content %}content-{{ content.id }}{% endif %}" data-editable-id="{{ content.id }}" data-editable-key="{{ content.content_key }}" data-editable-type="{{ content.content_type }}">
+                                        {{ content.text_content|default:"Untertitel" }}
+                                    </p>
+                                </div>
+                            {% elif content.content_type == 'section_title' %}
+                                <!-- Section Title -->
+                                <div class="text-center mb-4">
+                                    {% if content.css_content %}
+                                        <style>.content-{{ content.id }} { {{ content.css_content|safe }} }</style>
+                                    {% endif %}
+                                    <h2 class="{% if content.css_content %}content-{{ content.id }}{% endif %}" data-editable-id="{{ content.id }}" data-editable-key="{{ content.content_key }}" data-editable-type="{{ content.content_type }}">
+                                        {{ content.text_content|default:"Titel" }}
+                                    </h2>
+                                </div>
+                            {% elif content.content_type == 'section_text' %}
+                                <!-- Section Text -->
+                                <div class="text-center mb-4">
+                                    {% if content.css_content %}
+                                        <style>.content-{{ content.id }} { {{ content.css_content|safe }} }</style>
+                                    {% endif %}
+                                    <p class="lead {% if content.css_content %}content-{{ content.id }}{% endif %}" data-editable-id="{{ content.id }}" data-editable-key="{{ content.content_key }}" data-editable-type="{{ content.content_type }}">
+                                        {{ content.text_content|default:"Text" }}
+                                    </p>
+                                </div>
+                            {% elif content.content_type == 'button_text' %}
+                                <!-- Button -->
+                                <div class="text-center mb-4">
+                                    {% if content.css_content %}
+                                        <style>.content-{{ content.id }} { {{ content.css_content|safe }} }</style>
+                                    {% endif %}
+                                    <a href="{{ content.link_url|default:'#' }}" class="btn btn-primary btn-lg {% if content.css_content %}content-{{ content.id }}{% endif %}" data-editable-id="{{ content.id }}" data-editable-key="{{ content.content_key }}" data-editable-type="{{ content.content_type }}">
+                                        {{ content.text_content|default:"Button" }}
+                                    </a>
+                                </div>
+                            {% elif content.content_type == 'image' %}
+                                <!-- Image -->
+                                <div class="text-center mb-4">
+                                    {% if content.image_content %}
+                                        {% if content.link_url %}
+                                            <a href="{{ content.link_url }}">
+                                        {% endif %}
+                                        <img src="{{ content.image_content.url }}" 
+                                             alt="{{ content.image_alt_text|default:content.content_key }}" 
+                                             class="img-fluid rounded"
+                                             data-editable-id="{{ content.id }}" 
+                                             data-editable-key="{{ content.content_key }}" 
+                                             data-editable-type="{{ content.content_type }}"
+                                             style="max-height: 500px;">
+                                        {% if content.link_url %}
+                                            </a>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            {% elif content.content_type == 'text' %}
+                                <!-- Plain Text -->
+                                <div class="mb-4">
+                                    {% if content.css_content %}
+                                        <style>.content-{{ content.id }} { {{ content.css_content|safe }} }</style>
+                                    {% endif %}
+                                    <p class="{% if content.css_content %}content-{{ content.id }}{% endif %}" data-editable-id="{{ content.id }}" data-editable-key="{{ content.content_key }}" data-editable-type="{{ content.content_type }}">
+                                        {{ content.text_content|default:"Text" }}
+                                    </p>
+                                </div>
+                            {% elif content.content_type == 'testimonial' %}
+                                <!-- Testimonial -->
+                                <div class="testimonial-card mb-4">
+                                    {% if content.css_content %}
+                                        <style>.content-{{ content.id }} { {{ content.css_content|safe }} }</style>
+                                    {% endif %}
+                                    <blockquote class="blockquote mb-0 {% if content.css_content %}content-{{ content.id }}{% endif %}" data-editable-id="{{ content.id }}" data-editable-key="{{ content.content_key }}" data-editable-type="{{ content.content_type }}">
+                                        "{{ content.text_content|default:"Kundenstimme" }}"
+                                    </blockquote>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                    {% empty %}
+                        <!-- Empty Page Message -->
+                        <div class="empty-page-message">
+                            <i class="fas fa-file-alt"></i>
+                            <h3>Diese Seite ist noch leer</h3>
+                            <p>Füge Inhalte über den Content Editor hinzu, um diese Seite zu gestalten.</p>
+                            <a href="{% url 'accounts:content_editor' %}?page={{ current_page }}" class="btn btn-primary">
+                                <i class="fas fa-plus me-2"></i>Inhalte hinzufügen
+                            </a>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endfor %}
+        {% endwith %}
+    {% else %}
+        <!-- Not authenticated message -->
+        <div class="empty-page-message">
+            <i class="fas fa-lock"></i>
+            <h3>Seite nicht verfügbar</h3>
+            <p>Melden Sie sich an, um diese Seite zu sehen.</p>
+            <a href="{% url 'accounts:login' %}" class="btn btn-primary">
+                <i class="fas fa-sign-in-alt me-2"></i>Anmelden
+            </a>
+        </div>
+    {% endif %}
+</div>
+</div>
+
+{% endblock %}

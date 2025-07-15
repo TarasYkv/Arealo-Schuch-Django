@@ -13,11 +13,12 @@ import json
 
 from .models import ChatRoom, ChatMessage, ChatRoomParticipant, ChatMessageRead, ChatMessageAttachment
 from .agora_utils import generate_agora_token
+from accounts.decorators import require_app_permission
 
 User = get_user_model()
 
 
-@login_required
+@require_app_permission('chat')
 def chat_home(request):
     """
     Chat overview page showing all user's chat rooms

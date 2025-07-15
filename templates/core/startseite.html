@@ -1,75 +1,293 @@
 {% extends "base.html" %}
 {% load static %}
+{% load editable_content %}
 
 {% block content %}
 <style>
-.header-image {
-    max-height: 300px;
-    width: auto;
-    max-width: 100%;
-    object-fit: cover;
-    border: 2px solid var(--firmen-blau, #004077);
+.hero-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 60px 0;
+    margin: -2rem -2rem 3rem;
+    text-align: center;
+}
+
+.hero-section h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+}
+
+.hero-section p {
+    font-size: 1.25rem;
+    margin-bottom: 2rem;
+    opacity: 0.95;
+}
+
+.feature-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: #667eea;
+}
+
+.feature-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    height: 100%;
+    border: none;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+}
+
+.testimonial-card {
+    background: #f8f9fa;
+    border-left: 4px solid #667eea;
+    padding: 1.5rem;
+    margin: 1rem 0;
+}
+
+.price-tag {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #667eea;
+}
+
+.community-section {
+    background: #f8f9fa;
+    padding: 3rem 0;
+    margin: 3rem -2rem;
 }
 
 @media (max-width: 768px) {
-    .header-image {
-        max-height: 200px;
+    .hero-section h1 {
+        font-size: 2rem;
+    }
+    .hero-section p {
+        font-size: 1.1rem;
     }
 }
 </style>
-<div class="text-center">
-    <h1 class="display-5">Willkommen bei Workloom</h1>
-    
-    <!-- Header-Bild -->
-    <div class="my-4">
-        <img src="{% static 'images/header.jpg' %}" 
-             alt="Workloom Header" 
-             class="img-fluid rounded shadow-sm header-image"
-             onerror="this.style.display='none'">
+
+<!-- Hero Section -->
+<div class="hero-section">
+    <div class="container">
+        <h1>{% editable_content 'startseite' 'hero_title' 'hero_title' 'Dein All-in-One Business Hub' %}</h1>
+        <p>{% editable_content 'startseite' 'hero_subtitle' 'hero_subtitle' 'Alle wichtigen Tools für Selbständige und Online-Shop-Gründer an einem Ort' %}</p>
+        <a href="{% url 'accounts:signup' %}" class="btn btn-light btn-lg px-4">
+            <i class="fas fa-rocket me-2"></i>{% editable_content 'startseite' 'hero_button' 'button_text' 'Kostenlos starten' %}
+        </a>
     </div>
-    
-    <p class="lead text-muted">Wählen Sie ein Werkzeug aus, um zu beginnen.</p>
 </div>
 
-<hr class="my-5">
-
-<div class="row">
-
-    <div class="col-lg-4 col-md-6 mb-4">
-        <div class="card h-100 shadow-sm">
-            <div class="card-body d-flex flex-column">
-                <h5 class="card-title">Wirtschaftlichkeitsrechner</h5>
-                <p class="card-text">Berechnen Sie die Kosten und Amortisation eines neuen LED-Beleuchtungssystems im Vergleich zu einer Bestandsanlage.</p>
-                <div class="mt-auto">
-                    <a href="{% url 'amortization_calculator:rechner_start' %}" class="btn btn-primary">Rechner starten</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-lg-4 col-md-6 mb-4">
-        <div class="card h-100 shadow-sm">
-            <div class="card-body d-flex flex-column">
-                <h5 class="card-title">Sportplatz-Konfigurator</h5>
-                <p class="card-text">Planen Sie die normgerechte Beleuchtung für verschiedene Arten von Sportplätzen und konfigurieren Sie die passenden Leuchten.</p>
-                <div class="mt-auto">
-                    <a href="{% url 'sportplatzApp:sportplatz_start' %}" class="btn btn-primary">Konfigurator starten</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-lg-4 col-md-6 mb-4">
-        <div class="card h-100 shadow-sm">
-            <div class="card-body d-flex flex-column">
-                <h5 class="card-title">Ausschreibungs-Analyse (PDF)</h5>
-                <p class="card-text">Laden Sie eine Ausschreibungs-PDF hoch, um automatisch passende Produkte und technische Daten zu extrahieren.</p>
-                <div class="mt-auto">
-                    <a href="{% url 'pdf_sucher:pdf_suche' %}" class="btn btn-primary">Tool starten</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
+<!-- Value Proposition -->
+<div class="container text-center mb-5">
+    <h2 class="mb-4">{% editable_content 'startseite' 'value_title' 'section_title' 'Starte dein Business ohne hohe Kosten' %}</h2>
+    <p class="lead text-muted">
+        {% editable_content 'startseite' 'value_text' 'section_text' 'Workloom bündelt alle wichtigen Business-Tools in einer Plattform. Spare Zeit und Geld, während du dein Unternehmen aufbaust.' %}
+    </p>
 </div>
+
+<!-- Features Grid -->
+<div class="row g-4 mb-5">
+    <div class="col-lg-4 col-md-6">
+        <div class="card feature-card">
+            <div class="card-body text-center">
+                <i class="fas fa-shopping-cart feature-icon"></i>
+                <h5 class="card-title">Shop-Management</h5>
+                <p class="card-text">
+                    Verwalte deinen Online-Shop, optimiere SEO, analysiere Verkäufe und synchronisiere mit Shopify - alles in einem Tool.
+                </p>
+                <a href="{% url 'shopify_manager:dashboard' %}" class="btn btn-primary">Entdecken</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 col-md-6">
+        <div class="card feature-card">
+            <div class="card-body text-center">
+                <i class="fas fa-images feature-icon"></i>
+                <h5 class="card-title">Bild-Editor & KI</h5>
+                <p class="card-text">
+                    Erstelle professionelle Produktbilder mit KI, bearbeite sie direkt im Browser und organisiere deine Medienbibliothek.
+                </p>
+                <a href="{% url 'image_editor:dashboard' %}" class="btn btn-primary">Ausprobieren</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 col-md-6">
+        <div class="card feature-card">
+            <div class="card-body text-center">
+                <i class="fas fa-graduation-cap feature-icon"></i>
+                <h5 class="card-title">Schulungen & Wissen</h5>
+                <p class="card-text">
+                    Lerne alles über E-Commerce, Social Media Marketing und Business-Aufbau mit praxisnahen Kursen und Tutorials.
+                </p>
+                <a href="{% url 'naturmacher:thema_list' %}" class="btn btn-primary">Lernen</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 col-md-6">
+        <div class="card feature-card">
+            <div class="card-body text-center">
+                <i class="fas fa-users feature-icon"></i>
+                <h5 class="card-title">Community & Support</h5>
+                <p class="card-text">
+                    Tausche dich mit anderen Gründern aus, stelle Fragen und arbeite gemeinsam an Herausforderungen.
+                </p>
+                <a href="{% url 'chat:home' %}" class="btn btn-primary">Community</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 col-md-6">
+        <div class="card feature-card">
+            <div class="card-body text-center">
+                <i class="fas fa-tasks feature-icon"></i>
+                <h5 class="card-title">Aufgaben & Organisation</h5>
+                <p class="card-text">
+                    Behalte den Überblick mit To-Do-Listen, Kalender und Notizen. Plane Events und manage deine Zeit effizient.
+                </p>
+                <a href="{% url 'organization:dashboard' %}" class="btn btn-primary">Organisieren</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 col-md-6">
+        <div class="card feature-card">
+            <div class="card-body text-center">
+                <i class="fas fa-robot feature-icon"></i>
+                <h5 class="card-title">KI-Assistenz</h5>
+                <p class="card-text">
+                    Nutze KI für Texterstellung, Produktbeschreibungen, SEO-Optimierung und automatische Zusammenfassungen.
+                </p>
+                <a href="{% url 'pdf_sucher:document_list' %}" class="btn btn-primary">KI nutzen</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Community Section -->
+<div class="community-section">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h3>{% editable_content 'startseite' 'community_title' 'section_title' 'Gemeinsam stärker' %}</h3>
+                <p class="lead">
+                    {% editable_content 'startseite' 'community_text' 'section_text' 'Bei Workloom bist du nicht allein. Unsere Community aus Selbständigen und Shop-Betreibern unterstützt sich gegenseitig.' %}
+                </p>
+                <ul class="list-unstyled">
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Direkter Austausch mit anderen Gründern</li>
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Gemeinsame Problemlösung</li>
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Erfahrungen und Best Practices teilen</li>
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Netzwerken und Kooperationen</li>
+                </ul>
+            </div>
+            <div class="col-lg-6">
+                <div class="testimonial-card">
+                    <p class="mb-2">
+                        <i class="fas fa-quote-left text-muted"></i>
+                        {% editable_content 'startseite' 'testimonial_1' 'testimonial' 'Workloom hat mir geholfen, meinen Shop aufzubauen ohne teure Tools kaufen zu müssen. Die Community ist unbezahlbar!' %}
+                    </p>
+                    <small class="text-muted">{% editable_content 'startseite' 'testimonial_1_author' 'text' '- Sarah, Online-Shop-Gründerin' %}</small>
+                </div>
+                <div class="testimonial-card">
+                    <p class="mb-2">
+                        <i class="fas fa-quote-left text-muted"></i>
+                        {% editable_content 'startseite' 'testimonial_2' 'testimonial' 'Endlich alle wichtigen Business-Tools an einem Ort. Das spart mir täglich Zeit und Nerven.' %}
+                    </p>
+                    <small class="text-muted">{% editable_content 'startseite' 'testimonial_2_author' 'text' '- Max, Selbständiger Designer' %}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pricing -->
+<div class="text-center my-5">
+    <h3>{% editable_content 'startseite' 'pricing_title' 'section_title' 'Einfache, transparente Preise' %}</h3>
+    <div class="price-tag my-3">{% editable_content 'startseite' 'price_value' 'text' 'Kostenlos' %}</div>
+    <p class="lead text-muted">
+        {% editable_content 'startseite' 'pricing_text' 'section_text' 'Starte ohne Risiko und ohne versteckte Kosten.<br>Upgrade nur wenn du mehr brauchst.' %}
+    </p>
+    <a href="{% url 'accounts:signup' %}" class="btn btn-primary btn-lg">
+        <i class="fas fa-user-plus me-2"></i>{% editable_content 'startseite' 'pricing_button' 'button_text' 'Jetzt kostenlos registrieren' %}
+    </a>
+</div>
+
+<!-- Call to Action -->
+<div class="bg-light rounded p-5 text-center">
+    <h3 class="mb-3">{% editable_content 'startseite' 'cta_title' 'section_title' 'Bereit durchzustarten?' %}</h3>
+    <p class="lead mb-4">
+        {% editable_content 'startseite' 'cta_text' 'section_text' 'Schließe dich hunderten von Selbständigen und Shop-Gründern an, die mit Workloom ihr Business aufbauen.' %}
+    </p>
+    <div class="d-flex gap-3 justify-content-center flex-wrap">
+        <a href="{% url 'accounts:signup' %}" class="btn btn-primary btn-lg">
+            <i class="fas fa-rocket me-2"></i>{% editable_content 'startseite' 'cta_button_1' 'button_text' 'Kostenlos starten' %}
+        </a>
+        <a href="{% url 'naturmacher:thema_list' %}" class="btn btn-outline-primary btn-lg">
+            <i class="fas fa-book me-2"></i>{% editable_content 'startseite' 'cta_button_2' 'button_text' 'Mehr erfahren' %}
+        </a>
+    </div>
+</div>
+
+<!-- Dynamic Content Section -->
+{% if user.is_authenticated %}
+<div class="dynamic-content-section mt-5">
+    {% for content in user.editable_contents.all|dictsort:"sort_order" %}
+        {% if content.page == 'startseite' and content.is_active %}
+            {% if content.content_type == 'html_block' or content.content_type == 'ai_generated' %}
+                <!-- HTML Block Content -->
+                <div class="dynamic-content-item mb-4" data-editable-id="{{ content.id }}" data-editable-key="{{ content.content_key }}" data-editable-type="{{ content.content_type }}">
+                    {% if content.css_content %}
+                        <style>{{ content.css_content|safe }}</style>
+                    {% endif %}
+                    {{ content.html_content|safe }}
+                </div>
+            {% elif content.content_type == 'section_title' and not content.content_key in 'hero_title,value_title,community_title,pricing_title,cta_title' %}
+                <!-- Custom Section Title -->
+                <div class="text-center mb-4">
+                    {% if content.css_content %}
+                        <style>.content-{{ content.id }} { {{ content.css_content|safe }} }</style>
+                    {% endif %}
+                    <h2 class="{% if content.css_content %}content-{{ content.id }}{% endif %}" data-editable-id="{{ content.id }}" data-editable-key="{{ content.content_key }}" data-editable-type="{{ content.content_type }}">
+                        {{ content.text_content|default:"Neuer Titel" }}
+                    </h2>
+                </div>
+            {% elif content.content_type == 'section_text' and not content.content_key in 'value_text,community_text,pricing_text,cta_text' %}
+                <!-- Custom Section Text -->
+                <div class="text-center mb-4">
+                    {% if content.css_content %}
+                        <style>.content-{{ content.id }} { {{ content.css_content|safe }} }</style>
+                    {% endif %}
+                    <p class="lead {% if content.css_content %}content-{{ content.id }}{% endif %}" data-editable-id="{{ content.id }}" data-editable-key="{{ content.content_key }}" data-editable-type="{{ content.content_type }}">
+                        {{ content.text_content|default:"Neuer Text" }}
+                    </p>
+                </div>
+            {% elif content.content_type == 'image' %}
+                <!-- Custom Image -->
+                <div class="text-center mb-4">
+                    {% if content.image_content %}
+                        <img src="{{ content.image_content.url }}" 
+                             alt="{{ content.image_alt_text|default:content.content_key }}" 
+                             class="img-fluid rounded"
+                             data-editable-id="{{ content.id }}" 
+                             data-editable-key="{{ content.content_key }}" 
+                             data-editable-type="{{ content.content_type }}"
+                             style="max-height: 400px;">
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% endif %}
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Content Editor Toolbar -->
+{# Toolbar disabled {% editable_content_toolbar %} #}
+
 {% endblock %}
