@@ -6,7 +6,16 @@ User = get_user_model()
 
 
 class BugReport(models.Model):
-    """Bug-Meldung mit Chat-Integration"""
+    """Kontakt-Meldung mit Chat-Integration"""
+    
+    # Kategorie-Typen
+    CATEGORY_CHOICES = [
+        ('bug', 'Bug melden'),
+        ('idea', 'Idee melden'),
+        ('cooperation', 'Kooperation anfragen'),
+        ('heart', 'Etwas auf dem Herzen'),
+        ('other', 'Sonstiges'),
+    ]
     
     # Sender Information
     sender = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, 
@@ -17,9 +26,11 @@ class BugReport(models.Model):
     sender_email = models.EmailField(blank=True, 
                                     help_text="E-Mail für anonyme Meldungen")
     
-    # Bug Report Content
-    subject = models.CharField(max_length=200, default="Bug-Meldung")
-    message = models.TextField(help_text="Beschreibung des Problems")
+    # Meldung Content
+    category_type = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='bug',
+                                   help_text="Art der Meldung")
+    subject = models.CharField(max_length=200, default="Meldung")
+    message = models.TextField(help_text="Beschreibung der Meldung")
     
     # System Information
     browser_info = models.TextField(blank=True, help_text="Browser und System-Informationen")
@@ -50,7 +61,8 @@ class BugReport(models.Model):
     
     def __str__(self):
         sender_name = self.get_sender_name()
-        return f"Bug-Meldung von {sender_name}: {self.subject}"
+        category_display = self.get_category_type_display()
+        return f"{category_display} von {sender_name}: {self.subject}"
     
     def get_sender_name(self):
         """Gibt den Namen des Senders zurück (User oder anonym)"""

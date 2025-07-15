@@ -1,0 +1,963 @@
+{% extends 'shopify_manager/base.html' %}
+
+{% block title %}Kategorien - Shopify Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Verbessertes Filter-Design */
+.filter-card {
+    border: 1px solid #e3e6f0;
+    border-radius: 0.75rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: all 0.3s ease;
+}
+
+.filter-card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+}
+
+.filter-card .card-header {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 1px solid #dee2e6;
+}
+
+.form-label.fw-semibold {
+    color: #495057;
+    font-size: 0.8rem;
+    margin-bottom: 0.25rem;
+    font-weight: 600;
+}
+
+.form-control-sm, .form-select-sm {
+    border-radius: 0.375rem;
+    border: 1px solid #ced4da;
+    transition: all 0.3s ease;
+    font-size: 0.875rem;
+    padding: 0.375rem 0.75rem;
+}
+
+.form-control-sm:focus, .form-select-sm:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.form-check-input {
+    transform: scale(1.1);
+}
+
+.form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+/* Aktive Filter Tags */
+.badge.bg-primary {
+    background: linear-gradient(135deg, #0d6efd 0%, #6610f2 100%) !important;
+    font-size: 0.85rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.badge.bg-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+}
+
+.btn-close-white {
+    opacity: 0.8;
+}
+
+.btn-close-white:hover {
+    opacity: 1;
+}
+
+/* Responsive Verbesserungen */
+@media (max-width: 768px) {
+    .filter-card .card-body {
+        padding: 1rem;
+    }
+    
+    .form-label {
+        font-size: 0.75rem;
+        margin-bottom: 0.2rem;
+    }
+    
+    .form-control-sm, .form-select-sm {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    .form-check-label {
+        font-size: 0.8rem !important;
+    }
+}
+
+/* Animierte Icons */
+.filter-card .card-header i {
+    transition: transform 0.3s ease;
+}
+
+.filter-card .card-header [data-bs-toggle="collapse"] i {
+    transition: transform 0.3s ease;
+}
+
+/* Verbessertes Button-Design */
+.btn-primary {
+    background: linear-gradient(135deg, #0d6efd 0%, #6610f2 100%);
+    border: none;
+    border-radius: 0.375rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-primary.btn-sm {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0.25rem 0.5rem rgba(13, 110, 253, 0.3);
+}
+
+.btn-outline-secondary {
+    border-radius: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-info {
+    border-radius: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+/* Statistiken-Karten */
+.card.text-center {
+    transition: transform 0.3s ease;
+}
+
+.card.text-center:hover {
+    transform: translateY(-5px);
+}
+
+/* Loading-Animation für Filter */
+.filter-loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.filter-loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #0d6efd;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    transform: translate(-50%, -50%);
+}
+
+@keyframes spin {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Collection Card Styles (analog zu Product Cards) */
+.collection-card.seo-status-good {
+    border: 3px solid #198754 !important; /* Bootstrap Success Green */
+    box-shadow: 0 0 10px rgba(25, 135, 84, 0.3);
+}
+
+.collection-card.seo-status-warning {
+    border: 3px solid #ffc107 !important; /* Bootstrap Warning Yellow */
+    box-shadow: 0 0 10px rgba(255, 193, 7, 0.3);
+}
+
+.collection-card.seo-status-poor {
+    border: 3px solid #dc3545 !important; /* Bootstrap Danger Red */
+    box-shadow: 0 0 10px rgba(220, 53, 69, 0.3);
+}
+
+/* SEO Score Display Styles */
+.seo-score-container {
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 8px;
+    padding: 8px 12px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.seo-score-display {
+    align-items: center;
+}
+
+.seo-score-value .badge {
+    font-size: 0.9rem;
+    padding: 6px 12px;
+    min-width: 60px;
+    text-align: center;
+}
+
+/* Verbesserte Collection Card Hover Effects */
+.collection-card:hover {
+    transform: translateY(-2px);
+    transition: all 0.2s ease-in-out;
+}
+
+.collection-card.seo-status-good:hover {
+    box-shadow: 0 4px 15px rgba(25, 135, 84, 0.4);
+}
+
+.collection-card.seo-status-warning:hover {
+    box-shadow: 0 4px 15px rgba(255, 193, 7, 0.4);
+}
+
+.collection-card.seo-status-poor:hover {
+    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+}
+
+/* Sync Status Styling */
+.sync-status .synced {
+    color: #198754;
+    font-size: 0.8rem;
+}
+
+.sync-status .needs-sync {
+    color: #ffc107;
+    font-size: 0.8rem;
+}
+
+.sync-status .sync-error {
+    color: #dc3545;
+    font-size: 0.8rem;
+}
+</style>
+{% endblock %}
+
+{% block shopify_content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Kategorien</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#importModal">
+                <i class="fas fa-download"></i> Importieren
+            </button>
+            <button type="button" class="btn btn-outline-info" onclick="bulkSeoAnalysis()">
+                <i class="fas fa-chart-line"></i> SEO-Analyse
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Statistiken -->
+<div class="row mb-3">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">{{ stats.total_collections }}</h5>
+                <p class="card-text text-muted">Kategorien gesamt</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-success">{{ stats.published_collections }}</h5>
+                <p class="card-text text-muted">Veröffentlicht</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-warning">{{ stats.needs_sync }}</h5>
+                <p class="card-text text-muted">Benötigen Sync</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-danger">{{ stats.seo_issues }}</h5>
+                <p class="card-text text-muted">SEO-Probleme</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter -->
+<div class="card mb-3 shadow-sm filter-card">
+    <div class="card-header bg-light border-0">
+        <div class="d-flex justify-content-between align-items-center">
+            <h6 class="mb-0 text-muted">
+                <i class="fas fa-filter me-2"></i> Kategorien filtern
+            </h6>
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="true" aria-controls="filterCollapse">
+                <i class="fas fa-chevron-down"></i>
+            </button>
+        </div>
+    </div>
+    <div class="collapse show" id="filterCollapse">
+        <div class="card-body">
+            <form method="get" id="filterForm">
+                <!-- Erste Zeile: Hauptfilter -->
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label for="{{ filter_form.search.id_for_label }}" class="form-label fw-semibold">
+                            <i class="fas fa-search me-1"></i> Suche
+                        </label>
+                        {{ filter_form.search }}
+                    </div>
+                    <div class="col-md-2">
+                        <label for="{{ filter_form.sync_status.id_for_label }}" class="form-label fw-semibold">
+                            <i class="fas fa-sync me-1"></i> Sync-Status
+                        </label>
+                        {{ filter_form.sync_status }}
+                    </div>
+                    <div class="col-md-2">
+                        <label for="{{ filter_form.seo_score.id_for_label }}" class="form-label fw-semibold">
+                            <i class="fas fa-chart-line me-1"></i> SEO-Status
+                        </label>
+                        {{ filter_form.seo_score }}
+                    </div>
+                    <div class="col-md-2">
+                        <label for="{{ filter_form.sort.id_for_label }}" class="form-label fw-semibold">
+                            <i class="fas fa-sort me-1"></i> Sortierung
+                        </label>
+                        {{ filter_form.sort }}
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <div class="w-100">
+                            <button type="submit" class="btn btn-primary btn-sm w-100">
+                                <i class="fas fa-search me-1"></i> Filter anwenden
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Zweite Zeile: Zusätzliche Filter & Aktionen -->
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-3">
+                        <label for="{{ filter_form.published.id_for_label }}" class="form-label fw-semibold">
+                            <i class="fas fa-eye me-1"></i> Veröffentlichung
+                        </label>
+                        {{ filter_form.published }}
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check form-switch">
+                            {{ filter_form.seo_issues_only }}
+                            <label class="form-check-label" for="{{ filter_form.seo_issues_only.id_for_label }}" style="font-size: 0.85rem; font-weight: 500;">
+                                <i class="fas fa-exclamation-triangle me-1 text-warning"></i> Nur SEO-Probleme
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetFilters()">
+                                <i class="fas fa-eraser me-1"></i> Zurücksetzen
+                            </button>
+                            <button type="button" class="btn btn-outline-info btn-sm" onclick="saveFilters()">
+                                <i class="fas fa-bookmark me-1"></i> Speichern
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-end">
+                            <small class="text-muted" style="font-size: 0.8rem;">
+                                <i class="fas fa-info-circle me-1"></i>
+                                <span id="filterCount">{{ collections|length }}</span> Kategorien gefunden
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Aktive Filter Anzeige -->
+<div id="activeFilters" class="mb-3" style="display: none;">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <small class="text-muted">Aktive Filter:</small>
+        <div id="activeFilterTags" class="d-flex gap-1 flex-wrap"></div>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearAllFilters()">
+            <i class="fas fa-times"></i> Alle entfernen
+        </button>
+    </div>
+</div>
+
+<!-- Kategorien Grid -->
+<div class="row">
+    {% for collection in collections %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card collection-card h-100{% with combined_status=collection.get_combined_seo_status %}{% if combined_status == 'good' %} seo-status-good{% elif combined_status == 'warning' %} seo-status-warning{% else %} seo-status-poor{% endif %}{% endwith %}"
+              data-seo-status="{{ collection.get_combined_seo_status }}">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="form-check">
+                    <input class="form-check-input collection-checkbox" type="checkbox" 
+                           name="selected_collections" value="{{ collection.id }}" 
+                           id="collection{{ collection.id }}">
+                    <label class="form-check-label" for="collection{{ collection.id }}">
+                        Auswählen
+                    </label>
+                </div>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                            type="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'shopify_manager:collection_edit' collection.pk %}">
+                            <i class="fas fa-edit"></i> Bearbeiten
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'shopify_manager:collection_seo_optimization' collection.pk %}">
+                            <i class="fas fa-robot text-primary"></i> Do-SEO
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'shopify_manager:collection_detail' collection.pk %}">
+                            <i class="fas fa-eye"></i> Details
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ collection.get_shopify_admin_url }}" target="_blank">
+                            <i class="fab fa-shopify"></i> Shopify Admin
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            {% if collection.image_url %}
+            <img src="{{ collection.image_url }}" class="card-img-top" style="height: 200px; object-fit: cover;" alt="{{ collection.image_alt|default:collection.title }}">
+            {% else %}
+            <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
+                <i class="fas fa-layer-group fa-3x text-muted"></i>
+            </div>
+            {% endif %}
+            
+            <div class="card-body">
+                <h5 class="card-title">{{ collection.title|truncatechars:50 }}</h5>
+                <p class="card-text text-muted small">{{ collection.description|striptags|truncatechars:100 }}</p>
+                
+                <div class="mb-2">
+                    <strong>Store:</strong> {{ collection.store.name }}<br>
+                    <strong>Typ:</strong> {{ collection.get_collection_type_display }}<br>
+                    <strong>Veröffentlicht:</strong> {% if collection.published %}Ja{% else %}Nein{% endif %}
+                </div>
+                
+                <!-- SEO und Alt-Text Ampelsystem -->
+                <div class="row mb-2">
+                    <div class="col-6">
+                        <small class="text-muted d-block">SEO-Status</small>
+                        {% with seo_status=collection.get_seo_status %}
+                            {% if seo_status == 'good' %}
+                                <span class="badge bg-success"><i class="fas fa-circle"></i> Gut</span>
+                            {% elif seo_status == 'warning' %}
+                                <span class="badge bg-warning"><i class="fas fa-circle"></i> Mittelmäßig</span>
+                            {% else %}
+                                <span class="badge bg-danger"><i class="fas fa-circle"></i> Schlecht</span>
+                            {% endif %}
+                        {% endwith %}
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted d-block">Alt-Text</small>
+                        {% with alt_status=collection.get_alt_text_status %}
+                            {% if alt_status == 'good' %}
+                                <span class="badge bg-success"><i class="fas fa-circle"></i> Gut</span>
+                            {% elif alt_status == 'warning' %}
+                                <span class="badge bg-warning"><i class="fas fa-circle"></i> Mittelmäßig</span>
+                            {% else %}
+                                <span class="badge bg-danger"><i class="fas fa-circle"></i> Schlecht</span>
+                            {% endif %}
+                        {% endwith %}
+                    </div>
+                </div>
+                
+                <!-- Detaillierte SEO/Alt-Text Info bei Hover -->
+                {% with seo_details=collection.get_seo_details alt_details=collection.get_alt_text_details %}
+                <div class="status-details" style="display: none;">
+                    <div class="card mt-2">
+                        <div class="card-body p-2">
+                            <h6 class="card-title mb-2">SEO & Alt-Text Details</h6>
+                            <div class="row">
+                                <div class="col-6">
+                                    <strong>SEO:</strong><br>
+                                    <small>
+                                        Titel: {{ seo_details.title_length }}/70 Zeichen<br>
+                                        Beschreibung: {{ seo_details.description_length }}/160 Zeichen
+                                    </small>
+                                </div>
+                                <div class="col-6">
+                                    <strong>Alt-Text:</strong><br>
+                                    <small>
+                                        {% if collection.image_url %}
+                                            {% if collection.image_alt %}Vorhanden{% else %}Fehlt{% endif %}
+                                        {% else %}
+                                            Kein Bild
+                                        {% endif %}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endwith %}
+            </div>
+            
+            <div class="card-footer">
+                <!-- SEO Score Display -->
+                <div class="seo-score-container mb-2">
+                    {% with seo_score=collection.get_seo_score combined_status=collection.get_combined_seo_status seo_details=collection.get_seo_details %}
+                    <div class="seo-score-display d-flex align-items-center justify-content-between">
+                        <div class="seo-score-label">
+                            <small class="text-muted">SEO-Score (inkl. Alt-Text)</small>
+                        </div>
+                        <div class="seo-score-value">
+                            <span class="badge bg-{% if combined_status == 'good' %}success{% elif combined_status == 'warning' %}warning{% else %}danger{% endif %} fs-6" 
+                                  title="Aufschlüsselung: {{ seo_details.breakdown }}">
+                                {{ seo_score }}/100
+                            </span>
+                        </div>
+                    </div>
+                    {% endwith %}
+                </div>
+                
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="badge bg-{% if collection.published %}success{% else %}secondary{% endif %}">
+                        {% if collection.published %}
+                            ✅ Veröffentlicht
+                        {% else %}
+                            📝 Entwurf
+                        {% endif %}
+                    </span>
+                    
+                    <div class="sync-status">
+                        {% if collection.sync_error %}
+                            <span class="sync-error">
+                                <i class="fas fa-exclamation-triangle"></i> Sync-Fehler
+                            </span>
+                        {% elif collection.needs_sync %}
+                            <span class="needs-sync">
+                                <i class="fas fa-clock"></i> Benötigt Sync
+                            </span>
+                        {% else %}
+                            <span class="synced">
+                                <i class="fas fa-check"></i> Synchronisiert
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="d-grid gap-2 mb-2">
+                    <a href="{% url 'shopify_manager:collection_seo_optimization' collection.pk %}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-robot"></i> Do-SEO
+                    </a>
+                    <button class="btn btn-secondary btn-sm" onclick="doCollectionAltText({{ collection.pk }})">
+                        <i class="fas fa-image"></i> Do-Alt-Text
+                    </button>
+                </div>
+                
+                <small class="text-muted">
+                    Aktualisiert: {{ collection.updated_at|date:"d.m.Y H:i" }}
+                </small>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> Keine Kategorien gefunden.
+            {% if user_stores %}
+            <a href="#" data-bs-toggle="modal" data-bs-target="#importModal">Hier klicken zum Importieren</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<nav aria-label="Kategorien Pagination">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&{{ get_params }}" aria-label="Previous">
+                <span aria-hidden="true">&laquo;</span>
+            </a>
+        </li>
+        {% endif %}
+        
+        {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+        <li class="page-item active">
+            <span class="page-link">{{ num }}</span>
+        </li>
+        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ num }}&{{ get_params }}">{{ num }}</a>
+        </li>
+        {% endif %}
+        {% endfor %}
+        
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}&{{ get_params }}" aria-label="Next">
+                <span aria-hidden="true">&raquo;</span>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="importModalLabel">Kategorien importieren</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'shopify_manager:collection_import' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="store_id" class="form-label">Store auswählen</label>
+                        <select class="form-select" id="store_id" name="store_id" required>
+                            <option value="">Bitte wählen...</option>
+                            {% for store in user_stores %}
+                            <option value="{{ store.pk }}">{{ store.name }} ({{ store.shop_domain }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        Der Import lädt alle Kategorien/Collections aus dem gewählten Shopify Store.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Importieren</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- SEO-Analyse Modal -->
+<div class="modal fade" id="seoAnalysisModal" tabindex="-1" aria-labelledby="seoAnalysisModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="seoAnalysisModalLabel">SEO-Analyse wird durchgeführt...</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="seoAnalysisContent">
+                    <div class="d-flex justify-content-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Wird geladen...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function doCollectionSeo(collectionId) {
+    window.location.href = "{% url 'shopify_manager:collection_seo_optimization' 0 %}".replace('0', collectionId);
+}
+
+function doCollectionAltText(collectionId) {
+    window.location.href = "{% url 'shopify_manager:collection_alt_text_manager' 0 %}".replace('0', collectionId);
+}
+
+function bulkSeoAnalysis() {
+    const modal = new bootstrap.Modal(document.getElementById('seoAnalysisModal'));
+    modal.show();
+    
+    fetch("{% url 'shopify_manager:seo_dashboard' %}")
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById('seoAnalysisContent').innerHTML = html;
+            document.getElementById('seoAnalysisModalLabel').textContent = 'SEO-Analyse Ergebnisse';
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('seoAnalysisContent').innerHTML = '<div class="alert alert-danger">Fehler beim Laden der SEO-Analyse.</div>';
+        });
+}
+
+// Erweiterte Filter-Funktionalität
+document.addEventListener('DOMContentLoaded', function() {
+    // Filter-Collapse-Icon aktualisieren
+    const filterToggle = document.querySelector('[data-bs-toggle="collapse"]');
+    const filterCollapse = document.getElementById('filterCollapse');
+    
+    if (filterToggle && filterCollapse) {
+        filterCollapse.addEventListener('show.bs.collapse', function() {
+            filterToggle.querySelector('i').className = 'fas fa-chevron-up';
+        });
+        
+        filterCollapse.addEventListener('hide.bs.collapse', function() {
+            filterToggle.querySelector('i').className = 'fas fa-chevron-down';
+        });
+    }
+    
+    // Aktive Filter anzeigen
+    updateActiveFilters();
+    
+    // Auto-Submit bei Select-Änderungen (optional)
+    const autoSubmitElements = document.querySelectorAll('#filterForm select');
+    autoSubmitElements.forEach(element => {
+        element.addEventListener('change', function() {
+            // Optional: Automatisches Submit bei Änderung
+            // document.getElementById('filterForm').submit();
+        });
+    });
+    
+    // Enter-Taste im Suchfeld
+    const searchInput = document.querySelector('#filterForm input[type="text"]');
+    if (searchInput) {
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('filterForm').submit();
+            }
+        });
+    }
+});
+
+function resetFilters() {
+    // Alle Form-Felder zurücksetzen
+    document.getElementById('filterForm').reset();
+    
+    // Zur Basis-URL weiterleiten
+    window.location.href = "{% url 'shopify_manager:collection_list' %}";
+}
+
+function saveFilters() {
+    // Filter-Einstellungen in localStorage speichern
+    const formData = new FormData(document.getElementById('filterForm'));
+    const filters = {};
+    
+    for (let [key, value] of formData.entries()) {
+        if (value) {
+            filters[key] = value;
+        }
+    }
+    
+    localStorage.setItem('collectionFilters', JSON.stringify(filters));
+    
+    // Feedback anzeigen
+    const saveBtn = document.querySelector('[onclick="saveFilters()"]');
+    const originalText = saveBtn.innerHTML;
+    const originalClass = saveBtn.className;
+    
+    saveBtn.innerHTML = '<i class="fas fa-check me-1"></i> Gespeichert';
+    saveBtn.className = 'btn btn-success btn-sm';
+    saveBtn.disabled = true;
+    
+    // Toast-Benachrichtigung hinzufügen
+    showToast('Filter-Einstellungen gespeichert!', 'success');
+    
+    setTimeout(() => {
+        saveBtn.innerHTML = originalText;
+        saveBtn.className = originalClass;
+        saveBtn.disabled = false;
+    }, 2000);
+}
+
+function showToast(message, type = 'info') {
+    // Einfache Toast-Benachrichtigung
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type} border-0 position-fixed top-0 end-0 m-3`;
+    toast.style.zIndex = '1055';
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="fas fa-info-circle me-2"></i>${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    // Toast nach dem Verstecken entfernen
+    toast.addEventListener('hidden.bs.toast', () => {
+        document.body.removeChild(toast);
+    });
+}
+
+function loadSavedFilters() {
+    // Gespeicherte Filter laden
+    const savedFilters = localStorage.getItem('collectionFilters');
+    if (savedFilters) {
+        const filters = JSON.parse(savedFilters);
+        const form = document.getElementById('filterForm');
+        
+        Object.keys(filters).forEach(key => {
+            const element = form.querySelector(`[name="${key}"]`);
+            if (element) {
+                if (element.type === 'checkbox') {
+                    element.checked = filters[key] === 'on';
+                } else {
+                    element.value = filters[key];
+                }
+            }
+        });
+    }
+}
+
+function updateActiveFilters() {
+    const activeFiltersDiv = document.getElementById('activeFilters');
+    const activeFilterTags = document.getElementById('activeFilterTags');
+    const form = document.getElementById('filterForm');
+    
+    if (!activeFiltersDiv || !activeFilterTags || !form) return;
+    
+    const formData = new FormData(form);
+    const activeTags = [];
+    
+    // Durchlaufe alle Form-Felder und erstelle Tags für aktive Filter
+    for (let [key, value] of formData.entries()) {
+        if (value && value !== '') {
+            let labelText = '';
+            let displayValue = value;
+            
+            // Label-Text basierend auf Feld-Name
+            switch(key) {
+                case 'search':
+                    labelText = 'Suche';
+                    break;
+                case 'published':
+                    labelText = 'Veröffentlichung';
+                    const publishedOptions = {
+                        'true': 'Nur veröffentlichte',
+                        'false': 'Nur unveröffentlichte'
+                    };
+                    displayValue = publishedOptions[value] || value;
+                    break;
+                case 'sync_status':
+                    labelText = 'Sync-Status';
+                    const syncOptions = {
+                        'synced': 'Synchronisiert',
+                        'needs_sync': 'Sync erforderlich',
+                        'sync_error': 'Sync-Fehler'
+                    };
+                    displayValue = syncOptions[value] || value;
+                    break;
+                case 'seo_score':
+                    labelText = 'SEO-Status';
+                    const seoOptions = {
+                        'good': 'Gut',
+                        'warning': 'Warnung',
+                        'poor': 'Schlecht'
+                    };
+                    displayValue = seoOptions[value] || value;
+                    break;
+                case 'seo_issues_only':
+                    labelText = 'SEO-Probleme';
+                    displayValue = 'Nur mit Problemen';
+                    break;
+                case 'sort':
+                    labelText = 'Sortierung';
+                    break;
+            }
+            
+            if (labelText) {
+                activeTags.push(`
+                    <span class="badge bg-primary">
+                        ${labelText}: ${displayValue}
+                        <button type="button" class="btn-close btn-close-white ms-1" style="font-size: 0.7em;" onclick="removeFilter('${key}')"></button>
+                    </span>
+                `);
+            }
+        }
+    }
+    
+    if (activeTags.length > 0) {
+        activeFilterTags.innerHTML = activeTags.join('');
+        activeFiltersDiv.style.display = 'block';
+    } else {
+        activeFiltersDiv.style.display = 'none';
+    }
+}
+
+function removeFilter(filterKey) {
+    const form = document.getElementById('filterForm');
+    const element = form.querySelector(`[name="${filterKey}"]`);
+    
+    if (element) {
+        if (element.type === 'checkbox') {
+            element.checked = false;
+        } else {
+            element.value = '';
+        }
+        
+        // Form automatisch abschicken
+        form.submit();
+    }
+}
+
+function clearAllFilters() {
+    resetFilters();
+}
+
+// Filter beim Laden der Seite aktualisieren
+window.addEventListener('load', function() {
+    updateActiveFilters();
+});
+
+// Status-Details bei Hover anzeigen (analog zu Product Cards)
+document.addEventListener('DOMContentLoaded', function() {
+    const collectionCards = document.querySelectorAll('.collection-card');
+    
+    collectionCards.forEach(card => {
+        const statusDetails = card.querySelector('.status-details');
+        
+        if (statusDetails) {
+            // Hover-Events für SEO/Alt-Text Badges
+            const badges = card.querySelectorAll('.badge');
+            
+            badges.forEach(badge => {
+                badge.addEventListener('mouseenter', function() {
+                    statusDetails.style.display = 'block';
+                });
+                
+                badge.addEventListener('mouseleave', function() {
+                    statusDetails.style.display = 'none';
+                });
+            });
+            
+            // Hover-Events für Details-Card selbst
+            statusDetails.addEventListener('mouseenter', function() {
+                statusDetails.style.display = 'block';
+            });
+            
+            statusDetails.addEventListener('mouseleave', function() {
+                statusDetails.style.display = 'none';
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

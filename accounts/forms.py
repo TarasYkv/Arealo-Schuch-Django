@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm, PasswordChangeForm
 from django.contrib.auth import authenticate
-from .models import CustomUser, AmpelCategory, CategoryKeyword
+from .models import CustomUser, AmpelCategory, CategoryKeyword, AppPermission
 
 
 class CustomUserCreationForm(UserCreationForm):
@@ -218,3 +218,96 @@ class BugChatSettingsForm(forms.ModelForm):
             'receive_bug_reports': 'Erhalten Sie Bug-Meldungen von angemeldeten Benutzern',
             'receive_anonymous_reports': 'Erhalten Sie auch Bug-Meldungen von nicht angemeldeten Benutzern',
         }
+
+
+class AppPermissionForm(forms.Form):
+    """Formular für App-Freigabe Verwaltung"""
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Hole alle App-Berechtigungen oder erstelle sie wenn sie nicht existieren
+        for app_choice in AppPermission.APP_CHOICES:
+            app_name = app_choice[0]
+            app_display = app_choice[1]
+            
+            # Hole oder erstelle die Berechtigung
+            permission, created = AppPermission.objects.get_or_create(
+                app_name=app_name,
+                defaults={'access_level': 'blocked', 'is_active': True}
+            )
+            
+            # Hauptfeld für Zugriffsebene
+            self.fields[f'app_{app_name}_access'] = forms.ChoiceField(
+                choices=AppPermission.ACCESS_LEVEL_CHOICES,
+                initial=permission.access_level,
+                label=app_display,
+                widget=forms.Select(attrs={
+                    'class': 'form-select app-access-select',
+                    'data-app': app_name
+                })
+            )
+            
+            # Frontend ausblenden Option
+            self.fields[f'app_{app_name}_hide_frontend'] = forms.BooleanField(
+                initial=permission.hide_in_frontend,
+                required=False,
+                label="Im Frontend ausblenden",
+                widget=forms.CheckboxInput(attrs={
+                    'class': 'form-check-input',
+                    'data-app': app_name
+                })
+            )
+            
+            # Superuser Bypass Option
+            self.fields[f'app_{app_name}_superuser_bypass'] = forms.BooleanField(
+                initial=permission.superuser_bypass,
+                required=False,
+                label="Superuser können immer zugreifen",
+                widget=forms.CheckboxInput(attrs={
+                    'class': 'form-check-input',
+                    'data-app': app_name
+                })
+            )
+            
+            # Feld für ausgewählte Nutzer (Select2-Style mit Filter)
+            self.fields[f'app_{app_name}_users'] = forms.ModelMultipleChoiceField(
+                queryset=CustomUser.objects.filter(is_active=True).order_by('username'),
+                initial=permission.selected_users.all(),
+                required=False,
+                widget=forms.SelectMultiple(attrs={
+                    'class': 'form-select user-select-multiple',
+                    'data-app': app_name,
+                    'multiple': 'multiple',
+                    'size': '8',
+                    'style': 'display: none;'  # Wird nur bei 'selected' angezeigt
+                })
+            )
+    
+    def save(self):
+        """Speichert die App-Berechtigungen"""
+        for app_choice in AppPermission.APP_CHOICES:
+            app_name = app_choice[0]
+            
+            # Hole die Berechtigung
+            permission = AppPermission.objects.get(app_name=app_name)
+            
+            # Update Zugriffsebene
+            access_level = self.cleaned_data.get(f'app_{app_name}_access')
+            if access_level:
+                permission.access_level = access_level
+            
+            # Update Frontend ausblenden
+            hide_frontend = self.cleaned_data.get(f'app_{app_name}_hide_frontend', False)
+            permission.hide_in_frontend = hide_frontend
+            
+            # Update Superuser Bypass
+            superuser_bypass = self.cleaned_data.get(f'app_{app_name}_superuser_bypass', True)
+            permission.superuser_bypass = superuser_bypass
+            
+            # Update ausgewählte Nutzer
+            selected_users = self.cleaned_data.get(f'app_{app_name}_users')
+            if selected_users is not None:
+                permission.selected_users.set(selected_users)
+            
+            permission.save()

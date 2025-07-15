@@ -186,3 +186,6 @@ LOGOUT_REDIRECT_URL = '/'
 FIELD_ENCRYPTION_KEY = 'JFkYsizDtDsUc1MTl5RogD_uPnyRB0wWFAZ5VtKRqow='
 
 # WebSocket support removed - using standard Django WSGI
+
+# Allow same-origin iframes for content editor
+X_FRAME_OPTIONS = 'SAMEORIGIN'

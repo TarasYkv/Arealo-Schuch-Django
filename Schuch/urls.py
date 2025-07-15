@@ -24,6 +24,7 @@ urlpatterns = [
     path('images/', include('image_editor.urls')),
     path('bug-report/', include('bug_report.urls')),
     path('organization/', include('organization.urls')),
+    path('page/<str:page_name>/', core_views.dynamic_page_view, name='dynamic_page'),
     path('admin/', admin.site.urls),
 ]
 

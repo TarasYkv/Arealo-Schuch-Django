@@ -1,4 +1,5 @@
 {% load static %}
+{% load app_permissions %}
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -23,6 +24,41 @@
 </head>
 <body class="bg-light">
 
+    <!-- Editable Header Section -->
+    {% load editable_content %}
+    {% if user.is_authenticated %}
+        <div id="custom-header">
+            {% with page_contents=user.editable_contents.all|dictsort:"sort_order" %}
+                {% regroup page_contents by page as pages %}
+                {% for page_group in pages %}
+                    {% if page_group.grouper == 'header' %}
+                        {% for content in page_group.list %}
+                            {% if content.is_active %}
+                                {% if content.content_type == 'html_block' or content.content_type == 'ai_generated' %}
+                                    <div class="custom-header-item" data-editable-id="{{ content.id }}" data-editable-key="{{ content.content_key }}" data-editable-type="{{ content.content_type }}">
+                                        {% if content.css_content %}
+                                            <style>{{ content.css_content|safe }}</style>
+                                        {% endif %}
+                                        {{ content.html_content|safe }}
+                                    </div>
+                                {% elif content.content_type == 'text' %}
+                                    <div class="text-center py-2" style="background: #f8f9fa;">
+                                        {% if content.css_content %}
+                                            <style>.content-{{ content.id }} { {{ content.css_content|safe }} }</style>
+                                        {% endif %}
+                                        <p class="mb-0 {% if content.css_content %}content-{{ content.id }}{% endif %}" data-editable-id="{{ content.id }}" data-editable-key="{{ content.content_key }}" data-editable-type="{{ content.content_type }}">
+                                            {{ content.text_content|default:"Header Text" }}
+                                        </p>
+                                    </div>
+                                {% endif %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                {% endfor %}
+            {% endwith %}
+        </div>
+    {% endif %}
+
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
         <div class="container">
             <a class="navbar-brand fw-bold d-flex align-items-center" href="{% url 'startseite' %}">
@@ -35,39 +71,69 @@
             <div class="collapse navbar-collapse" id="main-nav">
                 <div class="navbar-nav ms-auto">
                     <!-- Schuch Dropdown Menu -->
+                    {% comment %} Schuch Dropdown - nur anzeigen wenn mindestens eine App sichtbar ist {% endcomment %}
+                    {% if user|can_see_app_in_frontend:"wirtschaftlichkeitsrechner" or user|can_see_app_in_frontend:"sportplatz_konfigurator" or user|can_see_app_in_frontend:"pdf_suche" or user|can_see_app_in_frontend:"ki_zusammenfassung" %}
                     <div class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="schuchDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             Schuch
                         </a>
                         <ul class="dropdown-menu" aria-labelledby="schuchDropdown">
+                            {% if user|can_see_app_in_frontend:"wirtschaftlichkeitsrechner" %}
                             <li><a class="dropdown-item" href="{% url 'amortization_calculator:rechner_start' %}">
                                 <i class="bi bi-calculator"></i> Wirtschaftlichkeitsrechner
                             </a></li>
+                            {% endif %}
+                            
+                            {% if user|can_see_app_in_frontend:"sportplatz_konfigurator" %}
                             <li><a class="dropdown-item" href="{% url 'sportplatzApp:sportplatz_start' %}">
                                 <i class="bi bi-geo-alt"></i> Sportplatz-Konfigurator
                             </a></li>
+                            {% endif %}
+                            
+                            {% if user|can_see_app_in_frontend:"pdf_suche" %}
                             <li><a class="dropdown-item" href="{% url 'pdf_sucher:pdf_suche' %}">
                                 <i class="bi bi-file-earmark-text"></i> PDF-Suche
                             </a></li>
+                            {% endif %}
+                            
+                            {% if user|can_see_app_in_frontend:"ki_zusammenfassung" %}
                             <li><a class="dropdown-item" href="{% url 'pdf_sucher:document_list' %}">
                                 <i class="bi bi-robot"></i> KI-Zusammenfassung
                             </a></li>
+                            {% endif %}
                         </ul>
                     </div>
+                    {% endif %}
                     
+                    {% if user|can_see_app_in_frontend:"schulungen" %}
                     <a class="nav-link" href="{% url 'naturmacher:thema_list' %}">Schulungen</a>
+                    {% endif %}
+                    
+                    {% if user|can_see_app_in_frontend:"shopify" %}
                     <a class="nav-link" href="{% url 'shopify_manager:dashboard' %}">
                         <i class="fas fa-shopping-cart"></i> Shopify
                     </a>
+                    {% endif %}
+                    
+                    {% if user|can_see_app_in_frontend:"bilder" %}
                     <a class="nav-link" href="{% url 'image_editor:dashboard' %}">
                         <i class="fas fa-images"></i> Bilder
                     </a>
+                    {% endif %}
+                    
+                    {% if user|can_see_app_in_frontend:"todos" %}
                     <a class="nav-link" href="{% url 'todos:home' %}">
                         <i class="fas fa-tasks"></i> ToDos
                     </a>
+                    {% endif %}
+                    
+                    {% if user|can_see_app_in_frontend:"organisation" %}
                     <a class="nav-link" href="{% url 'organization:dashboard' %}">
                         <i class="fas fa-clipboard-list"></i> Organisation
                     </a>
+                    {% endif %}
+                    
+                    {% if user|can_see_app_in_frontend:"chat" %}
                     <a class="nav-link position-relative" href="{% url 'chat:home' %}">
                         <i class="fas fa-comments"></i> Chat
                         {% if user.is_authenticated %}
@@ -76,6 +142,7 @@
                             </span>
                         {% endif %}
                     </a>
+                    {% endif %}
                     
                     <!-- User Menu Dropdown -->
                     <div class="nav-item dropdown">
@@ -104,6 +171,11 @@
                                 <li><a class="dropdown-item" href="{% url 'accounts:category_create' %}">
                                     <i class="bi bi-plus-circle"></i> Neue Kategorie
                                 </a></li>
+                                {% if user|can_see_app_in_frontend:"editor" %}
+                                <li><a class="dropdown-item" href="{% url 'accounts:content_editor' %}">
+                                    <i class="bi bi-pencil-square"></i> Content Editor
+                                </a></li>
+                                {% endif %}
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="{% url 'accounts:logout' %}">
                                     <i class="bi bi-box-arrow-right"></i> Abmelden
@@ -135,31 +207,45 @@
         </div>
     </main>
 
-    <!-- Schwebendes Bug-Report-Widget -->
+    <!-- Schwebendes Kontakt-Widget -->
     <div id="bug-report-widget" class="position-fixed bottom-0 start-0 m-3" style="z-index: 1050;">
         <button id="bug-report-btn" class="btn rounded-circle shadow-lg" 
                 style="width: 60px; height: 60px; border-radius: 50%; 
-                       background-color: #ffd43b; border: 2px solid #fcbf09;
+                       background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 50%, #90caf9 100%);
+                       border: 2px solid #64b5f6;
                        display: flex; align-items: center; justify-content: center;
                        transition: all 0.3s ease;"
-                title="Bug melden">
-            <i class="fas fa-bug" style="font-size: 1.5rem; color: #444;"></i>
+                title="Kontakt">
+            <i class="fas fa-comment-dots" style="font-size: 1.4rem; color: #1565c0;"></i>
         </button>
     </div>
 
-    <!-- Bug-Report Modal -->
+    <!-- Kontakt Modal -->
     <div class="modal fade" id="bugReportModal" tabindex="-1" aria-labelledby="bugReportModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
-                <div class="modal-header" style="background: linear-gradient(135deg, #ffdb4d 0%, #ffc107 100%); color: #333;">
+                <div class="modal-header" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); color: #333;">
                     <h5 class="modal-title" id="bugReportModalLabel">
-                        <i class="fas fa-bug me-2"></i>Bug-Meldung senden
+                        <i class="fas fa-comment-dots me-2"></i>Kontakt aufnehmen
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <form id="bugReportForm">
                         {% csrf_token %}
+                        
+                        <!-- Kategorie Auswahl -->
+                        <div class="mb-3">
+                            <label for="categoryType" class="form-label">Was möchten Sie uns mitteilen? *</label>
+                            <select class="form-select" id="categoryType" name="category_type" required>
+                                <option value="">Bitte wählen...</option>
+                                <option value="bug">🐛 Bug melden</option>
+                                <option value="idea">💡 Idee melden</option>
+                                <option value="cooperation">🤝 Kooperation anfragen</option>
+                                <option value="heart">💭 Etwas auf dem Herzen</option>
+                                <option value="other">📝 Sonstiges</option>
+                            </select>
+                        </div>
                         
                         <!-- Anonyme Nutzer Felder -->
                         {% if not user.is_authenticated %}
@@ -179,14 +265,14 @@
                         <div class="mb-3">
                             <label for="bugSubject" class="form-label">Betreff *</label>
                             <input type="text" class="form-control" id="bugSubject" name="subject" 
-                                   placeholder="Kurze Beschreibung des Problems" required>
+                                   placeholder="Kurze Beschreibung Ihres Anliegens" required>
                         </div>
                         
                         <!-- Nachricht -->
                         <div class="mb-3">
-                            <label for="bugMessage" class="form-label">Beschreibung *</label>
+                            <label for="bugMessage" class="form-label">Ihre Nachricht *</label>
                             <textarea class="form-control" id="bugMessage" name="message" rows="5" 
-                                      placeholder="Detaillierte Beschreibung des Problems..." required></textarea>
+                                      placeholder="Beschreiben Sie Ihr Anliegen detailliert..." required></textarea>
                         </div>
                         
                         <!-- Screenshot Bereich -->
@@ -233,6 +319,40 @@
             </div>
         </div>
     </div>
+
+    <!-- Editable Footer Section -->
+    {% if user.is_authenticated %}
+        <div id="custom-footer">
+            {% with page_contents=user.editable_contents.all|dictsort:"sort_order" %}
+                {% regroup page_contents by page as pages %}
+                {% for page_group in pages %}
+                    {% if page_group.grouper == 'footer' %}
+                        {% for content in page_group.list %}
+                            {% if content.is_active %}
+                                {% if content.content_type == 'html_block' or content.content_type == 'ai_generated' %}
+                                    <div class="custom-footer-item" data-editable-id="{{ content.id }}" data-editable-key="{{ content.content_key }}" data-editable-type="{{ content.content_type }}">
+                                        {% if content.css_content %}
+                                            <style>{{ content.css_content|safe }}</style>
+                                        {% endif %}
+                                        {{ content.html_content|safe }}
+                                    </div>
+                                {% elif content.content_type == 'text' %}
+                                    <div class="text-center py-3" style="background: #f8f9fa; border-top: 1px solid #dee2e6;">
+                                        {% if content.css_content %}
+                                            <style>.content-{{ content.id }} { {{ content.css_content|safe }} }</style>
+                                        {% endif %}
+                                        <p class="mb-0 {% if content.css_content %}content-{{ content.id }}{% endif %}" data-editable-id="{{ content.id }}" data-editable-key="{{ content.content_key }}" data-editable-type="{{ content.content_type }}">
+                                            {{ content.text_content|default:"Footer Text" }}
+                                        </p>
+                                    </div>
+                                {% endif %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                {% endfor %}
+            {% endwith %}
+        </div>
+    {% endif %}
 
     <footer class="text-center text-muted py-4">
         <p>&copy; {% now "Y" %} Workloom by Taras</p>
@@ -296,6 +416,42 @@
         document.addEventListener('DOMContentLoaded', function() {
             const bugReportBtn = document.getElementById('bug-report-btn');
             const bugReportModal = new bootstrap.Modal(document.getElementById('bugReportModal'));
+            
+            // Dynamische Platzhalter basierend auf Kategorie
+            const categoryType = document.getElementById('categoryType');
+            const bugSubject = document.getElementById('bugSubject');
+            const bugMessage = document.getElementById('bugMessage');
+            
+            const placeholders = {
+                'bug': {
+                    subject: 'Kurze Beschreibung des Bugs',
+                    message: 'Beschreiben Sie den Fehler detailliert: Was ist passiert? Wie kann man es reproduzieren?'
+                },
+                'idea': {
+                    subject: 'Kurze Beschreibung Ihrer Idee',
+                    message: 'Beschreiben Sie Ihre Idee oder Ihren Verbesserungsvorschlag...'
+                },
+                'cooperation': {
+                    subject: 'Art der gewünschten Kooperation',
+                    message: 'Beschreiben Sie Ihre Kooperationsanfrage und wie wir zusammenarbeiten können...'
+                },
+                'heart': {
+                    subject: 'Worum geht es?',
+                    message: 'Teilen Sie mit uns, was Ihnen auf dem Herzen liegt...'
+                },
+                'other': {
+                    subject: 'Betreff Ihrer Nachricht',
+                    message: 'Beschreiben Sie Ihr Anliegen...'
+                }
+            };
+            
+            categoryType.addEventListener('change', function() {
+                const selected = this.value;
+                if (placeholders[selected]) {
+                    bugSubject.placeholder = placeholders[selected].subject;
+                    bugMessage.placeholder = placeholders[selected].message;
+                }
+            });
             
             // Widget-Button Event
             bugReportBtn.addEventListener('click', function() {
@@ -383,6 +539,7 @@
                 
                 // Sammle Daten
                 const data = {
+                    category_type: document.getElementById('categoryType').value,
                     subject: document.getElementById('bugSubject').value,
                     message: document.getElementById('bugMessage').value,
                     url: document.getElementById('currentUrl').value,

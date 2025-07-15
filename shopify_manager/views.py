@@ -12,7 +12,7 @@ from django.utils import timezone
 import requests
 import base64
 
-from .models import ShopifyStore, ShopifyProduct, ShopifySyncLog, ProductSEOOptimization, SEOAnalysisResult, ShopifyBlog, ShopifyBlogPost, BlogPostSEOOptimization
+from .models import ShopifyStore, ShopifyProduct, ShopifySyncLog, ProductSEOOptimization, SEOAnalysisResult, ShopifyBlog, ShopifyBlogPost, BlogPostSEOOptimization, ShopifyCollection, CollectionSEOOptimization
 from .ai_seo_service import generate_seo_with_ai, BlogPostSEOService
 from .shopify_api import ShopifyAPIClient
 from .forms import (
@@ -1172,8 +1172,8 @@ def generate_seo_ai_view(request, pk):
         keywords = seo_optimization.get_keywords_list()
         
         success, result, message, raw_response = generate_seo_with_ai(
-            product_title=seo_optimization.original_title,
-            product_description=seo_optimization.original_description,
+            content_title=seo_optimization.original_title,
+            content_description=seo_optimization.original_description,
             keywords=keywords,
             ai_model=seo_optimization.ai_model,
             user=request.user
@@ -3180,8 +3180,8 @@ def generate_integrated_seo_view(request):
         # SEO-Generierung
         if content_type == 'product':
             success, result, message, raw_response = generate_seo_with_ai(
-                product_title=title,
-                product_description=description,
+                content_title=title,
+                content_description=description,
                 keywords=keywords_list,
                 ai_model=ai_model,
                 user=request.user
@@ -3590,8 +3590,8 @@ def generate_seo_view(request):
         # SEO-Generierung
         if content_type == 'product':
             success, result, message, raw_response = generate_seo_with_ai(
-                product_title=title,
-                product_description=description,
+                content_title=title,
+                content_description=description,
                 keywords=keywords_list,
                 ai_model=ai_model,
                 user=request.user

@@ -2,6 +2,114 @@
 
 {% block title %}Firmeninfo - Workloom{% endblock %}
 
+{% block extra_css %}
+<style>
+/* App-Freigabe Styling */
+.user-selection-container {
+    min-width: 300px;
+    max-width: 400px;
+}
+
+.user-select-wrapper {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    background-color: #f8f9fa;
+}
+
+.user-select-multiple {
+    border: none !important;
+    background-color: transparent !important;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.user-select-multiple option {
+    padding: 0.375rem 0.75rem;
+    cursor: pointer;
+}
+
+.user-select-multiple option:hover {
+    background-color: #e9ecef;
+}
+
+.user-select-multiple option:checked {
+    background-color: #0d6efd;
+    color: white;
+}
+
+.selected-users-list {
+    min-height: 2rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 0.5rem;
+    background-color: #fff;
+}
+
+.selected-user-tag {
+    display: inline-block;
+    background-color: #0d6efd;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    margin: 0.125rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.selected-user-tag .remove-user {
+    margin-left: 0.5rem;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.selected-user-tag .remove-user:hover {
+    color: #ffc107;
+}
+
+.user-search {
+    margin-bottom: 0.5rem;
+}
+
+.user-item {
+    padding: 0.5rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: background-color 0.15s ease-in-out;
+}
+
+.user-item:hover {
+    background-color: #e9ecef;
+}
+
+.user-item.selected {
+    background-color: #0d6efd;
+    color: white;
+    border-color: #0d6efd;
+}
+
+.selected-users-tags .user-tag {
+    display: inline-block;
+    background-color: #0d6efd;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    margin: 0.125rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.selected-users-tags .user-tag .remove-btn {
+    margin-left: 0.5rem;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.selected-users-tags .user-tag .remove-btn:hover {
+    color: #ffc107;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-main">
     <div class="row">
@@ -64,6 +172,16 @@
                     <a class="nav-link" href="{% url 'accounts:user_permissions' %}">
                         <i class="bi bi-shield-lock"></i> Nutzerrechte
                     </a>
+                </li>
+                {% endif %}
+                {% if can_manage_apps %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {% if active_tab == 'app_permissions' %}active{% endif %}" 
+                            id="app-permissions-tab" data-bs-toggle="tab" data-bs-target="#app-permissions-tab-pane" 
+                            type="button" role="tab" aria-controls="app-permissions-tab-pane" 
+                            aria-selected="{% if active_tab == 'app_permissions' %}true{% else %}false{% endif %}">
+                        <i class="bi bi-app-indicator"></i> App-Freigabe
+                    </button>
                 </li>
                 {% endif %}
             </ul>
@@ -547,7 +665,176 @@
                     </div>
                     {% endif %}
                 </div>
+
+                <!-- App-Freigabe Tab -->
+                {% if can_manage_apps %}
+                <div class="tab-pane fade {% if active_tab == 'app_permissions' %}show active{% endif %}" 
+                     id="app-permissions-tab-pane" role="tabpanel" aria-labelledby="app-permissions-tab" tabindex="0">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="bi bi-app-indicator"></i> App-Freigabe verwalten</h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="app_permission_form" value="1">
+                                
+                                <div class="alert alert-info mb-4">
+                                    <i class="bi bi-info-circle"></i> 
+                                    Hier können Sie steuern, welche Apps und Funktionen für verschiedene Benutzergruppen zugänglich sind.
+                                </div>
+                                
+                                {% if app_permission_form %}
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>App/Funktion</th>
+                                                <th>Zugriffsebene</th>
+                                                <th>Frontend ausblenden</th>
+                                                <th>Superuser Bypass</th>
+                                                <th class="user-select-column" style="display: none;">Ausgewählte Nutzer</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for field in app_permission_form %}
+                                                {% if field.name|slice:":4" == "app_" and field.name|slice:"-7:" == "_access" %}
+                                                    {% with app_name=field.name|slice:"4:-7" %}
+                                                    <tr>
+                                                        <td>
+                                                            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                                        </td>
+                                                        <td>
+                                                            {{ field }}
+                                                        </td>
+                                                        <td class="text-center">
+                                                            {% with hide_field_name="app_"|add:app_name|add:"_hide_frontend" %}
+                                                                {% for hide_field in app_permission_form %}
+                                                                    {% if hide_field.name == hide_field_name %}
+                                                                        <div class="form-check">
+                                                                            {{ hide_field }}
+                                                                        </div>
+                                                                    {% endif %}
+                                                                {% endfor %}
+                                                            {% endwith %}
+                                                        </td>
+                                                        <td class="text-center">
+                                                            {% with bypass_field_name="app_"|add:app_name|add:"_superuser_bypass" %}
+                                                                {% for bypass_field in app_permission_form %}
+                                                                    {% if bypass_field.name == bypass_field_name %}
+                                                                        <div class="form-check">
+                                                                            {{ bypass_field }}
+                                                                        </div>
+                                                                    {% endif %}
+                                                                {% endfor %}
+                                                            {% endwith %}
+                                                        </td>
+                                                        <td class="user-select-cell" data-app="{{ app_name }}" style="display: none;">
+                                                            {% with user_field_name="app_"|add:app_name|add:"_users" %}
+                                                                {% for user_field in app_permission_form %}
+                                                                    {% if user_field.name == user_field_name %}
+                                                                        <div class="user-selection-container">
+                                                                            <!-- Hidden field for selected users -->
+                                                                            <div style="display: none;">{{ user_field }}</div>
+                                                                            
+                                                                            <!-- User selection interface -->
+                                                                            <div class="selected-users-display mb-2">
+                                                                                <small class="text-muted">Ausgewählte Nutzer:</small>
+                                                                                <div class="selected-users-tags" data-app="{{ app_name }}" data-field="{{ user_field.name }}">
+                                                                                    <!-- Selected users will be displayed here as tags -->
+                                                                                </div>
+                                                                            </div>
+                                                                            
+                                                                            <button type="button" class="btn btn-sm btn-outline-primary manage-users-btn" data-app="{{ app_name }}" data-field="{{ user_field.name }}" onclick="console.log('Button clicked!', this)">
+                                                                                <i class="bi bi-people"></i> Nutzer verwalten
+                                                                            </button>
+                                                                        </div>
+                                                                    {% endif %}
+                                                                {% endfor %}
+                                                            {% endwith %}
+                                                        </td>
+                                                    </tr>
+                                                    {% endwith %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <h6>Einstellungen-Erklärung:</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6 class="small text-muted">Zugriffsebenen:</h6>
+                                            <ul class="small">
+                                                <li><strong>Gesperrt:</strong> Niemand hat Zugriff</li>
+                                                <li><strong>Nicht angemeldete Besucher:</strong> Öffentlich zugänglich</li>
+                                                <li><strong>Angemeldete Nutzer:</strong> Nur für eingeloggte Benutzer</li>
+                                                <li><strong>Ausgewählte Nutzer:</strong> Nur für ausgewählte Benutzer</li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6 class="small text-muted">Erweiterte Optionen:</h6>
+                                            <ul class="small">
+                                                <li><strong>Frontend ausblenden:</strong> App wird in Navigation/UI nicht angezeigt, auch wenn zugänglich</li>
+                                                <li><strong>Superuser Bypass:</strong> Superuser haben unabhängig von den Einstellungen vollen Zugriff</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Einstellungen speichern
+                                </button>
+                                {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-exclamation-triangle"></i> 
+                                    Das Formular konnte nicht geladen werden.
+                                </div>
+                                {% endif %}
+                            </form>
+                        </div>
+                    </div>
+                </div>
                 {% endif %}
+                {% endif %}
+            </div>
+            
+            <!-- User Selection Modal -->
+            <div class="modal fade" id="userSelectionModal" tabindex="-1" aria-labelledby="userSelectionModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="userSelectionModalLabel">
+                                <i class="bi bi-people"></i> Nutzer auswählen für <span id="modal-app-name"></span>
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>Verfügbare Nutzer</h6>
+                                    <div class="mb-3">
+                                        <input type="text" class="form-control" id="userSearchInput" placeholder="Nach Nutzername suchen...">
+                                    </div>
+                                    <div class="available-users-list" style="max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem; padding: 0.5rem;">
+                                        <!-- Available users will be loaded here -->
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Ausgewählte Nutzer</h6>
+                                    <div class="selected-users-modal-list" style="max-height: 350px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem; padding: 0.5rem; background-color: #f8f9fa;">
+                                        <!-- Selected users will be displayed here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                            <button type="button" class="btn btn-primary" id="saveSelectedUsers">Auswahl übernehmen</button>
+                        </div>
+                    </div>
+                </div>
             </div>
             
             <!-- Vorschau (nur im Company Tab anzeigen) -->
@@ -670,6 +957,428 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+    
+    // App-Freigabe: Nutzerauswahl dynamisch anzeigen/verstecken
+    const appAccessSelects = document.querySelectorAll('.app-access-select');
+    const userSelectColumn = document.querySelector('.user-select-column');
+    
+    function updateUserSelection() {
+        let hasAnySelected = false;
+        
+        appAccessSelects.forEach(select => {
+            const appName = select.dataset.app;
+            const userSelectCell = document.querySelector(`[data-app="${appName}"].user-select-cell`);
+            
+            if (select.value === 'selected') {
+                userSelectCell.style.display = 'table-cell';
+                hasAnySelected = true;
+            } else {
+                userSelectCell.style.display = 'none';
+            }
+        });
+        
+        // Spalte nur anzeigen wenn mindestens eine App "selected" ist
+        if (userSelectColumn) {
+            userSelectColumn.style.display = hasAnySelected ? 'table-cell' : 'none';
+        }
+    }
+    
+    appAccessSelects.forEach(select => {
+        select.addEventListener('change', updateUserSelection);
+    });
+    
+    // Initial check beim Laden der Seite
+    updateUserSelection();
+    
+    // Nutzerauswahl-Funktionalität
+    function initUserSelection() {
+        // Suchfunktion für Nutzer
+        document.querySelectorAll('.user-search').forEach(searchInput => {
+            searchInput.addEventListener('input', function() {
+                const appName = this.dataset.app;
+                const selectElement = document.querySelector(`select[data-app="${appName}"].user-select-multiple`);
+                const searchTerm = this.value.toLowerCase();
+                
+                if (selectElement) {
+                    Array.from(selectElement.options).forEach(option => {
+                        const username = option.text.toLowerCase();
+                        option.style.display = username.includes(searchTerm) ? 'block' : 'none';
+                    });
+                }
+            });
+        });
+        
+        // Handle multiple select changes
+        document.querySelectorAll('.user-select-multiple').forEach(selectElement => {
+            const appName = selectElement.dataset.app;
+            
+            selectElement.addEventListener('change', function() {
+                updateSelectedUsersDisplay(appName);
+            });
+            
+            // Initial display update
+            updateSelectedUsersDisplay(appName);
+        });
+    }
+    
+    function updateSelectedUsersDisplay(appName) {
+        const selectElement = document.querySelector(`select[data-app="${appName}"].user-select-multiple`);
+        const displayContainer = document.querySelector(`.selected-users-list[data-app="${appName}"]`);
+        
+        if (!selectElement || !displayContainer) return;
+        
+        // Clear previous display
+        displayContainer.innerHTML = '';
+        
+        // Get selected options
+        const selectedOptions = Array.from(selectElement.selectedOptions);
+        
+        if (selectedOptions.length === 0) {
+            displayContainer.innerHTML = '<em class="text-muted">Keine Nutzer ausgewählt</em>';
+            return;
+        }
+        
+        // Display selected users as tags
+        selectedOptions.forEach(option => {
+            const tag = document.createElement('span');
+            tag.className = 'selected-user-tag';
+            tag.innerHTML = `
+                ${option.text}
+                <span class="remove-user" data-value="${option.value}">&times;</span>
+            `;
+            
+            // Add remove functionality
+            tag.querySelector('.remove-user').addEventListener('click', function() {
+                option.selected = false;
+                updateSelectedUsersDisplay(appName);
+            });
+            
+            displayContainer.appendChild(tag);
+        });
+    }
+    
+    // Initialize user selection functionality (removed - integrated into new modal system)
+    
+    // Modal-basierte Nutzerauswahl
+    let currentAppName = null;
+    let currentFieldName = null;
+    let allUsers = [];
+    let selectedUserIds = [];
+    
+    // Load all users from server
+    function loadAllUsers() {
+        return new Promise((resolve, reject) => {
+            // Try to load from AJAX first
+            fetch('{% url "accounts:get_all_users_api" %}')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.users) {
+                        allUsers = data.users.map(user => ({
+                            id: user.id,
+                            username: user.username,
+                            display_name: user.display_name,
+                            email: user.email
+                        }));
+                        console.log('Users loaded via AJAX:', allUsers);
+                        resolve(allUsers);
+                    } else {
+                        console.error('No users in response:', data);
+                        loadUsersFromSelectFields();
+                        resolve(allUsers);
+                    }
+                })
+                .catch(error => {
+                    console.error('AJAX failed, falling back to select fields:', error);
+                    loadUsersFromSelectFields();
+                    resolve(allUsers);
+                });
+        });
+    }
+    
+    // Fallback: Load users from existing select fields
+    function loadUsersFromSelectFields() {
+        const userOptions = document.querySelectorAll('select[name*="_users"] option');
+        console.log('Found user options:', userOptions.length);
+        
+        allUsers = Array.from(userOptions).map(option => ({
+            id: option.value,
+            username: option.text,
+            display_name: option.text,
+            email: option.dataset.email || '',
+        }));
+        
+        // Remove duplicates based on ID
+        const uniqueUsers = [];
+        const seenIds = new Set();
+        allUsers.forEach(user => {
+            if (!seenIds.has(user.id) && user.id) {
+                seenIds.add(user.id);
+                uniqueUsers.push(user);
+            }
+        });
+        
+        allUsers = uniqueUsers;
+        console.log('Fallback users loaded:', allUsers);
+    }
+    
+    // Open user selection modal
+    document.addEventListener('click', function(e) {
+        // Check if clicked element or its parent is the manage users button
+        const button = e.target.closest('.manage-users-btn');
+        if (button) {
+            e.preventDefault();
+            
+            currentAppName = button.dataset.app;
+            currentFieldName = button.dataset.field;
+            
+            console.log('Opening modal for app:', currentAppName, 'field:', currentFieldName);
+            
+            // Set modal title
+            const modalTitle = document.getElementById('modal-app-name');
+            if (modalTitle) {
+                modalTitle.textContent = currentAppName;
+            }
+            
+            // Load users if not already loaded
+            const loadUsersPromise = allUsers.length === 0 ? loadAllUsers() : Promise.resolve(allUsers);
+            
+            loadUsersPromise.then(() => {
+                // Get currently selected users
+                const selectElement = document.querySelector(`select[name="${currentFieldName}"]`);
+                if (selectElement) {
+                    selectedUserIds = Array.from(selectElement.selectedOptions).map(option => option.value);
+                    console.log('Currently selected users:', selectedUserIds);
+                } else {
+                    console.error('Select element not found for field:', currentFieldName);
+                    selectedUserIds = [];
+                }
+                
+                // Populate modal
+                populateAvailableUsers();
+                populateSelectedUsers();
+                
+                // Show modal
+                try {
+                    const modalElement = document.getElementById('userSelectionModal');
+                    if (modalElement) {
+                        const modal = new bootstrap.Modal(modalElement);
+                        modal.show();
+                    } else {
+                        console.error('Modal element not found');
+                    }
+                } catch (error) {
+                    console.error('Error showing modal:', error);
+                }
+            }).catch(error => {
+                console.error('Error loading users:', error);
+            });
+        }
+    });
+    
+    // Populate available users list
+    function populateAvailableUsers() {
+        const container = document.querySelector('.available-users-list');
+        container.innerHTML = '';
+        
+        allUsers.forEach(user => {
+            const userItem = document.createElement('div');
+            userItem.className = `user-item ${selectedUserIds.includes(user.id) ? 'selected' : ''}`;
+            userItem.dataset.userId = user.id;
+            userItem.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${user.display_name || user.username}</strong>
+                        ${user.email ? `<br><small class="text-muted">${user.email}</small>` : ''}
+                    </div>
+                    <div>
+                        ${selectedUserIds.includes(user.id) ? 
+                            '<i class="bi bi-check-circle-fill text-success"></i>' : 
+                            '<i class="bi bi-plus-circle text-primary"></i>'
+                        }
+                    </div>
+                </div>
+            `;
+            
+            userItem.addEventListener('click', function() {
+                toggleUserSelection(user.id);
+            });
+            
+            container.appendChild(userItem);
+        });
+    }
+    
+    // Populate selected users list
+    function populateSelectedUsers() {
+        const container = document.querySelector('.selected-users-modal-list');
+        container.innerHTML = '';
+        
+        const selectedUsers = allUsers.filter(user => selectedUserIds.includes(user.id));
+        
+        if (selectedUsers.length === 0) {
+            container.innerHTML = '<p class="text-muted">Keine Nutzer ausgewählt</p>';
+            return;
+        }
+        
+        selectedUsers.forEach(user => {
+            const userItem = document.createElement('div');
+            userItem.className = 'user-item selected';
+            userItem.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${user.display_name || user.username}</strong>
+                        ${user.email ? `<br><small>${user.email}</small>` : ''}
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-light" onclick="toggleUserSelection('${user.id}')">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+            `;
+            container.appendChild(userItem);
+        });
+    }
+    
+    // Toggle user selection
+    window.toggleUserSelection = function(userId) {
+        const index = selectedUserIds.indexOf(userId);
+        if (index > -1) {
+            selectedUserIds.splice(index, 1);
+        } else {
+            selectedUserIds.push(userId);
+        }
+        
+        populateAvailableUsers();
+        populateSelectedUsers();
+    };
+    
+    // Search functionality
+    const searchInput = document.getElementById('userSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const userItems = document.querySelectorAll('.available-users-list .user-item');
+            
+            userItems.forEach(item => {
+                const username = item.querySelector('strong').textContent.toLowerCase();
+                item.style.display = username.includes(searchTerm) ? 'block' : 'none';
+            });
+        });
+    }
+    
+    // Save selected users
+    const saveButton = document.getElementById('saveSelectedUsers');
+    if (saveButton) {
+        saveButton.addEventListener('click', function() {
+            // Update the hidden select field
+            const selectElement = document.querySelector(`select[name="${currentFieldName}"]`);
+            if (selectElement) {
+                // Clear current selection
+                Array.from(selectElement.options).forEach(option => {
+                    option.selected = selectedUserIds.includes(option.value);
+                });
+                
+                // Update the display
+                updateSelectedUsersDisplay(currentAppName);
+            }
+            
+            // Close modal
+            try {
+                const modalElement = document.getElementById('userSelectionModal');
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                if (modal) {
+                    modal.hide();
+                }
+            } catch (error) {
+                console.error('Error closing modal:', error);
+            }
+        });
+    }
+    
+    // Update selected users display in the main form
+    function updateSelectedUsersDisplay(appName) {
+        const tagsContainer = document.querySelector(`.selected-users-tags[data-app="${appName}"]`);
+        if (!tagsContainer) return;
+        
+        tagsContainer.innerHTML = '';
+        
+        // Prüfe ob allUsers initialisiert ist
+        if (!Array.isArray(allUsers) || allUsers.length === 0) {
+            console.log('allUsers not initialized, skipping display update');
+            tagsContainer.innerHTML = '<span class="text-muted">Nutzer werden geladen...</span>';
+            return;
+        }
+        
+        const selectedUsers = allUsers.filter(user => selectedUserIds.includes(user.id));
+        
+        if (selectedUsers.length === 0) {
+            tagsContainer.innerHTML = '<span class="text-muted">Keine Nutzer ausgewählt</span>';
+            return;
+        }
+        
+        selectedUsers.forEach(user => {
+            const tag = document.createElement('span');
+            tag.className = 'user-tag';
+            tag.innerHTML = `
+                ${user.display_name || user.username}
+                <span class="remove-btn" onclick="removeUserFromApp('${user.id}', '${appName}')">&times;</span>
+            `;
+            tagsContainer.appendChild(tag);
+        });
+    }
+    
+    // Remove user from app (from main form)
+    window.removeUserFromApp = function(userId, appName) {
+        const fieldName = `app_${appName}_users`;
+        const selectElement = document.querySelector(`select[name="${fieldName}"]`);
+        if (selectElement) {
+            const option = selectElement.querySelector(`option[value="${userId}"]`);
+            if (option) {
+                option.selected = false;
+            }
+            updateSelectedUsersDisplayFromSelect(appName, fieldName);
+        }
+    };
+    
+    // Update display from select element
+    function updateSelectedUsersDisplayFromSelect(appName, fieldName) {
+        const selectElement = document.querySelector(`select[name="${fieldName}"]`);
+        const tagsContainer = document.querySelector(`.selected-users-tags[data-app="${appName}"]`);
+        
+        if (!selectElement || !tagsContainer) return;
+        
+        tagsContainer.innerHTML = '';
+        
+        const selectedOptions = Array.from(selectElement.selectedOptions);
+        
+        if (selectedOptions.length === 0) {
+            tagsContainer.innerHTML = '<span class="text-muted">Keine Nutzer ausgewählt</span>';
+            return;
+        }
+        
+        selectedOptions.forEach(option => {
+            const tag = document.createElement('span');
+            tag.className = 'user-tag';
+            tag.innerHTML = `
+                ${option.text}
+                <span class="remove-btn" onclick="removeUserFromApp('${option.value}', '${appName}')">&times;</span>
+            `;
+            tagsContainer.appendChild(tag);
+        });
+    }
+    
+    // Initialize selected users display on page load - load users first
+    loadAllUsers().then(() => {
+        document.querySelectorAll('.selected-users-tags').forEach(container => {
+            const appName = container.dataset.app;
+            const fieldName = container.dataset.field;
+            updateSelectedUsersDisplayFromSelect(appName, fieldName);
+        });
+    }).catch(error => {
+        console.error('Error loading users for initial display:', error);
+        // Fallback to simple display without user data
+        document.querySelectorAll('.selected-users-tags').forEach(container => {
+            container.innerHTML = '<span class="text-muted">Fehler beim Laden der Nutzer</span>';
+        });
+    });
 });
 </script>
 

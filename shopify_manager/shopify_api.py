@@ -4,7 +4,7 @@ import time
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 from django.utils import timezone as django_timezone
-from .models import ShopifyStore, ShopifyProduct, ShopifyProductImage, ShopifySyncLog, ShopifyBlog, ShopifyBlogPost
+from .models import ShopifyStore, ShopifyProduct, ShopifyProductImage, ShopifySyncLog, ShopifyBlog, ShopifyBlogPost, ShopifyCollection
 
 
 class ShopifyAPIClient:
@@ -115,6 +115,62 @@ class ShopifyAPIClient:
                 
         except requests.exceptions.RequestException as e:
             return False, [], f"Fehler beim Abrufen: {str(e)}"
+    
+    def fetch_collections(self, limit: int = 250, since_id: Optional[str] = None) -> Tuple[bool, List[Dict], str]:
+        """Holt Collections (Kategorien) von Shopify API"""
+        try:
+            params = {
+                'limit': min(limit, 250),  # Shopify maximum
+                'fields': 'id,title,handle,body_html,published,image,seo_title,seo_description,sort_order,created_at,updated_at'
+            }
+            
+            if since_id:
+                params['since_id'] = since_id
+            
+            # Shopify hat zwei Collection-Typen: custom_collections und smart_collections
+            # Wir holen beide und kombinieren sie
+            all_collections = []
+            
+            # Custom Collections
+            response = self._make_request(
+                'GET',
+                f"{self.base_url}/custom_collections.json",
+                params=params,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                custom_collections = data.get('custom_collections', [])
+                # Füge collection_type hinzu
+                for collection in custom_collections:
+                    collection['collection_type'] = 'custom'
+                all_collections.extend(custom_collections)
+            elif response.status_code != 404:  # 404 ist OK wenn keine custom collections existieren
+                return False, [], f"Fehler bei custom_collections: HTTP {response.status_code}: {response.text}"
+            
+            # Smart Collections
+            response = self._make_request(
+                'GET',
+                f"{self.base_url}/smart_collections.json",
+                params=params,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                smart_collections = data.get('smart_collections', [])
+                # Füge collection_type hinzu
+                for collection in smart_collections:
+                    collection['collection_type'] = 'smart'
+                all_collections.extend(smart_collections)
+            elif response.status_code != 404:  # 404 ist OK wenn keine smart collections existieren
+                return False, [], f"Fehler bei smart_collections: HTTP {response.status_code}: {response.text}"
+            
+            return True, all_collections, f"{len(all_collections)} Collections abgerufen"
+                
+        except requests.exceptions.RequestException as e:
+            return False, [], f"Fehler beim Abrufen der Collections: {str(e)}"
     
     def search_products(self, search_term: str, limit: int = 50) -> Tuple[bool, List[Dict], str]:
         """Sucht Produkte nach Name/Titel"""
@@ -560,6 +616,27 @@ class ShopifyAPIClient:
         except requests.exceptions.RequestException as e:
             return False, None, f"Fehler beim Abrufen des Blog-Posts: {str(e)}"
     
+    def fetch_single_collection(self, collection_id: str) -> Tuple[bool, Optional[Dict], str]:
+        """Holt eine einzelne Collection von Shopify"""
+        try:
+            response = self._make_request(
+                'GET',
+                f"{self.base_url}/collections/{collection_id}.json",
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                collection = data.get('collection')
+                return True, collection, "Collection erfolgreich abgerufen"
+            elif response.status_code == 404:
+                return False, None, "Collection nicht gefunden"
+            else:
+                return False, None, f"HTTP {response.status_code}: {response.text}"
+                
+        except requests.exceptions.RequestException as e:
+            return False, None, f"Fehler beim Abrufen der Collection: {str(e)}"
+    
     def get_blog_metafields(self, blog_id: str) -> Tuple[bool, List[Dict], str]:
         """Holt Metafields eines Blogs"""
         try:
@@ -597,6 +674,25 @@ class ShopifyAPIClient:
                 
         except requests.exceptions.RequestException as e:
             return False, [], f"Fehler beim Abrufen der Artikel-Metafields: {str(e)}"
+    
+    def get_collection_metafields(self, collection_id: str) -> Tuple[bool, List[Dict], str]:
+        """Holt Metafields einer Collection (für SEO Daten)"""
+        try:
+            response = self._make_request(
+                'GET',
+                f"{self.base_url}/collections/{collection_id}/metafields.json",
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                metafields = data.get('metafields', [])
+                return True, metafields, f"{len(metafields)} Collection-Metafields gefunden"
+            else:
+                return False, [], f"HTTP {response.status_code}: {response.text}"
+                
+        except requests.exceptions.RequestException as e:
+            return False, [], f"Fehler beim Abrufen der Collection-Metafields: {str(e)}"
     
     def update_blog_post(self, blog_id: str, article_id: str, blog_post_data: Dict) -> Tuple[bool, Optional[Dict], str]:
         """Aktualisiert einen Blog-Post in Shopify"""
@@ -729,6 +825,143 @@ class ShopifyAPIClient:
                 
         except requests.exceptions.RequestException as e:
             return False, f"Fehler beim Blog-Post Metafield-Update: {str(e)}"
+    
+    def update_collection(self, collection_id: str, collection_data: Dict, seo_only: bool = False) -> Tuple[bool, Optional[Dict], str]:
+        """Aktualisiert eine Collection in Shopify"""
+        try:
+            updated_collection = None
+            
+            # 1. Standard-Collection-Daten aktualisieren (falls nicht nur SEO)
+            if not seo_only:
+                shopify_data = {
+                    'collection': {
+                        'id': int(collection_id),
+                        'title': collection_data.get('title'),
+                        'description': collection_data.get('description'),
+                        'published': collection_data.get('published', True),
+                        'sort_order': collection_data.get('sort_order', 'best-selling'),
+                    }
+                }
+                
+                # Image-Daten falls vorhanden
+                if 'image' in collection_data:
+                    image_data = collection_data['image']
+                    if image_data:
+                        shopify_data['collection']['image'] = {
+                            'alt': image_data.get('alt', ''),
+                            'src': image_data.get('src', '')
+                        }
+                
+                response = self._make_request(
+                    'PUT',
+                    f"{self.base_url}/collections/{collection_id}.json",
+                    json=shopify_data,
+                    timeout=15
+                )
+                
+                if response.status_code != 200:
+                    try:
+                        error_data = response.json() if response.headers.get('content-type', '').startswith('application/json') else response.text
+                    except:
+                        error_data = response.text
+                    # Für jetzt ignorieren wir Collection-Update Fehler und versuchen nur SEO
+                    print(f"⚠️ Collection-Update fehlgeschlagen (HTTP {response.status_code}), versuche nur SEO-Update...")
+                else:
+                    try:
+                        data = response.json()
+                        updated_collection = data.get('collection')
+                    except:
+                        print(f"⚠️ Collection-Update JSON-Parsing fehlgeschlagen, versuche nur SEO-Update...")
+            
+            # 2. SEO-Daten über separate Metafields API aktualisieren
+            seo_success = True
+            seo_messages = []
+            
+            if 'seo_title' in collection_data and collection_data.get('seo_title'):
+                success, message = self.update_collection_metafield(
+                    collection_id, 'global', 'title_tag', 
+                    collection_data['seo_title'], 'single_line_text_field'
+                )
+                if success:
+                    seo_messages.append("SEO-Titel aktualisiert")
+                else:
+                    seo_success = False
+                    seo_messages.append(f"SEO-Titel Fehler: {message}")
+            
+            if 'seo_description' in collection_data and collection_data.get('seo_description'):
+                success, message = self.update_collection_metafield(
+                    collection_id, 'global', 'description_tag', 
+                    collection_data['seo_description'], 'multi_line_text_field'
+                )
+                if success:
+                    seo_messages.append("SEO-Beschreibung aktualisiert")
+                else:
+                    seo_success = False
+                    seo_messages.append(f"SEO-Beschreibung Fehler: {message}")
+            
+            # Kombiniere Ergebnisse
+            final_message = "Collection erfolgreich aktualisiert"
+            if seo_messages:
+                final_message += ". " + "; ".join(seo_messages)
+            
+            return seo_success, updated_collection, final_message
+                
+        except requests.exceptions.RequestException as e:
+            return False, None, f"Fehler beim Collection-Update: {str(e)}"
+
+    def update_collection_metafield(self, collection_id: str, namespace: str, key: str, value: str, field_type: str) -> Tuple[bool, str]:
+        """Aktualisiert oder erstellt ein spezifisches Metafield für eine Collection"""
+        try:
+            # Erst prüfen, ob das Metafield bereits existiert
+            success, metafields, message = self.get_collection_metafields(collection_id)
+            existing_metafield_id = None
+            
+            if success:
+                for mf in metafields:
+                    if isinstance(mf, dict) and mf.get('namespace') == namespace and mf.get('key') == key:
+                        existing_metafield_id = mf.get('id')
+                        break
+            
+            metafield_data = {
+                'metafield': {
+                    'namespace': namespace,
+                    'key': key,
+                    'value': value,
+                    'type': field_type
+                }
+            }
+            
+            if existing_metafield_id:
+                # Update existing metafield
+                metafield_data['metafield']['id'] = existing_metafield_id
+                response = self._make_request(
+                    'PUT',
+                    f"{self.base_url}/collections/{collection_id}/metafields/{existing_metafield_id}.json",
+                    json=metafield_data,
+                    timeout=10
+                )
+            else:
+                # Create new metafield
+                response = self._make_request(
+                    'POST',
+                    f"{self.base_url}/collections/{collection_id}/metafields.json",
+                    json=metafield_data,
+                    timeout=10
+                )
+            
+            if response.status_code in [200, 201]:
+                return True, f"Metafield {namespace}.{key} erfolgreich {'aktualisiert' if existing_metafield_id else 'erstellt'}"
+            else:
+                try:
+                    error_data = response.json() if response.headers.get('content-type', '').startswith('application/json') else response.text
+                except:
+                    error_data = response.text
+                return False, f"HTTP {response.status_code}: {error_data}"
+                
+        except requests.exceptions.RequestException as e:
+            return False, f"Fehler beim Collection-Metafield-Update: {str(e)}"
+        except Exception as e:
+            return False, f"Fehler beim Collection-Metafield-Update: {str(e)}"
 
 
 class ShopifyProductSync:
@@ -1585,6 +1818,421 @@ class ShopifyBlogSync:
             return None
         
         try:
+            return datetime.fromisoformat(datetime_str.replace('Z', '+00:00'))
+        except (ValueError, AttributeError):
+            return None
+
+
+class ShopifyCollectionSync:
+    """Synchronisation für Collections (Kategorien)"""
+    
+    def __init__(self, store: ShopifyStore):
+        self.store = store
+        self.api = ShopifyAPIClient(store)
+    
+    def _fetch_all_collections(self) -> Tuple[bool, List[Dict], str]:
+        """Holt alle Collections über Pagination"""
+        all_collections = []
+        since_id = None
+        total_fetched = 0
+        
+        while True:
+            success, collections, message = self.api.fetch_collections(limit=250, since_id=since_id)
+            
+            if not success:
+                return False, [], message
+            
+            if not collections:  # Keine weiteren Collections
+                break
+                
+            all_collections.extend(collections)
+            total_fetched += len(collections)
+            print(f"📂 Collection Pagination: {len(collections)} Collections geholt, insgesamt: {total_fetched}")
+            
+            # since_id für nächste Seite setzen
+            if len(collections) < 250:  # Weniger als Maximum = letzte Seite
+                break
+            
+            since_id = str(collections[-1]['id'])  # ID der letzten Collection
+            
+            # Sicherheitscheck: Stoppe bei sehr vielen Collections
+            if total_fetched >= 10000:
+                print(f"Sicherheitsstopp bei {total_fetched} Collections erreicht")
+                break
+        
+        return True, all_collections, f"{total_fetched} Collections über Pagination abgerufen"
+    
+    def import_collections(self, limit: int = 250, import_mode: str = 'all', 
+                          overwrite_existing: bool = True) -> ShopifySyncLog:
+        """Importiert Collections von Shopify"""
+        log = ShopifySyncLog.objects.create(
+            store=self.store,
+            action='import_collections',
+            status='success'
+        )
+        
+        try:
+            # Bei "Alle Collections" mit "Überschreiben" - alle lokalen Collections löschen
+            if import_mode == 'all' and overwrite_existing:
+                deleted_count = self._delete_all_local_collections()
+                print(f"🗑️ {deleted_count} lokale Collections gelöscht vor Neuimport")
+            
+            # Bei "Alle Collections" alle über Pagination holen, sonst nur bis zum Limit
+            if import_mode == 'all':
+                success, collections, message = self._fetch_all_collections()
+            else:
+                success, collections, message = self.api.fetch_collections(limit=limit)
+            
+            if not success:
+                log.status = 'error'
+                log.error_message = message
+                log.completed_at = django_timezone.now()
+                log.save()
+                return log
+            
+            log.products_processed = len(collections)
+            success_count = 0
+            failed_count = 0
+            
+            for collection_data in collections:
+                try:
+                    shopify_id = str(collection_data.get('id'))
+                    
+                    # Prüfe ob Collection bereits existiert (für new_only Modus)
+                    existing_collection = None
+                    if import_mode == 'new_only':
+                        try:
+                            existing_collection = ShopifyCollection.objects.get(
+                                shopify_id=shopify_id, 
+                                store=self.store
+                            )
+                            # Collection existiert bereits - überspringen
+                            print(f"Collection {shopify_id} bereits vorhanden - überspringe (new_only Modus)")
+                            continue
+                        except ShopifyCollection.DoesNotExist:
+                            # Collection existiert noch nicht - kann importiert werden
+                            pass
+                    
+                    # Debug: Erste paar Collections ausgeben um Struktur zu verstehen
+                    if success_count < 2:
+                        print(f"Debug - Shopify Collection-Daten für ID {shopify_id}:")
+                        print(f"  Verfügbare Keys: {list(collection_data.keys())}")
+                        if 'image' in collection_data:
+                            print(f"  Image Daten: {collection_data['image']}")
+                        if 'seo_title' in collection_data:
+                            print(f"  SEO Title: {collection_data['seo_title']}")
+                        if 'seo_description' in collection_data:
+                            print(f"  SEO Description: {collection_data['seo_description']}")
+                    
+                    # Collection erstellen oder aktualisieren
+                    if import_mode == 'all' or existing_collection is None:
+                        collection, created = self._create_or_update_collection(
+                            collection_data, 
+                            overwrite_existing=overwrite_existing
+                        )
+                        success_count += 1
+                        if created:
+                            print(f"Collection {shopify_id} erstellt: {collection.title}")
+                            if success_count < 3:
+                                print(f"  SEO Titel: '{collection.seo_title}'")
+                                print(f"  SEO Beschreibung: '{collection.seo_description}'")
+                        else:
+                            print(f"Collection {shopify_id} aktualisiert: {collection.title}")
+                            
+                except Exception as e:
+                    failed_count += 1
+                    import traceback
+                    error_details = traceback.format_exc()
+                    collection_title = collection_data.get('title', 'Unknown')
+                    collection_id = collection_data.get('id', 'Unknown')
+                    
+                    print(f"❌ Fehler beim Importieren von Collection '{collection_title}' (ID: {collection_id}): {e}")
+                    print(f"Vollständiger Fehler: {error_details}")
+                    
+                    # Sammle detaillierte Fehlerinformationen
+                    error_info = {
+                        'collection_id': collection_id,
+                        'collection_title': collection_title,
+                        'error_type': type(e).__name__,
+                        'error_message': str(e),
+                        'error_details': error_details
+                    }
+                    
+                    # Speichere den Fehler im Log für spätere Analyse
+                    if not hasattr(log, '_errors'):
+                        log._errors = []
+                    log._errors.append(error_info)
+            
+            log.products_success = success_count
+            log.products_failed = failed_count
+            log.status = 'success' if failed_count == 0 else 'partial'
+            log.completed_at = django_timezone.now()
+            log.save()
+            
+        except Exception as e:
+            log.status = 'error'
+            log.error_message = str(e)
+            log.completed_at = django_timezone.now()
+            log.save()
+        
+        return log
+    
+    def _delete_all_local_collections(self):
+        """Löscht alle lokalen Collections für diesen Store"""
+        deleted_count, _ = ShopifyCollection.objects.filter(store=self.store).delete()
+        return deleted_count
+    
+    def sync_collection_to_shopify(self, collection: ShopifyCollection) -> Tuple[bool, str]:
+        """Synchronisiert eine lokale Collection zurück zu Shopify"""
+        try:
+            collection_data = {
+                'title': collection.title,
+                'description': collection.description,
+                'published': collection.published,
+                'sort_order': collection.sort_order,
+                'seo_title': collection.seo_title,
+                'seo_description': collection.seo_description,
+            }
+            
+            # Image-Daten falls vorhanden
+            if collection.image_url:
+                collection_data['image'] = {
+                    'src': collection.image_url,
+                    'alt': collection.image_alt
+                }
+            
+            success, updated_collection, message = self.api.update_collection(
+                collection.shopify_id, 
+                collection_data,
+                seo_only=True  # Nur SEO-Metafields aktualisieren
+            )
+            
+            if success:
+                # Update lokale Collection mit Shopify Daten
+                collection.last_synced_at = django_timezone.now()
+                collection.needs_sync = False
+                collection.sync_error = ""
+                
+                if updated_collection:
+                    collection.shopify_updated_at = self._parse_shopify_datetime(
+                        updated_collection.get('updated_at')
+                    )
+                
+                collection.save()
+                return True, "Erfolgreich synchronisiert"
+            else:
+                collection.sync_error = message
+                collection.save()
+                return False, message
+                
+        except Exception as e:
+            error_msg = f"Sync-Fehler: {str(e)}"
+            collection.sync_error = error_msg
+            collection.save()
+            return False, error_msg
+    
+    def _create_or_update_collection(self, collection_data: Dict, overwrite_existing: bool = True) -> Tuple[ShopifyCollection, bool]:
+        """Erstellt oder aktualisiert eine lokale Collection basierend auf Shopify Daten"""
+        shopify_id = str(collection_data['id'])
+        
+        # Extrahiere Bild-Daten
+        image_url = ""
+        image_alt = ""
+        if 'image' in collection_data and collection_data['image']:
+            image_data = collection_data['image']
+            image_url = image_data.get('src', '') or image_data.get('url', '')
+            image_alt = image_data.get('alt', '')
+        
+        # Hole SEO Daten aus Shopify Collection-Daten
+        seo_title = ""
+        seo_description = ""
+        
+        # Shopify speichert SEO-Daten manchmal im Hauptobjekt
+        if 'seo_title' in collection_data:
+            seo_title = collection_data.get('seo_title', '')
+        if 'seo_description' in collection_data:
+            seo_description = collection_data.get('seo_description', '')
+            
+        # Fallback: Titel als SEO-Titel verwenden falls leer
+        if not seo_title:
+            seo_title = collection_data.get('title', '')[:70]
+        
+        # Prüfe ob Collection bereits existiert (für overwrite_existing Check)
+        existing_collection = None
+        try:
+            existing_collection = ShopifyCollection.objects.get(shopify_id=shopify_id, store=self.store)
+        except ShopifyCollection.DoesNotExist:
+            pass
+        
+        # Wenn Collection existiert und overwrite_existing=False, dann überspringen
+        if existing_collection and not overwrite_existing:
+            print(f"Collection {shopify_id} existiert bereits und overwrite_existing=False - überspringe")
+            return existing_collection, False
+        
+        # Erstelle oder aktualisiere Collection
+        try:
+            defaults = {
+                'title': collection_data.get('title', '')[:255],  # Titel begrenzen
+                'handle': collection_data.get('handle', '')[:255],  # Handle begrenzen
+                'description': collection_data.get('body_html') or collection_data.get('description') or '',
+                'seo_title': seo_title[:70] if seo_title else '',  # SEO Titel begrenzen
+                'seo_description': seo_description[:160] if seo_description else '',  # SEO Beschreibung begrenzen
+                'image_url': image_url,
+                'image_alt': image_alt[:255] if image_alt else '',  # Alt Text begrenzen
+                'sort_order': collection_data.get('sort_order', 'best-selling'),
+                'published': collection_data.get('published', True),
+                'collection_type': collection_data.get('collection_type', 'custom'),  # Neues Feld hinzufügen
+                'shopify_created_at': self._parse_shopify_datetime(collection_data.get('created_at')),
+                'shopify_updated_at': self._parse_shopify_datetime(collection_data.get('updated_at')),
+                'last_synced_at': django_timezone.now(),
+                'needs_sync': False,
+                'raw_shopify_data': collection_data,
+            }
+            
+            collection, created = ShopifyCollection.objects.update_or_create(
+                shopify_id=shopify_id,
+                store=self.store,
+                defaults=defaults
+            )
+        except Exception as e:
+            print(f"Fehler bei update_or_create für Collection {shopify_id}: {e}")
+            print(f"Collection-Daten: {collection_data}")
+            raise
+        
+        # Hole SEO-Daten über Metafields für ALLE Collections (nicht nur neue)
+        try:
+            self._fetch_and_update_seo_data(collection)
+        except Exception as e:
+            print(f"Warnung: Konnte SEO-Daten für Collection {collection.shopify_id} nicht abrufen: {e}")
+        
+        return collection, created
+    
+    def _fetch_and_update_seo_data(self, collection: ShopifyCollection):
+        """Holt SEO-Daten über Metafields API"""
+        try:
+            success, metafields, message = self.api.get_collection_metafields(collection.shopify_id)
+            
+            print(f"Metafields-Abruf für Collection {collection.shopify_id}: {success}")
+            print(f"Metafields Typ: {type(metafields)}")
+            print(f"Metafields Inhalt: {metafields}")
+            print(f"Message: {message}")
+            
+        except Exception as e:
+            print(f"Fehler beim Metafields-Abruf: {e}")
+            return
+        
+        if success and metafields and isinstance(metafields, list):
+            seo_title = ""
+            seo_description = ""
+            
+            print(f"Verfügbare Metafields: {[(m.get('namespace', ''), m.get('key', ''), str(m.get('value', ''))[:50]) for m in metafields if isinstance(m, dict)]}")
+            
+            for metafield in metafields:
+                if not isinstance(metafield, dict):
+                    print(f"Warnung: Metafield ist kein Dict: {type(metafield)} = {metafield}")
+                    continue
+                    
+                namespace = metafield.get('namespace', '')
+                key = metafield.get('key', '')
+                value = str(metafield.get('value', ''))
+                
+                print(f"Prüfe Metafield: {namespace}.{key} = '{value[:50]}...'")
+                
+                # SEO Metafield Patterns - GLOBAL NAMESPACE hat höchste Priorität
+                title_patterns = [
+                    # HÖCHSTE PRIORITÄT: Global Namespace (von Webrex SEO AI Optimizer verwendet)
+                    (namespace == 'global' and key == 'title_tag'),
+                    # Standard SEO Fields 
+                    (namespace == 'seo' and key == 'title'),
+                    (namespace == 'seo' and key == 'meta_title'),
+                    (namespace == 'custom' and key == 'meta_title'),
+                    (key == 'meta_title'),
+                    (key == 'seo_title'),
+                    (key == 'title_tag'),
+                    # Shopify Standard SEO
+                    (namespace == 'descriptors' and key == 'title'),
+                    (namespace == 'shopify' and key == 'seo_title'),
+                ]
+                
+                description_patterns = [
+                    # HÖCHSTE PRIORITÄT: Global Namespace (von Webrex SEO AI Optimizer verwendet)
+                    (namespace == 'global' and key == 'description_tag'),
+                    # Standard SEO Fields
+                    (namespace == 'seo' and key == 'description'),
+                    (namespace == 'seo' and key == 'meta_description'),
+                    (namespace == 'custom' and key == 'meta_description'),
+                    (key == 'meta_description'),
+                    (key == 'seo_description'),
+                    (key == 'description_tag'),
+                    # Shopify Standard SEO
+                    (namespace == 'descriptors' and key == 'description'),
+                    (namespace == 'shopify' and key == 'seo_description'),
+                ]
+                
+                # Prüfe Title Patterns
+                title_match = any(title_patterns)
+                if title_match and value and not seo_title:
+                    seo_title = value
+                    print(f"✅ SEO-Titel gefunden: {namespace}.{key} = '{value[:50]}...'")
+                elif title_match:
+                    print(f"🔍 Title Pattern Match aber übersprungen: {namespace}.{key}, value='{value[:30]}...', bereits seo_title='{seo_title[:30] if seo_title else 'None'}...'")
+                    
+                # Prüfe Description Patterns
+                description_match = any(description_patterns)
+                if description_match and value and not seo_description:
+                    seo_description = value
+                    print(f"✅ SEO-Beschreibung gefunden: {namespace}.{key} = '{value[:50]}...'")
+                elif description_match:
+                    print(f"🔍 Description Pattern Match aber übersprungen: {namespace}.{key}, value='{value[:30]}...', bereits seo_description='{seo_description[:30] if seo_description else 'None'}...'")
+                else:
+                    print(f"❌ Kein Pattern Match für: {namespace}.{key}")
+                
+                # Fallback: Allgemeine SEO-Erkennung für unbekannte App-Strukturen
+                if not seo_title and value:
+                    key_lower = key.lower()
+                    namespace_lower = namespace.lower()
+                    # Suche nach Variationen von "title" in Kombination mit SEO-Keywords
+                    if any(word in key_lower for word in ['title', 'headline']) and \
+                       any(word in (key_lower + namespace_lower) for word in ['seo', 'meta', 'tag', 'webrex', 'optimizer']):
+                        seo_title = value
+                        print(f"✅ SEO-Titel (Fallback) gefunden: {namespace}.{key}")
+                
+                if not seo_description and value:
+                    key_lower = key.lower()
+                    namespace_lower = namespace.lower()
+                    # Suche nach Variationen von "description" in Kombination mit SEO-Keywords
+                    if any(word in key_lower for word in ['description', 'desc', 'summary']) and \
+                       any(word in (key_lower + namespace_lower) for word in ['seo', 'meta', 'tag', 'webrex', 'optimizer']):
+                        seo_description = value
+                        print(f"✅ SEO-Beschreibung (Fallback) gefunden: {namespace}.{key}")
+            
+            # Update die Collection wenn SEO-Daten gefunden wurden
+            updated = False
+            if seo_title and seo_title != collection.seo_title:
+                collection.seo_title = seo_title[:70]
+                updated = True
+                print(f"SEO-Titel aktualisiert: '{seo_title[:50]}...'")
+                
+            if seo_description and seo_description != collection.seo_description:
+                collection.seo_description = seo_description[:160]
+                updated = True
+                print(f"SEO-Beschreibung aktualisiert: '{seo_description[:50]}...'")
+            
+            if updated:
+                collection.save(update_fields=['seo_title', 'seo_description'])
+                print(f"SEO-Daten für Collection {collection.shopify_id} gespeichert")
+            else:
+                print(f"Keine neuen SEO-Daten für Collection {collection.shopify_id}")
+        else:
+            print(f"Keine Metafields gefunden für Collection {collection.shopify_id}: {message}")
+    
+    def _parse_shopify_datetime(self, datetime_str: str) -> Optional[datetime]:
+        """Konvertiert Shopify DateTime String zu Python datetime"""
+        if not datetime_str:
+            return None
+        
+        try:
+            # Shopify verwendet ISO 8601 Format
             return datetime.fromisoformat(datetime_str.replace('Z', '+00:00'))
         except (ValueError, AttributeError):
             return None

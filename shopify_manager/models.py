@@ -94,6 +94,11 @@ class ShopifyStore(models.Model):
         return self.products.count()
     
     @property
+    def collections_count(self):
+        """Anzahl der Kategorien in diesem Store"""
+        return self.collections.count()
+    
+    @property
     def sync_problems_count(self):
         """Anzahl der Produkte mit Sync-Problemen"""
         return self.products.filter(
@@ -873,6 +878,7 @@ class ShopifySyncLog(models.Model):
         ('sync_all', 'Alle Produkte synchronisieren'),
         ('import_blogs', 'Blogs importieren'),
         ('import_blog_posts', 'Blog-Posts importieren'),
+        ('import_collections', 'Collections importieren'),
     ]
     
     STATUS_CHOICES = [
@@ -1263,6 +1269,336 @@ class GoogleAdsProductData(models.Model):
         ordering = ['-date']
 
 
+class ShopifyCollection(models.Model):
+    """Shopify Collection/Category Model für lokale Verwaltung"""
+    STATUS_CHOICES = [
+        ('active', 'Aktiv'),
+        ('archived', 'Archiviert'),
+        ('draft', 'Entwurf'),
+    ]
+    
+    COLLECTION_TYPE_CHOICES = [
+        ('custom', 'Custom Collection'),
+        ('smart', 'Smart Collection'),
+    ]
+    
+    # Shopify IDs
+    shopify_id = models.CharField(max_length=50, help_text="Shopify Collection ID")
+    store = models.ForeignKey(ShopifyStore, on_delete=models.CASCADE, related_name='collections')
+    collection_type = models.CharField(max_length=20, choices=COLLECTION_TYPE_CHOICES, default='custom', help_text="Typ der Collection (Custom oder Smart)")
+    
+    # Grunddaten
+    title = models.CharField(max_length=255, help_text="Kategorie-Titel")
+    handle = models.CharField(max_length=255, help_text="URL Handle")
+    description = models.TextField(blank=True, help_text="Kategorie-Beschreibung")
+    
+    # SEO Daten
+    seo_title = models.CharField(max_length=70, blank=True, help_text="SEO Titel (max. 70 Zeichen)")
+    seo_description = models.TextField(max_length=160, blank=True, help_text="SEO Beschreibung (max. 160 Zeichen)")
+    
+    # Bilder
+    image_url = models.URLField(blank=True, help_text="Kategorie-Bild URL")
+    image_alt = models.CharField(max_length=255, blank=True, help_text="Alt-Text für Kategorie-Bild")
+    
+    # Sortierung und Sichtbarkeit
+    sort_order = models.CharField(max_length=50, blank=True, help_text="Sortierung der Produkte")
+    published = models.BooleanField(default=True, help_text="Ist die Kategorie veröffentlicht?")
+    
+    # Sync-Status
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+    needs_sync = models.BooleanField(default=False, help_text="Wurde lokal geändert und muss synchronisiert werden")
+    sync_error = models.TextField(blank=True, help_text="Letzter Sync-Fehler")
+    
+    # Metadaten
+    shopify_created_at = models.DateTimeField(null=True, blank=True)
+    shopify_updated_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Raw Shopify Data für erweiterte Felder
+    raw_shopify_data = models.JSONField(default=dict, blank=True, help_text="Komplette Shopify Collection-Daten")
+    
+    def __str__(self):
+        return f"{self.title} ({self.shopify_id})"
+    
+    class Meta:
+        verbose_name = "Shopify Kategorie"
+        verbose_name_plural = "Shopify Kategorien"
+        unique_together = ['shopify_id', 'store']
+        ordering = ['-updated_at']
+    
+    def get_seo_status(self):
+        """Berechnet SEO-Status nur für SEO-Titel und SEO-Beschreibung (good/warning/poor)"""
+        seo_score = 0
+        
+        # SEO-Titel Bewertung (50 Punkte möglich)
+        if self.seo_title:
+            title_length = len(self.seo_title)
+            if 30 <= title_length <= 70:  # Optimale Länge
+                seo_score += 50
+            elif 20 <= title_length <= 80:  # Akzeptable Länge
+                seo_score += 30
+            else:  # Zu kurz oder zu lang
+                seo_score += 15
+        
+        # SEO-Beschreibung Bewertung (50 Punkte möglich)
+        if self.seo_description:
+            desc_length = len(self.seo_description)
+            if 120 <= desc_length <= 160:  # Optimale Länge
+                seo_score += 50
+            elif 80 <= desc_length <= 180:  # Akzeptable Länge
+                seo_score += 30
+            else:  # Zu kurz oder zu lang
+                seo_score += 15
+        
+        # Status bestimmen (0-100 Punkte, nur SEO-Felder)
+        if seo_score >= 80:  # Sehr gut
+            return 'good'
+        elif seo_score >= 40:  # Verbesserungsbedarf
+            return 'warning'
+        else:  # Schlecht
+            return 'poor'
+    
+    def get_seo_score(self):
+        """Berechnet numerischen SEO-Score (0-100)"""
+        seo_score = 0
+        
+        # SEO-Titel Bewertung (40 Punkte möglich)
+        if self.seo_title:
+            title_length = len(self.seo_title)
+            if 30 <= title_length <= 70:
+                seo_score += 40
+            elif 20 <= title_length <= 80:
+                seo_score += 25
+            else:
+                seo_score += 10
+        
+        # SEO-Beschreibung Bewertung (40 Punkte möglich)
+        if self.seo_description:
+            desc_length = len(self.seo_description)
+            if 120 <= desc_length <= 160:
+                seo_score += 40
+            elif 80 <= desc_length <= 180:
+                seo_score += 25
+            else:
+                seo_score += 10
+        
+        # Alt-Text Bewertung (20 Punkte möglich)
+        alt_status = self.get_alt_text_status()
+        if alt_status == 'good':
+            seo_score += 20
+        elif alt_status == 'warning':
+            seo_score += 10
+        
+        return min(seo_score, 100)  # Maximum 100 Punkte
+    
+    def get_combined_seo_status(self):
+        """Berechnet kombinierten SEO-Status mit Alt-Text Beschränkung (good/warning/poor)"""
+        seo_score = self.get_seo_score()
+        alt_status = self.get_alt_text_status()
+        
+        # WICHTIG: Kein "good" Status wenn Alt-Texte schlecht sind (ab 80/100 + gute Alt-Texte = grün)
+        if alt_status == 'poor':
+            # Bei schlechten Alt-Texten maximal "warning" möglich
+            if seo_score >= 40:
+                return 'warning'
+            else:
+                return 'poor'
+        else:
+            # Normale Bewertung wenn Alt-Texte ok sind
+            if seo_score >= 80:  # Sehr gut
+                return 'good'
+            elif seo_score >= 40:  # Verbesserungsbedarf
+                return 'warning'
+            else:  # Schlecht
+                return 'poor'
+    
+    def get_alt_text_status(self):
+        """Berechnet Alt-Text-Status für Kategorie-Bild"""
+        if self.image_url and self.image_alt:
+            return 'good'
+        elif self.image_url and not self.image_alt:
+            return 'warning'
+        else:
+            return 'poor'
+    
+    def get_seo_details(self):
+        """Gibt detaillierte SEO-Informationen zurück"""
+        # Berechne einzelne Score-Komponenten
+        title_score = 0
+        desc_score = 0
+        alt_score = 0
+        
+        # SEO-Titel Score
+        if self.seo_title:
+            title_length = len(self.seo_title)
+            if 30 <= title_length <= 70:
+                title_score = 40
+            elif 20 <= title_length <= 80:
+                title_score = 25
+            else:
+                title_score = 10
+        
+        # SEO-Beschreibung Score
+        if self.seo_description:
+            desc_length = len(self.seo_description)
+            if 120 <= desc_length <= 160:
+                desc_score = 40
+            elif 80 <= desc_length <= 180:
+                desc_score = 25
+            else:
+                desc_score = 10
+        
+        # Alt-Text Score
+        alt_status = self.get_alt_text_status()
+        if alt_status == 'good':
+            alt_score = 20
+        elif alt_status == 'warning':
+            alt_score = 10
+        
+        return {
+            'title_length': len(self.seo_title) if self.seo_title else 0,
+            'description_length': len(self.seo_description) if self.seo_description else 0,
+            'has_title': bool(self.seo_title),
+            'has_description': bool(self.seo_description),
+            'status': self.get_seo_status(),
+            'combined_status': self.get_combined_seo_status(),
+            'total_score': self.get_seo_score(),
+            'title_score': title_score,
+            'description_score': desc_score,
+            'alt_text_score': alt_score,
+            'breakdown': f'SEO-Titel: {title_score}/40, SEO-Beschreibung: {desc_score}/40, Alt-Texte: {alt_score}/20'
+        }
+    
+    def get_alt_text_details(self):
+        """Gibt detaillierte Alt-Text-Informationen zurück"""
+        if self.image_url:
+            has_alt = bool(self.image_alt)
+            return {
+                'total_images': 1,
+                'images_with_alt': 1 if has_alt else 0,
+                'percentage': 100 if has_alt else 0,
+                'status': self.get_alt_text_status()
+            }
+        return {'total_images': 0, 'images_with_alt': 0, 'percentage': 0, 'status': 'poor'}
+    
+    def get_absolute_url(self):
+        return reverse('shopify_manager:collection_detail', kwargs={'pk': self.pk})
+    
+    def get_edit_url(self):
+        return reverse('shopify_manager:collection_edit', kwargs={'pk': self.pk})
+    
+    def get_shopify_admin_url(self):
+        """Gibt die Shopify Admin URL für die Kategorie zurück"""
+        return f"https://{self.store.shop_domain}/admin/collections/{self.shopify_id}"
+    
+    def get_storefront_url(self):
+        """Gibt die Shop-URL für die Kategorie zurück"""
+        # Nutze Custom Domain falls gesetzt
+        if self.store.custom_domain:
+            return f"https://{self.store.custom_domain}/collections/{self.handle}"
+        
+        # Fallback: Nutze Shopify Domain
+        return f"https://{self.store.shop_domain}/collections/{self.handle}"
+    
+    def mark_for_sync(self):
+        """Markiert die Kategorie für Synchronisation"""
+        self.needs_sync = True
+        self.sync_error = ""
+        self.save(update_fields=['needs_sync', 'sync_error'])
+    
+    def clear_sync_error(self):
+        """Löscht Sync-Fehler"""
+        self.sync_error = ""
+        self.save(update_fields=['sync_error'])
+    
+    def has_seo_issues(self):
+        """Prüft ob es SEO-Probleme gibt"""
+        issues = []
+        if not self.seo_title:
+            issues.append("Kein SEO-Titel")
+        elif len(self.seo_title) > 70:
+            issues.append("SEO-Titel zu lang")
+        
+        if not self.seo_description:
+            issues.append("Keine SEO-Beschreibung")
+        elif len(self.seo_description) > 160:
+            issues.append("SEO-Beschreibung zu lang")
+        
+        return issues
+    
+    @property
+    def products_count(self):
+        """Anzahl der Produkte in dieser Kategorie"""
+        # Dies würde eine Many-to-Many-Beziehung zu Produkten erfordern
+        # Für jetzt als Platzhalter
+        return 0
+
+
+class CollectionSEOOptimization(models.Model):
+    """SEO-Optimierung für Kategorien mit KI-Unterstützung"""
+    
+    AI_MODEL_CHOICES = [
+        ('openai-gpt4', 'OpenAI GPT-4'),
+        ('openai-gpt4o', 'OpenAI GPT-4o'),
+        ('openai-gpt4o-mini', 'OpenAI GPT-4o Mini'),
+        ('openai-gpt35', 'OpenAI GPT-3.5 Turbo'),
+        ('claude-3.5-sonnet', 'Claude 3.5 Sonnet'),
+        ('claude-3.5-haiku', 'Claude 3.5 Haiku'),
+        ('claude-3-opus', 'Claude 3 Opus'),
+        ('gemini-1.5-pro', 'Google Gemini 1.5 Pro'),
+        ('gemini-1.5-flash', 'Google Gemini 1.5 Flash'),
+    ]
+    
+    collection = models.ForeignKey(ShopifyCollection, on_delete=models.CASCADE, related_name='seo_optimizations')
+    keywords = models.TextField(help_text="Kommagetrennte Keywords für SEO-Optimierung")
+    ai_model = models.CharField(max_length=50, choices=AI_MODEL_CHOICES, default='openai-gpt4')
+    
+    # Original Daten (zur Referenz)
+    original_title = models.CharField(max_length=255, blank=True)
+    original_description = models.TextField(blank=True)
+    original_seo_title = models.CharField(max_length=70, blank=True)
+    original_seo_description = models.CharField(max_length=160, blank=True)
+    
+    # KI-generierte SEO Daten
+    generated_seo_title = models.CharField(max_length=70, blank=True)
+    generated_seo_description = models.CharField(max_length=160, blank=True)
+    
+    # Metadaten
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_applied = models.BooleanField(default=False, help_text="Wurden die generierten SEO-Daten angewendet?")
+    ai_prompt_used = models.TextField(blank=True, help_text="Der verwendete AI-Prompt")
+    ai_response_raw = models.TextField(blank=True, help_text="Rohe AI-Antwort für Debug")
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Kategorie SEO-Optimierung"
+        verbose_name_plural = "Kategorie SEO-Optimierungen"
+    
+    def __str__(self):
+        return f"SEO für {self.collection.title} - {self.created_at.strftime('%d.%m.%Y %H:%M')}"
+    
+    def get_keywords_list(self):
+        """Gibt Keywords als Liste zurück"""
+        if not self.keywords:
+            return []
+        return [kw.strip() for kw in self.keywords.split(',') if kw.strip()]
+    
+    def apply_to_collection(self):
+        """Wendet die generierten SEO-Daten auf die Kategorie an"""
+        if self.generated_seo_title:
+            self.collection.seo_title = self.generated_seo_title
+        if self.generated_seo_description:
+            self.collection.seo_description = self.generated_seo_description
+        
+        self.collection.needs_sync = True
+        self.collection.save()
+        
+        self.is_applied = True
+        self.save()
+
+
 class SalesStatistics(models.Model):
     """Vorberechnete Verkaufsstatistiken für Performance"""
     store = models.ForeignKey(ShopifyStore, on_delete=models.CASCADE, related_name='sales_statistics')
@@ -1320,3 +1656,29 @@ class SalesStatistics(models.Model):
         verbose_name_plural = "Verkaufsstatistiken"
         ordering = ['-date']
         unique_together = ['store', 'date', 'period_type']
+
+
+class ShopifyProductCollection(models.Model):
+    """Many-to-Many-Beziehung zwischen Produkten und Kategorien"""
+    product = models.ForeignKey(ShopifyProduct, on_delete=models.CASCADE, related_name='collections')
+    collection = models.ForeignKey(ShopifyCollection, on_delete=models.CASCADE, related_name='products')
+    
+    # Shopify-spezifische Felder
+    shopify_product_id = models.CharField(max_length=50, help_text="Shopify Product ID")
+    shopify_collection_id = models.CharField(max_length=50, help_text="Shopify Collection ID")
+    
+    # Position des Produkts in der Kategorie
+    position = models.PositiveIntegerField(default=1, help_text="Position in der Kategorie")
+    
+    # Metadaten
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Produkt-Kategorie-Zuordnung"
+        verbose_name_plural = "Produkt-Kategorie-Zuordnungen"
+        unique_together = ['product', 'collection']
+        ordering = ['position']
+    
+    def __str__(self):
+        return f"{self.product.title} in {self.collection.title}"
