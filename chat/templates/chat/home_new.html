@@ -1653,8 +1653,8 @@ function initiateCall(callType) {
         return;
     }
     
-    // WebSocket functionality disabled - using HTTP polling only
-    // Call functionality is available via HTTP polling
+    // WebSocket functionality enabled for WebRTC signaling
+    // Call functionality uses WebSocket for signaling
     
     // Show global floating call window
     showGlobalCallWindow();
@@ -1694,8 +1694,8 @@ async function startCall(callType) {
             document.getElementById('globalLocalVideo').srcObject = globalLocalStream;
         }
         
-        // WebSocket functionality disabled - using HTTP polling only
-        console.log('📞 Call initiated via HTTP polling (WebSocket disabled)');
+        // Create WebSocket connection for WebRTC signaling
+        connectCallWebSocket();
         
         // Initiate call via API
         const response = await fetch(`/chat/api/room/${currentRoomId}/call/initiate/`, {
@@ -1731,9 +1731,9 @@ async function startCall(callType) {
                     call_id: globalCurrentCallId
                 }));
             } else {
-                console.log('DEBUG: Using HTTP polling mode (WebSocket disabled)');
-                // HTTP polling mode is active
-                document.getElementById('globalCallStatus').textContent = 'Anruf läuft über HTTP-Polling...';
+                console.log('DEBUG: Using WebSocket for WebRTC signaling');
+                // WebSocket is active for WebRTC signaling
+                document.getElementById('globalCallStatus').textContent = 'Anruf läuft (WebSocket-Signaling)...';
             }
         } else {
             alert('Fehler beim Starten des Anrufs: ' + data.error);
@@ -1747,8 +1747,46 @@ async function startCall(callType) {
     }
 }
 
-// WebSocket connection functionality removed - using HTTP polling only
-// connectCallWebSocket function disabled - HTTP polling is the primary method
+// WebSocket connection for WebRTC signaling only
+function connectCallWebSocket() {
+    if (callSocket && callSocket.readyState === WebSocket.OPEN) {
+        console.log('WebSocket already connected');
+        return;
+    }
+    
+    if (callSocket) {
+        callSocket.close();
+    }
+    
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsHost = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' 
+        ? '127.0.0.1:8000' 
+        : window.location.host;
+    const wsUrl = `${protocol}//${wsHost}/ws/call/${currentRoomId}/`;
+    
+    console.log('🔌 Connecting to Call WebSocket for WebRTC signaling:', wsUrl);
+    callSocket = new WebSocket(wsUrl);
+    
+    callSocket.onopen = function(e) {
+        console.log('Call WebSocket connected (WebRTC signaling only)');
+    };
+    
+    callSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        handleCallMessage(data);
+    };
+    
+    callSocket.onclose = function(e) {
+        console.log('Call WebSocket disconnected');
+        if (e.code !== 1000) {
+            console.log('WebSocket connection lost - WebRTC signaling may not work');
+        }
+    };
+    
+    callSocket.onerror = function(e) {
+        console.error('Call WebSocket error:', e);
+    };
+}
 
 // WebSocket error handling removed - using HTTP polling only
 // Call functionality is available via HTTP polling mode
@@ -1910,14 +1948,26 @@ async function answerCall(callId, callType) {
             globalIsVideoEnabled = true;
         }
         
-        // WebSocket functionality disabled - using HTTP polling only
-        console.log('📞 Call answered via HTTP polling (WebSocket disabled)');
+        // Ensure WebSocket connection for WebRTC signaling
+        if (!callSocket || callSocket.readyState !== WebSocket.OPEN) {
+            connectCallWebSocket();
+            // Wait a bit for connection
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
         
         // Create peer connection
         createPeerConnection();
         
-        // HTTP polling will handle the call state automatically
-        console.log('✅ Call answered successfully via HTTP polling mode');
+        // Send answer through WebSocket (WebRTC signaling)
+        if (callSocket && callSocket.readyState === WebSocket.OPEN) {
+            callSocket.send(JSON.stringify({
+                type: 'call_answer',
+                call_id: callId
+            }));
+            console.log('✅ Call answered via WebSocket signaling');
+        } else {
+            console.warn('⚠️ WebSocket not available for WebRTC signaling');
+        }
         
     } catch (error) {
         console.error('Error answering call:', error);
@@ -1990,6 +2040,9 @@ async function handleWebRTCOffer(data) {
                 type: 'webrtc_answer',
                 answer: answer
             }));
+            console.log('✅ WebRTC answer sent via WebSocket');
+        } else {
+            console.warn('⚠️ WebSocket not available for WebRTC answer');
         }
     } catch (error) {
         console.error('Error handling WebRTC offer:', error);
@@ -2067,9 +2120,10 @@ function endCall() {
     // Send end call message
     if (callSocket && callSocket.readyState === WebSocket.OPEN && globalCurrentCallId) {
         callSocket.send(JSON.stringify({
-            type: 'call_end',
+            type: 'call_ended',
             call_id: globalCurrentCallId
         }));
+        console.log('📴 Call end message sent via WebSocket');
     }
     
     // Clean up WebRTC
@@ -2131,6 +2185,9 @@ function handleCallAnswered(data) {
                     type: 'webrtc_offer',
                     offer: offer
                 }));
+                console.log('✅ WebRTC offer sent via WebSocket');
+            } else {
+                console.warn('⚠️ WebSocket not available for WebRTC offer');
             }
         } catch (error) {
             console.error('Error creating offer:', error);

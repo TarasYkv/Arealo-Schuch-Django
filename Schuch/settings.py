@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
+    'channels',
     'accounts',
     'sportplatzApp',
     'pdf_sucher',
@@ -185,7 +186,15 @@ LOGOUT_REDIRECT_URL = '/'
 
 FIELD_ENCRYPTION_KEY = 'JFkYsizDtDsUc1MTl5RogD_uPnyRB0wWFAZ5VtKRqow='
 
-# WebSocket support removed - using standard Django WSGI
+# WebSocket support enabled for WebRTC signaling only
+ASGI_APPLICATION = 'Schuch.asgi.application'
+
+# Channel Layers for WebSocket support
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}
 
 # Allow same-origin iframes for content editor
 X_FRAME_OPTIONS = 'SAMEORIGIN'
