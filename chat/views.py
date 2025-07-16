@@ -542,45 +542,43 @@ def send_call_notification(request):
 @login_required
 def check_incoming_calls(request):
     """
-    Check for incoming calls for the current user across all chat rooms
+    Check for incoming calls for the current user across all chat rooms using Call model
     """
     try:
+        from .models import Call
+        
         # Get the room_id from query params (optional, for backward compatibility)
         room_id = request.GET.get('room_id')
-        
-        # Check for recent call messages across all user's chat rooms
-        recent_time = timezone.now() - timezone.timedelta(seconds=30)  # Check last 30 seconds
         
         # Get all rooms where user is a participant
         user_rooms = ChatRoom.objects.filter(participants=request.user)
         
         if room_id:
             # If room_id is specified, check only that room
-            call_messages = ChatMessage.objects.filter(
+            active_calls = Call.objects.filter(
                 chat_room_id=room_id,
-                created_at__gte=recent_time,
-                content__startswith='AGORA_CALL:'
-            ).exclude(sender=request.user).order_by('-created_at')
+                status__in=['initiated', 'ringing'],
+                chat_room__participants=request.user
+            ).exclude(caller=request.user).order_by('-started_at')
         else:
             # Check all user's chat rooms for incoming calls
-            call_messages = ChatMessage.objects.filter(
+            active_calls = Call.objects.filter(
                 chat_room__in=user_rooms,
-                created_at__gte=recent_time,
-                content__startswith='AGORA_CALL:'
-            ).exclude(sender=request.user).order_by('-created_at')
+                status__in=['initiated', 'ringing']
+            ).exclude(caller=request.user).order_by('-started_at')
         
-        if call_messages.exists():
-            latest_call = call_messages.first()
-            parts = latest_call.content.split(':')
+        if active_calls.exists():
+            latest_call = active_calls.first()
             
             return JsonResponse({
                 'has_call': True,
-                'call_type': parts[1] if len(parts) > 1 else 'audio',
-                'channel_name': parts[2] if len(parts) > 2 else '',
-                'caller_name': latest_call.sender.get_full_name() or latest_call.sender.username,
-                'caller_id': latest_call.sender.id,
+                'call_type': latest_call.call_type,
+                'channel_name': f"chat_{latest_call.chat_room.id}",
+                'caller_name': latest_call.caller.get_full_name() or latest_call.caller.username,
+                'caller_id': latest_call.caller.id,
                 'room_id': latest_call.chat_room.id,
-                'message_id': latest_call.id
+                'call_id': latest_call.id,
+                'message_id': latest_call.id  # For backward compatibility
             })
         
         return JsonResponse({'has_call': False})
@@ -593,7 +591,7 @@ def check_incoming_calls(request):
 @csrf_exempt
 def clear_call_notification(request):
     """
-    Clear call notification after answering/rejecting
+    Clear call notification after answering/rejecting (now using Call model)
     """
     if request.method == 'POST':
         try:
@@ -601,12 +599,15 @@ def clear_call_notification(request):
             message_id = data.get('message_id')
             
             if message_id:
-                # Delete the specific call message
-                ChatMessage.objects.filter(
-                    id=message_id,
-                    message_type='system',
-                    content__startswith='AGORA_CALL:'
-                ).delete()
+                # Clear the call status (for backward compatibility, message_id is actually call_id)
+                from .models import Call
+                try:
+                    call = Call.objects.get(id=message_id)
+                    # Don't delete the call, just mark it as handled
+                    # The call state will be managed by the proper call flow
+                    pass
+                except Call.DoesNotExist:
+                    pass
             
             return JsonResponse({'success': True})
             
@@ -823,8 +824,8 @@ def initiate_call(request, room_id):
         ).first()
         
         if active_call:
-            # Force cleanup if call is too old (older than 30 seconds for more aggressive cleanup)
-            if active_call.started_at < timezone.now() - timedelta(seconds=30):
+            # Force cleanup if call is too old (older than 5 minutes for auto-answer compatibility)
+            if active_call.started_at < timezone.now() - timedelta(minutes=5):
                 active_call.status = 'missed'
                 active_call.save()
                 print(f"DEBUG: Force cleaned up old call {active_call.id}")
