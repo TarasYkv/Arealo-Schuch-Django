@@ -1055,13 +1055,13 @@ body.modal-open {
                                 </div>
                             </div>
                             
-                            <div class="message-input-area" id="window.messageInput" style="display: none;">
+                            <div class="message-input-area" id="messageInput" style="display: none;">
                                 <div class="d-flex align-items-end gap-2">
                                     <div class="flex-grow-1">
                                         <div class="input-group">
                                             <input type="text" class="form-control" placeholder="Nachricht eingeben..." id="messageText" onkeypress="handleKeyPress(event)">
                                         </div>
-                                        <div id="window.attachmentPreview" class="mt-2" style="display: none;"></div>
+                                        <div id="attachmentPreview" class="mt-2" style="display: none;"></div>
                                     </div>
                                     <div class="d-flex gap-1">
                                         <button class="btn btn-outline-secondary" onclick="document.getElementById('fileInput').click()" title="Datei anhängen">
@@ -1090,24 +1090,24 @@ body.modal-open {
 
 <script>
 // Global variables
-window.window.currentRoomId = null;
-window.window.messagesContainer = null;
-window.window.messageInput = null;
-window.window.selectedFiles = [];
-window.window.currentPage = 1;
+window.currentRoomId = null;
+window.messagesContainer = null;
+window.messageInput = null;
+window.selectedFiles = [];
+window.currentPage = 1;
 window.hasMoreMessages = false;
-window.window.attachmentPreview = null;
+window.attachmentPreview = null;
 
 // Initialize DOM elements when needed
 window.initializeDOMElements = function() {
-    if (!window.window.messagesContainer) {
-        window.window.messagesContainer = document.getElementById('chatMessages');
+    if (!window.messagesContainer) {
+        window.messagesContainer = document.getElementById('chatMessages');
     }
-    if (!window.window.messageInput) {
-        window.window.messageInput = document.getElementById('messageText');
+    if (!window.messageInput) {
+        window.messageInput = document.getElementById('messageText');
     }
-    if (!window.window.attachmentPreview) {
-        window.window.attachmentPreview = document.getElementById('window.attachmentPreview');
+    if (!window.attachmentPreview) {
+        window.attachmentPreview = document.getElementById('attachmentPreview');
     }
 };
 
@@ -1132,7 +1132,7 @@ window.loadChat = function(roomId) {
         activeRoom.classList.add('active');
     }
     
-    window.window.currentRoomId = roomId;
+    window.currentRoomId = roomId;
     
     
     // Mark messages as read when chat is loaded
@@ -1140,14 +1140,14 @@ window.loadChat = function(roomId) {
     
     // Show chat header and input
     const chatHeader = document.getElementById('chatHeader');
-    const window.messageInputDiv = document.getElementById('window.messageInput');
+    const messageInputDiv = document.getElementById('messageInput');
     
     if (chatHeader) {
         chatHeader.style.display = 'block';
     }
     
-    if (window.messageInputDiv) {
-        window.messageInputDiv.style.display = 'block';
+    if (messageInputDiv) {
+        messageInputDiv.style.display = 'block';
     }
     
     // Load messages
@@ -1189,11 +1189,11 @@ window.loadChat = function(roomId) {
 
 // Load more messages function
 window.loadMoreMessages = function() {
-    if (!window.window.currentRoomId || !window.hasMoreMessages) return;
+    if (!window.currentRoomId || !window.hasMoreMessages) return;
     
-    const nextPage = window.window.currentPage + 1;
+    const nextPage = window.currentPage + 1;
     
-    fetch(`/chat/messages/${window.window.currentRoomId}/?page=${nextPage}`)
+    fetch(`/chat/messages/${window.currentRoomId}/?page=${nextPage}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -1236,13 +1236,13 @@ window.displayMessages = function(messages, append = false) {
     
     window.initializeDOMElements();
     
-    if (!window.window.messagesContainer) {
+    if (!window.messagesContainer) {
         console.error('window.messagesContainer not found');
         return;
     }
     
     if (!append) {
-        window.window.messagesContainer.innerHTML = '';
+        window.messagesContainer.innerHTML = '';
     }
     
     if (!messages || messages.length === 0) {
@@ -1361,7 +1361,7 @@ window.sendMessage = function() {
             window.selectedFiles = [];
             
             if (!window.attachmentPreview) {
-                window.attachmentPreview = document.getElementById('window.attachmentPreview');
+                window.attachmentPreview = document.getElementById('attachmentPreview');
             }
             
             if (window.attachmentPreview) {
@@ -1436,7 +1436,7 @@ window.handleFileSelect = function(event) {
     
     // Initialize window.attachmentPreview if not already done
     if (!window.attachmentPreview) {
-        window.attachmentPreview = document.getElementById('window.attachmentPreview');
+        window.attachmentPreview = document.getElementById('attachmentPreview');
     }
     
     if (files.length === 0) {
@@ -1471,7 +1471,7 @@ window.removeFile = function(index) {
     window.selectedFiles.splice(index, 1);
     
     if (!window.attachmentPreview) {
-        window.attachmentPreview = document.getElementById('window.attachmentPreview');
+        window.attachmentPreview = document.getElementById('attachmentPreview');
     }
     
     if (window.selectedFiles.length === 0) {
@@ -1532,8 +1532,8 @@ window.updateUnreadBadges = function() {
 
 // Auto-refresh messages every 10 seconds (but not during active calls)
 setInterval(() => {
-    if (window.window.currentRoomId && !globalIsCallActive) {
-        window.loadChat(window.window.currentRoomId);
+    if (window.currentRoomId && !globalIsCallActive) {
+        window.loadChat(window.currentRoomId);
     }
 }, 10000);
 
@@ -1681,7 +1681,7 @@ function deleteChat() {
                 // Clear chat area
                 const chatMessages = document.getElementById('chatMessages');
                 const chatHeader = document.getElementById('chatHeader');
-                const window.messageInputDiv = document.getElementById('window.messageInput');
+                const messageInputDiv = document.getElementById('messageInput');
                 
                 if (chatMessages) {
                     chatMessages.innerHTML = '';
@@ -1691,8 +1691,8 @@ function deleteChat() {
                     chatHeader.style.display = 'none';
                 }
                 
-                if (window.messageInputDiv) {
-                    window.messageInputDiv.style.display = 'none';
+                if (messageInputDiv) {
+                    messageInputDiv.style.display = 'none';
                 }
                 window.currentRoomId = null;
                 // Reload page to refresh chat list
