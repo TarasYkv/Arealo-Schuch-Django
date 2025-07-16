@@ -606,16 +606,27 @@ def clear_call_notification(request):
         try:
             data = json.loads(request.body)
             message_id = data.get('message_id')
+            action = data.get('action', 'clear')  # 'clear', 'accept', 'reject'
             
             if message_id:
                 # Clear the call status (for backward compatibility, message_id is actually call_id)
                 from .models import Call
                 try:
                     call = Call.objects.get(id=message_id)
-                    # Mark the call as rejected to prevent it from appearing again
-                    call.status = 'rejected'
+                    
+                    if action == 'accept':
+                        call.status = 'connected'
+                        call.connected_at = timezone.now()
+                        print(f"DEBUG: Call {message_id} marked as connected (accepted)")
+                    elif action == 'reject':
+                        call.status = 'rejected'
+                        print(f"DEBUG: Call {message_id} marked as rejected")
+                    else:
+                        # Default behavior for clearing - don't change status
+                        print(f"DEBUG: Call {message_id} notification cleared without status change")
+                    
                     call.save()
-                    print(f"DEBUG: Call {message_id} marked as rejected")
+                    
                 except Call.DoesNotExist:
                     print(f"DEBUG: Call {message_id} not found")
                     pass
@@ -712,6 +723,50 @@ def reject_call(request):
                 print(f"DEBUG: Call {call_id} rejected by user {request.user.username}")
                 
                 return JsonResponse({'success': True, 'message': 'Call rejected'})
+                
+            except Call.DoesNotExist:
+                return JsonResponse({'success': False, 'error': 'Call not found'})
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Method not allowed'})
+
+
+@login_required
+@csrf_exempt
+def accept_call(request):
+    """
+    Accept an incoming call
+    """
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            call_id = data.get('call_id')
+            
+            if not call_id:
+                return JsonResponse({'success': False, 'error': 'Call ID required'})
+            
+            from .models import Call
+            try:
+                call = Call.objects.get(id=call_id)
+                
+                # Check if user is participant
+                if not call.chat_room.participants.filter(id=request.user.id).exists():
+                    return JsonResponse({'success': False, 'error': 'No permission'})
+                
+                # Check if call is still active
+                if call.status not in ['initiated', 'ringing']:
+                    return JsonResponse({'success': False, 'error': 'Call is no longer active'})
+                
+                # Mark the call as connected
+                call.status = 'connected'
+                call.connected_at = timezone.now()
+                call.save()
+                
+                print(f"DEBUG: Call {call_id} accepted by user {request.user.username}")
+                
+                return JsonResponse({'success': True, 'message': 'Call accepted'})
                 
             except Call.DoesNotExist:
                 return JsonResponse({'success': False, 'error': 'Call not found'})
