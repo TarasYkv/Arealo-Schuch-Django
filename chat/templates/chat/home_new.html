@@ -1220,7 +1220,27 @@ document.addEventListener('DOMContentLoaded', function() {
                             // Use Agora-based acceptIncomingCall instead of WebRTC-based answerCall
                             acceptIncomingCall();
                         } else {
-                            console.error('Failed to get call info:', callInfo.error);
+                            console.warn('Call info not available:', callInfo.error);
+                            // Fallback: Check if there's an active call in this room
+                            const activeCallResponse = await fetch(`/chat/api/room/${roomId}/active-call/`);
+                            if (activeCallResponse.ok) {
+                                const activeCall = await activeCallResponse.json();
+                                if (activeCall.success && activeCall.has_active_call) {
+                                    // Use active call information
+                                    incomingCallData = {
+                                        call_id: activeCall.call_id,
+                                        call_type: activeCall.call_type || urlParams.get('callType') || 'audio',
+                                        channel_name: activeCall.channel_name || `call_${roomId}_${Date.now()}`,
+                                        room_id: roomId,
+                                        caller_name: activeCall.caller_name || 'Unknown'
+                                    };
+                                    acceptIncomingCall();
+                                } else {
+                                    console.info('No active call found - call may have ended');
+                                }
+                            } else {
+                                console.info('Call not available - may have ended or expired');
+                            }
                         }
                     }
                 } catch (error) {

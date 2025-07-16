@@ -7,7 +7,7 @@ import sys
 import django
 
 # Setup Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'werbemacher.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Schuch.settings')
 django.setup()
 
 from shopify_manager.models import ShopifyBlogPost, ShopifyBlog, ShopifyStore

@@ -927,11 +927,26 @@ def get_call_info_by_id(request, call_id):
     """
     try:
         from .models import Call
-        call = get_object_or_404(Call, id=call_id)
+        
+        # Try to get the call
+        try:
+            call = Call.objects.get(id=call_id)
+        except Call.DoesNotExist:
+            return JsonResponse({
+                'success': False, 
+                'error': 'Call nicht gefunden - möglicherweise bereits beendet'
+            })
         
         # Check if user is participant
         if not call.chat_room.participants.filter(id=request.user.id).exists():
             return JsonResponse({'success': False, 'error': 'Zugriff verweigert'})
+        
+        # Check if call is still active/answerable
+        if call.status not in ['initiated', 'ringing', 'connected']:
+            return JsonResponse({
+                'success': False, 
+                'error': f'Call ist bereits {call.status} und kann nicht mehr angenommen werden'
+            })
         
         # Generate channel name for Agora
         channel_name = f"call_{call.chat_room.id}_{call.id}"
@@ -945,6 +960,50 @@ def get_call_info_by_id(request, call_id):
             'caller_name': call.caller.get_full_name() or call.caller.username,
             'status': call.status
         })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def get_active_call_info(request, room_id):
+    """
+    Get information about any active call in a room
+    """
+    try:
+        from .models import Call
+        chat_room = get_object_or_404(ChatRoom, id=room_id)
+        
+        # Check if user is participant
+        if not chat_room.participants.filter(id=request.user.id).exists():
+            return JsonResponse({'success': False, 'error': 'Zugriff verweigert'})
+        
+        # Look for active call in the room
+        active_call = Call.objects.filter(
+            chat_room=chat_room,
+            status__in=['initiated', 'ringing', 'connected']
+        ).first()
+        
+        if active_call:
+            # Generate channel name for Agora
+            channel_name = f"call_{chat_room.id}_{active_call.id}"
+            
+            return JsonResponse({
+                'success': True,
+                'has_active_call': True,
+                'call_id': active_call.id,
+                'call_type': active_call.call_type,
+                'channel_name': channel_name,
+                'room_id': chat_room.id,
+                'caller_name': active_call.caller.get_full_name() or active_call.caller.username,
+                'status': active_call.status
+            })
+        else:
+            return JsonResponse({
+                'success': True,
+                'has_active_call': False,
+                'message': 'Kein aktiver Anruf in diesem Raum'
+            })
         
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
