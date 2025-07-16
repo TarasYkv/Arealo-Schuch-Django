@@ -1210,7 +1210,7 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(async () => {
                 console.log('🔄 Auto-answer timeout reached for call:', answerCallId, 'at', new Date().toISOString());
                 // Check if we're already in a call
-                if (isCallActive || globalIsCallActive) {
+                if (getCallActive()) {
                     console.info('Already in a call - ignoring auto-answer');
                     return;
                 }
@@ -2271,7 +2271,7 @@ function handleCallEnded(data) {
     console.log('🔚 Current state - globalIsCallActive:', globalIsCallActive);
     
     // End Agora call if active
-    if (isCallActive && currentChannelName === data.channel_name) {
+    if (getCallActive() && currentChannelName === data.channel_name) {
         console.log('🔚 Ending Agora call');
         endAgoraCall();
     }
@@ -2282,7 +2282,7 @@ function handleCallEnded(data) {
     }
     
     // Force end call if no other conditions matched
-    if (isCallActive || globalIsCallActive) {
+    if (getCallActive()) {
         console.log('🔚 Force ending call due to call_ended message');
         if (isCallActive) {
             endAgoraCall();
@@ -2296,6 +2296,23 @@ function handleCallEnded(data) {
 // Call status polling variables
 let callStatusPollingInterval = null;
 
+// Synchronized call state management
+function setCallActive(active) {
+    isCallActive = active;
+    if (typeof globalIsCallActive !== 'undefined') {
+        globalIsCallActive = active;
+    }
+    console.log('📞 Call state set to:', active);
+}
+
+function getCallActive() {
+    const localActive = isCallActive;
+    const globalActive = (typeof globalIsCallActive !== 'undefined') ? globalIsCallActive : false;
+    
+    // Return true if either is active
+    return localActive || globalActive;
+}
+
 // Start polling to check if call is still active
 function startCallStatusPolling() {
     if (callStatusPollingInterval) {
@@ -2303,24 +2320,28 @@ function startCallStatusPolling() {
     }
     
     console.log('📡 Starting call status polling...');
-    callStatusPollingInterval = setInterval(async () => {
-        if (!isCallActive || !currentRoomId) {
-            stopCallStatusPolling();
-            return;
-        }
-        
-        try {
-            const response = await fetch(`/chat/api/room/${currentRoomId}/active-call/`);
-            const data = await response.json();
-            
-            if (!data.has_active_call) {
-                console.log('📡 Call status polling detected call ended - terminating local call');
-                endAgoraCall();
+    
+    // Wait 5 seconds before starting polling to allow call to be properly established
+    setTimeout(() => {
+        callStatusPollingInterval = setInterval(async () => {
+            if (!getCallActive() || !currentRoomId) {
+                stopCallStatusPolling();
+                return;
             }
-        } catch (error) {
-            console.error('Error checking call status:', error);
-        }
-    }, 2000); // Check every 2 seconds
+            
+            try {
+                const response = await fetch(`/chat/api/room/${currentRoomId}/active-call/`);
+                const data = await response.json();
+                
+                if (!data.has_active_call) {
+                    console.log('📡 Call status polling detected call ended - terminating local call');
+                    endAgoraCall();
+                }
+            } catch (error) {
+                console.error('Error checking call status:', error);
+            }
+        }, 5000); // Check every 5 seconds (less frequent to avoid interference)
+    }, 5000); // Wait 5 seconds before starting
 }
 
 // Stop call status polling
@@ -2429,17 +2450,38 @@ function initAgoraClient() {
 
 // Start Agora call
 async function startAgoraCall(callType) {
+    console.log('🚀 VERSION 2.0 - NEW startAgoraCall function called with:', callType, 'at', new Date().toISOString());
+    
     if (!currentRoomId) {
         alert('Bitte wählen Sie zuerst einen Chat aus.');
         return;
     }
     
-    if (isCallActive) {
+    if (getCallActive()) {
         alert('Es läuft bereits ein Anruf.');
         return;
     }
     
     try {
+        // First, initiate the call via the backend to create the Call record
+        const initiateResponse = await fetch(`/chat/api/room/${currentRoomId}/call/initiate/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                call_type: callType
+            })
+        });
+        
+        const initiateData = await initiateResponse.json();
+        if (!initiateData.success) {
+            throw new Error(initiateData.error || 'Failed to initiate call');
+        }
+        
+        console.log('📞 Call initiated successfully:', initiateData);
+        
         currentCallType = callType;
         currentChannelName = `chat_${currentRoomId}`;
         
@@ -2448,7 +2490,7 @@ async function startAgoraCall(callType) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': document.querySelector('[name=csrf-token]').content
+                'X-CSRFToken': getCookie('csrftoken')
             },
             body: JSON.stringify({
                 channel: currentChannelName,
@@ -2486,14 +2528,14 @@ async function startAgoraCall(callType) {
             await agoraClient.publish([localAudioTrack]);
         }
         
-        isCallActive = true;
+        setCallActive(true);
         document.getElementById("callStatus").textContent = "Im Anruf - Warte auf anderen Teilnehmer";
         
         // Start polling to check if the call is still active (fallback for missed WebSocket messages)
         startCallStatusPolling();
         
-        // Send call notification via WebSocket to other participants
-        sendCallNotification(callType);
+        // Call notification is already handled by the initiate_call backend endpoint
+        console.log('📞 Call started successfully, other participants will be notified via database polling');
         
     } catch (error) {
         console.error('Error starting Agora call:', error);
@@ -2527,7 +2569,7 @@ function showCallModal(callType) {
 async function endAgoraCall() {
     try {
         // Send end call notification to server and other participants
-        if (currentRoomId && isCallActive) {
+        if (currentRoomId && getCallActive()) {
             // Send via WebSocket if available
             if (callSocket && callSocket.readyState === WebSocket.OPEN) {
                 const endMessage = {
@@ -2581,7 +2623,7 @@ async function endAgoraCall() {
         }
         
         // Reset state
-        isCallActive = false;
+        setCallActive(false);
         currentCallType = null;
         currentChannelName = null;
         
@@ -2666,7 +2708,7 @@ let lastCheckedMessageId = null;
 
 function startIncomingCallPolling() {
     // Don't start local polling if global polling is already active
-    if (window.globalPollingInterval) {
+    if (typeof globalPollingInterval !== 'undefined' && globalPollingInterval) {
         console.log('Global polling active - skipping local call polling');
         return;
     }
@@ -2691,17 +2733,21 @@ function stopIncomingCallPolling() {
 
 async function checkForIncomingCalls() {
     // Only check if we have a current room and are not already in a call
-    if (!currentRoomId || isCallActive) {
+    if (!currentRoomId || getCallActive()) {
         return;
     }
+    
+    console.log('🔍 [LOCAL] Checking for incoming calls in room:', currentRoomId);
     
     try {
         const response = await fetch(`/chat/check-incoming-calls/?room_id=${currentRoomId}`);
         const data = await response.json();
         
+        console.log('🔍 [LOCAL] Call check response:', data);
+        
         if (data.has_call && data.message_id !== lastCheckedMessageId) {
             lastCheckedMessageId = data.message_id;
-            console.log('Incoming call detected:', data);
+            console.log('📞 [LOCAL] Incoming call detected:', data);
             
             // Show incoming call overlay
             showIncomingCall({
@@ -2710,11 +2756,11 @@ async function checkForIncomingCalls() {
                 call_type: data.call_type,
                 channel_name: data.channel_name,
                 room_id: currentRoomId,
-                call_id: data.message_id
+                call_id: data.call_id || data.message_id
             });
         }
     } catch (error) {
-        console.error('Error checking for incoming calls:', error);
+        console.error('❌ [LOCAL] Error checking for incoming calls:', error);
     }
 }
 </script>
@@ -3168,7 +3214,7 @@ async function acceptIncomingCall() {
             await agoraClient.publish([localAudioTrack]);
         }
         
-        isCallActive = true;
+        setCallActive(true);
         console.log('✅ Call is now active');
         
         // Start polling to check if the call is still active (fallback for missed WebSocket messages)
@@ -3393,37 +3439,8 @@ function createBeepSound() {
     }
 }
 
-// Send call notification to other chat participants
-function sendCallNotification(callType) {
-    if (!currentRoomId) return;
-    
-    // Send via existing WebSocket if available
-    if (callSocket && callSocket.readyState === WebSocket.OPEN) {
-        callSocket.send(JSON.stringify({
-            type: 'agora_call_notification',
-            call_type: callType,
-            channel_name: currentChannelName,
-            room_id: currentRoomId,
-            caller_name: '{{ user.username }}' // Current user as caller
-        }));
-        console.log('Sent call notification via WebSocket');
-    } else {
-        // Fallback: Send via HTTP request
-        fetch('/chat/send-call-notification/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': document.querySelector('[name=csrf-token]').content
-            },
-            body: JSON.stringify({
-                room_id: currentRoomId,
-                call_type: callType,
-                channel_name: currentChannelName
-            })
-        });
-        console.log('Sent call notification via HTTP fallback');
-    }
-}
+// Call notification is now handled by the initiate_call backend endpoint
+// This function has been removed to avoid conflicts with the new Call model system
 
 // Handle incoming Agora call notification
 function handleIncomingAgoraCall(data) {
