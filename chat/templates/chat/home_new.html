@@ -1090,17 +1090,32 @@ body.modal-open {
 
 <script>
 let currentRoomId = null;
-let messagesContainer = document.getElementById('chatMessages');
-let messageInput = document.getElementById('messageText');
+let messagesContainer;
+let messageInput;
 let selectedFiles = [];
 let currentPage = 1;
 let hasMoreMessages = false;
 let attachmentPreview;
 
+// Initialize DOM elements when needed
+function initializeDOMElements() {
+    if (!messagesContainer) {
+        messagesContainer = document.getElementById('chatMessages');
+    }
+    if (!messageInput) {
+        messageInput = document.getElementById('messageText');
+    }
+    if (!attachmentPreview) {
+        attachmentPreview = document.getElementById('attachmentPreview');
+    }
+}
+
 // Use global call variables from base.html
 // globalCallSocket, globalPeerConnection, globalLocalStream, etc. are defined globally
 
 function loadChat(roomId) {
+    initializeDOMElements();
+    
     // Close mobile sidebar if open
     const sidebar = document.querySelector('.chat-sidebar');
     if (sidebar && sidebar.classList.contains('mobile-show')) {
@@ -1111,7 +1126,10 @@ function loadChat(roomId) {
     document.querySelectorAll('.chat-room-item').forEach(item => {
         item.classList.remove('active');
     });
-    document.querySelector(`[data-room-id="${roomId}"]`).classList.add('active');
+    const activeRoom = document.querySelector(`[data-room-id="${roomId}"]`);
+    if (activeRoom) {
+        activeRoom.classList.add('active');
+    }
     
     currentRoomId = roomId;
     
@@ -1120,8 +1138,16 @@ function loadChat(roomId) {
     markMessagesAsRead(roomId);
     
     // Show chat header and input
-    document.getElementById('chatHeader').style.display = 'block';
-    document.getElementById('messageInput').style.display = 'block';
+    const chatHeader = document.getElementById('chatHeader');
+    const messageInputDiv = document.getElementById('messageInput');
+    
+    if (chatHeader) {
+        chatHeader.style.display = 'block';
+    }
+    
+    if (messageInputDiv) {
+        messageInputDiv.style.display = 'block';
+    }
     
     // Load messages
     fetch(`/chat/api/room/${roomId}/messages/`)
@@ -1207,6 +1233,13 @@ function loadMoreMessages() {
 function displayMessages(messages, append = false) {
     console.log('displayMessages called with:', messages, 'append:', append);
     
+    initializeDOMElements();
+    
+    if (!messagesContainer) {
+        console.error('messagesContainer not found');
+        return;
+    }
+    
     if (!append) {
         messagesContainer.innerHTML = '';
     }
@@ -1274,16 +1307,33 @@ function displayMessages(messages, append = false) {
 }
 
 function updateChatHeader(room) {
-    document.getElementById('chatTitle').textContent = room.name || room.display_name;
-    document.getElementById('chatSubtitle').textContent = room.is_group_chat ? 
-        `${room.participant_count} Teilnehmer` : 'Privater Chat';
-    
+    const chatTitle = document.getElementById('chatTitle');
+    const chatSubtitle = document.getElementById('chatSubtitle');
     const avatar = document.getElementById('chatAvatar');
-    avatar.className = `user-avatar ${room.is_group_chat ? 'bg-success' : 'bg-primary'} me-3`;
-    avatar.innerHTML = room.is_group_chat ? '<i class="fas fa-users"></i>' : room.avatar_text;
+    
+    if (chatTitle) {
+        chatTitle.textContent = room.name || room.display_name;
+    }
+    
+    if (chatSubtitle) {
+        chatSubtitle.textContent = room.is_group_chat ? 
+            `${room.participant_count} Teilnehmer` : 'Privater Chat';
+    }
+    
+    if (avatar) {
+        avatar.className = `user-avatar ${room.is_group_chat ? 'bg-success' : 'bg-primary'} me-3`;
+        avatar.innerHTML = room.is_group_chat ? '<i class="fas fa-users"></i>' : room.avatar_text;
+    }
 }
 
 function sendMessage() {
+    initializeDOMElements();
+    
+    if (!messageInput) {
+        console.error('messageInput not found');
+        return;
+    }
+    
     const messageText = messageInput.value.trim();
     if (!messageText && selectedFiles.length === 0) return;
     if (!currentRoomId) return;
@@ -1336,20 +1386,30 @@ function handleKeyPress(event) {
 }
 
 // Search functionality
-document.getElementById('chatSearch').addEventListener('input', function() {
-    const searchTerm = this.value.toLowerCase();
-    const chatItems = document.querySelectorAll('.chat-room-item');
-    
-    chatItems.forEach(item => {
-        const chatName = item.querySelector('h6').textContent.toLowerCase();
-        const lastMessage = item.querySelector('.text-muted').textContent.toLowerCase();
-        
-        if (chatName.includes(searchTerm) || lastMessage.includes(searchTerm)) {
-            item.style.display = 'block';
-        } else {
-            item.style.display = 'none';
-        }
-    });
+document.addEventListener('DOMContentLoaded', function() {
+    const chatSearch = document.getElementById('chatSearch');
+    if (chatSearch) {
+        chatSearch.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const chatItems = document.querySelectorAll('.chat-room-item');
+            
+            chatItems.forEach(item => {
+                const chatNameElement = item.querySelector('h6');
+                const lastMessageElement = item.querySelector('.text-muted');
+                
+                if (chatNameElement && lastMessageElement) {
+                    const chatName = chatNameElement.textContent.toLowerCase();
+                    const lastMessage = lastMessageElement.textContent.toLowerCase();
+                    
+                    if (chatName.includes(searchTerm) || lastMessage.includes(searchTerm)) {
+                        item.style.display = 'block';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                }
+            });
+        });
+    }
 });
 
 // Get CSRF cookie
@@ -1632,9 +1692,21 @@ function deleteChat() {
                     chatItem.remove();
                 }
                 // Clear chat area
-                document.getElementById('chatMessages').innerHTML = '';
-                document.getElementById('chatHeader').style.display = 'none';
-                document.getElementById('messageInput').style.display = 'none';
+                const chatMessages = document.getElementById('chatMessages');
+                const chatHeader = document.getElementById('chatHeader');
+                const messageInputDiv = document.getElementById('messageInput');
+                
+                if (chatMessages) {
+                    chatMessages.innerHTML = '';
+                }
+                
+                if (chatHeader) {
+                    chatHeader.style.display = 'none';
+                }
+                
+                if (messageInputDiv) {
+                    messageInputDiv.style.display = 'none';
+                }
                 currentRoomId = null;
                 // Reload page to refresh chat list
                 window.location.reload();
@@ -1753,7 +1825,9 @@ function showChatInfo() {
     modal.show();
     
     // Reset content to loading state
-    document.getElementById('chatInfoContent').innerHTML = `
+    const chatInfoContent = document.getElementById('chatInfoContent');
+    if (chatInfoContent) {
+        chatInfoContent.innerHTML = `
         <div class="text-center">
             <div class="spinner-border text-primary" role="status">
                 <span class="visually-hidden">Loading...</span>
@@ -1774,17 +1848,22 @@ function showChatInfo() {
         if (data.success) {
             renderChatInfo(data.room);
         } else {
-            document.getElementById('chatInfoContent').innerHTML = `
-                <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-triangle"></i> 
-                    Fehler beim Laden der Chat-Informationen: ${data.error}
-                </div>
-            `;
+            const chatInfoContent = document.getElementById('chatInfoContent');
+            if (chatInfoContent) {
+                chatInfoContent.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i> 
+                        Fehler beim Laden der Chat-Informationen: ${data.error}
+                    </div>
+                `;
+            }
         }
     })
     .catch(error => {
         console.error('Error loading chat info:', error);
-        document.getElementById('chatInfoContent').innerHTML = `
+        const chatInfoContent = document.getElementById('chatInfoContent');
+        if (chatInfoContent) {
+            chatInfoContent.innerHTML = `
             <div class="alert alert-danger">
                 <i class="fas fa-exclamation-triangle"></i> 
                 Fehler beim Laden der Chat-Informationen
@@ -1795,7 +1874,9 @@ function showChatInfo() {
 
 function renderChatInfo(roomData) {
     // Update modal title
-    document.getElementById('chatInfoTitle').textContent = 
+    const chatInfoTitle = document.getElementById('chatInfoTitle');
+    if (chatInfoTitle) {
+        chatInfoTitle.textContent = 
         roomData.name || (roomData.is_group_chat ? 'Gruppenchat' : 'Privater Chat');
     
     let content = '';
@@ -1928,7 +2009,10 @@ function renderChatInfo(roomData) {
         </div>
     `;
     
-    document.getElementById('chatInfoContent').innerHTML = content;
+    const chatInfoContent = document.getElementById('chatInfoContent');
+    if (chatInfoContent) {
+        chatInfoContent.innerHTML = content;
+    }
 }
 
 // WebRTC and Call Variables - using globals from base.html
@@ -3833,6 +3917,11 @@ async function rejectIncomingCall() {
 
 function toggleMobileChatList() {
     const sidebar = document.querySelector('.chat-sidebar');
+    if (!sidebar) {
+        console.error('Chat sidebar not found');
+        return;
+    }
+    
     sidebar.classList.toggle('mobile-show');
     
     // Add/remove overlay
