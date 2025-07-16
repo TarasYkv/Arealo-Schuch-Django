@@ -1583,14 +1583,6 @@ async function startLocalCall(roomId, callType) {
     try {
         console.log('📞 Starting local call implementation:', roomId, callType);
         
-        // Check media permissions first
-        console.log('🔐 Checking media permissions...');
-        const permissionResult = await checkMediaPermissions(callType);
-        if (!permissionResult.success) {
-            alert(permissionResult.message);
-            return;
-        }
-        
         const csrfToken = getCookie('csrftoken') || 
                          document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
                          document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
@@ -2675,69 +2667,28 @@ function initAgoraClient() {
             if (mediaType === "video") {
                 const remoteVideoTrack = user.videoTrack;
                 
-                if (!remoteVideoTrack) {
-                    console.error('❌ Remote video track is null');
-                    return;
-                }
-                
                 // Try small window first, fallback to modal
                 const smallRemoteContainer = document.getElementById("smallRemoteVideo");
                 const modalRemoteContainer = document.getElementById("remoteVideoContainer");
                 
                 if (smallRemoteContainer && document.getElementById("smallCallWindow").style.display !== "none") {
                     // Use small window
-                    try {
-                        smallRemoteContainer.innerHTML = "";
-                        remoteVideoTrack.play(smallRemoteContainer);
-                        console.log('✅ Remote video playing in small window');
-                    } catch (playError) {
-                        console.error('❌ Error playing remote video in small window:', playError);
-                        // Retry after short delay
-                        setTimeout(() => {
-                            try {
-                                remoteVideoTrack.play(smallRemoteContainer);
-                            } catch (retryError) {
-                                console.error('❌ Retry failed for remote video in small window:', retryError);
-                            }
-                        }, 1000);
-                    }
+                    smallRemoteContainer.innerHTML = "";
+                    remoteVideoTrack.play(smallRemoteContainer);
+                    console.log('✅ Remote video playing in small window');
                 } else if (modalRemoteContainer) {
                     // Use modal (fallback)
-                    try {
-                        modalRemoteContainer.innerHTML = "";
-                        remoteVideoTrack.play(modalRemoteContainer);
-                        document.getElementById("waitingScreen").style.display = "none";
-                        console.log('✅ Remote video playing in modal');
-                    } catch (playError) {
-                        console.error('❌ Error playing remote video in modal:', playError);
-                    }
-                } else {
-                    console.error('❌ Neither small nor modal remote video container found');
+                    modalRemoteContainer.innerHTML = "";
+                    remoteVideoTrack.play(modalRemoteContainer);
+                    document.getElementById("waitingScreen").style.display = "none";
+                    console.log('✅ Remote video playing in modal');
                 }
             }
             
             if (mediaType === "audio") {
                 const remoteAudioTrack = user.audioTrack;
-                
-                if (!remoteAudioTrack) {
-                    console.error('❌ Remote audio track is null');
-                    return;
-                }
-                
-                try {
-                    remoteAudioTrack.play();
-                    console.log('✅ Remote audio playing');
-                } catch (audioError) {
-                    console.error('❌ Error playing remote audio:', audioError);
-                    // Retry after short delay
-                    setTimeout(() => {
-                        try {
-                            remoteAudioTrack.play();
-                        } catch (retryError) {
-                            console.error('❌ Retry failed for remote audio:', retryError);
-                        }
-                    }, 1000);
-                }
+                remoteAudioTrack.play();
+                console.log('✅ Remote audio playing');
             }
         } catch (error) {
             console.error("❌ Error handling user-published event:", error);
@@ -3562,14 +3513,6 @@ async function acceptIncomingCall() {
     console.log('🔄 acceptIncomingCall started with data:', incomingCallData);
     
     try {
-        // Check media permissions first
-        console.log('🔐 Checking media permissions...');
-        const permissionResult = await checkMediaPermissions(incomingCallData.call_type);
-        if (!permissionResult.success) {
-            alert(permissionResult.message);
-            return;
-        }
-        
         // Accept call on server first
         const acceptResponse = await fetch('/chat/accept-call/', {
             method: 'POST',
@@ -3642,65 +3585,23 @@ async function acceptIncomingCall() {
         await agoraClient.join(agoraConfig.appId, agoraConfig.channel, agoraConfig.token, agoraConfig.uid);
         console.log('✅ Successfully joined Agora channel');
         
-        // Create and publish local tracks with permission handling
+        // Create and publish local tracks
         console.log('🔄 Creating local audio track...');
-        try {
-            localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true
-            });
-            console.log('✅ Local audio track created successfully');
-        } catch (error) {
-            console.error('❌ Error creating audio track:', error);
-            alert('Fehler beim Zugriff auf das Mikrofon. Bitte prüfen Sie die Berechtigungen.');
-            throw error;
-        }
+        localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        console.log('✅ Local audio track created successfully');
         
         if (callDataCopy.call_type === 'video') {
             console.log('🔄 Creating local video track...');
-            try {
-                localVideoTrack = await AgoraRTC.createCameraVideoTrack({
-                    optimizationMode: "detail",
-                    encoderConfig: {
-                        width: 640,
-                        height: 480,
-                        frameRate: 15,
-                        bitrateMin: 200,
-                        bitrateMax: 1000
-                    }
-                });
-                console.log('✅ Local video track created successfully');
-                
-                // Play local video with retry mechanism
-                const localVideoElement = document.getElementById("smallLocalVideo");
-                if (localVideoElement) {
-                    try {
-                        localVideoTrack.play("smallLocalVideo");
-                        console.log('✅ Local video playing in UI');
-                    } catch (playError) {
-                        console.error('❌ Error playing local video:', playError);
-                        // Retry after short delay
-                        setTimeout(() => {
-                            try {
-                                localVideoTrack.play("smallLocalVideo");
-                            } catch (retryError) {
-                                console.error('❌ Retry failed for local video:', retryError);
-                            }
-                        }, 1000);
-                    }
-                } else {
-                    console.error('❌ Local video element not found');
-                }
-                
-                console.log('🔄 Publishing audio and video tracks...');
-                await agoraClient.publish([localAudioTrack, localVideoTrack]);
-                console.log('✅ Audio and video tracks published successfully');
-            } catch (error) {
-                console.error('❌ Error creating video track:', error);
-                alert('Fehler beim Zugriff auf die Kamera. Bitte prüfen Sie die Berechtigungen.');
-                throw error;
-            }
+            localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+            console.log('✅ Local video track created successfully');
+            
+            // Play local video
+            localVideoTrack.play("smallLocalVideo");
+            console.log('✅ Local video playing in UI');
+            
+            console.log('🔄 Publishing audio and video tracks...');
+            await agoraClient.publish([localAudioTrack, localVideoTrack]);
+            console.log('✅ Audio and video tracks published successfully');
         } else {
             console.log('🔄 Publishing audio track...');
             await agoraClient.publish([localAudioTrack]);
