@@ -2140,10 +2140,25 @@
                 
                 hideGlobalIncomingCall();
                 
-                // Check if we're already on the chat page for this room
-                if (window.location.pathname.includes('/chat/') && window.location.search.includes(`room=${callData.room_id}`)) {
+                // Check if we're already on the chat page
+                const currentPath = window.location.pathname;
+                const currentSearch = window.location.search;
+                const isOnChatPage = currentPath.includes('/chat/');
+                const isCorrectRoom = currentSearch.includes(`room=${callData.room_id}`);
+                
+                console.log('🔍 Current location check:', { 
+                    currentPath, 
+                    currentSearch, 
+                    isOnChatPage, 
+                    isCorrectRoom, 
+                    targetRoomId: callData.room_id,
+                    expectedParam: `room=${callData.room_id}`,
+                    willRedirect: !(isOnChatPage && isCorrectRoom)
+                });
+                
+                if (isOnChatPage && isCorrectRoom) {
                     // Already on the correct chat page - call acceptIncomingCall directly
-                    console.log('✅ Already on chat page - accepting call directly');
+                    console.log('✅ Already on chat page for correct room - accepting call directly');
                     if (typeof incomingCallData === 'undefined') {
                         window.incomingCallData = callData;
                     } else {
