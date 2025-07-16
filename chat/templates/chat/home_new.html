@@ -133,7 +133,7 @@
     bottom: 20px;
     right: 20px;
     width: 320px;
-    z-index: 1000;
+    z-index: 9999;
 }
 
 .call-video-container {
@@ -2678,7 +2678,15 @@ const agoraConfig = {
 
 // Initialize Agora client
 function initAgoraClient() {
+    if (typeof AgoraRTC === 'undefined') {
+        console.error('❌ AgoraRTC SDK not loaded!');
+        alert('Video-System nicht verfügbar. Bitte laden Sie die Seite neu.');
+        return;
+    }
+    
+    console.log('🔄 Creating Agora client...');
     agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+    console.log('✅ Agora client created:', agoraClient);
     
     // Event handlers
     agoraClient.on("user-published", async (user, mediaType) => {
@@ -3615,36 +3623,58 @@ async function acceptIncomingCall() {
         showSmallCallWindow(callDataCopy.call_type);
         
         // Join channel
-        console.log('🔄 Joining Agora channel:', agoraConfig.channel);
-        await agoraClient.join(agoraConfig.appId, agoraConfig.channel, agoraConfig.token, agoraConfig.uid);
-        console.log('✅ Successfully joined Agora channel');
+        console.log('🔄 Joining Agora channel with config:', {
+            appId: agoraConfig.appId,
+            channel: agoraConfig.channel,
+            token: agoraConfig.token ? 'token exists' : 'no token',
+            uid: agoraConfig.uid
+        });
+        
+        try {
+            await agoraClient.join(agoraConfig.appId, agoraConfig.channel, agoraConfig.token, agoraConfig.uid);
+            console.log('✅ Successfully joined Agora channel');
+        } catch (joinError) {
+            console.error('❌ Failed to join channel:', joinError);
+            alert('Fehler beim Beitreten zum Anruf. Bitte versuchen Sie es erneut.');
+            throw joinError;
+        }
         
         // Create and publish local tracks
-        console.log('🔄 Creating local audio track...');
-        localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-        console.log('✅ Local audio track created successfully');
-        
-        if (callDataCopy.call_type === 'video') {
-            console.log('🔄 Creating local video track...');
-            localVideoTrack = await AgoraRTC.createCameraVideoTrack();
-            console.log('✅ Local video track created successfully');
+        try {
+            console.log('🔄 Creating local audio track...');
+            console.log('🔍 AgoraRTC available:', typeof AgoraRTC !== 'undefined');
             
-            // Play local video with debug
-            const localVideoElement = document.getElementById("smallLocalVideo");
-            console.log('🔍 Local video element:', localVideoElement);
-            console.log('🔍 Local video element display:', localVideoElement ? getComputedStyle(localVideoElement).display : 'element not found');
-            console.log('🔍 Local video element dimensions:', localVideoElement ? localVideoElement.getBoundingClientRect() : 'element not found');
+            localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+            console.log('✅ Local audio track created successfully');
             
-            localVideoTrack.play("smallLocalVideo");
-            console.log('✅ Local video playing in UI');
-            
-            console.log('🔄 Publishing audio and video tracks...');
-            await agoraClient.publish([localAudioTrack, localVideoTrack]);
-            console.log('✅ Audio and video tracks published successfully');
-        } else {
-            console.log('🔄 Publishing audio track...');
-            await agoraClient.publish([localAudioTrack]);
-            console.log('✅ Audio track published successfully');
+            if (callDataCopy.call_type === 'video') {
+                console.log('🔄 Creating local video track...');
+                localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+                console.log('✅ Local video track created successfully');
+                
+                // Wait a moment for DOM to be ready
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Play local video
+                try {
+                    await localVideoTrack.play("smallLocalVideo");
+                    console.log('✅ Local video playing in UI');
+                } catch (playError) {
+                    console.error('❌ Error playing local video:', playError);
+                }
+                
+                console.log('🔄 Publishing audio and video tracks...');
+                await agoraClient.publish([localAudioTrack, localVideoTrack]);
+                console.log('✅ Audio and video tracks published successfully');
+            } else {
+                console.log('🔄 Publishing audio track...');
+                await agoraClient.publish([localAudioTrack]);
+                console.log('✅ Audio track published successfully');
+            }
+        } catch (trackError) {
+            console.error('❌ Error creating/publishing tracks:', trackError);
+            alert('Fehler beim Zugriff auf Mikrofon/Kamera. Bitte überprüfen Sie die Berechtigungen.');
+            throw trackError;
         }
         
         setCallActive(true);
