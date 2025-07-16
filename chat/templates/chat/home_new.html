@@ -3015,6 +3015,8 @@ function hideIncomingCall() {
 async function acceptIncomingCall() {
     if (!incomingCallData) return;
     
+    console.log('🔄 acceptIncomingCall started with data:', incomingCallData);
+    
     try {
         // Clear call notification on server first
         const clearResponse = await fetch('/chat/clear-call-notification/', {
@@ -3032,58 +3034,77 @@ async function acceptIncomingCall() {
             console.error('Failed to clear call notification');
         }
         
-        hideIncomingCall();
+        // Validate incoming call data BEFORE hiding (which sets incomingCallData to null)
+        console.log('🔄 Validating incomingCallData:', incomingCallData);
+        console.log('🔄 Has call_type:', !!incomingCallData.call_type, 'Value:', incomingCallData.call_type);
+        console.log('🔄 Has channel_name:', !!incomingCallData.channel_name, 'Value:', incomingCallData.channel_name);
         
-        // Validate incoming call data
         if (!incomingCallData || !incomingCallData.call_type || !incomingCallData.channel_name) {
+            console.error('❌ Validation failed - missing required properties');
             throw new Error('Ungültige Anrufdaten');
         }
         
+        // Store the data before hiding (which nulls incomingCallData)
+        const callDataCopy = { ...incomingCallData };
+        
+        hideIncomingCall();
+        
         // Initialize call with incoming call data
-        currentCallType = incomingCallData.call_type;
-        currentChannelName = incomingCallData.channel_name;
+        currentCallType = callDataCopy.call_type;
+        currentChannelName = callDataCopy.channel_name;
         
         // Get token for this call
-        const response = await fetch('/chat/join-agora-call/', {
+        console.log('🔄 Fetching Agora token for channel:', callDataCopy.channel_name);
+        const response = await fetch('/chat/get-agora-token/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': document.querySelector('[name=csrf-token]').content
+                'X-CSRFToken': getCookie('csrftoken')
             },
             body: JSON.stringify({
-                call_id: incomingCallData.call_id,
-                channel: incomingCallData.channel_name
+                call_id: callDataCopy.call_id,
+                channel: callDataCopy.channel_name
             })
         });
         
+        console.log('🔄 Agora token response status:', response.status);
         const data = await response.json();
+        console.log('🔄 Agora token response data:', data);
         if (!data.success) {
             throw new Error(data.error || 'Failed to join call');
         }
         
-        agoraConfig.channel = incomingCallData.channel_name;
+        agoraConfig.channel = callDataCopy.channel_name;
         agoraConfig.uid = data.uid;
         agoraConfig.token = data.token;
         
         // Initialize and show call window
+        console.log('🔄 Initializing Agora client...');
         initAgoraClient();
-        showSmallCallWindow(incomingCallData.call_type);
+        showSmallCallWindow(callDataCopy.call_type);
         
         // Join channel
+        console.log('🔄 Joining Agora channel:', agoraConfig.channel);
         await agoraClient.join(agoraConfig.appId, agoraConfig.channel, agoraConfig.token, agoraConfig.uid);
+        console.log('✅ Successfully joined Agora channel');
         
         // Create and publish local tracks
+        console.log('🔄 Creating local audio track...');
         localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
         
-        if (incomingCallData.call_type === 'video') {
+        if (callDataCopy.call_type === 'video') {
+            console.log('🔄 Creating local video track...');
             localVideoTrack = await AgoraRTC.createCameraVideoTrack();
             localVideoTrack.play("smallLocalVideo");
+            console.log('🔄 Publishing audio and video tracks...');
             await agoraClient.publish([localAudioTrack, localVideoTrack]);
         } else {
+            console.log('🔄 Publishing audio track...');
             await agoraClient.publish([localAudioTrack]);
         }
         
         isCallActive = true;
+        console.log('✅ Call is now active');
         
     } catch (error) {
         console.error('Error accepting call:', error);
