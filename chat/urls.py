@@ -32,6 +32,7 @@ urlpatterns = [
     path('check-incoming-calls/', views.check_incoming_calls, name='check_incoming_calls'),
     path('clear-call-notification/', views.clear_call_notification, name='clear_call_notification'),
     path('end-call-notification/', views.end_call_notification, name='end_call_notification'),
+    path('reject-call/', views.reject_call, name='reject_call'),
     
     # Test pages
     path('websocket-test/', views.websocket_test, name='websocket_test'),
