@@ -1095,7 +1095,7 @@ let messageInput = document.getElementById('messageText');
 let selectedFiles = [];
 let currentPage = 1;
 let hasMoreMessages = false;
-let attachmentPreview = document.getElementById('attachmentPreview');
+let attachmentPreview;
 
 // Use global call variables from base.html
 // globalCallSocket, globalPeerConnection, globalLocalStream, etc. are defined globally
@@ -1141,10 +1141,12 @@ function loadChat(roomId) {
                     hasMoreMessages = data.pagination.has_more;
                     
                     const loadMoreContainer = document.getElementById('loadMoreContainer');
-                    if (hasMoreMessages) {
-                        loadMoreContainer.style.display = 'block';
-                    } else {
-                        loadMoreContainer.style.display = 'none';
+                    if (loadMoreContainer) {
+                        if (hasMoreMessages) {
+                            loadMoreContainer.style.display = 'block';
+                        } else {
+                            loadMoreContainer.style.display = 'none';
+                        }
                     }
                 }
             } else {
@@ -1183,10 +1185,12 @@ function loadMoreMessages() {
                     hasMoreMessages = data.pagination.has_more;
                     
                     const loadMoreContainer = document.getElementById('loadMoreContainer');
-                    if (hasMoreMessages) {
-                        loadMoreContainer.style.display = 'block';
-                    } else {
-                        loadMoreContainer.style.display = 'none';
+                    if (loadMoreContainer) {
+                        if (hasMoreMessages) {
+                            loadMoreContainer.style.display = 'block';
+                        } else {
+                            loadMoreContainer.style.display = 'none';
+                        }
                     }
                 }
             } else {
@@ -1304,8 +1308,16 @@ function sendMessage() {
         if (data.success) {
             messageInput.value = '';
             selectedFiles = [];
-            attachmentPreview.style.display = 'none';
-            attachmentPreview.innerHTML = '';
+            
+            if (!attachmentPreview) {
+                attachmentPreview = document.getElementById('attachmentPreview');
+            }
+            
+            if (attachmentPreview) {
+                attachmentPreview.style.display = 'none';
+                attachmentPreview.innerHTML = '';
+            }
+            
             loadChat(currentRoomId); // Reload messages
         } else {
             alert('Fehler beim Senden der Nachricht: ' + data.error);
@@ -1361,8 +1373,15 @@ function handleFileSelect(event) {
     const files = Array.from(event.target.files);
     selectedFiles = files;
     
+    // Initialize attachmentPreview if not already done
+    if (!attachmentPreview) {
+        attachmentPreview = document.getElementById('attachmentPreview');
+    }
+    
     if (files.length === 0) {
-        attachmentPreview.style.display = 'none';
+        if (attachmentPreview) {
+            attachmentPreview.style.display = 'none';
+        }
         return;
     }
     
@@ -1381,14 +1400,23 @@ function handleFileSelect(event) {
     });
     previewHtml += '</div>';
     
-    attachmentPreview.innerHTML = previewHtml;
-    attachmentPreview.style.display = 'block';
+    if (attachmentPreview) {
+        attachmentPreview.innerHTML = previewHtml;
+        attachmentPreview.style.display = 'block';
+    }
 }
 
 function removeFile(index) {
     selectedFiles.splice(index, 1);
+    
+    if (!attachmentPreview) {
+        attachmentPreview = document.getElementById('attachmentPreview');
+    }
+    
     if (selectedFiles.length === 0) {
-        attachmentPreview.style.display = 'none';
+        if (attachmentPreview) {
+            attachmentPreview.style.display = 'none';
+        }
     } else {
         // Update preview
         handleFileSelect({ target: { files: selectedFiles } });
