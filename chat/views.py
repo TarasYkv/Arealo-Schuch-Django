@@ -260,14 +260,36 @@ def get_messages(request, room_id):
             return JsonResponse({'success': False, 'error': 'Zugriff verweigert'})
         
         since_id = request.GET.get('since_id')
+        page = request.GET.get('page', 1)
+        messages_per_page = 20
+        
+        try:
+            page = int(page)
+        except ValueError:
+            page = 1
+            
         if since_id:
+            # Real-time updates - get messages newer than since_id
             messages_queryset = chat_room.messages.filter(
                 id__gt=since_id
             ).select_related('sender').order_by('created_at')
             messages_list = list(messages_queryset)
+            has_more = False
+            total_messages = len(messages_list)
         else:
-            messages_queryset = chat_room.messages.select_related('sender').order_by('created_at')
-            messages_list = list(messages_queryset[:50])
+            # Initial load or pagination - get messages with pagination
+            messages_queryset = chat_room.messages.select_related('sender').order_by('-created_at')
+            
+            # Apply pagination
+            start_index = (page - 1) * messages_per_page
+            end_index = start_index + messages_per_page
+            
+            messages_page = messages_queryset[start_index:end_index]
+            messages_list = list(reversed(messages_page))  # Reverse for chronological order
+            
+            # Check if there are more messages
+            total_messages = messages_queryset.count()
+            has_more = total_messages > end_index
         
         print(f"DEBUG: Found {len(messages_list)} messages")
         messages_data = []
@@ -324,7 +346,14 @@ def get_messages(request, room_id):
             'success': True,
             'messages': messages_data,
             'room': room_info,
-            'last_message_id': messages_list[-1].id if messages_list else None
+            'last_message_id': messages_list[-1].id if messages_list else None,
+            'pagination': {
+                'page': page,
+                'messages_per_page': messages_per_page,
+                'total_messages': total_messages,
+                'has_more': has_more,
+                'has_previous': page > 1
+            }
         })
         
     except Exception as e:

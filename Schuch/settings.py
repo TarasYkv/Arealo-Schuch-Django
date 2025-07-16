@@ -76,6 +76,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'chat.middleware.RateLimitMiddleware',
+    'chat.middleware.ChatRateLimitMiddleware',
 ]
 
 ROOT_URLCONF = 'Schuch.urls'
@@ -198,3 +200,15 @@ CHANNEL_LAYERS = {
 
 # Allow same-origin iframes for content editor
 X_FRAME_OPTIONS = 'SAMEORIGIN'
+
+# Caching configuration for rate limiting
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,
+            'CULL_FREQUENCY': 3,
+        }
+    }
+}
