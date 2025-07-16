@@ -921,6 +921,36 @@ def end_call(request, call_id):
 
 
 @login_required
+def get_call_info_by_id(request, call_id):
+    """
+    Get call information by call ID
+    """
+    try:
+        from .models import Call
+        call = get_object_or_404(Call, id=call_id)
+        
+        # Check if user is participant
+        if not call.chat_room.participants.filter(id=request.user.id).exists():
+            return JsonResponse({'success': False, 'error': 'Zugriff verweigert'})
+        
+        # Generate channel name for Agora
+        channel_name = f"call_{call.chat_room.id}_{call.id}"
+        
+        return JsonResponse({
+            'success': True,
+            'call_id': call.id,
+            'call_type': call.call_type,
+            'channel_name': channel_name,
+            'room_id': call.chat_room.id,
+            'caller_name': call.caller.get_full_name() or call.caller.username,
+            'status': call.status
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
 def get_call_history(request, room_id):
     """
     Get call history for a chat room

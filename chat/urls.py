@@ -22,6 +22,7 @@ urlpatterns = [
     path('api/room/<int:room_id>/info/', views.get_chat_info, name='get_chat_info'),
     path('api/room/<int:room_id>/call/initiate/', views.initiate_call, name='initiate_call'),
     path('api/call/<int:call_id>/end/', views.end_call, name='end_call'),
+    path('api/call/<int:call_id>/info/', views.get_call_info_by_id, name='get_call_info_by_id'),
     path('api/room/<int:room_id>/calls/', views.get_call_history, name='get_call_history'),
     
     # Agora Video/Audio calls
