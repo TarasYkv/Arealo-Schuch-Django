@@ -168,6 +168,7 @@
         height: 100vh;
         max-height: 100vh;
         border-radius: 0;
+        z-index: 99999 !important;
     }
     
     .call-window .card {
@@ -2691,7 +2692,8 @@ function initAgoraClient() {
     // Event handlers
     agoraClient.on("user-published", async (user, mediaType) => {
         try {
-            console.log(`🔄 User published ${mediaType}:`, user.uid);
+            console.log(`🎉 NEW USER PUBLISHED ${mediaType}:`, user.uid);
+            console.log('📊 User object:', user);
             await agoraClient.subscribe(user, mediaType);
             console.log(`✅ Successfully subscribed to ${mediaType} from user:`, user.uid);
             
@@ -2737,6 +2739,11 @@ function initAgoraClient() {
         }
     });
     
+    agoraClient.on("user-joined", (user) => {
+        console.log("🎉 USER JOINED:", user.uid);
+        console.log("📊 Total users in channel:", agoraClient.remoteUsers.length);
+    });
+    
     agoraClient.on("user-unpublished", (user) => {
         console.log("User unpublished:", user);
         // Show waiting screen again
@@ -2747,7 +2754,8 @@ function initAgoraClient() {
     });
     
     agoraClient.on("user-left", (user) => {
-        console.log("User left:", user);
+        console.log("👋 USER LEFT:", user.uid);
+        console.log("📊 Remaining users:", agoraClient.remoteUsers.length);
         const callStatus = document.getElementById("callStatus");
         if (callStatus) {
             callStatus.textContent = "Anruf beendet";
@@ -3633,6 +3641,8 @@ async function acceptIncomingCall() {
         try {
             await agoraClient.join(agoraConfig.appId, agoraConfig.channel, agoraConfig.token, agoraConfig.uid);
             console.log('✅ Successfully joined Agora channel');
+            console.log('📊 Local UID:', agoraConfig.uid);
+            console.log('📊 Waiting for other participants...');
         } catch (joinError) {
             console.error('❌ Failed to join channel:', joinError);
             alert('Fehler beim Beitreten zum Anruf. Bitte versuchen Sie es erneut.');
