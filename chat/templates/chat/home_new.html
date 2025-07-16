@@ -1202,11 +1202,13 @@ document.addEventListener('DOMContentLoaded', function() {
         // Check if we should auto-answer a call
         const answerCallId = urlParams.get('answerCall');
         if (answerCallId) {
+            console.log('🔄 Auto-answer initiated for call:', answerCallId, 'at', new Date().toISOString());
             // Stop call polling to prevent interference
             stopGlobalCallPolling();
             stopIncomingCallPolling();
             
             setTimeout(async () => {
+                console.log('🔄 Auto-answer timeout reached for call:', answerCallId, 'at', new Date().toISOString());
                 // Check if we're already in a call
                 if (isCallActive || globalIsCallActive) {
                     console.info('Already in a call - ignoring auto-answer');
@@ -1269,7 +1271,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     startGlobalCallPolling();
                     startIncomingCallPolling();
                 }
-            }, 1500); // Wait 1.5 seconds for room to load
+            }, 500); // Wait 0.5 seconds for room to load
         }
     }
 });

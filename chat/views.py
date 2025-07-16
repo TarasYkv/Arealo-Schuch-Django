@@ -797,14 +797,14 @@ def initiate_call(request, room_id):
         # Check if there's already an active call
         from .models import Call, CallParticipant
         
-        # First, clean up any stale calls (older than 5 minutes) - allows time for auto-answer
+        # First, clean up any stale calls (older than 10 minutes) - allows time for auto-answer
         from django.utils import timezone
         from datetime import timedelta
         
         stale_calls = Call.objects.filter(
             chat_room=chat_room,
             status__in=['initiated', 'ringing'],
-            started_at__lt=timezone.now() - timedelta(minutes=5)
+            started_at__lt=timezone.now() - timedelta(minutes=10)
         )
         stale_calls.update(status='missed')
         
