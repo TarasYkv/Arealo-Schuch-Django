@@ -2155,35 +2155,41 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
         print(f"📄 Pagination-Status gespeichert: {since_id}")
     
     def _fetch_next_batch(self, blog_id: str, batch_size: int = 250):
-        """Holt die nächste Batch von Posts mit einer einfachen Lösung"""
+        """Holt die nächste Batch von Posts mit vollständiger Suche"""
         self._update_progress(0, batch_size, f'Hole nächste {batch_size} Blog-Posts...')
         
-        # EINFACHE LÖSUNG: Hole nur die ersten 250 Posts mit since_id=None
-        # Das funktioniert für beide Modi:
-        # - "all": Alle Posts gelöscht, hole die ersten 250
-        # - "new_only": Hole Posts und filtere bereits vorhandene heraus
+        # VOLLSTÄNDIGE LÖSUNG: Hole alle Posts und filtere bereits vorhandene heraus
+        # Das ist notwendig, da die Shopify API Posts in chronologischer Reihenfolge zurückgibt
+        # und wir die noch nicht importierten Posts finden müssen
         
-        success, articles, message = self.api.fetch_blog_posts(blog_id, limit=batch_size, since_id=None)
+        print(f"📄 Durchsuche alle verfügbaren Posts nach neuen Einträgen...")
+        
+        # Hole alle Posts über Pagination
+        success, all_articles, message = self._fetch_all_blog_posts(blog_id, max_posts=None)
         
         if not success:
             return False, [], message
         
-        print(f"📄 {len(articles)} Posts von Shopify geholt")
+        print(f"📄 {len(all_articles)} Posts von Shopify erhalten")
         
         # Filtere bereits vorhandene Posts heraus
         from .models import ShopifyBlog, ShopifyBlogPost
         blog = ShopifyBlog.objects.get(shopify_id=blog_id)
         
         existing_ids = set(ShopifyBlogPost.objects.filter(
-            blog=blog,
-            shopify_id__in=[str(a['id']) for a in articles]
+            blog=blog
         ).values_list('shopify_id', flat=True))
         
-        new_articles = [a for a in articles if str(a['id']) not in existing_ids]
+        new_articles = [a for a in all_articles if str(a['id']) not in existing_ids]
         
-        print(f"📄 {len(new_articles)} neue Posts (von {len(articles)} geprüft)")
+        print(f"📄 {len(new_articles)} neue Posts gefunden (von {len(all_articles)} geprüft)")
         
-        return True, new_articles, f"{len(new_articles)} Blog-Posts abgerufen"
+        # Nimm nur die ersten batch_size Posts für timeout-sichere Verarbeitung
+        articles_to_return = new_articles[:batch_size]
+        
+        print(f"📄 Gebe {len(articles_to_return)} Posts für Import zurück")
+        
+        return True, articles_to_return, f"{len(articles_to_return)} Blog-Posts abgerufen"
     
     def import_blog_posts(self, blog: ShopifyBlog, import_mode: str = 'new_only') -> ShopifySyncLog:
         """Importiert Blog-Posts mit Progress-Updates"""
