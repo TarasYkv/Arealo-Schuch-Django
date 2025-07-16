@@ -2140,10 +2140,27 @@
                 
                 hideGlobalIncomingCall();
                 
-                // Redirect to chat page with room and auto-accept call
-                const chatUrl = `/chat/?room=${callData.room_id}&answerCall=${callData.call_id}&callType=${callData.call_type}`;
-                console.log('🔗 Redirecting to:', chatUrl);
-                window.location.href = chatUrl;
+                // Check if we're already on the chat page for this room
+                if (window.location.pathname.includes('/chat/') && window.location.search.includes(`room=${callData.room_id}`)) {
+                    // Already on the correct chat page - call acceptIncomingCall directly
+                    console.log('✅ Already on chat page - accepting call directly');
+                    if (typeof incomingCallData === 'undefined') {
+                        window.incomingCallData = callData;
+                    } else {
+                        incomingCallData = callData;
+                    }
+                    // Call the chat page's accept function if it exists
+                    if (typeof acceptIncomingCall === 'function') {
+                        acceptIncomingCall();
+                    } else {
+                        console.warn('acceptIncomingCall function not available');
+                    }
+                } else {
+                    // Redirect to chat page with room and auto-accept call
+                    const chatUrl = `/chat/?room=${callData.room_id}&answerCall=${callData.call_id}&callType=${callData.call_type}`;
+                    console.log('🔗 Redirecting to:', chatUrl);
+                    window.location.href = chatUrl;
+                }
                 
             } catch (error) {
                 console.error('Error accepting global call:', error);
