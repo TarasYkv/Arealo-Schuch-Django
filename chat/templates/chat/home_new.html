@@ -6,6 +6,131 @@
 .chat-container {
     height: calc(100vh - 200px);
     display: flex;
+    position: relative;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .chat-container {
+        height: calc(100vh - 120px);
+        flex-direction: column;
+    }
+    
+    .chat-sidebar {
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1000;
+        background: white;
+        border-right: none;
+    }
+    
+    .chat-sidebar.mobile-show {
+        display: block;
+    }
+    
+    .chat-main {
+        flex: 1;
+        width: 100%;
+    }
+    
+    .chat-header h6 {
+        font-size: 1rem;
+    }
+    
+    .search-box {
+        font-size: 14px;
+        padding: 8px 12px;
+    }
+    
+    .chat-room-item {
+        padding: 12px;
+    }
+    
+    .user-avatar-img,
+    .user-avatar {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .message-input-container {
+        padding: 10px;
+    }
+    
+    .form-control {
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+}
+
+/* Call Window Styles */
+.call-window {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 320px;
+    z-index: 1000;
+}
+
+.call-video-container {
+    height: 240px;
+    position: relative;
+    background: #000;
+}
+
+.remote-video {
+    width: 100%;
+    height: 100%;
+}
+
+.local-video {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    width: 80px;
+    height: 60px;
+    border: 2px solid #fff;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+/* Mobile Call Window */
+@media (max-width: 768px) {
+    .call-window {
+        bottom: 0;
+        right: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+    }
+    
+    .call-window .card {
+        height: 100vh;
+        border-radius: 0;
+    }
+    
+    .call-video-container {
+        height: calc(100vh - 120px);
+    }
+    
+    .local-video {
+        width: 100px;
+        height: 75px;
+        bottom: 15px;
+        right: 15px;
+    }
+    
+    .call-window .card-header {
+        padding: 15px;
+    }
+    
+    .call-window .card-body {
+        padding: 0;
+    }
 }
 
 /* Chat Info Modal Styles */
@@ -659,10 +784,10 @@ body.modal-open {
                         </h4>
                         <div class="d-flex gap-2">
                             <a href="{% url 'chat:user_search' %}" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-search"></i> Nutzer suchen
+                                <i class="fas fa-search"></i> <span class="d-none d-sm-inline">Nutzer suchen</span>
                             </a>
                             <a href="{% url 'chat:create_group_chat' %}" class="btn btn-sm btn-outline-success d-flex align-items-center justify-content-center">
-                                <i class="fas fa-users me-1"></i>Gruppe erstellen
+                                <i class="fas fa-users me-1"></i><span class="d-none d-sm-inline">Gruppe erstellen</span>
                             </a>
                         </div>
                     </div>
@@ -788,6 +913,9 @@ body.modal-open {
                             <div id="chatHeader" class="chat-header" style="display: none;">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div class="d-flex align-items-center">
+                                        <button class="btn btn-sm btn-outline-secondary d-md-none me-2" id="mobileChatToggle" onclick="toggleMobileChatList()">
+                                            <i class="fas fa-bars"></i>
+                                        </button>
                                         <div id="chatAvatar" class="user-avatar bg-primary me-3"></div>
                                         <div>
                                             <h6 class="mb-0" id="chatTitle">Chat-Name</h6>
@@ -2287,6 +2415,19 @@ function handleCallEnded(data) {
         endCall();
     }
     
+    // Force close call window if still open
+    const callWindow = document.getElementById('smallCallWindow');
+    if (callWindow && callWindow.style.display !== 'none') {
+        console.log('🔚 Force closing call window');
+        callWindow.style.display = 'none';
+    }
+    
+    // Hide minimized call indicator
+    const minimizedIndicator = document.getElementById('minimizedCallIndicator');
+    if (minimizedIndicator) {
+        minimizedIndicator.style.display = 'none';
+    }
+    
     // Force end call if no other conditions matched
     if (getCallActive()) {
         console.log('🔚 Force ending call due to call_ended message');
@@ -2297,6 +2438,11 @@ function handleCallEnded(data) {
             endCall();
         }
     }
+    
+    // Reset all call-related state
+    setCallActive(false);
+    currentCallType = null;
+    currentChannelName = null;
 }
 
 // Call status polling variables
@@ -2624,7 +2770,7 @@ async function endAgoraCall() {
                 console.log('🔚 WebSocket not available for call_ended message');
             }
             
-            // Also send via HTTP for reliability
+                // Also send via HTTP for reliability
             fetch('/chat/end-call-notification/', {
                 method: 'POST',
                 headers: {
@@ -2807,7 +2953,7 @@ async function checkForIncomingCalls() {
 </script>
 
 <!-- Small Call Window (outside modal) -->
-<div id="smallCallWindow" style="position: fixed; bottom: 20px; right: 20px; width: 320px; z-index: 1000; display: none;">
+<div id="smallCallWindow" class="call-window" style="display: none;">
     <div class="card shadow-lg">
         <div class="card-header bg-dark text-white p-2 d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center">
@@ -2815,7 +2961,7 @@ async function checkForIncomingCalls() {
                 <span id="smallCallTitle">Anruf</span>
             </div>
             <div>
-                <button type="button" class="btn btn-sm btn-light me-1" onclick="toggleCallWindow()">
+                <button type="button" class="btn btn-sm btn-light me-1 d-none d-md-inline" onclick="toggleCallWindow()">
                     <i class="fas fa-minus"></i>
                 </button>
                 <button type="button" class="btn-close btn-close-white" onclick="endSmallCallWindow()"></button>
@@ -2823,9 +2969,9 @@ async function checkForIncomingCalls() {
         </div>
         <div class="card-body p-0 bg-dark" id="smallCallBody">
             <!-- Video Container -->
-            <div style="height: 240px; position: relative; background: #000;">
-                <div id="smallRemoteVideo" style="width: 100%; height: 100%;"></div>
-                <div id="smallLocalVideo" style="position: absolute; bottom: 10px; right: 10px; width: 80px; height: 60px; border: 2px solid #fff; border-radius: 6px; overflow: hidden;"></div>
+            <div class="call-video-container">
+                <div id="smallRemoteVideo" class="remote-video"></div>
+                <div id="smallLocalVideo" class="local-video"></div>
             </div>
             <!-- Call Controls -->
             <div class="p-2 bg-secondary d-flex justify-content-center gap-2">
@@ -2984,18 +3130,31 @@ function showSmallCallWindow(callType) {
 }
 
 function endSmallCallWindow() {
-    // End the call
+    // End the call (this will notify other participants)
     endAgoraCall();
     
     // Hide window
-    document.getElementById('smallCallWindow').style.display = 'none';
-    document.getElementById('minimizedCallIndicator').style.display = 'none';
+    const callWindow = document.getElementById('smallCallWindow');
+    if (callWindow) {
+        callWindow.style.display = 'none';
+    }
+    
+    // Hide minimized indicator
+    const minimizedIndicator = document.getElementById('minimizedCallIndicator');
+    if (minimizedIndicator) {
+        minimizedIndicator.style.display = 'none';
+    }
     
     // Stop duration timer
     if (callDurationInterval) {
         clearInterval(callDurationInterval);
         callDurationInterval = null;
     }
+    
+    // Reset call state
+    setCallActive(false);
+    currentCallType = null;
+    currentChannelName = null;
 }
 
 function toggleCallWindow() {
@@ -3305,6 +3464,11 @@ async function rejectIncomingCall() {
     }
     
     hideIncomingCall();
+}
+
+function toggleMobileChatList() {
+    const sidebar = document.querySelector('.chat-sidebar');
+    sidebar.classList.toggle('mobile-show');
 }
 
 function blurBackground(enable) {
