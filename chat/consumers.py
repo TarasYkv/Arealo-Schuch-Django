@@ -29,6 +29,11 @@ class CallConsumer(AsyncWebsocketConsumer):
         text_data_json = json.loads(text_data)
         message_type = text_data_json.get('type')
         
+        # Handle call ended messages specially
+        if message_type == 'call_ended':
+            # End any active calls in the database
+            await self.end_active_calls()
+        
         # Send message to room group
         await self.channel_layer.group_send(
             self.room_group_name,
@@ -37,6 +42,30 @@ class CallConsumer(AsyncWebsocketConsumer):
                 'message': text_data_json
             }
         )
+    
+    @database_sync_to_async
+    def end_active_calls(self):
+        """End any active calls in this room"""
+        try:
+            from .models import Call
+            from django.utils import timezone
+            
+            # Find active calls in this room
+            active_calls = Call.objects.filter(
+                chat_room_id=self.room_id,
+                status__in=['initiated', 'ringing', 'connected']
+            )
+            
+            # End all active calls
+            for call in active_calls:
+                call.status = 'ended'
+                call.ended_at = timezone.now()
+                if call.connected_at and not call.duration:
+                    call.duration = call.ended_at - call.connected_at
+                call.save()
+                
+        except Exception as e:
+            print(f"Error ending active calls: {e}")
     
     async def call_message(self, event):
         message = event['message']
