@@ -547,7 +547,7 @@ class ShopifyAPIClient:
         except requests.exceptions.RequestException as e:
             return False, [], f"Fehler beim Abrufen der Blogs: {str(e)}"
     
-    def fetch_blog_posts(self, blog_id: str, limit: int = 250, since_id: Optional[str] = None, max_id: Optional[str] = None) -> Tuple[bool, List[Dict], str]:
+    def fetch_blog_posts(self, blog_id: str, limit: int = 250, since_id: Optional[str] = None, max_id: Optional[str] = None, page: Optional[int] = None) -> Tuple[bool, List[Dict], str]:
         """Holt Blog-Posts für einen bestimmten Blog"""
         try:
             # Hole alle Felder direkt in einer Abfrage (inkl. Content)
@@ -560,6 +560,8 @@ class ShopifyAPIClient:
                 params['since_id'] = since_id
             if max_id:
                 params['max_id'] = max_id
+            if page:
+                params['page'] = page
             
             response = self._make_request(
                 'GET',

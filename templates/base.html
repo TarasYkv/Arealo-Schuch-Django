@@ -1496,19 +1496,8 @@
         }
 
         function endGlobalCall() {
-            // Send end call message
-            if (globalCallSocket && globalCallSocket.readyState === WebSocket.OPEN && globalCurrentCallId) {
-                globalCallSocket.send(JSON.stringify({
-                    type: 'call_end',
-                    call_id: globalCurrentCallId
-                }));
-            }
-            
-            // Close WebSocket
-            if (globalCallSocket) {
-                globalCallSocket.close();
-                globalCallSocket = null;
-            }
+            // WebSocket functionality disabled - using HTTP polling only
+            console.log('🔴 Ending global call (HTTP polling mode):', globalCurrentCallId);
             
             // Clean up WebRTC
             if (globalPeerConnection) {
@@ -1567,20 +1556,8 @@
                     globalIsVideoEnabled = true;
                 }
                 
-                // Create WebSocket connection for this call
-                if (!globalCallSocket || globalCallSocket.readyState !== WebSocket.OPEN) {
-                    if (roomId) {
-                        await connectGlobalCallWebSocket(roomId);
-                    }
-                }
-                
-                // Send answer through WebSocket
-                if (globalCallSocket && globalCallSocket.readyState === WebSocket.OPEN) {
-                    globalCallSocket.send(JSON.stringify({
-                        type: 'call_answer',
-                        call_id: callId
-                    }));
-                }
+                // WebSocket disabled - using HTTP polling only
+                console.log('✅ Call answered via HTTP polling (WebSocket disabled)');
                 
                 console.log('Global call answered:', callId, callType);
                 
@@ -1666,11 +1643,8 @@
                 
                 globalCurrentCallId = result.call_id;
                 
-                // Connect to WebSocket
-                console.log('🔌 Connecting to call WebSocket for room:', roomId);
-                await connectGlobalCallWebSocket(roomId);
-                
-                console.log('✅ Global call started successfully:', result.call_id);
+                // WebSocket disabled - using HTTP polling only
+                console.log('✅ Global call started successfully (HTTP polling mode):', result.call_id);
                 
             } catch (error) {
                 console.error('Error starting global call:', error);
@@ -1679,41 +1653,8 @@
             }
         }
         
-        // Connect global call WebSocket
-        async function connectGlobalCallWebSocket(roomId) {
-            return new Promise((resolve, reject) => {
-                if (roomId) {
-                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                    const wsHost = window.location.hostname + ':' + window.location.port;
-                    const wsUrl = `${protocol}//${wsHost}/ws/call/${roomId}/`;
-                    
-                    globalCallSocket = new WebSocket(wsUrl);
-                    
-                    globalCallSocket.onopen = function(e) {
-                        console.log('Global call WebSocket connected');
-                        resolve();
-                    };
-                    
-                    globalCallSocket.onerror = function(e) {
-                        console.error('Global call WebSocket error:', e);
-                        reject(e);
-                    };
-                    
-                    globalCallSocket.onmessage = function(e) {
-                        const data = JSON.parse(e.data);
-                        console.log('Global call WebSocket message:', data);
-                        // Handle WebRTC messages here if needed
-                    };
-                    
-                    globalCallSocket.onclose = function(e) {
-                        console.log('Global call WebSocket closed');
-                        globalCallSocket = null;
-                    };
-                } else {
-                    reject('No room ID available');
-                }
-            });
-        }
+        // WebSocket functionality disabled - using HTTP polling only
+        // connectGlobalCallWebSocket function removed - HTTP polling is the primary method
         
         // Show message notification
         function showMessageNotification(roomId, senderName, message) {
