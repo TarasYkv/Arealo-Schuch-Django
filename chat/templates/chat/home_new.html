@@ -2831,8 +2831,11 @@ async function startAgoraCall(callType) {
         
         console.log('📞 Call initiated successfully:', initiateData);
         
+        // Extract call_id from the response
+        const callId = initiateData.call_id;
+        
         currentCallType = callType;
-        currentChannelName = `chat_${currentRoomId}`;
+        currentChannelName = `call_${currentRoomId}_${callId}`;
         
         // Get Agora token from backend
         const response = await fetch('/chat/get-agora-token/', {
@@ -3394,6 +3397,9 @@ function toggleSmallVideo() {
 let incomingCallData = null;
 
 function showIncomingCall(callData) {
+    console.log('📞 showIncomingCall called with:', callData);
+    console.log('📞 Channel name:', callData.channel_name);
+    
     incomingCallData = callData;
     
     // Stop polling while call overlay is shown
