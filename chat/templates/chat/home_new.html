@@ -661,8 +661,8 @@ body.modal-open {
                             <a href="{% url 'chat:user_search' %}" class="btn btn-sm btn-outline-primary">
                                 <i class="fas fa-search"></i> Nutzer suchen
                             </a>
-                            <a href="{% url 'chat:create_group_chat' %}" class="btn btn-sm btn-outline-success">
-                                <i class="fas fa-users"></i> Gruppe erstellen
+                            <a href="{% url 'chat:create_group_chat' %}" class="btn btn-sm btn-outline-success d-flex align-items-center justify-content-center">
+                                <i class="fas fa-users me-1"></i>Gruppe erstellen
                             </a>
                         </div>
                     </div>
@@ -870,6 +870,12 @@ body.modal-open {
                                     <div class="d-flex gap-1">
                                         <button class="btn btn-outline-secondary" onclick="document.getElementById('fileInput').click()" title="Datei anhängen">
                                             <i class="fas fa-paperclip"></i>
+                                        </button>
+                                        <button class="btn btn-outline-success" onclick="startAgoraCall('audio')" title="Anrufen">
+                                            <i class="fas fa-phone"></i>
+                                        </button>
+                                        <button class="btn btn-outline-info" onclick="startAgoraCall('video')" title="Videoanruf">
+                                            <i class="fas fa-video"></i>
                                         </button>
                                         <button class="btn btn-primary" onclick="sendMessage()">
                                             <i class="fas fa-paper-plane"></i>
@@ -2405,46 +2411,81 @@ function initAgoraClient() {
     
     // Event handlers
     agoraClient.on("user-published", async (user, mediaType) => {
-        await agoraClient.subscribe(user, mediaType);
-        console.log("User published:", user, mediaType);
-        
-        if (mediaType === "video") {
-            const remoteVideoTrack = user.videoTrack;
+        try {
+            await agoraClient.subscribe(user, mediaType);
+            console.log("User published:", user, mediaType);
             
-            // Try small window first, fallback to modal
-            const smallRemoteContainer = document.getElementById("smallRemoteVideo");
-            const modalRemoteContainer = document.getElementById("remoteVideoContainer");
-            
-            if (smallRemoteContainer && document.getElementById("smallCallWindow").style.display !== "none") {
-                // Use small window
-                smallRemoteContainer.innerHTML = "";
-                remoteVideoTrack.play(smallRemoteContainer);
-            } else if (modalRemoteContainer) {
-                // Use modal (fallback)
-                modalRemoteContainer.innerHTML = "";
-                remoteVideoTrack.play(modalRemoteContainer);
-                document.getElementById("waitingScreen").style.display = "none";
+            if (mediaType === "video") {
+                const remoteVideoTrack = user.videoTrack;
+                
+                // Try small window first, fallback to modal
+                const smallRemoteContainer = document.getElementById("smallRemoteVideo");
+                const modalRemoteContainer = document.getElementById("remoteVideoContainer");
+                
+                if (smallRemoteContainer && document.getElementById("smallCallWindow").style.display !== "none") {
+                    // Use small window
+                    smallRemoteContainer.innerHTML = "";
+                    remoteVideoTrack.play(smallRemoteContainer);
+                } else if (modalRemoteContainer) {
+                    // Use modal (fallback)
+                    modalRemoteContainer.innerHTML = "";
+                    remoteVideoTrack.play(modalRemoteContainer);
+                    document.getElementById("waitingScreen").style.display = "none";
+                }
             }
-        }
-        
-        if (mediaType === "audio") {
-            const remoteAudioTrack = user.audioTrack;
-            remoteAudioTrack.play();
+            
+            if (mediaType === "audio") {
+                const remoteAudioTrack = user.audioTrack;
+                remoteAudioTrack.play();
+            }
+        } catch (error) {
+            console.error("Error handling user-published event:", error);
         }
     });
     
     agoraClient.on("user-unpublished", (user) => {
         console.log("User unpublished:", user);
         // Show waiting screen again
-        document.getElementById("waitingScreen").style.display = "block";
+        const waitingScreen = document.getElementById("waitingScreen");
+        if (waitingScreen) {
+            waitingScreen.style.display = "block";
+        }
     });
     
     agoraClient.on("user-left", (user) => {
         console.log("User left:", user);
-        document.getElementById("callStatus").textContent = "Anruf beendet";
+        const callStatus = document.getElementById("callStatus");
+        if (callStatus) {
+            callStatus.textContent = "Anruf beendet";
+        }
         setTimeout(() => {
             endAgoraCall();
         }, 2000);
+    });
+    
+    // Add connection state event handlers
+    agoraClient.on("connection-state-change", (curState, revState) => {
+        console.log("Connection state changed:", curState, "from", revState);
+        if (curState === "DISCONNECTED") {
+            console.log("Agora client disconnected");
+            // Try to reconnect or end call
+            setTimeout(() => {
+                if (getCallActive()) {
+                    console.log("Attempting to reconnect...");
+                    // Could implement reconnection logic here
+                    endAgoraCall();
+                }
+            }, 3000);
+        }
+    });
+    
+    // Add error handling
+    agoraClient.on("exception", (evt) => {
+        console.error("Agora exception:", evt);
+        if (evt.code === "INVALID_TOKEN") {
+            console.log("Token expired, ending call");
+            endAgoraCall();
+        }
     });
 }
 
@@ -2913,19 +2954,26 @@ function showSmallCallWindow(callType) {
     const title = document.getElementById('smallCallTitle');
     const videoBtn = document.getElementById('smallVideoBtn');
     
+    // Check if elements exist
+    if (!window) {
+        console.error('Small call window element not found');
+        return;
+    }
+    
     // Update UI based on call type
     if (callType === 'video') {
-        icon.className = 'fas fa-video me-2';
-        title.textContent = 'Videoanruf';
-        videoBtn.style.display = 'inline-block';
+        if (icon) icon.className = 'fas fa-video me-2';
+        if (title) title.textContent = 'Videoanruf';
+        if (videoBtn) videoBtn.style.display = 'inline-block';
     } else {
-        icon.className = 'fas fa-phone me-2';
-        title.textContent = 'Anruf';
-        videoBtn.style.display = 'none';
+        if (icon) icon.className = 'fas fa-phone me-2';
+        if (title) title.textContent = 'Anruf';
+        if (videoBtn) videoBtn.style.display = 'none';
     }
     
     // Show window
     window.style.display = 'block';
+    console.log('Small call window shown for', callType, 'call');
     
     // Start duration timer
     callStartTime = new Date();
@@ -3129,20 +3177,22 @@ async function acceptIncomingCall() {
     console.log('🔄 acceptIncomingCall started with data:', incomingCallData);
     
     try {
-        // Clear call notification on server first
-        const clearResponse = await fetch('/chat/clear-call-notification/', {
+        // Accept call on server first
+        const acceptResponse = await fetch('/chat/accept-call/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCookie('csrftoken')
             },
             body: JSON.stringify({
-                message_id: incomingCallData.call_id
+                call_id: incomingCallData.call_id
             })
         });
         
-        if (!clearResponse.ok) {
-            console.error('Failed to clear call notification');
+        if (!acceptResponse.ok) {
+            console.error('Failed to accept call');
+            const errorData = await acceptResponse.json();
+            throw new Error(errorData.error || 'Failed to accept call');
         }
         
         // Validate incoming call data BEFORE hiding (which sets incomingCallData to null)
@@ -3231,23 +3281,27 @@ async function rejectIncomingCall() {
     if (!incomingCallData) return;
     
     try {
-        // Clear call notification on server
-        const clearResponse = await fetch('/chat/clear-call-notification/', {
+        // Reject call on server
+        const rejectResponse = await fetch('/chat/reject-call/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCookie('csrftoken')
             },
             body: JSON.stringify({
-                message_id: incomingCallData.call_id
+                call_id: incomingCallData.call_id
             })
         });
         
-        if (!clearResponse.ok) {
-            console.error('Failed to clear call notification');
+        if (!rejectResponse.ok) {
+            console.error('Failed to reject call');
+            const errorData = await rejectResponse.json();
+            console.error('Reject error:', errorData);
+        } else {
+            console.log('Call rejected successfully');
         }
     } catch (error) {
-        console.error('Error clearing call notification:', error);
+        console.error('Error rejecting call:', error);
     }
     
     hideIncomingCall();
