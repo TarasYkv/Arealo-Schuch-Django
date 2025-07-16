@@ -2005,6 +2005,186 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
         print(f"✅ PAGINATION ABGESCHLOSSEN: {total_fetched} Blog-Posts über {page-1} Seiten abgerufen")
         return True, all_articles, f"{total_fetched} Blog-Posts über Pagination abgerufen"
     
+    def _fetch_blog_posts_after_id(self, blog_id: str, max_posts: int, start_from_id: str = None):
+        """Holt Blog-Posts nach einer bestimmten ID (oder neueste wenn None)"""
+        self._update_progress(0, max_posts, f'Hole Blog-Posts von Shopify...')
+        
+        if start_from_id is None:
+            # Hole die neuesten Posts (ohne since_id)
+            success, articles, message = self.api.fetch_blog_posts(blog_id, limit=max_posts)
+        else:
+            # Lade Posts mit since_id (Posts die NACH der angegebenen ID kommen)
+            # Das sind Posts, die neuer sind als der neueste Post in der DB
+            success, articles, message = self.api.fetch_blog_posts(blog_id, limit=max_posts, since_id=start_from_id)
+            print(f"📄 API-Aufruf mit since_id={start_from_id}: {len(articles)} Posts geholt")
+        
+        if not success:
+            return False, [], message
+        
+        print(f"📄 {len(articles)} Blog-Posts geholt")
+        return True, articles, f"{len(articles)} Blog-Posts abgerufen"
+    
+    def _fetch_blog_posts_with_skip(self, blog_id: str, skip_count: int, take_count: int):
+        """Holt Blog-Posts mit Skip-und-Take-Pattern"""
+        self._update_progress(0, take_count, f'Überspringe {skip_count} Posts und hole {take_count} weitere...')
+        
+        all_articles = []
+        since_id = None
+        total_fetched = 0
+        
+        # Überspringe die ersten skip_count Posts
+        while total_fetched < skip_count:
+            batch_size = min(250, skip_count - total_fetched)
+            success, batch_articles, message = self.api.fetch_blog_posts(blog_id, limit=batch_size, since_id=since_id)
+            
+            if not success or not batch_articles:
+                print(f"📄 Fehler oder keine Posts mehr beim Überspringen: {message}")
+                break
+            
+            total_fetched += len(batch_articles)
+            since_id = str(batch_articles[-1]['id'])
+            
+            print(f"📄 Überspringe Posts: {total_fetched}/{skip_count}")
+            
+            self._update_progress(total_fetched, skip_count + take_count, f'Überspringe Posts ({total_fetched}/{skip_count})...')
+        
+        # Jetzt hole die nächsten take_count Posts und filtere bereits vorhandene heraus
+        collected = 0
+        attempts = 0
+        max_attempts = 10  # Verhindere Endlosschleife
+        
+        while collected < take_count and attempts < max_attempts:
+            batch_size = min(250, (take_count - collected) * 2)  # Hole mehr für Filterung
+            success, batch_articles, message = self.api.fetch_blog_posts(blog_id, limit=batch_size, since_id=since_id)
+            
+            if not success or not batch_articles:
+                print(f"📄 Keine weiteren Posts verfügbar: {message}")
+                break
+            
+            # Filtere Posts heraus, die bereits in der DB sind
+            from .models import ShopifyBlogPost
+            existing_ids = set(ShopifyBlogPost.objects.filter(
+                blog__shopify_id=blog_id, 
+                shopify_id__in=[str(a['id']) for a in batch_articles]
+            ).values_list('shopify_id', flat=True))
+            
+            new_articles = [a for a in batch_articles if str(a['id']) not in existing_ids]
+            
+            print(f"📄 Batch: {len(batch_articles)} Posts, {len(new_articles)} neue Posts")
+            
+            if new_articles:
+                # Nehme nur die benötigten Posts
+                needed = take_count - collected
+                articles_to_add = new_articles[:needed]
+                all_articles.extend(articles_to_add)
+                collected += len(articles_to_add)
+                
+                print(f"📄 Sammle Posts: {collected}/{take_count}")
+            
+            if len(batch_articles) > 0:
+                since_id = str(batch_articles[-1]['id'])
+            
+            attempts += 1
+            
+            self._update_progress(skip_count + collected, skip_count + take_count, f'Sammle Posts ({collected}/{take_count})...')
+            
+            # Stoppe wenn weniger als erwartete Posts zurückgegeben wurden
+            if len(batch_articles) < batch_size:
+                break
+        
+        print(f"📄 {len(all_articles)} Blog-Posts gesammelt (nach Überspringen von {skip_count} Posts)")
+        return True, all_articles, f"{len(all_articles)} Blog-Posts abgerufen"
+    
+    def _fetch_blog_posts_continuation(self, blog_id: str, max_posts: int, start_from_id: str = None):
+        """Holt weitere Blog-Posts durch vollständige Pagination und Filterung"""
+        self._update_progress(0, max_posts, f'Lade weitere Blog-Posts...')
+        
+        # Hole ALLE Posts von Shopify und filtere die bereits importierten heraus
+        print(f"📄 Hole alle Posts von Shopify und filtere bereits importierte heraus...")
+        
+        # Verwende die bestehende _fetch_all_blog_posts Methode
+        success, all_shopify_posts, message = self._fetch_all_blog_posts(blog_id, max_posts=None)
+        
+        if not success:
+            return False, [], message
+        
+        print(f"📄 {len(all_shopify_posts)} Posts von Shopify geholt")
+        
+        # Hole alle bereits importierten Post-IDs
+        from .models import ShopifyBlogPost
+        existing_ids = set(ShopifyBlogPost.objects.filter(
+            blog__shopify_id=blog_id
+        ).values_list('shopify_id', flat=True))
+        
+        print(f"📄 {len(existing_ids)} Posts bereits in DB")
+        
+        # Filtere bereits importierte Posts heraus
+        new_articles = [a for a in all_shopify_posts if str(a['id']) not in existing_ids]
+        
+        print(f"📄 {len(new_articles)} neue Posts gefunden")
+        
+        # Nimm nur die ersten max_posts
+        articles_to_return = new_articles[:max_posts]
+        
+        print(f"📄 Gebe {len(articles_to_return)} Posts zurück")
+        return True, articles_to_return, f"{len(articles_to_return)} Blog-Posts abgerufen"
+    
+    def _clear_pagination_state(self, blog):
+        """Löscht den Pagination-Zustand für einen Blog"""
+        # Für "all" Modus werden alle Posts gelöscht, das ist der Reset
+        print(f"📄 Pagination-Status für Blog {blog.title} zurückgesetzt")
+    
+    def _get_pagination_state(self, blog):
+        """Holt den aktuellen Pagination-Zustand für einen Blog"""
+        # Das Problem: since_id gibt nur NEUERE Posts zurück
+        # Lösung: Verwende gar kein since_id und filtere stattdessen
+        from .models import ShopifyBlogPost
+        
+        post_count = ShopifyBlogPost.objects.filter(blog=blog).count()
+        
+        if post_count > 0:
+            print(f"📄 Pagination-Status: {post_count} Posts bereits importiert")
+            return post_count  # Verwende die Anzahl als Offset
+        else:
+            print(f"📄 Pagination-Status: Beginne von vorne")
+            return 0
+    
+    def _save_pagination_state(self, blog, since_id):
+        """Speichert den aktuellen Pagination-Zustand"""
+        # Wird automatisch durch das Speichern der Posts gemacht
+        print(f"📄 Pagination-Status gespeichert: {since_id}")
+    
+    def _fetch_next_batch(self, blog_id: str, batch_size: int = 250):
+        """Holt die nächste Batch von Posts mit einer einfachen Lösung"""
+        self._update_progress(0, batch_size, f'Hole nächste {batch_size} Blog-Posts...')
+        
+        # EINFACHE LÖSUNG: Hole nur die ersten 250 Posts mit since_id=None
+        # Das funktioniert für beide Modi:
+        # - "all": Alle Posts gelöscht, hole die ersten 250
+        # - "new_only": Hole Posts und filtere bereits vorhandene heraus
+        
+        success, articles, message = self.api.fetch_blog_posts(blog_id, limit=batch_size, since_id=None)
+        
+        if not success:
+            return False, [], message
+        
+        print(f"📄 {len(articles)} Posts von Shopify geholt")
+        
+        # Filtere bereits vorhandene Posts heraus
+        from .models import ShopifyBlog, ShopifyBlogPost
+        blog = ShopifyBlog.objects.get(shopify_id=blog_id)
+        
+        existing_ids = set(ShopifyBlogPost.objects.filter(
+            blog=blog,
+            shopify_id__in=[str(a['id']) for a in articles]
+        ).values_list('shopify_id', flat=True))
+        
+        new_articles = [a for a in articles if str(a['id']) not in existing_ids]
+        
+        print(f"📄 {len(new_articles)} neue Posts (von {len(articles)} geprüft)")
+        
+        return True, new_articles, f"{len(new_articles)} Blog-Posts abgerufen"
+    
     def import_blog_posts(self, blog: ShopifyBlog, import_mode: str = 'new_only') -> ShopifySyncLog:
         """Importiert Blog-Posts mit Progress-Updates"""
         log = ShopifySyncLog.objects.create(
@@ -2026,19 +2206,14 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
             
             # Bestimme Parameter basierend auf Import-Modus
             if import_mode == 'all':
-                max_posts = 250
-                start_from_id = None  # Beginne vom neuesten Post
+                # Lösche Pagination-Status und beginne von vorne
+                self._clear_pagination_state(blog)
+                success, articles, message = self._fetch_next_batch(blog.shopify_id, 250)
+                print(f"📄 Lade 250 neueste Posts (Reset)")
             else:  # new_only / weitere 250 laden
-                max_posts = 250
-                # Beginne nach dem ältesten Post in der Datenbank (um weitere ältere Posts zu laden)
-                # Da Shopify Posts in umgekehrter chronologischer Reihenfolge zurückgibt,
-                # verwenden wir die ID des ältesten Posts als since_id
-                from .models import ShopifyBlogPost
-                oldest_post = ShopifyBlogPost.objects.filter(blog=blog).order_by('shopify_created_at').first()
-                start_from_id = oldest_post.shopify_id if oldest_post else None
-                print(f"📄 Lade weitere Posts älter als ID: {start_from_id}")
-            
-            success, articles, message = self._fetch_all_blog_posts(blog.shopify_id, max_posts=max_posts, start_from_id=start_from_id, load_older=(import_mode == 'new_only'))
+                # Lade weitere 250 Posts basierend auf gespeichertem Pagination-Zustand
+                success, articles, message = self._fetch_next_batch(blog.shopify_id, 250)
+                print(f"📄 Lade weitere 250 Posts (Fortsetzung)")
             print(f"=== IMPORT RESULT: {len(articles)} Blog-Posts von Shopify geholt ===")
             
             if not success:

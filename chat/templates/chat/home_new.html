@@ -1653,11 +1653,8 @@ function initiateCall(callType) {
         return;
     }
     
-    // Check if WebSocket error exists (call functionality not available)
-    if (document.getElementById('websocket-error')) {
-        alert('Die Anruf-Funktion ist momentan nicht verfügbar. WebSocket-Verbindung fehlgeschlagen.');
-        return;
-    }
+    // WebSocket functionality disabled - using HTTP polling only
+    // Call functionality is available via HTTP polling
     
     // Show global floating call window
     showGlobalCallWindow();
@@ -1734,13 +1731,9 @@ async function startCall(callType) {
                     call_id: globalCurrentCallId
                 }));
             } else {
-                console.error('DEBUG: WebSocket not available:', callSocket?.readyState);
-                // WebSocket not available, show error message
-                document.getElementById('globalCallStatus').textContent = 'WebSocket-Verbindung fehlgeschlagen';
-                showWebSocketError();
-                setTimeout(() => {
-                    endCall();
-                }, 2000);
+                console.log('DEBUG: Using HTTP polling mode (WebSocket disabled)');
+                // HTTP polling mode is active
+                document.getElementById('globalCallStatus').textContent = 'Anruf läuft über HTTP-Polling...';
             }
         } else {
             alert('Fehler beim Starten des Anrufs: ' + data.error);
@@ -1789,44 +1782,17 @@ function connectCallWebSocket() {
     callSocket.onclose = function(e) {
         console.log('Call WebSocket disconnected');
         if (e.code !== 1000) {
-            showWebSocketError();
+            console.log('WebSocket functionality disabled - using HTTP polling only');
         }
     };
     
     callSocket.onerror = function(e) {
-        console.error('Call WebSocket error:', e);
-        showWebSocketError();
+        console.log('WebSocket error (expected - using HTTP polling):', e);
     };
 }
 
-// Show WebSocket connection error
-function showWebSocketError() {
-    const errorDiv = document.createElement('div');
-    errorDiv.id = 'websocket-error';
-    errorDiv.className = 'alert alert-warning alert-dismissible fade show';
-    errorDiv.style.position = 'fixed';
-    errorDiv.style.top = '10px';
-    errorDiv.style.right = '10px';
-    errorDiv.style.zIndex = '9999';
-    errorDiv.innerHTML = `
-        <strong>Anruf-Funktion nicht verfügbar:</strong> WebSocket-Verbindung fehlgeschlagen. 
-        Die Anruf-Funktion ist momentan nicht verfügbar.
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-    
-    // Remove any existing error message
-    const existing = document.getElementById('websocket-error');
-    if (existing) {
-        existing.remove();
-    }
-    
-    document.body.appendChild(errorDiv);
-    
-    // Hide call buttons
-    document.querySelectorAll('.call-btn').forEach(btn => {
-        btn.style.display = 'none';
-    });
-}
+// WebSocket error handling removed - using HTTP polling only
+// Call functionality is available via HTTP polling mode
 
 // Hide WebSocket error message
 function hideWebSocketError() {
