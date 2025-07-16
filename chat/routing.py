@@ -1,5 +1,7 @@
 from django.urls import re_path
+from . import consumers
 
 websocket_urlpatterns = [
-    # WebSocket support removed - using standard HTTP only
+    # WebSocket support for WebRTC signaling only
+    re_path(r'ws/call/(?P<room_id>\w+)/$', consumers.CallConsumer.as_asgi()),
 ]
