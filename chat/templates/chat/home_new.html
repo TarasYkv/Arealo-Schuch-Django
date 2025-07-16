@@ -409,12 +409,12 @@
     transition: all 0.3s ease;
 }
 
-.floating-call-window.minimized {
+.floating-call-minimized {
     height: 60px;
     width: 200px;
 }
 
-.floating-call-window.maximized {
+.floating-call-maximized {
     width: 500px;
     height: 350px;
 }
@@ -539,8 +539,8 @@
     background: #c82333;
 }
 
-.floating-call-window.minimized .call-content,
-.floating-call-window.minimized .call-controls {
+.floating-call-minimized .call-content,
+.floating-call-minimized .call-controls {
     display: none;
 }
 
@@ -835,6 +835,511 @@ body.modal-open {
 }
 </style>
 
+<script>
+// Simple loadChat function that works immediately
+function loadChat(roomId) {
+    console.log('🔍 loadChat called with roomId:', roomId);
+    
+    if (!roomId) {
+        console.error('No roomId provided');
+        return;
+    }
+    
+    // Set current room ID
+    window.currentRoomId = roomId;
+    
+    // Load messages
+    fetch(`/chat/api/room/${roomId}/messages/`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Messages loaded:', data);
+            if (data.success) {
+                displayMessages(data.messages);
+                updateChatHeader(data.room);
+                
+                // Show chat interface
+                const chatHeader = document.getElementById('chatHeader');
+                const messageInputDiv = document.getElementById('messageInput');
+                
+                if (chatHeader) chatHeader.style.display = 'block';
+                if (messageInputDiv) messageInputDiv.style.display = 'block';
+                
+                // Update active chat room
+                document.querySelectorAll('.chat-room-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                const activeRoom = document.querySelector(`[data-room-id="${roomId}"]`);
+                if (activeRoom) {
+                    activeRoom.classList.add('active');
+                }
+            } else {
+                console.error('Error loading messages:', data.error);
+                alert('Fehler beim Laden der Nachrichten: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Netzwerkfehler beim Laden der Nachrichten');
+        });
+}
+
+// Helper functions
+function displayMessages(messages) {
+    const messagesContainer = document.getElementById('chatMessages');
+    if (!messagesContainer) return;
+    
+    messagesContainer.innerHTML = '';
+    
+    if (!messages || messages.length === 0) {
+        messagesContainer.innerHTML = `
+            <div class="empty-chat">
+                <i class="fas fa-comments fa-3x mb-3"></i>
+                <p>Noch keine Nachrichten</p>
+                <p class="text-muted">Senden Sie die erste Nachricht!</p>
+            </div>
+        `;
+        return;
+    }
+    
+    messages.forEach(message => {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `d-flex ${message.is_own ? 'justify-content-end' : 'justify-content-start'} mb-3`;
+        
+        messageDiv.innerHTML = `
+            <div class="message-bubble ${message.is_own ? 'message-own' : 'message-other'}">
+                ${!message.is_own ? `<div class="mb-1"><small><strong>${message.sender_name || 'Anonym'}</strong></small></div>` : ''}
+                <div>${message.content || ''}</div>
+                <div class="mt-1">
+                    <small class="opacity-75">${message.formatted_time}</small>
+                </div>
+            </div>
+        `;
+        
+        messagesContainer.appendChild(messageDiv);
+    });
+    
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function updateChatHeader(room) {
+    const chatTitle = document.getElementById('chatTitle');
+    const chatSubtitle = document.getElementById('chatSubtitle');
+    const avatar = document.getElementById('chatAvatar');
+    
+    if (chatTitle) {
+        chatTitle.textContent = room.name || room.display_name;
+    }
+    
+    if (chatSubtitle) {
+        chatSubtitle.textContent = room.is_group_chat ? 
+            `${room.participant_count} Teilnehmer` : 'Privater Chat';
+    }
+    
+    if (avatar) {
+        avatar.className = `user-avatar ${room.is_group_chat ? 'bg-success' : 'bg-primary'} me-3`;
+        avatar.innerHTML = room.is_group_chat ? '<i class="fas fa-users"></i>' : room.avatar_text;
+    }
+}
+
+console.log('✅ loadChat function defined and ready');
+
+// Send message function
+function sendMessage() {
+    const messageInput = document.getElementById('messageText');
+    if (!messageInput) {
+        console.error('messageInput not found');
+        return;
+    }
+    
+    const messageText = messageInput.value.trim();
+    if (!messageText) return;
+    if (!window.currentRoomId) return;
+    
+    const formData = new FormData();
+    formData.append('content', messageText);
+    
+    fetch(`/chat/api/room/${window.currentRoomId}/send/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            messageInput.value = '';
+            loadChat(window.currentRoomId); // Reload messages
+        } else {
+            alert('Fehler beim Senden der Nachricht: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Verbindungsfehler');
+    });
+}
+
+// Get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Handle key press
+function handleKeyPress(event) {
+    if (event.key === 'Enter') {
+        sendMessage();
+    }
+}
+
+// === AGORA VIDEO/AUDIO CALL SYSTEM ===
+// Agora variables
+window.agoraClient = null;
+window.localAudioTrack = null;
+window.localVideoTrack = null;
+window.currentCallType = null;
+window.currentChannelName = null;
+window.isCallActive = false;
+window.callModal = null;
+
+// Agora Configuration
+window.agoraConfig = {
+    appId: "{{ agora_app_id|default:'your_agora_app_id_here' }}",
+    channel: null,
+    uid: null,
+    token: null
+};
+
+// Initialize Agora client
+function initAgoraClient() {
+    if (typeof AgoraRTC === 'undefined') {
+        console.error('❌ AgoraRTC SDK not loaded!');
+        alert('Video-System nicht verfügbar. Bitte laden Sie die Seite neu.');
+        return;
+    }
+    
+    console.log('🔄 Creating Agora client...');
+    window.agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+    console.log('✅ Agora client created:', window.agoraClient);
+    
+    // Event handlers
+    window.agoraClient.on("user-published", async (user, mediaType) => {
+        try {
+            console.log(`🎉 NEW USER PUBLISHED ${mediaType}:`, user.uid);
+            await window.agoraClient.subscribe(user, mediaType);
+            console.log(`✅ Successfully subscribed to ${mediaType} from user:`, user.uid);
+            
+            if (mediaType === "video") {
+                const remoteVideoTrack = user.videoTrack;
+                const remoteVideoContainer = document.getElementById("remoteVideoContainer");
+                
+                if (remoteVideoContainer) {
+                    remoteVideoContainer.innerHTML = "";
+                    remoteVideoTrack.play("remoteVideoContainer");
+                    
+                    const waitingScreen = document.getElementById("waitingScreen");
+                    if (waitingScreen) {
+                        waitingScreen.style.display = "none";
+                    }
+                    console.log('✅ Remote video playing');
+                }
+            }
+            
+            if (mediaType === "audio") {
+                const remoteAudioTrack = user.audioTrack;
+                remoteAudioTrack.play();
+                console.log('✅ Remote audio playing');
+            }
+        } catch (error) {
+            console.error("❌ Error handling user-published event:", error);
+        }
+    });
+    
+    window.agoraClient.on("user-left", (user) => {
+        console.log("👋 USER LEFT:", user.uid);
+        const callStatus = document.getElementById("callStatus");
+        if (callStatus) {
+            callStatus.textContent = "Anruf beendet";
+        }
+        setTimeout(() => {
+            endAgoraCall();
+        }, 2000);
+    });
+}
+
+// Start Agora call
+async function startAgoraCall(callType) {
+    console.log('🚀 Starting Agora call:', callType);
+    
+    if (!window.currentRoomId) {
+        alert('Bitte wählen Sie zuerst einen Chat aus.');
+        return;
+    }
+    
+    if (window.isCallActive) {
+        alert('Es läuft bereits ein Anruf.');
+        return;
+    }
+    
+    try {
+        // Initiate call via backend
+        const initiateResponse = await fetch(`/chat/api/room/${window.currentRoomId}/call/initiate/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                call_type: callType
+            })
+        });
+        
+        const initiateData = await initiateResponse.json();
+        if (!initiateData.success) {
+            throw new Error(initiateData.error || 'Failed to initiate call');
+        }
+        
+        console.log('📞 Call initiated successfully:', initiateData);
+        
+        const callId = initiateData.call_id;
+        window.currentCallType = callType;
+        window.currentChannelName = `call_${window.currentRoomId}_${callId}`;
+        
+        // Get Agora token
+        const response = await fetch('/chat/get-agora-token/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                channel: window.currentChannelName,
+                uid: 0
+            })
+        });
+        
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to get Agora token');
+        }
+        
+        window.agoraConfig.channel = window.currentChannelName;
+        window.agoraConfig.uid = data.uid;
+        window.agoraConfig.token = data.token;
+        
+        // Initialize Agora client
+        initAgoraClient();
+        
+        // Show call modal
+        showCallModal(callType);
+        
+        // Join channel
+        await window.agoraClient.join(window.agoraConfig.appId, window.agoraConfig.channel, window.agoraConfig.token, window.agoraConfig.uid);
+        
+        // Create and publish local tracks
+        window.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        
+        if (callType === 'video') {
+            window.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+            const localVideoContainer = document.getElementById("localVideoContainer");
+            if (localVideoContainer) {
+                window.localVideoTrack.play("localVideoContainer");
+            }
+            await window.agoraClient.publish([window.localAudioTrack, window.localVideoTrack]);
+        } else {
+            await window.agoraClient.publish([window.localAudioTrack]);
+        }
+        
+        window.isCallActive = true;
+        
+        const callStatus = document.getElementById("callStatus");
+        if (callStatus) {
+            callStatus.textContent = "Im Anruf - Warte auf anderen Teilnehmer";
+        }
+        
+        console.log('📞 Call started successfully');
+        
+    } catch (error) {
+        console.error('Error starting Agora call:', error);
+        alert('Fehler beim Starten des Anrufs: ' + error.message);
+        endAgoraCall();
+    }
+}
+
+// Show call modal
+function showCallModal(callType) {
+    const modal = document.getElementById("agoraCallModal");
+    if (!modal) return;
+    
+    const icon = document.getElementById("callModalIcon");
+    const text = document.getElementById("callModalText");
+    
+    if (icon && text) {
+        if (callType === 'video') {
+            icon.className = "fas fa-video";
+            text.textContent = "Videoanruf";
+        } else {
+            icon.className = "fas fa-phone";
+            text.textContent = "Anruf";
+        }
+    }
+    
+    window.callModal = new bootstrap.Modal(modal, {
+        backdrop: 'static',
+        keyboard: false
+    });
+    window.callModal.show();
+}
+
+// End Agora call
+async function endAgoraCall() {
+    try {
+        console.log('🔚 Ending Agora call');
+        
+        // Stop local tracks
+        if (window.localAudioTrack) {
+            window.localAudioTrack.stop();
+            window.localAudioTrack.close();
+            window.localAudioTrack = null;
+        }
+        
+        if (window.localVideoTrack) {
+            window.localVideoTrack.stop();
+            window.localVideoTrack.close();
+            window.localVideoTrack = null;
+        }
+        
+        // Leave channel
+        if (window.agoraClient) {
+            await window.agoraClient.leave();
+            window.agoraClient = null;
+        }
+        
+        // Hide modal
+        if (window.callModal) {
+            window.callModal.hide();
+            window.callModal = null;
+        }
+        
+        // Reset state
+        window.isCallActive = false;
+        window.currentCallType = null;
+        window.currentChannelName = null;
+        
+        // Reset UI
+        const waitingScreen = document.getElementById("waitingScreen");
+        if (waitingScreen) {
+            waitingScreen.style.display = "block";
+        }
+        
+        const remoteVideoContainer = document.getElementById("remoteVideoContainer");
+        if (remoteVideoContainer) {
+            remoteVideoContainer.innerHTML = `
+                <div class="d-flex align-items-center justify-content-center h-100">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary mb-3" role="status"></div>
+                        <h5>Warte auf Antwort...</h5>
+                        <p id="callStatus">Verbinde...</p>
+                    </div>
+                </div>
+            `;
+        }
+        
+        console.log('✅ Call ended successfully');
+        
+    } catch (error) {
+        console.error('Error ending call:', error);
+    }
+}
+
+// Toggle mute
+async function toggleMute() {
+    if (window.localAudioTrack) {
+        const muteBtn = document.getElementById("muteBtn");
+        if (window.localAudioTrack.enabled) {
+            await window.localAudioTrack.setEnabled(false);
+            if (muteBtn) {
+                muteBtn.classList.remove("btn-outline-light");
+                muteBtn.classList.add("btn-danger");
+                muteBtn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+            }
+        } else {
+            await window.localAudioTrack.setEnabled(true);
+            if (muteBtn) {
+                muteBtn.classList.remove("btn-danger");
+                muteBtn.classList.add("btn-outline-light");
+                muteBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+            }
+        }
+    }
+}
+
+// Toggle video
+async function toggleVideo() {
+    if (window.localVideoTrack) {
+        const videoBtn = document.getElementById("videoBtn");
+        if (window.localVideoTrack.enabled) {
+            await window.localVideoTrack.setEnabled(false);
+            if (videoBtn) {
+                videoBtn.classList.remove("btn-outline-light");
+                videoBtn.classList.add("btn-danger");
+                videoBtn.innerHTML = '<i class="fas fa-video-slash"></i>';
+            }
+        } else {
+            await window.localVideoTrack.setEnabled(true);
+            if (videoBtn) {
+                videoBtn.classList.remove("btn-danger");
+                videoBtn.classList.add("btn-outline-light");
+                videoBtn.innerHTML = '<i class="fas fa-video"></i>';
+            }
+        }
+    }
+}
+
+// Basic call functions (using Agora)
+function startCall(callType) {
+    startAgoraCall(callType);
+}
+
+// End call function
+function endCall() {
+    endAgoraCall();
+}
+
+// File handling
+function handleFileSelect(event) {
+    console.log('File selected:', event.target.files);
+    // Basic file selection - can be extended later
+}
+
+// Mobile chat toggle
+function toggleMobileChatList() {
+    const sidebar = document.querySelector('.chat-sidebar');
+    if (sidebar) {
+        sidebar.classList.toggle('mobile-show');
+    }
+}
+
+// Initialize Agora when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🎬 Agora integration loaded');
+});
+
+console.log('✅ All functions including Agora loaded and ready');
+
+</script>
+
 <div class="container-fluid">
     <div class="row">
         <div class="col-12">
@@ -865,7 +1370,7 @@ body.modal-open {
                             <input type="text" class="search-box" placeholder="Chats durchsuchen..." id="chatSearch">
                             <div class="chat-list" id="chatList">
                                 {% for room in chat_rooms %}
-                                <div class="chat-room-item" data-room-id="{{ room.id }}" onclick="window.loadChat({{ room.id }})">
+                                <div class="chat-room-item" data-room-id="{{ room.id }}" onclick="loadChat({{ room.id }})">
                                     <div class="d-flex align-items-center">
                                         <div class="position-relative">
                                             {% if room.is_group_chat %}
@@ -976,7 +1481,7 @@ body.modal-open {
                             <div id="chatHeader" class="chat-header" style="display: none;">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div class="d-flex align-items-center">
-                                        <button class="btn btn-sm btn-outline-secondary d-md-none me-2" id="mobileChatToggle" onclick="window.toggleMobileChatList()">
+                                        <button class="btn btn-sm btn-outline-secondary d-md-none me-2" id="mobileChatToggle" onclick="toggleMobileChatList()">
                                             <i class="fas fa-bars"></i>
                                         </button>
                                         <div id="chatAvatar" class="user-avatar bg-primary me-3"></div>
@@ -1073,12 +1578,12 @@ body.modal-open {
                                         <button class="btn btn-outline-info" onclick="startAgoraCall('video')" title="Videoanruf">
                                             <i class="fas fa-video"></i>
                                         </button>
-                                        <button class="btn btn-primary" onclick="window.sendMessage()">
+                                        <button class="btn btn-primary" onclick="sendMessage()">
                                             <i class="fas fa-paper-plane"></i>
                                         </button>
                                     </div>
                                 </div>
-                                <input type="file" id="fileInput" multiple style="display: none;" onchange="window.handleFileSelect(event)">
+                                <input type="file" id="fileInput" multiple style="display: none;" onchange="handleFileSelect(event)">
                             </div>
                         </div>
                     </div>
@@ -1090,37 +1595,58 @@ body.modal-open {
 
 <script>
 // Global variables
-window.currentRoomId = null;
-window.messagesContainer = null;
-window.messageInput = null;
-window.selectedFiles = [];
-window.currentPage = 1;
-window.hasMoreMessages = false;
-window.attachmentPreview = null;
+var currentRoomId = null;
+var messagesContainer = null;
+var messageInput = null;
+var selectedFiles = [];
+var currentPage = 1;
+var hasMoreMessages = false;
+var attachmentPreview = null;
+
+// Agora Video/Audio Call Integration
+var agoraClient = null;
+var localAudioTrack = null;
+var localVideoTrack = null;
+var currentCallType = null;
+var currentChannelName = null;
+var isCallActive = false;
+var callModal = null;
+
+// Agora Configuration - App ID wird vom Backend geholt
+const agoraConfig = {
+    appId: "{{ agora_app_id|default:'your_agora_app_id_here' }}",
+    channel: null,
+    uid: null,
+    token: null
+};
+
+// Small call window functions
+var callStartTime = null;
+var callDurationInterval = null;
 
 // Initialize DOM elements when needed
-window.initializeDOMElements = function() {
-    if (!window.messagesContainer) {
-        window.messagesContainer = document.getElementById('chatMessages');
+function initializeDOMElements() {
+    if (!messagesContainer) {
+        messagesContainer = document.getElementById('chatMessages');
     }
-    if (!window.messageInput) {
-        window.messageInput = document.getElementById('messageText');
+    if (!messageInput) {
+        messageInput = document.getElementById('messageText');
     }
-    if (!window.attachmentPreview) {
-        window.attachmentPreview = document.getElementById('attachmentPreview');
+    if (!attachmentPreview) {
+        attachmentPreview = document.getElementById('attachmentPreview');
     }
-};
+}
 
 // Use global call variables from base.html
 // globalCallSocket, globalPeerConnection, globalLocalStream, etc. are defined globally
 
-window.loadChat = function(roomId) {
-    window.initializeDOMElements();
+function loadChat(roomId) {
+    initializeDOMElements();
     
     // Close mobile sidebar if open
     const sidebar = document.querySelector('.chat-sidebar');
     if (sidebar && sidebar.classList.contains('mobile-show')) {
-        window.toggleMobileChatList();
+        toggleMobileChatList();
     }
     
     // Update active chat room
@@ -1132,11 +1658,11 @@ window.loadChat = function(roomId) {
         activeRoom.classList.add('active');
     }
     
-    window.currentRoomId = roomId;
+    currentRoomId = roomId;
     
     
     // Mark messages as read when chat is loaded
-    window.markMessagesAsRead(roomId);
+    markMessagesAsRead(roomId);
     
     // Show chat header and input
     const chatHeader = document.getElementById('chatHeader');
@@ -1159,12 +1685,12 @@ window.loadChat = function(roomId) {
         .then(data => {
             console.log('Response data:', data);
             if (data.success) {
-                window.displayMessages(data.messages);
-                window.updateChatHeader(data.room);
+                displayMessages(data.messages);
+                updateChatHeader(data.room);
                 
                 // Handle pagination
                 if (data.pagination) {
-                    window.currentPage = data.pagination.page;
+                    currentPage = data.pagination.page;
                     hasMoreMessages = data.pagination.has_more;
                     
                     const loadMoreContainer = document.getElementById('loadMoreContainer');
@@ -1188,27 +1714,27 @@ window.loadChat = function(roomId) {
 }
 
 // Load more messages function
-window.loadMoreMessages = function() {
-    if (!window.currentRoomId || !window.hasMoreMessages) return;
+function loadMoreMessages() {
+    if (!currentRoomId || !hasMoreMessages) return;
     
-    const nextPage = window.currentPage + 1;
+    const nextPage = currentPage + 1;
     
-    fetch(`/chat/messages/${window.currentRoomId}/?page=${nextPage}`)
+    fetch(`/chat/messages/${currentRoomId}/?page=${nextPage}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
                 console.log('✅ More messages loaded:', data.messages.length);
                 
                 // Prepend older messages to the beginning
-                const oldMessages = Array.from(window.messagesContainer.querySelectorAll('.d-flex.mb-3'));
+                const oldMessages = Array.from(messagesContainer.querySelectorAll('.d-flex.mb-3'));
                 displayMessages(data.messages);
                 
                 // Re-append the existing messages
-                oldMessages.forEach(msg => window.messagesContainer.appendChild(msg));
+                oldMessages.forEach(msg => messagesContainer.appendChild(msg));
                 
                 // Update pagination state
                 if (data.pagination) {
-                    window.currentPage = data.pagination.page;
+                    currentPage = data.pagination.page;
                     hasMoreMessages = data.pagination.has_more;
                     
                     const loadMoreContainer = document.getElementById('loadMoreContainer');
@@ -1229,25 +1755,25 @@ window.loadMoreMessages = function() {
             console.error('Error:', error);
             alert('Netzwerkfehler beim Laden weiterer Nachrichten');
         });
-};
+}
 
-window.displayMessages = function(messages, append = false) {
+function displayMessages(messages, append = false) {
     console.log('displayMessages called with:', messages, 'append:', append);
     
-    window.initializeDOMElements();
+    initializeDOMElements();
     
-    if (!window.messagesContainer) {
-        console.error('window.messagesContainer not found');
+    if (!messagesContainer) {
+        console.error('messagesContainer not found');
         return;
     }
     
     if (!append) {
-        window.messagesContainer.innerHTML = '';
+        messagesContainer.innerHTML = '';
     }
     
     if (!messages || messages.length === 0) {
         if (!append) {
-            window.messagesContainer.innerHTML = `
+            messagesContainer.innerHTML = `
                 <div class="empty-chat">
                     <i class="fas fa-comments fa-3x mb-3"></i>
                     <p>Noch keine Nachrichten</p>
@@ -1300,14 +1826,14 @@ window.displayMessages = function(messages, append = false) {
             </div>
         `;
         
-        window.messagesContainer.appendChild(messageDiv);
+        messagesContainer.appendChild(messageDiv);
     });
     
     // Scroll to bottom
-    window.messagesContainer.scrollTop = window.messagesContainer.scrollHeight;
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
-window.updateChatHeader = function(room) {
+function updateChatHeader(room) {
     const chatTitle = document.getElementById('chatTitle');
     const chatSubtitle = document.getElementById('chatSubtitle');
     const avatar = document.getElementById('chatAvatar');
@@ -1327,27 +1853,27 @@ window.updateChatHeader = function(room) {
     }
 }
 
-window.sendMessage = function() {
+function sendMessage() {
     initializeDOMElements();
     
-    if (!window.messageInput) {
-        console.error('window.messageInput not found');
+    if (!messageInput) {
+        console.error('messageInput not found');
         return;
     }
     
-    const messageText = window.messageInput.value.trim();
-    if (!messageText && window.selectedFiles.length === 0) return;
-    if (!window.currentRoomId) return;
+    const messageText = messageInput.value.trim();
+    if (!messageText && selectedFiles.length === 0) return;
+    if (!currentRoomId) return;
     
     const formData = new FormData();
     formData.append('content', messageText);
     
     // Add attachments
-    window.selectedFiles.forEach(file => {
+    selectedFiles.forEach(file => {
         formData.append('attachments', file);
     });
     
-    fetch(`/chat/api/room/${window.currentRoomId}/send/`, {
+    fetch(`/chat/api/room/${currentRoomId}/send/`, {
         method: 'POST',
         headers: {
             'X-CSRFToken': getCookie('csrftoken'),
@@ -1357,19 +1883,19 @@ window.sendMessage = function() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            window.messageInput.value = '';
-            window.selectedFiles = [];
+            messageInput.value = '';
+            selectedFiles = [];
             
-            if (!window.attachmentPreview) {
-                window.attachmentPreview = document.getElementById('attachmentPreview');
+            if (!attachmentPreview) {
+                attachmentPreview = document.getElementById('attachmentPreview');
             }
             
-            if (window.attachmentPreview) {
-                window.attachmentPreview.style.display = 'none';
-                window.attachmentPreview.innerHTML = '';
+            if (attachmentPreview) {
+                attachmentPreview.style.display = 'none';
+                attachmentPreview.innerHTML = '';
             }
             
-            loadChat(window.currentRoomId); // Reload messages
+            loadChat(currentRoomId); // Reload messages
         } else {
             alert('Fehler beim Senden der Nachricht: ' + data.error);
         }
@@ -1380,9 +1906,9 @@ window.sendMessage = function() {
     });
 }
 
-window.handleKeyPress = function(event) {
+function handleKeyPress(event) {
     if (event.key === 'Enter') {
-        window.sendMessage();
+        sendMessage();
     }
 }
 
@@ -1414,7 +1940,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Get CSRF cookie
-window.getCookie = function(name) {
+function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
         const cookies = document.cookie.split(';');
@@ -1430,30 +1956,30 @@ window.getCookie = function(name) {
 }
 
 // Handle file selection
-window.handleFileSelect = function(event) {
+function handleFileSelect(event) {
     const files = Array.from(event.target.files);
-    window.selectedFiles = files;
+    selectedFiles = files;
     
-    // Initialize window.attachmentPreview if not already done
-    if (!window.attachmentPreview) {
-        window.attachmentPreview = document.getElementById('attachmentPreview');
+    // Initialize attachmentPreview if not already done
+    if (!attachmentPreview) {
+        attachmentPreview = document.getElementById('attachmentPreview');
     }
     
     if (files.length === 0) {
-        if (window.attachmentPreview) {
-            window.attachmentPreview.style.display = 'none';
+        if (attachmentPreview) {
+            attachmentPreview.style.display = 'none';
         }
         return;
     }
     
     let previewHtml = '<div class="selected-files"><strong>Ausgewählte Dateien:</strong><br>';
     files.forEach((file, index) => {
-        const fileSize = window.formatFileSize(file.size);
+        const fileSize = formatFileSize(file.size);
         previewHtml += `
             <div class="file-item d-flex align-items-center gap-2 mb-1">
                 <i class="fas fa-file"></i>
                 <span>${file.name} (${fileSize})</span>
-                <button type="button" class="btn btn-sm btn-outline-danger" onclick="window.removeFile(${index})">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(${index})">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -1461,30 +1987,30 @@ window.handleFileSelect = function(event) {
     });
     previewHtml += '</div>';
     
-    if (window.attachmentPreview) {
-        window.attachmentPreview.innerHTML = previewHtml;
-        window.attachmentPreview.style.display = 'block';
+    if (attachmentPreview) {
+        attachmentPreview.innerHTML = previewHtml;
+        attachmentPreview.style.display = 'block';
     }
 }
 
-window.removeFile = function(index) {
-    window.selectedFiles.splice(index, 1);
+function removeFile(index) {
+    selectedFiles.splice(index, 1);
     
-    if (!window.attachmentPreview) {
-        window.attachmentPreview = document.getElementById('attachmentPreview');
+    if (!attachmentPreview) {
+        attachmentPreview = document.getElementById('attachmentPreview');
     }
     
-    if (window.selectedFiles.length === 0) {
-        if (window.attachmentPreview) {
-            window.attachmentPreview.style.display = 'none';
+    if (selectedFiles.length === 0) {
+        if (attachmentPreview) {
+            attachmentPreview.style.display = 'none';
         }
     } else {
         // Update preview
-        window.handleFileSelect({ target: { files: window.selectedFiles } });
+        handleFileSelect({ target: { files: selectedFiles } });
     }
 }
 
-window.formatFileSize = function(bytes) {
+function formatFileSize(bytes) {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
@@ -1493,7 +2019,7 @@ window.formatFileSize = function(bytes) {
 }
 
 // Mark messages as read
-window.markMessagesAsRead = function(roomId) {
+function markMessagesAsRead(roomId) {
     fetch(`/chat/api/room/${roomId}/mark_read/`, {
         method: 'POST',
         headers: {
@@ -1505,11 +2031,11 @@ window.markMessagesAsRead = function(roomId) {
     .then(data => {
         if (data.success) {
             // Update chat notification counter
-            if (window.updateChatNotifications) {
-                window.updateChatNotifications();
+            if (updateChatNotifications) {
+                updateChatNotifications();
             }
             // Update unread badges in chat list
-            window.updateUnreadBadges();
+            updateUnreadBadges();
         }
     })
     .catch(error => {
@@ -1518,8 +2044,8 @@ window.markMessagesAsRead = function(roomId) {
 }
 
 // Update unread badges in chat list
-window.updateUnreadBadges = function() {
-    const roomItem = document.querySelector(`[data-room-id="${window.currentRoomId}"]`);
+function updateUnreadBadges() {
+    const roomItem = document.querySelector(`[data-room-id="${currentRoomId}"]`);
     if (roomItem) {
         const unreadBadge = roomItem.querySelector('.badge-unread');
         if (unreadBadge) {
@@ -1532,17 +2058,17 @@ window.updateUnreadBadges = function() {
 
 // Auto-refresh messages every 10 seconds (but not during active calls)
 setInterval(() => {
-    if (window.currentRoomId && !globalIsCallActive) {
-        window.loadChat(window.currentRoomId);
+    if (currentRoomId && !globalIsCallActive) {
+        loadChat(currentRoomId);
     }
 }, 10000);
 
 // Check for room parameter in URL and load chat
 document.addEventListener('DOMContentLoaded', function() {
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = new URLSearchParams(location.search);
     const roomId = urlParams.get('room');
     if (roomId) {
-        window.loadChat(parseInt(roomId));
+        loadChat(parseInt(roomId));
         
         // Check if we should auto-answer a call
         const answerCallId = urlParams.get('answerCall');
@@ -1573,23 +2099,23 @@ document.addEventListener('DOMContentLoaded', function() {
                                 channel_name: callInfo.channel_name || `call_${roomId}_${answerCallId}`,
                                 room_id: roomId,
                                 caller_name: callInfo.caller_name || 'Unknown'
-                            };
+                            }
                             // Use Agora-based acceptIncomingCall instead of WebRTC-based answerCall
                             acceptIncomingCall();
                             // Clean up URL parameters after successful auto-answer
-                            const cleanUrl = new URL(window.location);
+                            const cleanUrl = new URL(location);
                             cleanUrl.searchParams.delete('answerCall');
                             cleanUrl.searchParams.delete('callType');
-                            window.history.replaceState({}, '', cleanUrl);
+                            history.replaceState({}, '', cleanUrl);
                         } else {
                             console.warn('Call info not available:', callInfo.error);
                             // Don't use fallback for auto-answer to prevent loops
                             console.info('Auto-answer failed - call may have expired');
                             // Clean up URL parameters after failed auto-answer
-                            const cleanUrl = new URL(window.location);
+                            const cleanUrl = new URL(location);
                             cleanUrl.searchParams.delete('answerCall');
                             cleanUrl.searchParams.delete('callType');
-                            window.history.replaceState({}, '', cleanUrl);
+                            history.replaceState({}, '', cleanUrl);
                             // Restart polling after failed auto-answer
                             startGlobalCallPolling();
                             startIncomingCallPolling();
@@ -1597,10 +2123,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     } else {
                         console.warn('Failed to fetch call info for auto-answer');
                         // Clean up URL parameters after failed fetch
-                        const cleanUrl = new URL(window.location);
+                        const cleanUrl = new URL(location);
                         cleanUrl.searchParams.delete('answerCall');
                         cleanUrl.searchParams.delete('callType');
-                        window.history.replaceState({}, '', cleanUrl);
+                        history.replaceState({}, '', cleanUrl);
                         // Restart polling after failed fetch
                         startGlobalCallPolling();
                         startIncomingCallPolling();
@@ -1608,10 +2134,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 } catch (error) {
                     console.error('Error auto-answering call:', error);
                     // Clean up URL parameters after error
-                    const cleanUrl = new URL(window.location);
+                    const cleanUrl = new URL(location);
                     cleanUrl.searchParams.delete('answerCall');
                     cleanUrl.searchParams.delete('callType');
-                    window.history.replaceState({}, '', cleanUrl);
+                    history.replaceState({}, '', cleanUrl);
                     // Restart polling after error
                     startGlobalCallPolling();
                     startIncomingCallPolling();
@@ -1656,13 +2182,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Delete chat function
 function deleteChat() {
-    if (!window.currentRoomId) {
+    if (!currentRoomId) {
         alert('Kein Chat ausgewählt');
         return;
     }
     
     if (confirm('Sind Sie sicher, dass Sie diesen Chat löschen möchten?')) {
-        fetch(`/chat/api/room/${window.currentRoomId}/delete/`, {
+        fetch(`/chat/api/room/${currentRoomId}/delete/`, {
             method: 'POST',
             headers: {
                 'X-CSRFToken': getCookie('csrftoken'),
@@ -1674,7 +2200,7 @@ function deleteChat() {
             if (data.success) {
                 alert(data.message);
                 // Remove chat from list
-                const chatItem = document.querySelector(`[data-room-id="${window.currentRoomId}"]`);
+                const chatItem = document.querySelector(`[data-room-id="${currentRoomId}"]`);
                 if (chatItem) {
                     chatItem.remove();
                 }
@@ -1694,9 +2220,9 @@ function deleteChat() {
                 if (messageInputDiv) {
                     messageInputDiv.style.display = 'none';
                 }
-                window.currentRoomId = null;
+                currentRoomId = null;
                 // Reload page to refresh chat list
-                window.location.reload();
+                location.reload();
             } else {
                 alert('Fehler: ' + data.error);
             }
@@ -1711,11 +2237,11 @@ function deleteChat() {
 // Call validation wrapper function
 function startCallWithValidation(callType) {
     console.log('🔍 Starting call validation...');
-    console.log('Current room ID:', window.currentRoomId);
+    console.log('Current room ID:', currentRoomId);
     console.log('Call type:', callType);
     
-    // Check if window.currentRoomId is defined
-    if (!window.currentRoomId) {
+    // Check if currentRoomId is defined
+    if (!currentRoomId) {
         console.error('❌ No room selected');
         alert('Bitte wählen Sie zuerst einen Chat aus.');
         return;
@@ -1730,7 +2256,7 @@ function startCallWithValidation(callType) {
     }
     
     // Check if we're in the right context
-    if (typeof window.globalStartCall !== 'function' && typeof parent.globalStartCall !== 'function') {
+    if (typeof globalStartCall !== 'function' && typeof parent.globalStartCall !== 'function') {
         console.error('❌ globalStartCall not found in window or parent');
         alert('Anruf-System nicht geladen. Bitte warten Sie einen Moment und versuchen Sie es erneut.');
         return;
@@ -1742,13 +2268,13 @@ function startCallWithValidation(callType) {
     try {
         // Try global function first
         if (typeof globalStartCall === 'function') {
-            globalStartCall(window.currentRoomId, callType);
-        } else if (typeof window.globalStartCall === 'function') {
-            window.globalStartCall(window.currentRoomId, callType);
+            globalStartCall(currentRoomId, callType);
+        } else if (typeof globalStartCall === 'function') {
+            globalStartCall(currentRoomId, callType);
         } else {
             // Fallback to local implementation
             console.log('🔄 Using fallback local call implementation');
-            startLocalCall(window.currentRoomId, callType);
+            startLocalCall(currentRoomId, callType);
         }
     } catch (error) {
         console.error('❌ Error calling start call function:', error);
@@ -1802,7 +2328,7 @@ async function startLocalCall(roomId, callType) {
 
 // Show chat info function
 function showChatInfo() {
-    if (!window.currentRoomId) {
+    if (!currentRoomId) {
         alert('Kein Chat ausgewählt');
         return;
     }
@@ -1824,7 +2350,7 @@ function showChatInfo() {
     `;
     
     // Fetch chat info
-    fetch(`/chat/api/room/${window.currentRoomId}/info/`, {
+    fetch(`/chat/api/room/${currentRoomId}/info/`, {
         method: 'GET',
         headers: {
             'X-CSRFToken': getCookie('csrftoken')
@@ -2012,7 +2538,7 @@ const rtcConfig = {
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' }
     ]
-};
+}
 
 // Floating window functions
 function minimizeCallWindow() {
@@ -2049,8 +2575,8 @@ function makeFloatingWindowDraggable() {
         isDragging = true;
         startX = e.clientX;
         startY = e.clientY;
-        startLeft = parseInt(window.getComputedStyle(floatingWindow).left);
-        startTop = parseInt(window.getComputedStyle(floatingWindow).top);
+        startLeft = parseInt(getComputedStyle(floatingWindow).left);
+        startTop = parseInt(getComputedStyle(floatingWindow).top);
         
         document.addEventListener('mousemove', onMouseMove);
         document.addEventListener('mouseup', onMouseUp);
@@ -2077,7 +2603,7 @@ function makeFloatingWindowDraggable() {
 
 // Initiate a call
 function initiateCall(callType) {
-    if (!window.currentRoomId) {
+    if (!currentRoomId) {
         alert('Kein Chat ausgewählt');
         return;
     }
@@ -2120,7 +2646,7 @@ async function startCall(callType) {
         const constraints = {
             audio: true,
             video: callType === 'video'
-        };
+        }
         
         globalLocalStream = await navigator.mediaDevices.getUserMedia(constraints);
         
@@ -2132,7 +2658,7 @@ async function startCall(callType) {
         connectCallWebSocket();
         
         // Initiate call via API
-        const response = await fetch(`/chat/api/room/${window.currentRoomId}/call/initiate/`, {
+        const response = await fetch(`/chat/api/room/${currentRoomId}/call/initiate/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -2192,34 +2718,34 @@ function connectCallWebSocket() {
         callSocket.close();
     }
     
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsHost = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' 
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsHost = location.hostname === '127.0.0.1' || location.hostname === 'localhost' 
         ? '127.0.0.1:8000' 
-        : window.location.host;
-    const wsUrl = `${protocol}//${wsHost}/ws/call/${window.currentRoomId}/`;
+        : location.host;
+    const wsUrl = `${protocol}//${wsHost}/ws/call/${currentRoomId}/`;
     
     console.log('🔌 Connecting to Call WebSocket for WebRTC signaling:', wsUrl);
     callSocket = new WebSocket(wsUrl);
     
     callSocket.onopen = function(e) {
         console.log('Call WebSocket connected (WebRTC signaling only)');
-    };
+    }
     
     callSocket.onmessage = function(e) {
         const data = JSON.parse(e.data);
         handleCallMessage(data);
-    };
+    }
     
     callSocket.onclose = function(e) {
         console.log('Call WebSocket disconnected');
         if (e.code !== 1000) {
             console.log('WebSocket connection lost - WebRTC signaling may not work');
         }
-    };
+    }
     
     callSocket.onerror = function(e) {
         console.error('Call WebSocket error:', e);
-    };
+    }
 }
 
 // WebSocket error handling removed - using HTTP polling only
@@ -2371,7 +2897,7 @@ async function answerCall(callId, callType) {
         const constraints = {
             audio: true,
             video: callType === 'video'
-        };
+        }
         
         globalLocalStream = await navigator.mediaDevices.getUserMedia(constraints);
         
@@ -2435,7 +2961,7 @@ function createPeerConnection() {
     globalPeerConnection.ontrack = function(event) {
         remoteStream = event.streams[0];
         document.getElementById('globalRemoteVideo').srcObject = remoteStream;
-    };
+    }
     
     // Handle ICE candidates
     globalPeerConnection.onicecandidate = function(event) {
@@ -2445,7 +2971,7 @@ function createPeerConnection() {
                 candidate: event.candidate
             }));
         }
-    };
+    }
     
     // Handle connection state changes
     globalPeerConnection.onconnectionstatechange = function() {
@@ -2455,7 +2981,7 @@ function createPeerConnection() {
         } else if (globalPeerConnection.connectionState === 'disconnected') {
             globalEndCall();
         }
-    };
+    }
 }
 
 // Handle WebRTC offer
@@ -2768,13 +3294,13 @@ function startCallStatusPolling() {
     // Wait 5 seconds before starting polling to allow call to be properly established
     setTimeout(() => {
         callStatusPollingInterval = setInterval(async () => {
-            if (!getCallActive() || !window.currentRoomId) {
+            if (!getCallActive() || !currentRoomId) {
                 stopCallStatusPolling();
                 return;
             }
             
             try {
-                const response = await fetch(`/chat/api/room/${window.currentRoomId}/active-call/`);
+                const response = await fetch(`/chat/api/room/${currentRoomId}/active-call/`);
                 const data = await response.json();
                 
                 if (!data.has_active_call) {
@@ -2796,6 +3322,13 @@ function stopCallStatusPolling() {
         callStatusPollingInterval = null;
     }
 }
+
+// === AGORA VIDEO/AUDIO CALL INTEGRATION ===
+// Duplicate variables removed - using the ones above;
+
+// === SMALL CALL WINDOW FUNCTIONS ===
+// Variables already defined above
+
 </script>
 
 <!-- Chat Info Modal -->
@@ -2825,1330 +3358,11 @@ function stopCallStatusPolling() {
 <!-- Agora SDK -->
 <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.21.0.js"></script>
 
-<script>
-// Agora Video/Audio Call Integration
-let agoraClient = null;
-let localAudioTrack = null;
-let localVideoTrack = null;
-let currentCallType = null;
-let currentChannelName = null;
-let isCallActive = false;
-let callModal = null;
+<!-- Agora script content moved to main script -->
+<!-- Old Agora code removed - now using working version in main script above -->
 
-// Agora Configuration - App ID wird vom Backend geholt
-const agoraConfig = {
-    appId: "{{ agora_app_id }}",
-    channel: null,
-    uid: null,
-    token: null
-};
+<!-- Functions are now defined normally above -->
 
-// Initialize Agora client
-function initAgoraClient() {
-    if (typeof AgoraRTC === 'undefined') {
-        console.error('❌ AgoraRTC SDK not loaded!');
-        alert('Video-System nicht verfügbar. Bitte laden Sie die Seite neu.');
-        return;
-    }
-    
-    console.log('🔄 Creating Agora client...');
-    agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-    console.log('✅ Agora client created:', agoraClient);
-    
-    // Event handlers
-    agoraClient.on("user-published", async (user, mediaType) => {
-        try {
-            console.log(`🎉 NEW USER PUBLISHED ${mediaType}:`, user.uid);
-            console.log('📊 User object:', user);
-            await agoraClient.subscribe(user, mediaType);
-            console.log(`✅ Successfully subscribed to ${mediaType} from user:`, user.uid);
-            
-            if (mediaType === "video") {
-                const remoteVideoTrack = user.videoTrack;
-                
-                // Try small window first, fallback to modal
-                const smallRemoteContainer = document.getElementById("smallRemoteVideo");
-                const modalRemoteContainer = document.getElementById("remoteVideoContainer");
-                
-                if (smallRemoteContainer && document.getElementById("smallCallWindow").style.display !== "none") {
-                    // Use small window
-                    console.log('🔍 Small remote container:', smallRemoteContainer);
-                    console.log('🔍 Small remote container display:', getComputedStyle(smallRemoteContainer).display);
-                    console.log('🔍 Small remote container dimensions:', smallRemoteContainer.getBoundingClientRect());
-                    
-                    smallRemoteContainer.innerHTML = "";
-                    remoteVideoTrack.play("smallRemoteVideo");
-                    console.log('✅ Remote video playing in small window');
-                } else if (modalRemoteContainer) {
-                    // Use modal (fallback)
-                    console.log('🔍 Modal remote container:', modalRemoteContainer);
-                    console.log('🔍 Modal remote container display:', getComputedStyle(modalRemoteContainer).display);
-                    console.log('🔍 Modal remote container dimensions:', modalRemoteContainer.getBoundingClientRect());
-                    
-                    modalRemoteContainer.innerHTML = "";
-                    remoteVideoTrack.play("remoteVideoContainer");
-                    const waitingScreen = document.getElementById("waitingScreen");
-                    if (waitingScreen) {
-                        waitingScreen.style.display = "none";
-                    }
-                    console.log('✅ Remote video playing in modal');
-                }
-            }
-            
-            if (mediaType === "audio") {
-                const remoteAudioTrack = user.audioTrack;
-                remoteAudioTrack.play();
-                console.log('✅ Remote audio playing');
-            }
-        } catch (error) {
-            console.error("❌ Error handling user-published event:", error);
-        }
-    });
-    
-    agoraClient.on("user-joined", (user) => {
-        console.log("🎉 USER JOINED:", user.uid);
-        console.log("📊 Total users in channel:", agoraClient.remoteUsers.length);
-    });
-    
-    agoraClient.on("user-unpublished", (user) => {
-        console.log("User unpublished:", user);
-        // Show waiting screen again
-        const waitingScreen = document.getElementById("waitingScreen");
-        if (waitingScreen) {
-            waitingScreen.style.display = "block";
-        }
-    });
-    
-    agoraClient.on("user-left", (user) => {
-        console.log("👋 USER LEFT:", user.uid);
-        console.log("📊 Remaining users:", agoraClient.remoteUsers.length);
-        const callStatus = document.getElementById("callStatus");
-        if (callStatus) {
-            callStatus.textContent = "Anruf beendet";
-        }
-        setTimeout(() => {
-            endAgoraCall();
-        }, 2000);
-    });
-    
-    // Add connection state event handlers
-    agoraClient.on("connection-state-change", (curState, revState) => {
-        console.log("Connection state changed:", curState, "from", revState);
-        if (curState === "DISCONNECTED") {
-            console.log("Agora client disconnected");
-            // Try to reconnect or end call
-            setTimeout(() => {
-                if (getCallActive()) {
-                    console.log("Attempting to reconnect...");
-                    // Could implement reconnection logic here
-                    endAgoraCall();
-                }
-            }, 3000);
-        }
-    });
-    
-    // Add error handling
-    agoraClient.on("exception", (evt) => {
-        console.error("Agora exception:", evt);
-        if (evt.code === "INVALID_TOKEN") {
-            console.log("Token expired, ending call");
-            endAgoraCall();
-        }
-    });
-    
-    // Add network quality monitoring
-    agoraClient.on("network-quality", (stats) => {
-        console.log("Network quality:", stats);
-        // You can add visual indicators here if needed
-    });
-}
-
-// Start Agora call
-async function startAgoraCall(callType) {
-    console.log('🚀 VERSION 2.0 - NEW startAgoraCall function called with:', callType, 'at', new Date().toISOString());
-    
-    if (!window.currentRoomId) {
-        alert('Bitte wählen Sie zuerst einen Chat aus.');
-        return;
-    }
-    
-    if (getCallActive()) {
-        alert('Es läuft bereits ein Anruf.');
-        return;
-    }
-    
-    try {
-        // First, initiate the call via the backend to create the Call record
-        const initiateResponse = await fetch(`/chat/api/room/${window.currentRoomId}/call/initiate/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify({
-                call_type: callType
-            })
-        });
-        
-        const initiateData = await initiateResponse.json();
-        if (!initiateData.success) {
-            throw new Error(initiateData.error || 'Failed to initiate call');
-        }
-        
-        console.log('📞 Call initiated successfully:', initiateData);
-        
-        // Extract call_id from the response
-        const callId = initiateData.call_id;
-        
-        currentCallType = callType;
-        currentChannelName = `call_${window.currentRoomId}_${callId}`;
-        
-        // Get Agora token from backend
-        const response = await fetch('/chat/get-agora-token/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify({
-                channel: currentChannelName,
-                uid: 0
-            })
-        });
-        
-        const data = await response.json();
-        if (!data.success) {
-            throw new Error(data.error || 'Failed to get Agora token');
-        }
-        
-        agoraConfig.channel = currentChannelName;
-        agoraConfig.uid = data.uid;
-        agoraConfig.token = data.token;
-        
-        // Initialize Agora client
-        initAgoraClient();
-        
-        // Show small call window instead of modal
-        showSmallCallWindow(callType);
-        
-        // Join channel
-        await agoraClient.join(agoraConfig.appId, agoraConfig.channel, agoraConfig.token, agoraConfig.uid);
-        
-        // Create and publish local tracks
-        localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-        
-        if (callType === 'video') {
-            localVideoTrack = await AgoraRTC.createCameraVideoTrack();
-            localVideoTrack.play("smallLocalVideo");
-            await agoraClient.publish([localAudioTrack, localVideoTrack]);
-            document.getElementById("videoBtn").style.display = "inline-block";
-        } else {
-            await agoraClient.publish([localAudioTrack]);
-        }
-        
-        setCallActive(true);
-        document.getElementById("callStatus").textContent = "Im Anruf - Warte auf anderen Teilnehmer";
-        
-        // Start polling to check if the call is still active (fallback for missed WebSocket messages)
-        startCallStatusPolling();
-        
-        // Call notification is already handled by the initiate_call backend endpoint
-        console.log('📞 Call started successfully, other participants will be notified via database polling');
-        
-    } catch (error) {
-        console.error('Error starting Agora call:', error);
-        alert('Fehler beim Starten des Anrufs: ' + error.message);
-        endAgoraCall();
-    }
-}
-
-// Show call modal
-function showCallModal(callType) {
-    const modal = document.getElementById("agoraCallModal");
-    const icon = document.getElementById("callModalIcon");
-    const text = document.getElementById("callModalText");
-    
-    if (callType === 'video') {
-        icon.className = "fas fa-video";
-        text.textContent = "Videoanruf";
-    } else {
-        icon.className = "fas fa-phone";
-        text.textContent = "Anruf";
-    }
-    
-    callModal = new bootstrap.Modal(modal, {
-        backdrop: 'static',
-        keyboard: false
-    });
-    callModal.show();
-}
-
-// End Agora call
-async function endAgoraCall() {
-    try {
-        // Send end call notification to server and other participants
-        if (window.currentRoomId && getCallActive()) {
-            // Send via WebSocket if available
-            if (callSocket && callSocket.readyState === WebSocket.OPEN) {
-                const endMessage = {
-                    type: 'call_ended',
-                    room_id: window.currentRoomId,
-                    channel_name: currentChannelName,
-                    ended_by: 'user' // Mark that this was ended by user action
-                };
-                console.log('🔚 Sending call_ended message via WebSocket:', endMessage);
-                callSocket.send(JSON.stringify(endMessage));
-            } else {
-                console.log('🔚 WebSocket not available for call_ended message');
-            }
-            
-            // Also send via HTTP for reliability and to end DB call
-            fetch('/chat/end-call-notification/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-                body: JSON.stringify({
-                    room_id: window.currentRoomId,
-                    channel_name: currentChannelName
-                })
-            }).catch(error => console.error('Error sending end call notification:', error));
-        }
-        
-        // Stop local tracks
-        if (localAudioTrack) {
-            localAudioTrack.stop();
-            localAudioTrack.close();
-            localAudioTrack = null;
-        }
-        
-        if (localVideoTrack) {
-            localVideoTrack.stop();
-            localVideoTrack.close();
-            localVideoTrack = null;
-        }
-        
-        // Leave channel
-        if (agoraClient) {
-            await agoraClient.leave();
-            agoraClient = null;
-        }
-        
-        // Hide modal
-        if (callModal) {
-            callModal.hide();
-            callModal = null;
-        }
-        
-        // Reset state
-        setCallActive(false);
-        currentCallType = null;
-        currentChannelName = null;
-        
-        // Stop call status polling
-        stopCallStatusPolling();
-        
-        // Reset UI
-        document.getElementById("waitingScreen").style.display = "block";
-        document.getElementById("remoteVideoContainer").innerHTML = `
-            <div class="d-flex align-items-center justify-content-center h-100" id="waitingScreen">
-                <div class="text-center">
-                    <div class="spinner-border text-primary mb-3" role="status"></div>
-                    <h5>Warte auf Antwort...</h5>
-                    <p id="callStatus">Verbinde...</p>
-                </div>
-            </div>
-        `;
-        
-    } catch (error) {
-        console.error('Error ending call:', error);
-    }
-}
-
-// Toggle mute
-async function toggleMute() {
-    if (localAudioTrack) {
-        const muteBtn = document.getElementById("muteBtn");
-        if (localAudioTrack.enabled) {
-            await localAudioTrack.setEnabled(false);
-            muteBtn.classList.remove("btn-outline-light");
-            muteBtn.classList.add("btn-danger");
-            muteBtn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
-        } else {
-            await localAudioTrack.setEnabled(true);
-            muteBtn.classList.remove("btn-danger");
-            muteBtn.classList.add("btn-outline-light");
-            muteBtn.innerHTML = '<i class="fas fa-microphone"></i>';
-        }
-    }
-}
-
-// Toggle video
-async function toggleVideo() {
-    if (localVideoTrack) {
-        const videoBtn = document.getElementById("videoBtn");
-        if (localVideoTrack.enabled) {
-            await localVideoTrack.setEnabled(false);
-            videoBtn.classList.remove("btn-outline-light");
-            videoBtn.classList.add("btn-danger");
-            videoBtn.innerHTML = '<i class="fas fa-video-slash"></i>';
-        } else {
-            await localVideoTrack.setEnabled(true);
-            videoBtn.classList.remove("btn-danger");
-            videoBtn.classList.add("btn-outline-light");
-            videoBtn.innerHTML = '<i class="fas fa-video"></i>';
-        }
-    }
-}
-
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Agora integration loaded');
-    
-    // Start polling for incoming calls
-    startIncomingCallPolling();
-    
-    // Test function for incoming call UI (remove in production)
-    window.testIncomingCall = function(type = 'video') {
-        showIncomingCall({
-            caller_name: 'Test Benutzer',
-            call_type: type,
-            channel_name: 'test_channel',
-            room_id: window.currentRoomId || 1,
-            call_id: 'test_call_123'
-        });
-    };
-});
-
-// Polling for incoming calls (fallback when WebSocket doesn't work)
-let pollingInterval = null;
-let lastCheckedMessageId = null;
-
-function startIncomingCallPolling() {
-    // Don't start local polling if global polling is already active
-    if (typeof globalPollingInterval !== 'undefined' && globalPollingInterval) {
-        console.log('Global polling active - skipping local call polling');
-        return;
-    }
-    
-    // Stop any existing polling
-    if (pollingInterval) {
-        clearInterval(pollingInterval);
-    }
-    
-    // Start polling every 4 seconds (reduced frequency)
-    pollingInterval = setInterval(checkForIncomingCalls, 4000);
-    console.log('Started incoming call polling');
-}
-
-function stopIncomingCallPolling() {
-    if (pollingInterval) {
-        clearInterval(pollingInterval);
-        pollingInterval = null;
-        console.log('Stopped incoming call polling');
-    }
-}
-
-async function checkForIncomingCalls() {
-    // Only check if we have a current room and are not already in a call
-    if (!window.currentRoomId || getCallActive()) {
-        return;
-    }
-    
-    console.log('🔍 [LOCAL] Checking for incoming calls in room:', window.currentRoomId);
-    
-    try {
-        const response = await fetch(`/chat/check-incoming-calls/?room_id=${window.currentRoomId}`);
-        const data = await response.json();
-        
-        console.log('🔍 [LOCAL] Call check response:', data);
-        
-        if (data.has_call && data.message_id !== lastCheckedMessageId) {
-            lastCheckedMessageId = data.message_id;
-            console.log('📞 [LOCAL] Incoming call detected:', data);
-            
-            // Show incoming call overlay
-            showIncomingCall({
-                caller_name: data.caller_name,
-                caller_id: data.caller_id,
-                call_type: data.call_type,
-                channel_name: data.channel_name,
-                room_id: window.currentRoomId,
-                call_id: data.call_id || data.message_id
-            });
-        }
-    } catch (error) {
-        console.error('❌ [LOCAL] Error checking for incoming calls:', error);
-    }
-}
-</script>
-
-<!-- Small Call Window (outside modal) -->
-<div id="smallCallWindow" class="call-window" style="display: none;">
-    <div class="card shadow-lg">
-        <div class="card-header bg-dark text-white p-2 d-flex justify-content-between align-items-center">
-            <div class="d-flex align-items-center">
-                <i class="fas fa-phone me-2" id="smallCallIcon"></i>
-                <span id="smallCallTitle">Anruf</span>
-            </div>
-            <div>
-                <button type="button" class="btn btn-sm btn-light me-1 d-none d-md-inline" onclick="toggleCallWindow()">
-                    <i class="fas fa-minus"></i>
-                </button>
-                <button type="button" class="btn-close btn-close-white" onclick="endSmallCallWindow()"></button>
-            </div>
-        </div>
-        <div class="card-body p-0 bg-dark" id="smallCallBody">
-            <!-- Video Container -->
-            <div class="call-video-container">
-                <div id="smallRemoteVideo" class="remote-video"></div>
-                <div id="smallLocalVideo" class="local-video"></div>
-            </div>
-            <!-- Call Controls -->
-            <div class="p-2 bg-secondary d-flex justify-content-center gap-2">
-                <button class="btn btn-sm btn-dark" id="smallMuteBtn" onclick="toggleSmallMute()">
-                    <i class="fas fa-microphone"></i>
-                </button>
-                <button class="btn btn-sm btn-dark" id="smallVideoBtn" onclick="toggleSmallVideo()" style="display: none;">
-                    <i class="fas fa-video"></i>
-                </button>
-                <button class="btn btn-sm btn-danger" onclick="endSmallCallWindow()">
-                    <i class="fas fa-phone-slash"></i>
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Minimized Call Indicator -->
-<div id="minimizedCallIndicator" style="position: fixed; bottom: 20px; right: 20px; display: none;">
-    <button class="btn btn-success btn-sm shadow" onclick="toggleCallWindow()">
-        <i class="fas fa-phone-alt me-1"></i>
-        <span id="callDuration">00:00</span>
-    </button>
-</div>
-
-<!-- Incoming Call Overlay -->
-<div id="incomingCallOverlay" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); backdrop-filter: blur(15px); z-index: 10000; display: none; align-items: center; justify-content: center;">
-    <div class="text-center" style="max-width: 450px; width: 90%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 25px; padding: 40px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); color: white; position: relative; overflow: hidden;">
-        <!-- Background Animation -->
-        <div class="call-bg-animation"></div>
-        
-        <!-- Caller Avatar -->
-        <div class="mb-4 position-relative">
-            <div class="caller-avatar-container position-relative mx-auto mb-3" style="width: 120px; height: 120px;">
-                <img id="incomingCallerProfilePic" src="" alt="Profilbild" class="rounded-circle border border-white" style="width: 120px; height: 120px; object-fit: cover; display: none; position: absolute; top: 0; left: 0; z-index: 2;">
-                <div id="incomingCallerAvatarFallback" class="rounded-circle bg-white mx-auto d-flex align-items-center justify-content-center" style="width: 120px; height: 120px; color: #667eea; font-size: 3.5rem; position: absolute; top: 0; left: 0; z-index: 1;">
-                    <i class="fas fa-user" id="incomingCallerAvatar"></i>
-                </div>
-                <!-- Pulsing Ring Animation -->
-                <div class="pulse-ring"></div>
-                <div class="pulse-ring delay-1"></div>
-                <div class="pulse-ring delay-2"></div>
-            </div>
-            <h3 class="mb-2 fw-bold" id="incomingCallerName" style="text-shadow: 0 2px 4px rgba(0,0,0,0.3);">Unbekannter Anrufer</h3>
-            <p class="mb-0 opacity-75" id="incomingCallType" style="font-size: 1.1rem;">Eingehender Anruf</p>
-        </div>
-            
-        <!-- Call Status with Icon -->
-        <div class="mb-4">
-            <div class="d-flex justify-content-center align-items-center">
-                <div class="call-icon-container position-relative">
-                    <i class="fas fa-phone text-white" id="incomingCallIcon" style="font-size: 2.5rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));"></i>
-                    <div class="call-wave"></div>
-                    <div class="call-wave delay-1"></div>
-                    <div class="call-wave delay-2"></div>
-                </div>
-            </div>
-        </div>
-            
-        <!-- Call Actions -->
-        <div class="d-flex justify-content-center gap-4 mb-4">
-            <button class="btn-call-action btn-reject" onclick="rejectIncomingCall()" id="rejectCallBtn" title="Ablehnen">
-                <i class="fas fa-phone-slash"></i>
-            </button>
-            <button class="btn-call-action btn-accept" onclick="acceptIncomingCall()" id="acceptCallBtn" title="Annehmen">
-                <i class="fas fa-phone" id="acceptCallIcon"></i>
-            </button>
-        </div>
-        
-        <!-- Additional Options -->
-        <div class="d-flex justify-content-center gap-3">
-            <button class="btn btn-outline-light btn-sm rounded-pill px-3" onclick="rejectIncomingCall()" style="backdrop-filter: blur(10px); background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);">
-                <i class="fas fa-comment me-1"></i> Nachricht
-            </button>
-            <button class="btn btn-outline-light btn-sm rounded-pill px-3" onclick="muteRingtone()" style="backdrop-filter: blur(10px); background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);">
-                <i class="fas fa-bell-slash me-1"></i> Stumm
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- Ringtone Audio -->
-<audio id="ringtoneAudio" preload="auto">
-    <!-- We'll generate the ringtone programmatically for better quality -->
-</audio>
-
-<script>
-// Small call window functions
-let callStartTime = null;
-let callDurationInterval = null;
-
-// End call and clear notifications globally
-function endCallAndClearNotifications() {
-    if (!window.currentRoomId) return;
-    
-    console.log('🔚 Ending call and clearing notifications for room:', window.currentRoomId);
-    
-    const data = {
-        room_id: window.currentRoomId
-    };
-    
-    fetch('/chat/end-call-notification/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCookie('csrftoken')
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.success) {
-            console.log('✅ Call notifications cleared:', result.cleared_notifications);
-        } else {
-            console.error('❌ Failed to clear call notifications:', result.error);
-        }
-    })
-    .catch(error => {
-        console.error('❌ Error clearing call notifications:', error);
-    });
-}
-
-function showSmallCallWindow(callType) {
-    const window = document.getElementById('smallCallWindow');
-    const icon = document.getElementById('smallCallIcon');
-    const title = document.getElementById('smallCallTitle');
-    const videoBtn = document.getElementById('smallVideoBtn');
-    
-    // Check if elements exist
-    if (!window) {
-        console.error('Small call window element not found');
-        return;
-    }
-    
-    // Update UI based on call type
-    if (callType === 'video') {
-        if (icon) icon.className = 'fas fa-video me-2';
-        if (title) title.textContent = 'Videoanruf';
-        if (videoBtn) videoBtn.style.display = 'inline-block';
-    } else {
-        if (icon) icon.className = 'fas fa-phone me-2';
-        if (title) title.textContent = 'Anruf';
-        if (videoBtn) videoBtn.style.display = 'none';
-    }
-    
-    // Show window
-    window.style.display = 'block';
-    console.log('Small call window shown for', callType, 'call');
-    
-    // Start duration timer
-    callStartTime = new Date();
-    updateCallDuration();
-    callDurationInterval = setInterval(updateCallDuration, 1000);
-    
-    isCallActive = true;
-}
-
-function endSmallCallWindow() {
-    // End the call (this will notify other participants)
-    endAgoraCall();
-    
-    // Hide window
-    const callWindow = document.getElementById('smallCallWindow');
-    if (callWindow) {
-        callWindow.style.display = 'none';
-    }
-    
-    // Hide minimized indicator
-    const minimizedIndicator = document.getElementById('minimizedCallIndicator');
-    if (minimizedIndicator) {
-        minimizedIndicator.style.display = 'none';
-    }
-    
-    // Stop duration timer
-    if (callDurationInterval) {
-        clearInterval(callDurationInterval);
-        callDurationInterval = null;
-    }
-    
-    // Reset call state
-    setCallActive(false);
-    currentCallType = null;
-    currentChannelName = null;
-}
-
-function toggleCallWindow() {
-    const window = document.getElementById('smallCallWindow');
-    const indicator = document.getElementById('minimizedCallIndicator');
-    const body = document.getElementById('smallCallBody');
-    
-    if (body.style.display === 'none') {
-        // Maximize
-        body.style.display = 'block';
-        indicator.style.display = 'none';
-        window.style.display = 'block';
-    } else {
-        // Minimize
-        body.style.display = 'none';
-        window.style.display = 'none';
-        indicator.style.display = 'block';
-    }
-}
-
-function updateCallDuration() {
-    if (!callStartTime) return;
-    
-    const now = new Date();
-    const duration = Math.floor((now - callStartTime) / 1000);
-    const minutes = Math.floor(duration / 60).toString().padStart(2, '0');
-    const seconds = (duration % 60).toString().padStart(2, '0');
-    
-    const durationText = `${minutes}:${seconds}`;
-    document.getElementById('callDuration').textContent = durationText;
-}
-
-let isSmallMuted = false;
-function toggleSmallMute() {
-    const btn = document.getElementById('smallMuteBtn');
-    isSmallMuted = !isSmallMuted;
-    
-    if (localAudioTrack) {
-        localAudioTrack.setEnabled(!isSmallMuted);
-    }
-    
-    if (isSmallMuted) {
-        btn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
-        btn.classList.add('btn-danger');
-        btn.classList.remove('btn-dark');
-    } else {
-        btn.innerHTML = '<i class="fas fa-microphone"></i>';
-        btn.classList.remove('btn-danger');
-        btn.classList.add('btn-dark');
-    }
-}
-
-let isSmallVideoOff = false;
-function toggleSmallVideo() {
-    const btn = document.getElementById('smallVideoBtn');
-    isSmallVideoOff = !isSmallVideoOff;
-    
-    if (localVideoTrack) {
-        localVideoTrack.setEnabled(!isSmallVideoOff);
-    }
-    
-    if (isSmallVideoOff) {
-        btn.innerHTML = '<i class="fas fa-video-slash"></i>';
-        btn.classList.add('btn-danger');
-        btn.classList.remove('btn-dark');
-    } else {
-        btn.innerHTML = '<i class="fas fa-video"></i>';
-        btn.classList.remove('btn-danger');
-        btn.classList.add('btn-dark');
-    }
-}
-
-// Incoming call functions
-let incomingCallData = null;
-
-function showIncomingCall(callData) {
-    console.log('📞 showIncomingCall called with:', callData);
-    console.log('📞 Channel name:', callData.channel_name);
-    
-    incomingCallData = callData;
-    
-    // Stop polling while call overlay is shown
-    stopIncomingCallPolling();
-    
-    // Update caller information
-    document.getElementById('incomingCallerName').textContent = callData.caller_name || 'Unbekannter Anrufer';
-    document.getElementById('incomingCallType').textContent = callData.call_type === 'video' ? 'Eingehender Videoanruf' : 'Eingehender Anruf';
-    
-    // Set up caller profile picture
-    const profilePic = document.getElementById('incomingCallerProfilePic');
-    const avatarFallback = document.getElementById('incomingCallerAvatarFallback');
-    const avatarIcon = document.getElementById('incomingCallerAvatar');
-    
-    // Try to find caller's profile picture by looking up the room participants
-    if (callData.caller_id && window.currentRoomId) {
-        // Get caller profile from current room info
-        fetch(`/chat/api/room/${window.currentRoomId}/info/`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.room.participants_detailed) {
-                    const caller = data.room.participants_detailed.find(p => p.id == callData.caller_id);
-                    if (caller && caller.profile_picture) {
-                        profilePic.src = caller.profile_picture;
-                        profilePic.style.display = 'block';
-                        avatarFallback.style.display = 'none';
-                        return;
-                    }
-                }
-                // Fallback: generate avatar from name
-                setupAvatarFallback();
-            })
-            .catch(() => setupAvatarFallback());
-    } else {
-        setupAvatarFallback();
-    }
-    
-    function setupAvatarFallback() {
-        profilePic.style.display = 'none';
-        avatarFallback.style.display = 'flex';
-        const callerName = callData.caller_name || 'Unbekannt';
-        avatarIcon.textContent = callerName.charAt(0).toUpperCase();
-        
-        // Generate avatar URL as fallback
-        const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(callerName)}&size=120&background=667eea&color=ffffff&bold=true`;
-        profilePic.src = avatarUrl;
-        profilePic.onload = () => {
-            profilePic.style.display = 'block';
-            avatarFallback.style.display = 'none';
-        };
-        profilePic.onerror = () => {
-            profilePic.style.display = 'none';
-            avatarFallback.style.display = 'flex';
-        };
-    }
-    
-    // Update icons based on call type
-    const callIcon = document.getElementById('incomingCallIcon');
-    const acceptIcon = document.getElementById('acceptCallIcon');
-    
-    if (callData.call_type === 'video') {
-        callIcon.className = 'fas fa-video text-white';
-        acceptIcon.className = 'fas fa-video';
-    } else {
-        callIcon.className = 'fas fa-phone text-white';
-        acceptIcon.className = 'fas fa-phone';
-    }
-    
-    // Blur background
-    blurBackground(true);
-    
-    // Show overlay with flex display for centering
-    const overlay = document.getElementById('incomingCallOverlay');
-    overlay.style.display = 'flex';
-    
-    // Play ringtone
-    playRingtone();
-}
-
-function hideIncomingCall() {
-    // Hide overlay
-    document.getElementById('incomingCallOverlay').style.display = 'none';
-    
-    // Remove blur
-    blurBackground(false);
-    
-    // Stop ringtone
-    stopRingtone();
-    
-    // Restart polling after hiding call
-    setTimeout(() => {
-        if (!isCallActive) {
-            startIncomingCallPolling();
-        }
-    }, 1000);
-    
-    incomingCallData = null;
-}
-
-// Check media permissions before starting call
-async function checkMediaPermissions(callType) {
-    try {
-        console.log('🔐 Checking media permissions for:', callType);
-        
-        // Test microphone access
-        let micStream;
-        try {
-            micStream = await navigator.mediaDevices.getUserMedia({ 
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true
-                }
-            });
-            console.log('✅ Microphone access granted');
-        } catch (micError) {
-            console.error('❌ Microphone access denied:', micError);
-            return {
-                success: false,
-                message: 'Mikrofon-Zugriff verweigert. Bitte erlaube den Zugriff auf das Mikrofon in den Browser-Einstellungen.'
-            };
-        }
-        
-        // Test camera access for video calls
-        let videoStream;
-        if (callType === 'video') {
-            try {
-                videoStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: {
-                        width: { ideal: 640 },
-                        height: { ideal: 480 },
-                        frameRate: { ideal: 15 }
-                    }
-                });
-                console.log('✅ Camera access granted');
-            } catch (videoError) {
-                console.error('❌ Camera access denied:', videoError);
-                return {
-                    success: false,
-                    message: 'Kamera-Zugriff verweigert. Bitte erlaube den Zugriff auf die Kamera in den Browser-Einstellungen.'
-                };
-            }
-        }
-        
-        // Clean up test streams
-        if (micStream) {
-            micStream.getTracks().forEach(track => track.stop());
-        }
-        if (videoStream) {
-            videoStream.getTracks().forEach(track => track.stop());
-        }
-        
-        return { success: true };
-        
-    } catch (error) {
-        console.error('❌ Error checking permissions:', error);
-        return {
-            success: false,
-            message: 'Fehler beim Prüfen der Berechtigungen. Bitte stellen Sie sicher, dass Ihr Browser auf Mikrofon und Kamera zugreifen kann.'
-        };
-    }
-}
-
-async function acceptIncomingCall() {
-    if (!incomingCallData) return;
-    
-    console.log('🔄 acceptIncomingCall started with data:', incomingCallData);
-    
-    try {
-        // Accept call on server first
-        const acceptResponse = await fetch('/chat/accept-call/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify({
-                call_id: incomingCallData.call_id
-            })
-        });
-        
-        if (!acceptResponse.ok) {
-            console.error('Failed to accept call');
-            const errorData = await acceptResponse.json();
-            throw new Error(errorData.error || 'Failed to accept call');
-        }
-        
-        // Validate incoming call data BEFORE hiding (which sets incomingCallData to null)
-        console.log('🔄 Validating incomingCallData:', incomingCallData);
-        console.log('🔄 Has call_type:', !!incomingCallData.call_type, 'Value:', incomingCallData.call_type);
-        console.log('🔄 Has channel_name:', !!incomingCallData.channel_name, 'Value:', incomingCallData.channel_name);
-        
-        if (!incomingCallData || !incomingCallData.call_type || !incomingCallData.channel_name) {
-            console.error('❌ Validation failed - missing required properties');
-            throw new Error('Ungültige Anrufdaten');
-        }
-        
-        // Store the data before hiding (which nulls incomingCallData)
-        const callDataCopy = { ...incomingCallData };
-        
-        hideIncomingCall();
-        
-        // Initialize call with incoming call data
-        currentCallType = callDataCopy.call_type;
-        currentChannelName = callDataCopy.channel_name;
-        
-        // Get token for this call
-        console.log('🔄 Fetching Agora token for channel:', callDataCopy.channel_name);
-        const response = await fetch('/chat/get-agora-token/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify({
-                call_id: callDataCopy.call_id,
-                channel: callDataCopy.channel_name
-            })
-        });
-        
-        console.log('🔄 Agora token response status:', response.status);
-        const data = await response.json();
-        console.log('🔄 Agora token response data:', data);
-        if (!data.success) {
-            throw new Error(data.error || 'Failed to join call');
-        }
-        
-        agoraConfig.channel = callDataCopy.channel_name;
-        agoraConfig.uid = data.uid;
-        agoraConfig.token = data.token;
-        
-        // Initialize and show call window
-        console.log('🔄 Initializing Agora client...');
-        initAgoraClient();
-        showSmallCallWindow(callDataCopy.call_type);
-        
-        // Join channel
-        console.log('🔄 Joining Agora channel with config:', {
-            appId: agoraConfig.appId,
-            channel: agoraConfig.channel,
-            token: agoraConfig.token ? 'token exists' : 'no token',
-            uid: agoraConfig.uid
-        });
-        
-        try {
-            await agoraClient.join(agoraConfig.appId, agoraConfig.channel, agoraConfig.token, agoraConfig.uid);
-            console.log('✅ Successfully joined Agora channel');
-            console.log('📊 Local UID:', agoraConfig.uid);
-            console.log('📊 Waiting for other participants...');
-        } catch (joinError) {
-            console.error('❌ Failed to join channel:', joinError);
-            alert('Fehler beim Beitreten zum Anruf. Bitte versuchen Sie es erneut.');
-            throw joinError;
-        }
-        
-        // Create and publish local tracks
-        try {
-            console.log('🔄 Creating local audio track...');
-            console.log('🔍 AgoraRTC available:', typeof AgoraRTC !== 'undefined');
-            
-            localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-            console.log('✅ Local audio track created successfully');
-            
-            if (callDataCopy.call_type === 'video') {
-                console.log('🔄 Creating local video track...');
-                localVideoTrack = await AgoraRTC.createCameraVideoTrack();
-                console.log('✅ Local video track created successfully');
-                
-                // Wait a moment for DOM to be ready
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
-                // Play local video
-                try {
-                    await localVideoTrack.play("smallLocalVideo");
-                    console.log('✅ Local video playing in UI');
-                } catch (playError) {
-                    console.error('❌ Error playing local video:', playError);
-                }
-                
-                console.log('🔄 Publishing audio and video tracks...');
-                await agoraClient.publish([localAudioTrack, localVideoTrack]);
-                console.log('✅ Audio and video tracks published successfully');
-            } else {
-                console.log('🔄 Publishing audio track...');
-                await agoraClient.publish([localAudioTrack]);
-                console.log('✅ Audio track published successfully');
-            }
-        } catch (trackError) {
-            console.error('❌ Error creating/publishing tracks:', trackError);
-            alert('Fehler beim Zugriff auf Mikrofon/Kamera. Bitte überprüfen Sie die Berechtigungen.');
-            throw trackError;
-        }
-        
-        setCallActive(true);
-        console.log('✅ Call is now active');
-        
-        // Start polling to check if the call is still active (fallback for missed WebSocket messages)
-        startCallStatusPolling();
-        
-    } catch (error) {
-        console.error('Error accepting call:', error);
-        alert('Fehler beim Beitreten zum Anruf: ' + error.message);
-        hideIncomingCall();
-    }
-}
-
-async function rejectIncomingCall() {
-    if (!incomingCallData) return;
-    
-    try {
-        // Reject call on server
-        const rejectResponse = await fetch('/chat/reject-call/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify({
-                call_id: incomingCallData.call_id
-            })
-        });
-        
-        if (!rejectResponse.ok) {
-            console.error('Failed to reject call');
-            const errorData = await rejectResponse.json();
-            console.error('Reject error:', errorData);
-        } else {
-            console.log('Call rejected successfully');
-        }
-    } catch (error) {
-        console.error('Error rejecting call:', error);
-    }
-    
-    hideIncomingCall();
-}
-
-window.toggleMobileChatList = function() {
-    const sidebar = document.querySelector('.chat-sidebar');
-    if (!sidebar) {
-        console.error('Chat sidebar not found');
-        return;
-    }
-    
-    sidebar.classList.toggle('mobile-show');
-    
-    // Add/remove overlay
-    let overlay = document.getElementById('mobileOverlay');
-    if (sidebar.classList.contains('mobile-show')) {
-        if (!overlay) {
-            overlay = document.createElement('div');
-            overlay.id = 'mobileOverlay';
-            overlay.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0,0,0,0.5);
-                z-index: 1040;
-                display: block;
-            `;
-            overlay.onclick = () => window.toggleMobileChatList();
-            document.body.appendChild(overlay);
-        }
-    } else {
-        if (overlay) {
-            overlay.remove();
-        }
-    }
-};
-
-function blurBackground(enable) {
-    const mainContent = document.querySelector('.container-fluid');
-    if (enable) {
-        mainContent.classList.add('blur-background');
-    } else {
-        mainContent.classList.remove('blur-background');
-    }
-}
-
-// Ringtone functions
-let ringtoneAudio = null;
-let isRingtoneMuted = false;
-let ringtoneInterval = null;
-let audioContext = null;
-
-function playRingtone() {
-    if (isRingtoneMuted) {
-        console.log('Ringtone is muted');
-        return;
-    }
-    
-    try {
-        // Generate and play a pleasant ringtone
-        generatePleasantRingtone();
-    } catch (error) {
-        console.log('Could not play ringtone:', error);
-        createBeepSound();
-    }
-}
-
-function generatePleasantRingtone() {
-    try {
-        // Create audio context if it doesn't exist
-        if (!audioContext) {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        
-        // Stop any existing ringtone
-        if (ringtoneInterval) {
-            clearInterval(ringtoneInterval);
-        }
-        
-        // Play ringtone pattern every 3 seconds
-        playRingtonePattern();
-        ringtoneInterval = setInterval(() => {
-            if (incomingCallData && !isRingtoneMuted) {
-                playRingtonePattern();
-            } else {
-                clearInterval(ringtoneInterval);
-                ringtoneInterval = null;
-            }
-        }, 3000);
-        
-    } catch (error) {
-        console.log('Could not generate pleasant ringtone:', error);
-        createBeepSound();
-    }
-}
-
-function playRingtonePattern() {
-    if (!audioContext || isRingtoneMuted) return;
-    
-    const now = audioContext.currentTime;
-    
-    // Create a pleasant ringtone melody (like iPhone ringtone)
-    const notes = [
-        { freq: 523.25, start: 0.0, duration: 0.4 },    // C5
-        { freq: 659.25, start: 0.1, duration: 0.4 },    // E5
-        { freq: 783.99, start: 0.2, duration: 0.4 },    // G5
-        { freq: 1046.5, start: 0.3, duration: 0.4 },    // C6
-        { freq: 783.99, start: 0.5, duration: 0.3 },    // G5
-        { freq: 659.25, start: 0.6, duration: 0.3 },    // E5
-        { freq: 523.25, start: 0.8, duration: 0.5 },    // C5
-    ];
-    
-    notes.forEach(note => {
-        createTone(note.freq, now + note.start, note.duration);
-    });
-}
-
-function createTone(frequency, startTime, duration) {
-    if (!audioContext) return;
-    
-    // Create oscillator
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    
-    // Connect nodes
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    // Set frequency and type
-    oscillator.frequency.setValueAtTime(frequency, startTime);
-    oscillator.type = 'sine';
-    
-    // Create smooth attack and decay
-    gainNode.gain.setValueAtTime(0, startTime);
-    gainNode.gain.linearRampToValueAtTime(0.15, startTime + 0.05);
-    gainNode.gain.linearRampToValueAtTime(0.1, startTime + duration - 0.1);
-    gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
-    
-    // Start and stop
-    oscillator.start(startTime);
-    oscillator.stop(startTime + duration);
-}
-
-function stopRingtone() {
-    // Stop the interval
-    if (ringtoneInterval) {
-        clearInterval(ringtoneInterval);
-        ringtoneInterval = null;
-    }
-    
-    // Stop any HTML5 audio if it was used
-    if (ringtoneAudio) {
-        ringtoneAudio.pause();
-        ringtoneAudio.currentTime = 0;
-    }
-    
-    console.log('Ringtone stopped');
-}
-
-function muteRingtone() {
-    isRingtoneMuted = true;
-    stopRingtone();
-    
-    // Update mute button text
-    const muteBtn = document.querySelector('[onclick="muteRingtone()"]');
-    if (muteBtn) {
-        muteBtn.innerHTML = '<i class="fas fa-bell me-1"></i> Ton an';
-        muteBtn.onclick = unmuteRingtone;
-    }
-    
-    console.log('Ringtone muted');
-}
-
-function unmuteRingtone() {
-    isRingtoneMuted = false;
-    
-    // Update mute button text
-    const muteBtn = document.querySelector('[onclick="unmuteRingtone()"]');
-    if (muteBtn) {
-        muteBtn.innerHTML = '<i class="fas fa-bell-slash me-1"></i> Stumm';
-        muteBtn.onclick = muteRingtone;
-    }
-    
-    // Resume ringtone if call is still active
-    if (incomingCallData) {
-        playRingtone();
-    }
-    
-    console.log('Ringtone unmuted');
-}
-
-function createBeepSound() {
-    try {
-        // Fallback simple beep if Web Audio API fails
-        if (!audioContext) {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.frequency.setValueAtTime(650, audioContext.currentTime);
-        oscillator.type = 'sine';
-        
-        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-        gainNode.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.05);
-        gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
-        
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.5);
-        
-        // Repeat every 2 seconds for fallback
-        if (incomingCallData && !isRingtoneMuted) {
-            setTimeout(createBeepSound, 2000);
-        }
-    } catch (error) {
-        console.log('Could not create beep sound:', error);
-    }
-}
-
-// Call notification is now handled by the initiate_call backend endpoint
-// This function has been removed to avoid conflicts with the new Call model system
-
-// Handle incoming Agora call notification
-function handleIncomingAgoraCall(data) {
-    console.log('Handling incoming Agora call:', data);
-    
-    // Don't show if already in a call
-    if (isCallActive) {
-        console.log('Already in call, ignoring incoming call');
-        return;
-    }
-    
-    // Show incoming call overlay
-    showIncomingCall({
-        caller_name: data.caller_name,
-        call_type: data.call_type,
-        channel_name: data.channel_name,
-        room_id: data.room_id,
-        call_id: data.call_id || `agora_${Date.now()}` // Generate ID if not provided
-    });
-}
-
-}
-}
-}
-</script>
+<!-- End of third script content -->
 
 {% endblock %}
