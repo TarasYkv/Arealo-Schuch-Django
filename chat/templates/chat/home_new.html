@@ -865,7 +865,7 @@ body.modal-open {
                             <input type="text" class="search-box" placeholder="Chats durchsuchen..." id="chatSearch">
                             <div class="chat-list" id="chatList">
                                 {% for room in chat_rooms %}
-                                <div class="chat-room-item" data-room-id="{{ room.id }}" onclick="loadChat({{ room.id }})">
+                                <div class="chat-room-item" data-room-id="{{ room.id }}" onclick="window.loadChat({{ room.id }})">
                                     <div class="d-flex align-items-center">
                                         <div class="position-relative">
                                             {% if room.is_group_chat %}
@@ -976,7 +976,7 @@ body.modal-open {
                             <div id="chatHeader" class="chat-header" style="display: none;">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div class="d-flex align-items-center">
-                                        <button class="btn btn-sm btn-outline-secondary d-md-none me-2" id="mobileChatToggle" onclick="toggleMobileChatList()">
+                                        <button class="btn btn-sm btn-outline-secondary d-md-none me-2" id="mobileChatToggle" onclick="window.toggleMobileChatList()">
                                             <i class="fas fa-bars"></i>
                                         </button>
                                         <div id="chatAvatar" class="user-avatar bg-primary me-3"></div>
@@ -1055,13 +1055,13 @@ body.modal-open {
                                 </div>
                             </div>
                             
-                            <div class="message-input-area" id="messageInput" style="display: none;">
+                            <div class="message-input-area" id="window.messageInput" style="display: none;">
                                 <div class="d-flex align-items-end gap-2">
                                     <div class="flex-grow-1">
                                         <div class="input-group">
                                             <input type="text" class="form-control" placeholder="Nachricht eingeben..." id="messageText" onkeypress="handleKeyPress(event)">
                                         </div>
-                                        <div id="attachmentPreview" class="mt-2" style="display: none;"></div>
+                                        <div id="window.attachmentPreview" class="mt-2" style="display: none;"></div>
                                     </div>
                                     <div class="d-flex gap-1">
                                         <button class="btn btn-outline-secondary" onclick="document.getElementById('fileInput').click()" title="Datei anhängen">
@@ -1073,12 +1073,12 @@ body.modal-open {
                                         <button class="btn btn-outline-info" onclick="startAgoraCall('video')" title="Videoanruf">
                                             <i class="fas fa-video"></i>
                                         </button>
-                                        <button class="btn btn-primary" onclick="sendMessage()">
+                                        <button class="btn btn-primary" onclick="window.sendMessage()">
                                             <i class="fas fa-paper-plane"></i>
                                         </button>
                                     </div>
                                 </div>
-                                <input type="file" id="fileInput" multiple style="display: none;" onchange="handleFileSelect(event)">
+                                <input type="file" id="fileInput" multiple style="display: none;" onchange="window.handleFileSelect(event)">
                             </div>
                         </div>
                     </div>
@@ -1089,37 +1089,38 @@ body.modal-open {
 </div>
 
 <script>
-let currentRoomId = null;
-let messagesContainer;
-let messageInput;
-let selectedFiles = [];
-let currentPage = 1;
-let hasMoreMessages = false;
-let attachmentPreview;
+// Global variables
+window.window.currentRoomId = null;
+window.window.messagesContainer = null;
+window.window.messageInput = null;
+window.window.selectedFiles = [];
+window.window.currentPage = 1;
+window.hasMoreMessages = false;
+window.window.attachmentPreview = null;
 
 // Initialize DOM elements when needed
-function initializeDOMElements() {
-    if (!messagesContainer) {
-        messagesContainer = document.getElementById('chatMessages');
+window.initializeDOMElements = function() {
+    if (!window.window.messagesContainer) {
+        window.window.messagesContainer = document.getElementById('chatMessages');
     }
-    if (!messageInput) {
-        messageInput = document.getElementById('messageText');
+    if (!window.window.messageInput) {
+        window.window.messageInput = document.getElementById('messageText');
     }
-    if (!attachmentPreview) {
-        attachmentPreview = document.getElementById('attachmentPreview');
+    if (!window.window.attachmentPreview) {
+        window.window.attachmentPreview = document.getElementById('window.attachmentPreview');
     }
-}
+};
 
 // Use global call variables from base.html
 // globalCallSocket, globalPeerConnection, globalLocalStream, etc. are defined globally
 
-function loadChat(roomId) {
-    initializeDOMElements();
+window.loadChat = function(roomId) {
+    window.initializeDOMElements();
     
     // Close mobile sidebar if open
     const sidebar = document.querySelector('.chat-sidebar');
     if (sidebar && sidebar.classList.contains('mobile-show')) {
-        toggleMobileChatList();
+        window.toggleMobileChatList();
     }
     
     // Update active chat room
@@ -1131,22 +1132,22 @@ function loadChat(roomId) {
         activeRoom.classList.add('active');
     }
     
-    currentRoomId = roomId;
+    window.window.currentRoomId = roomId;
     
     
     // Mark messages as read when chat is loaded
-    markMessagesAsRead(roomId);
+    window.markMessagesAsRead(roomId);
     
     // Show chat header and input
     const chatHeader = document.getElementById('chatHeader');
-    const messageInputDiv = document.getElementById('messageInput');
+    const window.messageInputDiv = document.getElementById('window.messageInput');
     
     if (chatHeader) {
         chatHeader.style.display = 'block';
     }
     
-    if (messageInputDiv) {
-        messageInputDiv.style.display = 'block';
+    if (window.messageInputDiv) {
+        window.messageInputDiv.style.display = 'block';
     }
     
     // Load messages
@@ -1158,12 +1159,12 @@ function loadChat(roomId) {
         .then(data => {
             console.log('Response data:', data);
             if (data.success) {
-                displayMessages(data.messages);
-                updateChatHeader(data.room);
+                window.displayMessages(data.messages);
+                window.updateChatHeader(data.room);
                 
                 // Handle pagination
                 if (data.pagination) {
-                    currentPage = data.pagination.page;
+                    window.currentPage = data.pagination.page;
                     hasMoreMessages = data.pagination.has_more;
                     
                     const loadMoreContainer = document.getElementById('loadMoreContainer');
@@ -1187,27 +1188,27 @@ function loadChat(roomId) {
 }
 
 // Load more messages function
-function loadMoreMessages() {
-    if (!currentRoomId || !hasMoreMessages) return;
+window.loadMoreMessages = function() {
+    if (!window.window.currentRoomId || !window.hasMoreMessages) return;
     
-    const nextPage = currentPage + 1;
+    const nextPage = window.window.currentPage + 1;
     
-    fetch(`/chat/messages/${currentRoomId}/?page=${nextPage}`)
+    fetch(`/chat/messages/${window.window.currentRoomId}/?page=${nextPage}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
                 console.log('✅ More messages loaded:', data.messages.length);
                 
                 // Prepend older messages to the beginning
-                const oldMessages = Array.from(messagesContainer.querySelectorAll('.d-flex.mb-3'));
+                const oldMessages = Array.from(window.messagesContainer.querySelectorAll('.d-flex.mb-3'));
                 displayMessages(data.messages);
                 
                 // Re-append the existing messages
-                oldMessages.forEach(msg => messagesContainer.appendChild(msg));
+                oldMessages.forEach(msg => window.messagesContainer.appendChild(msg));
                 
                 // Update pagination state
                 if (data.pagination) {
-                    currentPage = data.pagination.page;
+                    window.currentPage = data.pagination.page;
                     hasMoreMessages = data.pagination.has_more;
                     
                     const loadMoreContainer = document.getElementById('loadMoreContainer');
@@ -1228,25 +1229,25 @@ function loadMoreMessages() {
             console.error('Error:', error);
             alert('Netzwerkfehler beim Laden weiterer Nachrichten');
         });
-}
+};
 
-function displayMessages(messages, append = false) {
+window.displayMessages = function(messages, append = false) {
     console.log('displayMessages called with:', messages, 'append:', append);
     
-    initializeDOMElements();
+    window.initializeDOMElements();
     
-    if (!messagesContainer) {
-        console.error('messagesContainer not found');
+    if (!window.window.messagesContainer) {
+        console.error('window.messagesContainer not found');
         return;
     }
     
     if (!append) {
-        messagesContainer.innerHTML = '';
+        window.window.messagesContainer.innerHTML = '';
     }
     
     if (!messages || messages.length === 0) {
         if (!append) {
-            messagesContainer.innerHTML = `
+            window.messagesContainer.innerHTML = `
                 <div class="empty-chat">
                     <i class="fas fa-comments fa-3x mb-3"></i>
                     <p>Noch keine Nachrichten</p>
@@ -1299,14 +1300,14 @@ function displayMessages(messages, append = false) {
             </div>
         `;
         
-        messagesContainer.appendChild(messageDiv);
+        window.messagesContainer.appendChild(messageDiv);
     });
     
     // Scroll to bottom
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    window.messagesContainer.scrollTop = window.messagesContainer.scrollHeight;
 }
 
-function updateChatHeader(room) {
+window.updateChatHeader = function(room) {
     const chatTitle = document.getElementById('chatTitle');
     const chatSubtitle = document.getElementById('chatSubtitle');
     const avatar = document.getElementById('chatAvatar');
@@ -1326,27 +1327,27 @@ function updateChatHeader(room) {
     }
 }
 
-function sendMessage() {
+window.sendMessage = function() {
     initializeDOMElements();
     
-    if (!messageInput) {
-        console.error('messageInput not found');
+    if (!window.messageInput) {
+        console.error('window.messageInput not found');
         return;
     }
     
-    const messageText = messageInput.value.trim();
-    if (!messageText && selectedFiles.length === 0) return;
-    if (!currentRoomId) return;
+    const messageText = window.messageInput.value.trim();
+    if (!messageText && window.selectedFiles.length === 0) return;
+    if (!window.currentRoomId) return;
     
     const formData = new FormData();
     formData.append('content', messageText);
     
     // Add attachments
-    selectedFiles.forEach(file => {
+    window.selectedFiles.forEach(file => {
         formData.append('attachments', file);
     });
     
-    fetch(`/chat/api/room/${currentRoomId}/send/`, {
+    fetch(`/chat/api/room/${window.currentRoomId}/send/`, {
         method: 'POST',
         headers: {
             'X-CSRFToken': getCookie('csrftoken'),
@@ -1356,19 +1357,19 @@ function sendMessage() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            messageInput.value = '';
-            selectedFiles = [];
+            window.messageInput.value = '';
+            window.selectedFiles = [];
             
-            if (!attachmentPreview) {
-                attachmentPreview = document.getElementById('attachmentPreview');
+            if (!window.attachmentPreview) {
+                window.attachmentPreview = document.getElementById('window.attachmentPreview');
             }
             
-            if (attachmentPreview) {
-                attachmentPreview.style.display = 'none';
-                attachmentPreview.innerHTML = '';
+            if (window.attachmentPreview) {
+                window.attachmentPreview.style.display = 'none';
+                window.attachmentPreview.innerHTML = '';
             }
             
-            loadChat(currentRoomId); // Reload messages
+            loadChat(window.currentRoomId); // Reload messages
         } else {
             alert('Fehler beim Senden der Nachricht: ' + data.error);
         }
@@ -1379,9 +1380,9 @@ function sendMessage() {
     });
 }
 
-function handleKeyPress(event) {
+window.handleKeyPress = function(event) {
     if (event.key === 'Enter') {
-        sendMessage();
+        window.sendMessage();
     }
 }
 
@@ -1413,7 +1414,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Get CSRF cookie
-function getCookie(name) {
+window.getCookie = function(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
         const cookies = document.cookie.split(';');
@@ -1429,30 +1430,30 @@ function getCookie(name) {
 }
 
 // Handle file selection
-function handleFileSelect(event) {
+window.handleFileSelect = function(event) {
     const files = Array.from(event.target.files);
-    selectedFiles = files;
+    window.selectedFiles = files;
     
-    // Initialize attachmentPreview if not already done
-    if (!attachmentPreview) {
-        attachmentPreview = document.getElementById('attachmentPreview');
+    // Initialize window.attachmentPreview if not already done
+    if (!window.attachmentPreview) {
+        window.attachmentPreview = document.getElementById('window.attachmentPreview');
     }
     
     if (files.length === 0) {
-        if (attachmentPreview) {
-            attachmentPreview.style.display = 'none';
+        if (window.attachmentPreview) {
+            window.attachmentPreview.style.display = 'none';
         }
         return;
     }
     
     let previewHtml = '<div class="selected-files"><strong>Ausgewählte Dateien:</strong><br>';
     files.forEach((file, index) => {
-        const fileSize = formatFileSize(file.size);
+        const fileSize = window.formatFileSize(file.size);
         previewHtml += `
             <div class="file-item d-flex align-items-center gap-2 mb-1">
                 <i class="fas fa-file"></i>
                 <span>${file.name} (${fileSize})</span>
-                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(${index})">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="window.removeFile(${index})">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -1460,30 +1461,30 @@ function handleFileSelect(event) {
     });
     previewHtml += '</div>';
     
-    if (attachmentPreview) {
-        attachmentPreview.innerHTML = previewHtml;
-        attachmentPreview.style.display = 'block';
+    if (window.attachmentPreview) {
+        window.attachmentPreview.innerHTML = previewHtml;
+        window.attachmentPreview.style.display = 'block';
     }
 }
 
-function removeFile(index) {
-    selectedFiles.splice(index, 1);
+window.removeFile = function(index) {
+    window.selectedFiles.splice(index, 1);
     
-    if (!attachmentPreview) {
-        attachmentPreview = document.getElementById('attachmentPreview');
+    if (!window.attachmentPreview) {
+        window.attachmentPreview = document.getElementById('window.attachmentPreview');
     }
     
-    if (selectedFiles.length === 0) {
-        if (attachmentPreview) {
-            attachmentPreview.style.display = 'none';
+    if (window.selectedFiles.length === 0) {
+        if (window.attachmentPreview) {
+            window.attachmentPreview.style.display = 'none';
         }
     } else {
         // Update preview
-        handleFileSelect({ target: { files: selectedFiles } });
+        window.handleFileSelect({ target: { files: window.selectedFiles } });
     }
 }
 
-function formatFileSize(bytes) {
+window.formatFileSize = function(bytes) {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
@@ -1492,7 +1493,7 @@ function formatFileSize(bytes) {
 }
 
 // Mark messages as read
-function markMessagesAsRead(roomId) {
+window.markMessagesAsRead = function(roomId) {
     fetch(`/chat/api/room/${roomId}/mark_read/`, {
         method: 'POST',
         headers: {
@@ -1508,7 +1509,7 @@ function markMessagesAsRead(roomId) {
                 window.updateChatNotifications();
             }
             // Update unread badges in chat list
-            updateUnreadBadges();
+            window.updateUnreadBadges();
         }
     })
     .catch(error => {
@@ -1517,8 +1518,8 @@ function markMessagesAsRead(roomId) {
 }
 
 // Update unread badges in chat list
-function updateUnreadBadges() {
-    const roomItem = document.querySelector(`[data-room-id="${currentRoomId}"]`);
+window.updateUnreadBadges = function() {
+    const roomItem = document.querySelector(`[data-room-id="${window.currentRoomId}"]`);
     if (roomItem) {
         const unreadBadge = roomItem.querySelector('.badge-unread');
         if (unreadBadge) {
@@ -1527,26 +1528,12 @@ function updateUnreadBadges() {
     }
 }
 
-// Get CSRF token
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
+// Removed duplicate getCookie function
 
 // Auto-refresh messages every 10 seconds (but not during active calls)
 setInterval(() => {
-    if (currentRoomId && !globalIsCallActive) {
-        loadChat(currentRoomId);
+    if (window.window.currentRoomId && !globalIsCallActive) {
+        window.loadChat(window.window.currentRoomId);
     }
 }, 10000);
 
@@ -1555,7 +1542,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const urlParams = new URLSearchParams(window.location.search);
     const roomId = urlParams.get('room');
     if (roomId) {
-        loadChat(parseInt(roomId));
+        window.loadChat(parseInt(roomId));
         
         // Check if we should auto-answer a call
         const answerCallId = urlParams.get('answerCall');
@@ -1669,13 +1656,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Delete chat function
 function deleteChat() {
-    if (!currentRoomId) {
+    if (!window.currentRoomId) {
         alert('Kein Chat ausgewählt');
         return;
     }
     
     if (confirm('Sind Sie sicher, dass Sie diesen Chat löschen möchten?')) {
-        fetch(`/chat/api/room/${currentRoomId}/delete/`, {
+        fetch(`/chat/api/room/${window.currentRoomId}/delete/`, {
             method: 'POST',
             headers: {
                 'X-CSRFToken': getCookie('csrftoken'),
@@ -1687,14 +1674,14 @@ function deleteChat() {
             if (data.success) {
                 alert(data.message);
                 // Remove chat from list
-                const chatItem = document.querySelector(`[data-room-id="${currentRoomId}"]`);
+                const chatItem = document.querySelector(`[data-room-id="${window.currentRoomId}"]`);
                 if (chatItem) {
                     chatItem.remove();
                 }
                 // Clear chat area
                 const chatMessages = document.getElementById('chatMessages');
                 const chatHeader = document.getElementById('chatHeader');
-                const messageInputDiv = document.getElementById('messageInput');
+                const window.messageInputDiv = document.getElementById('window.messageInput');
                 
                 if (chatMessages) {
                     chatMessages.innerHTML = '';
@@ -1704,10 +1691,10 @@ function deleteChat() {
                     chatHeader.style.display = 'none';
                 }
                 
-                if (messageInputDiv) {
-                    messageInputDiv.style.display = 'none';
+                if (window.messageInputDiv) {
+                    window.messageInputDiv.style.display = 'none';
                 }
-                currentRoomId = null;
+                window.currentRoomId = null;
                 // Reload page to refresh chat list
                 window.location.reload();
             } else {
@@ -1724,11 +1711,11 @@ function deleteChat() {
 // Call validation wrapper function
 function startCallWithValidation(callType) {
     console.log('🔍 Starting call validation...');
-    console.log('Current room ID:', currentRoomId);
+    console.log('Current room ID:', window.currentRoomId);
     console.log('Call type:', callType);
     
-    // Check if currentRoomId is defined
-    if (!currentRoomId) {
+    // Check if window.currentRoomId is defined
+    if (!window.currentRoomId) {
         console.error('❌ No room selected');
         alert('Bitte wählen Sie zuerst einen Chat aus.');
         return;
@@ -1755,13 +1742,13 @@ function startCallWithValidation(callType) {
     try {
         // Try global function first
         if (typeof globalStartCall === 'function') {
-            globalStartCall(currentRoomId, callType);
+            globalStartCall(window.currentRoomId, callType);
         } else if (typeof window.globalStartCall === 'function') {
-            window.globalStartCall(currentRoomId, callType);
+            window.globalStartCall(window.currentRoomId, callType);
         } else {
             // Fallback to local implementation
             console.log('🔄 Using fallback local call implementation');
-            startLocalCall(currentRoomId, callType);
+            startLocalCall(window.currentRoomId, callType);
         }
     } catch (error) {
         console.error('❌ Error calling start call function:', error);
@@ -1815,7 +1802,7 @@ async function startLocalCall(roomId, callType) {
 
 // Show chat info function
 function showChatInfo() {
-    if (!currentRoomId) {
+    if (!window.currentRoomId) {
         alert('Kein Chat ausgewählt');
         return;
     }
@@ -1837,7 +1824,7 @@ function showChatInfo() {
     `;
     
     // Fetch chat info
-    fetch(`/chat/api/room/${currentRoomId}/info/`, {
+    fetch(`/chat/api/room/${window.currentRoomId}/info/`, {
         method: 'GET',
         headers: {
             'X-CSRFToken': getCookie('csrftoken')
@@ -2090,7 +2077,7 @@ function makeFloatingWindowDraggable() {
 
 // Initiate a call
 function initiateCall(callType) {
-    if (!currentRoomId) {
+    if (!window.currentRoomId) {
         alert('Kein Chat ausgewählt');
         return;
     }
@@ -2145,7 +2132,7 @@ async function startCall(callType) {
         connectCallWebSocket();
         
         // Initiate call via API
-        const response = await fetch(`/chat/api/room/${currentRoomId}/call/initiate/`, {
+        const response = await fetch(`/chat/api/room/${window.currentRoomId}/call/initiate/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -2209,7 +2196,7 @@ function connectCallWebSocket() {
     const wsHost = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' 
         ? '127.0.0.1:8000' 
         : window.location.host;
-    const wsUrl = `${protocol}//${wsHost}/ws/call/${currentRoomId}/`;
+    const wsUrl = `${protocol}//${wsHost}/ws/call/${window.currentRoomId}/`;
     
     console.log('🔌 Connecting to Call WebSocket for WebRTC signaling:', wsUrl);
     callSocket = new WebSocket(wsUrl);
@@ -2781,13 +2768,13 @@ function startCallStatusPolling() {
     // Wait 5 seconds before starting polling to allow call to be properly established
     setTimeout(() => {
         callStatusPollingInterval = setInterval(async () => {
-            if (!getCallActive() || !currentRoomId) {
+            if (!getCallActive() || !window.currentRoomId) {
                 stopCallStatusPolling();
                 return;
             }
             
             try {
-                const response = await fetch(`/chat/api/room/${currentRoomId}/active-call/`);
+                const response = await fetch(`/chat/api/room/${window.currentRoomId}/active-call/`);
                 const data = await response.json();
                 
                 if (!data.has_active_call) {
@@ -2980,7 +2967,7 @@ function initAgoraClient() {
 async function startAgoraCall(callType) {
     console.log('🚀 VERSION 2.0 - NEW startAgoraCall function called with:', callType, 'at', new Date().toISOString());
     
-    if (!currentRoomId) {
+    if (!window.currentRoomId) {
         alert('Bitte wählen Sie zuerst einen Chat aus.');
         return;
     }
@@ -2992,7 +2979,7 @@ async function startAgoraCall(callType) {
     
     try {
         // First, initiate the call via the backend to create the Call record
-        const initiateResponse = await fetch(`/chat/api/room/${currentRoomId}/call/initiate/`, {
+        const initiateResponse = await fetch(`/chat/api/room/${window.currentRoomId}/call/initiate/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -3014,7 +3001,7 @@ async function startAgoraCall(callType) {
         const callId = initiateData.call_id;
         
         currentCallType = callType;
-        currentChannelName = `call_${currentRoomId}_${callId}`;
+        currentChannelName = `call_${window.currentRoomId}_${callId}`;
         
         // Get Agora token from backend
         const response = await fetch('/chat/get-agora-token/', {
@@ -3100,12 +3087,12 @@ function showCallModal(callType) {
 async function endAgoraCall() {
     try {
         // Send end call notification to server and other participants
-        if (currentRoomId && getCallActive()) {
+        if (window.currentRoomId && getCallActive()) {
             // Send via WebSocket if available
             if (callSocket && callSocket.readyState === WebSocket.OPEN) {
                 const endMessage = {
                     type: 'call_ended',
-                    room_id: currentRoomId,
+                    room_id: window.currentRoomId,
                     channel_name: currentChannelName,
                     ended_by: 'user' // Mark that this was ended by user action
                 };
@@ -3123,7 +3110,7 @@ async function endAgoraCall() {
                     'X-CSRFToken': getCookie('csrftoken')
                 },
                 body: JSON.stringify({
-                    room_id: currentRoomId,
+                    room_id: window.currentRoomId,
                     channel_name: currentChannelName
                 })
             }).catch(error => console.error('Error sending end call notification:', error));
@@ -3228,7 +3215,7 @@ document.addEventListener('DOMContentLoaded', function() {
             caller_name: 'Test Benutzer',
             call_type: type,
             channel_name: 'test_channel',
-            room_id: currentRoomId || 1,
+            room_id: window.currentRoomId || 1,
             call_id: 'test_call_123'
         });
     };
@@ -3265,14 +3252,14 @@ function stopIncomingCallPolling() {
 
 async function checkForIncomingCalls() {
     // Only check if we have a current room and are not already in a call
-    if (!currentRoomId || getCallActive()) {
+    if (!window.currentRoomId || getCallActive()) {
         return;
     }
     
-    console.log('🔍 [LOCAL] Checking for incoming calls in room:', currentRoomId);
+    console.log('🔍 [LOCAL] Checking for incoming calls in room:', window.currentRoomId);
     
     try {
-        const response = await fetch(`/chat/check-incoming-calls/?room_id=${currentRoomId}`);
+        const response = await fetch(`/chat/check-incoming-calls/?room_id=${window.currentRoomId}`);
         const data = await response.json();
         
         console.log('🔍 [LOCAL] Call check response:', data);
@@ -3287,7 +3274,7 @@ async function checkForIncomingCalls() {
                 caller_id: data.caller_id,
                 call_type: data.call_type,
                 channel_name: data.channel_name,
-                room_id: currentRoomId,
+                room_id: window.currentRoomId,
                 call_id: data.call_id || data.message_id
             });
         }
@@ -3410,12 +3397,12 @@ let callDurationInterval = null;
 
 // End call and clear notifications globally
 function endCallAndClearNotifications() {
-    if (!currentRoomId) return;
+    if (!window.currentRoomId) return;
     
-    console.log('🔚 Ending call and clearing notifications for room:', currentRoomId);
+    console.log('🔚 Ending call and clearing notifications for room:', window.currentRoomId);
     
     const data = {
-        room_id: currentRoomId
+        room_id: window.currentRoomId
     };
     
     fetch('/chat/end-call-notification/', {
@@ -3594,9 +3581,9 @@ function showIncomingCall(callData) {
     const avatarIcon = document.getElementById('incomingCallerAvatar');
     
     // Try to find caller's profile picture by looking up the room participants
-    if (callData.caller_id && currentRoomId) {
+    if (callData.caller_id && window.currentRoomId) {
         // Get caller profile from current room info
-        fetch(`/chat/api/room/${currentRoomId}/info/`)
+        fetch(`/chat/api/room/${window.currentRoomId}/info/`)
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.room.participants_detailed) {
@@ -3915,7 +3902,7 @@ async function rejectIncomingCall() {
     hideIncomingCall();
 }
 
-function toggleMobileChatList() {
+window.toggleMobileChatList = function() {
     const sidebar = document.querySelector('.chat-sidebar');
     if (!sidebar) {
         console.error('Chat sidebar not found');
@@ -3940,7 +3927,7 @@ function toggleMobileChatList() {
                 z-index: 1040;
                 display: block;
             `;
-            overlay.onclick = () => toggleMobileChatList();
+            overlay.onclick = () => window.toggleMobileChatList();
             document.body.appendChild(overlay);
         }
     } else {
@@ -3948,7 +3935,7 @@ function toggleMobileChatList() {
             overlay.remove();
         }
     }
-}
+};
 
 function blurBackground(enable) {
     const mainContent = document.querySelector('.container-fluid');
