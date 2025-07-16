@@ -1694,8 +1694,8 @@ async function startCall(callType) {
             document.getElementById('globalLocalVideo').srcObject = globalLocalStream;
         }
         
-        // Create WebSocket connection
-        connectCallWebSocket();
+        // WebSocket functionality disabled - using HTTP polling only
+        console.log('📞 Call initiated via HTTP polling (WebSocket disabled)');
         
         // Initiate call via API
         const response = await fetch(`/chat/api/room/${currentRoomId}/call/initiate/`, {
@@ -1747,49 +1747,8 @@ async function startCall(callType) {
     }
 }
 
-// Connect to call WebSocket
-function connectCallWebSocket() {
-    if (callSocket && callSocket.readyState === WebSocket.OPEN) {
-        console.log('WebSocket already connected');
-        return;
-    }
-    
-    if (callSocket) {
-        callSocket.close();
-    }
-    
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // PythonAnywhere compatible WebSocket URL
-    const wsHost = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' 
-        ? '127.0.0.1:8001' 
-        : window.location.host;
-    const wsUrl = `${protocol}//${wsHost}/ws/call/${currentRoomId}/`;
-    
-    console.log('🔌 Connecting to Call WebSocket:', wsUrl);
-    callSocket = new WebSocket(wsUrl);
-    
-    callSocket.onopen = function(e) {
-        console.log('Call WebSocket connected');
-        // Hide any previous connection error messages
-        hideWebSocketError();
-    };
-    
-    callSocket.onmessage = function(e) {
-        const data = JSON.parse(e.data);
-        handleCallMessage(data);
-    };
-    
-    callSocket.onclose = function(e) {
-        console.log('Call WebSocket disconnected');
-        if (e.code !== 1000) {
-            console.log('WebSocket functionality disabled - using HTTP polling only');
-        }
-    };
-    
-    callSocket.onerror = function(e) {
-        console.log('WebSocket error (expected - using HTTP polling):', e);
-    };
-}
+// WebSocket connection functionality removed - using HTTP polling only
+// connectCallWebSocket function disabled - HTTP polling is the primary method
 
 // WebSocket error handling removed - using HTTP polling only
 // Call functionality is available via HTTP polling mode
@@ -1951,25 +1910,14 @@ async function answerCall(callId, callType) {
             globalIsVideoEnabled = true;
         }
         
-        // Ensure WebSocket connection
-        if (!callSocket || callSocket.readyState !== WebSocket.OPEN) {
-            connectCallWebSocket();
-            // Wait a bit for connection
-            await new Promise(resolve => setTimeout(resolve, 500));
-        }
+        // WebSocket functionality disabled - using HTTP polling only
+        console.log('📞 Call answered via HTTP polling (WebSocket disabled)');
         
         // Create peer connection
         createPeerConnection();
         
-        // Send answer through WebSocket
-        if (callSocket && callSocket.readyState === WebSocket.OPEN) {
-            callSocket.send(JSON.stringify({
-                type: 'call_answer',
-                call_id: callId
-            }));
-        } else {
-            throw new Error('WebSocket connection failed');
-        }
+        // HTTP polling will handle the call state automatically
+        console.log('✅ Call answered successfully via HTTP polling mode');
         
     } catch (error) {
         console.error('Error answering call:', error);
