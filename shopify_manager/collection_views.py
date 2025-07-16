@@ -274,7 +274,7 @@ def collection_alt_text_manager_view(request, collection_id):
 @login_required
 @require_http_methods(["POST"])
 def update_collection_alt_text_view(request, collection_id):
-    """Aktualisiert den Alt-Text einer Kategorie"""
+    """Aktualisiert den Alt-Text einer Kategorie und synchronisiert mit Shopify"""
     collection = get_object_or_404(ShopifyCollection, id=collection_id, store__user=request.user)
     
     try:
@@ -283,12 +283,40 @@ def update_collection_alt_text_view(request, collection_id):
         
         # Aktualisiere lokalen Alt-Text
         collection.image_alt = new_alt_text
-        collection.mark_for_sync()
         collection.save()
+        
+        # Direkte Shopify-Synchronisation
+        sync_success = False
+        sync_message = ""
+        
+        try:
+            from .shopify_api import ShopifyAPIClient
+            shopify_api = ShopifyAPIClient(collection.store)
+            
+            # Alt-Text direkt im Collection-Image über GraphQL aktualisieren
+            success, message = shopify_api.update_collection_image_alt_text(
+                collection.shopify_id,
+                new_alt_text
+            )
+            
+            if success:
+                sync_success = True
+                sync_message = "Alt-Text erfolgreich zu Shopify synchronisiert"
+                # Markiere als synchronisiert (needs_sync = False)
+                collection.needs_sync = False
+                collection.sync_error = ""
+                collection.save()
+            else:
+                sync_message = f"Shopify-Sync fehlgeschlagen: {message}"
+                
+        except Exception as sync_error:
+            sync_message = f"Shopify-Sync Fehler: {str(sync_error)}"
         
         return JsonResponse({
             'success': True,
-            'message': 'Alt-Text erfolgreich aktualisiert'
+            'message': sync_message if sync_success else 'Alt-Text lokal gespeichert, aber Shopify-Sync fehlgeschlagen',
+            'shopify_synced': sync_success,
+            'local_saved': True
         })
         
     except Exception as e:
@@ -316,22 +344,60 @@ def generate_collection_alt_text_view(request, collection_id):
                 'error': 'Keine Bild-URL angegeben'
             })
         
-        # Hier würde normalerweise die KI-basierte Alt-Text-Generierung stattfinden
-        # Für jetzt verwenden wir eine einfache Vorlage
-        suggested_alt_text = f"Kategorie-Bild für {collection_title}"
-        if collection_description:
-            # Nimm die ersten Worte der Beschreibung
-            desc_words = collection_description.split()[:5]
-            suggested_alt_text = f"{collection_title} - {' '.join(desc_words)}"
+        # KI-basierte Alt-Text-Generierung mit naturmacher.ai_service
+        try:
+            from naturmacher.services.ai_service import generate_alt_text_with_ai
+            
+            # Verwende AI-Service für Alt-Text-Generierung
+            success, alt_text, message = generate_alt_text_with_ai(
+                image_url=image_url,
+                context_title=collection_title,
+                context_description=collection_description,
+                user=request.user,
+                content_type='collection'
+            )
+            
+            if success:
+                return JsonResponse({
+                    'success': True,
+                    'alt_text': alt_text,
+                    'message': 'KI-Alt-Text erfolgreich generiert'
+                })
+            else:
+                # Fallback bei AI-Fehler
+                suggested_alt_text = f"Kategorie-Bild für {collection_title}"
+                if collection_description:
+                    # Nimm die ersten Worte der Beschreibung
+                    desc_words = collection_description.split()[:5]
+                    suggested_alt_text = f"{collection_title} - {' '.join(desc_words)}"
+                
+                # Kürze auf maximal 125 Zeichen
+                if len(suggested_alt_text) > 125:
+                    suggested_alt_text = suggested_alt_text[:122] + "..."
+                
+                return JsonResponse({
+                    'success': True,
+                    'alt_text': suggested_alt_text,
+                    'message': f'Fallback-Alt-Text verwendet (KI-Fehler: {message})'
+                })
         
-        # Kürze auf maximal 125 Zeichen
-        if len(suggested_alt_text) > 125:
-            suggested_alt_text = suggested_alt_text[:122] + "..."
-        
-        return JsonResponse({
-            'success': True,
-            'alt_text': suggested_alt_text
-        })
+        except ImportError:
+            # Fallback wenn AI-Service nicht verfügbar
+            suggested_alt_text = f"Kategorie-Bild für {collection_title}"
+            if collection_description:
+                # Nimm die ersten Worte der Beschreibung
+                desc_words = collection_description.split()[:5]
+                suggested_alt_text = f"{collection_title} - {' '.join(desc_words)}"
+            
+            # Kürze auf maximal 125 Zeichen
+            if len(suggested_alt_text) > 125:
+                suggested_alt_text = suggested_alt_text[:122] + "..."
+            
+            return JsonResponse({
+                'success': True,
+                'alt_text': suggested_alt_text,
+                'message': 'Fallback-Alt-Text verwendet (AI-Service nicht verfügbar)'
+            })
         
     except Exception as e:
         return JsonResponse({
@@ -396,7 +462,8 @@ def collection_seo_ajax_view(request, collection_id):
                     'success': True,
                     'message': sync_message,
                     'seo_score': collection.get_seo_score(),
-                    'shopify_synced': sync_success
+                    'shopify_synced': sync_success,
+                    'redirect_url': reverse('shopify_manager:collection_alt_text_manager', kwargs={'collection_id': collection.id})
                 })
                 
             except Exception as e:
@@ -407,7 +474,8 @@ def collection_seo_ajax_view(request, collection_id):
                     'success': True,
                     'message': f'SEO-Daten lokal gespeichert, aber Shopify-Sync fehlgeschlagen: {str(e)}',
                     'seo_score': collection.get_seo_score(),
-                    'shopify_synced': False
+                    'shopify_synced': False,
+                    'redirect_url': reverse('shopify_manager:collection_alt_text_manager', kwargs={'collection_id': collection.id})
                 })
             
         elif action == 'generate':

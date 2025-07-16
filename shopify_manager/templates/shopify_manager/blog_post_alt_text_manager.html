@@ -266,7 +266,7 @@ document.getElementById('generateAllBtn').addEventListener('click', function() {
     const totalImages = generateBtns.length;
     
     if (totalImages === 0) {
-        alert('Keine Bilder zum Generieren gefunden.');
+        // Keine Bilder zum Generieren gefunden - kein Alert
         return;
     }
     
@@ -282,7 +282,7 @@ document.getElementById('generateAllBtn').addEventListener('click', function() {
             hideProgress();
             document.getElementById('generateAllBtn').disabled = false;
             document.getElementById('generateAllBtn').innerHTML = '<i class="fas fa-robot"></i> Alle Alt-Texte generieren';
-            alert('Alle Alt-Texte wurden generiert!');
+            // Entferne die Erfolgsmeldung
             return;
         }
         
@@ -349,13 +349,11 @@ document.getElementById('saveAllBtn').addEventListener('click', function() {
     });
     
     if (validForms.length === 0) {
-        alert('Keine Alt-Texte zum Speichern gefunden.');
+        // Keine Alt-Texte zum Speichern gefunden - kein Alert
         return;
     }
     
-    if (!confirm(`${validForms.length} Alt-Texte speichern und zu Shopify übertragen?`)) {
-        return;
-    }
+    // Entferne die Bestätigungsmeldung - speichere direkt
     
     this.disabled = true;
     this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Speichere...';
@@ -372,10 +370,9 @@ document.getElementById('saveAllBtn').addEventListener('click', function() {
             document.getElementById('saveAllBtn').innerHTML = '<i class="fas fa-cloud-upload-alt"></i> Speichern + zu Shopify';
             
             if (successCount > 0) {
-                alert(`${successCount} von ${validForms.length} Alt-Texten erfolgreich gespeichert!`);
-                // Redirect to blog post list
+                // Redirect to Blog detail page after successful save
                 setTimeout(() => {
-                    window.location.href = '{% url "shopify_manager:blog_post_list" %}';
+                    window.location.href = '{% url "shopify_manager:blog_detail" blog_post.blog.id %}';
                 }, 1000);
             }
             return;

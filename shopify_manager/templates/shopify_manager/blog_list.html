@@ -9,10 +9,10 @@
     </h1>
     <div class="btn-toolbar mb-2 mb-md-0">
         <div class="btn-group me-2">
-            <button class="btn btn-success" onclick="importBlogs()">
+            <button class="btn btn-success" onclick="importBlogs()" id="importBlogsBtn">
                 <i class="fas fa-download"></i> Blogs importieren
             </button>
-            <button class="btn btn-outline-success" onclick="importAllBlogPosts()">
+            <button class="btn btn-outline-success" onclick="importAllBlogPosts()" id="importAllBlogPostsBtn">
                 <i class="fas fa-download"></i> Alle Blog-Beiträge importieren
             </button>
             <a href="{% url 'shopify_manager:blog_post_list' %}" class="btn btn-outline-primary">
@@ -228,7 +228,7 @@
                         <a href="{% url 'shopify_manager:blog_detail' blog.pk %}" class="btn btn-sm btn-outline-primary">
                             <i class="fas fa-eye"></i>
                         </a>
-                        <button class="btn btn-sm btn-outline-success" onclick="importBlogPosts({{ blog.id }})" title="Blog-Posts importieren">
+                        <button class="btn btn-sm btn-outline-success" onclick="importBlogPosts({{ blog.id }}, this)" title="Blog-Posts importieren">
                             <i class="fas fa-download"></i>
                         </button>
                         <a href="{{ blog.get_shopify_admin_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
@@ -282,8 +282,22 @@
 
 <script>
 function importBlogs() {
-    const modal = new bootstrap.Modal(document.getElementById('importModal'));
-    modal.show();
+    const button = document.getElementById('importBlogsBtn');
+    const originalText = button.innerHTML;
+    
+    // Zeige Loading-Zustand
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Lade...';
+    button.disabled = true;
+    
+    // Kurze Verzögerung für bessere UX
+    setTimeout(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+        
+        // Öffne Modal
+        const modal = new bootstrap.Modal(document.getElementById('importModal'));
+        modal.show();
+    }, 500);
 }
 
 function executeImport() {
@@ -383,8 +397,22 @@ function executeImport() {
 }
 
 function importAllBlogPosts() {
-    const modal = new bootstrap.Modal(document.getElementById('blogPostImportModal'));
-    modal.show();
+    const button = document.getElementById('importAllBlogPostsBtn');
+    const originalText = button.innerHTML;
+    
+    // Zeige Loading-Zustand
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Lade...';
+    button.disabled = true;
+    
+    // Kurze Verzögerung für bessere UX
+    setTimeout(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+        
+        // Öffne Modal
+        const modal = new bootstrap.Modal(document.getElementById('blogPostImportModal'));
+        modal.show();
+    }, 500);
 }
 
 function loadBlogsForStore() {
@@ -553,8 +581,14 @@ function executeBlogPostImport() {
     });
 }
 
-function importBlogPosts(blogId) {
+function importBlogPosts(blogId, buttonElement) {
     if (!confirm('Blog-Posts für diesen Blog importieren?')) return;
+    
+    // Zeige Loading-Zustand
+    const originalContent = buttonElement.innerHTML;
+    buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    buttonElement.disabled = true;
+    buttonElement.classList.add('disabled');
     
     const formData = new FormData();
     formData.append('blog_id', blogId);
@@ -570,14 +604,32 @@ function importBlogPosts(blogId) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
+            // Zeige Erfolg-Icon kurz an
+            buttonElement.innerHTML = '<i class="fas fa-check text-success"></i>';
             showAlert('success', `${data.imported} Blog-Posts erfolgreich importiert!`);
             setTimeout(() => location.reload(), 1500);
         } else {
+            // Zeige Fehler-Icon kurz an
+            buttonElement.innerHTML = '<i class="fas fa-times text-danger"></i>';
             showAlert('danger', `Import fehlgeschlagen: ${data.error}`);
+            // Zurück zum Original nach 2 Sekunden
+            setTimeout(() => {
+                buttonElement.innerHTML = originalContent;
+                buttonElement.disabled = false;
+                buttonElement.classList.remove('disabled');
+            }, 2000);
         }
     })
     .catch(error => {
+        // Zeige Fehler-Icon kurz an
+        buttonElement.innerHTML = '<i class="fas fa-times text-danger"></i>';
         showAlert('danger', 'Fehler beim Import: ' + error);
+        // Zurück zum Original nach 2 Sekunden
+        setTimeout(() => {
+            buttonElement.innerHTML = originalContent;
+            buttonElement.disabled = false;
+            buttonElement.classList.remove('disabled');
+        }, 2000);
     });
 }
 

@@ -2,6 +2,63 @@
 
 {% block title %}Produkte - Shopify Manager{% endblock %}
 
+{% block extra_css %}
+<style>
+/* Dropdown innerhalb der Kachel */
+.card {
+    position: relative;
+    overflow: hidden;
+}
+
+.card-header {
+    position: relative;
+    overflow: visible !important;
+    z-index: 10;
+}
+
+.dropdown {
+    position: relative;
+}
+
+.dropdown-menu {
+    position: absolute !important;
+    top: 100% !important;
+    right: 0 !important;
+    left: auto !important;
+    margin-top: 0.125rem !important;
+    min-width: 10rem !important;
+    z-index: 1000 !important;
+    max-height: 200px !important;
+    overflow-y: auto !important;
+    transform: none !important;
+}
+
+/* Dropdown nach links öffnen statt nach rechts */
+.dropdown-menu-end {
+    right: 0 !important;
+    left: auto !important;
+}
+
+/* Scrollbar Styling */
+.dropdown-menu::-webkit-scrollbar {
+    width: 6px;
+}
+
+.dropdown-menu::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.dropdown-menu::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+.dropdown-menu::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+</style>
+{% endblock %}
+
 {% block shopify_content %}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">Produkte</h1>
@@ -133,7 +190,7 @@
                                 type="button" data-bs-toggle="dropdown">
                             <i class="fas fa-ellipsis-v"></i>
                         </button>
-                        <ul class="dropdown-menu">
+                        <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item" href="{% url 'shopify_manager:product_edit' product.pk %}">
                                 <i class="fas fa-edit"></i> Bearbeiten
                             </a></li>
@@ -238,7 +295,15 @@
                             </div>
                             <div class="seo-score-value">
                                 <span class="badge bg-{% if combined_status == 'good' %}success{% elif combined_status == 'warning' %}warning{% else %}danger{% endif %} fs-6" 
-                                      title="Aufschlüsselung: {{ seo_details.breakdown }}">
+                                      title="📊 SEO-Aufschlüsselung:
+{{ seo_details.breakdown }}
+
+📝 Details:
+• SEO-Titel: {% if seo_details.has_title %}{{ seo_details.title_length }} Zeichen{% else %}Nicht vorhanden{% endif %}
+• SEO-Beschreibung: {% if seo_details.has_description %}{{ seo_details.description_length }} Zeichen{% else %}Nicht vorhanden{% endif %}
+• Alt-Texte: {% if product.get_alt_text_status == 'good' %}Vollständig{% elif product.get_alt_text_status == 'warning' %}Teilweise{% else %}Nicht vorhanden{% endif %}
+
+🎯 Status: {{ combined_status|capfirst }}">
                                     {{ seo_score }}/100
                                 </span>
                             </div>
@@ -913,6 +978,12 @@ document.addEventListener('DOMContentLoaded', function() {
 /* Ensure all form controls have the same height */
 .form-control, .form-select {
     min-height: 38px;
+}
+
+/* Korrigiere Select-Padding für Dropdown-Pfeil */
+.form-select {
+    padding-right: 2rem !important;
+    background-position: right 0.5rem center;
 }
 
 /* Filter buttons alignment */

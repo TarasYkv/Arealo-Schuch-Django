@@ -547,7 +547,7 @@ class ShopifyAPIClient:
         except requests.exceptions.RequestException as e:
             return False, [], f"Fehler beim Abrufen der Blogs: {str(e)}"
     
-    def fetch_blog_posts(self, blog_id: str, limit: int = 250, since_id: Optional[str] = None) -> Tuple[bool, List[Dict], str]:
+    def fetch_blog_posts(self, blog_id: str, limit: int = 250, since_id: Optional[str] = None, max_id: Optional[str] = None) -> Tuple[bool, List[Dict], str]:
         """Holt Blog-Posts für einen bestimmten Blog"""
         try:
             # Hole alle Felder direkt in einer Abfrage (inkl. Content)
@@ -558,6 +558,8 @@ class ShopifyAPIClient:
             
             if since_id:
                 params['since_id'] = since_id
+            if max_id:
+                params['max_id'] = max_id
             
             response = self._make_request(
                 'GET',
@@ -772,6 +774,47 @@ class ShopifyAPIClient:
         except requests.exceptions.RequestException as e:
             return False, None, f"Fehler beim Update des Blog-Posts: {str(e)}"
     
+    def update_blog_post_seo_only(self, blog_id: str, article_id: str, seo_title: str = None, seo_description: str = None) -> Tuple[bool, str]:
+        """Aktualisiert nur SEO-Metadaten eines Blog-Posts ohne andere Inhalte zu überschreiben"""
+        try:
+            seo_success = True
+            seo_messages = []
+            
+            # SEO-Titel über Metafields aktualisieren
+            if seo_title:
+                success, message = self.update_blog_post_metafield(
+                    blog_id, article_id, 'global', 'title_tag', 
+                    seo_title, 'single_line_text_field'
+                )
+                if success:
+                    seo_messages.append("SEO-Titel aktualisiert")
+                else:
+                    seo_success = False
+                    seo_messages.append(f"SEO-Titel Fehler: {message}")
+            
+            # SEO-Beschreibung über Metafields aktualisieren
+            if seo_description:
+                success, message = self.update_blog_post_metafield(
+                    blog_id, article_id, 'global', 'description_tag', 
+                    seo_description, 'multi_line_text_field'
+                )
+                if success:
+                    seo_messages.append("SEO-Beschreibung aktualisiert")
+                else:
+                    seo_success = False
+                    seo_messages.append(f"SEO-Beschreibung Fehler: {message}")
+            
+            # Ergebnis zusammenfassen
+            if seo_messages:
+                final_message = "; ".join(seo_messages)
+            else:
+                final_message = "Keine SEO-Daten zum Aktualisieren gefunden"
+            
+            return seo_success, final_message
+            
+        except Exception as e:
+            return False, f"Fehler beim Update der SEO-Metadaten: {str(e)}"
+
     def update_blog_post_metafield(self, blog_id: str, article_id: str, namespace: str, key: str, value: str, field_type: str) -> Tuple[bool, str]:
         """Aktualisiert oder erstellt ein spezifisches Metafield für einen Blog-Post"""
         try:
@@ -963,6 +1006,86 @@ class ShopifyAPIClient:
         except Exception as e:
             return False, f"Fehler beim Collection-Metafield-Update: {str(e)}"
 
+    def update_collection_image_alt_text(self, collection_id: str, alt_text: str) -> Tuple[bool, str]:
+        """Aktualisiert den Alt-Text eines Collection-Images über GraphQL API"""
+        try:
+            # GraphQL Mutation für Collection Image Alt-Text Update
+            graphql_query = """
+            mutation collectionUpdate($input: CollectionInput!) {
+              collectionUpdate(input: $input) {
+                collection {
+                  id
+                  title
+                  image {
+                    altText
+                    url
+                  }
+                }
+                userErrors {
+                  field
+                  message
+                }
+              }
+            }
+            """
+            
+            variables = {
+                "input": {
+                    "id": f"gid://shopify/Collection/{collection_id}",
+                    "image": {
+                        "altText": alt_text
+                    }
+                }
+            }
+            
+            graphql_data = {
+                "query": graphql_query,
+                "variables": variables
+            }
+            
+            # GraphQL endpoint
+            graphql_url = f"{self.base_url.replace('/admin/api/2023-10', '')}/admin/api/2023-10/graphql.json"
+            
+            response = self._make_request(
+                'POST',
+                graphql_url,
+                json=graphql_data,
+                timeout=15
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                if 'data' in data and 'collectionUpdate' in data['data']:
+                    update_data = data['data']['collectionUpdate']
+                    
+                    # Prüfe auf Fehler
+                    if update_data.get('userErrors'):
+                        errors = update_data['userErrors']
+                        error_messages = [f"{err.get('field', 'unknown')}: {err.get('message', 'unknown error')}" for err in errors]
+                        return False, f"GraphQL Fehler: {'; '.join(error_messages)}"
+                    
+                    # Erfolg prüfen
+                    if update_data.get('collection'):
+                        collection_data = update_data['collection']
+                        image_data = collection_data.get('image', {})
+                        updated_alt_text = image_data.get('altText', '')
+                        
+                        return True, f"Alt-Text erfolgreich aktualisiert: '{updated_alt_text}'"
+                    else:
+                        return False, "GraphQL Update fehlgeschlagen: Keine Collection-Daten erhalten"
+                else:
+                    return False, f"GraphQL Antwort-Format unerwartetet: {data}"
+            else:
+                try:
+                    error_data = response.json() if response.headers.get('content-type', '').startswith('application/json') else response.text
+                except:
+                    error_data = response.text
+                return False, f"GraphQL HTTP {response.status_code}: {error_data}"
+                
+        except requests.exceptions.RequestException as e:
+            return False, f"Fehler beim GraphQL Collection-Image-Update: {str(e)}"
+
 
 class ShopifyProductSync:
     """Synchronisation zwischen lokaler Datenbank und Shopify"""
@@ -991,13 +1114,14 @@ class ShopifyProductSync:
             print(f"📦 Produkt Pagination: {len(products)} Produkte geholt, insgesamt: {total_fetched}")
             
             # since_id für nächste Seite setzen
+            since_id = str(products[-1]['id'])  # ID des letzten Produkts
+            
+            # Nur stoppen wenn weniger als 250 Produkte zurückgegeben wurden
             if len(products) < 250:  # Weniger als Maximum = letzte Seite
                 break
             
-            since_id = str(products[-1]['id'])  # ID des letzten Produkts
-            
             # Sicherheitscheck: Stoppe bei sehr vielen Produkten
-            if total_fetched >= 50000:
+            if total_fetched >= 250000:  # Erhöht für sehr große Shops
                 print(f"Sicherheitsstopp bei {total_fetched} Produkten erreicht")
                 break
         
@@ -1572,13 +1696,16 @@ class ShopifyBlogSync:
             print(f"📄 Blog-Post Pagination: {len(articles)} Blog-Posts geholt, insgesamt: {total_fetched}")
 
             # since_id für nächste Seite setzen
-            if len(articles) < 250:  # Weniger als Maximum = letzte Seite
-                break
-
             since_id = str(articles[-1]['id'])  # ID des letzten Artikels
 
+            # Verbesserte Pagination-Logik - nicht bei 249 Posts stoppen
+            # Shopify gibt manchmal 249 statt 250 Posts zurück
+            if len(articles) < 200:  # Nur bei deutlich weniger Posts stoppen
+                print(f"📄 Letzte Seite wahrscheinlich erreicht: nur {len(articles)} Posts")
+                break
+
             # Sicherheitscheck: Stoppe bei sehr vielen Artikeln
-            if total_fetched >= 50000:
+            if total_fetched >= 250000:  # Erhöht für sehr große Blogs
                 print(f"Sicherheitsstopp bei {total_fetched} Blog-Posts erreicht")
                 break
 
@@ -1611,7 +1738,10 @@ class ShopifyBlogSync:
             success_count = 0
             failed_count = 0
             
-            for article_data in articles:
+            print(f"🚀 Starte Verarbeitung von {len(articles)} Blog-Posts...")
+            print(f"🔄 Import-Modus: {import_mode}")
+            
+            for i, article_data in enumerate(articles):
                 try:
                     shopify_id = str(article_data.get('id'))
                     
@@ -1632,10 +1762,15 @@ class ShopifyBlogSync:
                     
                     post, created = self._create_or_update_blog_post(blog, article_data)
                     success_count += 1
+                    
+                    # Debug: Verfolge jeden 50. Post
+                    if (i + 1) % 50 == 0:
+                        print(f"📊 Verarbeitet: {i + 1}/{len(articles)} Posts (Success: {success_count}, Failed: {failed_count})")
+                    
                     if created:
-                        print(f"Blog-Post {post.shopify_id} erstellt: {post.title}")
+                        print(f"✅ Blog-Post {post.shopify_id} erstellt: {post.title[:50]}...")
                     else:
-                        print(f"Blog-Post {post.shopify_id} aktualisiert: {post.title}")
+                        print(f"🔄 Blog-Post {post.shopify_id} aktualisiert: {post.title[:50]}...")
                         
                 except Exception as e:
                     failed_count += 1
@@ -1850,10 +1985,11 @@ class ShopifyCollectionSync:
             print(f"📂 Collection Pagination: {len(collections)} Collections geholt, insgesamt: {total_fetched}")
             
             # since_id für nächste Seite setzen
+            since_id = str(collections[-1]['id'])  # ID der letzten Collection
+            
+            # Nur stoppen wenn weniger als 250 Collections zurückgegeben wurden
             if len(collections) < 250:  # Weniger als Maximum = letzte Seite
                 break
-            
-            since_id = str(collections[-1]['id'])  # ID der letzten Collection
             
             # Sicherheitscheck: Stoppe bei sehr vielen Collections
             if total_fetched >= 10000:
