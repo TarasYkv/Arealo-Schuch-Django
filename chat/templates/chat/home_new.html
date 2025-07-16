@@ -1202,7 +1202,17 @@ document.addEventListener('DOMContentLoaded', function() {
         // Check if we should auto-answer a call
         const answerCallId = urlParams.get('answerCall');
         if (answerCallId) {
+            // Stop call polling to prevent interference
+            stopGlobalCallPolling();
+            stopIncomingCallPolling();
+            
             setTimeout(async () => {
+                // Check if we're already in a call
+                if (isCallActive || globalIsCallActive) {
+                    console.info('Already in a call - ignoring auto-answer');
+                    return;
+                }
+                
                 // Get call information from server
                 try {
                     const response = await fetch(`/chat/api/call/${answerCallId}/info/`);
@@ -1219,32 +1229,45 @@ document.addEventListener('DOMContentLoaded', function() {
                             };
                             // Use Agora-based acceptIncomingCall instead of WebRTC-based answerCall
                             acceptIncomingCall();
+                            // Clean up URL parameters after successful auto-answer
+                            const cleanUrl = new URL(window.location);
+                            cleanUrl.searchParams.delete('answerCall');
+                            cleanUrl.searchParams.delete('callType');
+                            window.history.replaceState({}, '', cleanUrl);
                         } else {
                             console.warn('Call info not available:', callInfo.error);
-                            // Fallback: Check if there's an active call in this room
-                            const activeCallResponse = await fetch(`/chat/api/room/${roomId}/active-call/`);
-                            if (activeCallResponse.ok) {
-                                const activeCall = await activeCallResponse.json();
-                                if (activeCall.success && activeCall.has_active_call) {
-                                    // Use active call information
-                                    incomingCallData = {
-                                        call_id: activeCall.call_id,
-                                        call_type: activeCall.call_type || urlParams.get('callType') || 'audio',
-                                        channel_name: activeCall.channel_name || `call_${roomId}_${Date.now()}`,
-                                        room_id: roomId,
-                                        caller_name: activeCall.caller_name || 'Unknown'
-                                    };
-                                    acceptIncomingCall();
-                                } else {
-                                    console.info('No active call found - call may have ended');
-                                }
-                            } else {
-                                console.info('Call not available - may have ended or expired');
-                            }
+                            // Don't use fallback for auto-answer to prevent loops
+                            console.info('Auto-answer failed - call may have expired');
+                            // Clean up URL parameters after failed auto-answer
+                            const cleanUrl = new URL(window.location);
+                            cleanUrl.searchParams.delete('answerCall');
+                            cleanUrl.searchParams.delete('callType');
+                            window.history.replaceState({}, '', cleanUrl);
+                            // Restart polling after failed auto-answer
+                            startGlobalCallPolling();
+                            startIncomingCallPolling();
                         }
+                    } else {
+                        console.warn('Failed to fetch call info for auto-answer');
+                        // Clean up URL parameters after failed fetch
+                        const cleanUrl = new URL(window.location);
+                        cleanUrl.searchParams.delete('answerCall');
+                        cleanUrl.searchParams.delete('callType');
+                        window.history.replaceState({}, '', cleanUrl);
+                        // Restart polling after failed fetch
+                        startGlobalCallPolling();
+                        startIncomingCallPolling();
                     }
                 } catch (error) {
                     console.error('Error auto-answering call:', error);
+                    // Clean up URL parameters after error
+                    const cleanUrl = new URL(window.location);
+                    cleanUrl.searchParams.delete('answerCall');
+                    cleanUrl.searchParams.delete('callType');
+                    window.history.replaceState({}, '', cleanUrl);
+                    // Restart polling after error
+                    startGlobalCallPolling();
+                    startIncomingCallPolling();
                 }
             }, 1500); // Wait 1.5 seconds for room to load
         }
