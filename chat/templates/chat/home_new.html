@@ -2266,14 +2266,69 @@ function handleCallRejected(data) {
 }
 
 function handleCallEnded(data) {
-    console.log('Call ended by other party');
+    console.log('🔚 Call ended by other party, data:', data);
+    console.log('🔚 Current state - isCallActive:', isCallActive, 'currentChannelName:', currentChannelName);
+    console.log('🔚 Current state - globalIsCallActive:', globalIsCallActive);
+    
     // End Agora call if active
     if (isCallActive && currentChannelName === data.channel_name) {
+        console.log('🔚 Ending Agora call');
         endAgoraCall();
     }
     // Also end WebRTC call if active
     if (globalIsCallActive) {
+        console.log('🔚 Ending WebRTC call');
         endCall();
+    }
+    
+    // Force end call if no other conditions matched
+    if (isCallActive || globalIsCallActive) {
+        console.log('🔚 Force ending call due to call_ended message');
+        if (isCallActive) {
+            endAgoraCall();
+        }
+        if (globalIsCallActive) {
+            endCall();
+        }
+    }
+}
+
+// Call status polling variables
+let callStatusPollingInterval = null;
+
+// Start polling to check if call is still active
+function startCallStatusPolling() {
+    if (callStatusPollingInterval) {
+        clearInterval(callStatusPollingInterval);
+    }
+    
+    console.log('📡 Starting call status polling...');
+    callStatusPollingInterval = setInterval(async () => {
+        if (!isCallActive || !currentRoomId) {
+            stopCallStatusPolling();
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/chat/api/room/${currentRoomId}/active-call/`);
+            const data = await response.json();
+            
+            if (!data.has_active_call) {
+                console.log('📡 Call status polling detected call ended - terminating local call');
+                endAgoraCall();
+            }
+        } catch (error) {
+            console.error('Error checking call status:', error);
+        }
+    }, 2000); // Check every 2 seconds
+}
+
+// Stop call status polling
+function stopCallStatusPolling() {
+    if (callStatusPollingInterval) {
+        console.log('📡 Stopping call status polling...');
+        clearInterval(callStatusPollingInterval);
+        callStatusPollingInterval = null;
     }
 }
 </script>
@@ -2434,6 +2489,9 @@ async function startAgoraCall(callType) {
         isCallActive = true;
         document.getElementById("callStatus").textContent = "Im Anruf - Warte auf anderen Teilnehmer";
         
+        // Start polling to check if the call is still active (fallback for missed WebSocket messages)
+        startCallStatusPolling();
+        
         // Send call notification via WebSocket to other participants
         sendCallNotification(callType);
         
@@ -2472,11 +2530,15 @@ async function endAgoraCall() {
         if (currentRoomId && isCallActive) {
             // Send via WebSocket if available
             if (callSocket && callSocket.readyState === WebSocket.OPEN) {
-                callSocket.send(JSON.stringify({
+                const endMessage = {
                     type: 'call_ended',
                     room_id: currentRoomId,
                     channel_name: currentChannelName
-                }));
+                };
+                console.log('🔚 Sending call_ended message via WebSocket:', endMessage);
+                callSocket.send(JSON.stringify(endMessage));
+            } else {
+                console.log('🔚 WebSocket not available for call_ended message');
             }
             
             // Also send via HTTP for reliability
@@ -2522,6 +2584,9 @@ async function endAgoraCall() {
         isCallActive = false;
         currentCallType = null;
         currentChannelName = null;
+        
+        // Stop call status polling
+        stopCallStatusPolling();
         
         // Reset UI
         document.getElementById("waitingScreen").style.display = "block";
@@ -3105,6 +3170,9 @@ async function acceptIncomingCall() {
         
         isCallActive = true;
         console.log('✅ Call is now active');
+        
+        // Start polling to check if the call is still active (fallback for missed WebSocket messages)
+        startCallStatusPolling();
         
     } catch (error) {
         console.error('Error accepting call:', error);
