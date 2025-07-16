@@ -1202,11 +1202,31 @@ document.addEventListener('DOMContentLoaded', function() {
         // Check if we should auto-answer a call
         const answerCallId = urlParams.get('answerCall');
         if (answerCallId) {
-            setTimeout(() => {
-                // Find call type from URL or default to audio
-                const callType = urlParams.get('callType') || 'audio';
-                answerCall(answerCallId, callType);
-            }, 1000); // Wait 1 second for room to load
+            setTimeout(async () => {
+                // Get call information from server
+                try {
+                    const response = await fetch(`/chat/api/call/${answerCallId}/info/`);
+                    if (response.ok) {
+                        const callInfo = await response.json();
+                        if (callInfo.success) {
+                            // Set up incoming call data for Agora
+                            incomingCallData = {
+                                call_id: answerCallId,
+                                call_type: callInfo.call_type || urlParams.get('callType') || 'audio',
+                                channel_name: callInfo.channel_name || `call_${roomId}_${Date.now()}`,
+                                room_id: roomId,
+                                caller_name: callInfo.caller_name || 'Unknown'
+                            };
+                            // Use Agora-based acceptIncomingCall instead of WebRTC-based answerCall
+                            acceptIncomingCall();
+                        } else {
+                            console.error('Failed to get call info:', callInfo.error);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error auto-answering call:', error);
+                }
+            }, 1500); // Wait 1.5 seconds for room to load
         }
     }
 });
@@ -2201,8 +2221,15 @@ function handleCallRejected(data) {
 }
 
 function handleCallEnded(data) {
-    alert('Anruf wurde beendet');
-    endCall();
+    console.log('Call ended by other party');
+    // End Agora call if active
+    if (isCallActive && currentChannelName === data.channel_name) {
+        endAgoraCall();
+    }
+    // Also end WebRTC call if active
+    if (globalIsCallActive) {
+        endCall();
+    }
 }
 </script>
 
@@ -2396,6 +2423,31 @@ function showCallModal(callType) {
 // End Agora call
 async function endAgoraCall() {
     try {
+        // Send end call notification to server and other participants
+        if (currentRoomId && isCallActive) {
+            // Send via WebSocket if available
+            if (callSocket && callSocket.readyState === WebSocket.OPEN) {
+                callSocket.send(JSON.stringify({
+                    type: 'call_ended',
+                    room_id: currentRoomId,
+                    channel_name: currentChannelName
+                }));
+            }
+            
+            // Also send via HTTP for reliability
+            fetch('/chat/end-call-notification/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    room_id: currentRoomId,
+                    channel_name: currentChannelName
+                })
+            }).catch(error => console.error('Error sending end call notification:', error));
+        }
+        
         // Stop local tracks
         if (localAudioTrack) {
             localAudioTrack.stop();
