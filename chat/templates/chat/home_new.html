@@ -1006,6 +1006,11 @@ body.modal-open {
                                     <h5>Wählen Sie einen Chat aus</h5>
                                     <p>Klicken Sie auf einen Chat in der Seitenleiste, um die Unterhaltung zu beginnen.</p>
                                 </div>
+                                <div id="loadMoreContainer" class="text-center py-3" style="display: none;">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="loadMoreMessages()">
+                                        <i class="fas fa-arrow-up"></i> Weitere Nachrichten laden
+                                    </button>
+                                </div>
                             </div>
                             
                             <!-- Agora Video Call Modal -->
@@ -1088,6 +1093,8 @@ let currentRoomId = null;
 let messagesContainer = document.getElementById('chatMessages');
 let messageInput = document.getElementById('messageText');
 let selectedFiles = [];
+let currentPage = 1;
+let hasMoreMessages = false;
 let attachmentPreview = document.getElementById('attachmentPreview');
 
 // Use global call variables from base.html
@@ -1127,6 +1134,19 @@ function loadChat(roomId) {
             if (data.success) {
                 displayMessages(data.messages);
                 updateChatHeader(data.room);
+                
+                // Handle pagination
+                if (data.pagination) {
+                    currentPage = data.pagination.page;
+                    hasMoreMessages = data.pagination.has_more;
+                    
+                    const loadMoreContainer = document.getElementById('loadMoreContainer');
+                    if (hasMoreMessages) {
+                        loadMoreContainer.style.display = 'block';
+                    } else {
+                        loadMoreContainer.style.display = 'none';
+                    }
+                }
             } else {
                 console.error('Error loading messages:', data.error);
                 alert('Fehler beim Laden der Nachrichten: ' + data.error);
@@ -1138,18 +1158,65 @@ function loadChat(roomId) {
         });
 }
 
-function displayMessages(messages) {
-    console.log('displayMessages called with:', messages);
-    messagesContainer.innerHTML = '';
+// Load more messages function
+function loadMoreMessages() {
+    if (!currentRoomId || !hasMoreMessages) return;
+    
+    const nextPage = currentPage + 1;
+    
+    fetch(`/chat/messages/${currentRoomId}/?page=${nextPage}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('✅ More messages loaded:', data.messages.length);
+                
+                // Prepend older messages to the beginning
+                const oldMessages = Array.from(messagesContainer.querySelectorAll('.d-flex.mb-3'));
+                displayMessages(data.messages);
+                
+                // Re-append the existing messages
+                oldMessages.forEach(msg => messagesContainer.appendChild(msg));
+                
+                // Update pagination state
+                if (data.pagination) {
+                    currentPage = data.pagination.page;
+                    hasMoreMessages = data.pagination.has_more;
+                    
+                    const loadMoreContainer = document.getElementById('loadMoreContainer');
+                    if (hasMoreMessages) {
+                        loadMoreContainer.style.display = 'block';
+                    } else {
+                        loadMoreContainer.style.display = 'none';
+                    }
+                }
+            } else {
+                console.error('Error loading more messages:', data.error);
+                alert('Fehler beim Laden weiterer Nachrichten: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Netzwerkfehler beim Laden weiterer Nachrichten');
+        });
+}
+
+function displayMessages(messages, append = false) {
+    console.log('displayMessages called with:', messages, 'append:', append);
+    
+    if (!append) {
+        messagesContainer.innerHTML = '';
+    }
     
     if (!messages || messages.length === 0) {
-        messagesContainer.innerHTML = `
-            <div class="empty-chat">
-                <i class="fas fa-comments fa-3x mb-3"></i>
-                <p>Noch keine Nachrichten</p>
-                <p class="text-muted">Senden Sie die erste Nachricht!</p>
-            </div>
-        `;
+        if (!append) {
+            messagesContainer.innerHTML = `
+                <div class="empty-chat">
+                    <i class="fas fa-comments fa-3x mb-3"></i>
+                    <p>Noch keine Nachrichten</p>
+                    <p class="text-muted">Senden Sie die erste Nachricht!</p>
+                </div>
+            `;
+        }
         return;
     }
     
