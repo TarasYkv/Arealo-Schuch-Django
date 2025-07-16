@@ -546,6 +546,15 @@ def check_incoming_calls(request):
     """
     try:
         from .models import Call
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        # First, clean up stale calls (older than 5 minutes)
+        stale_calls = Call.objects.filter(
+            status__in=['initiated', 'ringing'],
+            started_at__lt=timezone.now() - timedelta(minutes=5)
+        )
+        stale_calls.update(status='missed')
         
         # Get the room_id from query params (optional, for backward compatibility)
         room_id = request.GET.get('room_id')
@@ -603,10 +612,12 @@ def clear_call_notification(request):
                 from .models import Call
                 try:
                     call = Call.objects.get(id=message_id)
-                    # Don't delete the call, just mark it as handled
-                    # The call state will be managed by the proper call flow
-                    pass
+                    # Mark the call as rejected to prevent it from appearing again
+                    call.status = 'rejected'
+                    call.save()
+                    print(f"DEBUG: Call {message_id} marked as rejected")
                 except Call.DoesNotExist:
+                    print(f"DEBUG: Call {message_id} not found")
                     pass
             
             return JsonResponse({'success': True})
@@ -638,7 +649,22 @@ def end_call_notification(request):
             if not room.participants.filter(id=request.user.id).exists():
                 return JsonResponse({'success': False, 'error': 'No permission'})
             
-            # Remove all call notifications for this room
+            # End any active calls in this room
+            from .models import Call
+            active_calls = Call.objects.filter(
+                chat_room=room,
+                status__in=['initiated', 'ringing', 'connected']
+            )
+            
+            calls_ended = 0
+            for call in active_calls:
+                call.status = 'ended'
+                call.ended_at = timezone.now()
+                call.save()
+                calls_ended += 1
+                print(f"DEBUG: Call {call.id} ended by end_call_notification")
+            
+            # Also remove old call notifications for backward compatibility
             deleted_count = ChatMessage.objects.filter(
                 chat_room=room,
                 content__startswith='AGORA_CALL:',
@@ -647,8 +673,48 @@ def end_call_notification(request):
             
             return JsonResponse({
                 'success': True,
-                'cleared_notifications': deleted_count
+                'cleared_notifications': deleted_count,
+                'calls_ended': calls_ended
             })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Method not allowed'})
+
+
+@login_required
+@csrf_exempt
+def reject_call(request):
+    """
+    Reject an incoming call
+    """
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            call_id = data.get('call_id')
+            
+            if not call_id:
+                return JsonResponse({'success': False, 'error': 'Call ID required'})
+            
+            from .models import Call
+            try:
+                call = Call.objects.get(id=call_id)
+                
+                # Check if user is participant
+                if not call.chat_room.participants.filter(id=request.user.id).exists():
+                    return JsonResponse({'success': False, 'error': 'No permission'})
+                
+                # Mark the call as rejected
+                call.status = 'rejected'
+                call.save()
+                
+                print(f"DEBUG: Call {call_id} rejected by user {request.user.username}")
+                
+                return JsonResponse({'success': True, 'message': 'Call rejected'})
+                
+            except Call.DoesNotExist:
+                return JsonResponse({'success': False, 'error': 'Call not found'})
             
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
