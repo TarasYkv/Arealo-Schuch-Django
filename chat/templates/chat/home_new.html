@@ -11,34 +11,64 @@
 
 /* Mobile responsive */
 @media (max-width: 768px) {
+    .container-fluid {
+        padding: 0;
+    }
+    
     .chat-container {
-        height: calc(100vh - 120px);
-        flex-direction: column;
+        height: calc(100vh - 80px);
+        flex-direction: row;
+        position: relative;
     }
     
     .chat-sidebar {
-        display: none;
-        position: absolute;
-        top: 0;
-        left: 0;
         width: 100%;
         height: 100%;
-        z-index: 1000;
+        position: absolute;
+        top: 0;
+        left: -100%;
+        z-index: 1050;
         background: white;
         border-right: none;
+        transition: left 0.3s ease;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.1);
     }
     
     .chat-sidebar.mobile-show {
-        display: block;
+        left: 0;
     }
     
     .chat-main {
         flex: 1;
         width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .chat-header {
+        padding: 10px 15px;
+        border-bottom: 1px solid #e0e0e0;
+        flex-shrink: 0;
     }
     
     .chat-header h6 {
         font-size: 1rem;
+        margin: 0;
+    }
+    
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px;
+        background: #f8f9fa;
+    }
+    
+    .message-input-container {
+        padding: 10px;
+        background: white;
+        border-top: 1px solid #e0e0e0;
+        flex-shrink: 0;
     }
     
     .search-box {
@@ -56,12 +86,21 @@
         height: 40px;
     }
     
-    .message-input-container {
-        padding: 10px;
-    }
-    
     .form-control {
         font-size: 16px; /* Prevents zoom on iOS */
+    }
+    
+    .card-header {
+        padding: 10px 15px;
+    }
+    
+    .card-header h4 {
+        font-size: 1.2rem;
+    }
+    
+    .btn-sm {
+        padding: 4px 8px;
+        font-size: 12px;
     }
 }
 
@@ -1031,6 +1070,12 @@ let attachmentPreview = document.getElementById('attachmentPreview');
 // globalCallSocket, globalPeerConnection, globalLocalStream, etc. are defined globally
 
 function loadChat(roomId) {
+    // Close mobile sidebar if open
+    const sidebar = document.querySelector('.chat-sidebar');
+    if (sidebar && sidebar.classList.contains('mobile-show')) {
+        toggleMobileChatList();
+    }
+    
     // Update active chat room
     document.querySelectorAll('.chat-room-item').forEach(item => {
         item.classList.remove('active');
@@ -2404,11 +2449,16 @@ function handleCallEnded(data) {
     console.log('🔚 Current state - isCallActive:', isCallActive, 'currentChannelName:', currentChannelName);
     console.log('🔚 Current state - globalIsCallActive:', globalIsCallActive);
     
-    // End Agora call if active
-    if (getCallActive() && currentChannelName === data.channel_name) {
-        console.log('🔚 Ending Agora call');
-        endAgoraCall();
+    // Prevent infinite loop - don't send WebSocket message if we're handling one
+    const wasCallActive = getCallActive();
+    
+    // Clean up Agora call without sending another WebSocket message
+    if (wasCallActive && currentChannelName === data.channel_name) {
+        console.log('🔚 Ending Agora call (no WebSocket send)');
+        // Clean up without sending WebSocket message
+        cleanupAgoraCall();
     }
+    
     // Also end WebRTC call if active
     if (globalIsCallActive) {
         console.log('🔚 Ending WebRTC call');
@@ -2428,21 +2478,73 @@ function handleCallEnded(data) {
         minimizedIndicator.style.display = 'none';
     }
     
-    // Force end call if no other conditions matched
-    if (getCallActive()) {
-        console.log('🔚 Force ending call due to call_ended message');
-        if (isCallActive) {
-            endAgoraCall();
-        }
-        if (globalIsCallActive) {
-            endCall();
-        }
-    }
-    
     // Reset all call-related state
     setCallActive(false);
     currentCallType = null;
     currentChannelName = null;
+    
+    // Stop any call status polling
+    stopCallStatusPolling();
+}
+
+// Clean up Agora call without sending WebSocket message (used when responding to call_ended)
+async function cleanupAgoraCall() {
+    try {
+        // Stop local tracks
+        if (localAudioTrack) {
+            localAudioTrack.stop();
+            localAudioTrack.close();
+            localAudioTrack = null;
+        }
+        
+        if (localVideoTrack) {
+            localVideoTrack.stop();
+            localVideoTrack.close();
+            localVideoTrack = null;
+        }
+        
+        // Leave channel
+        if (agoraClient) {
+            await agoraClient.leave();
+            agoraClient = null;
+        }
+        
+        // Hide modal
+        if (callModal) {
+            callModal.hide();
+            callModal = null;
+        }
+        
+        // Reset state
+        setCallActive(false);
+        currentCallType = null;
+        currentChannelName = null;
+        
+        // Stop call status polling
+        stopCallStatusPolling();
+        
+        // Reset UI
+        const waitingScreen = document.getElementById("waitingScreen");
+        if (waitingScreen) {
+            waitingScreen.style.display = "block";
+        }
+        
+        const remoteVideoContainer = document.getElementById("remoteVideoContainer");
+        if (remoteVideoContainer) {
+            remoteVideoContainer.innerHTML = `
+                <div class="d-flex align-items-center justify-content-center h-100" id="waitingScreen">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary mb-3" role="status"></div>
+                        <p>Warte auf Teilnehmer...</p>
+                    </div>
+                </div>
+            `;
+        }
+        
+        console.log('✅ Agora call cleaned up successfully (no WebSocket sent)');
+    } catch (error) {
+        console.error('Error cleaning up Agora call:', error);
+    }
 }
 
 // Call status polling variables
@@ -2762,7 +2864,8 @@ async function endAgoraCall() {
                 const endMessage = {
                     type: 'call_ended',
                     room_id: currentRoomId,
-                    channel_name: currentChannelName
+                    channel_name: currentChannelName,
+                    ended_by: 'user' // Mark that this was ended by user action
                 };
                 console.log('🔚 Sending call_ended message via WebSocket:', endMessage);
                 callSocket.send(JSON.stringify(endMessage));
@@ -2770,7 +2873,7 @@ async function endAgoraCall() {
                 console.log('🔚 WebSocket not available for call_ended message');
             }
             
-                // Also send via HTTP for reliability
+            // Also send via HTTP for reliability and to end DB call
             fetch('/chat/end-call-notification/', {
                 method: 'POST',
                 headers: {
@@ -3469,6 +3572,31 @@ async function rejectIncomingCall() {
 function toggleMobileChatList() {
     const sidebar = document.querySelector('.chat-sidebar');
     sidebar.classList.toggle('mobile-show');
+    
+    // Add/remove overlay
+    let overlay = document.getElementById('mobileOverlay');
+    if (sidebar.classList.contains('mobile-show')) {
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'mobileOverlay';
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                z-index: 1040;
+                display: block;
+            `;
+            overlay.onclick = () => toggleMobileChatList();
+            document.body.appendChild(overlay);
+        }
+    } else {
+        if (overlay) {
+            overlay.remove();
+        }
+    }
 }
 
 function blurBackground(enable) {
