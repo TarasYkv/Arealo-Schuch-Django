@@ -41,4 +41,6 @@ urlpatterns = [
     
     # API
     path('api/user-search/', views.user_search, name='user_search'),
+    path('api/check-incoming-calls/', views.check_incoming_calls, name='check_incoming_calls'),
+    path('api/get-agora-token/', views.get_agora_token, name='get_agora_token'),
 ]

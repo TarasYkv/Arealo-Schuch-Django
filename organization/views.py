@@ -8,7 +8,7 @@ from django.db.models import Q
 from django.core.paginator import Paginator
 from django.contrib.auth import get_user_model
 from .models import Note, Event, EventParticipant, IdeaBoard, BoardElement, EventReminder, VideoCall, CallParticipant
-from .agora_utils import generate_agora_token, get_agora_config, CallRoles
+# from .agora_utils import generate_agora_token, get_agora_config, CallRoles
 import json
 import re
 
@@ -717,68 +717,91 @@ def call_start_page(request):
 
 
 @login_required
-@csrf_exempt
+@login_required
 def call_start(request):
     """Starte einen neuen Video/Audio-Anruf."""
-    if request.method == 'POST':
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Nur POST-Anfragen erlaubt'})
+    
+    try:
         data = json.loads(request.body)
         call_type = data.get('call_type', 'video')
         participant_ids = data.get('participants', [])
         
-        # Erstelle neuen Anruf
+        # Clean up stale calls (older than 10 minutes)
+        stale_calls = VideoCall.objects.filter(
+            status__in=['initiated', 'ringing'],
+            started_at__lt=timezone.now() - timezone.timedelta(minutes=10)
+        )
+        stale_calls.update(status='missed')
+        
+        # Also clean up calls that are still "connected" but older than 30 minutes
+        old_connected_calls = VideoCall.objects.filter(
+            status='connected',
+            started_at__lt=timezone.now() - timezone.timedelta(minutes=30)
+        )
+        old_connected_calls.update(status='ended', ended_at=timezone.now())
+        
+        # Create new call
         call = VideoCall.objects.create(
             caller=request.user,
-            call_type=call_type
+            call_type=call_type,
+            status='initiated'
         )
-        call.generate_channel_name()
         
-        # Füge Teilnehmer hinzu
+        # Add participants
         for user_id in participant_ids:
             try:
                 user = User.objects.get(id=user_id)
                 CallParticipant.objects.create(
                     call=call,
                     user=user,
-                    agora_uid=user_id  # Verwende User-ID als Agora UID
+                    status='invited'
                 )
             except User.DoesNotExist:
                 continue
         
-        # Füge Anrufer als Teilnehmer hinzu
+        # Add caller as participant with joined status
         CallParticipant.objects.create(
             call=call,
             user=request.user,
             status='joined',
-            joined_at=timezone.now(),
-            agora_uid=request.user.id
+            joined_at=timezone.now()
         )
         
-        try:
-            # Generiere Agora Token
-            token = generate_agora_token(
-                channel_name=call.channel_name,
-                uid=request.user.id,
-                role=CallRoles.PUBLISHER
-            )
-            call.agora_token = token
-            call.token_expires_at = timezone.now() + timezone.timedelta(hours=1)
-            call.status = 'active'
-            call.started_at = timezone.now()
-            call.save()
-            
-            return JsonResponse({
-                'success': True,
-                'call_id': str(call.id),
-                'channel_name': call.channel_name,
-                'token': token,
-                'agora_config': get_agora_config()
-            })
-            
-        except ValueError as e:
-            call.delete()
-            return JsonResponse({'error': str(e)}, status=400)
-    
-    return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
+        # Send notifications to all participants (except caller)
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        
+        channel_layer = get_channel_layer()
+        
+        for participant_id in participant_ids:
+            try:
+                participant = User.objects.get(id=participant_id)
+                async_to_sync(channel_layer.group_send)(
+                    f'user_{participant.id}',
+                    {
+                        'type': 'global_call_notification',
+                        'call_id': str(call.id),
+                        'caller': request.user.username,
+                        'caller_full_name': request.user.get_full_name() or request.user.username,
+                        'call_type': call_type,
+                        'organization_call': True,
+                        'timestamp': timezone.now().isoformat()
+                    }
+                )
+            except User.DoesNotExist:
+                continue
+        
+        return JsonResponse({
+            'success': True,
+            'call_id': str(call.id),
+            'call_type': call_type,
+            'message': 'Anruf gestartet'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
 
 
 @login_required 
@@ -828,53 +851,57 @@ def call_join(request, call_id):
 @csrf_exempt
 def call_end(request, call_id):
     """Beende einen Anruf."""
-    if request.method == 'POST':
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Nur POST-Anfragen erlaubt'})
+    
+    try:
         call = get_object_or_404(VideoCall, id=call_id)
         
         # Nur Anrufer kann Anruf beenden
         if call.caller != request.user:
-            return JsonResponse({'error': 'Nur der Anrufer kann den Anruf beenden'}, status=403)
+            return JsonResponse({'success': False, 'error': 'Nur der Anrufer kann den Anruf beenden'}, status=403)
+        
+        # Calculate duration if call was connected
+        if call.connected_at:
+            call.duration = timezone.now() - call.connected_at
         
         call.status = 'ended'
         call.ended_at = timezone.now()
         call.save()
         
-        # Update alle Teilnehmer die noch aktiv sind
-        active_participants = CallParticipant.objects.filter(
-            call=call,
-            status='joined',
-            left_at__isnull=True
+        # Update all participants who are still joined
+        CallParticipant.objects.filter(call=call, status='joined').update(
+            status='left',
+            left_at=timezone.now()
         )
         
-        for participant in active_participants:
-            participant.status = 'left'
-            participant.left_at = timezone.now()
-            participant.save()
+        return JsonResponse({'success': True, 'message': 'Anruf beendet'})
         
-        return JsonResponse({'success': True})
-    
-    return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
 
 
 @login_required
 @csrf_exempt  
 def call_leave(request, call_id):
     """Verlasse einen Anruf."""
-    if request.method == 'POST':
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Nur POST-Anfragen erlaubt'})
+    
+    try:
         call = get_object_or_404(VideoCall, id=call_id)
         
-        try:
-            participant = CallParticipant.objects.get(call=call, user=request.user)
-            participant.status = 'left'
-            participant.left_at = timezone.now()
-            participant.save()
-            
-            return JsonResponse({'success': True})
-            
-        except CallParticipant.DoesNotExist:
-            return JsonResponse({'error': 'Sie sind kein Teilnehmer dieses Anrufs'}, status=400)
-    
-    return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
+        participant = CallParticipant.objects.get(call=call, user=request.user)
+        participant.status = 'left'
+        participant.left_at = timezone.now()
+        participant.save()
+        
+        return JsonResponse({'success': True, 'message': 'Anruf verlassen'})
+        
+    except CallParticipant.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Sie sind nicht Teil dieses Anrufs'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
 
 
 @login_required
@@ -882,19 +909,19 @@ def call_status(request, call_id):
     """Rufe den Status eines Anrufs ab."""
     call = get_object_or_404(VideoCall, id=call_id)
     
-    # Prüfe Berechtigung
-    is_participant = CallParticipant.objects.filter(call=call, user=request.user).exists()
-    if not (call.caller == request.user or is_participant):
-        return JsonResponse({'error': 'Keine Berechtigung'}, status=403)
+    # Prüfe ob Benutzer Teilnehmer ist
+    try:
+        participant = CallParticipant.objects.get(call=call, user=request.user)
+    except CallParticipant.DoesNotExist:
+        return JsonResponse({'error': 'Zugriff verweigert'}, status=403)
     
     participants = []
-    for participant in call.participants.through.objects.filter(call=call):
+    for p in call.call_participants.all():
         participants.append({
-            'user_id': participant.user.id,
-            'username': participant.user.username,
-            'status': participant.status,
-            'joined_at': participant.joined_at.isoformat() if participant.joined_at else None,
-            'left_at': participant.left_at.isoformat() if participant.left_at else None
+            'id': p.user.id,
+            'username': p.user.username,
+            'status': p.status,
+            'joined_at': p.joined_at.isoformat() if p.joined_at else None
         })
     
     return JsonResponse({
@@ -904,8 +931,81 @@ def call_status(request, call_id):
         'caller': call.caller.username,
         'participants': participants,
         'started_at': call.started_at.isoformat() if call.started_at else None,
-        'ended_at': call.ended_at.isoformat() if call.ended_at else None
+        'connected_at': call.connected_at.isoformat() if call.connected_at else None,
+        'duration': call.get_duration_display() if call.duration else None
     })
+
+
+@login_required
+def check_incoming_calls(request):
+    """
+    Check for incoming calls for the current user in organization
+    """
+    try:
+        # Check for incoming calls where user is a participant
+        active_calls = VideoCall.objects.filter(
+            call_participants__user=request.user,
+            status__in=['initiated', 'ringing']
+        ).exclude(caller=request.user).order_by('-started_at')
+        
+        if active_calls.exists():
+            latest_call = active_calls.first()
+            
+            return JsonResponse({
+                'has_incoming_call': True,
+                'call_id': str(latest_call.id),
+                'caller': latest_call.caller.username,
+                'caller_full_name': latest_call.caller.get_full_name() or latest_call.caller.username,
+                'call_type': latest_call.call_type,
+                'organization_call': True,
+                'timestamp': latest_call.started_at.isoformat()
+            })
+        
+        return JsonResponse({'has_incoming_call': False})
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def get_agora_token(request):
+    """
+    Generate Agora token for video/audio calls
+    """
+    try:
+        data = json.loads(request.body)
+        call_id = data.get('call_id')
+        
+        if not call_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Call ID required'
+            })
+        
+        call = get_object_or_404(VideoCall, id=call_id)
+        
+        # Check if user is participant
+        if not CallParticipant.objects.filter(call=call, user=request.user).exists():
+            return JsonResponse({
+                'success': False,
+                'error': 'Access denied'
+            })
+        
+        # For now, return a simple success response
+        # This would integrate with Agora in production
+        return JsonResponse({
+            'success': True,
+            'token': f'mock_token_{call_id}_{request.user.id}',
+            'channel': f'call_{call_id}',
+            'uid': request.user.id,
+            'app_id': 'mock_app_id'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
 
 
 @login_required
