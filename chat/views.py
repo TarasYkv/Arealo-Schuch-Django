@@ -582,7 +582,7 @@ def check_incoming_calls(request):
             return JsonResponse({
                 'has_call': True,
                 'call_type': latest_call.call_type,
-                'channel_name': f"chat_{latest_call.chat_room.id}",
+                'channel_name': f"call_{latest_call.chat_room.id}_{latest_call.id}",
                 'caller_name': latest_call.caller.get_full_name() or latest_call.caller.username,
                 'caller_id': latest_call.caller.id,
                 'room_id': latest_call.chat_room.id,
