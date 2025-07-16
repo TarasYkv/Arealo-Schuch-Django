@@ -2,6 +2,106 @@
 
 {% block title %}{{ blog.title }} - Blog Detail{% endblock %}
 
+{% block extra_css %}
+<style>
+/* Filter-Design */
+.filter-card {
+    border: 1px solid #e3e6f0;
+    border-radius: 0.75rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: all 0.3s ease;
+}
+
+.filter-card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+}
+
+.filter-card .card-header {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 1px solid #dee2e6;
+}
+
+.form-label.fw-semibold {
+    color: #495057;
+    font-size: 0.8rem;
+    margin-bottom: 0.25rem;
+    font-weight: 600;
+}
+
+.form-control-sm, .form-select-sm {
+    border-radius: 0.375rem;
+    border: 1px solid #ced4da;
+    transition: all 0.3s ease;
+    font-size: 0.875rem;
+    padding: 0.375rem 0.75rem;
+}
+
+/* Korrigiere Select-Padding für Dropdown-Pfeil */
+.form-select-sm {
+    padding-right: 2rem !important;
+    background-position: right 0.5rem center;
+}
+
+.form-control-sm:focus, .form-select-sm:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* Dropdown innerhalb der Kachel */
+.card {
+    position: relative;
+    overflow: hidden;
+}
+
+.card-header {
+    position: relative;
+    overflow: visible !important;
+    z-index: 10;
+}
+
+.dropdown {
+    position: relative;
+}
+
+.dropdown-menu {
+    position: absolute !important;
+    top: 100% !important;
+    right: 0 !important;
+    left: auto !important;
+    margin-top: 0.125rem !important;
+    min-width: 10rem !important;
+    z-index: 1000 !important;
+    max-height: 200px !important;
+    overflow-y: auto !important;
+    transform: none !important;
+}
+
+/* Dropdown nach links öffnen statt nach rechts */
+.dropdown-menu-end {
+    right: 0 !important;
+    left: auto !important;
+}
+
+/* Scrollbar Styling */
+.dropdown-menu::-webkit-scrollbar {
+    width: 6px;
+}
+
+.dropdown-menu::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.dropdown-menu::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+.dropdown-menu::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+</style>
+{% endblock %}
+
 {% block shopify_content %}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">
@@ -16,12 +116,12 @@
                 <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown">
                     <i class="fas fa-download"></i> Beiträge importieren
                 </button>
-                <ul class="dropdown-menu">
+                <ul class="dropdown-menu dropdown-menu-end">
                     <li><a class="dropdown-item" href="#" onclick="importBlogPosts('new_only')">
-                        <i class="fas fa-plus"></i> Nur neue Beiträge importieren
+                        <i class="fas fa-plus"></i> Weitere 250 Beiträge laden
                     </a></li>
                     <li><a class="dropdown-item" href="#" onclick="importBlogPosts('all')">
-                        <i class="fas fa-sync"></i> Alle Beiträge neu importieren
+                        <i class="fas fa-sync"></i> Alles löschen und 250 Beiträge holen
                     </a></li>
                 </ul>
             </div>
@@ -97,32 +197,48 @@
 </div>
 
 <!-- Filter -->
-<div class="card mb-3">
+<div class="card mb-3 filter-card">
+    <div class="card-header">
+        <h6 class="mb-0">
+            <i class="fas fa-filter text-primary"></i> Filter & Sortierung
+        </h6>
+    </div>
     <div class="card-body">
-        <form method="get" class="row g-3">
-            <div class="col-md-3">
-                {{ filter_form.search.label_tag }}
-                {{ filter_form.search }}
-            </div>
-            <div class="col-md-2">
-                {{ filter_form.status.label_tag }}
-                {{ filter_form.status }}
-            </div>
-            <div class="col-md-2">
-                {{ filter_form.sync_status.label_tag }}
-                {{ filter_form.sync_status }}
-            </div>
-            <div class="col-md-2">
-                {{ filter_form.seo_score.label_tag }}
-                {{ filter_form.seo_score }}
-            </div>
-            <div class="col-md-2">
-                {{ filter_form.sort.label_tag }}
-                {{ filter_form.sort }}
-            </div>
-            <div class="col-md-1">
-                <label>&nbsp;</label>
-                <button type="submit" class="btn btn-primary w-100">Filter</button>
+        <form method="get">
+            <div class="row g-3">
+                <!-- Erste Zeile -->
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Suche</label>
+                    {{ filter_form.search }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">Status</label>
+                    {{ filter_form.status }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">Sync-Status</label>
+                    {{ filter_form.sync_status }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">SEO-Score</label>
+                    {{ filter_form.seo_score }}
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">Sortierung</label>
+                    {{ filter_form.sort }}
+                </div>
+                
+                <!-- Zweite Zeile für Buttons -->
+                <div class="col-12">
+                    <div class="d-flex gap-2 justify-content-end">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="fas fa-filter"></i> Filter anwenden
+                        </button>
+                        <a href="{% url 'shopify_manager:blog_detail' blog.id %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-times"></i> Zurücksetzen
+                        </a>
+                    </div>
+                </div>
             </div>
         </form>
     </div>
@@ -154,7 +270,7 @@
                                         type="button" data-bs-toggle="dropdown">
                                     <i class="fas fa-ellipsis-v"></i>
                                 </button>
-                                <ul class="dropdown-menu">
+                                <ul class="dropdown-menu dropdown-menu-end">
                                     <li><a class="dropdown-item" href="{% url 'shopify_manager:blog_post_seo_optimization' post.pk %}">
                                         <i class="fas fa-robot text-primary"></i> Do-SEO
                                     </a></li>
@@ -326,14 +442,23 @@
             </div>
 
             <!-- Import Info für unvollständige Imports -->
-            {% if stats.total_posts == 250 %}
-            <div class="alert alert-warning">
-                <i class="fas fa-exclamation-triangle"></i>
-                <strong>Hinweis:</strong> Es werden genau 250 Posts angezeigt. Falls Ihr Blog mehr Posts hat, verwenden Sie "Alle Beiträge neu importieren", 
-                um sicherzustellen, dass alle Posts von Shopify geladen werden.
-            </div>
-            {% endif %}
+            {% comment %}
+            Entfernt: Diese Warnung ist irreführend, da der Import bereits alle Posts mit Pagination lädt.
+            Die Anzahl 250 ist nur das Limit pro API-Anfrage, nicht das Gesamtlimit.
+            {% endcomment %}
 
+            <!-- Pagination Info -->
+            <div class="row mb-3">
+                <div class="col-12 text-center">
+                    <p class="text-muted">
+                        Zeige {{ posts.start_index }}-{{ posts.end_index }} von {{ posts.paginator.count }} Blog-Posts
+                        {% if posts.paginator.count != stats.total_posts %}
+                            ({{ stats.total_posts }} insgesamt in der Datenbank)
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            
             <!-- Pagination für Posts -->
             {% if posts.has_other_pages %}
             <nav aria-label="Blog Posts Pagination">

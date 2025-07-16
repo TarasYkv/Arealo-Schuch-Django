@@ -1592,7 +1592,7 @@ class ShopifyBlogDetailView(LoginRequiredMixin, DetailView):
             if status:
                 posts = posts.filter(status=status)
             elif 'status' not in self.request.GET:
-                # Standard: nur veröffentlichte Blog-Posts anzeigen, wenn kein Status-Filter gesetzt ist
+                # Standard: nur veröffentlichte Blog-Posts anzeigen
                 posts = posts.filter(status='published')
             
             sync_status = filter_form.cleaned_data.get('sync_status')
@@ -1633,7 +1633,7 @@ class ShopifyBlogDetailView(LoginRequiredMixin, DetailView):
         
         context['filter_form'] = filter_form
         
-        paginator = Paginator(posts_list, 50)  # Zeige 50 Posts pro Seite statt 10
+        paginator = Paginator(posts_list, 100)  # Zeige 100 Posts pro Seite für bessere Übersicht
         page = self.request.GET.get('page')
         context['posts'] = paginator.get_page(page)
         
@@ -1645,6 +1645,8 @@ class ShopifyBlogDetailView(LoginRequiredMixin, DetailView):
         # Debug-Ausgabe
         print(f"Blog {self.object.title} - Total Posts in DB: {total_count}")
         print(f"  Published: {published_count}, Draft: {draft_count}")
+        print(f"  Posts nach Filterung: {len(posts_list)}")
+        print(f"  Pagination: {paginator.count} Posts gesamt, {paginator.num_pages} Seiten")
         
         context['stats'] = {
             'total_posts': total_count,
@@ -1913,14 +1915,22 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
                 'message': message
             })
     
-    def _fetch_all_blog_posts(self, blog_id: str):
-        """Holt alle Blog-Posts über Pagination mit Progress-Updates"""
+    def _fetch_all_blog_posts(self, blog_id: str, max_posts: int = None, start_from_id: str = None, load_older: bool = False):
+        """Holt Blog-Posts über Pagination mit Progress-Updates"""
         all_articles = []
         since_id = None
+        max_id = None
+        
+        if load_older:
+            max_id = start_from_id  # Lade Posts älter als diese ID
+        else:
+            since_id = start_from_id  # Lade Posts neuer als diese ID
+        
         total_fetched = 0
         page = 1
+        consecutive_small_pages = 0  # Zähler für aufeinanderfolgende kleine Seiten
 
-        max_pages = 200  # Maximale Anzahl Seiten zur Sicherheit (200 × 250 = 50.000 Posts)
+        max_pages = 1000  # Maximale Anzahl Seiten zur Sicherheit (1000 × 250 = 250.000 Posts)
         
         while page <= max_pages:
             self._update_progress(
@@ -1930,12 +1940,13 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
             )
             
             # Hier wird die API-Client-Methode aufgerufen
-            success, articles, message = self.api.fetch_blog_posts(blog_id, limit=250, since_id=since_id)
+            success, articles, message = self.api.fetch_blog_posts(blog_id, limit=250, since_id=since_id, max_id=max_id)
 
             if not success:
                 return False, [], message
 
             if not articles:  # Keine weiteren Artikel
+                print(f"📄 Letzte Seite erreicht: Keine Artikel zurückgegeben")
                 break
 
             all_articles.extend(articles)
@@ -1949,17 +1960,41 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
                 f'{total_fetched} Blog-Posts von Shopify geladen...'
             )
 
-            # since_id für nächste Seite setzen
-            if len(articles) < 250:  # Weniger als Maximum = letzte Seite
-                print(f"📄 Letzte Seite erreicht: {len(articles)} < 250 Posts")
-                break
-
-            since_id = str(articles[-1]['id'])  # ID des letzten Artikels
-            print(f"📄 Nächste Seite: since_id = {since_id}")
+            # ID für nächste Seite setzen
+            if load_older:
+                max_id = str(articles[-1]['id'])  # ID des ältesten Artikels dieser Seite
+                print(f"📄 Nächste Seite: max_id = {max_id}")
+            else:
+                since_id = str(articles[-1]['id'])  # ID des letzten Artikels
+                print(f"📄 Nächste Seite: since_id = {since_id}")
             page += 1
 
+            # Verbessertes Pagination-Handling
+            # Nur stoppen wenn wir deutlich weniger als das Maximum bekommen
+            # Da Shopify manchmal 249 statt 250 Posts zurückgibt, verwenden wir eine Toleranz
+            if len(articles) < 200:  # Deutlich weniger als Maximum - wahrscheinlich Ende
+                consecutive_small_pages += 1
+                print(f"📄 Kleine Seite: {len(articles)} Posts (#{consecutive_small_pages})")
+                
+                # Stoppe nur wenn wir mehrere kleine Seiten hintereinander bekommen
+                if consecutive_small_pages >= 2:
+                    print(f"📄 Letzte Seite erreicht: {consecutive_small_pages} aufeinanderfolgende kleine Seiten")
+                    break
+            else:
+                consecutive_small_pages = 0  # Reset bei normaler Seitengröße
+                
+            # Zusätzliche Überprüfung: Stoppe wenn weniger als 100 Posts und wir schon viele haben
+            if len(articles) < 100 and total_fetched > 1000:
+                print(f"📄 Letzte Seite erreicht: Nur {len(articles)} Posts bei {total_fetched} total")
+                break
+
+            # Stoppe wenn maximale Anzahl Posts erreicht
+            if max_posts and total_fetched >= max_posts:
+                print(f"📄 Maximale Anzahl Posts erreicht: {total_fetched}/{max_posts}")
+                break
+
             # Sicherheitscheck: Stoppe bei sehr vielen Artikeln
-            if total_fetched >= 50000:  # Erhöht für große Blogs
+            if total_fetched >= 250000:  # Erhöht für sehr große Blogs
                 print(f"Sicherheitsstopp bei {total_fetched} Blog-Posts erreicht")
                 break
         
@@ -1967,6 +2002,7 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
         if page > max_pages:
             print(f"Warnung: Maximale Seitenanzahl ({max_pages}) erreicht. Möglicherweise wurden nicht alle Blog-Posts geladen.")
 
+        print(f"✅ PAGINATION ABGESCHLOSSEN: {total_fetched} Blog-Posts über {page-1} Seiten abgerufen")
         return True, all_articles, f"{total_fetched} Blog-Posts über Pagination abgerufen"
     
     def import_blog_posts(self, blog: ShopifyBlog, import_mode: str = 'new_only') -> ShopifySyncLog:
@@ -1987,7 +2023,22 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
                 self._update_progress(0, 0, f'{deleted_count} alte Blog-Posts gelöscht')
             
             self._update_progress(0, 0, 'Hole Blog-Posts von Shopify...')
-            success, articles, message = self._fetch_all_blog_posts(blog.shopify_id)
+            
+            # Bestimme Parameter basierend auf Import-Modus
+            if import_mode == 'all':
+                max_posts = 250
+                start_from_id = None  # Beginne vom neuesten Post
+            else:  # new_only / weitere 250 laden
+                max_posts = 250
+                # Beginne nach dem ältesten Post in der Datenbank (um weitere ältere Posts zu laden)
+                # Da Shopify Posts in umgekehrter chronologischer Reihenfolge zurückgibt,
+                # verwenden wir die ID des ältesten Posts als since_id
+                from .models import ShopifyBlogPost
+                oldest_post = ShopifyBlogPost.objects.filter(blog=blog).order_by('shopify_created_at').first()
+                start_from_id = oldest_post.shopify_id if oldest_post else None
+                print(f"📄 Lade weitere Posts älter als ID: {start_from_id}")
+            
+            success, articles, message = self._fetch_all_blog_posts(blog.shopify_id, max_posts=max_posts, start_from_id=start_from_id, load_older=(import_mode == 'new_only'))
             print(f"=== IMPORT RESULT: {len(articles)} Blog-Posts von Shopify geholt ===")
             
             if not success:
@@ -2008,8 +2059,10 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
                 try:
                     shopify_id = str(article_data.get('id'))
                     
-                    # Bei "new_only" prüfen ob Post bereits existiert
+                    # Bei "new_only" (weitere Posts laden) werden alle Posts importiert
+                    # Die Filterung erfolgt bereits durch die since_id Logik
                     if import_mode == 'new_only':
+                        # Prüfe ob Post bereits existiert (zur Sicherheit)
                         try:
                             from .models import ShopifyBlogPost
                             existing_post = ShopifyBlogPost.objects.get(
@@ -2017,7 +2070,7 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
                                 blog=blog
                             )
                             # Post existiert bereits - überspringen
-                            print(f"Blog-Post {shopify_id} bereits vorhanden - überspringe (new_only Modus)")
+                            print(f"Blog-Post {shopify_id} bereits vorhanden - überspringe")
                             self._update_progress(i + 1, total, f'Überspringe existierenden Post ({i + 1}/{total})')
                             continue
                         except ShopifyBlogPost.DoesNotExist:
@@ -2898,27 +2951,12 @@ def sync_blog_post_view(request, blog_post_id):
         # Erstelle API Client
         api_client = ShopifyAPIClient(blog_post.blog.store)
         
-        # Bereite Blog-Post Daten für Shopify vor
-        blog_post_data = {
-            'title': blog_post.title,
-            'body_html': blog_post.content,
-            'summary': blog_post.summary,
-            'author': blog_post.author,
-            'tags': blog_post.tags,
-            'published_at': blog_post.published_at.isoformat() if blog_post.published_at else None,
-            'seo_title': blog_post.seo_title,
-            'seo_description': blog_post.seo_description,
-            'featured_image': {
-                'url': blog_post.featured_image_url,
-                'alt': blog_post.featured_image_alt
-            } if blog_post.featured_image_url else None
-        }
-        
-        # Synchronisiere zu Shopify
-        success, updated_post, message = api_client.update_blog_post(
+        # Synchronisiere nur SEO-Metadaten zu Shopify (ohne Inhalt, Autor, Datum zu überschreiben)
+        success, message = api_client.update_blog_post_seo_only(
             blog_post.blog.shopify_id, 
             blog_post.shopify_id, 
-            blog_post_data
+            seo_title=blog_post.seo_title,
+            seo_description=blog_post.seo_description
         )
         
         if success:
@@ -3397,27 +3435,14 @@ def apply_integrated_seo_view(request):
                     
                     api_client = ShopifyAPIClient(content_object.blog.store)
                     
-                    # Bereite Blog-Post Daten für Shopify vor
-                    blog_post_data = {
-                        'title': content_object.title,
-                        'body_html': content_object.content,
-                        'summary': content_object.summary,
-                        'author': content_object.author,
-                        'tags': content_object.tags,
-                        'published_at': content_object.published_at.isoformat() if content_object.published_at else None,
-                        'seo_title': content_object.seo_title,
-                        'seo_description': content_object.seo_description,
-                        'featured_image': {
-                            'url': content_object.featured_image_url,
-                            'alt': content_object.featured_image_alt
-                        } if content_object.featured_image_url else None
-                    }
+                    # Keine zusätzliche Datenaufbereitung nötig - nur SEO-Metadaten werden übertragen
                     
-                    # Synchronisiere zu Shopify
-                    success, updated_post, sync_message = api_client.update_blog_post(
+                    # Synchronisiere nur SEO-Metadaten zu Shopify (ohne Inhalt, Autor, Datum zu überschreiben)
+                    success, sync_message = api_client.update_blog_post_seo_only(
                         content_object.blog.shopify_id, 
                         content_object.shopify_id, 
-                        blog_post_data
+                        seo_title=content_object.seo_title,
+                        seo_description=content_object.seo_description
                     )
                     
                     if success:
@@ -3807,27 +3832,14 @@ def apply_seo_view(request):
                     
                     api_client = ShopifyAPIClient(content_object.blog.store)
                     
-                    # Bereite Blog-Post Daten für Shopify vor
-                    blog_post_data = {
-                        'title': content_object.title,
-                        'body_html': content_object.content,
-                        'summary': content_object.summary,
-                        'author': content_object.author,
-                        'tags': content_object.tags,
-                        'published_at': content_object.published_at.isoformat() if content_object.published_at else None,
-                        'seo_title': content_object.seo_title,
-                        'seo_description': content_object.seo_description,
-                        'featured_image': {
-                            'url': content_object.featured_image_url,
-                            'alt': content_object.featured_image_alt
-                        } if content_object.featured_image_url else None
-                    }
+                    # Keine zusätzliche Datenaufbereitung nötig - nur SEO-Metadaten werden übertragen
                     
-                    # Synchronisiere zu Shopify
-                    success, updated_post, sync_message = api_client.update_blog_post(
+                    # Synchronisiere nur SEO-Metadaten zu Shopify (ohne Inhalt, Autor, Datum zu überschreiben)
+                    success, sync_message = api_client.update_blog_post_seo_only(
                         content_object.blog.shopify_id, 
                         content_object.shopify_id, 
-                        blog_post_data
+                        seo_title=content_object.seo_title,
+                        seo_description=content_object.seo_description
                     )
                     
                     if success:

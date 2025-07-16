@@ -1,242 +1,223 @@
 {% extends "shopify_manager/base.html" %}
 {% load static %}
 
-{% block title %}Do-Alt-Text: {{ collection.title }} - Shopify Manager{% endblock %}
+{% block title %}Alt-Text Management - {{ collection.title }}{% endblock %}
 
 {% block shopify_content %}
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">
-        <i class="fas fa-image text-info"></i> Do-Alt-Text: {{ collection.title|truncatechars:50 }}
-    </h1>
-    <div class="btn-toolbar mb-2 mb-md-0">
-        <div class="btn-group me-2">
-            <a href="{% url 'shopify_manager:collection_detail' collection.pk %}" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left"></i> Zurück zur Kategorie
-            </a>
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-1">Alt-Text Management</h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item">
+                                <a href="{% url 'shopify_manager:collection_list' %}">Kategorien</a>
+                            </li>
+                            <li class="breadcrumb-item active">Alt-Text Management</li>
+                        </ol>
+                    </nav>
+                </div>
+                <a href="{% url 'shopify_manager:collection_list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück zur Kategorie-Liste
+                </a>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- Kategorie-Informationen -->
-<div class="card mb-4">
-    <div class="card-header">
-        <h5 class="mb-0">
-            📂 Kategorie-Informationen
-        </h5>
-    </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-3">
-                {% if collection.image_url %}
-                    <img src="{{ collection.image_url }}" 
-                         alt="{{ collection.image_alt|default:'Kategorie-Bild' }}" 
-                         class="img-fluid rounded">
-                {% else %}
-                    <div class="bg-light rounded d-flex align-items-center justify-content-center" 
-                         style="height: 200px;">
-                        <i class="fas fa-layer-group text-muted fa-3x"></i>
-                    </div>
-                {% endif %}
-            </div>
-            <div class="col-md-9">
-                <h4>{{ collection.title }}</h4>
-                <p class="text-muted mb-2">{{ collection.description|striptags|truncatechars:200|default:"Keine Beschreibung verfügbar" }}</p>
-                <div class="row">
-                    <div class="col-md-6">
-                        <strong>Store:</strong> {{ collection.store.name }}<br>
-                        <strong>Handle:</strong> {{ collection.handle|default:"—" }}<br>
-                        <strong>Typ:</strong> {{ collection.get_collection_type_display }}
-                    </div>
-                    <div class="col-md-6">
-                        <strong>Status:</strong> 
-                        <span class="badge bg-{% if collection.published %}success{% else %}secondary{% endif %}">
-                            {% if collection.published %}Veröffentlicht{% else %}Entwurf{% endif %}
-                        </span><br>
-                        <strong>Alt-Text-Status:</strong>
-                        {% with alt_status=collection.get_alt_text_status %}
-                            <span class="badge bg-{% if alt_status == 'good' %}success{% elif alt_status == 'warning' %}warning{% else %}danger{% endif %}">
-                                {% if alt_status == 'good' %}
-                                    <i class="fas fa-check"></i> Gut
-                                {% elif alt_status == 'warning' %}
-                                    <i class="fas fa-exclamation-triangle"></i> Mittelmäßig
-                                {% else %}
-                                    <i class="fas fa-times"></i> Schlecht
-                                {% endif %}
-                            </span>
-                        {% endwith %}
+    <!-- Kategorie Info -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-2">
+                            {% if collection.image_url %}
+                                <img src="{{ collection.image_url }}" 
+                                     alt="{{ collection.image_alt|default:'Kategorie-Bild' }}" 
+                                     class="img-fluid rounded">
+                            {% else %}
+                                <div class="bg-light rounded d-flex align-items-center justify-content-center" 
+                                     style="height: 100px;">
+                                    <i class="fas fa-layer-group text-muted fa-2x"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-10">
+                            <h4>{{ collection.title }}</h4>
+                            <p class="text-muted mb-2">{{ collection.description|striptags|truncatechars:200|default:"Keine Beschreibung verfügbar" }}</p>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Store:</strong> {{ collection.store.name }}<br>
+                                    <strong>Handle:</strong> {{ collection.handle|default:"—" }}<br>
+                                    <strong>Typ:</strong> {{ collection.get_collection_type_display }}
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Status:</strong> 
+                                    <span class="badge bg-{% if collection.published %}success{% else %}secondary{% endif %}">
+                                        {% if collection.published %}Veröffentlicht{% else %}Entwurf{% endif %}
+                                    </span><br>
+                                    <strong>Alt-Text-Status:</strong>
+                                    {% with alt_status=collection.get_alt_text_status %}
+                                        <span class="badge bg-{% if alt_status == 'good' %}success{% elif alt_status == 'warning' %}warning{% else %}danger{% endif %}">
+                                            {% if alt_status == 'good' %}
+                                                <i class="fas fa-check"></i> Gut
+                                            {% elif alt_status == 'warning' %}
+                                                <i class="fas fa-exclamation-triangle"></i> Mittelmäßig
+                                            {% else %}
+                                                <i class="fas fa-times"></i> Schlecht
+                                            {% endif %}
+                                        </span>
+                                    {% endwith %}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Aktueller Alt-Text Status -->
-<div class="card mb-4">
-    <div class="card-header">
-        <h5 class="mb-0">
-            📊 Aktueller Alt-Text-Status
-        </h5>
-    </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-6">
-                <div class="mb-3">
-                    <h6>Alt-Text-Status:</h6>
-                    {% with alt_status=collection.get_alt_text_status %}
-                        {% if alt_status == 'good' %}
-                        <span class="badge bg-success fs-6">
-                            <i class="fas fa-check-circle"></i> Sehr gut
-                        </span>
-                        <p class="text-muted mt-2">Das Kategorie-Bild hat einen beschreibenden Alt-Text.</p>
-                        {% elif alt_status == 'warning' %}
-                        <span class="badge bg-warning fs-6">
-                            <i class="fas fa-exclamation-triangle"></i> Verbesserungsbedarf
-                        </span>
-                        <p class="text-muted mt-2">Das Kategorie-Bild hat einen Alt-Text, aber er könnte verbessert werden.</p>
-                        {% else %}
-                        <span class="badge bg-danger fs-6">
-                            <i class="fas fa-times-circle"></i> Schlecht
-                        </span>
-                        <p class="text-muted mt-2">Das Kategorie-Bild hat keinen Alt-Text oder kein Bild ist vorhanden.</p>
-                        {% endif %}
-                    {% endwith %}
+    <!-- Bilder -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-images"></i> Kategorie-Bilder (1)
+                        <small class="text-muted ms-2">
+                            <i class="fas fa-info-circle"></i> Nur Hauptbilder (Featured Images)
+                        </small>
+                    </h5>
                 </div>
-            </div>
-            <div class="col-md-6">
-                <div class="mb-3">
-                    <h6>Barrierefreiheit:</h6>
-                    {% if collection.image_url and collection.image_alt %}
-                        <div class="alert alert-success">
-                            <i class="fas fa-universal-access"></i> Barrierefreiheit erfüllt
+                <div class="card-body">
+                    {% if collection.image_url %}
+                        <div class="row">
+                            <div class="col-lg-6 col-xl-4 mb-4">
+                                <div class="card h-100">
+                                    <div class="position-relative">
+                                        <img src="{{ collection.image_url }}" 
+                                             alt="{{ collection.image_alt|default:'Kategorie-Bild ohne Alt-Text' }}" 
+                                             class="card-img-top" 
+                                             style="height: 300px; object-fit: cover;">
+                                        <span class="position-absolute top-0 start-0 m-2 badge bg-primary">
+                                            <i class="fas fa-layer-group"></i> Kategorie-Bild
+                                        </span>
+                                        <div class="position-absolute top-0 end-0 m-2">
+                                            {% with alt_status=collection.get_alt_text_status %}
+                                                <span class="badge bg-{% if alt_status == 'good' %}success{% elif alt_status == 'warning' %}warning{% else %}danger{% endif %}">
+                                                    {% if alt_status == 'good' %}
+                                                        <i class="fas fa-check"></i> Gut
+                                                    {% elif alt_status == 'warning' %}
+                                                        <i class="fas fa-exclamation-triangle"></i> Mittelmäßig
+                                                    {% else %}
+                                                        <i class="fas fa-times"></i> Schlecht
+                                                    {% endif %}
+                                                </span>
+                                            {% endwith %}
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <h6 class="card-title">{{ collection.title }}</h6>
+                                        <p class="text-muted small mb-3">
+                                            Kategorie-Hauptbild
+                                        </p>
+                                        
+                                        <!-- Alt-Text Form -->
+                                        <form id="altTextForm">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="collection_id" value="{{ collection.id }}">
+                                            
+                                            <div class="mb-3">
+                                                <label for="alt_text" class="form-label">Alt-Text</label>
+                                                <textarea class="form-control" 
+                                                          id="alt_text" 
+                                                          name="alt_text" 
+                                                          rows="3" 
+                                                          maxlength="125"
+                                                          placeholder="Beschreibung des Bildes für Screenreader...">{{ collection.image_alt|default:"" }}</textarea>
+                                                <div class="form-text">
+                                                    <span id="charCount">{{ collection.image_alt|default:""|length }}</span>/125 Zeichen
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="d-grid gap-2">
+                                                <button type="button" 
+                                                        class="btn btn-info btn-sm" 
+                                                        onclick="generateAltText()">
+                                                    <i class="fas fa-robot"></i> KI-Text generieren
+                                                </button>
+                                                <button type="button" 
+                                                        class="btn btn-success btn-sm" 
+                                                        onclick="saveAltText()">
+                                                    <i class="fas fa-cloud-upload-alt"></i> Speichern + zu Shopify
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Alt-Text Vorschau und Richtlinien -->
+                            <div class="col-lg-6 col-xl-8 mb-4">
+                                <div class="row">
+                                    <div class="col-12 mb-4">
+                                        <div class="card">
+                                            <div class="card-header">
+                                                <h6 class="mb-0">
+                                                    <i class="fas fa-eye"></i> Vorschau
+                                                </h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <h6>Aktueller Alt-Text:</h6>
+                                                <div class="border rounded p-3 bg-light mb-3" id="currentAltText">
+                                                    {% if collection.image_alt %}
+                                                        "{{ collection.image_alt }}"
+                                                    {% else %}
+                                                        <em class="text-muted">Kein Alt-Text vorhanden</em>
+                                                    {% endif %}
+                                                </div>
+                                                
+                                                <h6>Neuer Alt-Text:</h6>
+                                                <div class="border rounded p-3 bg-success bg-opacity-10" id="newAltText">
+                                                    <em class="text-muted">Geben Sie einen Alt-Text ein...</em>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-12">
+                                        <div class="card">
+                                            <div class="card-header">
+                                                <h6 class="mb-0">
+                                                    <i class="fas fa-info-circle"></i> Alt-Text Richtlinien
+                                                </h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <ul class="small">
+                                                    <li>Beschreiben Sie den Inhalt des Bildes präzise</li>
+                                                    <li>Halten Sie es kurz und aussagekräftig</li>
+                                                    <li>Vermeiden Sie redundante Phrasen wie "Bild von"</li>
+                                                    <li>Berücksichtigen Sie den Kontext der Kategorie</li>
+                                                    <li>Verwenden Sie relevante Keywords natürlich</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     {% else %}
                         <div class="alert alert-warning">
-                            <i class="fas fa-universal-access"></i> Barrierefreiheit nicht erfüllt
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Kein Bild vorhanden:</strong> Diese Kategorie hat kein Bild, daher ist kein Alt-Text erforderlich.
                         </div>
                     {% endif %}
                 </div>
             </div>
         </div>
-    </div>
-</div>
-
-<!-- Kategorie-Bild Alt-Text -->
-<div class="card mb-4">
-    <div class="card-header">
-        <h5 class="mb-0">
-            🖼️ Kategorie-Bild Alt-Text
-        </h5>
-    </div>
-    <div class="card-body">
-        {% if collection.image_url %}
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="card h-100">
-                        <div class="position-relative">
-                            <img src="{{ collection.image_url }}" 
-                                 alt="{{ collection.image_alt|default:'Kategorie-Bild ohne Alt-Text' }}" 
-                                 class="card-img-top" 
-                                 style="height: 300px; object-fit: cover;">
-                            <span class="position-absolute top-0 start-0 m-2 badge bg-primary">
-                                <i class="fas fa-layer-group"></i> Kategorie-Bild
-                            </span>
-                        </div>
-                        <div class="card-body">
-                            <h6 class="card-title">{{ collection.title }}</h6>
-                            <p class="text-muted small mb-3">
-                                Kategorie-Hauptbild
-                            </p>
-                            
-                            <!-- Alt-Text Form -->
-                            <form id="altTextForm">
-                                {% csrf_token %}
-                                <input type="hidden" name="collection_id" value="{{ collection.id }}">
-                                
-                                <div class="mb-3">
-                                    <label for="alt_text" class="form-label">Alt-Text</label>
-                                    <textarea class="form-control" 
-                                              id="alt_text" 
-                                              name="alt_text" 
-                                              rows="3" 
-                                              maxlength="125"
-                                              placeholder="Beschreibung des Bildes für Screenreader...">{{ collection.image_alt|default:"" }}</textarea>
-                                    <div class="form-text">
-                                        <span id="charCount">{{ collection.image_alt|default:""|length }}</span>/125 Zeichen
-                                    </div>
-                                </div>
-                                
-                                <div class="alert alert-info">
-                                    <i class="fas fa-lightbulb"></i>
-                                    <strong>Tipp:</strong> Beschreiben Sie was auf dem Bild zu sehen ist. Vermeiden Sie "Bild von" oder "Foto von".
-                                </div>
-                                
-                                <div class="d-grid gap-2">
-                                    <button type="button" 
-                                            class="btn btn-info btn-sm" 
-                                            onclick="generateAltText()">
-                                        <i class="fas fa-robot"></i> KI-Vorschlag generieren
-                                    </button>
-                                    <button type="button" 
-                                            class="btn btn-success btn-sm" 
-                                            onclick="saveAltText()">
-                                        <i class="fas fa-save"></i> Alt-Text speichern
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <!-- Alt-Text Vorschau -->
-                    <div class="card">
-                        <div class="card-header">
-                            <h6 class="mb-0">
-                                <i class="fas fa-eye"></i> Vorschau
-                            </h6>
-                        </div>
-                        <div class="card-body">
-                            <h6>Aktueller Alt-Text:</h6>
-                            <div class="border rounded p-3 bg-light mb-3" id="currentAltText">
-                                {% if collection.image_alt %}
-                                    "{{ collection.image_alt }}"
-                                {% else %}
-                                    <em class="text-muted">Kein Alt-Text vorhanden</em>
-                                {% endif %}
-                            </div>
-                            
-                            <h6>Neuer Alt-Text:</h6>
-                            <div class="border rounded p-3 bg-success bg-opacity-10" id="newAltText">
-                                <em class="text-muted">Geben Sie einen Alt-Text ein...</em>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Alt-Text Richtlinien -->
-                    <div class="card mt-3">
-                        <div class="card-header">
-                            <h6 class="mb-0">
-                                <i class="fas fa-info-circle"></i> Alt-Text Richtlinien
-                            </h6>
-                        </div>
-                        <div class="card-body">
-                            <ul class="small">
-                                <li>Beschreiben Sie den Inhalt des Bildes präzise</li>
-                                <li>Halten Sie es kurz und aussagekräftig</li>
-                                <li>Vermeiden Sie redundante Phrasen wie "Bild von"</li>
-                                <li>Berücksichtigen Sie den Kontext der Kategorie</li>
-                                <li>Verwenden Sie relevante Keywords natürlich</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        {% else %}
-            <div class="alert alert-warning">
-                <i class="fas fa-exclamation-triangle"></i>
-                <strong>Kein Bild vorhanden:</strong> Diese Kategorie hat kein Bild, daher ist kein Alt-Text erforderlich.
-            </div>
-        {% endif %}
     </div>
 </div>
 
@@ -256,130 +237,9 @@
     </div>
 </div>
 
-<!-- KI-Vorschlag -->
-<div class="card mb-4" id="suggestionCard" style="display: none;">
-    <div class="card-header">
-        <h5 class="mb-0">
-            🤖 KI-Vorschlag
-        </h5>
-    </div>
-    <div class="card-body">
-        <div id="suggestionContent">
-            <!-- Wird dynamisch gefüllt -->
-        </div>
-    </div>
-</div>
-
-<!-- Alt-Text Bewertung -->
-<div class="card mb-4">
-    <div class="card-header">
-        <h5 class="mb-0">
-            📝 Alt-Text Bewertung
-        </h5>
-    </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-4">
-                <div class="text-center">
-                    <div class="circle-progress mb-2" data-percentage="{% if collection.image_alt %}100{% else %}0{% endif %}">
-                        <div class="circle-progress-inner">
-                            <span class="percentage">{% if collection.image_alt %}100{% else %}0{% endif %}%</span>
-                        </div>
-                    </div>
-                    <h6>Vollständigkeit</h6>
-                    <p class="text-muted small">
-                        {% if collection.image_alt %}Alt-Text vorhanden{% else %}Alt-Text fehlt{% endif %}
-                    </p>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="text-center">
-                    <div class="circle-progress mb-2" data-percentage="{% if collection.image_alt %}{% if collection.image_alt|length > 10 %}100{% else %}50{% endif %}{% else %}0{% endif %}">
-                        <div class="circle-progress-inner">
-                            <span class="percentage">{% if collection.image_alt %}{% if collection.image_alt|length > 10 %}100{% else %}50{% endif %}{% else %}0{% endif %}%</span>
-                        </div>
-                    </div>
-                    <h6>Qualität</h6>
-                    <p class="text-muted small">
-                        {% if collection.image_alt %}
-                            {% if collection.image_alt|length > 10 %}Beschreibend{% else %}Zu kurz{% endif %}
-                        {% else %}
-                            Nicht bewertet
-                        {% endif %}
-                    </p>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="text-center">
-                    <div class="circle-progress mb-2" data-percentage="{% if collection.image_alt %}{% if collection.image_alt|length <= 125 %}100{% else %}50{% endif %}{% else %}0{% endif %}">
-                        <div class="circle-progress-inner">
-                            <span class="percentage">{% if collection.image_alt %}{% if collection.image_alt|length <= 125 %}100{% else %}50{% endif %}{% else %}0{% endif %}%</span>
-                        </div>
-                    </div>
-                    <h6>Länge</h6>
-                    <p class="text-muted small">
-                        {% if collection.image_alt %}
-                            {{ collection.image_alt|length }}/125 Zeichen
-                        {% else %}
-                            0/125 Zeichen
-                        {% endif %}
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
 {% endblock %}
 
-{% block extra_css %}
-<style>
-/* Kreis-Progress-Anzeige */
-.circle-progress {
-    position: relative;
-    width: 80px;
-    height: 80px;
-    margin: 0 auto;
-    background: conic-gradient(#28a745 0deg, #28a745 var(--progress, 0deg), #e9ecef var(--progress, 0deg));
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.circle-progress-inner {
-    width: 60px;
-    height: 60px;
-    background: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.percentage {
-    font-weight: bold;
-    font-size: 0.9rem;
-    color: #495057;
-}
-
-/* Animierte Kreise */
-.circle-progress[data-percentage="0"] {
-    --progress: 0deg;
-    background: conic-gradient(#dc3545 0deg, #dc3545 0deg, #e9ecef 0deg);
-}
-
-.circle-progress[data-percentage="50"] {
-    --progress: 180deg;
-    background: conic-gradient(#ffc107 0deg, #ffc107 180deg, #e9ecef 180deg);
-}
-
-.circle-progress[data-percentage="100"] {
-    --progress: 360deg;
-    background: conic-gradient(#28a745 0deg, #28a745 360deg, #e9ecef 360deg);
-}
-</style>
-{% endblock %}
 
 {% block scripts %}
 <script>
@@ -426,17 +286,19 @@ document.getElementById('alt_text').addEventListener('input', function() {
     }
 });
 
-// KI-Vorschlag generieren
+// KI-Text direkt generieren und einfügen
 function generateAltText() {
     const button = document.querySelector('button[onclick="generateAltText()"]');
     const originalText = button.innerHTML;
+    const textarea = document.getElementById('alt_text');
+    
     button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generiere...';
     button.disabled = true;
     
     // Progress-Bar initialisieren
     updateAltTextProgress(15, 'KI-Analyse startet...', 'Bild wird analysiert...');
     
-    // AJAX-Request für KI-Vorschlag
+    // AJAX-Request für KI-Generierung
     fetch(`{% url 'shopify_manager:generate_collection_alt_text' collection.id %}`, {
         method: 'POST',
         headers: {
@@ -455,28 +317,34 @@ function generateAltText() {
     })
     .then(data => {
         if (data.success) {
-            updateAltTextProgress(90, 'Finalisiere...', 'Alt-Text-Vorschlag wird aufbereitet...');
+            updateAltTextProgress(90, 'Finalisiere...', 'Alt-Text wird eingefügt...');
             
-            // Vorschlag anzeigen
-            showSuggestion(data.alt_text);
+            // Direkt in das Textarea-Feld einfügen
+            textarea.value = data.alt_text;
             
-            updateAltTextProgress(100, 'Abgeschlossen!', 'KI-Alt-Text-Vorschlag erfolgreich generiert');
+            // Character Counter aktualisieren
+            document.getElementById('charCount').textContent = data.alt_text.length;
             
-            // Progress-Bar nach 2 Sekunden ausblenden
+            // Vorschau aktualisieren
+            document.getElementById('newAltText').innerHTML = `"${data.alt_text}"`;
+            
+            updateAltTextProgress(100, 'Abgeschlossen!', 'KI-Alt-Text erfolgreich generiert');
+            
+            // Progress-Bar nach 1.5 Sekunden ausblenden
             setTimeout(() => {
                 hideAltTextProgress();
-            }, 2000);
+            }, 1500);
             
-            showToast('KI-Vorschlag erfolgreich generiert', 'success');
+            showToast('Alt-Text erfolgreich generiert', 'success');
         } else {
             hideAltTextProgress();
-            showToast('Fehler bei der KI-Vorschlag-Generierung: ' + data.error, 'danger');
+            showToast('Fehler beim Generieren: ' + data.error, 'danger');
         }
     })
     .catch(error => {
         hideAltTextProgress();
         console.error('Error:', error);
-        showToast('Fehler bei der KI-Vorschlag-Generierung', 'danger');
+        showToast('Netzwerkfehler beim Generieren', 'danger');
     })
     .finally(() => {
         button.innerHTML = originalText;
@@ -484,39 +352,6 @@ function generateAltText() {
     });
 }
 
-// Vorschlag anzeigen
-function showSuggestion(altText) {
-    const suggestionContent = document.getElementById('suggestionContent');
-    suggestionContent.innerHTML = `
-        <div class="alert alert-success">
-            <h6><i class="fas fa-robot"></i> KI-Vorschlag:</h6>
-            <p class="mb-3">"${altText}"</p>
-            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                <button class="btn btn-outline-secondary btn-sm" onclick="hideSuggestion()">
-                    <i class="fas fa-times"></i> Ignorieren
-                </button>
-                <button class="btn btn-primary btn-sm" onclick="applySuggestion('${altText.replace(/'/g, "\\'")}')">
-                    <i class="fas fa-check"></i> Übernehmen
-                </button>
-            </div>
-        </div>
-    `;
-    document.getElementById('suggestionCard').style.display = 'block';
-}
-
-// Vorschlag übernehmen
-function applySuggestion(altText) {
-    document.getElementById('alt_text').value = altText;
-    document.getElementById('charCount').textContent = altText.length;
-    document.getElementById('newAltText').innerHTML = `"${altText}"`;
-    hideSuggestion();
-    showToast('Vorschlag übernommen', 'success');
-}
-
-// Vorschlag verstecken
-function hideSuggestion() {
-    document.getElementById('suggestionCard').style.display = 'none';
-}
 
 // Alt-Text speichern
 function saveAltText() {
@@ -529,7 +364,7 @@ function saveAltText() {
     button.disabled = true;
     
     // Progress-Bar für Speichern
-    updateAltTextProgress(30, 'Speichere Alt-Text...', 'Daten werden vorbereitet...');
+    updateAltTextProgress(20, 'Speichere Alt-Text...', 'Daten werden vorbereitet...');
     
     // AJAX-Request zum Speichern
     fetch(`{% url 'shopify_manager:update_collection_alt_text' collection.id %}`, {
@@ -543,12 +378,27 @@ function saveAltText() {
         })
     })
     .then(response => {
-        updateAltTextProgress(70, 'Verarbeite...', 'Alt-Text wird gespeichert...');
+        updateAltTextProgress(50, 'Speichere lokal...', 'Alt-Text wird in Datenbank gespeichert...');
         return response.json();
     })
     .then(data => {
         if (data.success) {
-            updateAltTextProgress(100, 'Gespeichert!', 'Alt-Text erfolgreich aktualisiert');
+            updateAltTextProgress(80, 'Synchronisiere mit Shopify...', 'Alt-Text wird zu Shopify übertragen...');
+            
+            // Kurze Verzögerung für bessere UX
+            return new Promise(resolve => setTimeout(() => resolve(data), 800));
+        }
+        return data;
+    })
+    .then(data => {
+        if (data.success) {
+            if (data.shopify_synced) {
+                updateAltTextProgress(100, 'Vollständig synchronisiert!', 'Alt-Text erfolgreich zu Shopify übertragen');
+                showToast('Alt-Text erfolgreich gespeichert und zu Shopify übertragen', 'success');
+            } else {
+                updateAltTextProgress(100, 'Lokal gespeichert', 'Alt-Text gespeichert, Shopify-Sync fehlgeschlagen');
+                showToast('Alt-Text lokal gespeichert, aber Shopify-Sync fehlgeschlagen', 'warning');
+            }
             
             // Aktuellen Alt-Text aktualisieren
             const currentAltText = document.getElementById('currentAltText');
@@ -558,15 +408,19 @@ function saveAltText() {
                 currentAltText.innerHTML = '<em class="text-muted">Kein Alt-Text vorhanden</em>';
             }
             
-            // Fortschrittskreise aktualisieren
-            updateProgressCircles(altText);
+            // Status-Badge aktualisieren
+            updateStatusBadge(altText);
             
-            // Progress-Bar nach 1.5 Sekunden ausblenden
+            // Progress-Bar nach 2 Sekunden ausblenden
             setTimeout(() => {
                 hideAltTextProgress();
-            }, 1500);
+            }, 2000);
             
-            showToast('Alt-Text erfolgreich gespeichert', 'success');
+            // Redirect to Collections list after successful save
+            setTimeout(() => {
+                window.location.href = '{% url "shopify_manager:collection_list" %}';
+            }, 3000);
+            
         } else {
             hideAltTextProgress();
             showToast('Fehler beim Speichern: ' + data.error, 'danger');
@@ -583,39 +437,30 @@ function saveAltText() {
     });
 }
 
-// Fortschrittskreise aktualisieren
-function updateProgressCircles(altText) {
-    const circles = document.querySelectorAll('.circle-progress');
-    const percentages = document.querySelectorAll('.percentage');
+// Status-Badge aktualisieren
+function updateStatusBadge(altText) {
+    const statusBadge = document.querySelector('.position-absolute.top-0.end-0 .badge');
     
-    // Vollständigkeit
-    const completeness = altText ? 100 : 0;
-    circles[0].setAttribute('data-percentage', completeness);
-    percentages[0].textContent = completeness + '%';
-    
-    // Qualität
-    const quality = altText ? (altText.length > 10 ? 100 : 50) : 0;
-    circles[1].setAttribute('data-percentage', quality);
-    percentages[1].textContent = quality + '%';
-    
-    // Länge
-    const length = altText ? (altText.length <= 125 ? 100 : 50) : 0;
-    circles[2].setAttribute('data-percentage', length);
-    percentages[2].textContent = length + '%';
-    
-    // CSS-Klassen aktualisieren
-    circles.forEach((circle, index) => {
-        const percentage = [completeness, quality, length][index];
-        circle.style.setProperty('--progress', (percentage * 3.6) + 'deg');
+    if (statusBadge) {
+        let status = 'danger';
+        let icon = 'fas fa-times';
+        let text = 'Schlecht';
         
-        if (percentage === 0) {
-            circle.style.background = 'conic-gradient(#dc3545 0deg, #dc3545 0deg, #e9ecef 0deg)';
-        } else if (percentage === 50) {
-            circle.style.background = 'conic-gradient(#ffc107 0deg, #ffc107 180deg, #e9ecef 180deg)';
-        } else if (percentage === 100) {
-            circle.style.background = 'conic-gradient(#28a745 0deg, #28a745 360deg, #e9ecef 360deg)';
+        if (altText && altText.trim()) {
+            if (altText.length > 10) {
+                status = 'success';
+                icon = 'fas fa-check';
+                text = 'Gut';
+            } else {
+                status = 'warning';
+                icon = 'fas fa-exclamation-triangle';
+                text = 'Mittelmäßig';
+            }
         }
-    });
+        
+        statusBadge.className = `badge bg-${status}`;
+        statusBadge.innerHTML = `<i class="${icon}"></i> ${text}`;
+    }
 }
 
 // Toast-Benachrichtigung

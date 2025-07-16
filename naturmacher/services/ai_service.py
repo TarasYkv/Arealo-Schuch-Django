@@ -214,3 +214,316 @@ def extract_html_css_from_text(text):
             'success': False,
             'error': f'Fehler beim Extrahieren von HTML/CSS: {str(e)}'
         }
+
+
+def generate_alt_text_with_ai(image_url, context_title, context_description, user, content_type='product'):
+    """
+    Generiert Alt-Text für Bilder mit KI-Unterstützung und echter Bildanalyse
+    """
+    try:
+        # Prüfe ob User einen API-Key hat
+        if not user.openai_api_key and not user.anthropic_api_key:
+            return False, "", 'Kein API-Key für KI-Service gefunden. Bitte fügen Sie einen OpenAI oder Anthropic API-Key in Ihren Einstellungen hinzu.'
+        
+        # Erstelle Context-basiertes System-Prompt für Alt-Text-Generierung
+        content_type_german = {
+            'product': 'Produkt',
+            'collection': 'Kategorie',
+            'blog': 'Blog-Beitrag'
+        }.get(content_type, 'Inhalt')
+        
+        system_prompt = f"""Du bist ein Experte für Barrierefreiheit und Alt-Text-Generierung. Analysiere das bereitgestellte Bild und erstelle einen beschreibenden Alt-Text.
+
+WICHTIGE REGELN für Alt-Text:
+1. Beschreibe WAS auf dem Bild zu sehen ist (nicht WIE es aussieht)
+2. Halte es kurz und prägnant (maximal 125 Zeichen)
+3. Verwende keine Phrasen wie "Bild von", "Foto von", "Abbildung zeigt"
+4. Konzentriere dich auf die wichtigsten visuellen Inhalte
+5. Berücksichtige den Kontext ({content_type_german})
+6. Verwende eine natürliche, beschreibende Sprache
+7. Integriere relevante Keywords natürlich
+8. Fokussiere dich auf die Hauptelemente im Bild
+
+ANTWORT FORMAT:
+Gib nur den Alt-Text zurück, ohne weitere Erklärungen oder Formatierung."""
+
+        user_prompt = f"""Analysiere dieses {content_type_german}-Bild und erstelle einen Alt-Text basierend auf dem was du siehst.
+
+Kontext:
+- Titel: {context_title}
+- Beschreibung: {context_description}
+
+Erstelle einen präzisen, beschreibenden Alt-Text von maximal 125 Zeichen basierend auf dem Bildinhalt."""
+
+        # Versuche OpenAI Vision zuerst (falls Bild-URL vorhanden)
+        if user.openai_api_key and image_url:
+            result = call_openai_vision_api(user.openai_api_key, system_prompt, user_prompt, image_url)
+            if result['success']:
+                alt_text = result['content'].strip()
+                # Kürze auf maximal 125 Zeichen
+                if len(alt_text) > 125:
+                    alt_text = alt_text[:122] + "..."
+                return True, alt_text, "Alt-Text erfolgreich mit Bildanalyse generiert"
+        
+        # Fallback zu Anthropic Vision
+        if user.anthropic_api_key and image_url:
+            result = call_anthropic_vision_api(user.anthropic_api_key, system_prompt, user_prompt, image_url)
+            if result['success']:
+                alt_text = result['content'].strip()
+                # Kürze auf maximal 125 Zeichen
+                if len(alt_text) > 125:
+                    alt_text = alt_text[:122] + "..."
+                return True, alt_text, "Alt-Text erfolgreich mit Bildanalyse generiert"
+        
+        # Fallback zu textbasierter Generierung
+        if user.openai_api_key:
+            result = call_openai_api_for_text(user.openai_api_key, system_prompt, user_prompt)
+            if result['success']:
+                alt_text = result['content'].strip()
+                if len(alt_text) > 125:
+                    alt_text = alt_text[:122] + "..."
+                return True, alt_text, "Alt-Text erfolgreich generiert (ohne Bildanalyse)"
+        
+        return False, "", "Keine gültige KI-Antwort erhalten"
+        
+    except Exception as e:
+        return False, "", f'KI-Alt-Text-Generierung fehlgeschlagen: {str(e)}'
+
+
+def call_openai_api_for_text(api_key, system_prompt, user_prompt):
+    """Ruft OpenAI API für reine Textgenerierung auf"""
+    try:
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        data = {
+            'model': 'gpt-4o-mini',
+            'messages': [
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': user_prompt}
+            ],
+            'temperature': 0.7,
+            'max_tokens': 200  # Weniger Tokens für Alt-Text
+        }
+        
+        response = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers=headers,
+            json=data,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            content = result['choices'][0]['message']['content']
+            
+            return {
+                'success': True,
+                'content': content
+            }
+        else:
+            return {
+                'success': False,
+                'error': f'OpenAI API Fehler: {response.status_code}'
+            }
+            
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'OpenAI API Aufruf fehlgeschlagen: {str(e)}'
+        }
+
+
+def call_anthropic_api_for_text(api_key, system_prompt, user_prompt):
+    """Ruft Anthropic API für reine Textgenerierung auf"""
+    try:
+        headers = {
+            'x-api-key': api_key,
+            'Content-Type': 'application/json',
+            'anthropic-version': '2023-06-01'
+        }
+        
+        data = {
+            'model': 'claude-3-sonnet-20240229',
+            'system': system_prompt,
+            'messages': [
+                {'role': 'user', 'content': user_prompt}
+            ],
+            'max_tokens': 200  # Weniger Tokens für Alt-Text
+        }
+        
+        response = requests.post(
+            'https://api.anthropic.com/v1/messages',
+            headers=headers,
+            json=data,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            content = result['content'][0]['text']
+            
+            return {
+                'success': True,
+                'content': content
+            }
+        else:
+            return {
+                'success': False,
+                'error': f'Anthropic API Fehler: {response.status_code}'
+            }
+            
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'Anthropic API Aufruf fehlgeschlagen: {str(e)}'
+        }
+
+
+def call_openai_vision_api(api_key, system_prompt, user_prompt, image_url):
+    """Ruft OpenAI Vision API für Bildanalyse auf"""
+    try:
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json'
+        }
+        
+        data = {
+            'model': 'gpt-4o-mini',  # GPT-4o-mini hat Vision-Capabilities
+            'messages': [
+                {
+                    'role': 'system', 
+                    'content': system_prompt
+                },
+                {
+                    'role': 'user',
+                    'content': [
+                        {
+                            'type': 'text',
+                            'text': user_prompt
+                        },
+                        {
+                            'type': 'image_url',
+                            'image_url': {
+                                'url': image_url,
+                                'detail': 'low'  # Kostengünstiger für Alt-Text
+                            }
+                        }
+                    ]
+                }
+            ],
+            'temperature': 0.7,
+            'max_tokens': 200
+        }
+        
+        response = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers=headers,
+            json=data,
+            timeout=60  # Längere Timeout für Bildanalyse
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            content = result['choices'][0]['message']['content']
+            
+            return {
+                'success': True,
+                'content': content
+            }
+        else:
+            return {
+                'success': False,
+                'error': f'OpenAI Vision API Fehler: {response.status_code}'
+            }
+            
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'OpenAI Vision API Aufruf fehlgeschlagen: {str(e)}'
+        }
+
+
+def call_anthropic_vision_api(api_key, system_prompt, user_prompt, image_url):
+    """Ruft Anthropic Vision API für Bildanalyse auf"""
+    try:
+        import base64
+        import io
+        from PIL import Image
+        
+        # Lade das Bild
+        img_response = requests.get(image_url, timeout=30)
+        if img_response.status_code != 200:
+            return {
+                'success': False,
+                'error': f'Fehler beim Laden des Bildes: {img_response.status_code}'
+            }
+        
+        # Konvertiere zu Base64
+        img = Image.open(io.BytesIO(img_response.content))
+        # Resize für Effizienz
+        img.thumbnail((1024, 1024))
+        
+        buffer = io.BytesIO()
+        img.save(buffer, format='PNG')
+        img_b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        
+        headers = {
+            'x-api-key': api_key,
+            'Content-Type': 'application/json',
+            'anthropic-version': '2023-06-01'
+        }
+        
+        data = {
+            'model': 'claude-3-sonnet-20240229',
+            'system': system_prompt,
+            'messages': [
+                {
+                    'role': 'user',
+                    'content': [
+                        {
+                            'type': 'text',
+                            'text': user_prompt
+                        },
+                        {
+                            'type': 'image',
+                            'source': {
+                                'type': 'base64',
+                                'media_type': 'image/png',
+                                'data': img_b64
+                            }
+                        }
+                    ]
+                }
+            ],
+            'max_tokens': 200
+        }
+        
+        response = requests.post(
+            'https://api.anthropic.com/v1/messages',
+            headers=headers,
+            json=data,
+            timeout=60
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            content = result['content'][0]['text']
+            
+            return {
+                'success': True,
+                'content': content
+            }
+        else:
+            return {
+                'success': False,
+                'error': f'Anthropic Vision API Fehler: {response.status_code}'
+            }
+            
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'Anthropic Vision API Aufruf fehlgeschlagen: {str(e)}'
+        }
