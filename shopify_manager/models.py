@@ -448,7 +448,7 @@ class ShopifyProductImage(models.Model):
     product = models.ForeignKey(ShopifyProduct, on_delete=models.CASCADE, related_name='images')
     shopify_image_id = models.CharField(max_length=50, help_text="Shopify Image ID")
     image_url = models.URLField(help_text="Bild URL")
-    alt_text = models.CharField(max_length=255, blank=True, help_text="Alt-Text")
+    alt_text = models.CharField(max_length=255, blank=True, null=True, help_text="Alt-Text")
     position = models.PositiveIntegerField(default=1, help_text="Reihenfolge der Bilder")
     created_at = models.DateTimeField(auto_now_add=True)
     
