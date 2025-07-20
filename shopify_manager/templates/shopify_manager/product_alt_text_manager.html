@@ -251,12 +251,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     showAlert('success', data.message || 'Alt-Text erfolgreich gespeichert');
                     console.log('Alt-Text Update Success:', data);
                     
-                    // UI-Feedback: Zeige dass der Alt-Text gespeichert wurde
-                    const textarea = this.querySelector('textarea[name="alt_text"]');
-                    textarea.style.border = '2px solid #28a745';
-                    setTimeout(() => {
-                        textarea.style.border = '';
-                    }, 2000);
+                    // Weiterleitung zur Produktliste wenn verfügbar
+                    if (data.redirect_url) {
+                        setTimeout(() => {
+                            window.location.href = data.redirect_url;
+                        }, 1000);
+                    } else {
+                        // UI-Feedback: Zeige dass der Alt-Text gespeichert wurde
+                        const textarea = this.querySelector('textarea[name="alt_text"]');
+                        textarea.style.border = '2px solid #28a745';
+                        setTimeout(() => {
+                            textarea.style.border = '';
+                        }, 2000);
+                    }
                 } else {
                     showAlert('danger', data.error || 'Unbekannter Fehler beim Speichern');
                     console.error('Alt-Text Update Error:', data);
@@ -538,9 +545,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (successCount > 0) {
                 showAlert('success', message);
                 
-                // Redirect to SEO-Alt-Text overview after successful save
+                // Redirect to products page after successful save
                 setTimeout(() => {
-                    window.location.href = '{% url "shopify_manager:alt_text_manager" %}';
+                    window.location.href = '{% url "shopify_manager:product_list" %}';
                 }, 2000);
             } else if (skipCount > 0) {
                 showAlert('warning', message + '. Bitte generieren Sie zuerst Alt-Texte.');

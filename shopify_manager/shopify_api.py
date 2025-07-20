@@ -295,6 +295,43 @@ class ShopifyAPIClient:
         except requests.exceptions.RequestException as e:
             return False, None, f"Fehler beim Update: {str(e)}"
 
+    def update_product_seo_only(self, product_id: str, seo_title: str = None, seo_description: str = None) -> Tuple[bool, str]:
+        """Aktualisiert nur die SEO-Metafelder eines Produkts ohne andere Felder zu ändern"""
+        seo_success = True
+        seo_messages = []
+        
+        try:
+            if seo_title:
+                success, message = self.update_product_metafield(
+                    product_id, 'global', 'title_tag', 
+                    seo_title, 'single_line_text_field'
+                )
+                if success:
+                    seo_messages.append("SEO-Titel aktualisiert")
+                else:
+                    seo_success = False
+                    seo_messages.append(f"SEO-Titel Fehler: {message}")
+            
+            if seo_description:
+                success, message = self.update_product_metafield(
+                    product_id, 'global', 'description_tag', 
+                    seo_description, 'single_line_text_field'
+                )
+                if success:
+                    seo_messages.append("SEO-Beschreibung aktualisiert")
+                else:
+                    seo_success = False
+                    seo_messages.append(f"SEO-Beschreibung Fehler: {message}")
+            
+            final_message = "SEO-Daten aktualisiert"
+            if seo_messages:
+                final_message = "; ".join(seo_messages)
+            
+            return seo_success, final_message
+            
+        except Exception as e:
+            return False, f"Fehler beim SEO-Update: {str(e)}"
+
     def update_product_metafield(self, product_id: str, namespace: str, key: str, value: str, field_type: str) -> Tuple[bool, str]:
         """Aktualisiert oder erstellt ein spezifisches Metafield für ein Produkt"""
         try:
@@ -1131,43 +1168,69 @@ class ShopifyProductSync:
         return True, all_products, f"{total_fetched} Produkte über Pagination abgerufen"
     
     def _fetch_next_unimported_products(self, limit: int = 250) -> Tuple[bool, List[Dict], str]:
-        """Holt die nächsten nicht-importierten Produkte"""
-        # Finde die höchste bereits importierte Shopify ID
-        last_imported = ShopifyProduct.objects.filter(
-            store=self.store
-        ).aggregate(
-            max_shopify_id=models.Max('shopify_id')
-        )['max_shopify_id']
+        """Holt die nächsten nicht-importierten Produkte durch systematisches Durchsuchen"""
+        # Da Shopify IDs nicht chronologisch sind, verwenden wir eine andere Strategie:
+        # Hole Produkte in Batches und filtere bereits importierte heraus
         
-        since_id = last_imported  # Starte nach dem letzten importierten Produkt
         collected_products = []
+        page_limit = 250  # Shopify maximum pro Request
+        max_attempts = 10  # Maximale Anzahl von Versuchen
+        attempts = 0
+        since_id = None
         
-        while len(collected_products) < limit:
-            # Hole 250 Produkte (oder weniger wenn am Ende)
-            fetch_limit = min(250, limit - len(collected_products) + 50)  # +50 Puffer für bereits importierte
-            success, products, message = self.api.fetch_products(limit=fetch_limit, since_id=since_id)
+        # Erstelle Set mit bereits importierten IDs für schnellere Suche
+        existing_ids = set(
+            ShopifyProduct.objects.filter(store=self.store)
+            .values_list('shopify_id', flat=True)
+        )
+        
+        print(f"Bereits importierte Produkte: {len(existing_ids)}")
+        
+        while len(collected_products) < limit and attempts < max_attempts:
+            attempts += 1
+            
+            # Hole nächsten Batch von Shopify
+            success, products, message = self.api.fetch_products(
+                limit=page_limit, 
+                since_id=since_id
+            )
             
             if not success:
                 return False, [], message
             
-            if not products:  # Keine weiteren Produkte
+            if not products:  # Keine weiteren Produkte verfügbar
+                print(f"Keine weiteren Produkte bei Versuch {attempts}")
                 break
             
-            # Filtere bereits importierte Produkte aus
+            print(f"Versuch {attempts}: {len(products)} Produkte von Shopify geholt")
+            
+            # Filtere nicht-importierte Produkte
+            new_products_in_batch = 0
             for product in products:
                 shopify_id = str(product.get('id'))
-                if not ShopifyProduct.objects.filter(
-                    shopify_id=shopify_id, 
-                    store=self.store
-                ).exists():
+                if shopify_id not in existing_ids:
                     collected_products.append(product)
+                    new_products_in_batch += 1
                     if len(collected_products) >= limit:
                         break
             
+            print(f"  → {new_products_in_batch} neue Produkte gefunden")
+            
             # Update since_id für nächste Iteration
             since_id = str(products[-1]['id'])
+            
+            # Wenn wir genug haben, stoppe
+            if len(collected_products) >= limit:
+                break
+                
+            # Wenn keine neuen Produkte in diesem Batch, versuche noch ein paar Mal
+            if new_products_in_batch == 0:
+                print(f"  → Kein neues Produkt in diesem Batch, weitersuchen...")
         
-        return True, collected_products[:limit], f"{len(collected_products)} nicht-importierte Produkte gefunden"
+        result_count = len(collected_products)
+        message = f"{result_count} nicht-importierte Produkte gefunden nach {attempts} Versuchen"
+        
+        return True, collected_products[:limit], message
     
     def import_products(self, limit: int = 250, import_mode: str = 'all', 
                        overwrite_existing: bool = True, import_images: bool = True) -> ShopifySyncLog:
@@ -1203,7 +1266,11 @@ class ShopifyProductSync:
             success_count = 0
             failed_count = 0
             
-            for product_data in products:
+            # SQLite-optimierte Verarbeitung in kleineren Batches
+            from django.db import transaction
+            batch_size = 25  # Kleinere Batches für SQLite
+            
+            for i, product_data in enumerate(products):
                 try:
                     shopify_id = str(product_data.get('id'))
                     
@@ -1233,9 +1300,9 @@ class ShopifyProductSync:
                         if 'meta_description' in product_data:
                             print(f"  Meta Description: {product_data['meta_description']}")
                     
-                    # Produkt erstellen oder aktualisieren
+                    # Produkt erstellen oder aktualisieren mit Retry-Logik für SQLite
                     if import_mode == 'all' or existing_product is None:
-                        product, created = self._create_or_update_product(
+                        product, created = self._create_or_update_product_with_retry(
                             product_data, 
                             overwrite_existing=overwrite_existing,
                             import_images=import_images
@@ -1248,6 +1315,14 @@ class ShopifyProductSync:
                                 print(f"  SEO Beschreibung: '{product.seo_description}'")
                         else:
                             print(f"Produkt {shopify_id} aktualisiert: {product.title}")
+                    
+                    # Periodische Commits für SQLite-Performance
+                    if (i + 1) % batch_size == 0:
+                        try:
+                            transaction.commit()
+                            print(f"Batch-Commit nach {i + 1} Produkten")
+                        except Exception as commit_error:
+                            print(f"Batch-Commit Fehler: {commit_error}")
                             
                 except Exception as e:
                     failed_count += 1
@@ -1551,17 +1626,45 @@ class ShopifyProductSync:
         
         return product, created
     
+    def _create_or_update_product_with_retry(self, product_data: Dict, overwrite_existing: bool = True, import_images: bool = True, max_retries: int = 3) -> Tuple[ShopifyProduct, bool]:
+        """Erstellt oder aktualisiert ein Produkt mit Retry-Logik für SQLite-Sperren"""
+        import time
+        from django.db import OperationalError
+        
+        for attempt in range(max_retries):
+            try:
+                return self._create_or_update_product(product_data, overwrite_existing, import_images)
+            except OperationalError as e:
+                if "database is locked" in str(e).lower() and attempt < max_retries - 1:
+                    # Exponential backoff: 0.1s, 0.2s, 0.4s
+                    wait_time = 0.1 * (2 ** attempt)
+                    print(f"Database locked, retry {attempt + 1}/{max_retries} in {wait_time}s...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    # Letzter Versuch oder anderer Fehler
+                    raise
+            except Exception as e:
+                # Andere Fehler sofort weiterwerfen
+                raise
+        
+        # Sollte nie erreicht werden
+        raise Exception("Retry-Logik fehlgeschlagen")
+    
     def _create_product_images(self, product: ShopifyProduct, images: List[Dict]):
         """Erstellt Produktbilder für ein Produkt"""
         # Lösche bestehende Bilder
         product.images.all().delete()
         
         for i, image_data in enumerate(images):
+            # Sichere alt_text Behandlung
+            alt_text = image_data.get('alt', '') or None  # Leeren String zu None konvertieren
+            
             ShopifyProductImage.objects.create(
                 product=product,
                 shopify_image_id=str(image_data.get('id', '')),
                 image_url=image_data.get('src', ''),
-                alt_text=image_data.get('alt', ''),
+                alt_text=alt_text,
                 position=i + 1
             )
     

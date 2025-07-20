@@ -1426,86 +1426,18 @@ def update_alt_text_view(request):
         # Shopify API Call zum Aktualisieren des Alt-Textes
         api_client = ShopifyAPIClient(store)
         
-        # Hole das aktuelle Produkt
-        success, product, message = api_client.fetch_product(product_id)
-        print(f"DEBUG: Fetch Product Result - Success: {success}, Message: {message}")
-        
-        if not success:
-            return JsonResponse({
-                'success': False,
-                'error': f'Produkt nicht gefunden: {message}'
-            })
-        
-        # Finde das entsprechende Bild und aktualisiere den Alt-Text
-        images = product.get('images', [])
-        updated_images = []
-        image_found = False
-        
-        for image in images:
-            if str(image.get('id')) == str(image_id):
-                image['alt'] = alt_text
-                image_found = True
-            updated_images.append(image)
-        
-        if not image_found:
-            return JsonResponse({
-                'success': False,
-                'error': 'Bild nicht gefunden'
-            })
-        
-        # Aktualisiere das einzelne Bild in Shopify (effizienter)
+        # Aktualisiere DIREKT das einzelne Bild in Shopify (ohne lokale DB zu überschreiben)
         print(f"DEBUG: Calling update_single_product_image - Product: {product_id}, Image: {image_id}")
         success, message = api_client.update_single_product_image(product_id, image_id, alt_text)
         print(f"DEBUG: Update Single Image Result - Success: {success}, Message: {message}")
         
         if success:
-            print(f"DEBUG: Shopify Update erfolgreich, aktualisiere lokale DB")
-            # Aktualisiere auch die lokale Datenbank mit Database Locking
-            from django.db import transaction
-            
-            try:
-                with transaction.atomic():
-                    # Hole das Produkt mit SELECT FOR UPDATE für exklusiven Zugriff
-                    local_product = ShopifyProduct.objects.select_for_update().get(
-                        shopify_id=product_id, 
-                        store=store
-                    )
-                    print(f"DEBUG: Lokales Produkt mit Lock gefunden: {local_product.title}")
-                    
-                    # Update raw_shopify_data mit dem neuen Alt-Text
-                    if hasattr(local_product, 'raw_shopify_data') and local_product.raw_shopify_data:
-                        if 'images' in local_product.raw_shopify_data:
-                            image_found = False
-                            for img in local_product.raw_shopify_data['images']:
-                                if str(img.get('id')) == str(image_id):
-                                    old_alt = img.get('alt', '')
-                                    img['alt'] = alt_text
-                                    image_found = True
-                                    print(f"DEBUG: Bild {image_id} Alt-Text aktualisiert: '{old_alt}' → '{alt_text}'")
-                                    break
-                            
-                            if not image_found:
-                                print(f"DEBUG: WARNUNG - Bild {image_id} nicht in lokalen Daten gefunden!")
-                                # Trotzdem als erfolgreich markieren, da Shopify-Update erfolgreich war
-                            else:
-                                local_product.save(update_fields=['raw_shopify_data'])
-                                print(f"DEBUG: Lokale Datenbank erfolgreich aktualisiert mit Transaction Lock")
-                        else:
-                            print(f"DEBUG: Keine 'images' in raw_shopify_data gefunden")
-                    else:
-                        print(f"DEBUG: Keine raw_shopify_data verfügbar")
-                
-            except ShopifyProduct.DoesNotExist:
-                print(f"DEBUG: Produkt {product_id} nicht in lokaler DB gefunden - ignorieren")
-                pass
-            except Exception as e:
-                print(f"DEBUG: Fehler beim lokalen Update mit Transaction: {e}")
-                # Auch bei lokalen Fehlern als Erfolg werten, da Shopify-Update erfolgreich war
-                pass
+            print(f"DEBUG: Shopify Update erfolgreich - KEINE lokale DB-Aktualisierung um Überschreibung zu vermeiden")
             
             return JsonResponse({
                 'success': True,
-                'message': 'Alt-Text erfolgreich aktualisiert'
+                'message': 'Alt-Text erfolgreich aktualisiert',
+                'redirect_url': reverse('shopify_manager:product_list')
             })
         else:
             return JsonResponse({
@@ -2374,7 +2306,8 @@ def update_blog_alt_text_view(request):
                     
                     return JsonResponse({
                         'success': True,
-                        'message': 'Featured Image Alt-Text erfolgreich zu Shopify übertragen'
+                        'message': 'Featured Image Alt-Text erfolgreich zu Shopify übertragen',
+                        'redirect_url': reverse('shopify_manager:product_list')
                     })
                 else:
                     # Shopify-Update fehlgeschlagen
@@ -3483,10 +3416,10 @@ def apply_integrated_seo_view(request):
                 'error': 'Content-Typ und ID sind erforderlich'
             })
         
-        if not title and not description and not seo_title and not seo_description:
+        if not seo_title and not seo_description:
             return JsonResponse({
                 'success': False,
-                'error': 'Mindestens ein Feld muss ausgefüllt sein'
+                'error': 'Mindestens ein SEO-Feld muss ausgefüllt sein'
             })
         
         # Wende Änderungen an
@@ -3497,11 +3430,12 @@ def apply_integrated_seo_view(request):
                     store__user=request.user
                 )
                 
-                # Hauptfelder aktualisieren
-                if title:
-                    content_object.title = title
-                if description:
-                    content_object.body_html = description
+                # Hauptfelder NICHT mehr aktualisieren bei SEO-Änderungen
+                # um zu verhindern, dass die Produktbeschreibung überschrieben wird
+                # if title:
+                #     content_object.title = title
+                # if description:
+                #     content_object.body_html = description
                 
                 # SEO-Felder aktualisieren
                 if seo_title:
@@ -3513,8 +3447,8 @@ def apply_integrated_seo_view(request):
                 content_object.save()
                 
                 updated_fields = []
-                if title: updated_fields.append("Titel")
-                if description: updated_fields.append("Beschreibung")
+                # if title: updated_fields.append("Titel")
+                # if description: updated_fields.append("Beschreibung")
                 if seo_title: updated_fields.append("SEO-Titel")
                 if seo_description: updated_fields.append("SEO-Beschreibung")
                 
@@ -3524,23 +3458,11 @@ def apply_integrated_seo_view(request):
                     
                     api_client = ShopifyAPIClient(content_object.store)
                     
-                    # Bereite Produkt-Daten für Shopify vor
-                    product_data = {
-                        'title': content_object.title,
-                        'body_html': content_object.body_html,
-                        'vendor': content_object.vendor,
-                        'product_type': content_object.product_type,
-                        'tags': content_object.tags,
-                        'handle': content_object.handle,
-                        'status': content_object.status,
-                        'seo_title': content_object.seo_title,
-                        'seo_description': content_object.seo_description,
-                    }
-                    
-                    # Synchronisiere zu Shopify
-                    success, updated_product, sync_message = api_client.update_product(
-                        content_object.shopify_id, 
-                        product_data
+                    # Aktualisiere NUR SEO-Metafelder (um Beschreibung nicht zu überschreiben)
+                    success, sync_message = api_client.update_product_seo_only(
+                        content_object.shopify_id,
+                        seo_title=content_object.seo_title if seo_title else None,
+                        seo_description=content_object.seo_description if seo_description else None
                     )
                     
                     if success:
@@ -3924,23 +3846,11 @@ def apply_seo_view(request):
                     
                     api_client = ShopifyAPIClient(content_object.store)
                     
-                    # Bereite Produkt-Daten für Shopify vor
-                    product_data = {
-                        'title': content_object.title,
-                        'body_html': content_object.body_html,
-                        'vendor': content_object.vendor,
-                        'product_type': content_object.product_type,
-                        'tags': content_object.tags,
-                        'handle': content_object.handle,
-                        'status': content_object.status,
-                        'seo_title': content_object.seo_title,
-                        'seo_description': content_object.seo_description,
-                    }
-                    
-                    # Synchronisiere zu Shopify
-                    success, updated_product, sync_message = api_client.update_product(
-                        content_object.shopify_id, 
-                        product_data
+                    # Aktualisiere NUR SEO-Metafelder (um Beschreibung nicht zu überschreiben)
+                    success, sync_message = api_client.update_product_seo_only(
+                        content_object.shopify_id,
+                        seo_title=content_object.seo_title if seo_title else None,
+                        seo_description=content_object.seo_description if seo_description else None
                     )
                     
                     if success:
