@@ -568,8 +568,9 @@ def send_call_notification(request):
     return JsonResponse({'success': False, 'error': 'Method not allowed'})
 
 
-@login_required
 def check_incoming_calls(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({'has_call': False, 'error': 'Authentication required'})
     """
     Check for incoming calls for the current user across all chat rooms using Call model
     """

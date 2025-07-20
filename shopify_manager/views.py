@@ -3864,8 +3864,10 @@ def apply_seo_view(request):
         data = json.loads(request.body)
         content_type = data.get('content_type')
         content_id = data.get('content_id')
-        title = data.get('title', '').strip()
-        description = data.get('description', '').strip()
+        # title und description werden nicht mehr verwendet, um zu verhindern
+        # dass die Produktbeschreibung überschrieben wird
+        # title = data.get('title', '').strip()
+        # description = data.get('description', '').strip()
         seo_title = data.get('seo_title', '').strip()
         seo_description = data.get('seo_description', '').strip()
         
@@ -3876,10 +3878,10 @@ def apply_seo_view(request):
                 'error': 'Content-Typ und ID sind erforderlich'
             })
         
-        if not title and not description and not seo_title and not seo_description:
+        if not seo_title and not seo_description:
             return JsonResponse({
                 'success': False,
-                'error': 'Mindestens ein Feld muss ausgefüllt sein'
+                'error': 'Mindestens ein SEO-Feld muss ausgefüllt sein'
             })
         
         # Wende Änderungen an
@@ -3890,11 +3892,12 @@ def apply_seo_view(request):
                     store__user=request.user
                 )
                 
-                # Hauptfelder aktualisieren
-                if title:
-                    content_object.title = title
-                if description:
-                    content_object.body_html = description
+                # Hauptfelder NICHT mehr aktualisieren bei SEO-Änderungen
+                # um zu verhindern, dass die Produktbeschreibung überschrieben wird
+                # if title:
+                #     content_object.title = title
+                # if description:
+                #     content_object.body_html = description
                 
                 # SEO-Felder aktualisieren
                 if seo_title:
@@ -3906,8 +3909,8 @@ def apply_seo_view(request):
                 content_object.save()
                 
                 updated_fields = []
-                if title: updated_fields.append("Titel")
-                if description: updated_fields.append("Beschreibung")
+                # if title: updated_fields.append("Titel")
+                # if description: updated_fields.append("Beschreibung")
                 if seo_title: updated_fields.append("SEO-Titel")
                 if seo_description: updated_fields.append("SEO-Beschreibung")
                 

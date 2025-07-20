@@ -1620,6 +1620,12 @@ const agoraConfig = {
     token: null
 };
 
+// CSRF Token helper function
+function getCsrfToken() {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    return csrfToken ? csrfToken.value : '';
+}
+
 // Small call window functions
 var callStartTime = null;
 var callDurationInterval = null;
@@ -2100,8 +2106,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                 room_id: roomId,
                                 caller_name: callInfo.caller_name || 'Unknown'
                             }
-                            // Use Agora-based acceptIncomingCall instead of WebRTC-based answerCall
-                            acceptIncomingCall();
+                            // Use answerCall to accept the incoming call
+                            answerCall(answerCallId, callType);
                             // Clean up URL parameters after successful auto-answer
                             const cleanUrl = new URL(location);
                             cleanUrl.searchParams.delete('answerCall');
@@ -2391,6 +2397,7 @@ function renderChatInfo(roomData) {
     if (chatInfoTitle) {
         chatInfoTitle.textContent = 
         roomData.name || (roomData.is_group_chat ? 'Gruppenchat' : 'Privater Chat');
+    }
     
     let content = '';
     
@@ -2495,15 +2502,11 @@ function renderChatInfo(roomData) {
                                 <i class="fas fa-circle small"></i> ${participant.is_online ? 'Online' : 'Offline'}
                             </span>
                             ${participant.is_current_user || !participant.email ? '' : 
-                                `<small class="text-muted">
-                                    <i class="fas fa-envelope text-info"></i> ${participant.email}
-                                </small>`
+                                `<small class="text-muted"><i class="fas fa-envelope text-info"></i> ${participant.email}</small>`
                             }
                         </div>
                         ${participant.last_activity ? 
-                            `<small class="text-muted d-block">
-                                <i class="fas fa-clock text-info"></i> Letzte Aktivität: ${participant.last_activity}
-                            </small>` : ''
+                            `<small class="text-muted d-block"><i class="fas fa-clock text-info"></i> Letzte Aktivität: ${participant.last_activity}</small>` : ''
                         }
                         <small class="text-muted d-block">
                             <i class="fas fa-user-plus text-info"></i> Beigetreten: ${participant.date_joined}
@@ -2538,7 +2541,7 @@ const rtcConfig = {
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' }
     ]
-}
+};
 
 // Floating window functions
 function minimizeCallWindow() {
@@ -2552,6 +2555,7 @@ function maximizeCallWindow() {
     floatingWindow.classList.add('maximized');
 }
 
+// Floating window functions
 function showFloatingCallWindow() {
     const floatingWindow = document.getElementById('floatingCallWindow');
     floatingWindow.style.display = 'flex';
@@ -2769,7 +2773,7 @@ function handleCallMessage(data) {
     console.log('Received call message:', data);
     switch(data.type) {
         case 'call_initiated':
-            if (data.caller !== '{{ user.username }}') {
+            if (data.caller !== '{{ user.username|escapejs }}') {
                 console.log('Incoming call from:', data.caller);
                 handleIncomingCall(data);
             }
@@ -2793,7 +2797,7 @@ function handleCallMessage(data) {
             handleWebRTCIceCandidate(data);
             break;
         case 'agora_call_notification':
-            if (data.caller_name !== '{{ user.username }}') {
+            if (data.caller_name !== '{{ user.username|escapejs }}') {
                 console.log('Incoming Agora call from:', data.caller_name);
                 handleIncomingAgoraCall(data);
             }
@@ -2815,31 +2819,32 @@ function handleIncomingCall(data) {
     notification.className = 'call-notification';
     notification.style.cssText = `
         position: fixed;
-        top: 20px;
+        bottom: 20px;
         right: 20px;
         z-index: 9999;
         background: white;
         border-radius: 10px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-        padding: 20px;
-        min-width: 300px;
+        padding: 15px;
+        min-width: 250px;
+        max-width: 280px;
         animation: slideIn 0.3s ease-out;
     `;
     notification.innerHTML = `
-        <div class="d-flex align-items-center mb-3">
-            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px;">
-                <i class="fas fa-${data.call_type === 'video' ? 'video' : 'phone'} fa-lg"></i>
+        <div class="d-flex align-items-center mb-2">
+            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 40px; height: 40px;">
+                <i class="fas fa-${data.call_type === 'video' ? 'video' : 'phone'}"></i>
             </div>
             <div>
-                <h5 class="mb-1">Eingehender ${data.call_type === 'video' ? 'Video' : 'Audio'}-Anruf</h5>
-                <p class="mb-0 text-muted">von ${data.caller}</p>
+                <h6 class="mb-1">Eingehender ${data.call_type === 'video' ? 'Video' : 'Audio'}-Anruf</h6>
+                <small class="text-muted">von ${data.caller}</small>
             </div>
         </div>
         <div class="d-flex gap-2">
-            <button class="btn btn-success flex-fill" onclick="answerCall('${data.call_id}', '${data.call_type}')">
+            <button class="btn btn-success btn-sm flex-fill" onclick="answerCall('${data.call_id}', '${data.call_type}')">
                 <i class="fas fa-phone"></i> Annehmen
             </button>
-            <button class="btn btn-danger flex-fill" onclick="rejectCall('${data.call_id}'); this.closest('.call-notification').remove();">
+            <button class="btn btn-danger btn-sm flex-fill" onclick="rejectCall('${data.call_id}'); this.closest('.call-notification').remove();">
                 <i class="fas fa-phone-slash"></i> Ablehnen
             </button>
         </div>
@@ -2917,6 +2922,26 @@ async function answerCall(callId, callType) {
         
         // Create peer connection
         createPeerConnection();
+        
+        // First, accept the call in the backend
+        const response = await fetch('/chat/accept-call/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                call_id: callId
+            })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            console.log('✅ Call accepted in backend');
+        } else {
+            console.warn('⚠️ Backend call accept failed:', result.error);
+            throw new Error(result.error);
+        }
         
         // Send answer through WebSocket (WebRTC signaling)
         if (callSocket && callSocket.readyState === WebSocket.OPEN) {
