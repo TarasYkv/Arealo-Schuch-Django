@@ -395,8 +395,8 @@ class ProductImportForm(forms.Form):
     """Form für Produktimport von Shopify"""
     
     IMPORT_MODE_CHOICES = [
-        ('all', 'Alle Produkte (überschreibt bestehende)'),
-        ('new_only', 'Nur neue Produkte (überspringt bestehende)'),
+        ('new_only', 'Nächste 250 neue Produkte'),
+        ('reset_and_import', 'Alle löschen und erste 250 importieren'),
     ]
     
     import_mode = forms.ChoiceField(
@@ -407,22 +407,9 @@ class ProductImportForm(forms.Form):
     )
     
     limit = forms.IntegerField(
-        required=False,  # Nicht required, da bei "Alle Produkte" ignoriert
-        initial=50,
-        min_value=1,
-        max_value=250,
-        widget=forms.NumberInput(attrs={
-            'class': 'form-control',
-            'placeholder': '50'
-        }),
-        help_text="Anzahl der zu importierenden Produkte (max. 250)"
-    )
-    
-    overwrite_existing = forms.BooleanField(
         required=False,
-        initial=True,
-        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        help_text="Bestehende Produkte mit Shopify-Daten überschreiben (nur bei 'Alle Produkte')"
+        initial=250,
+        widget=forms.HiddenInput()  # Versteckt, da immer 250
     )
     
     import_images = forms.BooleanField(

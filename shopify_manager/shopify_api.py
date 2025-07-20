@@ -4,6 +4,7 @@ import time
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 from django.utils import timezone as django_timezone
+from django.db import models
 from .models import ShopifyStore, ShopifyProduct, ShopifyProductImage, ShopifySyncLog, ShopifyBlog, ShopifyBlogPost, ShopifyCollection
 
 
@@ -1129,6 +1130,45 @@ class ShopifyProductSync:
         
         return True, all_products, f"{total_fetched} Produkte über Pagination abgerufen"
     
+    def _fetch_next_unimported_products(self, limit: int = 250) -> Tuple[bool, List[Dict], str]:
+        """Holt die nächsten nicht-importierten Produkte"""
+        # Finde die höchste bereits importierte Shopify ID
+        last_imported = ShopifyProduct.objects.filter(
+            store=self.store
+        ).aggregate(
+            max_shopify_id=models.Max('shopify_id')
+        )['max_shopify_id']
+        
+        since_id = last_imported  # Starte nach dem letzten importierten Produkt
+        collected_products = []
+        
+        while len(collected_products) < limit:
+            # Hole 250 Produkte (oder weniger wenn am Ende)
+            fetch_limit = min(250, limit - len(collected_products) + 50)  # +50 Puffer für bereits importierte
+            success, products, message = self.api.fetch_products(limit=fetch_limit, since_id=since_id)
+            
+            if not success:
+                return False, [], message
+            
+            if not products:  # Keine weiteren Produkte
+                break
+            
+            # Filtere bereits importierte Produkte aus
+            for product in products:
+                shopify_id = str(product.get('id'))
+                if not ShopifyProduct.objects.filter(
+                    shopify_id=shopify_id, 
+                    store=self.store
+                ).exists():
+                    collected_products.append(product)
+                    if len(collected_products) >= limit:
+                        break
+            
+            # Update since_id für nächste Iteration
+            since_id = str(products[-1]['id'])
+        
+        return True, collected_products[:limit], f"{len(collected_products)} nicht-importierte Produkte gefunden"
+    
     def import_products(self, limit: int = 250, import_mode: str = 'all', 
                        overwrite_existing: bool = True, import_images: bool = True) -> ShopifySyncLog:
         """Importiert Produkte von Shopify"""
@@ -1139,15 +1179,17 @@ class ShopifyProductSync:
         )
         
         try:
-            # Bei "Alle Produkte" mit "Überschreiben" - alle lokalen Produkte löschen
-            if import_mode == 'all' and overwrite_existing:
+            # Bei "reset_and_import" - alle lokalen Produkte löschen
+            if overwrite_existing:
                 deleted_count = self._delete_all_local_products()
                 print(f"🗑️ {deleted_count} lokale Produkte gelöscht vor Neuimport")
             
-            # Bei "Alle Produkte" alle über Pagination holen, sonst nur bis zum Limit
-            if import_mode == 'all':
-                success, products, message = self._fetch_all_products()
+            # Hole Produkte je nach Modus
+            if import_mode == 'new_only':
+                # Finde nur die nächsten nicht-importierten Produkte
+                success, products, message = self._fetch_next_unimported_products(limit=limit)
             else:
+                # Standard: Hole einfach die nächsten 250 Produkte (für reset_and_import)
                 success, products, message = self.api.fetch_products(limit=limit)
             
             if not success:
