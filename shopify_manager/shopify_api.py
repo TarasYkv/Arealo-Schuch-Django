@@ -1265,18 +1265,54 @@ class ShopifyProductSync:
                         'product_title': product_title,
                         'error_type': type(e).__name__,
                         'error_message': str(e),
-                        'error_details': error_details
+                        'error_details': error_details[:500]  # Begrenzen für bessere Lesbarkeit
                     }
                     
                     # Speichere den Fehler im Log für spätere Analyse
                     if not hasattr(log, '_errors'):
                         log._errors = []
+                        
+                    # Häufigste Fehlertypen kategorisieren
+                    common_errors = {
+                        'IntegrityError': 'Datenbankintegritätsfehler (z.B. doppelte Einträge)',
+                        'DataError': 'Datenformat-Fehler (z.B. zu lange Strings)',
+                        'ValidationError': 'Django-Validierungsfehler',
+                        'KeyError': 'Fehlende erforderliche Shopify-Datenfelder',
+                        'ValueError': 'Ungültige Datenkonvertierung (z.B. Preise)',
+                        'DecimalInvalidOperation': 'Ungültige Dezimalzahl-Operation'
+                    }
+                    
+                    error_category = common_errors.get(type(e).__name__, 'Unbekannter Fehler')
+                    error_info['category'] = error_category
                     log._errors.append(error_info)
             
             log.products_success = success_count
             log.products_failed = failed_count
             log.status = 'success' if failed_count == 0 else 'partial'
             log.completed_at = django_timezone.now()
+            
+            # Speichere Fehlerdetails im details-Feld
+            if hasattr(log, '_errors') and log._errors:
+                import json
+                # Kategorisiere Fehler für besseren Überblick
+                error_summary = {}
+                for error in log._errors:
+                    error_type = error['error_type']
+                    if error_type not in error_summary:
+                        error_summary[error_type] = {'count': 0, 'examples': []}
+                    error_summary[error_type]['count'] += 1
+                    if len(error_summary[error_type]['examples']) < 3:  # Nur erste 3 Beispiele
+                        error_summary[error_type]['examples'].append({
+                            'product_id': error['product_id'],
+                            'product_title': error['product_title'][:50],
+                            'error_message': error['error_message'][:100]
+                        })
+                
+                log.details = json.dumps({
+                    'error_summary': error_summary,
+                    'total_errors': len(log._errors)
+                }, ensure_ascii=False)
+            
             log.save()
             
         except Exception as e:
@@ -1403,27 +1439,29 @@ class ShopifyProductSync:
             featured_image_url = featured_image.get('src', '')
             featured_image_alt = featured_image.get('alt', '')
         
-        # Extrahiere Preis aus Varianten
+        # Extrahiere Preis aus Varianten - Robustere Preis-Extraktion
         price = None
         compare_at_price = None
         variants = product_data.get('variants', [])
         if variants:
-            first_variant = variants[0]
-            try:
-                price_str = first_variant.get('price')
-                if price_str:
-                    from decimal import Decimal
-                    price = Decimal(str(price_str))
-            except (ValueError, TypeError):
-                price = None
+            first_variant = variants[0] if isinstance(variants, list) else {}
             
-            try:
-                compare_price_str = first_variant.get('compare_at_price')
-                if compare_price_str:
-                    from decimal import Decimal
-                    compare_at_price = Decimal(str(compare_price_str))
-            except (ValueError, TypeError):
-                compare_at_price = None
+            # Sichere Preis-Extraktion
+            def safe_decimal(value):
+                if value is None or value == '':
+                    return None
+                try:
+                    from decimal import Decimal, InvalidOperation
+                    # Entferne mögliche Leerzeichen und konvertiere zu String
+                    clean_value = str(value).strip()
+                    if clean_value == '' or clean_value.lower() == 'null':
+                        return None
+                    return Decimal(clean_value)
+                except (ValueError, TypeError, InvalidOperation):
+                    return None
+            
+            price = safe_decimal(first_variant.get('price'))
+            compare_at_price = safe_decimal(first_variant.get('compare_at_price'))
         
         # Hole SEO Daten aus Shopify Produktdaten
         seo_title = ""
@@ -1459,25 +1497,36 @@ class ShopifyProductSync:
         
         # Erstelle oder aktualisiere Produkt
         try:
+            # Sichere Datenextraktion mit Fallbacks
+            def safe_string(value, max_length=255, default=''):
+                if value is None:
+                    return default
+                return str(value)[:max_length] if value else default
+            
+            def safe_text(value, default=''):
+                if value is None:
+                    return default
+                return str(value) if value else default
+            
             defaults = {
-                'title': product_data.get('title', '')[:255],  # Titel begrenzen
-                'handle': product_data.get('handle', '')[:255],  # Handle begrenzen
-                'body_html': product_data.get('body_html') or '',
-                'vendor': product_data.get('vendor', '')[:255],  # Vendor begrenzen  
-                'product_type': product_data.get('product_type', '')[:255],  # Product Type begrenzen
-                'status': product_data.get('status', 'active'),
-                'seo_title': seo_title[:70] if seo_title else '',  # SEO Titel begrenzen
-                'seo_description': seo_description[:160] if seo_description else '',  # SEO Beschreibung begrenzen
-                'featured_image_url': featured_image_url,
-                'featured_image_alt': featured_image_alt[:255] if featured_image_alt else '',  # Alt Text begrenzen
+                'title': safe_string(product_data.get('title'), 255, 'Unbekanntes Produkt'),
+                'handle': safe_string(product_data.get('handle'), 255),
+                'body_html': safe_text(product_data.get('body_html')),
+                'vendor': safe_string(product_data.get('vendor'), 255),
+                'product_type': safe_string(product_data.get('product_type'), 255),
+                'status': safe_string(product_data.get('status'), 50, 'active'),
+                'seo_title': safe_string(seo_title, 70),
+                'seo_description': safe_string(seo_description, 160),
+                'featured_image_url': safe_string(featured_image_url, 500),
+                'featured_image_alt': safe_string(featured_image_alt, 255),
                 'price': price,
                 'compare_at_price': compare_at_price,
-                'tags': product_data.get('tags') or '',
+                'tags': safe_text(product_data.get('tags')),
                 'shopify_created_at': self._parse_shopify_datetime(product_data.get('created_at')),
                 'shopify_updated_at': self._parse_shopify_datetime(product_data.get('updated_at')),
                 'last_synced_at': django_timezone.now(),
                 'needs_sync': False,
-                'raw_shopify_data': product_data,
+                'raw_shopify_data': product_data if isinstance(product_data, dict) else {},
             }
             
             product, created = ShopifyProduct.objects.update_or_create(
