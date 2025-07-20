@@ -429,37 +429,22 @@
                             <input class="form-check-input" type="radio" name="import_mode" 
                                    id="importModeNew" value="new_only" checked onchange="toggleImportOptions()">
                             <label class="form-check-label" for="importModeNew">
-                                <strong>Nur neue Produkte</strong>
-                                <small class="text-muted d-block">Überspringt bereits vorhandene Produkte</small>
+                                <strong>Nächste 250 neue Produkte</strong>
+                                <small class="text-muted d-block">Importiert die nächsten 250 Produkte, die noch nicht importiert wurden</small>
                             </label>
                         </div>
                         <div class="form-check">
                             <input class="form-check-input" type="radio" name="import_mode" 
-                                   id="importModeAll" value="all" onchange="toggleImportOptions()">
-                            <label class="form-check-label" for="importModeAll">
-                                <strong>Alle Produkte</strong>
-                                <small class="text-muted d-block">Importiert alle Produkte aus dem Shopify Store</small>
+                                   id="importModeReset" value="reset_and_import" onchange="toggleImportOptions()">
+                            <label class="form-check-label" for="importModeReset">
+                                <strong class="text-warning">Alle löschen und erste 250 importieren</strong>
+                                <small class="text-muted d-block">⚠️ Löscht alle lokalen Produkte und importiert die ersten 250 neu</small>
                             </label>
                         </div>
                     </div>
                     
-                    <div class="mb-3" id="limitSection">
-                        <label for="limitInput" class="form-label">Anzahl Produkte (max. 250)</label>
-                        <input type="number" class="form-control" id="limitInput" name="limit" 
-                               min="1" max="250" value="50" required>
-                        <div class="form-text">Nur relevant bei "Nur neue Produkte"</div>
-                    </div>
-                    
-                    <div class="mb-3" id="deleteLocalSection" style="display: none;">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="overwrite_existing" 
-                                   id="overwriteExisting">
-                            <label class="form-check-label" for="overwriteExisting">
-                                <strong class="text-warning">Alle lokalen Produkte löschen und neu importieren</strong>
-                                <small class="text-muted d-block">⚠️ Achtung: Alle bestehenden lokalen Produkte werden gelöscht!</small>
-                            </label>
-                        </div>
-                    </div>
+                    <!-- Limit ist jetzt fest auf 250 gesetzt -->
+                    <input type="hidden" name="limit" value="250">
                     
                     <div class="mb-3">
                         <div class="form-check">
@@ -655,21 +640,8 @@ function bulkAction(event) {
 
 // Toggle import options based on mode
 function toggleImportOptions() {
-    const importModeAll = document.getElementById('importModeAll');
-    const deleteLocalSection = document.getElementById('deleteLocalSection');
-    const limitSection = document.getElementById('limitSection');
-    const overwriteCheckbox = document.getElementById('overwriteExisting');
-    
-    if (importModeAll.checked) {
-        // "Alle Produkte" selected
-        deleteLocalSection.style.display = 'block';
-        limitSection.style.display = 'none';
-    } else {
-        // "Nur neue Produkte" selected
-        deleteLocalSection.style.display = 'none';
-        limitSection.style.display = 'block';
-        overwriteCheckbox.checked = false; // Reset checkbox
-    }
+    // Neue Funktion - alle UI-Optionen sind bereits fest definiert
+    // Keine dynamischen Anzeigen mehr nötig, da beide Modi klar definiert sind
 }
 
 // Initialize on page load

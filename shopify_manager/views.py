@@ -329,14 +329,18 @@ def import_products_view(request):
             'error': f'Ungültige Eingabe: {", ".join(errors)}'
         })
     
-    limit = form.cleaned_data.get('limit', 50)  # Standardwert falls nicht gesetzt
     import_mode = form.cleaned_data['import_mode']
-    overwrite_existing = form.cleaned_data['overwrite_existing']
     import_images = form.cleaned_data['import_images']
     
-    # Bei "Alle Produkte" ist das Limit irrelevant
-    if import_mode == 'all':
-        limit = None  # Wird in der _fetch_all_products Methode ignoriert
+    # Immer 250 Produkte pro Import
+    limit = 250
+    
+    # Neuer Modus: "reset_and_import" bedeutet alle löschen und erste 250 importieren
+    if import_mode == 'reset_and_import':
+        overwrite_existing = True
+        import_mode = 'new_only'  # Aber als new_only behandeln für die 250 Begrenzung
+    else:
+        overwrite_existing = False
     
     try:
         sync = ShopifyProductSync(store)
@@ -349,12 +353,12 @@ def import_products_view(request):
         
         if log.status == 'success':
             message = f'{log.products_success} Produkte erfolgreich importiert'
-            if import_mode == 'all' and overwrite_existing:
-                message += ' (alle lokalen Produkte wurden überschrieben)'
+            if overwrite_existing:
+                message += ' (alle lokalen Produkte wurden zuerst gelöscht)'
         elif log.status == 'partial':
             message = f'{log.products_success} Produkte importiert, {log.products_failed} Fehler aufgetreten'
-            if import_mode == 'all' and overwrite_existing:
-                message += ' (alle lokalen Produkte wurden überschrieben)'
+            if overwrite_existing:
+                message += ' (alle lokalen Produkte wurden zuerst gelöscht)'
         else:
             message = f'Import fehlgeschlagen: {log.error_message}'
         
