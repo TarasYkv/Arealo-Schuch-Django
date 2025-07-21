@@ -585,21 +585,30 @@ class ShopifyAPIClient:
         except requests.exceptions.RequestException as e:
             return False, [], f"Fehler beim Abrufen der Blogs: {str(e)}"
     
-    def fetch_blog_posts(self, blog_id: str, limit: int = 250, since_id: Optional[str] = None, max_id: Optional[str] = None, page: Optional[int] = None) -> Tuple[bool, List[Dict], str]:
-        """Holt Blog-Posts für einen bestimmten Blog"""
+    def fetch_blog_posts(self, blog_id: str, limit: int = 250, page_info: Optional[str] = None, fields: Optional[str] = None) -> Tuple[bool, List[Dict], str, Optional[str]]:
+        """
+        Holt Blog-Posts für einen bestimmten Blog mit moderner cursor-basierter Pagination
+        
+        Returns:
+            Tuple[bool, List[Dict], str, Optional[str]]: success, articles, message, next_page_info
+        """
         try:
-            # Hole alle Felder direkt in einer Abfrage (inkl. Content)
-            params = {
-                'limit': min(limit, 250),
-                'fields': 'id,title,handle,author,status,created_at,updated_at,published_at,tags,image,body_html,summary'
-            }
+            # Basis-Parameter für cursor-basierte Pagination
+            if fields:
+                params = {
+                    'limit': min(limit, 250),
+                    'fields': fields
+                }
+            else:
+                params = {
+                    'limit': min(limit, 250),
+                    'fields': 'id,title,handle,author,status,created_at,updated_at,published_at,tags,image,body_html,summary'
+                }
             
-            if since_id:
-                params['since_id'] = since_id
-            if max_id:
-                params['max_id'] = max_id
-            if page:
-                params['page'] = page
+            # MODERNE PAGINATION: Verwende page_info statt veraltete Parameter
+            if page_info:
+                params['page_info'] = page_info
+                print(f"📄 API-Call mit page_info cursor")
             
             response = self._make_request(
                 'GET',
@@ -611,6 +620,9 @@ class ShopifyAPIClient:
             if response.status_code == 200:
                 data = response.json()
                 articles = data.get('articles', [])
+                
+                # Parse Link-Header für nächste Seite
+                next_page_info = self._parse_link_header_for_next_page(response.headers.get('Link', ''))
                 
                 # Erweitere Artikel nur um fehlende Felder wenn nötig
                 enhanced_articles = []
@@ -630,12 +642,151 @@ class ShopifyAPIClient:
                     
                     enhanced_articles.append(article)
                 
-                return True, enhanced_articles, f"{len(enhanced_articles)} Blog-Posts abgerufen"
+                return True, enhanced_articles, f"{len(enhanced_articles)} Blog-Posts abgerufen", next_page_info
             else:
-                return False, [], f"HTTP {response.status_code}: {response.text}"
+                return False, [], f"HTTP {response.status_code}: {response.text}", None
                 
         except requests.exceptions.RequestException as e:
-            return False, [], f"Fehler beim Abrufen der Blog-Posts: {str(e)}"
+            return False, [], f"Fehler beim Abrufen der Blog-Posts: {str(e)}", None
+    
+    def _parse_link_header_for_next_page(self, link_header: str) -> Optional[str]:
+        """
+        Parst den Link-Header der Shopify API um den page_info für die nächste Seite zu extrahieren
+        
+        Link-Header Format:
+        <https://store.myshopify.com/admin/api/2024-01/blogs/123/articles.json?page_info=XXXXX&limit=250>; rel="next"
+        """
+        if not link_header:
+            return None
+            
+        try:
+            import re
+            # Suche nach dem "next" Link im Link-Header
+            next_link_match = re.search(r'<([^>]+)>;\s*rel="next"', link_header)
+            
+            if next_link_match:
+                next_url = next_link_match.group(1)
+                # Extrahiere page_info Parameter aus der URL
+                page_info_match = re.search(r'page_info=([^&]+)', next_url)
+                
+                if page_info_match:
+                    page_info = page_info_match.group(1)
+                    print(f"📄 Nächster page_info cursor gefunden: {page_info[:20]}...")
+                    return page_info
+                    
+        except Exception as e:
+            print(f"⚠️ Fehler beim Parsen des Link-Headers: {e}")
+            
+        return None
+    
+    def fetch_blog_posts_graphql(self, blog_id: str, limit: int = 250, cursor: Optional[str] = None) -> Tuple[bool, List[Dict], str, Optional[str]]:
+        """
+        ALTERNATIVE LÖSUNG: Holt Blog-Posts über die moderne GraphQL API
+        Dies ist die empfohlene Lösung für neue Entwicklungen ab 2024
+        """
+        try:
+            # GraphQL Query für Blog Articles mit Cursor-Pagination
+            query = """
+            query getBlogArticles($blogId: ID!, $first: Int!, $after: String) {
+              blog(id: $blogId) {
+                articles(first: $first, after: $after) {
+                  edges {
+                    node {
+                      id
+                      legacyResourceId
+                      title
+                      handle
+                      author {
+                        displayName
+                      }
+                      publishedAt
+                      createdAt
+                      updatedAt
+                      status
+                      tags
+                      summary
+                      content
+                      image {
+                        url
+                        altText
+                      }
+                    }
+                  }
+                  pageInfo {
+                    hasNextPage
+                    endCursor
+                  }
+                }
+              }
+            }
+            """
+            
+            variables = {
+                "blogId": f"gid://shopify/Blog/{blog_id}",
+                "first": min(limit, 250)
+            }
+            
+            if cursor:
+                variables["after"] = cursor
+            
+            # GraphQL Request
+            response = self._make_request(
+                'POST',
+                f"{self.base_url.replace('/admin/api/2024-01', '')}/admin/api/2024-10/graphql.json",
+                json={
+                    'query': query,
+                    'variables': variables
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                if 'errors' in data:
+                    return False, [], f"GraphQL Errors: {data['errors']}", None
+                
+                blog_data = data.get('data', {}).get('blog')
+                if not blog_data:
+                    return False, [], "Blog nicht gefunden", None
+                    
+                articles_data = blog_data.get('articles', {})
+                edges = articles_data.get('edges', [])
+                page_info = articles_data.get('pageInfo', {})
+                
+                # Konvertiere GraphQL Response zu REST-Format für Kompatibilität
+                articles = []
+                for edge in edges:
+                    node = edge['node']
+                    article = {
+                        'id': int(node['legacyResourceId']),
+                        'title': node['title'],
+                        'handle': node['handle'],
+                        'author': node.get('author', {}).get('displayName', ''),
+                        'status': node['status'].lower(),
+                        'created_at': node['createdAt'],
+                        'updated_at': node['updatedAt'],
+                        'published_at': node['publishedAt'],
+                        'tags': ','.join(node.get('tags', [])),
+                        'body_html': node.get('content', ''),
+                        'summary': node.get('summary', ''),
+                        'image': {
+                            'url': node.get('image', {}).get('url'),
+                            'alt': node.get('image', {}).get('altText')
+                        } if node.get('image') else None
+                    }
+                    articles.append(article)
+                
+                next_cursor = page_info.get('endCursor') if page_info.get('hasNextPage') else None
+                
+                print(f"✅ GraphQL API: {len(articles)} Blog-Posts abgerufen")
+                return True, articles, f"{len(articles)} Blog-Posts via GraphQL abgerufen", next_cursor
+                
+            else:
+                return False, [], f"HTTP {response.status_code}: {response.text}", None
+                
+        except requests.exceptions.RequestException as e:
+            return False, [], f"Fehler bei GraphQL Request: {str(e)}", None
     
     def fetch_single_blog_post(self, blog_id: str, article_id: str) -> Tuple[bool, Optional[Dict], str]:
         """Holt einen einzelnen Blog-Post mit vollständigem Content"""
@@ -1872,43 +2023,161 @@ class ShopifyBlogSync:
         return log
 
     def _fetch_all_blog_posts(self, blog_id: str) -> Tuple[bool, List[Dict], str]:
-        """Holt alle Blog-Posts über Pagination"""
+        """Holt alle Blog-Posts über moderne cursor-basierte Pagination"""
         all_articles = []
-        since_id = None
+        page_info = None
         total_fetched = 0
+        page_count = 0
+
+        print(f"🚀 Starte vollständigen Blog-Post Import mit cursor-basierter Pagination...")
 
         while True:
-            # Hier wird die API-Client-Methode aufgerufen
-            success, articles, message = self.api.fetch_blog_posts(blog_id, limit=250, since_id=since_id)
+            page_count += 1
+            print(f"📄 Lade Seite {page_count}...")
+            
+            # Hier wird die API-Client-Methode mit modernen Parametern aufgerufen
+            success, articles, message, next_page_info = self.api.fetch_blog_posts(blog_id, limit=250, page_info=page_info)
 
             if not success:
                 return False, [], message
 
             if not articles:  # Keine weiteren Artikel
+                print(f"📄 Keine weiteren Blog-Posts gefunden - Import beendet")
                 break
 
             all_articles.extend(articles)
             total_fetched += len(articles)
-            print(f"📄 Blog-Post Pagination: {len(articles)} Blog-Posts geholt, insgesamt: {total_fetched}")
+            print(f"📄 Seite {page_count}: {len(articles)} Blog-Posts geholt, insgesamt: {total_fetched}")
 
-            # since_id für nächste Seite setzen
-            since_id = str(articles[-1]['id'])  # ID des letzten Artikels
-
-            # Verbesserte Pagination-Logik - nicht bei 249 Posts stoppen
-            # Shopify gibt manchmal 249 statt 250 Posts zurück
-            if len(articles) < 200:  # Nur bei deutlich weniger Posts stoppen
-                print(f"📄 Letzte Seite wahrscheinlich erreicht: nur {len(articles)} Posts")
+            # Prüfe ob es eine nächste Seite gibt
+            if not next_page_info:
+                print(f"📄 Letzte Seite erreicht - keine weitere page_info im Link-Header")
                 break
+                
+            # Setze page_info für nächste Seite
+            page_info = next_page_info
 
             # Sicherheitscheck: Stoppe bei sehr vielen Artikeln
-            if total_fetched >= 250000:  # Erhöht für sehr große Blogs
-                print(f"Sicherheitsstopp bei {total_fetched} Blog-Posts erreicht")
+            if total_fetched >= 250000:  # Sicherheitslimit
+                print(f"⚠️ Sicherheitsstopp bei {total_fetched} Blog-Posts erreicht")
+                break
+                
+            # Sicherheitscheck: Zu viele Seiten
+            if page_count >= 1000:  # 1000 Seiten * 250 = 250.000 Posts max
+                print(f"⚠️ Sicherheitsstopp bei {page_count} Seiten erreicht")
                 break
 
-        return True, all_articles, f"{total_fetched} Blog-Posts über Pagination abgerufen"
+        print(f"✅ Blog-Post Import abgeschlossen: {total_fetched} Posts in {page_count} Seiten")
+        return True, all_articles, f"{total_fetched} Blog-Posts über cursor-basierte Pagination abgerufen"
+    
+    def _fetch_all_blog_posts_graphql(self, blog_id: str) -> Tuple[bool, List[Dict], str]:
+        """
+        ALTERNATIVE LÖSUNG: Holt alle Blog-Posts über GraphQL API
+        Dies ist die zukunftssichere Lösung und sollte bei Problemen mit REST API verwendet werden
+        """
+        all_articles = []
+        cursor = None
+        total_fetched = 0
+        page_count = 0
+
+        print(f"🚀 Starte vollständigen Blog-Post Import mit GraphQL API...")
+
+        while True:
+            page_count += 1
+            print(f"📄 Lade Seite {page_count} (GraphQL)...")
+            
+            # Verwende die GraphQL-Methode
+            success, articles, message, next_cursor = self.api.fetch_blog_posts_graphql(blog_id, limit=250, cursor=cursor)
+
+            if not success:
+                return False, [], message
+
+            if not articles:  # Keine weiteren Artikel
+                print(f"📄 Keine weiteren Blog-Posts gefunden - GraphQL Import beendet")
+                break
+
+            all_articles.extend(articles)
+            total_fetched += len(articles)
+            print(f"📄 Seite {page_count}: {len(articles)} Blog-Posts geholt, insgesamt: {total_fetched}")
+
+            # Prüfe ob es eine nächste Seite gibt
+            if not next_cursor:
+                print(f"📄 Letzte Seite erreicht - kein weiterer cursor")
+                break
+                
+            # Setze cursor für nächste Seite
+            cursor = next_cursor
+
+            # Sicherheitscheck: Stoppe bei sehr vielen Artikeln
+            if total_fetched >= 250000:  # Sicherheitslimit
+                print(f"⚠️ Sicherheitsstopp bei {total_fetched} Blog-Posts erreicht")
+                break
+                
+            # Sicherheitscheck: Zu viele Seiten
+            if page_count >= 1000:  # 1000 Seiten * 250 = 250.000 Posts max
+                print(f"⚠️ Sicherheitsstopp bei {page_count} Seiten erreicht")
+                break
+
+        print(f"✅ GraphQL Blog-Post Import abgeschlossen: {total_fetched} Posts in {page_count} Seiten")
+        return True, all_articles, f"{total_fetched} Blog-Posts über GraphQL API abgerufen"
+    
+    def _fetch_all_blog_posts_with_fallback(self, blog_id: str) -> Tuple[bool, List[Dict], str]:
+        """
+        ROBUSTE LÖSUNG: Versucht verschiedene Methoden um alle Blog-Posts zu laden
+        1. Moderne REST API mit Link-Headers
+        2. GraphQL API als Fallback
+        3. Alter Ansatz als letzter Fallback (falls nötig)
+        """
+        print(f"🔄 Starte robusten Blog-Post Import mit Fallback-Strategien...")
+        
+        # VERSUCH 1: Moderne REST API mit Link-Headers
+        try:
+            print(f"🔄 Versuche moderne REST API mit cursor-basierter Pagination...")
+            success, articles, message = self._fetch_all_blog_posts(blog_id)
+            
+            if success and articles:
+                print(f"✅ Moderne REST API erfolgreich: {len(articles)} Blog-Posts")
+                return True, articles, f"{len(articles)} Blog-Posts via moderne REST API geladen"
+            else:
+                print(f"⚠️ Moderne REST API fehlgeschlagen: {message}")
+                
+        except Exception as e:
+            print(f"⚠️ Moderne REST API Fehler: {e}")
+        
+        # VERSUCH 2: GraphQL API als Fallback
+        try:
+            print(f"🔄 Fallback zu GraphQL API...")
+            success, articles, message = self._fetch_all_blog_posts_graphql(blog_id)
+            
+            if success and articles:
+                print(f"✅ GraphQL API erfolgreich: {len(articles)} Blog-Posts")
+                return True, articles, f"{len(articles)} Blog-Posts via GraphQL API geladen"
+            else:
+                print(f"⚠️ GraphQL API fehlgeschlagen: {message}")
+                
+        except Exception as e:
+            print(f"⚠️ GraphQL API Fehler: {e}")
+        
+        # VERSUCH 3: Notfall-Fallback (einzelne Requests)
+        try:
+            print(f"🔄 Letzter Fallback: Versuche einzelne API-Calls...")
+            
+            # Hole erste 250 Posts
+            success, articles, message, _ = self.api.fetch_blog_posts(blog_id, limit=250)
+            
+            if success and articles:
+                print(f"⚠️ Nur erste 250 Blog-Posts geladen - manueller Import erforderlich")
+                return True, articles, f"WARNUNG: Nur {len(articles)} von möglicherweise mehr Blog-Posts geladen"
+            else:
+                print(f"❌ Auch Notfall-Fallback fehlgeschlagen: {message}")
+                
+        except Exception as e:
+            print(f"❌ Notfall-Fallback Fehler: {e}")
+        
+        return False, [], "ALLE Import-Methoden fehlgeschlagen - API-Problem oder Konfigurationsfehler"
 
     def _fetch_next_unimported_blog_posts(self, blog: ShopifyBlog, limit: int = 250) -> Tuple[bool, List[Dict], str]:
-        """Holt die nächsten nicht-importierten Blog-Posts durch systematisches Durchsuchen"""
+        """Holt die nächsten nicht-importierten Blog-Posts durch cursor-basierte Pagination"""
         try:
             # Hole bereits importierte Blog-Post-IDs für diesen Blog
             existing_ids = set(
@@ -1919,20 +2188,24 @@ class ShopifyBlogSync:
             
             # Iteriere durch Shopify-Blog-Posts und finde unimportierte
             all_articles = []
-            since_id = None
+            page_info = None
             found_unimported = 0
+            page_count = 0
             
             while found_unimported < limit:
-                # Hole nächste Batch von Shopify
-                success, articles, message = self.api.fetch_blog_posts(blog.shopify_id, limit=250, since_id=since_id)
+                page_count += 1
+                
+                # Hole nächste Batch von Shopify mit cursor-basierter Pagination
+                success, articles, message, next_page_info = self.api.fetch_blog_posts(blog.shopify_id, limit=250, page_info=page_info)
                 
                 if not success:
                     return False, [], message
                 
                 if not articles:  # Keine weiteren Blog-Posts
+                    print(f"📄 Keine weiteren Blog-Posts bei Suche nach unimportierten Posts")
                     break
                 
-                print(f"📄 Prüfe {len(articles)} Blog-Posts auf Import-Status...")
+                print(f"📄 Prüfe {len(articles)} Blog-Posts auf Import-Status (Seite {page_count})...")
                 
                 # Filtere unimportierte Blog-Posts
                 unimported_articles = []
@@ -1947,12 +2220,17 @@ class ShopifyBlogSync:
                 all_articles.extend(unimported_articles)
                 print(f"🆕 {len(unimported_articles)} neue Blog-Posts gefunden, insgesamt: {found_unimported}")
                 
-                # since_id für nächste Seite setzen
-                since_id = str(articles[-1]['id'])
-                
-                # Stoppe wenn weniger als 200 Blog-Posts geholt wurden (letzte Seite)
-                if len(articles) < 200:
+                # Prüfe ob es eine nächste Seite gibt
+                if not next_page_info:
                     print(f"📄 Letzte Seite erreicht bei Blog-Post-Suche")
+                    break
+                    
+                # Setze page_info für nächste Seite
+                page_info = next_page_info
+                
+                # Sicherheitscheck gegen endlose Schleifen
+                if page_count >= 100:  # Max 100 Seiten durchsuchen
+                    print(f"⚠️ Sicherheitsstopp nach {page_count} durchsuchten Seiten")
                     break
             
             return True, all_articles[:limit], f"{len(all_articles[:limit])} neue Blog-Posts gefunden"
@@ -1975,12 +2253,18 @@ class ShopifyBlogSync:
                 # Alle lokalen Blog-Posts für diesen Blog löschen und erste 250 importieren
                 deleted_count = self._delete_all_local_blog_posts(blog)
                 print(f"🗑️ {deleted_count} lokale Blog-Posts gelöscht vor Neuimport für Blog {blog.title}")
-                success, articles, message = self.api.fetch_blog_posts(blog.shopify_id, limit=250)
+                success, articles, message, _ = self.api.fetch_blog_posts(blog.shopify_id, limit=250)
             elif import_mode == 'new_only':
                 # Nächste 250 neue Blog-Posts importieren
                 success, articles, message = self._fetch_next_unimported_blog_posts(blog, limit=250)
+            elif import_mode == 'all_robust':
+                # NEUE OPTION: Alle Blog-Posts mit robusten Fallback-Strategien
+                success, articles, message = self._fetch_all_blog_posts_with_fallback(blog.shopify_id)
+            elif import_mode == 'all_graphql':
+                # NEUE OPTION: Alle Blog-Posts nur über GraphQL
+                success, articles, message = self._fetch_all_blog_posts_graphql(blog.shopify_id)
             else:
-                # Fallback: alle Blog-Posts (alter Modus)
+                # Fallback: alle Blog-Posts mit moderner cursor-basierter Pagination
                 success, articles, message = self._fetch_all_blog_posts(blog.shopify_id)
             
             if not success:
