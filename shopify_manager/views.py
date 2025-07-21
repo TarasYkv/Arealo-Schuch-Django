@@ -1877,7 +1877,7 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
             )
             
             # Hier wird die API-Client-Methode aufgerufen
-            success, articles, message = self.api.fetch_blog_posts(blog_id, limit=250, since_id=since_id, max_id=max_id)
+            success, articles, message, _ = self.api.fetch_blog_posts(blog_id, limit=250, since_id=since_id, max_id=max_id)
 
             if not success:
                 return False, [], message
@@ -1948,11 +1948,11 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
         
         if start_from_id is None:
             # Hole die neuesten Posts (ohne since_id)
-            success, articles, message = self.api.fetch_blog_posts(blog_id, limit=max_posts)
+            success, articles, message, _ = self.api.fetch_blog_posts(blog_id, limit=max_posts)
         else:
             # Lade Posts mit since_id (Posts die NACH der angegebenen ID kommen)
             # Das sind Posts, die neuer sind als der neueste Post in der DB
-            success, articles, message = self.api.fetch_blog_posts(blog_id, limit=max_posts, since_id=start_from_id)
+            success, articles, message, _ = self.api.fetch_blog_posts(blog_id, limit=max_posts, since_id=start_from_id)
             print(f"📄 API-Aufruf mit since_id={start_from_id}: {len(articles)} Posts geholt")
         
         if not success:
@@ -1972,7 +1972,7 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
         # Überspringe die ersten skip_count Posts
         while total_fetched < skip_count:
             batch_size = min(250, skip_count - total_fetched)
-            success, batch_articles, message = self.api.fetch_blog_posts(blog_id, limit=batch_size, since_id=since_id)
+            success, batch_articles, message, _ = self.api.fetch_blog_posts(blog_id, limit=batch_size, since_id=since_id)
             
             if not success or not batch_articles:
                 print(f"📄 Fehler oder keine Posts mehr beim Überspringen: {message}")
@@ -1992,7 +1992,7 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
         
         while collected < take_count and attempts < max_attempts:
             batch_size = min(250, (take_count - collected) * 2)  # Hole mehr für Filterung
-            success, batch_articles, message = self.api.fetch_blog_posts(blog_id, limit=batch_size, since_id=since_id)
+            success, batch_articles, message, _ = self.api.fetch_blog_posts(blog_id, limit=batch_size, since_id=since_id)
             
             if not success or not batch_articles:
                 print(f"📄 Keine weiteren Posts verfügbar: {message}")
@@ -2151,12 +2151,91 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
             if import_mode == 'all':
                 # Lösche Pagination-Status und beginne von vorne
                 self._clear_pagination_state(blog)
-                success, articles, message = self._fetch_next_batch(blog.shopify_id, 250)
-                print(f"📄 Lade 250 neueste Posts (Reset)")
+                
+                # DIREKTE API-ABFRAGE für die neuesten Posts
+                print(f"📄 RESET-MODUS: Hole neueste 250 Posts direkt von Shopify")
+                api_success, articles, api_message, _ = self.api.fetch_blog_posts(
+                    blog.shopify_id, 
+                    limit=250
+                )
+                
+                if api_success:
+                    success = True
+                    message = f"{len(articles)} Posts von Shopify geholt"
+                    print(f"📄 API gab {len(articles)} Posts zurück")
+                    
+                    # Debug: Zeige die ersten 3 Posts
+                    for i, article in enumerate(articles[:3]):
+                        print(f"📄 Post {i+1}: ID={article.get('id')}, Title={article.get('title', 'No title')[:50]}")
+                else:
+                    success = False
+                    articles = []
+                    message = f"API-Fehler: {api_message}"
+                    print(f"❌ API-Fehler: {api_message}")
             else:  # new_only / weitere 250 laden
-                # Lade weitere 250 Posts basierend auf gespeichertem Pagination-Zustand
-                success, articles, message = self._fetch_next_batch(blog.shopify_id, 250)
-                print(f"📄 Lade weitere 250 Posts (Fortsetzung)")
+                # MODERNE LÖSUNG: Verwende cursor-basierte Pagination
+                from .models import ShopifyBlogPost
+                
+                print(f"📄 🚀 NEUE LÖSUNG: Moderne cursor-basierte Pagination")
+                self._update_progress(0, 0, "Hole ALLE Posts mit moderner Pagination...")
+                
+                # Hole bereits importierte IDs
+                existing_ids = set(ShopifyBlogPost.objects.filter(blog=blog).values_list('shopify_id', flat=True))
+                print(f"📊 {len(existing_ids)} Posts bereits in lokaler DB")
+                
+                # VOLLSTÄNDIGER IMPORT MIT MODERNER PAGINATION
+                all_posts = []
+                page_info = None
+                page_count = 0
+                max_pages = 50  # Sicherheit gegen Endlosschleife
+                
+                while page_count < max_pages:
+                    page_count += 1
+                    print(f"📄 Hole Seite {page_count} (cursor: {page_info[:20] if page_info else 'None'}...)")
+                    self._update_progress(0, 0, f"Lade Seite {page_count}...")
+                    
+                    # NEUE API-SIGNATUR mit 4 Rückgabewerten
+                    api_success, batch_posts, api_message, next_page_info = self.api.fetch_blog_posts(
+                        blog.shopify_id, 
+                        limit=250,
+                        page_info=page_info
+                    )
+                    
+                    if not api_success:
+                        print(f"❌ API-Fehler auf Seite {page_count}: {api_message}")
+                        break
+                        
+                    if not batch_posts:
+                        print(f"📄 Keine Posts auf Seite {page_count} - Ende erreicht")
+                        break
+                    
+                    print(f"✅ Seite {page_count}: {len(batch_posts)} Posts geladen")
+                    all_posts.extend(batch_posts)
+                    
+                    # Prüfe ob weitere Seiten verfügbar
+                    if not next_page_info:
+                        print(f"📄 Letzte Seite erreicht (keine next_page_info)")
+                        break
+                        
+                    if len(batch_posts) < 250:
+                        print(f"📄 Letzte Seite erreicht (weniger als 250 Posts)")
+                        break
+                    
+                    page_info = next_page_info
+                
+                print(f"🎉 PAGINATION ABGESCHLOSSEN: {len(all_posts)} Posts über {page_count} Seiten geladen")
+                self._update_progress(0, 0, f"Shopify: {len(all_posts)} Posts geladen, filtere...")
+                
+                # Filtere neue Posts
+                new_posts = []
+                for post in all_posts:
+                    if str(post['id']) not in existing_ids:
+                        new_posts.append(post)
+                
+                articles = new_posts[:250]  # Limitiere auf 250 für diesen Import
+                success = True
+                message = f"{len(articles)} neue Posts von {len(all_posts)} geprüften gefunden"
+                print(f"📊 ERGEBNIS: {len(articles)} neue Posts für Import aus {len(all_posts)} geladenen")
             print(f"=== IMPORT RESULT: {len(articles)} Blog-Posts von Shopify geholt ===")
             
             if not success:

@@ -12,9 +12,6 @@
             <button class="btn btn-success" onclick="importBlogs()" id="importBlogsBtn">
                 <i class="fas fa-download"></i> Blogs importieren
             </button>
-            <button class="btn btn-outline-success" onclick="importAllBlogPosts()" id="importAllBlogPostsBtn">
-                <i class="fas fa-download"></i> Alle Blog-Beiträge importieren
-            </button>
             <a href="{% url 'shopify_manager:blog_post_list' %}" class="btn btn-outline-primary">
                 <i class="fas fa-newspaper"></i> Alle Beiträge
             </a>
@@ -228,9 +225,6 @@
                         <a href="{% url 'shopify_manager:blog_detail' blog.pk %}" class="btn btn-sm btn-outline-primary">
                             <i class="fas fa-eye"></i>
                         </a>
-                        <button class="btn btn-sm btn-outline-success" onclick="openBlogPostImportModal({{ blog.id }})" title="Blog-Posts importieren">
-                            <i class="fas fa-download"></i>
-                        </button>
                         <a href="{{ blog.get_shopify_admin_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
                             <i class="fas fa-external-link-alt"></i>
                         </a>
@@ -581,57 +575,7 @@ function executeBlogPostImport() {
     });
 }
 
-function importBlogPosts(blogId, buttonElement) {
-    if (!confirm('Blog-Posts für diesen Blog importieren?')) return;
-    
-    // Zeige Loading-Zustand
-    const originalContent = buttonElement.innerHTML;
-    buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    buttonElement.disabled = true;
-    buttonElement.classList.add('disabled');
-    
-    const formData = new FormData();
-    formData.append('blog_id', blogId);
-    formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
-    
-    fetch('/shopify/api/import-blog-posts/', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-        },
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Zeige Erfolg-Icon kurz an
-            buttonElement.innerHTML = '<i class="fas fa-check text-success"></i>';
-            showAlert('success', `${data.imported} Blog-Posts erfolgreich importiert!`);
-            setTimeout(() => location.reload(), 1500);
-        } else {
-            // Zeige Fehler-Icon kurz an
-            buttonElement.innerHTML = '<i class="fas fa-times text-danger"></i>';
-            showAlert('danger', `Import fehlgeschlagen: ${data.error}`);
-            // Zurück zum Original nach 2 Sekunden
-            setTimeout(() => {
-                buttonElement.innerHTML = originalContent;
-                buttonElement.disabled = false;
-                buttonElement.classList.remove('disabled');
-            }, 2000);
-        }
-    })
-    .catch(error => {
-        // Zeige Fehler-Icon kurz an
-        buttonElement.innerHTML = '<i class="fas fa-times text-danger"></i>';
-        showAlert('danger', 'Fehler beim Import: ' + error);
-        // Zurück zum Original nach 2 Sekunden
-        setTimeout(() => {
-            buttonElement.innerHTML = originalContent;
-            buttonElement.disabled = false;
-            buttonElement.classList.remove('disabled');
-        }, 2000);
-    });
-}
+// Blog-Post Import wurde entfernt - nur Blog-Import ist erlaubt
 
 function getCookie(name) {
     let cookieValue = null;
@@ -662,178 +606,6 @@ function showAlert(type, message) {
     setTimeout(() => {
         alertDiv.remove();
     }, 5000);
-}
-</script>
-
-<!-- Blog Post Import Modal -->
-<div class="modal fade" id="blogPostImportModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Blog-Posts importieren</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="blogPostImportForm">
-                {% csrf_token %}
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="blogPostStoreSelect" class="form-label">Store auswählen</label>
-                        <select class="form-select" id="blogPostStoreSelect" name="store_id" required>
-                            <option value="">Bitte wählen...</option>
-                            {% for store in user_stores %}
-                                <option value="{{ store.id }}">{{ store.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
-                    <input type="hidden" id="selectedBlogId" name="blog_id" value="">
-                    
-                    <div class="mb-4">
-                        <label class="form-label">Import-Modus</label>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="import_mode" 
-                                   id="blogPostImportModeNew" value="new_only" checked>
-                            <label class="form-check-label" for="blogPostImportModeNew">
-                                <strong>Nächste 250 neue Blog-Posts</strong>
-                                <small class="text-muted d-block">Importiert die nächsten 250 Blog-Posts, die noch nicht importiert wurden</small>
-                            </label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="import_mode" 
-                                   id="blogPostImportModeReset" value="reset_and_import">
-                            <label class="form-check-label" for="blogPostImportModeReset">
-                                <strong class="text-warning">Alle löschen und erste 250 importieren</strong>
-                                <small class="text-muted d-block">⚠️ Löscht alle lokalen Blog-Posts für diesen Blog und importiert die ersten 250 neu</small>
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <!-- Limit ist fest auf 250 gesetzt -->
-                    <input type="hidden" name="limit" value="250">
-                    
-                    <div id="blogPostImportProgress" style="display: none;">
-                        <div class="mb-3">
-                            <div class="progress" style="height: 25px;">
-                                <div id="blogPostImportProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
-                                     role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
-                                    0%
-                                </div>
-                            </div>
-                        </div>
-                        <div id="blogPostImportProgressMessage" class="text-muted text-center">
-                            Import wird gestartet...
-                        </div>
-                        <div id="blogPostImportProgressStats" class="mt-3 text-center" style="display: none;">
-                            <span class="badge bg-success me-2">
-                                <i class="fas fa-check"></i> <span id="blogPostImportSuccessCount">0</span> erfolgreich
-                            </span>
-                            <span class="badge bg-danger">
-                                <i class="fas fa-times"></i> <span id="blogPostImportFailedCount">0</span> fehlgeschlagen
-                            </span>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
-                    <button type="button" class="btn btn-success" onclick="executeBlogPostImport()">
-                        <i class="fas fa-download"></i> Importieren
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<script>
-function openBlogPostImportModal(blogId) {
-    document.getElementById('selectedBlogId').value = blogId;
-    const modal = new bootstrap.Modal(document.getElementById('blogPostImportModal'));
-    modal.show();
-}
-
-function executeBlogPostImport() {
-    const form = document.getElementById('blogPostImportForm');
-    const formData = new FormData(form);
-    
-    // Validierung
-    if (!formData.get('store_id')) {
-        alert('Bitte wählen Sie einen Store aus');
-        return;
-    }
-    
-    if (!formData.get('blog_id')) {
-        alert('Fehler: Keine Blog-ID ausgewählt');
-        return;
-    }
-    
-    // Progress anzeigen
-    document.getElementById('blogPostImportProgress').style.display = 'block';
-    const progressBar = document.getElementById('blogPostImportProgressBar');
-    const progressMessage = document.getElementById('blogPostImportProgressMessage');
-    const progressStats = document.getElementById('blogPostImportProgressStats');
-    
-    // Button deaktivieren
-    const submitBtn = document.querySelector('#blogPostImportModal .btn-success');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importiere...';
-    
-    // Progress simulation
-    let progress = 0;
-    const progressInterval = setInterval(() => {
-        progress += Math.random() * 15;
-        if (progress > 90) progress = 90;
-        progressBar.style.width = progress + '%';
-        progressBar.textContent = Math.round(progress) + '%';
-        progressBar.setAttribute('aria-valuenow', Math.round(progress));
-    }, 500);
-    
-    const startTime = Date.now();
-    
-    fetch('/shopify/api/import-blog-posts/', {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'X-Requested-With': 'XMLHttpRequest',
-        },
-    })
-    .then(response => response.json())
-    .then(data => {
-        clearInterval(progressInterval);
-        const duration = Math.round((Date.now() - startTime) / 1000);
-        
-        // Progress auf 100% setzen
-        progressBar.style.width = '100%';
-        progressBar.textContent = '100%';
-        progressBar.setAttribute('aria-valuenow', 100);
-        progressBar.classList.remove('progress-bar-animated');
-        
-        if (data.success) {
-            progressMessage.innerHTML = `<i class="fas fa-check text-success"></i> Import erfolgreich abgeschlossen (${duration}s)`;
-            progressStats.style.display = 'block';
-            document.getElementById('blogPostImportSuccessCount').textContent = data.success_count || 0;
-            document.getElementById('blogPostImportFailedCount').textContent = data.failed_count || 0;
-            
-            // Nach 3 Sekunden zur Blog-Post-Liste weiterleiten
-            setTimeout(() => {
-                window.location.href = '{% url "shopify_manager:blog_post_list" %}';
-            }, 3000);
-        } else {
-            progressBar.classList.add('bg-danger');
-            progressMessage.innerHTML = `<i class="fas fa-times text-danger"></i> Import fehlgeschlagen: ${data.error}`;
-        }
-    })
-    .catch(error => {
-        clearInterval(progressInterval);
-        console.error('Error:', error);
-        progressBar.classList.add('bg-danger');
-        progressMessage.innerHTML = `<i class="fas fa-times text-danger"></i> Fehler beim Import`;
-    })
-    .finally(() => {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalText;
-    });
 }
 </script>
 {% endblock %}

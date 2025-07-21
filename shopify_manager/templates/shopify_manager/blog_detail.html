@@ -112,19 +112,9 @@
             <a href="{% url 'shopify_manager:blog_list' %}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left"></i> Zurück zu Blogs
             </a>
-            <div class="btn-group">
-                <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown">
-                    <i class="fas fa-download"></i> Beiträge importieren
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                    <li><a class="dropdown-item" href="#" onclick="importBlogPosts('new_only')">
-                        <i class="fas fa-plus"></i> Weitere 250 Beiträge laden
-                    </a></li>
-                    <li><a class="dropdown-item" href="#" onclick="importBlogPosts('all')">
-                        <i class="fas fa-sync"></i> Alles löschen und 250 Beiträge holen
-                    </a></li>
-                </ul>
-            </div>
+            <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#blogImportModal">
+                <i class="fas fa-download"></i> Beiträge importieren
+            </button>
             <a href="{{ blog.get_shopify_admin_url }}" target="_blank" class="btn btn-outline-primary">
                 <i class="fas fa-external-link-alt"></i> In Shopify öffnen
             </a>
@@ -498,6 +488,56 @@
     </div>
 </div>
 
+<!-- Blog Import Modal -->
+<div class="modal fade" id="blogImportModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Blog-Beiträge importieren</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-4">
+                    <label class="form-label">Import-Modus</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="blog_import_mode" 
+                               id="blogImportModeNew" value="new_only" checked>
+                        <label class="form-check-label" for="blogImportModeNew">
+                            <strong>Nächste 250 neue Beiträge</strong>
+                            <small class="text-muted d-block">Importiert die nächsten 250 Beiträge, die noch nicht importiert wurden</small>
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="blog_import_mode" 
+                               id="blogImportModeReset" value="all">
+                        <label class="form-check-label" for="blogImportModeReset">
+                            <strong class="text-warning">Alle löschen und erste 250 importieren</strong>
+                            <small class="text-muted d-block">⚠️ Löscht alle lokalen Beiträge und importiert die ersten 250 neu</small>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> 
+                    <strong>Hinweis:</strong> Bei "Nächste 250" werden nur neue, noch nicht importierte Beiträge geladen.
+                </div>
+                
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i> 
+                    <strong>Achtung:</strong> Wenn "Alle löschen und erste 250 importieren" aktiviert ist, werden alle bestehenden 
+                    lokalen Beitragsdaten (inkl. SEO-Optimierungen) unwiderruflich gelöscht!
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="startBlogImport()">
+                    <i class="fas fa-download"></i> Importieren
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Progress Modal -->
 <div class="modal fade" id="importProgressModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-dialog-centered">
@@ -540,6 +580,17 @@
 <script>
 let importInterval = null;
 
+function startBlogImport() {
+    const selectedMode = document.querySelector('input[name="blog_import_mode"]:checked').value;
+    
+    // Schließe das Import-Modal
+    const importModal = bootstrap.Modal.getInstance(document.getElementById('blogImportModal'));
+    importModal.hide();
+    
+    // Starte den Import
+    importBlogPosts(selectedMode);
+}
+
 function importBlogPosts(importMode = 'new_only') {
     let confirmMessage = '';
     if (importMode === 'all') {
@@ -561,6 +612,7 @@ function importBlogPosts(importMode = 'new_only') {
     
     const formData = new FormData();
     formData.append('blog_id', {{ blog.id }});
+    formData.append('store_id', {{ blog.store.id }});
     formData.append('import_mode', importMode);
     formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
     
@@ -588,6 +640,8 @@ function importBlogPosts(importMode = 'new_only') {
     });
 }
 
+// Blog-Post Import wurde entfernt
+
 function startProgressPolling(importId) {
     // Polling alle 500ms
     importInterval = setInterval(() => {
@@ -614,6 +668,12 @@ function startProgressPolling(importId) {
                             document.getElementById('importSuccessCount').textContent = progress.imported || 0;
                             document.getElementById('importFailedCount').textContent = progress.failed || 0;
                             document.getElementById('importProgressStats').style.display = 'block';
+                            
+                            // Zeige zusätzlichen Hinweis wenn 0 importiert wurden
+                            if ((progress.imported || 0) === 0 && (progress.failed || 0) === 0) {
+                                document.getElementById('importProgressMessage').innerHTML = 
+                                    `<span class="text-info">Keine neuen Blog-Posts gefunden - alle verfügbaren Posts sind bereits importiert</span>`;
+                            }
                         }
                         
                         // Zeige Footer mit Reload-Button
