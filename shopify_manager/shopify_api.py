@@ -1907,6 +1907,60 @@ class ShopifyBlogSync:
 
         return True, all_articles, f"{total_fetched} Blog-Posts über Pagination abgerufen"
 
+    def _fetch_next_unimported_blog_posts(self, blog: ShopifyBlog, limit: int = 250) -> Tuple[bool, List[Dict], str]:
+        """Holt die nächsten nicht-importierten Blog-Posts durch systematisches Durchsuchen"""
+        try:
+            # Hole bereits importierte Blog-Post-IDs für diesen Blog
+            existing_ids = set(
+                ShopifyBlogPost.objects.filter(blog=blog)
+                .values_list('shopify_id', flat=True)
+            )
+            print(f"📊 {len(existing_ids)} Blog-Posts bereits in lokaler DB für Blog {blog.title}")
+            
+            # Iteriere durch Shopify-Blog-Posts und finde unimportierte
+            all_articles = []
+            since_id = None
+            found_unimported = 0
+            
+            while found_unimported < limit:
+                # Hole nächste Batch von Shopify
+                success, articles, message = self.api.fetch_blog_posts(blog.shopify_id, limit=250, since_id=since_id)
+                
+                if not success:
+                    return False, [], message
+                
+                if not articles:  # Keine weiteren Blog-Posts
+                    break
+                
+                print(f"📄 Prüfe {len(articles)} Blog-Posts auf Import-Status...")
+                
+                # Filtere unimportierte Blog-Posts
+                unimported_articles = []
+                for article in articles:
+                    if str(article['id']) not in existing_ids:
+                        unimported_articles.append(article)
+                        found_unimported += 1
+                        
+                        if found_unimported >= limit:
+                            break
+                
+                all_articles.extend(unimported_articles)
+                print(f"🆕 {len(unimported_articles)} neue Blog-Posts gefunden, insgesamt: {found_unimported}")
+                
+                # since_id für nächste Seite setzen
+                since_id = str(articles[-1]['id'])
+                
+                # Stoppe wenn weniger als 200 Blog-Posts geholt wurden (letzte Seite)
+                if len(articles) < 200:
+                    print(f"📄 Letzte Seite erreicht bei Blog-Post-Suche")
+                    break
+            
+            return True, all_articles[:limit], f"{len(all_articles[:limit])} neue Blog-Posts gefunden"
+            
+        except Exception as e:
+            print(f"❌ Fehler beim Suchen neuer Blog-Posts: {e}")
+            return False, [], f"Fehler beim Suchen: {str(e)}"
+
     def import_blog_posts(self, blog: ShopifyBlog, import_mode: str = 'new_only') -> ShopifySyncLog:
         """Importiert Blog-Posts für einen bestimmten Blog"""
         log = ShopifySyncLog.objects.create(
@@ -1916,12 +1970,18 @@ class ShopifyBlogSync:
         )
         
         try:
-            # Bei "Alle Posts" - alle lokalen Blog-Posts für diesen Blog löschen
-            if import_mode == 'all':
+            # Import-Modus behandeln
+            if import_mode == 'reset_and_import':
+                # Alle lokalen Blog-Posts für diesen Blog löschen und erste 250 importieren
                 deleted_count = self._delete_all_local_blog_posts(blog)
                 print(f"🗑️ {deleted_count} lokale Blog-Posts gelöscht vor Neuimport für Blog {blog.title}")
-            
-            success, articles, message = self._fetch_all_blog_posts(blog.shopify_id)
+                success, articles, message = self.api.fetch_blog_posts(blog.shopify_id, limit=250)
+            elif import_mode == 'new_only':
+                # Nächste 250 neue Blog-Posts importieren
+                success, articles, message = self._fetch_next_unimported_blog_posts(blog, limit=250)
+            else:
+                # Fallback: alle Blog-Posts (alter Modus)
+                success, articles, message = self._fetch_all_blog_posts(blog.shopify_id)
             
             if not success:
                 log.status = 'error'

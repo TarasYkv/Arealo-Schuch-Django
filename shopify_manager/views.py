@@ -1735,15 +1735,16 @@ import_progress = {}
 def import_blog_posts_view(request):
     """Startet den Import von Blog-Posts für einen bestimmten Blog"""
     blog_id = request.POST.get('blog_id')
-    import_mode = request.POST.get('import_mode', 'new_only')  # new_only oder all
+    store_id = request.POST.get('store_id')  # Store-ID aus dem Modal
+    import_mode = request.POST.get('import_mode', 'new_only')  # new_only, reset_and_import
     
-    if not blog_id:
+    if not blog_id or not store_id:
         return JsonResponse({
             'success': False,
-            'error': 'Blog-ID fehlt'
+            'error': 'Blog-ID oder Store-ID fehlt'
         })
     
-    blog = get_object_or_404(ShopifyBlog, id=blog_id, store__user=request.user)
+    blog = get_object_or_404(ShopifyBlog, id=blog_id, store_id=store_id, store__user=request.user)
     
     # Erstelle eine eindeutige Import-ID
     import_id = str(uuid.uuid4())
