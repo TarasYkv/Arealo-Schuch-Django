@@ -717,7 +717,12 @@ document.getElementById('importForm').addEventListener('submit', function(e) {
             'X-Requested-With': 'XMLHttpRequest',
         },
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success && data.import_id) {
             // Starte Progress-Polling
@@ -726,8 +731,11 @@ document.getElementById('importForm').addEventListener('submit', function(e) {
             // Fehlerbehandlung
             progressBar.classList.remove('bg-primary');
             progressBar.classList.add('bg-danger');
-            progressMessage.innerHTML = `<span class="text-danger">Import fehlgeschlagen: ${data.error}</span>`;
+            const errorMessage = data.error || data.message || 'Unbekannter Fehler';
+            progressMessage.innerHTML = `<span class="text-danger">Import fehlgeschlagen: ${errorMessage}</span>`;
             progressBar.classList.remove('progress-bar-animated');
+            
+            console.error('Import error:', data);
             
             setTimeout(() => {
                 progressDiv.classList.add('d-none');
@@ -778,10 +786,14 @@ function startProductProgressPolling(importId) {
                         progressBar.style.width = percentage + '%';
                         progressBar.textContent = percentage + '%';
                         progressBar.setAttribute('aria-valuenow', percentage);
+                        progressBar.classList.remove('progress-bar-striped');
+                        progressBar.classList.add('progress-bar-striped');
                     } else {
                         // Indeterminierte Progress für Initialisierung
                         progressBar.style.width = '100%';
-                        progressBar.textContent = 'Läuft...';
+                        progressBar.textContent = '';
+                        progressBar.classList.add('progress-bar-striped');
+                        progressBar.classList.add('progress-bar-animated');
                     }
                     
                     // Update Message
