@@ -375,6 +375,119 @@
         /* Override any remaining black text */
         .text-black-50 { color: #adb5bd !important; }
         .text-white-50 { color: #ffffff !important; }
+        
+        /* Chat Messages Area Dark Mode */
+        .messages-content {
+            background-color: #212529 !important;
+            color: #ffffff !important;
+        }
+        
+        .messages-container {
+            background-color: #212529 !important;
+            color: #ffffff !important;
+        }
+        
+        #messagesContainer, #chatMessages, .chat-messages {
+            background-color: #212529 !important;
+            color: #ffffff !important;
+        }
+        
+        /* Additional High Contrast Overrides */
+        * {
+            color: inherit !important;
+        }
+        
+        /* Ensure all Bootstrap text utilities work in dark mode */
+        .text-primary { color: #6ea8fe !important; }
+        .text-success { color: #75b798 !important; }
+        .text-info { color: #6edff6 !important; }
+        .text-warning { color: #ffda6a !important; }
+        .text-danger { color: #ea868f !important; }
+        
+        /* Override any framework specific styles */
+        div, span, p, h1, h2, h3, h4, h5, h6, td, th, li, ul, ol, 
+        .card-body, .card-title, .card-text, .list-group-item,
+        .table-responsive, .form-control, .input-group-text,
+        .btn:not(.btn-primary):not(.btn-success):not(.btn-info):not(.btn-warning):not(.btn-danger) {
+            color: #ffffff !important;
+        }
+        
+        /* Sidebar and navigation specific */
+        .sidebar, .nav-sidebar, .sidebar-sticky {
+            background-color: #343a40 !important;
+            color: #ffffff !important;
+        }
+        
+        .nav-sidebar .nav-link {
+            color: #adb5bd !important;
+        }
+        
+        .nav-sidebar .nav-link:hover {
+            color: #ffffff !important;
+        }
+        
+        /* Card specific high contrast */
+        .card, .card-body, .card-header, .card-footer {
+            background-color: #343a40 !important;
+            border-color: #495057 !important;
+            color: #ffffff !important;
+        }
+        
+        /* Form elements high contrast */
+        .form-control, .form-select, select, input, textarea {
+            background-color: #495057 !important;
+            border-color: #6c757d !important;
+            color: #ffffff !important;
+        }
+        
+        .form-control:focus, .form-select:focus, select:focus, input:focus, textarea:focus {
+            background-color: #495057 !important;
+            border-color: #0d6efd !important;
+            color: #ffffff !important;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+        }
+        
+        /* Table high contrast */
+        .table, .table-striped, .table-hover {
+            background-color: #343a40 !important;
+            color: #ffffff !important;
+        }
+        
+        .table th, .table td {
+            background-color: #343a40 !important;
+            border-color: #495057 !important;
+            color: #ffffff !important;
+        }
+        
+        .table-striped > tbody > tr:nth-of-type(odd) {
+            background-color: #495057 !important;
+        }
+        
+        .table-hover tbody tr:hover {
+            background-color: #6c757d !important;
+        }
+        
+        /* Override any white backgrounds */
+        .bg-white, .bg-light, .bg-gray-100, .bg-gray-50 {
+            background-color: #343a40 !important;
+            color: #ffffff !important;
+        }
+        
+        /* Labels and small text */
+        label, .form-label, .form-text, small, .small {
+            color: #ffffff !important;
+        }
+        
+        /* Ensure icons are visible */
+        i, .icon {
+            color: inherit !important;
+        }
+        
+        /* Modal high contrast */
+        .modal-content, .modal-body, .modal-header, .modal-footer {
+            background-color: #343a40 !important;
+            color: #ffffff !important;
+        }
     </style>
     {% endif %}
 </head>
@@ -581,15 +694,24 @@
 
     <!-- Schwebendes Kontakt-Widget -->
     <div id="bug-report-widget" class="position-fixed bottom-0 start-0 m-3" style="z-index: 1050;">
-        <button id="bug-report-btn" class="btn rounded-circle shadow-lg" 
-                style="width: 60px; height: 60px; border-radius: 50%; 
-                       background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 50%, #90caf9 100%);
-                       border: 2px solid #64b5f6;
-                       display: flex; align-items: center; justify-content: center;
-                       transition: all 0.3s ease;"
-                title="Kontakt">
-            <i class="fas fa-comment-dots" style="font-size: 1.4rem; color: #1565c0;"></i>
-        </button>
+        <div class="position-relative">
+            <button id="bug-report-btn" class="btn rounded-circle shadow-lg" 
+                    style="width: 60px; height: 60px; border-radius: 50%; 
+                           background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 50%, #90caf9 100%);
+                           border: 2px solid #64b5f6;
+                           display: flex; align-items: center; justify-content: center;
+                           transition: all 0.3s ease;"
+                    title="Kontakt">
+                <i class="fas fa-comment-dots" style="font-size: 1.4rem; color: #1565c0;"></i>
+            </button>
+            <!-- Chat Notification Badge -->
+            <span id="contact-chat-notification" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" 
+                  style="display: none; cursor: pointer; animation: pulse 2s infinite;" 
+                  onclick="handleContactChatNotificationClick()"
+                  title="Neue Chat-Nachricht - Klicken zum Öffnen">
+                <i class="fas fa-comments" style="font-size: 10px;"></i>
+            </span>
+        </div>
     </div>
 
     <!-- Kontakt Modal -->
@@ -1082,23 +1204,6 @@
     <!-- Floating Notification Circles -->
     {% if user.is_authenticated %}
     <div id="notification-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 10000;">
-        <!-- Message Notification -->
-        <div id="message-notification" class="floating-notification" style="display: none; margin-bottom: 10px;">
-            <div class="notification-circle bg-primary" onclick="handleMessageNotificationClick()" style="
-                width: 60px; height: 60px; border-radius: 50%; 
-                display: flex; align-items: center; justify-content: center;
-                cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                animation: pulse 2s infinite;
-            ">
-                <i class="fas fa-comments text-white" style="font-size: 24px;"></i>
-            </div>
-            <div class="notification-text bg-dark text-white p-2 rounded" style="
-                position: absolute; right: 70px; top: 50%; transform: translateY(-50%);
-                white-space: nowrap; font-size: 12px; max-width: 200px;
-            ">
-                <span id="message-notification-text">Neue Nachricht</span>
-            </div>
-        </div>
         
         <!-- Global Incoming Call Overlay -->
         <div id="globalIncomingCallOverlay" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); backdrop-filter: blur(15px); z-index: 10000; display: none; align-items: center; justify-content: center;">
@@ -1750,8 +1855,18 @@
         // Handle message notification click
         function handleMessageNotificationClick() {
             if (currentMessageNotification) {
-                // Navigate to chat with specific room
-                window.location.href = `/chat/?room=${currentMessageNotification.roomId}`;
+                // Open chat in new tab with specific room
+                window.open(`/chat/?room=${currentMessageNotification.roomId}`, '_blank');
+            }
+        }
+
+        // Handle contact chat notification click (integrated in contact button)
+        function handleContactChatNotificationClick() {
+            if (currentMessageNotification) {
+                // Open chat in new tab with specific room
+                window.open(`/chat/?room=${currentMessageNotification.roomId}`, '_blank');
+                // Hide the notification badge after clicking
+                document.getElementById('contact-chat-notification').style.display = 'none';
             }
         }
         
@@ -2034,9 +2149,12 @@
         function showMessageNotification(roomId, senderName, message) {
             currentMessageNotification = { roomId, senderName, message };
             
-            document.getElementById('message-notification-text').textContent = 
-                `${senderName}: ${message.substring(0, 50)}${message.length > 50 ? '...' : ''}`;
-            document.getElementById('message-notification').style.display = 'block';
+            // Show notification badge on contact button
+            const contactNotification = document.getElementById('contact-chat-notification');
+            if (contactNotification) {
+                contactNotification.style.display = 'inline-block';
+                contactNotification.title = `Neue Nachricht von ${senderName}: ${message.substring(0, 50)}${message.length > 50 ? '...' : ''}`;
+            }
             
             // Auto-hide after 10 seconds
             setTimeout(() => {
@@ -2094,7 +2212,11 @@
         
         // Hide message notification
         function hideMessageNotification() {
-            document.getElementById('message-notification').style.display = 'none';
+            // Hide notification badge on contact button
+            const contactNotification = document.getElementById('contact-chat-notification');
+            if (contactNotification) {
+                contactNotification.style.display = 'none';
+            }
             currentMessageNotification = null;
         }
         

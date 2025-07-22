@@ -1452,6 +1452,24 @@ def test_call(request):
     return render(request, 'chat/test_call.html', context)
 
 
+@login_required  
+@csrf_exempt
+def test_agora_debug(request):
+    """
+    Debug endpoint to test Agora token generation
+    """
+    try:
+        from .agora_utils import test_manual_token
+        
+        result = test_manual_token("test_channel", 0)
+        return JsonResponse(result)
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f"Debug test failed: {str(e)}"
+        })
+
 @login_required
 @require_http_methods(["POST"])
 def get_agora_token(request):

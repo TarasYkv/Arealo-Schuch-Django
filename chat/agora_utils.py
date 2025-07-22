@@ -98,62 +98,130 @@ def validate_agora_token(token, channel_name, uid):
 
 # Alternative: Use official Agora token if available
 try:
-    from agora_token_builder import RtcTokenBuilder
+    # First try the newer official SDK
+    from agora_python_server_sdk import rtc_token_builder
+    from agora_python_server_sdk.rtc_token_builder import Role_Publisher, Role_Subscriber
     
-    def generate_rtc_token(channel_name, uid, role=1, expire_time=3600):
+    def generate_rtc_token_v2(channel_name, uid, role=1, expire_time=3600):
         """
-        Generate official Agora RTC Token using agora-token-builder
+        Generate official Agora RTC Token using agora-python-server-sdk (newer version)
         """
         try:
             app_id = settings.AGORA_APP_ID
             app_certificate = settings.AGORA_APP_CERTIFICATE
             
-            print(f"DEBUG: Generating token for channel='{channel_name}', uid={uid}, role={role}")
-            print(f"DEBUG: APP_ID={app_id}, APP_CERT_LENGTH={len(app_certificate)}")
+            print(f"DEBUG: Generating token with newer SDK for channel='{channel_name}', uid={uid}, role={role}")
             
             current_timestamp = int(time.time())
             privilege_expired_ts = current_timestamp + expire_time
             
-            # For Agora RTC, uid can be 0 (auto-assigned) or specific number
-            # Some versions work better with 0 (null uid)
-            final_uid = 0  # Always use 0 for auto-assignment, let Agora handle UID
+            # For newer SDK, always use uid=0 for auto-assignment
+            final_uid = 0
                 
-            print(f"DEBUG: Final uid={final_uid}, expire_ts={privilege_expired_ts}")
+            print(f"DEBUG: Using newer SDK with uid={final_uid}, expire_ts={privilege_expired_ts}")
             
-            # Use Role.PUBLISHER (1) for video calls
-            # Role values: SUBSCRIBER = 2, PUBLISHER = 1
-            # Try to use string uid instead of int (some Agora versions expect string uid)
-            token = RtcTokenBuilder.buildTokenWithUid(
-                app_id, app_certificate, channel_name, final_uid, role, privilege_expired_ts
+            # Use the newer SDK
+            token = rtc_token_builder.build_token_with_uid(
+                app_id, app_certificate, channel_name, final_uid, Role_Publisher, privilege_expired_ts
             )
             
-            print(f"DEBUG: Generated token length={len(token)}, starts with={token[:20]}...")
+            print(f"DEBUG: New SDK generated token length={len(token)}, starts with={token[:20]}...")
             
             # Validate generated token
             if len(token) == 0:
                 raise Exception("Generated token is empty")
             
-            if len(token) > 2047:
-                raise Exception(f"Generated token too long: {len(token)} characters")
-            
             return {
                 'success': True,
                 'token': token,
-                'uid': final_uid,  # Return the actual uid used for token generation
+                'uid': final_uid,
                 'expire_time': privilege_expired_ts
             }
             
         except Exception as e:
-            print(f"ERROR: Token generation failed: {e}")
-            return {
-                'success': False,
-                'error': str(e)
-            }
+            print(f"ERROR: New SDK token generation failed: {e}")
+            # Fall back to old method
+            raise e
     
-    # Use official token generator if available
-    generate_agora_token = generate_rtc_token
+    # Use the newer SDK as primary
+    generate_agora_token = generate_rtc_token_v2
+    print("Using newer Agora Python Server SDK")
     
 except ImportError:
-    # Fall back to simplified token generation
-    print("Agora token builder not installed. Using simplified token generation.")
-    print("For production, install: pip install agora-token-builder")
+    print("Newer SDK not available, trying agora-token-builder...")
+    
+    try:
+        from agora_token_builder import RtcTokenBuilder
+        
+        def generate_rtc_token(channel_name, uid, role=1, expire_time=3600):
+            """
+            Generate official Agora RTC Token using agora-token-builder (fallback)
+            """
+            try:
+                app_id = settings.AGORA_APP_ID
+                app_certificate = settings.AGORA_APP_CERTIFICATE
+                
+                print(f"DEBUG: Fallback - Generating token for channel='{channel_name}', uid={uid}")
+                
+                current_timestamp = int(time.time())
+                privilege_expired_ts = current_timestamp + expire_time
+                
+                # Always use uid=0 for auto-assignment in fallback
+                final_uid = 0
+                
+                token = RtcTokenBuilder.buildTokenWithUid(
+                    app_id, app_certificate, channel_name, final_uid, role, privilege_expired_ts
+                )
+                
+                print(f"DEBUG: Fallback token generated, length={len(token)}")
+                
+                return {
+                    'success': True,
+                    'token': token,
+                    'uid': final_uid,
+                    'expire_time': privilege_expired_ts
+                }
+                
+            except Exception as e:
+                print(f"ERROR: Fallback token generation failed: {e}")
+                return {
+                    'success': False,
+                    'error': str(e)
+                }
+        
+        # Use the fallback token generator
+        generate_agora_token = generate_rtc_token
+        print("Using agora-token-builder (fallback)")
+    
+    except ImportError:
+        # Fall back to simplified token generation
+        print("agora-token-builder not available. Using simplified token generation.")
+        print("For production, install: pip install agora-token-builder")
+
+# Add a test function for manual token validation
+def test_manual_token(channel_name, uid=0):
+    """
+    Test function to generate a basic Agora token manually
+    This is for testing purposes only
+    """
+    try:
+        app_id = settings.AGORA_APP_ID
+        app_certificate = settings.AGORA_APP_CERTIFICATE
+        
+        print(f"DEBUG: Manual token test - APP_ID={app_id}")
+        print(f"DEBUG: Manual token test - APP_CERT exists={bool(app_certificate)}")
+        
+        # Simple test without complex token generation for now
+        return {
+            'success': True,
+            'token': f"test_token_{channel_name}_{uid}",
+            'uid': uid,
+            'expire_time': int(time.time() + 3600)
+        }
+        
+    except Exception as e:
+        print(f"DEBUG: Manual token test failed: {e}")
+        return {
+            'success': False,
+            'error': str(e)
+        }
