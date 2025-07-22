@@ -9,6 +9,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
+from typing import Dict, List, Tuple, Optional
 import requests
 import base64
 
@@ -356,52 +357,67 @@ def import_products_view(request):
     }
     
     try:
-        sync = ShopifyProductSyncWithProgress(store, import_id)
-        log = sync.import_products(
-            limit=limit,
-            import_mode=import_mode,
-            overwrite_existing=overwrite_existing,
-            import_images=import_images
-        )
+        # Starte Import asynchron in separatem Thread
+        import threading
         
-        is_successful = log.status in ['success', 'partial']
+        def run_import():
+            try:
+                print(f"Starting async product import - Store: {store.id}, Mode: {import_mode}, Limit: {limit}")
+                sync = ShopifyProductSyncWithProgress(store, import_id)
+                log = sync.import_products(
+                    limit=limit,
+                    import_mode=import_mode,
+                    overwrite_existing=overwrite_existing,
+                    import_images=import_images
+                )
+                print(f"Import completed - Status: {log.status}, Success: {log.products_success}, Failed: {log.products_failed}")
+                
+                is_successful = log.status in ['success', 'partial']
+                
+                if log.status == 'success':
+                    message = f'{log.products_success} Produkte erfolgreich importiert'
+                    if overwrite_existing:
+                        message += ' (alle lokalen Produkte wurden zuerst gelöscht)'
+                elif log.status == 'partial':
+                    message = f'{log.products_success} Produkte importiert, {log.products_failed} Fehler aufgetreten'
+                    if overwrite_existing:
+                        message += ' (alle lokalen Produkte wurden zuerst gelöscht)'
+                else:
+                    message = f'Import fehlgeschlagen: {log.error_message or "Unbekannter Fehler"}'
+                
+                # Update final status
+                if import_id in import_progress:
+                    import_progress[import_id].update({
+                        'status': 'completed',
+                        'success': is_successful,
+                        'message': message,
+                        'products_imported': log.products_success,
+                        'products_failed': log.products_failed,
+                    })
+                
+            except Exception as e:
+                import traceback
+                error_details = traceback.format_exc()
+                print(f"Exception in async product import: {error_details}")
+                
+                if import_id in import_progress:
+                    import_progress[import_id].update({
+                        'status': 'error',
+                        'success': False,
+                        'error': f'Fehler beim Produkt-Import: {str(e)}',
+                        'message': f'Import fehlgeschlagen: {str(e)}'
+                    })
         
-        if log.status == 'success':
-            message = f'{log.products_success} Produkte erfolgreich importiert'
-            if overwrite_existing:
-                message += ' (alle lokalen Produkte wurden zuerst gelöscht)'
-        elif log.status == 'partial':
-            message = f'{log.products_success} Produkte importiert, {log.products_failed} Fehler aufgetreten'
-            if overwrite_existing:
-                message += ' (alle lokalen Produkte wurden zuerst gelöscht)'
-        else:
-            message = f'Import fehlgeschlagen: {log.error_message or "Unbekannter Fehler"}'
+        # Starte Thread
+        thread = threading.Thread(target=run_import)
+        thread.daemon = True  # Thread wird beendet wenn main process endet
+        thread.start()
         
-        # Update final status
-        import_progress[import_id].update({
-            'status': 'completed',
-            'success': is_successful,
-            'message': message,
-            'products_imported': log.products_success,
-            'products_failed': log.products_failed,
-        })
-        
-        # Zusätzliche Details für Debugging
-        details = {
-            'import_mode': import_mode,
-            'limit_used': limit if import_mode != 'all' else 'alle',
-            'products_processed': log.products_processed,
-            'overwrite_existing': overwrite_existing,
-            'import_images': import_images
-        }
-        
+        # Gib sofort die import_id zurück
         return JsonResponse({
-            'success': is_successful,
+            'success': True,
             'import_id': import_id,
-            'message': message,
-            'products_imported': log.products_success,
-            'products_failed': log.products_failed,
-            'details': details,
+            'message': 'Import gestartet - Progress wird geladen...'
         })
         
     except Exception as e:
@@ -2400,9 +2416,98 @@ class ShopifyProductSyncWithProgress(ShopifyProductSync):
                 'failed_count': failed_count
             })
     
+    def _fetch_products_with_progress(self, limit: int = 250) -> Tuple[bool, List[Dict], str]:
+        """Holt Produkte von Shopify mit Progress-Updates"""
+        self._update_progress(0, 0, 'Verbinde mit Shopify API...')
+        
+        all_products = []
+        page_info = None
+        total_fetched = 0
+        page_count = 0
+        
+        while total_fetched < limit:
+            page_count += 1
+            self._update_progress(0, 0, f'Lade Seite {page_count} von Shopify...')
+            
+            # Hole nächste Seite
+            success, products, message = self.api.fetch_products(
+                limit=min(250, limit - total_fetched),
+                page_info=page_info if page_count > 1 else None
+            )
+            
+            if not success:
+                return False, all_products, message
+                
+            if not products:
+                break
+                
+            all_products.extend(products)
+            total_fetched += len(products)
+            
+            self._update_progress(0, 0, f'{total_fetched} Produkte von Shopify geladen...')
+            
+            # Checke ob es weitere Seiten gibt
+            if len(products) < 250 or total_fetched >= limit:
+                break
+                
+        return True, all_products[:limit], f"{len(all_products)} Produkte geladen"
+    
+    def _fetch_next_unimported_products_with_progress(self, limit: int = 250) -> Tuple[bool, List[Dict], str]:
+        """Holt nicht-importierte Produkte mit Progress-Updates"""
+        self._update_progress(0, 0, 'Prüfe bereits importierte Produkte...')
+        
+        # Erstelle Set mit bereits importierten IDs
+        existing_ids = set(
+            ShopifyProduct.objects.filter(store=self.store)
+            .values_list('shopify_id', flat=True)
+        )
+        
+        self._update_progress(0, 0, f'{len(existing_ids)} Produkte bereits importiert, suche neue...')
+        
+        collected_products = []
+        page_limit = 250
+        max_attempts = 10
+        attempts = 0
+        since_id = None
+        
+        while len(collected_products) < limit and attempts < max_attempts:
+            attempts += 1
+            self._update_progress(0, 0, f'Durchsuche Shopify-Katalog (Versuch {attempts}/{max_attempts})...')
+            
+            # Hole nächsten Batch
+            success, products, message = self.api.fetch_products(
+                limit=page_limit,
+                since_id=since_id
+            )
+            
+            if not success:
+                return False, [], message
+                
+            if not products:
+                break
+                
+            # Filtere neue Produkte
+            new_count = 0
+            for product in products:
+                shopify_id = str(product.get('id'))
+                if shopify_id not in existing_ids:
+                    collected_products.append(product)
+                    new_count += 1
+                    if len(collected_products) >= limit:
+                        break
+                        
+            self._update_progress(0, 0, f'{len(collected_products)} neue Produkte gefunden...')
+            
+            # Update since_id
+            if products:
+                since_id = products[-1].get('id')
+                
+        return True, collected_products[:limit], f"{len(collected_products)} neue Produkte gefunden"
+    
     def import_products(self, limit: int = 250, import_mode: str = 'all', 
-                       overwrite_existing: bool = True, import_images: bool = True) -> ShopifySyncLog:
+                       overwrite_existing: bool = True, import_images: bool = True) -> 'ShopifySyncLog':
         """Importiert Produkte mit Fortschrittsanzeige"""
+        from .models import ShopifySyncLog
         
         log = ShopifySyncLog.objects.create(
             store=self.store,
@@ -2415,20 +2520,46 @@ class ShopifyProductSyncWithProgress(ShopifyProductSync):
             
             # Bei "reset_and_import" - alle lokalen Produkte löschen
             if overwrite_existing:
-                self._update_progress(0, 0, 'Lösche lokale Produkte...')
-                deleted_count = ShopifyProduct.objects.filter(store=self.store).delete()[0]
-                print(f"🗑️ {deleted_count} lokale Produkte gelöscht")
-                self._update_progress(0, 0, f'{deleted_count} lokale Produkte gelöscht')
-            
-            self._update_progress(0, 0, 'Hole Produkte von Shopify...')
+                self._update_progress(0, 0, 'Lösche bestehende Produkte...')
+                
+                # Zähle Produkte vor dem Löschen für Progress
+                total_to_delete = ShopifyProduct.objects.filter(store=self.store).count()
+                if total_to_delete > 0:
+                    self._update_progress(0, total_to_delete, f'Lösche {total_to_delete} lokale Produkte...')
+                    
+                    # Lösche in Batches für bessere Progress-Anzeige
+                    deleted_count = 0
+                    batch_size = 50
+                    
+                    while True:
+                        batch = list(ShopifyProduct.objects.filter(store=self.store)[:batch_size])
+                        if not batch:
+                            break
+                            
+                        batch_deleted = len(batch)
+                        for product in batch:
+                            product.delete()
+                        
+                        deleted_count += batch_deleted
+                        self._update_progress(
+                            deleted_count, total_to_delete, 
+                            f'Lösche bestehende Produkte... ({deleted_count}/{total_to_delete})'
+                        )
+                        
+                        # Kleine Pause für UI-Update
+                        import time
+                        time.sleep(0.01)
+                    
+                    self._update_progress(total_to_delete, total_to_delete, f'{deleted_count} lokale Produkte gelöscht')
+                else:
+                    self._update_progress(0, 0, 'Keine lokalen Produkte zum Löschen gefunden')
             
             # Hole Produkte je nach Modus
+            self._update_progress(0, 0, 'Hole Produkte von Shopify...')
             if import_mode == 'new_only':
-                # Finde nur die nächsten nicht-importierten Produkte
-                success, products, message = self._fetch_next_unimported_products(limit=limit)
+                success, products, message = self._fetch_next_unimported_products_with_progress(limit=limit)
             else:
-                # Standard: Hole einfach die nächsten 250 Produkte (für reset_and_import)
-                success, products, message = self.api.fetch_products(limit=limit)
+                success, products, message = self._fetch_products_with_progress(limit=limit)
             
             if not success:
                 log.status = 'error'
@@ -2445,39 +2576,30 @@ class ShopifyProductSyncWithProgress(ShopifyProductSync):
             
             self._update_progress(0, total, f'Verarbeite {total} Produkte...')
             
-            # SQLite-optimierte Verarbeitung in kleineren Batches
+            # Verarbeite Produkte mit Progress-Updates
             from django.db import transaction
-            batch_size = 25  # Kleinere Batches für SQLite
             
             for i, product_data in enumerate(products):
                 try:
                     shopify_id = str(product_data.get('id'))
-                    product_title = product_data.get('title', 'Unbekannt')
+                    product_title = product_data.get('title', 'Unbekannt')[:30]
+                    
+                    # Progress-Update für aktuelles Produkt
+                    self._update_progress(
+                        i + 1, total, 
+                        f'Importiere: {product_title}... ({i + 1}/{total})',
+                        success_count, failed_count
+                    )
                     
                     # Prüfe ob Produkt bereits existiert (für new_only Modus)
-                    existing_product = None
                     if import_mode == 'new_only':
                         try:
-                            existing_product = ShopifyProduct.objects.get(
-                                shopify_id=shopify_id, 
-                                store=self.store
-                            )
+                            ShopifyProduct.objects.get(shopify_id=shopify_id, store=self.store)
                             # Produkt existiert bereits - überspringen
-                            self._update_progress(
-                                i + 1, total, 
-                                f'Überspringe existierendes Produkt ({i + 1}/{total})',
-                                success_count, failed_count
-                            )
                             continue
                         except ShopifyProduct.DoesNotExist:
                             # Produkt existiert noch nicht - kann importiert werden
                             pass
-                    
-                    self._update_progress(
-                        i + 1, total, 
-                        f'Importiere: {product_title[:30]}... ({i + 1}/{total})',
-                        success_count, failed_count
-                    )
                     
                     # Importiere/aktualisiere das Produkt
                     with transaction.atomic():
@@ -2488,9 +2610,10 @@ class ShopifyProductSyncWithProgress(ShopifyProductSync):
                         )
                         success_count += 1
                     
-                    # Alle 10 Produkte Fortschritt ausgeben
-                    if (i + 1) % 10 == 0:
-                        print(f"📦 Verarbeitet: {i + 1}/{total} Produkte (Success: {success_count}, Failed: {failed_count})")
+                    # Alle 5 Produkte kleine Pause für UI-Update
+                    if (i + 1) % 5 == 0:
+                        import time
+                        time.sleep(0.01)
                         
                 except Exception as e:
                     failed_count += 1
@@ -2505,6 +2628,7 @@ class ShopifyProductSyncWithProgress(ShopifyProductSync):
                         success_count, failed_count
                     )
             
+            # Import abgeschlossen
             log.products_success = success_count
             log.products_failed = failed_count
             log.status = 'success' if failed_count == 0 else 'partial'
@@ -2525,6 +2649,7 @@ class ShopifyProductSyncWithProgress(ShopifyProductSync):
             self._update_progress(0, 0, f'Import-Fehler: {str(e)}')
         
         return log
+
 
 
 @login_required
