@@ -5,198 +5,354 @@
     <h1>
         <i class="bi bi-speedometer2"></i> Dashboard
     </h1>
-    <div>
+    <div class="d-flex align-items-center gap-2">
         <span class="badge bg-primary">{{ user.username }}</span>
-        <a href="{% url 'accounts:logout' %}" class="btn btn-outline-secondary btn-sm ms-2">
+        
+        <!-- Dark Mode Toggle -->
+        <form method="post" class="d-inline">
+            {% csrf_token %}
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="darkModeToggle" 
+                       name="dark_mode" {% if dark_mode %}checked{% endif %}
+                       onchange="this.form.submit()">
+                <label class="form-check-label" for="darkModeToggle">
+                    <i class="bi bi-moon-fill"></i>
+                </label>
+            </div>
+        </form>
+        
+        <a href="{% url 'accounts:logout' %}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-box-arrow-right"></i> Abmelden
         </a>
     </div>
 </div>
 
-<div class="row">
-    <div class="col-lg-8">
-        <div class="card shadow-sm mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="bi bi-gear"></i> Ampel-Kategorien Einstellungen
-                </h5>
-            </div>
-            <div class="card-body">
-                <form method="post">
-                    {% csrf_token %}
-                    <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" id="useCustomCategories" 
-                               name="use_custom_categories" 
-                               {% if use_custom_categories %}checked{% endif %}
-                               onchange="toggleAiExpansion()">
-                        <label class="form-check-label" for="useCustomCategories">
-                            <strong>Benutzerdefinierte Ampel-Kategorien verwenden</strong>
-                        </label>
-                    </div>
-                    
-                    <div class="form-check form-switch mb-3" id="aiExpansionToggle" 
-                         {% if not use_custom_categories %}style="display: none;"{% endif %}>
-                        <input class="form-check-input" type="checkbox" id="enableAiExpansion" 
-                               name="enable_ai_keyword_expansion" 
-                               {% if enable_ai_keyword_expansion %}checked{% endif %}>
-                        <label class="form-check-label" for="enableAiExpansion">
-                            <strong>KI-Keyword-Erweiterung aktivieren</strong>
-                            <small class="text-muted d-block">Erweitert Ihre Keywords automatisch um verwandte Begriffe</small>
-                        </label>
-                    </div>
-                    
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle"></i>
-                        {% if use_custom_categories %}
-                            <strong>Aktiv:</strong> Ihre benutzerdefinierten Kategorien werden für die Ampel-Analyse verwendet.
-                            {% if enable_ai_keyword_expansion %}
-                                <br><strong>KI-Erweiterung:</strong> Ihre Keywords werden automatisch um verwandte Begriffe erweitert.
-                            {% else %}
-                                <br><strong>Nur eigene Keywords:</strong> Es werden ausschließlich Ihre manuell hinzugefügten Keywords verwendet.
-                            {% endif %}
-                        {% else %}
-                            <strong>Inaktiv:</strong> Die Standard-Kategorien (Feuchtraumleuchten, Hallenleuchten, etc.) werden verwendet.
-                        {% endif %}
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check"></i> Einstellungen speichern
-                    </button>
-                </form>
-            </div>
-        </div>
-        
+<!-- Verfügbare Apps Section -->
+<div class="row mb-4">
+    <div class="col-12">
         <div class="card shadow-sm">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="bi bi-tags"></i> Meine Kategorien ({{ categories.count }})
-                </h5>
-                <div>
-                    <a href="{% url 'accounts:category_create' %}" class="btn btn-success btn-sm">
-                        <i class="bi bi-plus"></i> Neue Kategorie
-                    </a>
-                    <a href="{% url 'accounts:category_list' %}" class="btn btn-outline-primary btn-sm">
-                        <i class="bi bi-list"></i> Alle anzeigen
-                    </a>
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-grid-3x3-gap me-2"></i>
+                        Verfügbare Apps
+                    </h5>
+                    <span class="badge bg-white text-primary">
+                        <span id="available-apps-count">0</span> Apps
+                    </span>
                 </div>
             </div>
             <div class="card-body">
-                {% if categories %}
-                    <div class="row">
-                        {% for category in categories|slice:":6" %}
-                        <div class="col-md-6 mb-3">
-                            <div class="card h-100 {% if not category.is_active %}opacity-50{% endif %}">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-start mb-2">
-                                        <h6 class="card-title mb-0">{{ category.name }}</h6>
-                                        {% if category.is_active %}
-                                            <span class="badge bg-success">Aktiv</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary">Inaktiv</span>
-                                        {% endif %}
-                                    </div>
-                                    {% if category.description %}
-                                        <p class="card-text small text-muted">{{ category.description|truncatechars:80 }}</p>
-                                    {% endif %}
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <small class="text-muted">
-                                            <i class="bi bi-search"></i> {{ category.keywords.count }} Begriffe
-                                        </small>
-                                        <a href="{% url 'accounts:category_detail' category.pk %}" class="btn btn-sm btn-outline-primary">
-                                            Details
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
+                <!-- Search and Filter -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0">
+                                <i class="bi bi-search text-muted"></i>
+                            </span>
+                            <input type="text" class="form-control border-start-0" id="appSearch" 
+                                   placeholder="Apps durchsuchen...">
                         </div>
-                        {% endfor %}
                     </div>
-                    
-                    {% if categories.count > 6 %}
-                        <div class="text-center mt-3">
-                            <a href="{% url 'accounts:category_list' %}" class="btn btn-outline-primary">
-                                Alle {{ categories.count }} Kategorien anzeigen
-                            </a>
+                    <div class="col-md-6">
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button class="btn btn-outline-primary btn-sm active" data-category="all">
+                                <i class="bi bi-grid me-1"></i> Alle
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" data-category="tools">
+                                <i class="bi bi-tools me-1"></i> Tools
+                            </button>
+                            <button class="btn btn-outline-success btn-sm" data-category="communication">
+                                <i class="bi bi-chat-dots me-1"></i> Kommunikation
+                            </button>
                         </div>
-                    {% endif %}
-                {% else %}
-                    <div class="text-center py-4">
-                        <div class="text-muted mb-3">
-                            <i class="bi bi-inbox" style="font-size: 3rem;"></i>
-                        </div>
-                        <p class="text-muted">Sie haben noch keine benutzerdefinierten Kategorien erstellt.</p>
-                        <a href="{% url 'accounts:category_create' %}" class="btn btn-primary">
-                            <i class="bi bi-plus"></i> Erste Kategorie erstellen
-                        </a>
                     </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-lg-4">
-        <div class="card shadow-sm mb-4">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="bi bi-info-circle"></i> Quick Links
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="d-grid gap-2">
-                    <a href="{% url 'accounts:company_info' %}?tab=profile" class="btn btn-outline-info">
-                        <i class="bi bi-person-circle"></i> Mein Profil
-                    </a>
-                    <a href="{% url 'pdf_sucher:pdf_suche' %}" class="btn btn-outline-primary">
-                        <i class="bi bi-file-pdf"></i> PDF-Analyse
-                    </a>
-                    <a href="{% url 'accounts:category_list' %}" class="btn btn-outline-secondary">
-                        <i class="bi bi-tags"></i> Kategorien verwalten
-                    </a>
-                    <a href="{% url 'accounts:category_create' %}" class="btn btn-outline-success">
-                        <i class="bi bi-plus-circle"></i> Neue Kategorie
-                    </a>
                 </div>
-            </div>
-        </div>
-        
-        <div class="card shadow-sm">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="bi bi-lightbulb"></i> Tipps
-                </h5>
-            </div>
-            <div class="card-body">
-                <ul class="list-unstyled mb-0">
-                    <li class="mb-2">
-                        <i class="bi bi-check-circle text-success"></i>
-                        Erstellen Sie spezifische Kategorien für Ihre Branchen
-                    </li>
-                    <li class="mb-2">
-                        <i class="bi bi-check-circle text-success"></i>
-                        Fügen Sie relevante Suchbegriffe hinzu
-                    </li>
-                    <li class="mb-0">
-                        <i class="bi bi-check-circle text-success"></i>
-                        Aktivieren Sie nur benötigte Kategorien
-                    </li>
-                </ul>
+                
+                <!-- Apps Grid -->
+                <div class="row" id="appsGrid">
+                    <!-- App tiles will be inserted here by JavaScript -->
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<script>
-function toggleAiExpansion() {
-    const useCustomCheckbox = document.getElementById('useCustomCategories');
-    const aiExpansionToggle = document.getElementById('aiExpansionToggle');
-    
-    if (useCustomCheckbox.checked) {
-        aiExpansionToggle.style.display = 'block';
-    } else {
-        aiExpansionToggle.style.display = 'none';
-        // Deaktiviere KI-Erweiterung wenn benutzerdefinierte Kategorien deaktiviert werden
-        document.getElementById('enableAiExpansion').checked = false;
+<!-- Removed existing sections: Only App-Kacheln remain above -->
+
+<style>
+.app-tile {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.app-tile:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.75rem 1.5rem rgba(18, 38, 63, 0.15) !important;
+}
+
+.app-tile .card {
+    border: none;
+    height: 100%;
+}
+
+.app-tile .card-header {
+    border-radius: 8px 8px 0 0 !important;
+    font-weight: 500;
+}
+
+.app-status-badge {
+    opacity: 0.9;
+}
+
+.btn-outline-primary.active {
+    background-color: var(--bs-primary);
+    color: white;
+    border-color: var(--bs-primary);
+}
+
+.hidden {
+    display: none !important;
+}
+
+@media (max-width: 768px) {
+    .app-tile:hover {
+        transform: none;
     }
 }
+</style>
+
+<script>
+// Available apps configuration - using basic availability check
+const availableApps = [
+    {
+        name: 'Chat System',
+        description: 'Kommunizieren Sie direkt mit anderen Nutzern über unser integriertes Chat-System.',
+        icon: 'bi-chat-dots',
+        url: '{% url "chat:home" %}',
+        color: 'bg-primary',
+        category: 'communication',
+        available: true
+    },
+    {
+        name: 'Wirtschaftlichkeitsrechner',
+        description: 'Berechnen Sie die Wirtschaftlichkeit Ihrer Projekte mit unserem professionellen Tool.',
+        icon: 'bi-calculator',
+        url: '#',
+        color: 'bg-success',
+        category: 'tools',
+        available: true
+    },
+    {
+        name: 'Sportplatz-Konfigurator',
+        description: 'Planen und konfigurieren Sie Sportplätze nach Ihren spezifischen Anforderungen.',
+        icon: 'bi-grid-3x3',
+        url: '#',
+        color: 'bg-info',
+        category: 'tools',
+        available: true
+    },
+    {
+        name: 'PDF-Suche',
+        description: 'Durchsuchen Sie Ihre PDF-Dokumente schnell und effizient nach Inhalten.',
+        icon: 'bi-file-pdf',
+        url: '#',
+        color: 'bg-danger',
+        category: 'tools',
+        available: true
+    },
+    {
+        name: 'KI-Zusammenfassung',
+        description: 'Lassen Sie wichtige Dokumente automatisch durch KI zusammenfassen.',
+        icon: 'bi-robot',
+        url: '#',
+        color: 'bg-secondary',
+        category: 'ai',
+        available: true
+    },
+    {
+        name: 'Shopify Integration',
+        description: 'Verwalten Sie Ihre Shopify-Daten und synchronisieren Sie Produktinformationen.',
+        icon: 'bi-shop',
+        url: '{% url "shopify_manager:dashboard" %}',
+        color: 'bg-success',
+        category: 'ecommerce',
+        available: true
+    },
+    {
+        name: 'Bilder-Editor',
+        description: 'Bearbeiten und optimieren Sie Bilder direkt in der Anwendung.',
+        icon: 'bi-image',
+        url: '{% url "image_editor:dashboard" %}',
+        color: 'bg-info',
+        category: 'media',
+        available: true
+    },
+    {
+        name: 'Organisation',
+        description: 'Verwalten Sie Organisationsstrukturen und Zuständigkeiten.',
+        icon: 'bi-building',
+        url: '{% url "organization:dashboard" %}',
+        color: 'bg-secondary',
+        category: 'management',
+        available: true
+    },
+    {
+        name: 'Schulungen',
+        description: 'Zugriff auf Schulungsmaterialien und Weiterbildungsangebote.',
+        icon: 'bi-book',
+        url: '#',
+        color: 'bg-warning',
+        category: 'education',
+        available: true
+    }
+];
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeAppTiles();
+    initializeAppSearch();
+    initializeAppFilters();
+});
+
+function initializeAppTiles() {
+    const appsGrid = document.getElementById('appsGrid');
+    const availableAppsOnly = availableApps.filter(app => app.available);
+    
+    // Update app count
+    document.getElementById('available-apps-count').textContent = availableAppsOnly.length;
+    
+    if (availableAppsOnly.length === 0) {
+        appsGrid.innerHTML = `
+            <div class="col-12">
+                <div class="text-center py-5">
+                    <i class="bi bi-exclamation-triangle display-1 text-muted"></i>
+                    <h3 class="text-muted">Keine Apps verfügbar</h3>
+                    <p class="text-muted">Kontaktieren Sie Ihren Administrator für weitere App-Freischaltungen.</p>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    availableAppsOnly.forEach(app => {
+        const appTile = document.createElement('div');
+        appTile.className = 'col-lg-4 col-md-6 mb-3 app-tile';
+        appTile.dataset.category = app.category;
+        appTile.dataset.name = app.name.toLowerCase();
+        
+        const isClickable = app.url !== '#';
+        const clickHandler = isClickable ? `onclick="window.location.href='${app.url}'"` : '';
+        const cardClass = isClickable ? 'shadow-sm h-100' : 'shadow-sm h-100 opacity-75';
+        
+        appTile.innerHTML = `
+            <div class="card ${cardClass}" ${clickHandler} ${!isClickable ? 'style="cursor: not-allowed;"' : ''}>
+                <div class="card-header ${app.color} text-white">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <i class="${app.icon} fs-4 me-3"></i>
+                            <h6 class="mb-0">${app.name}</h6>
+                        </div>
+                        <span class="badge bg-white bg-opacity-25 app-status-badge">
+                            ${isClickable 
+                                ? '<i class="bi bi-check-circle me-1"></i>Verfügbar'
+                                : '<i class="bi bi-hammer me-1"></i>In Entwicklung'
+                            }
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="card-text text-muted mb-3">${app.description}</p>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <small class="text-muted">
+                            <i class="bi bi-tag me-1"></i>${app.category}
+                        </small>
+                        <div class="btn btn-sm ${isClickable ? 'btn-outline-primary' : 'btn-outline-secondary disabled'}">
+                            ${isClickable 
+                                ? '<i class="bi bi-arrow-right me-1"></i>Öffnen'
+                                : '<i class="bi bi-hammer me-1"></i>Bald verfügbar'
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        appsGrid.appendChild(appTile);
+    });
+}
+
+function initializeAppSearch() {
+    const searchInput = document.getElementById('appSearch');
+    const appTiles = document.querySelectorAll('.app-tile');
+    
+    searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        
+        appTiles.forEach(tile => {
+            const appName = tile.dataset.name;
+            const appDescription = tile.querySelector('.card-text').textContent.toLowerCase();
+            
+            if (appName.includes(searchTerm) || appDescription.includes(searchTerm)) {
+                tile.classList.remove('hidden');
+            } else {
+                tile.classList.add('hidden');
+            }
+        });
+        
+        updateNoResultsMessage();
+    });
+}
+
+function initializeAppFilters() {
+    const filterButtons = document.querySelectorAll('[data-category]');
+    const appTiles = document.querySelectorAll('.app-tile');
+    
+    filterButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const category = this.dataset.category;
+            
+            // Update active button
+            filterButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Filter apps
+            appTiles.forEach(tile => {
+                if (category === 'all' || tile.dataset.category === category) {
+                    tile.classList.remove('hidden');
+                } else {
+                    tile.classList.add('hidden');
+                }
+            });
+            
+            updateNoResultsMessage();
+        });
+    });
+}
+
+function updateNoResultsMessage() {
+    const visibleTiles = document.querySelectorAll('.app-tile:not(.hidden)');
+    const grid = document.getElementById('appsGrid');
+    
+    // Remove existing no results message
+    const existingMessage = grid.querySelector('.no-results-message');
+    if (existingMessage) {
+        existingMessage.remove();
+    }
+    
+    if (visibleTiles.length === 0) {
+        const noResultsHTML = `
+            <div class="col-12 no-results-message">
+                <div class="text-center py-5">
+                    <i class="bi bi-search display-1 text-muted"></i>
+                    <h3 class="text-muted">Keine Apps gefunden</h3>
+                    <p class="text-muted">Versuchen Sie einen anderen Suchbegriff oder Filter.</p>
+                </div>
+            </div>
+        `;
+        grid.insertAdjacentHTML('beforeend', noResultsHTML);
+    }
+}
+
+// toggleAiExpansion function removed as Ampel-Kategorien section was removed
 </script>
 {% endblock %}

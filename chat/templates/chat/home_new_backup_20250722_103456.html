@@ -1,0 +1,3670 @@
+{% extends 'chat/base.html' %}
+{% load chat_extras %}
+
+{% block content %}
+<style>
+.chat-container {
+    height: calc(100vh - 200px);
+    display: flex;
+    position: relative;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding: 0;
+    }
+    
+    .chat-container {
+        height: calc(100vh - 80px);
+        flex-direction: row;
+        position: relative;
+    }
+    
+    .chat-sidebar {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        top: 0;
+        left: -100%;
+        z-index: 1050;
+        background: white;
+        border-right: none;
+        transition: left 0.3s ease;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    }
+    
+    .chat-sidebar.mobile-show {
+        left: 0;
+    }
+    
+    .chat-main {
+        flex: 1;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .chat-header {
+        padding: 10px 15px;
+        border-bottom: 1px solid #e0e0e0;
+        flex-shrink: 0;
+    }
+    
+    .chat-header h6 {
+        font-size: 1rem;
+        margin: 0;
+    }
+    
+    .chat-messages {
+        flex: 1;
+        overflow-y: scroll;
+        padding: 10px;
+        min-height: 0;
+        background: #f8f9fa;
+        scrollbar-width: thin;
+    }
+    
+    /* WebKit scrollbar styles */
+    .chat-messages::-webkit-scrollbar,
+    .chat-list::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    .chat-messages::-webkit-scrollbar-track,
+    .chat-list::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+    
+    .chat-messages::-webkit-scrollbar-thumb,
+    .chat-list::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+    
+    .chat-messages::-webkit-scrollbar-thumb:hover,
+    .chat-list::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+    
+    /* Prevent layout shifts by ensuring consistent scrollbar behavior */
+    .row, .col, .container-fluid {
+        overflow-x: hidden;
+    }
+    
+    /* Force scrollbar to always be visible to prevent jumping */
+    html {
+        overflow-y: scroll;
+    }
+    
+    .message-input-container {
+        padding: 10px;
+        background: white;
+        border-top: 1px solid #e0e0e0;
+        flex-shrink: 0;
+        position: sticky;
+        bottom: 0;
+        z-index: 10;
+    }
+    
+    .search-box {
+        font-size: 14px;
+        padding: 8px 12px;
+    }
+    
+    .message-item {
+        padding: 8px 12px;
+        font-size: 14px;
+    }
+    
+    .message-item .message-bubble {
+        max-width: 85%;
+        word-wrap: break-word;
+    }
+    
+    .message-item .message-time {
+        font-size: 11px;
+    }
+    
+    .chat-header .btn {
+        padding: 5px 10px;
+        font-size: 14px;
+    }
+    
+    .chat-room-item {
+        padding: 12px;
+    }
+    
+    .user-avatar-img,
+    .user-avatar {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .form-control {
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+    
+    .card-header {
+        padding: 10px 15px;
+    }
+    
+    .card-header h4 {
+        font-size: 1.2rem;
+    }
+    
+    .btn-sm {
+        padding: 4px 8px;
+        font-size: 12px;
+    }
+}
+
+/* Call Window Styles */
+.call-window {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 320px;
+    z-index: 9999;
+}
+
+.call-video-container {
+    height: 240px;
+    position: relative;
+    background: #000;
+}
+
+.remote-video {
+    width: 100%;
+    height: 100%;
+}
+
+.local-video {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    width: 80px;
+    height: 60px;
+    border: 2px solid #fff;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+/* Mobile Call Window */
+@media (max-width: 768px) {
+    .call-window {
+        bottom: 0;
+        right: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+        z-index: 99999 !important;
+    }
+    
+    .call-window .card {
+        height: 100vh;
+        border-radius: 0;
+    }
+    
+    .call-video-container {
+        height: calc(100vh - 120px);
+    }
+    
+    .local-video {
+        width: 100px;
+        height: 75px;
+        bottom: 15px;
+        right: 15px;
+    }
+    
+    .call-window .card-header {
+        padding: 15px;
+    }
+    
+    .call-window .card-body {
+        padding: 0;
+    }
+}
+
+/* Chat Info Modal Styles */
+.modal-lg {
+    max-width: 800px;
+}
+
+.chat-info-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.online-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+}
+
+.chat-info-card {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    transition: box-shadow 0.2s ease;
+}
+
+.chat-info-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.participant-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.participant-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.stat-icon {
+    font-size: 1.2em;
+    margin-right: 8px;
+}
+
+.modal-header.bg-primary {
+    border-top-left-radius: calc(0.375rem - 1px);
+    border-top-right-radius: calc(0.375rem - 1px);
+}
+
+.chat-sidebar {
+    width: 400px;
+    border-right: 1px solid #dee2e6;
+    display: flex;
+    flex-direction: column;
+    background: #f8f9fa;
+}
+
+.chat-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: white;
+}
+
+.chat-header {
+    padding: 1rem;
+    border-bottom: 1px solid #dee2e6;
+    background: white;
+}
+
+.chat-list {
+    flex: 1;
+    overflow-y: scroll;
+    padding: 0;
+    scrollbar-width: thin;
+}
+
+.chat-room-item {
+    padding: 15px;
+    border-bottom: 1px solid #e9ecef;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.chat-room-item:hover {
+    background-color: #e9ecef;
+}
+
+.chat-room-item.active {
+    background-color: #007bff;
+    color: white;
+}
+
+.chat-room-item.active .text-muted {
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: white;
+    margin-right: 12px;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: scroll;
+    padding: 1rem;
+    background: #f8f9fa;
+    scrollbar-width: thin;
+}
+
+.message-input-area {
+    padding: 1rem;
+    border-top: 1px solid #dee2e6;
+    background: white;
+}
+
+.message-bubble {
+    max-width: 70%;
+    padding: 10px 15px;
+    border-radius: 18px;
+    margin-bottom: 10px;
+    word-wrap: break-word;
+}
+
+.message-own {
+    background-color: #007bff;
+    color: white;
+    margin-left: auto;
+}
+
+.message-other {
+    background-color: white;
+    color: #333;
+    border: 1px solid #dee2e6;
+}
+
+.empty-chat {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    flex-direction: column;
+    color: #6c757d;
+}
+
+.no-chat-selected {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    flex-direction: column;
+    color: #6c757d;
+}
+
+.badge-unread {
+    background-color: #dc3545;
+    color: white;
+    border-radius: 50%;
+    padding: 2px 6px;
+    font-size: 0.7rem;
+    min-width: 18px;
+    text-align: center;
+}
+
+.user-avatar-img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.online-indicator {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 12px;
+    height: 12px;
+    background-color: #28a745;
+    border: 2px solid white;
+    border-radius: 50%;
+    z-index: 1;
+}
+
+/* Floating Call Window Styles */
+.floating-call-window {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 320px;
+    height: 240px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    z-index: 9999;
+    color: white;
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    resize: both;
+    overflow: hidden;
+    min-width: 280px;
+    min-height: 180px;
+    max-width: 600px;
+    max-height: 400px;
+    transition: all 0.3s ease;
+}
+
+.floating-call-minimized {
+    height: 60px;
+    width: 200px;
+}
+
+.floating-call-maximized {
+    width: 500px;
+    height: 350px;
+}
+
+.call-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px 12px 0 0;
+    cursor: move;
+    user-select: none;
+}
+
+.call-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+}
+
+.call-status-text {
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.call-header-controls {
+    display: flex;
+    gap: 4px;
+}
+
+.call-header-controls .btn {
+    padding: 2px 6px;
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.call-header-controls .btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.call-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    position: relative;
+}
+
+.call-avatar-container {
+    text-align: center;
+}
+
+.call-avatar-container h5 {
+    margin: 8px 0 0 0;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.video-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    border-radius: 0 0 8px 8px;
+    overflow: hidden;
+}
+
+.remote-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.local-video {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 80px;
+    height: 60px;
+    border: 2px solid #fff;
+    border-radius: 6px;
+    object-fit: cover;
+    z-index: 10;
+}
+
+.call-controls {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 0 0 12px 12px;
+}
+
+.call-controls .btn {
+    padding: 6px 10px;
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border-radius: 20px;
+    font-size: 12px;
+}
+
+.call-controls .btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.call-controls .btn-danger {
+    background: #dc3545;
+}
+
+.call-controls .btn-danger:hover {
+    background: #c82333;
+}
+
+.floating-call-minimized .call-content,
+.floating-call-minimized .call-controls {
+    display: none;
+}
+
+/* Fix modal scrollbar flicker */
+.modal-open {
+    padding-right: 0 !important;
+    overflow: hidden !important;
+}
+.modal {
+    padding-right: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: scroll !important;
+}
+body.modal-open {
+    overflow: hidden !important;
+    padding-right: 0 !important;
+}
+
+/* Prevent modal from causing layout shifts */
+.modal-dialog {
+    transform: none !important;
+    transition: none !important;
+}
+
+/* Stabilize modal content */
+.modal-content {
+    transform: translateZ(0);
+    will-change: auto;
+}
+
+/* Prevent layout shift when modal opens */
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1040;
+    width: 100vw;
+    height: 100vh;
+}
+
+.local-video {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 150px;
+    height: 100px;
+    border-radius: 8px;
+    border: 2px solid white;
+    z-index: 2;
+}
+
+.remote-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.call-controls {
+    padding: 15px;
+}
+
+.call-controls button {
+    margin: 0 10px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.search-box {
+    padding: 0.5rem;
+    border: none;
+    border-bottom: 1px solid #dee2e6;
+    background: white;
+}
+
+.search-box:focus {
+    outline: none;
+    border-bottom-color: #007bff;
+}
+
+/* Incoming Call Animation */
+.incoming-call-animation {
+    position: relative;
+    display: inline-block;
+}
+
+.incoming-call-animation::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 60px;
+    height: 60px;
+    border: 3px solid rgba(40, 167, 69, 0.3);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: callPulse 1.5s infinite;
+}
+
+.incoming-call-animation::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 80px;
+    height: 80px;
+    border: 3px solid rgba(40, 167, 69, 0.2);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: callPulse 1.5s infinite 0.3s;
+}
+
+@keyframes callPulse {
+    0% {
+        transform: translate(-50%, -50%) scale(0.8);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1.5);
+        opacity: 0;
+    }
+}
+
+/* Blur background effect */
+.blur-background {
+    filter: blur(5px);
+    transition: filter 0.3s ease;
+}
+
+/* Incoming Call Overlay Animations */
+.call-bg-animation {
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.1) 75%, transparent 75%);
+    background-size: 20px 20px;
+    animation: backgroundMove 20s linear infinite;
+    opacity: 0.3;
+}
+
+@keyframes backgroundMove {
+    0% { transform: translate3d(0, 0, 0); }
+    100% { transform: translate3d(20px, 20px, 0); }
+}
+
+/* Caller Avatar Pulse Rings */
+.pulse-ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 140px;
+    height: 140px;
+    border: 3px solid rgba(255,255,255,0.4);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: pulsing 2s infinite;
+}
+
+.pulse-ring.delay-1 {
+    animation-delay: 0.5s;
+    width: 160px;
+    height: 160px;
+    border-color: rgba(255,255,255,0.3);
+}
+
+.pulse-ring.delay-2 {
+    animation-delay: 1s;
+    width: 180px;
+    height: 180px;
+    border-color: rgba(255,255,255,0.2);
+}
+
+@keyframes pulsing {
+    0% {
+        transform: translate(-50%, -50%) scale(0.8);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1.2);
+        opacity: 0;
+    }
+}
+
+/* Call Icon Waves */
+.call-icon-container {
+    position: relative;
+    display: inline-block;
+}
+
+.call-wave {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 60px;
+    height: 60px;
+    border: 2px solid rgba(255,255,255,0.5);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: waveAnimation 1.5s infinite;
+}
+
+.call-wave.delay-1 {
+    animation-delay: 0.3s;
+    width: 80px;
+    height: 80px;
+    border-color: rgba(255,255,255,0.3);
+}
+
+.call-wave.delay-2 {
+    animation-delay: 0.6s;
+    width: 100px;
+    height: 100px;
+    border-color: rgba(255,255,255,0.2);
+}
+
+@keyframes waveAnimation {
+    0% {
+        transform: translate(-50%, -50%) scale(0.5);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1.5);
+        opacity: 0;
+    }
+}
+
+/* Call Action Buttons */
+.btn-call-action {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: none;
+    font-size: 2rem;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+}
+
+.btn-call-action:hover {
+    transform: scale(1.1);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+}
+
+.btn-call-action:active {
+    transform: scale(0.95);
+}
+
+.btn-reject {
+    background: linear-gradient(135deg, #ff4757, #ff3838);
+}
+
+.btn-reject:hover {
+    background: linear-gradient(135deg, #ff3838, #ff2f2f);
+}
+
+.btn-accept {
+    background: linear-gradient(135deg, #2ed573, #20bf6b);
+}
+
+.btn-accept:hover {
+    background: linear-gradient(135deg, #20bf6b, #1dd1a1);
+}
+
+/* Ripple Effect */
+.btn-call-action::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.btn-call-action:active::before {
+    width: 160px;
+    height: 160px;
+}
+</style>
+
+<script>
+// Simple loadChat function that works immediately
+function loadChat(roomId) {
+    console.log('🔍 loadChat called with roomId:', roomId);
+    
+    if (!roomId) {
+        console.error('No roomId provided');
+        return;
+    }
+    
+    // Close mobile sidebar if open
+    const sidebar = document.querySelector('.chat-sidebar');
+    if (sidebar && sidebar.classList.contains('mobile-show')) {
+        sidebar.classList.remove('mobile-show');
+    }
+    
+    // Set current room ID
+    window.currentRoomId = roomId;
+    
+    // Load messages
+    fetch(`/chat/api/room/${roomId}/messages/`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Messages loaded:', data);
+            if (data.success) {
+                displayMessages(data.messages);
+                updateChatHeader(data.room);
+                
+                // Mark messages as read when loading a chat
+                fetch(`/chat/api/room/${roomId}/mark_read/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'Content-Type': 'application/json'
+                    }
+                }).then(response => response.json()).then(data => {
+                    if (data.success) {
+                        console.log('✅ Messages marked as read');
+                        // Update the unread count badge
+                        updateUnreadBadge(roomId);
+                    }
+                }).catch(error => {
+                    console.error('Error marking messages as read:', error);
+                });
+                
+                // Show chat interface
+                const chatHeader = document.getElementById('chatHeader');
+                const messageInputDiv = document.getElementById('messageInput');
+                
+                if (chatHeader) chatHeader.style.display = 'block';
+                if (messageInputDiv) messageInputDiv.style.display = 'block';
+                
+                // Update active chat room
+                document.querySelectorAll('.chat-room-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                const activeRoom = document.querySelector(`[data-room-id="${roomId}"]`);
+                if (activeRoom) {
+                    activeRoom.classList.add('active');
+                }
+            } else {
+                console.error('Error loading messages:', data.error);
+                alert('Fehler beim Laden der Nachrichten: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Netzwerkfehler beim Laden der Nachrichten');
+        });
+}
+
+// Update unread badge for a specific room
+function updateUnreadBadge(roomId) {
+    const roomElement = document.querySelector(`[data-room-id="${roomId}"]`);
+    if (roomElement) {
+        const badge = roomElement.querySelector('.badge');
+        if (badge) {
+            badge.style.display = 'none';
+            badge.textContent = '0';
+        }
+    }
+    
+    // Also update global notification count
+    updateChatNotifications();
+}
+
+// Helper functions
+function displayMessages(messages) {
+    const messagesContainer = document.getElementById('chatMessages');
+    if (!messagesContainer) return;
+    
+    messagesContainer.innerHTML = '';
+    
+    if (!messages || messages.length === 0) {
+        messagesContainer.innerHTML = `
+            <div class="empty-chat">
+                <i class="fas fa-comments fa-3x mb-3"></i>
+                <p>Noch keine Nachrichten</p>
+                <p class="text-muted">Senden Sie die erste Nachricht!</p>
+            </div>
+        `;
+        return;
+    }
+    
+    messages.forEach(message => {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `d-flex ${message.is_own ? 'justify-content-end' : 'justify-content-start'} mb-3`;
+        
+        messageDiv.innerHTML = `
+            <div class="message-bubble ${message.is_own ? 'message-own' : 'message-other'}">
+                ${!message.is_own ? `<div class="mb-1"><small><strong>${message.sender_name || 'Anonym'}</strong></small></div>` : ''}
+                <div>${message.content || ''}</div>
+                <div class="mt-1">
+                    <small class="opacity-75">${message.formatted_time}</small>
+                </div>
+            </div>
+        `;
+        
+        messagesContainer.appendChild(messageDiv);
+    });
+    
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function updateChatHeader(room) {
+    const chatTitle = document.getElementById('chatTitle');
+    const chatSubtitle = document.getElementById('chatSubtitle');
+    const avatar = document.getElementById('chatAvatar');
+    
+    if (chatTitle) {
+        chatTitle.textContent = room.name || room.display_name;
+    }
+    
+    if (chatSubtitle) {
+        chatSubtitle.textContent = room.is_group_chat ? 
+            `${room.participant_count} Teilnehmer` : 'Privater Chat';
+    }
+    
+    if (avatar) {
+        avatar.className = `user-avatar ${room.is_group_chat ? 'bg-success' : 'bg-primary'} me-3`;
+        avatar.innerHTML = room.is_group_chat ? '<i class="fas fa-users"></i>' : room.avatar_text;
+    }
+}
+
+console.log('✅ loadChat function defined and ready');
+
+// Send message function
+function sendMessage() {
+    const messageInput = document.getElementById('messageText');
+    if (!messageInput) {
+        console.error('messageInput not found');
+        return;
+    }
+    
+    const messageText = messageInput.value.trim();
+    if (!messageText) return;
+    if (!window.currentRoomId) return;
+    
+    const formData = new FormData();
+    formData.append('content', messageText);
+    
+    fetch(`/chat/api/room/${window.currentRoomId}/send/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            messageInput.value = '';
+            loadChat(window.currentRoomId); // Reload messages
+        } else {
+            alert('Fehler beim Senden der Nachricht: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Verbindungsfehler');
+    });
+}
+
+// Get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Handle key press
+function handleKeyPress(event) {
+    if (event.key === 'Enter') {
+        sendMessage();
+    }
+}
+
+// === AGORA VIDEO/AUDIO CALL SYSTEM ===
+// Agora variables
+window.agoraClient = null;
+window.localAudioTrack = null;
+window.localVideoTrack = null;
+window.currentCallType = null;
+window.currentChannelName = null;
+window.isCallActive = false;
+window.callModal = null;
+
+// Agora Configuration
+window.agoraConfig = {
+    appId: "{{ agora_app_id|default:'your_agora_app_id_here' }}",
+    channel: null,
+    uid: null,
+    token: null
+};
+
+// Initialize Agora client
+function initAgoraClient() {
+    if (typeof AgoraRTC === 'undefined') {
+        console.error('❌ AgoraRTC SDK not loaded!');
+        alert('Video-System nicht verfügbar. Bitte laden Sie die Seite neu.');
+        return;
+    }
+    
+    console.log('🔄 Creating Agora client...');
+    window.agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+    console.log('✅ Agora client created:', window.agoraClient);
+    
+    // Event handlers
+    window.agoraClient.on("user-published", async (user, mediaType) => {
+        try {
+            console.log(`🎉 NEW USER PUBLISHED ${mediaType}:`, user.uid);
+            await window.agoraClient.subscribe(user, mediaType);
+            console.log(`✅ Successfully subscribed to ${mediaType} from user:`, user.uid);
+            
+            if (mediaType === "video") {
+                const remoteVideoTrack = user.videoTrack;
+                const remoteVideoContainer = document.getElementById("remoteVideoContainer");
+                
+                if (remoteVideoContainer) {
+                    remoteVideoContainer.innerHTML = "";
+                    remoteVideoTrack.play("remoteVideoContainer");
+                    
+                    const waitingScreen = document.getElementById("waitingScreen");
+                    if (waitingScreen) {
+                        waitingScreen.style.display = "none";
+                    }
+                    console.log('✅ Remote video playing');
+                }
+            }
+            
+            if (mediaType === "audio") {
+                const remoteAudioTrack = user.audioTrack;
+                remoteAudioTrack.play();
+                console.log('✅ Remote audio playing');
+            }
+        } catch (error) {
+            console.error("❌ Error handling user-published event:", error);
+        }
+    });
+    
+    window.agoraClient.on("user-left", (user) => {
+        console.log("👋 USER LEFT:", user.uid);
+        const callStatus = document.getElementById("callStatus");
+        if (callStatus) {
+            callStatus.textContent = "Anruf beendet";
+        }
+        setTimeout(() => {
+            endAgoraCall();
+        }, 2000);
+    });
+}
+
+// Start Agora call
+async function startAgoraCall(callType) {
+    console.log('🚀 Starting Agora call:', callType);
+    
+    if (!window.currentRoomId) {
+        alert('Bitte wählen Sie zuerst einen Chat aus.');
+        return;
+    }
+    
+    if (window.isCallActive) {
+        alert('Es läuft bereits ein Anruf.');
+        return;
+    }
+    
+    try {
+        // Initiate call via backend
+        const initiateResponse = await fetch(`/chat/api/room/${window.currentRoomId}/call/initiate/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                call_type: callType
+            })
+        });
+        
+        const initiateData = await initiateResponse.json();
+        if (!initiateData.success) {
+            throw new Error(initiateData.error || 'Failed to initiate call');
+        }
+        
+        console.log('📞 Call initiated successfully:', initiateData);
+        
+        const callId = initiateData.call_id;
+        window.currentCallType = callType;
+        window.currentChannelName = `call_${window.currentRoomId}_${callId}`;
+        
+        // Get Agora token
+        const response = await fetch('/chat/get-agora-token/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                channel: window.currentChannelName,
+                uid: 0
+            })
+        });
+        
+        const data = await response.json();
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to get Agora token');
+        }
+        
+        window.agoraConfig.channel = window.currentChannelName;
+        window.agoraConfig.uid = data.uid;
+        window.agoraConfig.token = data.token;
+        
+        // Initialize Agora client
+        initAgoraClient();
+        
+        // Show call modal first
+        showCallModal(callType);
+        
+        // Prevent automatic cleanup on page events during active calls
+        window.preventAutoLeave = true;
+        
+        // Join channel
+        await window.agoraClient.join(window.agoraConfig.appId, window.agoraConfig.channel, window.agoraConfig.token, window.agoraConfig.uid);
+        
+        // Create and publish local tracks
+        window.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        
+        if (callType === 'video') {
+            window.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+            const localVideoContainer = document.getElementById("localVideoContainer");
+            if (localVideoContainer) {
+                window.localVideoTrack.play("localVideoContainer");
+            }
+            await window.agoraClient.publish([window.localAudioTrack, window.localVideoTrack]);
+            
+            // Show video controls
+            const videoBtn = document.getElementById("videoBtn");
+            if (videoBtn) {
+                videoBtn.style.display = 'inline-block';
+            }
+        } else {
+            await window.agoraClient.publish([window.localAudioTrack]);
+        }
+        
+        window.isCallActive = true;
+        
+        // Stop global call polling during active call
+        if (typeof stopGlobalCallPolling === 'function') {
+            stopGlobalCallPolling();
+        }
+        
+        const callStatus = document.getElementById("callStatus");
+        if (callStatus) {
+            callStatus.textContent = "Verbunden - Im Anruf";
+        }
+        
+        console.log('📞 Call started successfully');
+        
+    } catch (error) {
+        console.error('Error starting Agora call:', error);
+        alert('Fehler beim Starten des Anrufs: ' + error.message);
+        endAgoraCall();
+    }
+}
+
+// Show call modal
+function showCallModal(callType) {
+    const modal = document.getElementById("agoraCallModal");
+    if (!modal) return;
+    
+    const icon = document.getElementById("callModalIcon");
+    const text = document.getElementById("callModalText");
+    
+    if (icon && text) {
+        if (callType === 'video') {
+            icon.className = "fas fa-video";
+            text.textContent = "Videoanruf";
+        } else {
+            icon.className = "fas fa-phone";
+            text.textContent = "Anruf";
+        }
+    }
+    
+    window.callModal = new bootstrap.Modal(modal, {
+        backdrop: 'static',  // Prevent closing by clicking backdrop
+        keyboard: false      // Prevent closing with ESC key
+    });
+    
+    // Prevent accidental modal closing
+    modal.addEventListener('hide.bs.modal', function (event) {
+        // Only allow hiding if explicitly minimizing
+        if (!window.allowCallModalHide) {
+            event.preventDefault();
+            console.log('🚫 Prevented accidental call modal close');
+        }
+    });
+    
+    // Prevent body scroll and layout shifts when modal opens
+    modal.addEventListener('show.bs.modal', function (event) {
+        // Calculate scrollbar width to prevent layout shift
+        const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
+        document.body.style.paddingRight = scrollBarWidth + 'px';
+        document.body.style.overflow = 'hidden';
+    });
+    
+    // Restore body scroll when modal closes
+    modal.addEventListener('hidden.bs.modal', function (event) {
+        document.body.style.paddingRight = '';
+        document.body.style.overflow = '';
+    });
+    
+    window.callModal.show();
+}
+
+// Minimize call modal instead of ending the call
+function minimizeCallModal() {
+    // Allow modal to be hidden
+    window.allowCallModalHide = true;
+    
+    if (window.callModal) {
+        window.callModal.hide();
+    }
+    
+    // Reset the flag
+    window.allowCallModalHide = false;
+    
+    // Show a minimized call indicator or notification
+    console.log('📱 Call modal minimized - call continues in background');
+    
+    // Could add a floating call indicator here
+    // For now, user can re-open via the chat interface
+}
+
+// End Agora call
+async function endAgoraCall() {
+    try {
+        console.log('🔚 Ending Agora call');
+        
+        // Notify backend to end the call if we have a room ID
+        if (window.currentRoomId) {
+            try {
+                await fetch('/chat/end-call-notification/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({
+                        room_id: window.currentRoomId
+                    })
+                });
+                console.log('✅ Backend notified of call end');
+            } catch (error) {
+                console.warn('Failed to notify backend of call end:', error);
+            }
+        }
+        
+        // Stop local tracks
+        if (window.localAudioTrack) {
+            window.localAudioTrack.stop();
+            window.localAudioTrack.close();
+            window.localAudioTrack = null;
+        }
+        
+        if (window.localVideoTrack) {
+            window.localVideoTrack.stop();
+            window.localVideoTrack.close();
+            window.localVideoTrack = null;
+        }
+        
+        // Leave channel
+        if (window.agoraClient) {
+            await window.agoraClient.leave();
+            window.agoraClient = null;
+        }
+        
+        // Hide modal
+        if (window.callModal) {
+            window.callModal.hide();
+            window.callModal = null;
+        }
+        
+        // Reset state
+        window.isCallActive = false;
+        window.currentCallType = null;
+        window.currentChannelName = null;
+        window.preventAutoLeave = false;
+        
+        // Reset UI
+        const waitingScreen = document.getElementById("waitingScreen");
+        if (waitingScreen) {
+            waitingScreen.style.display = "block";
+        }
+        
+        const remoteVideoContainer = document.getElementById("remoteVideoContainer");
+        if (remoteVideoContainer) {
+            remoteVideoContainer.innerHTML = `
+                <div class="d-flex align-items-center justify-content-center h-100">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary mb-3" role="status"></div>
+                        <h5>Warte auf Antwort...</h5>
+                        <p id="callStatus">Verbinde...</p>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Restart global call polling after call ends
+        if (typeof startGlobalCallPolling === 'function') {
+            setTimeout(() => {
+                startGlobalCallPolling();
+            }, 2000); // Wait 2 seconds before restarting polling
+        }
+        
+        console.log('✅ Call ended successfully');
+        
+    } catch (error) {
+        console.error('Error ending call:', error);
+    }
+}
+
+// Toggle mute
+async function toggleMute() {
+    if (window.localAudioTrack) {
+        const muteBtn = document.getElementById("muteBtn");
+        if (window.localAudioTrack.enabled) {
+            await window.localAudioTrack.setEnabled(false);
+            if (muteBtn) {
+                muteBtn.classList.remove("btn-outline-light");
+                muteBtn.classList.add("btn-danger");
+                muteBtn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+            }
+        } else {
+            await window.localAudioTrack.setEnabled(true);
+            if (muteBtn) {
+                muteBtn.classList.remove("btn-danger");
+                muteBtn.classList.add("btn-outline-light");
+                muteBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+            }
+        }
+    }
+}
+
+// Toggle video
+async function toggleVideo() {
+    if (window.localVideoTrack) {
+        const videoBtn = document.getElementById("videoBtn");
+        if (window.localVideoTrack.enabled) {
+            await window.localVideoTrack.setEnabled(false);
+            if (videoBtn) {
+                videoBtn.classList.remove("btn-outline-light");
+                videoBtn.classList.add("btn-danger");
+                videoBtn.innerHTML = '<i class="fas fa-video-slash"></i>';
+            }
+        } else {
+            await window.localVideoTrack.setEnabled(true);
+            if (videoBtn) {
+                videoBtn.classList.remove("btn-danger");
+                videoBtn.classList.add("btn-outline-light");
+                videoBtn.innerHTML = '<i class="fas fa-video"></i>';
+            }
+        }
+    }
+}
+
+// Basic call functions (using Agora)
+function startCall(callType) {
+    startAgoraCall(callType);
+}
+
+// End call function
+function endCall() {
+    endAgoraCall();
+}
+
+// Accept incoming call (global call integration)
+async function acceptIncomingCall() {
+    console.log('📞 acceptIncomingCall called');
+    
+    if (!window.incomingCallData) {
+        console.error('No incoming call data available');
+        return;
+    }
+    
+    const callData = window.incomingCallData;
+    console.log('🔄 Processing incoming call:', callData);
+    
+    try {
+        // Set the current room for the call
+        window.currentRoomId = callData.room_id;
+        
+        // First accept the call in the backend
+        const response = await fetch('/chat/accept-call/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                call_id: callData.call_id
+            })
+        });
+        
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.error);
+        }
+        
+        console.log('✅ Call accepted in backend');
+        
+        // Now start the Agora call with the provided channel
+        window.currentCallType = callData.call_type;
+        window.currentChannelName = callData.channel_name;
+        
+        // Get Agora token for the existing channel
+        const tokenResponse = await fetch('/chat/get-agora-token/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                channel: callData.channel_name,
+                uid: 0
+            })
+        });
+        
+        const tokenData = await tokenResponse.json();
+        if (!tokenData.success) {
+            throw new Error(tokenData.error || 'Failed to get Agora token');
+        }
+        
+        window.agoraConfig.channel = callData.channel_name;
+        window.agoraConfig.uid = tokenData.uid;
+        window.agoraConfig.token = tokenData.token;
+        
+        // Initialize and join the call
+        initAgoraClient();
+        showCallModal(callData.call_type);
+        
+        // Join channel
+        await window.agoraClient.join(window.agoraConfig.appId, window.agoraConfig.channel, window.agoraConfig.token, window.agoraConfig.uid);
+        
+        // Create and publish local tracks
+        window.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        
+        if (callData.call_type === 'video') {
+            window.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+            const localVideoContainer = document.getElementById("localVideoContainer");
+            if (localVideoContainer) {
+                window.localVideoTrack.play("localVideoContainer");
+            }
+            await window.agoraClient.publish([window.localAudioTrack, window.localVideoTrack]);
+            
+            const videoBtn = document.getElementById("videoBtn");
+            if (videoBtn) {
+                videoBtn.style.display = 'inline-block';
+            }
+        } else {
+            await window.agoraClient.publish([window.localAudioTrack]);
+        }
+        
+        window.isCallActive = true;
+        
+        const callStatus = document.getElementById("callStatus");
+        if (callStatus) {
+            callStatus.textContent = "Verbunden - Anruf angenommen";
+        }
+        
+        console.log('📞 Incoming call accepted successfully');
+        
+    } catch (error) {
+        console.error('Error accepting incoming call:', error);
+        alert('Fehler beim Annehmen des Anrufs: ' + error.message);
+        endAgoraCall();
+    }
+}
+
+// File handling
+function handleFileSelect(event) {
+    console.log('File selected:', event.target.files);
+    // Basic file selection - can be extended later
+}
+
+// Mobile chat toggle
+function toggleMobileChatList() {
+    const sidebar = document.querySelector('.chat-sidebar');
+    if (sidebar) {
+        sidebar.classList.toggle('mobile-show');
+    }
+}
+
+// Initialize Agora when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🎬 Agora integration loaded - Version 1.1.0');
+    
+    // Clear any stale call states from previous sessions
+    window.isCallActive = false;
+    window.preventAutoLeave = false;
+    
+    // Override default Agora auto-leave behavior during calls
+    if (typeof AgoraRTC !== 'undefined') {
+        const originalBeforeUnload = window.onbeforeunload;
+        window.addEventListener('beforeunload', function(e) {
+            if (window.preventAutoLeave && window.isCallActive) {
+                // Prevent default auto-leave during active calls
+                e.preventDefault();
+                console.log('🚫 Prevented auto-leave during active call');
+                return;
+            }
+            if (originalBeforeUnload) {
+                return originalBeforeUnload.call(this, e);
+            }
+        });
+    }
+});
+
+console.log('✅ All functions including Agora loaded and ready');
+
+</script>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">
+                            <i class="fas fa-comments text-primary"></i>
+                            Chat
+                        </h4>
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'chat:user_search' %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-search"></i> <span class="d-none d-sm-inline">Nutzer suchen</span>
+                            </a>
+                            <a href="{% url 'chat:create_group_chat' %}" class="btn btn-sm btn-outline-success d-flex align-items-center justify-content-center">
+                                <i class="fas fa-users me-1"></i><span class="d-none d-sm-inline">Gruppe erstellen</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="chat-container">
+                        <!-- Chat Sidebar -->
+                        <div class="chat-sidebar">
+                            <div class="chat-header">
+                                <h6 class="mb-0">Chats ({{ chat_rooms|length }})</h6>
+                            </div>
+                            <input type="text" class="search-box" placeholder="Chats durchsuchen..." id="chatSearch">
+                            <div class="chat-list" id="chatList">
+                                {% for room in chat_rooms %}
+                                <div class="chat-room-item" data-room-id="{{ room.id }}" onclick="loadChat({{ room.id|escapejs }})">
+                                    <div class="d-flex align-items-center">
+                                        <div class="position-relative">
+                                            {% if room.is_group_chat %}
+                                                <div class="user-avatar bg-success">
+                                                    <i class="fas fa-users"></i>
+                                                </div>
+                                            {% else %}
+                                                {% with other_user=room|get_other_participant:request.user %}
+                                                    {% if other_user %}
+                                                        {% if other_user.profile_picture %}
+                                                            <img src="{{ other_user.profile_picture.url }}" alt="{{ other_user.get_full_name|default:other_user.username }}" class="user-avatar-img">
+                                                        {% else %}
+                                                            <div class="user-avatar bg-primary">
+                                                                {{ other_user.get_full_name.0|default:other_user.username.0|upper }}
+                                                            </div>
+                                                        {% endif %}
+                                                        <!-- Online-Status-Indikator -->
+                                                        {% if other_user.is_currently_online %}
+                                                            <span class="online-indicator"></span>
+                                                        {% endif %}
+                                                    {% elif room.created_by %}
+                                                        {% if room.created_by.profile_picture %}
+                                                            <img src="{{ room.created_by.profile_picture.url }}" alt="{{ room.created_by.get_full_name|default:room.created_by.username }}" class="user-avatar-img">
+                                                        {% else %}
+                                                            <div class="user-avatar bg-primary">
+                                                                {{ room.created_by.get_full_name.0|default:room.created_by.username.0|upper }}
+                                                            </div>
+                                                        {% endif %}
+                                                        <!-- Online-Status-Indikator -->
+                                                        {% if room.created_by.is_currently_online %}
+                                                            <span class="online-indicator"></span>
+                                                        {% endif %}
+                                                    {% else %}
+                                                        <div class="user-avatar bg-warning">
+                                                            <i class="fas fa-bug"></i>
+                                                        </div>
+                                                    {% endif %}
+                                                {% endwith %}
+                                            {% endif %}
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div>
+                                                    <h6 class="mb-0">
+                                                        {% if room.is_group_chat %}
+                                                            {{ room.name|default:room }}
+                                                        {% else %}
+                                                            {% with other_user=room|get_other_participant:request.user %}
+                                                                {% if other_user %}
+                                                                    {{ other_user.get_full_name|default:other_user.username }}
+                                                                    {% if other_user.is_currently_online %}
+                                                                        <small class="text-success">• Online</small>
+                                                                    {% else %}
+                                                                        <small class="text-muted">• Offline</small>
+                                                                    {% endif %}
+                                                                {% elif room.created_by %}
+                                                                    {{ room.created_by.get_full_name|default:room.created_by.username }}
+                                                                    {% if room.created_by.is_currently_online %}
+                                                                        <small class="text-success">• Online</small>
+                                                                    {% else %}
+                                                                        <small class="text-muted">• Offline</small>
+                                                                    {% endif %}
+                                                                {% else %}
+                                                                    Bug-Meldung
+                                                                {% endif %}
+                                                            {% endwith %}
+                                                        {% endif %}
+                                                    </h6>
+                                                    {% with last_message=room.get_last_message %}
+                                                        {% if last_message %}
+                                                            <small class="text-muted">
+                                                                {% if last_message.sender %}
+                                                                    {{ last_message.sender.get_full_name|default:last_message.sender.username }}
+                                                                {% else %}
+                                                                    {{ last_message.sender_name|default:"Anonym" }}
+                                                                {% endif %}:
+                                                                {{ last_message.content|truncatewords:5 }}
+                                                            </small>
+                                                        {% else %}
+                                                            <small class="text-muted">Noch keine Nachrichten</small>
+                                                        {% endif %}
+                                                    {% endwith %}
+                                                </div>
+                                                <div class="text-end">
+                                                    <small class="text-muted">{{ room.last_message_at|timesince }}</small>
+                                                    {% if room.unread_count > 0 %}
+                                                        <div class="badge-unread">{{ room.unread_count }}</div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <div class="empty-chat">
+                                    <i class="fas fa-comments fa-3x mb-3"></i>
+                                    <p>Keine Chats vorhanden</p>
+                                    <a href="{% url 'chat:user_search' %}" class="btn btn-primary btn-sm">
+                                        <i class="fas fa-search"></i> Nutzer suchen
+                                    </a>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Chat Main Area -->
+                        <div class="chat-main">
+                            <div id="chatHeader" class="chat-header" style="display: none;">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center">
+                                        <button class="btn btn-sm btn-outline-secondary d-md-none me-2" id="mobileChatToggle" onclick="toggleMobileChatList()">
+                                            <i class="fas fa-bars"></i>
+                                        </button>
+                                        <div id="chatAvatar" class="user-avatar bg-primary me-3"></div>
+                                        <div>
+                                            <h6 class="mb-0" id="chatTitle">Chat-Name</h6>
+                                            <small class="text-muted" id="chatSubtitle">Informationen</small>
+                                        </div>
+                                    </div>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="#" onclick="startAgoraCall('audio')"><i class="fas fa-phone"></i> Anrufen</a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="startAgoraCall('video')"><i class="fas fa-video"></i> Videoanruf</a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item" href="#" onclick="showChatInfo()"><i class="fas fa-info-circle"></i> Info</a></li>
+                                            <li><a class="dropdown-item text-danger" href="#" onclick="deleteChat()"><i class="fas fa-trash"></i> Löschen</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="chat-messages" id="chatMessages">
+                                <div class="no-chat-selected">
+                                    <i class="fas fa-comments fa-4x mb-3"></i>
+                                    <h5>Wählen Sie einen Chat aus</h5>
+                                    <p>Klicken Sie auf einen Chat in der Seitenleiste, um die Unterhaltung zu beginnen.</p>
+                                </div>
+                                <div id="loadMoreContainer" class="text-center py-3" style="display: none;">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="loadMoreMessages()">
+                                        <i class="fas fa-arrow-up"></i> Weitere Nachrichten laden
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Agora Video Call Modal -->
+                            <div class="modal fade" id="agoraCallModal" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog modal-lg">
+                                    <div class="modal-content bg-dark text-white">
+                                        <div class="modal-header border-secondary">
+                                            <h5 class="modal-title" id="callModalTitle">
+                                                <i class="fas fa-phone" id="callModalIcon"></i>
+                                                <span id="callModalText">Anruf</span>
+                                            </h5>
+                                            <button type="button" class="btn-close btn-close-white" onclick="minimizeCallModal()"></button>
+                                        </div>
+                                        <div class="modal-body p-0">
+                                            <!-- Video Container -->
+                                            <div id="videoContainer" style="position: relative; height: 400px; background: #000;">
+                                                <div id="localVideoContainer" style="position: fixed; bottom: 20px; right: 20px; width: 80px; height: 60px; z-index: 1000; border: 2px solid #fff; border-radius: 6px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+                                                </div>
+                                                <div id="remoteVideoContainer" style="width: 100%; height: 100%;">
+                                                    <div class="d-flex align-items-center justify-content-center h-100" id="waitingScreen">
+                                                        <div class="text-center">
+                                                            <div class="spinner-border text-primary mb-3" role="status"></div>
+                                                            <h5>Warte auf Antwort...</h5>
+                                                            <p id="callStatus">Verbinde...</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer border-secondary justify-content-center">
+                                            <button type="button" class="btn btn-outline-light" id="muteBtn" onclick="toggleMute()">
+                                                <i class="fas fa-microphone"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-outline-light" id="videoBtn" onclick="toggleVideo()" style="display: none;">
+                                                <i class="fas fa-video"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-danger" onclick="endAgoraCall()">
+                                                <i class="fas fa-phone-slash"></i> Beenden
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="message-input-area" id="messageInput" style="display: none;">
+                                <div class="d-flex align-items-end gap-2">
+                                    <div class="flex-grow-1">
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" placeholder="Nachricht eingeben..." id="messageText" onkeypress="handleKeyPress(event)">
+                                        </div>
+                                        <div id="attachmentPreview" class="mt-2" style="display: none;"></div>
+                                    </div>
+                                    <div class="d-flex gap-1">
+                                        <button class="btn btn-outline-secondary" onclick="document.getElementById('fileInput').click()" title="Datei anhängen">
+                                            <i class="fas fa-paperclip"></i>
+                                        </button>
+                                        <button class="btn btn-outline-success" onclick="startAgoraCall('audio')" title="Anrufen">
+                                            <i class="fas fa-phone"></i>
+                                        </button>
+                                        <button class="btn btn-outline-info" onclick="startAgoraCall('video')" title="Videoanruf">
+                                            <i class="fas fa-video"></i>
+                                        </button>
+                                        <button class="btn btn-primary" onclick="sendMessage()">
+                                            <i class="fas fa-paper-plane"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <input type="file" id="fileInput" multiple style="display: none;" onchange="handleFileSelect(event)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Global variables
+var currentRoomId = null;
+var messagesContainer = null;
+var messageInput = null;
+var selectedFiles = [];
+var currentPage = 1;
+var hasMoreMessages = false;
+var attachmentPreview = null;
+
+// Agora Video/Audio Call Integration
+var agoraClient = null;
+var localAudioTrack = null;
+var localVideoTrack = null;
+var currentCallType = null;
+var currentChannelName = null;
+var isCallActive = false;
+var callModal = null;
+
+// Agora Configuration - App ID wird vom Backend geholt
+const agoraConfig = {
+    appId: "{{ agora_app_id|default:'your_agora_app_id_here' }}",
+    channel: null,
+    uid: null,
+    token: null
+};
+
+// CSRF Token helper function
+function getCsrfToken() {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    return csrfToken ? csrfToken.value : '';
+}
+
+// Small call window functions
+var callStartTime = null;
+var callDurationInterval = null;
+
+// Initialize DOM elements when needed
+function initializeDOMElements() {
+    if (!messagesContainer) {
+        messagesContainer = document.getElementById('chatMessages');
+    }
+    if (!messageInput) {
+        messageInput = document.getElementById('messageText');
+    }
+    if (!attachmentPreview) {
+        attachmentPreview = document.getElementById('attachmentPreview');
+    }
+}
+
+// Use global call variables from base.html
+// globalCallSocket, globalPeerConnection, globalLocalStream, etc. are defined globally
+
+// Duplicate loadChat function removed - using the main version above
+
+// Load more messages function
+function loadMoreMessages() {
+    if (!currentRoomId || !hasMoreMessages) return;
+    
+    const nextPage = currentPage + 1;
+    
+    fetch(`/chat/messages/${currentRoomId}/?page=${nextPage}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('✅ More messages loaded:', data.messages.length);
+                
+                // Prepend older messages to the beginning
+                const oldMessages = Array.from(messagesContainer.querySelectorAll('.d-flex.mb-3'));
+                displayMessages(data.messages);
+                
+                // Re-append the existing messages
+                oldMessages.forEach(msg => messagesContainer.appendChild(msg));
+                
+                // Update pagination state
+                if (data.pagination) {
+                    currentPage = data.pagination.page;
+                    hasMoreMessages = data.pagination.has_more;
+                    
+                    const loadMoreContainer = document.getElementById('loadMoreContainer');
+                    if (loadMoreContainer) {
+                        if (hasMoreMessages) {
+                            loadMoreContainer.style.display = 'block';
+                        } else {
+                            loadMoreContainer.style.display = 'none';
+                        }
+                    }
+                }
+            } else {
+                console.error('Error loading more messages:', data.error);
+                alert('Fehler beim Laden weiterer Nachrichten: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Netzwerkfehler beim Laden weiterer Nachrichten');
+        });
+}
+
+function displayMessages(messages, append = false) {
+    console.log('displayMessages called with:', messages, 'append:', append);
+    
+    initializeDOMElements();
+    
+    if (!messagesContainer) {
+        console.error('messagesContainer not found');
+        return;
+    }
+    
+    if (!append) {
+        messagesContainer.innerHTML = '';
+    }
+    
+    if (!messages || messages.length === 0) {
+        if (!append) {
+            messagesContainer.innerHTML = `
+                <div class="empty-chat">
+                    <i class="fas fa-comments fa-3x mb-3"></i>
+                    <p>Noch keine Nachrichten</p>
+                    <p class="text-muted">Senden Sie die erste Nachricht!</p>
+                </div>
+            `;
+        }
+        return;
+    }
+    
+    messages.forEach(message => {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `d-flex ${message.is_own ? 'justify-content-end' : 'justify-content-start'} mb-3`;
+        
+        const isOwn = message.is_own;
+        const senderName = message.sender_name || 'Anonym';
+        
+        let attachmentsHtml = '';
+        if (message.attachments && message.attachments.length > 0) {
+            attachmentsHtml = '<div class="attachments mt-2">';
+            message.attachments.forEach(attachment => {
+                if (attachment.is_image) {
+                    attachmentsHtml += `
+                        <div class="attachment-item mb-2">
+                            <img src="${attachment.file_url}" alt="${attachment.filename}" class="img-fluid rounded" style="max-width: 300px; max-height: 200px;">
+                            <div class="small text-muted">${attachment.filename} (${attachment.file_size})</div>
+                        </div>
+                    `;
+                } else {
+                    attachmentsHtml += `
+                        <div class="attachment-item mb-2">
+                            <a href="${attachment.file_url}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-file"></i> ${attachment.filename} (${attachment.file_size})
+                            </a>
+                        </div>
+                    `;
+                }
+            });
+            attachmentsHtml += '</div>';
+        }
+        
+        messageDiv.innerHTML = `
+            <div class="message-bubble ${isOwn ? 'message-own' : 'message-other'}">
+                ${!isOwn ? `<div class="mb-1"><small><strong>${senderName}</strong></small></div>` : ''}
+                <div>${message.content || ''}</div>
+                ${attachmentsHtml}
+                <div class="mt-1">
+                    <small class="opacity-75">${message.formatted_time}</small>
+                </div>
+            </div>
+        `;
+        
+        messagesContainer.appendChild(messageDiv);
+    });
+    
+    // Scroll to bottom
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function updateChatHeader(room) {
+    const chatTitle = document.getElementById('chatTitle');
+    const chatSubtitle = document.getElementById('chatSubtitle');
+    const avatar = document.getElementById('chatAvatar');
+    
+    if (chatTitle) {
+        chatTitle.textContent = room.name || room.display_name;
+    }
+    
+    if (chatSubtitle) {
+        chatSubtitle.textContent = room.is_group_chat ? 
+            `${room.participant_count} Teilnehmer` : 'Privater Chat';
+    }
+    
+    if (avatar) {
+        avatar.className = `user-avatar ${room.is_group_chat ? 'bg-success' : 'bg-primary'} me-3`;
+        avatar.innerHTML = room.is_group_chat ? '<i class="fas fa-users"></i>' : room.avatar_text;
+    }
+}
+
+// Duplicate sendMessage function removed - using the main version above
+
+function handleKeyPress(event) {
+    if (event.key === 'Enter') {
+        sendMessage();
+    }
+}
+
+// Search functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const chatSearch = document.getElementById('chatSearch');
+    if (chatSearch) {
+        chatSearch.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const chatItems = document.querySelectorAll('.chat-room-item');
+            
+            chatItems.forEach(item => {
+                const chatNameElement = item.querySelector('h6');
+                const lastMessageElement = item.querySelector('.text-muted');
+                
+                if (chatNameElement && lastMessageElement) {
+                    const chatName = chatNameElement.textContent.toLowerCase();
+                    const lastMessage = lastMessageElement.textContent.toLowerCase();
+                    
+                    if (chatName.includes(searchTerm) || lastMessage.includes(searchTerm)) {
+                        item.style.display = 'block';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                }
+            });
+        });
+    }
+});
+
+// Get CSRF cookie
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Handle file selection
+function handleFileSelect(event) {
+    const files = Array.from(event.target.files);
+    selectedFiles = files;
+    
+    // Initialize attachmentPreview if not already done
+    if (!attachmentPreview) {
+        attachmentPreview = document.getElementById('attachmentPreview');
+    }
+    
+    if (files.length === 0) {
+        if (attachmentPreview) {
+            attachmentPreview.style.display = 'none';
+        }
+        return;
+    }
+    
+    let previewHtml = '<div class="selected-files"><strong>Ausgewählte Dateien:</strong><br>';
+    files.forEach((file, index) => {
+        const fileSize = formatFileSize(file.size);
+        previewHtml += `
+            <div class="file-item d-flex align-items-center gap-2 mb-1">
+                <i class="fas fa-file"></i>
+                <span>${file.name} (${fileSize})</span>
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(${index})">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+    });
+    previewHtml += '</div>';
+    
+    if (attachmentPreview) {
+        attachmentPreview.innerHTML = previewHtml;
+        attachmentPreview.style.display = 'block';
+    }
+}
+
+function removeFile(index) {
+    selectedFiles.splice(index, 1);
+    
+    if (!attachmentPreview) {
+        attachmentPreview = document.getElementById('attachmentPreview');
+    }
+    
+    if (selectedFiles.length === 0) {
+        if (attachmentPreview) {
+            attachmentPreview.style.display = 'none';
+        }
+    } else {
+        // Update preview
+        handleFileSelect({ target: { files: selectedFiles } });
+    }
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Mark messages as read
+function markMessagesAsRead(roomId) {
+    fetch(`/chat/api/room/${roomId}/mark_read/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update chat notification counter
+            if (updateChatNotifications) {
+                updateChatNotifications();
+            }
+            // Update unread badges in chat list
+            updateUnreadBadges();
+        }
+    })
+    .catch(error => {
+        console.error('Error marking messages as read:', error);
+    });
+}
+
+// Update unread badges in chat list
+function updateUnreadBadges() {
+    const roomItem = document.querySelector(`[data-room-id="${currentRoomId}"]`);
+    if (roomItem) {
+        const unreadBadge = roomItem.querySelector('.badge-unread');
+        if (unreadBadge) {
+            unreadBadge.style.display = 'none';
+        }
+    }
+}
+
+// Removed duplicate getCookie function
+
+// Auto-refresh messages every 10 seconds (but not during active calls)
+setInterval(() => {
+    if (currentRoomId && !globalIsCallActive && !window.isCallActive) {
+        loadChat(currentRoomId);
+    }
+}, 10000);
+
+// Check for room parameter in URL and load chat
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(location.search);
+    const roomId = urlParams.get('room');
+    if (roomId) {
+        loadChat(parseInt(roomId));
+        
+        // Check if we should auto-answer a call
+        const answerCallId = urlParams.get('answerCall');
+        if (answerCallId) {
+            console.log('🔄 Auto-answer initiated for call:', answerCallId, 'at', new Date().toISOString());
+            // Stop call polling to prevent interference
+            stopGlobalCallPolling();
+            stopIncomingCallPolling();
+            
+            setTimeout(async () => {
+                console.log('🔄 Auto-answer timeout reached for call:', answerCallId, 'at', new Date().toISOString());
+                // Check if we're already in a call
+                if (getCallActive()) {
+                    console.info('Already in a call - ignoring auto-answer');
+                    return;
+                }
+                
+                // Get call information from server
+                try {
+                    const response = await fetch(`/chat/api/call/${answerCallId}/info/`);
+                    if (response.ok) {
+                        const callInfo = await response.json();
+                        if (callInfo.success) {
+                            // Set up incoming call data for Agora
+                            incomingCallData = {
+                                call_id: answerCallId,
+                                call_type: callInfo.call_type || urlParams.get('callType') || 'audio',
+                                channel_name: callInfo.channel_name || `call_${roomId}_${answerCallId}`,
+                                room_id: roomId,
+                                caller_name: callInfo.caller_name || 'Unknown'
+                            }
+                            // Use answerCall to accept the incoming call
+                            answerCall(answerCallId, incomingCallData.call_type);
+                            // Clean up URL parameters after successful auto-answer
+                            const cleanUrl = new URL(location);
+                            cleanUrl.searchParams.delete('answerCall');
+                            cleanUrl.searchParams.delete('callType');
+                            history.replaceState({}, '', cleanUrl);
+                        } else {
+                            console.warn('Call info not available:', callInfo.error);
+                            // Don't use fallback for auto-answer to prevent loops
+                            console.info('Auto-answer failed - call may have expired');
+                            // Clean up URL parameters after failed auto-answer
+                            const cleanUrl = new URL(location);
+                            cleanUrl.searchParams.delete('answerCall');
+                            cleanUrl.searchParams.delete('callType');
+                            history.replaceState({}, '', cleanUrl);
+                            // Restart polling after failed auto-answer
+                            startGlobalCallPolling();
+                            startIncomingCallPolling();
+                        }
+                    } else {
+                        console.warn('Failed to fetch call info for auto-answer');
+                        // Clean up URL parameters after failed fetch
+                        const cleanUrl = new URL(location);
+                        cleanUrl.searchParams.delete('answerCall');
+                        cleanUrl.searchParams.delete('callType');
+                        history.replaceState({}, '', cleanUrl);
+                        // Restart polling after failed fetch
+                        startGlobalCallPolling();
+                        startIncomingCallPolling();
+                    }
+                } catch (error) {
+                    console.error('Error auto-answering call:', error);
+                    // Clean up URL parameters after error
+                    const cleanUrl = new URL(location);
+                    cleanUrl.searchParams.delete('answerCall');
+                    cleanUrl.searchParams.delete('callType');
+                    history.replaceState({}, '', cleanUrl);
+                    // Restart polling after error
+                    startGlobalCallPolling();
+                    startIncomingCallPolling();
+                }
+            }, 500); // Wait 0.5 seconds for room to load
+        }
+    }
+});
+
+// Update online status every 60 seconds (but not during calls)
+setInterval(() => {
+    if (!globalIsCallActive) {
+        fetch('/chat/update-online-status/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Also update online status indicators for other users
+                updateOnlineStatusIndicators();
+            } else {
+                console.error('Error updating online status:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error updating online status:', error);
+        });
+    }
+}, 60000); // Reduced from 30000 to 60000ms
+
+// Update online status immediately when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/chat/update-online-status/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        }
+    });
+    
+    // Update online status indicators after setting our own status
+    setTimeout(updateOnlineStatusIndicators, 1000);
+});
+
+// Function to update online status indicators in chat list
+function updateOnlineStatusIndicators() {
+    // Get all chat room items with other users
+    document.querySelectorAll('.chat-room-item').forEach(item => {
+        const roomId = item.dataset.roomId;
+        if (roomId) {
+            // Fetch current room info to get updated online status
+            fetch(`/chat/api/room/${roomId}/info/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.room.participants_detailed) {
+                        // Update online indicators for this room
+                        updateRoomOnlineStatus(item, data.room);
+                    }
+                })
+                .catch(error => {
+                    console.warn('Failed to update online status for room', roomId, error);
+                });
+        }
+    });
+}
+
+// Update online status for a specific room item
+function updateRoomOnlineStatus(roomItem, roomData) {
+    console.log('🔄 Updating online status for room:', roomData.id, roomData.participants_detailed);
+    
+    // Find online indicator elements in this room item
+    const onlineIndicator = roomItem.querySelector('.online-indicator');
+    
+    // For private chats, check the other user's status
+    if (!roomData.is_group_chat && roomData.participants_detailed.length === 2) {
+        const otherUser = roomData.participants_detailed.find(p => !p.is_current_user);
+        if (otherUser) {
+            console.log('👤 Other user status:', otherUser.name, 'is_online:', otherUser.is_online);
+            
+            // Update online indicator (green dot)
+            if (onlineIndicator) {
+                onlineIndicator.style.display = otherUser.is_online ? 'block' : 'none';
+            }
+            
+            // Update status text in the chat list
+            const statusElements = roomItem.querySelectorAll('small.text-success, small.text-muted');
+            statusElements.forEach(element => {
+                if (element.textContent.includes('Online') || element.textContent.includes('Offline')) {
+                    element.textContent = otherUser.is_online ? '• Online' : '• Offline';
+                    element.className = otherUser.is_online ? 'text-success' : 'text-muted';
+                    console.log('✅ Updated status text:', element.textContent);
+                }
+            });
+            
+            // Also update any other status indicators
+            const allStatusElements = roomItem.querySelectorAll('small');
+            allStatusElements.forEach(element => {
+                const text = element.textContent.trim();
+                if (text.endsWith('Online') || text.endsWith('Offline')) {
+                    const newText = otherUser.is_online ? '• Online' : '• Offline';
+                    element.textContent = newText;
+                    element.className = otherUser.is_online ? 'text-success' : 'text-muted';
+                    console.log('✅ Updated general status:', newText);
+                }
+            });
+        }
+    }
+}
+
+// Delete chat function
+function deleteChat() {
+    if (!currentRoomId) {
+        alert('Kein Chat ausgewählt');
+        return;
+    }
+    
+    if (confirm('Sind Sie sicher, dass Sie diesen Chat löschen möchten?')) {
+        fetch(`/chat/api/room/${currentRoomId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                // Remove chat from list
+                const chatItem = document.querySelector(`[data-room-id="${currentRoomId}"]`);
+                if (chatItem) {
+                    chatItem.remove();
+                }
+                // Clear chat area
+                const chatMessages = document.getElementById('chatMessages');
+                const chatHeader = document.getElementById('chatHeader');
+                const messageInputDiv = document.getElementById('messageInput');
+                
+                if (chatMessages) {
+                    chatMessages.innerHTML = '';
+                }
+                
+                if (chatHeader) {
+                    chatHeader.style.display = 'none';
+                }
+                
+                if (messageInputDiv) {
+                    messageInputDiv.style.display = 'none';
+                }
+                currentRoomId = null;
+                // Reload page to refresh chat list
+                location.reload();
+            } else {
+                alert('Fehler: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting chat:', error);
+            alert('Fehler beim Löschen des Chats');
+        });
+    }
+}
+
+// Call validation wrapper function
+function startCallWithValidation(callType) {
+    console.log('🔍 Starting call validation...');
+    console.log('Current room ID:', currentRoomId);
+    console.log('Call type:', callType);
+    
+    // Check if currentRoomId is defined
+    if (!currentRoomId) {
+        console.error('❌ No room selected');
+        alert('Bitte wählen Sie zuerst einen Chat aus.');
+        return;
+    }
+    
+    // Check if globalStartCall function exists
+    if (typeof globalStartCall !== 'function') {
+        console.error('❌ globalStartCall function not found');
+        console.log('Available global functions:', Object.keys(window).filter(key => key.includes('global')));
+        alert('Anruf-System nicht verfügbar. Bitte laden Sie die Seite neu.');
+        return;
+    }
+    
+    // Check if we're in the right context
+    if (typeof globalStartCall !== 'function' && typeof parent.globalStartCall !== 'function') {
+        console.error('❌ globalStartCall not found in window or parent');
+        alert('Anruf-System nicht geladen. Bitte warten Sie einen Moment und versuchen Sie es erneut.');
+        return;
+    }
+    
+    console.log('✅ Validation passed, starting call...');
+    
+    // Call the global function
+    try {
+        // Try global function first
+        if (typeof globalStartCall === 'function') {
+            globalStartCall(currentRoomId, callType);
+        } else if (typeof globalStartCall === 'function') {
+            globalStartCall(currentRoomId, callType);
+        } else {
+            // Fallback to local implementation
+            console.log('🔄 Using fallback local call implementation');
+            startLocalCall(currentRoomId, callType);
+        }
+    } catch (error) {
+        console.error('❌ Error calling start call function:', error);
+        alert('Fehler beim Starten des Anrufs: ' + (error.message || error));
+    }
+}
+
+// Fallback local call implementation
+async function startLocalCall(roomId, callType) {
+    try {
+        console.log('📞 Starting local call implementation:', roomId, callType);
+        
+        const csrfToken = getCookie('csrftoken') || 
+                         document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                         document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        
+        if (!csrfToken) {
+            throw new Error('CSRF-Token nicht gefunden');
+        }
+        
+        const response = await fetch(`/chat/api/room/${roomId}/call/initiate/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                call_type: callType
+            })
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+        
+        const result = await response.json();
+        console.log('📋 Local call response:', result);
+        
+        if (result.success) {
+            alert(`${callType === 'video' ? 'Video' : 'Audio'}-Anruf gestartet! (Call ID: ${result.call_id})`);
+        } else {
+            throw new Error(result.error || 'Anruf konnte nicht gestartet werden');
+        }
+        
+    } catch (error) {
+        console.error('❌ Local call error:', error);
+        throw error;
+    }
+}
+
+// Show chat info function
+function showChatInfo() {
+    if (!currentRoomId) {
+        alert('Kein Chat ausgewählt');
+        return;
+    }
+    
+    // Show modal immediately with loading state
+    const modal = new bootstrap.Modal(document.getElementById('chatInfoModal'));
+    modal.show();
+    
+    // Reset content to loading state
+    const chatInfoContent = document.getElementById('chatInfoContent');
+    if (chatInfoContent) {
+        chatInfoContent.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Lade Chat-Informationen...</p>
+        </div>
+    `;
+    
+    // Fetch chat info
+    fetch(`/chat/api/room/${currentRoomId}/info/`, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            renderChatInfo(data.room);
+        } else {
+            const chatInfoContent = document.getElementById('chatInfoContent');
+            if (chatInfoContent) {
+                chatInfoContent.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i> 
+                        Fehler beim Laden der Chat-Informationen: ${data.error}
+                    </div>
+                `;
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error loading chat info:', error);
+        const chatInfoContent = document.getElementById('chatInfoContent');
+        if (chatInfoContent) {
+            chatInfoContent.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle"></i> 
+                Fehler beim Laden der Chat-Informationen
+            </div>
+        `;
+    });
+}
+
+function renderChatInfo(roomData) {
+    // Update modal title
+    const chatInfoTitle = document.getElementById('chatInfoTitle');
+    if (chatInfoTitle) {
+        chatInfoTitle.textContent = 
+        roomData.name || (roomData.is_group_chat ? 'Gruppenchat' : 'Privater Chat');
+    }
+    
+    let content = '';
+    
+    // Chat Overview Section
+    content += `
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card chat-info-card">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0">
+                            <i class="fas fa-comments stat-icon text-primary"></i> Chat-Übersicht
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <i class="fas fa-tag stat-icon text-info"></i>
+                                    <strong>Name:</strong> ${roomData.name || 'Privater Chat'}
+                                </div>
+                                <div class="mb-3">
+                                    <i class="fas fa-${roomData.is_group_chat ? 'users' : 'user'} stat-icon text-info"></i>
+                                    <strong>Typ:</strong> ${roomData.is_group_chat ? 'Gruppenchat' : 'Privater Chat'}
+                                </div>
+                                <div class="mb-3">
+                                    <i class="fas fa-calendar-plus stat-icon text-info"></i>
+                                    <strong>Erstellt am:</strong> ${roomData.created_at}
+                                </div>
+                                ${roomData.created_by ? `
+                                    <div class="mb-3">
+                                        <i class="fas fa-user-plus stat-icon text-info"></i>
+                                        <strong>Erstellt von:</strong> ${roomData.created_by.name}
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <i class="fas fa-users stat-icon text-success"></i>
+                                    <strong>Teilnehmer:</strong> ${roomData.participants_count}
+                                </div>
+                                <div class="mb-3">
+                                    <i class="fas fa-comments stat-icon text-success"></i>
+                                    <strong>Gesamte Nachrichten:</strong> ${roomData.total_messages}
+                                </div>
+                                <div class="mb-3">
+                                    <i class="fas fa-clock stat-icon text-success"></i>
+                                    <strong>Letzte 7 Tage:</strong> ${roomData.recent_messages_count} Nachrichten
+                                </div>
+                                ${roomData.last_message_at ? `
+                                    <div class="mb-3">
+                                        <i class="fas fa-paper-plane stat-icon text-success"></i>
+                                        <strong>Letzte Nachricht:</strong> ${roomData.last_message_at}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Participants Section
+    content += `
+        <div class="row">
+            <div class="col-12">
+                <div class="card chat-info-card">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0">
+                            <i class="fas fa-users stat-icon text-primary"></i> 
+                            Teilnehmer (${roomData.participants_count})
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+    `;
+    
+    // Render each participant
+    roomData.participants_detailed.forEach(participant => {
+        const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(participant.name)}&size=80&background=007bff&color=ffffff&bold=true`;
+        const avatarUrl = participant.profile_picture || fallbackAvatar;
+        
+        content += `
+            <div class="col-md-6 mb-3">
+                <div class="participant-card d-flex align-items-center p-3 border rounded ${participant.is_current_user ? 'bg-light border-primary' : ''}">
+                    <div class="position-relative me-3">
+                        <img src="${avatarUrl}" alt="${participant.name}" 
+                             class="chat-info-avatar"
+                             onerror="this.src='${fallbackAvatar}'">
+                        <span class="position-absolute bottom-0 end-0 online-indicator ${participant.is_online ? 'bg-success' : 'bg-secondary'}"></span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1 d-flex align-items-center">
+                            ${participant.name}
+                            ${participant.is_current_user ? '<span class="badge bg-primary ms-2 small">Sie</span>' : ''}
+                        </h6>
+                        <p class="mb-2 text-muted small">
+                            <i class="fas fa-at text-info"></i> ${participant.username}
+                        </p>
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge ${participant.is_online ? 'bg-success' : 'bg-secondary'} me-2">
+                                <i class="fas fa-circle small"></i> ${participant.is_online ? 'Online' : 'Offline'}
+                            </span>
+                            ${participant.is_current_user || !participant.email ? '' : 
+                                `<small class="text-muted"><i class="fas fa-envelope text-info"></i> ${participant.email}</small>`
+                            }
+                        </div>
+                        ${participant.last_activity ? 
+                            `<small class="text-muted d-block"><i class="fas fa-clock text-info"></i> Letzte Aktivität: ${participant.last_activity}</small>` : ''
+                        }
+                        <small class="text-muted d-block">
+                            <i class="fas fa-user-plus text-info"></i> Beigetreten: ${participant.date_joined}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    content += `
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const chatInfoContent = document.getElementById('chatInfoContent');
+    if (chatInfoContent) {
+        chatInfoContent.innerHTML = content;
+    }
+}
+
+// WebRTC and Call Variables - using globals from base.html
+let remoteStream = null;
+let callSocket = null; // Keep local for this page's WebSocket connection
+
+// WebRTC configuration
+const rtcConfig = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+};
+
+// Floating window functions
+function minimizeCallWindow() {
+    const floatingWindow = document.getElementById('floatingCallWindow');
+    floatingWindow.classList.add('minimized');
+}
+
+function maximizeCallWindow() {
+    const floatingWindow = document.getElementById('floatingCallWindow');
+    floatingWindow.classList.remove('minimized');
+    floatingWindow.classList.add('maximized');
+}
+
+// Floating window functions
+function showFloatingCallWindow() {
+    const floatingWindow = document.getElementById('floatingCallWindow');
+    floatingWindow.style.display = 'flex';
+    makeFloatingWindowDraggable();
+}
+
+function hideFloatingCallWindow() {
+    const floatingWindow = document.getElementById('floatingCallWindow');
+    floatingWindow.style.display = 'none';
+    floatingWindow.classList.remove('minimized', 'maximized');
+}
+
+function makeFloatingWindowDraggable() {
+    const floatingWindow = document.getElementById('floatingCallWindow');
+    const header = floatingWindow.querySelector('.call-header');
+    
+    let isDragging = false;
+    let startX, startY, startLeft, startTop;
+    
+    header.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        startLeft = parseInt(getComputedStyle(floatingWindow).left);
+        startTop = parseInt(getComputedStyle(floatingWindow).top);
+        
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    });
+    
+    function onMouseMove(e) {
+        if (!isDragging) return;
+        
+        const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+        
+        floatingWindow.style.left = (startLeft + deltaX) + 'px';
+        floatingWindow.style.top = (startTop + deltaY) + 'px';
+        floatingWindow.style.right = 'auto';
+        floatingWindow.style.bottom = 'auto';
+    }
+    
+    function onMouseUp() {
+        isDragging = false;
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+    }
+}
+
+// Initiate a call
+function initiateCall(callType) {
+    if (!currentRoomId) {
+        alert('Kein Chat ausgewählt');
+        return;
+    }
+    
+    if (globalIsCallActive) {
+        alert('Es läuft bereits ein Anruf');
+        return;
+    }
+    
+    // WebSocket functionality enabled for WebRTC signaling
+    // Call functionality uses WebSocket for signaling
+    
+    // Show global floating call window
+    showGlobalCallWindow();
+    
+    // Update UI
+    document.getElementById('globalCallTitle').textContent = callType === 'video' ? 'Videoanruf' : 'Anruf';
+    document.getElementById('globalCallIcon').className = callType === 'video' ? 'fas fa-video' : 'fas fa-phone';
+    document.getElementById('globalCallStatus').textContent = 'Startet Anruf...';
+    
+    // Show/hide video controls
+    if (callType === 'video') {
+        document.getElementById('globalVideoBtn').style.display = 'inline-block';
+        document.getElementById('globalVideoContainer').style.display = 'block';
+        globalIsVideoEnabled = true;
+    } else {
+        document.getElementById('globalVideoBtn').style.display = 'none';
+        document.getElementById('globalVideoContainer').style.display = 'none';
+        globalIsVideoEnabled = false;
+    }
+    
+    // Start call
+    startCall(callType);
+}
+
+// Start call process
+async function startCall(callType) {
+    try {
+        // Get user media
+        const constraints = {
+            audio: true,
+            video: callType === 'video'
+        }
+        
+        globalLocalStream = await navigator.mediaDevices.getUserMedia(constraints);
+        
+        if (callType === 'video') {
+            document.getElementById('globalLocalVideo').srcObject = globalLocalStream;
+        }
+        
+        // Create WebSocket connection for WebRTC signaling
+        connectCallWebSocket();
+        
+        // Initiate call via API
+        const response = await fetch(`/chat/api/room/${currentRoomId}/call/initiate/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                call_type: callType
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            globalCurrentCallId = data.call_id;
+            globalIsCallActive = true;
+            document.getElementById('globalCallStatus').textContent = 'Ruft an...';
+            
+            console.log('DEBUG: Call created successfully, ID:', globalCurrentCallId);
+            
+            // Send call initiation through WebSocket
+            if (callSocket && callSocket.readyState === WebSocket.OPEN) {
+                console.log('Sending call initiate via WebSocket', {
+                    type: 'call_initiate',
+                    call_type: callType,
+                    call_id: globalCurrentCallId
+                });
+                callSocket.send(JSON.stringify({
+                    type: 'call_initiate',
+                    call_type: callType,
+                    call_id: globalCurrentCallId
+                }));
+            } else {
+                console.log('DEBUG: Using WebSocket for WebRTC signaling');
+                // WebSocket is active for WebRTC signaling
+                document.getElementById('globalCallStatus').textContent = 'Anruf läuft (WebSocket-Signaling)...';
+            }
+        } else {
+            alert('Fehler beim Starten des Anrufs: ' + data.error);
+            endCall();
+        }
+        
+    } catch (error) {
+        console.error('Error starting call:', error);
+        alert('Fehler beim Zugriff auf Mikrofon/Kamera');
+        endCall();
+    }
+}
+
+// WebSocket connection for WebRTC signaling only
+function connectCallWebSocket() {
+    if (callSocket && callSocket.readyState === WebSocket.OPEN) {
+        console.log('WebSocket already connected');
+        return;
+    }
+    
+    if (callSocket) {
+        callSocket.close();
+    }
+    
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsHost = location.hostname === '127.0.0.1' || location.hostname === 'localhost' 
+        ? '127.0.0.1:8000' 
+        : location.host;
+    const wsUrl = `${protocol}//${wsHost}/ws/call/${currentRoomId}/`;
+    
+    console.log('🔌 Connecting to Call WebSocket for WebRTC signaling:', wsUrl);
+    callSocket = new WebSocket(wsUrl);
+    
+    callSocket.onopen = function(e) {
+        console.log('Call WebSocket connected (WebRTC signaling only)');
+    }
+    
+    callSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        handleCallMessage(data);
+    }
+    
+    callSocket.onclose = function(e) {
+        console.log('Call WebSocket disconnected');
+        if (e.code !== 1000) {
+            console.log('WebSocket connection lost - WebRTC signaling may not work');
+        }
+    }
+    
+    callSocket.onerror = function(e) {
+        console.error('Call WebSocket error:', e);
+    }
+}
+
+// WebSocket error handling removed - using HTTP polling only
+// Call functionality is available via HTTP polling mode
+
+// Hide WebSocket error message
+function hideWebSocketError() {
+    const errorDiv = document.getElementById('websocket-error');
+    if (errorDiv) {
+        errorDiv.remove();
+    }
+    
+    // Show call buttons
+    document.querySelectorAll('.call-btn').forEach(btn => {
+        btn.style.display = 'inline-block';
+    });
+}
+
+// Handle call messages from WebSocket
+function handleCallMessage(data) {
+    console.log('Received call message:', data);
+    switch(data.type) {
+        case 'call_initiated':
+            if (data.caller !== '{{ user.username|escapejs }}') {
+                console.log('Incoming call from:', data.caller);
+                handleIncomingCall(data);
+            }
+            break;
+        case 'call_answered':
+            handleCallAnswered(data);
+            break;
+        case 'call_rejected':
+            handleCallRejected(data);
+            break;
+        case 'call_ended':
+            handleCallEnded(data);
+            break;
+        case 'webrtc_offer':
+            handleWebRTCOffer(data);
+            break;
+        case 'webrtc_answer':
+            handleWebRTCAnswer(data);
+            break;
+        case 'webrtc_ice_candidate':
+            handleWebRTCIceCandidate(data);
+            break;
+        case 'agora_call_notification':
+            if (data.caller_name !== '{{ user.username|escapejs }}') {
+                console.log('Incoming Agora call from:', data.caller_name);
+                handleIncomingAgoraCall(data);
+            }
+            break;
+    }
+}
+
+// Handle incoming call
+function handleIncomingCall(data) {
+    console.log('handleIncomingCall called with:', data);
+    
+    if (globalIsCallActive) {
+        console.log('Already in a call, ignoring');
+        return; // Already in a call
+    }
+    
+    // Create notification element directly
+    const notification = document.createElement('div');
+    notification.className = 'call-notification';
+    notification.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 9999;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        padding: 15px;
+        min-width: 250px;
+        max-width: 280px;
+        animation: slideIn 0.3s ease-out;
+    `;
+    notification.innerHTML = `
+        <div class="d-flex align-items-center mb-2">
+            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 40px; height: 40px;">
+                <i class="fas fa-${data.call_type === 'video' ? 'video' : 'phone'}"></i>
+            </div>
+            <div>
+                <h6 class="mb-1">Eingehender ${data.call_type === 'video' ? 'Video' : 'Audio'}-Anruf</h6>
+                <small class="text-muted">von ${data.caller}</small>
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-success btn-sm flex-fill" onclick="answerCall('${data.call_id}', '${data.call_type}')">
+                <i class="fas fa-phone"></i> Annehmen
+            </button>
+            <button class="btn btn-danger btn-sm flex-fill" onclick="rejectCall('${data.call_id}'); this.closest('.call-notification').remove();">
+                <i class="fas fa-phone-slash"></i> Ablehnen
+            </button>
+        </div>
+    `;
+    
+    // Add CSS animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    document.body.appendChild(notification);
+    
+    // Play sound notification
+    try {
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZURE');
+        audio.play().catch(e => console.log('Could not play sound:', e));
+    } catch (e) {
+        console.log('Audio not supported:', e);
+    }
+    
+    // Auto-remove after 30 seconds
+    setTimeout(() => {
+        if (document.body.contains(notification)) {
+            notification.remove();
+        }
+    }, 30000);
+}
+
+// Answer incoming call - Fixed to use Agora consistently
+async function answerCall(callId, callType) {
+    try {
+        console.log('📞 Answering call:', callId, 'type:', callType);
+        
+        // Clear any existing call notifications
+        document.querySelectorAll('.call-notification').forEach(notification => {
+            notification.remove();
+        });
+        
+        // First, accept the call in the backend
+        const response = await fetch('/chat/accept-call/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                call_id: callId
+            })
+        });
+        
+        const result = await response.json();
+        if (!result.success) {
+            console.warn('⚠️ Backend call accept failed:', result.error);
+            throw new Error(result.error);
+        }
+        
+        console.log('✅ Call accepted in backend');
+        
+        // Use Agora for the actual call connection
+        window.currentCallType = callType;
+        window.currentChannelName = `call_${window.currentRoomId}_${callId}`;
+        
+        // Get Agora token
+        const tokenResponse = await fetch('/chat/get-agora-token/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                channel: window.currentChannelName,
+                uid: 0
+            })
+        });
+        
+        const tokenData = await tokenResponse.json();
+        if (!tokenData.success) {
+            throw new Error(tokenData.error || 'Failed to get Agora token');
+        }
+        
+        window.agoraConfig.channel = window.currentChannelName;
+        window.agoraConfig.uid = tokenData.uid;
+        window.agoraConfig.token = tokenData.token;
+        
+        // Initialize Agora client
+        initAgoraClient();
+        
+        // Show call modal
+        showCallModal(callType);
+        
+        // Join channel
+        await window.agoraClient.join(window.agoraConfig.appId, window.agoraConfig.channel, window.agoraConfig.token, window.agoraConfig.uid);
+        
+        // Create and publish local tracks
+        window.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        
+        if (callType === 'video') {
+            window.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+            const localVideoContainer = document.getElementById("localVideoContainer");
+            if (localVideoContainer) {
+                window.localVideoTrack.play("localVideoContainer");
+            }
+            await window.agoraClient.publish([window.localAudioTrack, window.localVideoTrack]);
+            
+            const videoBtn = document.getElementById("videoBtn");
+            if (videoBtn) {
+                videoBtn.style.display = 'inline-block';
+            }
+        } else {
+            await window.agoraClient.publish([window.localAudioTrack]);
+        }
+        
+        window.isCallActive = true;
+        
+        const callStatus = document.getElementById("callStatus");
+        if (callStatus) {
+            callStatus.textContent = "Verbunden - Im Anruf";
+        }
+        
+        console.log('📞 Call accepted and connected successfully');
+        
+    } catch (error) {
+        console.error('Error answering call:', error);
+        alert('Fehler beim Annehmen des Anrufs: ' + error.message);
+        endAgoraCall();
+    }
+}
+
+// Reject incoming call
+async function rejectCall(callId) {
+    try {
+        console.log('❌ Rejecting call:', callId);
+        
+        // Clear call notifications on the UI
+        document.querySelectorAll('.call-notification').forEach(notification => {
+            notification.remove();
+        });
+        
+        // Reject the call in the backend
+        const response = await fetch('/chat/reject-call/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                call_id: callId
+            })
+        });
+        
+        const result = await response.json();
+        if (!result.success) {
+            console.warn('⚠️ Backend call reject failed:', result.error);
+        } else {
+            console.log('✅ Call rejected in backend');
+        }
+        
+    } catch (error) {
+        console.error('Error rejecting call:', error);
+    }
+}
+
+// Create peer connection
+function createPeerConnection() {
+    globalPeerConnection = new RTCPeerConnection(rtcConfig);
+    
+    // Add local stream to peer connection
+    if (globalLocalStream) {
+        globalLocalStream.getTracks().forEach(track => {
+            globalPeerConnection.addTrack(track, globalLocalStream);
+        });
+    }
+    
+    // Handle remote stream
+    globalPeerConnection.ontrack = function(event) {
+        remoteStream = event.streams[0];
+        document.getElementById('globalRemoteVideo').srcObject = remoteStream;
+    }
+    
+    // Handle ICE candidates
+    globalPeerConnection.onicecandidate = function(event) {
+        if (event.candidate && callSocket && callSocket.readyState === WebSocket.OPEN) {
+            callSocket.send(JSON.stringify({
+                type: 'webrtc_ice_candidate',
+                candidate: event.candidate
+            }));
+        }
+    }
+    
+    // Handle connection state changes
+    globalPeerConnection.onconnectionstatechange = function() {
+        console.log('Connection state:', globalPeerConnection.connectionState);
+        if (globalPeerConnection.connectionState === 'connected') {
+            document.getElementById('globalCallStatus').textContent = 'Verbunden';
+        } else if (globalPeerConnection.connectionState === 'disconnected') {
+            globalEndCall();
+        }
+    }
+}
+
+// Handle WebRTC offer
+async function handleWebRTCOffer(data) {
+    try {
+        if (!globalPeerConnection) {
+            createPeerConnection();
+        }
+        
+        await globalPeerConnection.setRemoteDescription(data.offer);
+        const answer = await globalPeerConnection.createAnswer();
+        await globalPeerConnection.setLocalDescription(answer);
+        
+        if (callSocket && callSocket.readyState === WebSocket.OPEN) {
+            callSocket.send(JSON.stringify({
+                type: 'webrtc_answer',
+                answer: answer
+            }));
+            console.log('✅ WebRTC answer sent via WebSocket');
+        } else {
+            console.warn('⚠️ WebSocket not available for WebRTC answer');
+        }
+    } catch (error) {
+        console.error('Error handling WebRTC offer:', error);
+    }
+}
+
+// Handle WebRTC answer
+async function handleWebRTCAnswer(data) {
+    try {
+        if (globalPeerConnection) {
+            await globalPeerConnection.setRemoteDescription(data.answer);
+        }
+    } catch (error) {
+        console.error('Error handling WebRTC answer:', error);
+    }
+}
+
+// Handle WebRTC ICE candidate
+async function handleWebRTCIceCandidate(data) {
+    try {
+        if (globalPeerConnection) {
+            await globalPeerConnection.addIceCandidate(data.candidate);
+        }
+    } catch (error) {
+        console.error('Error handling ICE candidate:', error);
+    }
+}
+
+// Toggle mute
+function toggleMute() {
+    if (globalLocalStream) {
+        const audioTrack = globalLocalStream.getAudioTracks()[0];
+        if (audioTrack) {
+            audioTrack.enabled = !audioTrack.enabled;
+            globalIsMuted = !audioTrack.enabled;
+            
+            const muteBtn = document.getElementById('globalMuteBtn');
+            if (globalIsMuted) {
+                muteBtn.classList.remove('btn-outline-light');
+                muteBtn.classList.add('btn-danger');
+                muteBtn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+            } else {
+                muteBtn.classList.remove('btn-danger');
+                muteBtn.classList.add('btn-outline-light');
+                muteBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+            }
+        }
+    }
+}
+
+// Toggle video
+function toggleVideo() {
+    if (globalLocalStream) {
+        const videoTrack = globalLocalStream.getVideoTracks()[0];
+        if (videoTrack) {
+            videoTrack.enabled = !videoTrack.enabled;
+            globalIsVideoEnabled = videoTrack.enabled;
+            
+            const videoBtn = document.getElementById('globalVideoBtn');
+            if (!globalIsVideoEnabled) {
+                videoBtn.classList.remove('btn-outline-light');
+                videoBtn.classList.add('btn-danger');
+                videoBtn.innerHTML = '<i class="fas fa-video-slash"></i>';
+            } else {
+                videoBtn.classList.remove('btn-danger');
+                videoBtn.classList.add('btn-outline-light');
+                videoBtn.innerHTML = '<i class="fas fa-video"></i>';
+            }
+        }
+    }
+}
+
+// End call
+function endCall() {
+    // Send end call message
+    if (callSocket && callSocket.readyState === WebSocket.OPEN && globalCurrentCallId) {
+        callSocket.send(JSON.stringify({
+            type: 'call_ended',
+            call_id: globalCurrentCallId
+        }));
+        console.log('📴 Call end message sent via WebSocket');
+    }
+    
+    // Clean up WebRTC
+    if (globalPeerConnection) {
+        globalPeerConnection.close();
+        globalPeerConnection = null;
+    }
+    
+    // Clean up media streams
+    if (globalLocalStream) {
+        globalLocalStream.getTracks().forEach(track => track.stop());
+        globalLocalStream = null;
+    }
+    
+    if (remoteStream) {
+        remoteStream.getTracks().forEach(track => track.stop());
+        remoteStream = null;
+    }
+    
+    // Close WebSocket
+    if (callSocket) {
+        callSocket.close();
+        callSocket = null;
+    }
+    
+    // Reset state
+    globalIsCallActive = false;
+    globalCurrentCallId = null;
+    globalIsMuted = false;
+    globalIsVideoEnabled = false;
+    
+    // Hide global floating call window
+    hideGlobalCallWindow();
+    
+    // Reset UI
+    document.getElementById('globalCallStatus').textContent = 'Verbinde...';
+    document.getElementById('globalMuteBtn').className = 'btn btn-sm btn-outline-light';
+    document.getElementById('globalMuteBtn').innerHTML = '<i class="fas fa-microphone"></i>';
+    document.getElementById('globalVideoBtn').className = 'btn btn-sm btn-outline-light';
+    document.getElementById('globalVideoBtn').innerHTML = '<i class="fas fa-video"></i>';
+    document.getElementById('globalLocalVideo').srcObject = null;
+    document.getElementById('globalRemoteVideo').srcObject = null;
+}
+
+// Handle call events
+function handleCallAnswered(data) {
+    document.getElementById('callStatus').textContent = 'Verbunden';
+    
+    // Create peer connection and send offer
+    createPeerConnection();
+    
+    setTimeout(async () => {
+        try {
+            const offer = await globalPeerConnection.createOffer();
+            await globalPeerConnection.setLocalDescription(offer);
+            
+            if (callSocket && callSocket.readyState === WebSocket.OPEN) {
+                callSocket.send(JSON.stringify({
+                    type: 'webrtc_offer',
+                    offer: offer
+                }));
+                console.log('✅ WebRTC offer sent via WebSocket');
+            } else {
+                console.warn('⚠️ WebSocket not available for WebRTC offer');
+            }
+        } catch (error) {
+            console.error('Error creating offer:', error);
+        }
+    }, 1000);
+}
+
+function handleCallRejected(data) {
+    alert('Anruf wurde abgelehnt');
+    endCall();
+}
+
+function handleCallEnded(data) {
+    console.log('🔚 Call ended by other party, data:', data);
+    console.log('🔚 Current state - isCallActive:', isCallActive, 'currentChannelName:', currentChannelName);
+    console.log('🔚 Current state - globalIsCallActive:', globalIsCallActive);
+    
+    // Prevent infinite loop - don't send WebSocket message if we're handling one
+    const wasCallActive = getCallActive();
+    
+    // Clean up Agora call without sending another WebSocket message
+    if (wasCallActive && currentChannelName === data.channel_name) {
+        console.log('🔚 Ending Agora call (no WebSocket send)');
+        // Clean up without sending WebSocket message
+        cleanupAgoraCall();
+    }
+    
+    // Also end WebRTC call if active
+    if (globalIsCallActive) {
+        console.log('🔚 Ending WebRTC call');
+        endCall();
+    }
+    
+    // Force close call window if still open
+    const callWindow = document.getElementById('smallCallWindow');
+    if (callWindow && callWindow.style.display !== 'none') {
+        console.log('🔚 Force closing call window');
+        callWindow.style.display = 'none';
+    }
+    
+    // Hide minimized call indicator
+    const minimizedIndicator = document.getElementById('minimizedCallIndicator');
+    if (minimizedIndicator) {
+        minimizedIndicator.style.display = 'none';
+    }
+    
+    // Reset all call-related state
+    setCallActive(false);
+    currentCallType = null;
+    currentChannelName = null;
+    
+    // Stop any call status polling
+    stopCallStatusPolling();
+}
+
+// Clean up Agora call without sending WebSocket message (used when responding to call_ended)
+async function cleanupAgoraCall() {
+    try {
+        // Stop local tracks
+        if (localAudioTrack) {
+            localAudioTrack.stop();
+            localAudioTrack.close();
+            localAudioTrack = null;
+        }
+        
+        if (localVideoTrack) {
+            localVideoTrack.stop();
+            localVideoTrack.close();
+            localVideoTrack = null;
+        }
+        
+        // Leave channel
+        if (agoraClient) {
+            await agoraClient.leave();
+            agoraClient = null;
+        }
+        
+        // Hide modal
+        if (callModal) {
+            callModal.hide();
+            callModal = null;
+        }
+        
+        // Reset state
+        setCallActive(false);
+        currentCallType = null;
+        currentChannelName = null;
+        
+        // Stop call status polling
+        stopCallStatusPolling();
+        
+        // Reset UI
+        const waitingScreen = document.getElementById("waitingScreen");
+        if (waitingScreen) {
+            waitingScreen.style.display = "block";
+        }
+        
+        const remoteVideoContainer = document.getElementById("remoteVideoContainer");
+        if (remoteVideoContainer) {
+            remoteVideoContainer.innerHTML = `
+                <div class="d-flex align-items-center justify-content-center h-100" id="waitingScreen">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary mb-3" role="status"></div>
+                        <p>Warte auf Teilnehmer...</p>
+                    </div>
+                </div>
+            `;
+        }
+        
+        console.log('✅ Agora call cleaned up successfully (no WebSocket sent)');
+    } catch (error) {
+        console.error('Error cleaning up Agora call:', error);
+    }
+}
+
+// Call status polling variables
+let callStatusPollingInterval = null;
+
+// Synchronized call state management
+function setCallActive(active) {
+    isCallActive = active;
+    if (typeof globalIsCallActive !== 'undefined') {
+        globalIsCallActive = active;
+    }
+    console.log('📞 Call state set to:', active);
+}
+
+function getCallActive() {
+    const localActive = isCallActive;
+    const globalActive = (typeof globalIsCallActive !== 'undefined') ? globalIsCallActive : false;
+    
+    // Return true if either is active
+    return localActive || globalActive;
+}
+
+// Start polling to check if call is still active
+function startCallStatusPolling() {
+    if (callStatusPollingInterval) {
+        clearInterval(callStatusPollingInterval);
+    }
+    
+    console.log('📡 Starting call status polling...');
+    
+    // Wait 5 seconds before starting polling to allow call to be properly established
+    setTimeout(() => {
+        callStatusPollingInterval = setInterval(async () => {
+            if (!getCallActive() || !currentRoomId) {
+                stopCallStatusPolling();
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/chat/api/room/${currentRoomId}/active-call/`);
+                const data = await response.json();
+                
+                if (!data.has_active_call) {
+                    console.log('📡 Call status polling detected call ended - terminating local call');
+                    endAgoraCall();
+                }
+            } catch (error) {
+                console.error('Error checking call status:', error);
+            }
+        }, 5000); // Check every 5 seconds (less frequent to avoid interference)
+    }, 5000); // Wait 5 seconds before starting
+}
+
+// Stop call status polling
+function stopCallStatusPolling() {
+    if (callStatusPollingInterval) {
+        console.log('📡 Stopping call status polling...');
+        clearInterval(callStatusPollingInterval);
+        callStatusPollingInterval = null;
+    }
+}
+
+// === AGORA VIDEO/AUDIO CALL INTEGRATION ===
+// Duplicate variables removed - using the ones above;
+
+// === SMALL CALL WINDOW FUNCTIONS ===
+// Variables already defined above
+
+</script>
+
+<!-- Chat Info Modal -->
+<div class="modal fade" id="chatInfoModal" tabindex="-1" aria-labelledby="chatInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="chatInfoModalLabel">
+                    <i class="fas fa-info-circle"></i> <span id="chatInfoTitle">Chat-Informationen</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="chatInfoContent">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p>Lade Chat-Informationen...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Agora SDK -->
+<script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.21.0.js"></script>
+
+<!-- Agora script content moved to main script -->
+<!-- Old Agora code removed - now using working version in main script above -->
+
+<!-- Functions are now defined normally above -->
+
+<!-- End of third script content -->
+
+{% endblock %}

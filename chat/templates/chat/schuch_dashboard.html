@@ -1,0 +1,315 @@
+{% extends 'base.html' %}
+
+{% block title %}Schuch Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h3 mb-1">
+                <i class="bi bi-lightning-charge me-2 text-warning"></i>
+                Schuch Dashboard
+            </h1>
+            <p class="text-muted mb-0">Verwalten Sie Ihre personalisierten Einstellungen und Kategorien</p>
+        </div>
+    </div>
+
+    <!-- Main Content - 4 Sections Layout -->
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Ampel-Kategorien Einstellungen -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="bi bi-traffic-light me-2"></i>
+                        Ampel-Kategorien Einstellungen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="useCustomCategories" 
+                                   name="use_custom_categories" 
+                                   {% if use_custom_categories %}checked{% endif %}
+                                   onchange="toggleAiExpansion()">
+                            <label class="form-check-label" for="useCustomCategories">
+                                <strong>Benutzerdefinierte Kategorien aktivieren</strong>
+                            </label>
+                            <small class="form-text text-muted d-block">
+                                Aktivieren Sie diese Option, um eigene Kategorien zu erstellen und zu verwalten.
+                            </small>
+                        </div>
+                        
+                        <div class="form-check form-switch mb-3" id="aiExpansionToggle" 
+                             {% if not use_custom_categories %}style="display: none;"{% endif %}>
+                            <input class="form-check-input" type="checkbox" id="enableAiExpansion" 
+                                   name="enable_ai_keyword_expansion" 
+                                   {% if enable_ai_keyword_expansion %}checked{% endif %}>
+                            <label class="form-check-label" for="enableAiExpansion">
+                                <strong>KI-Keyword-Erweiterung aktivieren</strong>
+                            </label>
+                            <small class="form-text text-muted d-block">
+                                Lassen Sie die KI automatisch relevante Keywords für Ihre Kategorien vorschlagen.
+                            </small>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-1"></i>Einstellungen speichern
+                        </button>
+                    </form>
+
+                    <div class="row mt-3">
+                        <div class="col-md-4">
+                            <div class="text-center p-3 bg-success bg-opacity-10 rounded">
+                                <div class="text-success fs-1">●</div>
+                                <h6>Grün</h6>
+                                <p class="small text-muted mb-0">Verfügbar</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center p-3 bg-warning bg-opacity-10 rounded">
+                                <div class="text-warning fs-1">●</div>
+                                <h6>Gelb</h6>
+                                <p class="small text-muted mb-0">Begrenzt</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center p-3 bg-danger bg-opacity-10 rounded">
+                                <div class="text-danger fs-1">●</div>
+                                <h6>Rot</h6>
+                                <p class="small text-muted mb-0">Nicht verfügbar</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Meine Kategorien -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-tags me-2"></i>
+                            Meine Kategorien
+                        </h5>
+                        <a href="{% url 'accounts:category_list' %}" class="btn btn-sm btn-outline-light">
+                            Alle anzeigen
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if categories %}
+                        <div class="row">
+                            {% for category in categories|slice:":6" %}
+                            <div class="col-md-4 mb-3">
+                                <a href="{% url 'accounts:category_detail' category.pk %}" class="text-decoration-none">
+                                    <div class="d-flex align-items-center p-2 bg-light rounded hover-shadow">
+                                        <div class="bg-primary text-white rounded-circle p-2 me-3" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                                            <i class="bi bi-tag"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-0 text-dark">{{ category.name }}</h6>
+                                            <small class="text-muted">
+                                                {% if category.is_active %}
+                                                    <span class="text-success">Aktiv</span> • 
+                                                {% else %}
+                                                    <span class="text-secondary">Inaktiv</span> • 
+                                                {% endif %}
+                                                {{ category.keywords.count }} Begriffe
+                                            </small>
+                                        </div>
+                                    </div>
+                                </a>
+                            </div>
+                            {% endfor %}
+                            
+                            {% if categories.count < 6 %}
+                            <div class="col-md-4 mb-3">
+                                <a href="{% url 'accounts:category_create' %}" class="text-decoration-none">
+                                    <div class="d-flex align-items-center p-2 bg-light rounded hover-shadow">
+                                        <div class="bg-secondary text-white rounded-circle p-2 me-3" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                                            <i class="bi bi-plus-circle"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-0 text-dark">Neue Kategorie</h6>
+                                            <small class="text-muted">hinzufügen</small>
+                                        </div>
+                                    </div>
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        {% if categories.count > 6 %}
+                        <div class="text-center mt-2">
+                            <a href="{% url 'accounts:category_list' %}" class="btn btn-sm btn-outline-primary">
+                                Alle {{ categories.count }} Kategorien anzeigen
+                            </a>
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-tags display-4 text-muted"></i>
+                            <h5 class="text-muted mt-3">Noch keine Kategorien</h5>
+                            <p class="text-muted">Erstellen Sie Ihre erste Kategorie, um Ihre eigenen Suchbegriffe zu verwalten.</p>
+                            <a href="{% url 'accounts:category_create' %}" class="btn btn-primary">
+                                <i class="bi bi-plus-circle me-1"></i>Erste Kategorie erstellen
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- Quick Links -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-link-45deg me-2"></i>
+                        Quick Links
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'accounts:dashboard' %}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-speedometer2 me-2"></i>Profil Dashboard
+                        </a>
+                        <a href="{% url 'chat:home' %}" class="btn btn-outline-success btn-sm">
+                            <i class="bi bi-chat-dots me-2"></i>Chat System
+                        </a>
+                        <a href="{% url 'accounts:category_create' %}" class="btn btn-outline-info btn-sm">
+                            <i class="bi bi-plus-circle me-2"></i>Neue Kategorie
+                        </a>
+                        <a href="{% url 'accounts:company_info' %}" class="btn btn-outline-warning btn-sm">
+                            <i class="bi bi-building me-2"></i>Firmeninfo
+                        </a>
+                        <a href="{% url 'accounts:neue_api_einstellungen' %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-gear me-2"></i>API-Einstellungen
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tipps -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-lightbulb me-2"></i>
+                        Tipps
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <strong><i class="bi bi-info-circle me-1"></i>Tipp:</strong>
+                        Verwenden Sie benutzerdefinierte Kategorien, um Ihre Inhalte besser zu organisieren und schneller zu finden.
+                    </div>
+                    
+                    <div class="alert alert-success">
+                        <strong><i class="bi bi-check-circle me-1"></i>Empfehlung:</strong>
+                        Aktivieren Sie die KI-Keyword-Erweiterung für automatische Vorschläge relevanter Suchbegriffe.
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <strong><i class="bi bi-exclamation-triangle me-1"></i>Hinweis:</strong>
+                        Die Ampel-Status helfen Ihnen dabei, die Verfügbarkeit von Ressourcen auf einen Blick zu erkennen.
+                    </div>
+                    
+                    <div class="alert alert-primary">
+                        <strong><i class="bi bi-star me-1"></i>Neu:</strong>
+                        Nutzen Sie die Quick Links für schnellen Zugriff auf häufig verwendete Funktionen.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    border-radius: 8px;
+    transition: transform 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+.card-header {
+    border-radius: 8px 8px 0 0 !important;
+    font-weight: 500;
+}
+
+.form-switch .form-check-input {
+    width: 2.5em;
+    height: 1.25em;
+}
+
+.form-switch .form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.alert {
+    border: none;
+    border-left: 4px solid;
+}
+
+.alert-info {
+    border-left-color: #0dcaf0;
+    background-color: #cff4fc;
+}
+
+.alert-success {
+    border-left-color: #198754;
+    background-color: #d1e7dd;
+}
+
+.alert-warning {
+    border-left-color: #ffc107;
+    background-color: #fff3cd;
+}
+
+.alert-primary {
+    border-left-color: #0d6efd;
+    background-color: #cfe2ff;
+}
+
+.btn-outline-primary:hover, .btn-outline-success:hover, .btn-outline-info:hover,
+.btn-outline-warning:hover, .btn-outline-secondary:hover {
+    transform: translateY(-1px);
+}
+
+.hover-shadow {
+    transition: all 0.3s ease;
+}
+
+.hover-shadow:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+    .col-lg-4 {
+        margin-top: 1rem;
+    }
+}
+</style>
+
+<script>
+function toggleAiExpansion() {
+    const useCustomCheckbox = document.getElementById('useCustomCategories');
+    const aiExpansionToggle = document.getElementById('aiExpansionToggle');
+    
+    if (useCustomCheckbox.checked) {
+        aiExpansionToggle.style.display = 'block';
+    } else {
+        aiExpansionToggle.style.display = 'none';
+        // Deaktiviere KI-Erweiterung wenn benutzerdefinierte Kategorien deaktiviert werden
+        document.getElementById('enableAiExpansion').checked = false;
+    }
+}
+</script>
+{% endblock %}

@@ -3,11 +3,13 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.mail import EmailMultiAlternatives
 from django.urls import reverse
+from accounts.decorators import require_app_permission
 from .forms import ProjektForm
 from .models import Projekt, Variante, Komponente
 
 
 # *** NEU: Diese View-Funktion muss hinzugefügt werden ***
+@require_app_permission('sportplatz_konfigurator')
 def sportplatz_start_view(request):
     """
     Rendert die Startseite des Sportplatz-Konfigurators.
@@ -51,6 +53,7 @@ def finde_passende_variante(form_data):
         return None
 
 
+@require_app_permission('sportplatz_konfigurator')
 def projekt_anlegen(request):
     if request.method == 'POST':
         form = ProjektForm(request.POST)
@@ -151,11 +154,13 @@ def projekt_anlegen(request):
     return render(request, 'sportplatzApp/projekt_anlegen.html', {'form': form})
 
 
+@require_app_permission('sportplatz_konfigurator')
 def danke_seite(request, projekt_id):
     projekt = get_object_or_404(Projekt, pk=projekt_id)
     context = {'projekt': projekt}
     return render(request, 'sportplatzApp/danke.html', context)
 
 
+@require_app_permission('sportplatz_konfigurator')
 def keine_variante_gefunden(request):
     return render(request, 'sportplatzApp/keine_variante_gefunden.html')

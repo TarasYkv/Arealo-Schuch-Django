@@ -46,6 +46,9 @@ class CustomUser(AbstractUser):
     can_manage_app_permissions = models.BooleanField(default=False, verbose_name="Darf App-Freigaben verwalten",
                                                    help_text="Erlaubt dem Benutzer das App-Freigabe Tab zu sehen und zu verwalten")
     
+    # Design-Einstellungen
+    dark_mode = models.BooleanField(default=False, verbose_name="Dunkles Design aktivieren")
+    
     def __str__(self):
         return self.username
     

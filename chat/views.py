@@ -18,10 +18,57 @@ from accounts.decorators import require_app_permission
 User = get_user_model()
 
 
+@login_required
+def schuch_dashboard(request):
+    """
+    Schuch Dashboard with the 4 specific sections: Ampel-Kategorien, Quick Links, Meine Kategorien, Tipps
+    """
+    from accounts.models import AmpelCategory
+    from django.contrib import messages
+    
+    # Handle POST request for settings
+    if request.method == 'POST':
+        # Toggle für benutzerdefinierte Kategorien
+        use_custom = request.POST.get('use_custom_categories') == 'on'
+        request.user.use_custom_categories = use_custom
+        
+        # Toggle für KI-Keyword-Erweiterung
+        enable_ai_expansion = request.POST.get('enable_ai_keyword_expansion') == 'on'
+        request.user.enable_ai_keyword_expansion = enable_ai_expansion
+        
+        request.user.save()
+        
+        # Feedback-Nachrichten
+        if use_custom:
+            messages.success(request, 'Benutzerdefinierte Kategorien wurden aktiviert.')
+        else:
+            messages.info(request, 'Standard-Kategorien werden verwendet.')
+            
+        if enable_ai_expansion and use_custom:
+            messages.success(request, 'KI-Keyword-Erweiterung für Ihre Kategorien wurde aktiviert.')
+        elif enable_ai_expansion and not use_custom:
+            messages.warning(request, 'KI-Erweiterung ist nur mit benutzerdefinierten Kategorien verfügbar.')
+        else:
+            messages.info(request, 'KI-Keyword-Erweiterung wurde deaktiviert.')
+        
+        return redirect('chat:schuch_dashboard')
+    
+    # Get user's categories
+    categories = AmpelCategory.objects.filter(user=request.user)
+    
+    context = {
+        'categories': categories,
+        'use_custom_categories': getattr(request.user, 'use_custom_categories', False),
+        'enable_ai_keyword_expansion': getattr(request.user, 'enable_ai_keyword_expansion', False),
+    }
+    
+    return render(request, 'chat/schuch_dashboard.html', context)
+
+
 @require_app_permission('chat')
 def chat_home(request):
     """
-    Chat overview page showing all user's chat rooms
+    Stable chat interface without scrollbar jumping issues
     """
     # Get all chat rooms for the current user
     chat_rooms = ChatRoom.objects.filter(
@@ -31,9 +78,53 @@ def chat_home(request):
         last_message_time=Max('messages__created_at')
     ).order_by('-last_message_at', '-created_at')
     
-    # Get unread counts for each chat room
+    # Get unread counts and other data for each chat room
     for room in chat_rooms:
         room.unread_count = room.get_unread_count(request.user)
+        
+        # Set proper room name and user info
+        if room.is_group_chat:
+            room.avatar_text = "👥"
+            room.display_name = room.name or f"Gruppenchat ({room.participants.count()} Teilnehmer)"
+            room.online_status = "group"
+        else:
+            other_user = room.get_other_participant(request.user)
+            if other_user:
+                # Set display name
+                room.display_name = other_user.get_full_name() or other_user.username
+                
+                # Set profile picture or create initials
+                if other_user.profile_picture:
+                    room.profile_picture_url = other_user.profile_picture.url
+                    room.avatar_text = ""  # Use picture instead of text
+                else:
+                    room.profile_picture_url = None
+                    # Create initials from first/last name or username
+                    if other_user.first_name and other_user.last_name:
+                        room.avatar_text = (other_user.first_name[:1] + other_user.last_name[:1]).upper()
+                    else:
+                        room.avatar_text = other_user.username[:2].upper()
+                
+                # Set online status
+                if other_user.is_currently_online():
+                    room.online_status = "online"
+                    room.online_status_text = "Online"
+                    room.online_status_class = "text-success"
+                else:
+                    room.online_status = "offline"
+                    room.online_status_text = "Offline"
+                    room.online_status_class = "text-muted"
+            else:
+                room.avatar_text = "💬"
+                room.display_name = "Unbekannter Chat"
+                room.online_status = "unknown"
+        
+        # Get last message preview
+        last_message = room.messages.order_by('-created_at').first()
+        if last_message:
+            room.last_message = last_message.content[:50] + ('...' if len(last_message.content) > 50 else '')
+        else:
+            room.last_message = ""
     
     # Get recent users for starting new chats
     recent_users = User.objects.exclude(
@@ -47,6 +138,9 @@ def chat_home(request):
     }
     
     return render(request, 'chat/home_new.html', context)
+
+
+# Stable chat function integrated into main chat_home function above
 
 
 @login_required
@@ -325,7 +419,8 @@ def get_messages(request, room_id):
                 'sender_name': sender_name,
                 'sender_id': sender_id,
                 'is_own': message.sender == request.user if message.sender else False,
-                'formatted_time': message.get_formatted_time(),
+                'timestamp': message.created_at.isoformat(),
+                'formatted_time': message.created_at.strftime('%H:%M'),
                 'message_type': message.message_type,
                 'reply_to': message.reply_to.id if message.reply_to else None,
                 'attachments': attachments
@@ -617,13 +712,123 @@ def check_incoming_calls(request):
                 'caller_id': latest_call.caller.id,
                 'room_id': latest_call.chat_room.id,
                 'call_id': latest_call.id,
-                'message_id': latest_call.id  # For backward compatibility
+                'message_id': latest_call.id,  # For backward compatibility
+                'status': latest_call.status
             })
         
         return JsonResponse({'has_call': False})
         
     except Exception as e:
         return JsonResponse({'has_call': False, 'error': str(e)})
+
+
+@login_required
+@csrf_exempt
+def debug_calls(request):
+    """
+    Debug endpoint to see all calls in the database
+    """
+    try:
+        from .models import Call
+        from django.utils import timezone
+        
+        all_calls = Call.objects.all().order_by('-started_at')[:20]  # Last 20 calls
+        
+        call_data = []
+        for call in all_calls:
+            age_minutes = (timezone.now() - call.started_at).total_seconds() / 60
+            call_data.append({
+                'id': call.id,
+                'status': call.status,
+                'call_type': call.call_type,
+                'caller': call.caller.username,
+                'room_id': call.chat_room.id,
+                'age_minutes': round(age_minutes, 2),
+                'started_at': call.started_at.isoformat()
+            })
+        
+        active_calls = [call for call in call_data if call['status'] in ['initiated', 'ringing', 'connected']]
+        
+        return JsonResponse({
+            'success': True,
+            'all_calls': call_data,
+            'active_calls': active_calls,
+            'active_call_count': len(active_calls)
+        })
+        
+    except Exception as e:
+        import traceback
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        })
+
+
+@login_required
+@csrf_exempt
+def cleanup_all_calls(request):
+    """
+    Emergency cleanup of all stale calls - for debugging
+    """
+    if request.method == 'POST':
+        try:
+            from .models import Call
+            from django.utils import timezone
+            from datetime import timedelta
+            
+            # Get information about all active calls first
+            all_active_calls = Call.objects.filter(
+                status__in=['initiated', 'ringing', 'connected']
+            )
+            
+            call_info = []
+            for call in all_active_calls:
+                age_minutes = (timezone.now() - call.started_at).total_seconds() / 60
+                call_info.append({
+                    'id': call.id,
+                    'status': call.status,
+                    'caller': call.caller.username,
+                    'room_id': call.chat_room.id,
+                    'age_minutes': round(age_minutes, 2),
+                    'started_at': call.started_at.isoformat()
+                })
+            
+            # Clean up all calls older than 30 seconds (very aggressive)
+            stale_calls = Call.objects.filter(
+                status__in=['initiated', 'ringing', 'connected'],
+                started_at__lt=timezone.now() - timedelta(seconds=30)
+            )
+            
+            count = stale_calls.count()
+            stale_calls.update(status='ended')
+            
+            # Also clean up calls from the same user trying to call again
+            if hasattr(request, 'user') and request.user.is_authenticated:
+                user_calls = Call.objects.filter(
+                    caller=request.user,
+                    status__in=['initiated', 'ringing', 'connected']
+                )
+                user_call_count = user_calls.count()
+                user_calls.update(status='ended')
+                count += user_call_count
+            
+            return JsonResponse({
+                'success': True,
+                'cleaned_up_count': count,
+                'all_active_calls_before': call_info,
+                'message': f'Cleaned up {count} stale calls (30+ seconds old)'
+            })
+            
+        except Exception as e:
+            import traceback
+            return JsonResponse({
+                'success': False, 
+                'error': str(e),
+                'traceback': traceback.format_exc()
+            })
+    
+    return JsonResponse({'success': False, 'error': 'Only POST method allowed'})
 
 
 @login_required
@@ -786,8 +991,18 @@ def accept_call(request):
                     return JsonResponse({'success': False, 'error': 'No permission'})
                 
                 # Check if call is still active
-                if call.status not in ['initiated', 'ringing']:
-                    return JsonResponse({'success': False, 'error': 'Call is no longer active'})
+                if call.status == 'connected':
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Call is already connected',
+                        'already_connected': True
+                    })
+                elif call.status not in ['initiated', 'ringing']:
+                    return JsonResponse({
+                        'success': False, 
+                        'error': 'Call is no longer active',
+                        'current_status': call.status
+                    })
                 
                 # Mark the call as connected
                 call.status = 'connected'
@@ -975,14 +1190,31 @@ def initiate_call(request, room_id):
         ).first()
         
         if active_call:
-            # Force cleanup if call is too old (older than 5 minutes for auto-answer compatibility)
-            if active_call.started_at < timezone.now() - timedelta(minutes=5):
+            # Force cleanup if call is too old (older than 2 minutes for better UX)
+            if active_call.started_at < timezone.now() - timedelta(minutes=2):
                 active_call.status = 'missed'
                 active_call.save()
                 print(f"DEBUG: Force cleaned up old call {active_call.id}")
             else:
-                print(f"DEBUG: Active call found: {active_call.id}, started: {active_call.started_at}, caller: {active_call.caller}")
-                return JsonResponse({'success': False, 'error': 'Es läuft bereits ein Anruf in diesem Chat'})
+                # Check if this is a really stuck call (same caller trying to call again)
+                if active_call.caller == request.user:
+                    print(f"DEBUG: Same user trying to initiate another call - cleaning up previous call {active_call.id}")
+                    active_call.status = 'ended'
+                    active_call.save()
+                else:
+                    # Provide detailed information about the blocking call
+                    age_minutes = (timezone.now() - active_call.started_at).total_seconds() / 60
+                    print(f"DEBUG: Active call found: {active_call.id}, started: {active_call.started_at}, caller: {active_call.caller}, age: {age_minutes:.1f}min, status: {active_call.status}")
+                    
+                    return JsonResponse({
+                        'success': False, 
+                        'error': f'Es läuft bereits ein Anruf in diesem Chat (ID: {active_call.id}, Status: {active_call.status}, Alter: {age_minutes:.1f} Min)',
+                        'active_call_id': active_call.id,
+                        'active_call_caller': active_call.caller.username,
+                        'active_call_started': active_call.started_at.isoformat(),
+                        'active_call_status': active_call.status,
+                        'active_call_age_minutes': round(age_minutes, 2)
+                    })
         
         # Create new call
         call = Call.objects.create(
@@ -1227,6 +1459,9 @@ def get_agora_token(request):
     Generate Agora token for video/audio calls
     """
     try:
+        import time
+        from django.conf import settings
+        
         data = json.loads(request.body)
         channel = data.get('channel')
         uid = data.get('uid', 0)
@@ -1237,10 +1472,11 @@ def get_agora_token(request):
                 'error': 'Channel name required'
             })
         
-        # Generate token
+        # Generate real Agora token
         result = generate_agora_token(channel, uid)
         
         if result['success']:
+            print(f"Generated Agora token for channel: {channel}, uid: {result['uid']}")
             return JsonResponse({
                 'success': True,
                 'token': result['token'],
@@ -1248,6 +1484,7 @@ def get_agora_token(request):
                 'expire_time': result['expire_time']
             })
         else:
+            print(f"Token generation failed: {result['error']}")
             return JsonResponse({
                 'success': False,
                 'error': result['error']

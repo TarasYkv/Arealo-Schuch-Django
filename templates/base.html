@@ -21,8 +21,189 @@
     <link rel="stylesheet" href="{% static 'css/style.css' %}?v={% now 'U' %}&call-update=1">
     <link rel="stylesheet" href="{% static 'css/naturmacher.css' %}">
     <link rel="stylesheet" href="{% static 'css/bug-button.css' %}">
+    
+    <!-- Dark Mode CSS -->
+    {% if user.is_authenticated and user.dark_mode %}
+    <style>
+        /* Dark Mode Styles */
+        .bg-light { background-color: #212529 !important; }
+        .bg-white { background-color: #343a40 !important; }
+        .text-dark { color: #ffffff !important; }
+        .text-muted { color: #adb5bd !important; }
+        
+        .card { 
+            background-color: #343a40; 
+            border-color: #495057; 
+            color: #ffffff;
+        }
+        .card-header { 
+            background-color: #495057; 
+            border-color: #6c757d; 
+        }
+        
+        .navbar-light { background-color: #495057 !important; }
+        .navbar-light .navbar-nav .nav-link { color: #ffffff !important; }
+        .navbar-light .navbar-brand { color: #ffffff !important; }
+        .navbar-light .navbar-toggler { border-color: #6c757d; }
+        
+        .form-control { 
+            background-color: #495057; 
+            border-color: #6c757d; 
+            color: #ffffff;
+        }
+        .form-control:focus {
+            background-color: #495057;
+            border-color: #0d6efd;
+            color: #ffffff;
+        }
+        
+        .btn-outline-primary { 
+            color: #0d6efd; 
+            border-color: #0d6efd; 
+        }
+        .btn-outline-primary:hover {
+            background-color: #0d6efd;
+            color: #ffffff;
+        }
+        .btn-outline-secondary {
+            color: #6c757d;
+            border-color: #6c757d;
+        }
+        .btn-outline-secondary:hover {
+            background-color: #6c757d;
+            color: #ffffff;
+        }
+        
+        .dropdown-menu {
+            background-color: #495057;
+            border-color: #6c757d;
+        }
+        .dropdown-item {
+            color: #ffffff;
+        }
+        .dropdown-item:hover {
+            background-color: #6c757d;
+            color: #ffffff;
+        }
+        
+        .alert-info {
+            background-color: #0f3460;
+            border-color: #084298;
+            color: #b6d4fe;
+        }
+        .alert-success {
+            background-color: #0f5132;
+            border-color: #0a3622;
+            color: #a3cfbb;
+        }
+        .alert-warning {
+            background-color: #664d03;
+            border-color: #664d03;
+            color: #ffecb5;
+        }
+        .alert-danger {
+            background-color: #58151c;
+            border-color: #842029;
+            color: #f8a8b8;
+        }
+        
+        .table {
+            color: #ffffff;
+        }
+        .table-striped > tbody > tr:nth-of-type(odd) > td {
+            background-color: #495057;
+        }
+        
+        /* Zusätzliche Container und Layout Styles */
+        .shadow-sm {
+            box-shadow: 0 .125rem .25rem rgba(255,255,255,.075) !important;
+        }
+        .shadow {
+            box-shadow: 0 .5rem 1rem rgba(255,255,255,.15) !important;
+        }
+        
+        /* Content containers */
+        .container, .container-fluid {
+            color: #ffffff;
+        }
+        
+        /* List groups */
+        .list-group-item {
+            background-color: #495057;
+            border-color: #6c757d;
+            color: #ffffff;
+        }
+        .list-group-item:hover {
+            background-color: #6c757d;
+        }
+        
+        /* Badges */
+        .badge.bg-secondary {
+            background-color: #6c757d !important;
+        }
+        .badge.bg-light {
+            background-color: #495057 !important;
+            color: #ffffff !important;
+        }
+        
+        /* Modals */
+        .modal-content {
+            background-color: #343a40;
+            color: #ffffff;
+        }
+        .modal-header {
+            border-bottom-color: #495057;
+        }
+        .modal-footer {
+            border-top-color: #495057;
+        }
+        
+        /* Input groups */
+        .input-group-text {
+            background-color: #495057;
+            border-color: #6c757d;
+            color: #ffffff;
+        }
+        
+        /* Links */
+        a:not(.btn):not(.dropdown-item):not(.nav-link) {
+            color: #6ea8fe;
+        }
+        a:not(.btn):not(.dropdown-item):not(.nav-link):hover {
+            color: #9ec5fe;
+        }
+        
+        /* Tabs */
+        .nav-tabs .nav-link {
+            background-color: #495057;
+            border-color: #6c757d;
+            color: #ffffff;
+        }
+        .nav-tabs .nav-link.active {
+            background-color: #343a40;
+            border-color: #6c757d #6c757d #343a40;
+            color: #ffffff;
+        }
+        
+        /* Pagination */
+        .page-link {
+            background-color: #495057;
+            border-color: #6c757d;
+            color: #6ea8fe;
+        }
+        .page-link:hover {
+            background-color: #6c757d;
+            border-color: #868e96;
+            color: #9ec5fe;
+        }
+        .page-item.active .page-link {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+        }
+    </style>
+    {% endif %}
 </head>
-<body class="bg-light">
+<body class="{% if user.is_authenticated and user.dark_mode %}bg-dark text-light{% else %}bg-light{% endif %}">
 
     <!-- Editable Header Section -->
     {% load editable_content %}
@@ -72,12 +253,16 @@
                 <div class="navbar-nav ms-auto">
                     <!-- Schuch Dropdown Menu -->
                     {% comment %} Schuch Dropdown - nur anzeigen wenn mindestens eine App sichtbar ist {% endcomment %}
-                    {% if user|can_see_app_in_frontend:"wirtschaftlichkeitsrechner" or user|can_see_app_in_frontend:"sportplatz_konfigurator" or user|can_see_app_in_frontend:"pdf_suche" or user|can_see_app_in_frontend:"ki_zusammenfassung" %}
+                    {% if user.is_authenticated %}
                     <div class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="schuchDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             Schuch
                         </a>
                         <ul class="dropdown-menu" aria-labelledby="schuchDropdown">
+                            <li><a class="dropdown-item" href="{% url 'chat:schuch_dashboard' %}">
+                                <i class="bi bi-speedometer2"></i> Schuch Dashboard
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
                             {% if user|can_see_app_in_frontend:"wirtschaftlichkeitsrechner" %}
                             <li><a class="dropdown-item" href="{% url 'amortization_calculator:rechner_start' %}">
                                 <i class="bi bi-calculator"></i> Wirtschaftlichkeitsrechner
@@ -164,12 +349,6 @@
                                 </a></li>
                                 <li><a class="dropdown-item" href="{% url 'accounts:company_info' %}">
                                     <i class="bi bi-building"></i> Firmeninfo
-                                </a></li>
-                                <li><a class="dropdown-item" href="{% url 'accounts:category_list' %}">
-                                    <i class="bi bi-tags"></i> Meine Kategorien
-                                </a></li>
-                                <li><a class="dropdown-item" href="{% url 'accounts:category_create' %}">
-                                    <i class="bi bi-plus-circle"></i> Neue Kategorie
                                 </a></li>
                                 {% if user|can_see_app_in_frontend:"editor" %}
                                 <li><a class="dropdown-item" href="{% url 'accounts:content_editor' %}">
@@ -1352,15 +1531,17 @@
             return elements;
         };
         
-        // Chat system temporarily disabled
+        // Chat system - re-enabled for call notifications
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', function() {
                 // connectGlobalNotifications(); // Disabled - using HTTP polling only
-                // startGlobalCallPolling(); // Temporarily disabled
+                startGlobalCallPolling(); // Re-enabled for call notifications
+                startGlobalOnlineStatusUpdate(); // Global online status updates
             });
         } else {
             // connectGlobalNotifications(); // Disabled - using HTTP polling only
-            // startGlobalCallPolling(); // Temporarily disabled
+            startGlobalCallPolling(); // Re-enabled for call notifications
+            startGlobalOnlineStatusUpdate(); // Global online status updates
         }
         
         // Global call variables
@@ -1776,6 +1957,8 @@
         let globalPollingInterval = null;
         let globalLastCheckedMessageId = null;
         let globalRingtoneInterval = null;
+        let globalRingtoneTimeout = null;
+        let globalRingtoneAudio = null;
         let globalAudioContext = null;
         let globalIsRingtoneMuted = false;
         
@@ -1789,9 +1972,14 @@
             
             console.log('🔄 Starting global call polling...');
             
-            // Poll every 3 seconds for incoming calls (reduced frequency)
+            // Poll every 4 seconds for incoming calls (reduced frequency to avoid conflicts)
             globalPollingInterval = setInterval(async () => {
                 try {
+                    // Skip polling if already in a call or call overlay is shown
+                    if (globalIsCallActive || globalIncomingCallData) {
+                        return;
+                    }
+                    
                     // Check for calls across all user's chat rooms
                     const response = await fetch('/chat/check-incoming-calls/', {
                         method: 'GET',
@@ -1802,8 +1990,10 @@
                     
                     const data = await response.json();
                     
-                    if (data.has_call && data.message_id !== globalLastCheckedMessageId) {
-                        globalLastCheckedMessageId = data.message_id;
+                    console.log('🔍 Polling result:', data); // Debug log
+                    
+                    if (data.has_call && data.call_id !== globalLastCheckedMessageId) {
+                        globalLastCheckedMessageId = data.call_id;
                         console.log('📞 Global incoming call detected:', data);
                         
                         // Show global incoming call overlay
@@ -1813,13 +2003,13 @@
                             call_type: data.call_type,
                             channel_name: data.channel_name,
                             room_id: data.room_id,
-                            call_id: data.message_id
+                            call_id: data.call_id
                         });
                     }
                 } catch (error) {
                     console.error('Error checking for global incoming calls:', error);
                 }
-            }, 3000); // Reduced from 2000 to 3000ms
+            }, 2000); // Reduced to 2000ms for faster call detection
             {% endif %}
         }
         
@@ -1834,6 +2024,9 @@
         // Show global incoming call overlay
         function showGlobalIncomingCall(callData) {
             globalIncomingCallData = callData;
+            
+            // Store call data in sessionStorage so acceptIncomingCall can access it
+            sessionStorage.setItem('currentIncomingCall', JSON.stringify(callData));
             
             // Stop polling while call overlay is shown
             stopGlobalCallPolling();
@@ -1939,6 +2132,9 @@
             
             // Remove blur and restore scroll
             document.body.style.overflow = '';
+            
+            // Clear stored call data
+            sessionStorage.removeItem('currentIncomingCall');
             const mainContent = document.querySelector('main');
             if (mainContent) {
                 mainContent.style.filter = '';
@@ -1947,10 +2143,10 @@
             // Stop ringtone
             stopGlobalRingtone();
             
-            // Restart polling after hiding call (temporarily disabled)
+            // Restart polling after hiding call
             setTimeout(() => {
                 if (!globalIsCallActive) {
-                    // startGlobalCallPolling(); // Temporarily disabled
+                    startGlobalCallPolling(); // Re-enabled
                 }
             }, 1000);
             
@@ -1960,15 +2156,93 @@
         // Global ringtone functions
         function playGlobalRingtone() {
             if (globalIsRingtoneMuted) {
-                console.log('Global ringtone is muted');
+                console.log('🔇 Global ringtone is muted');
                 return;
             }
             
             try {
-                generateGlobalPleasantRingtone();
+                // Try HTML5 audio first (more reliable)
+                playHTML5Ringtone();
             } catch (error) {
-                console.log('Could not play global ringtone:', error);
-                createGlobalBeepSound();
+                console.log('❌ HTML5 audio failed, trying AudioContext:', error);
+                try {
+                    generateGlobalPleasantRingtone();
+                } catch (error2) {
+                    console.log('❌ AudioContext failed:', error2);
+                    // Fallback to system notification
+                    console.log('🔔 Call ringing (audio unavailable)');
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        new Notification('Eingehender Anruf', {
+                            icon: '/static/icons/phone.png',
+                            requireInteraction: true
+                        });
+                    }
+                }
+            }
+        }
+        
+        function playHTML5Ringtone() {
+            // Stop any existing ringtone
+            stopGlobalRingtone();
+            
+            try {
+                // Create a simple ringtone using Web Audio API in a compatible way
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Resume audio context if needed (required after user interaction)
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume().catch(e => {
+                        console.log('Could not resume audio context:', e);
+                        throw e;
+                    });
+                }
+                
+                const playTone = (frequency, duration) => {
+                    return new Promise(resolve => {
+                        const oscillator = audioContext.createOscillator();
+                        const gainNode = audioContext.createGain();
+                        
+                        oscillator.connect(gainNode);
+                        gainNode.connect(audioContext.destination);
+                        
+                        oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+                        oscillator.type = 'sine';
+                        
+                        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                        gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
+                        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration - 0.01);
+                        
+                        oscillator.start(audioContext.currentTime);
+                        oscillator.stop(audioContext.currentTime + duration);
+                        
+                        setTimeout(resolve, duration * 1000);
+                    });
+                };
+                
+                // Play ringtone pattern
+                const playRingtonePattern = async () => {
+                    try {
+                        await playTone(800, 0.4); // First tone
+                        await new Promise(resolve => setTimeout(resolve, 100)); // Small pause
+                        await playTone(1000, 0.4); // Second tone
+                        await new Promise(resolve => setTimeout(resolve, 200)); // Pause
+                        
+                        // Schedule next pattern if call is still active
+                        if (globalIncomingCallData && !globalIsRingtoneMuted) {
+                            globalRingtoneTimeout = setTimeout(playRingtonePattern, 2000);
+                        }
+                    } catch (error) {
+                        console.log('Error in ringtone pattern:', error);
+                    }
+                };
+                
+                // Start the ringtone pattern
+                playRingtonePattern();
+                console.log('🔊 HTML5 ringtone started');
+                
+            } catch (error) {
+                console.log('HTML5 ringtone initialization failed:', error);
+                throw error;
             }
         }
         
@@ -2040,11 +2314,25 @@
         }
         
         function stopGlobalRingtone() {
+            // Stop interval-based ringtone
             if (globalRingtoneInterval) {
                 clearInterval(globalRingtoneInterval);
                 globalRingtoneInterval = null;
             }
-            console.log('Global ringtone stopped');
+            
+            // Stop timeout-based ringtone
+            if (globalRingtoneTimeout) {
+                clearTimeout(globalRingtoneTimeout);
+                globalRingtoneTimeout = null;
+            }
+            
+            // Stop HTML5 audio if playing
+            if (globalRingtoneAudio && !globalRingtoneAudio.paused) {
+                globalRingtoneAudio.pause();
+                globalRingtoneAudio.currentTime = 0;
+            }
+            
+            console.log('🔇 Global ringtone stopped');
         }
         
         function createGlobalBeepSound() {
@@ -2122,7 +2410,27 @@
                     throw new Error('Ungültige Anrufdaten: room_id oder call_id fehlt');
                 }
                 
-                // Clear call notification on server first
+                // Accept the call in the backend first (this updates the call status)
+                const acceptResponse = await fetch('/chat/accept-call/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({
+                        call_id: callData.call_id
+                    })
+                });
+                
+                const acceptData = await acceptResponse.json();
+                if (!acceptData.success) {
+                    console.error('Failed to accept call in backend:', acceptData.error);
+                    throw new Error(acceptData.error || 'Failed to accept call');
+                }
+                
+                console.log('✅ Call accepted in backend successfully');
+                
+                // Clear call notification on server
                 const clearResponse = await fetch('/chat/clear-call-notification/', {
                     method: 'POST',
                     headers: {
@@ -2159,14 +2467,9 @@
                 if (isOnChatPage && isCorrectRoom) {
                     // Already on the correct chat page - call acceptIncomingCall directly
                     console.log('✅ Already on chat page for correct room - accepting call directly');
-                    if (typeof incomingCallData === 'undefined') {
-                        window.incomingCallData = callData;
-                    } else {
-                        incomingCallData = callData;
-                    }
-                    // Call the chat page's accept function if it exists
+                    // Pass call data directly to acceptIncomingCall function
                     if (typeof acceptIncomingCall === 'function') {
-                        acceptIncomingCall();
+                        acceptIncomingCall(callData);
                     } else {
                         console.warn('acceptIncomingCall function not available');
                     }
@@ -2225,6 +2528,74 @@
             
             hideGlobalIncomingCall();
         }
+
+        // Global online status update system
+        let globalOnlineStatusInterval = null;
+        
+        function startGlobalOnlineStatusUpdate() {
+            // Only start if user is authenticated
+            {% if user.is_authenticated %}
+            if (globalOnlineStatusInterval) {
+                clearInterval(globalOnlineStatusInterval);
+            }
+            
+            console.log('🟢 Starting global online status updates...');
+            
+            // Update user online status immediately
+            updateUserOnlineStatus();
+            
+            // Set up periodic updates every 2 minutes
+            globalOnlineStatusInterval = setInterval(async () => {
+                try {
+                    // Skip updates during active calls to avoid interference
+                    if (!globalIsCallActive) {
+                        await updateUserOnlineStatus();
+                    }
+                } catch (error) {
+                    console.error('Error in global online status update:', error);
+                }
+            }, 120000); // Every 2 minutes
+            {% endif %}
+        }
+        
+        async function updateUserOnlineStatus() {
+            try {
+                const response = await fetch('/chat/update-online-status/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    console.log('✅ Online status updated globally');
+                } else {
+                    console.error('❌ Failed to update online status:', data.error);
+                }
+            } catch (error) {
+                console.error('❌ Error updating online status:', error);
+            }
+        }
+        
+        // Update online status when user becomes visible/hidden
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                // User came back to the page - update online status
+                updateUserOnlineStatus();
+            }
+        });
+        
+        // Set user offline when leaving the page
+        window.addEventListener('beforeunload', function() {
+            // Use navigator.sendBeacon for reliable offline status update
+            if (navigator.sendBeacon) {
+                const formData = new FormData();
+                formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+                navigator.sendBeacon('/chat/set-offline/', formData);
+            }
+        });
     </script>
     {% endif %}
 
