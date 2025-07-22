@@ -957,7 +957,8 @@ class ShopifyAPIClient:
                 if seo_messages:
                     final_message += ". " + "; ".join(seo_messages)
                 
-                return seo_success, updated_article, final_message
+                # Rückgabe: True wenn Blog-Post Update erfolgreich war (unabhängig von SEO-Metafields)
+                return True, updated_article, final_message
             else:
                 error_data = response.json() if response.headers.get('content-type', '').startswith('application/json') else response.text
                 return False, None, f"Blog-Post Update fehlgeschlagen - HTTP {response.status_code}: {error_data}"
@@ -2385,26 +2386,33 @@ class ShopifyBlogSync:
         featured_image_alt = ""
         image_data = article_data.get('image')
         if image_data:
-            featured_image_url = image_data.get('url', '') or image_data.get('src', '')
+            # Debug: Zeige verfügbare Image-Felder
+            print(f"Blog-Post {shopify_id} - Image data keys: {list(image_data.keys()) if isinstance(image_data, dict) else 'Not a dict'}")
+            featured_image_url = image_data.get('src', '') or image_data.get('url', '')
             featured_image_alt = image_data.get('alt', '')
+            print(f"Blog-Post {shopify_id} - Featured image URL: {featured_image_url[:100] if featured_image_url else 'None'}")
         
         # Parse published_at
         published_at = None
         if article_data.get('published_at'):
             published_at = self._parse_shopify_datetime(article_data['published_at'])
         
-        # Debug: Status von Shopify ausgeben
-        shopify_status = article_data.get('status', 'draft')
-        print(f"Blog-Post {shopify_id} Status von Shopify: '{shopify_status}', Published: {article_data.get('published_at')}")
+        # Shopify Blog API liefert kein 'status' Feld, sondern nur 'published_at'
+        # Bestimme Status anhand des published_at Datums
+        from django.utils import timezone
         
-        # Smart Status Detection: Wenn ein Post ein published_at Datum hat und es in der Vergangenheit liegt,
-        # behandle ihn als veröffentlicht, auch wenn Shopify ihn als "draft" markiert
-        final_status = shopify_status
-        if shopify_status == 'draft' and published_at:
-            from django.utils import timezone
+        if published_at:
+            # Wenn published_at vorhanden und in der Vergangenheit = published
             if published_at <= timezone.now():
                 final_status = 'published'
-                print(f"Blog-Post {shopify_id} Status korrigiert: 'draft' -> 'published' (aufgrund published_at)")
+            else:
+                # Zukünftiges Veröffentlichungsdatum = draft
+                final_status = 'draft'
+        else:
+            # Kein published_at = draft
+            final_status = 'draft'
+        
+        print(f"Blog-Post {shopify_id} Status bestimmt: '{final_status}' (published_at: {published_at})")
         
         defaults = {
             'title': article_data.get('title', '')[:255],

@@ -328,7 +328,18 @@
             </div>
             
             {% if post.featured_image_url %}
-            <img src="{{ post.featured_image_url }}" class="card-img-top" style="height: 200px; object-fit: cover;" alt="{{ post.title }}">
+            <img src="{{ post.featured_image_url }}" 
+                 class="card-img-top blog-post-image" 
+                 style="height: 200px; object-fit: cover;" 
+                 alt="{{ post.title }}"
+                 data-post-id="{{ post.id }}"
+                 data-image-url="{{ post.featured_image_url }}"
+                 onerror="console.error('Failed to load blog image for post', this.dataset.postId, ':', this.src); this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                 loading="lazy">
+            <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px; display: none;">
+                <i class="fas fa-image-slash text-muted fa-3x"></i>
+                <small class="text-muted d-block mt-2">Bild konnte nicht geladen werden</small>
+            </div>
             {% else %}
             <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
                 <i class="fas fa-blog text-muted fa-3x"></i>
@@ -607,6 +618,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 statusDetails.style.display = 'none';
             });
         }
+    });
+});
+
+// Debug: Check blog post images on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const blogImages = document.querySelectorAll('.blog-post-image');
+    console.log(`Found ${blogImages.length} blog post images`);
+    
+    blogImages.forEach((img, index) => {
+        console.log(`Image ${index + 1}:`, {
+            src: img.src,
+            dataUrl: img.dataset.imageUrl,
+            postId: img.dataset.postId,
+            displayed: img.style.display !== 'none'
+        });
     });
 });
 </script>
