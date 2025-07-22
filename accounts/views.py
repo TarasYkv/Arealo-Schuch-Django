@@ -82,6 +82,24 @@ def dashboard(request):
 
 
 @login_required
+def toggle_dark_mode(request):
+    """Universelle View für Dark Mode Toggle von überall."""
+    if request.method == 'POST':
+        dark_mode = request.POST.get('dark_mode') == 'on'
+        request.user.dark_mode = dark_mode
+        request.user.save()
+        
+        if dark_mode:
+            messages.success(request, 'Dunkles Design wurde aktiviert.')
+        else:
+            messages.info(request, 'Helles Design wurde aktiviert.')
+    
+    # Redirect zurück zur vorherigen Seite oder Dashboard
+    next_url = request.POST.get('next') or request.GET.get('next') or 'accounts:dashboard'
+    return redirect(next_url)
+
+
+@login_required
 def manage_api_keys(request):
     if request.method == 'POST':
         form = ApiKeyForm(request.POST, instance=request.user)

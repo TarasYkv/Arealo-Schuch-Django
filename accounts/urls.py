@@ -8,6 +8,7 @@ urlpatterns = [
     path('signup/', views.SignUpView.as_view(), name='signup'),
     path('logout/', views.logout_view, name='logout'),
     path('dashboard/', views.dashboard, name='dashboard'),
+    path('toggle-dark-mode/', views.toggle_dark_mode, name='toggle_dark_mode'),
     path('api-keys/', views.manage_api_keys, name='manage_api_keys'),
     path('api-einstellungen/', views.api_settings_view, name='api_settings'),
     
