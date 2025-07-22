@@ -1023,19 +1023,27 @@ function showChatInfo() {
             if (data.success) {
                 console.log('✅ Chat info loaded:', data.room);
                 
-                // For direct chats (not group chats), redirect to the other user's profile
-                if (!data.room.is_group_chat && data.room.participants && data.room.participants.length > 0) {
-                    // Find the other participant (not the current user)
-                    const currentUserId = {{ user.id|default:0 }};
-                    const otherParticipant = data.room.participants.find(p => p.id !== currentUserId);
-                    
-                    if (otherParticipant) {
-                        console.log('🔗 Showing info for:', otherParticipant.first_name, otherParticipant.last_name);
-                        // Show user info in a modal since there's no separate profile page
-                        showUserInfoModal(otherParticipant);
+                // For direct chats (not group chats), show other user's profile
+                if (!data.room.is_group_chat) {
+                    // For private chats, use the pre-calculated other_user info
+                    if (data.room.other_user) {
+                        console.log('🔗 Showing info for other user:', data.room.other_user);
+                        showUserInfoModal(data.room.other_user);
+                    } else if (data.room.participants_detailed && data.room.participants_detailed.length > 0) {
+                        // Fallback: find the other participant from detailed list
+                        const currentUserId = {{ user.id|default:0 }};
+                        const otherParticipant = data.room.participants_detailed.find(p => p.id !== currentUserId);
+                        
+                        if (otherParticipant) {
+                            console.log('🔗 Showing info for participant:', otherParticipant);
+                            showUserInfoModal(otherParticipant);
+                        } else {
+                            console.warn('⚠️ Could not find other participant');
+                            alert('Informationen des anderen Teilnehmers konnten nicht gefunden werden.');
+                        }
                     } else {
-                        console.warn('⚠️ Could not find other participant');
-                        alert('Informationen des anderen Teilnehmers konnten nicht gefunden werden.');
+                        console.warn('⚠️ No participant data available');
+                        alert('Teilnehmer-Informationen sind nicht verfügbar.');
                     }
                 } else {
                     // For group chats, show a modal with group info instead
@@ -1055,6 +1063,8 @@ function showChatInfo() {
 
 function showUserInfoModal(user) {
     console.log('👤 Showing user info modal for:', user);
+    console.log('📊 User data keys:', Object.keys(user));
+    console.log('📊 User data values:', user);
     
     // Create modal HTML
     const modalHtml = `
@@ -1069,29 +1079,27 @@ function showUserInfoModal(user) {
                     </div>
                     <div class="modal-body">
                         <div class="text-center mb-3">
-                            ${user.profile_picture_url ? 
-                                `<img src="${user.profile_picture_url}" alt="Profilbild" class="rounded-circle mb-3" style="width: 80px; height: 80px; object-fit: cover;">` :
+                            ${user.profile_picture ? 
+                                `<img src="${user.profile_picture}" alt="Profilbild" class="rounded-circle mb-3" style="width: 80px; height: 80px; object-fit: cover;">` :
                                 `<div class="bg-primary rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
                                     <i class="fas fa-user fa-2x text-white"></i>
                                 </div>`
                             }
                         </div>
-                        <div class="row">
+                        <div class="row mb-2">
                             <div class="col-sm-4"><strong>Name:</strong></div>
-                            <div class="col-sm-8">${user.first_name} ${user.last_name}</div>
+                            <div class="col-sm-8">${user.name || (user.first_name + ' ' + user.last_name).trim() || user.username || 'Unbekannt'}</div>
                         </div>
-                        <hr>
-                        <div class="row">
+                        ${user.email ? `
+                        <div class="row mb-2">
                             <div class="col-sm-4"><strong>E-Mail:</strong></div>
-                            <div class="col-sm-8">${user.email || 'Nicht verfügbar'}</div>
-                        </div>
-                        <hr>
-                        <div class="row">
+                            <div class="col-sm-8">${user.email}</div>
+                        </div>` : ''}
+                        <div class="row mb-2">
                             <div class="col-sm-4"><strong>Benutzername:</strong></div>
                             <div class="col-sm-8">${user.username || 'Nicht verfügbar'}</div>
                         </div>
-                        <hr>
-                        <div class="row">
+                        <div class="row mb-2">
                             <div class="col-sm-4"><strong>Status:</strong></div>
                             <div class="col-sm-8">
                                 <span class="badge bg-${user.is_online ? 'success' : 'secondary'}">
@@ -1100,6 +1108,16 @@ function showUserInfoModal(user) {
                                 </span>
                             </div>
                         </div>
+                        ${user.last_activity ? `
+                        <div class="row mb-2">
+                            <div class="col-sm-4"><strong>Letzte Aktivität:</strong></div>
+                            <div class="col-sm-8">${user.last_activity}</div>
+                        </div>` : ''}
+                        ${user.date_joined ? `
+                        <div class="row mb-2">
+                            <div class="col-sm-4"><strong>Mitglied seit:</strong></div>
+                            <div class="col-sm-8">${user.date_joined}</div>
+                        </div>` : ''}
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
