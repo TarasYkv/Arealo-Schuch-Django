@@ -957,15 +957,40 @@ class BlogPostSEOOptimization(models.Model):
     
     def apply_to_blog_post(self):
         """Wendet die generierten SEO-Daten auf den Blog-Post an"""
+        from django.utils import timezone
+        
         if self.generated_seo_title:
             self.blog_post.seo_title = self.generated_seo_title
         if self.generated_seo_description:
             self.blog_post.seo_description = self.generated_seo_description
         
+        # Markiere für Sync
+        self.blog_post.needs_sync = True
         self.blog_post.save()
         
         self.is_applied = True
         self.save()
+        
+        # Synchronisiere zu Shopify
+        from .shopify_api import ShopifyAPIClient
+        api_client = ShopifyAPIClient(self.blog_post.blog.store)
+        
+        # Verwende update_blog_post_seo_only für SEO-only Updates
+        success, message = api_client.update_blog_post_seo_only(
+            self.blog_post.blog.shopify_id,
+            self.blog_post.shopify_id,
+            seo_title=self.blog_post.seo_title,
+            seo_description=self.blog_post.seo_description
+        )
+        
+        if success:
+            self.blog_post.needs_sync = False
+            self.blog_post.sync_error = ''
+            self.blog_post.last_synced_at = timezone.now()
+            self.blog_post.save(update_fields=['needs_sync', 'sync_error', 'last_synced_at'])
+        else:
+            self.blog_post.sync_error = f'SEO-Sync fehlgeschlagen: {message}'
+            self.blog_post.save(update_fields=['sync_error'])
 
 
 class ShippingProfile(models.Model):

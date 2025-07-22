@@ -312,7 +312,7 @@ def dashboard_view(request):
 @login_required
 @require_http_methods(["POST"])
 def import_products_view(request):
-    """Importiert Produkte von Shopify"""
+    """Importiert Produkte von Shopify mit Fortschrittsanzeige"""
     store_id = request.POST.get('store_id')
     store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
     
@@ -342,14 +342,29 @@ def import_products_view(request):
     else:
         overwrite_existing = False
     
+    # Generiere Import-ID für Fortschritts-Tracking
+    import_id = str(uuid.uuid4())
+    
+    # Initialisiere Progress-Tracking
+    import_progress[import_id] = {
+        'status': 'running',
+        'current': 0,
+        'total': 0,
+        'message': 'Initialisiere Produkt-Import...',
+        'success_count': 0,
+        'failed_count': 0
+    }
+    
     try:
-        sync = ShopifyProductSync(store)
+        sync = ShopifyProductSyncWithProgress(store, import_id)
         log = sync.import_products(
             limit=limit,
             import_mode=import_mode,
             overwrite_existing=overwrite_existing,
             import_images=import_images
         )
+        
+        is_successful = log.status in ['success', 'partial']
         
         if log.status == 'success':
             message = f'{log.products_success} Produkte erfolgreich importiert'
@@ -360,7 +375,16 @@ def import_products_view(request):
             if overwrite_existing:
                 message += ' (alle lokalen Produkte wurden zuerst gelöscht)'
         else:
-            message = f'Import fehlgeschlagen: {log.error_message}'
+            message = f'Import fehlgeschlagen: {log.error_message or "Unbekannter Fehler"}'
+        
+        # Update final status
+        import_progress[import_id].update({
+            'status': 'completed',
+            'success': is_successful,
+            'message': message,
+            'products_imported': log.products_success,
+            'products_failed': log.products_failed,
+        })
         
         # Zusätzliche Details für Debugging
         details = {
@@ -372,7 +396,8 @@ def import_products_view(request):
         }
         
         return JsonResponse({
-            'success': log.status in ['success', 'partial'],
+            'success': is_successful,
+            'import_id': import_id,
             'message': message,
             'products_imported': log.products_success,
             'products_failed': log.products_failed,
@@ -380,8 +405,20 @@ def import_products_view(request):
         })
         
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Exception in product import: {error_details}")
+        
+        import_progress[import_id].update({
+            'status': 'error',
+            'success': False,
+            'error': f'Fehler beim Produkt-Import: {str(e)}',
+            'message': f'Import fehlgeschlagen: {str(e)}'
+        })
+        
         return JsonResponse({
             'success': False,
+            'import_id': import_id,
             'error': f'Fehler beim Import: {str(e)}'
         })
 
@@ -1837,6 +1874,28 @@ def import_blog_posts_progress_view(request, import_id):
         'progress': progress
     })
 
+
+@login_required
+def import_products_progress_view(request, import_id):
+    """Gibt den aktuellen Produkt-Import-Fortschritt zurück"""
+    if import_id not in import_progress:
+        return JsonResponse({
+            'success': False,
+            'error': 'Import-ID nicht gefunden'
+        })
+    
+    progress = import_progress[import_id]
+    
+    # Cleanup abgeschlossene Imports nach einer Weile
+    if progress['status'] in ['completed', 'error']:
+        # Optionales Cleanup nach 5 Minuten
+        pass
+    
+    return JsonResponse({
+        'success': True,
+        'progress': progress
+    })
+
 # Erweiterte ShopifyBlogSync Klasse mit Progress-Callbacks
 class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
     def __init__(self, store: ShopifyStore, import_id: str):
@@ -2323,6 +2382,151 @@ class ShopifyBlogSyncWithProgress(ShopifyBlogSync):
         return log
 
 
+class ShopifyProductSyncWithProgress(ShopifyProductSync):
+    """ShopifyProductSync mit Fortschrittsanzeige"""
+    
+    def __init__(self, store: ShopifyStore, import_id: str):
+        super().__init__(store)
+        self.import_id = import_id
+    
+    def _update_progress(self, current, total, message, success_count=0, failed_count=0):
+        """Aktualisiert den Import-Fortschritt"""
+        if self.import_id in import_progress:
+            import_progress[self.import_id].update({
+                'current': current,
+                'total': total,
+                'message': message,
+                'success_count': success_count,
+                'failed_count': failed_count
+            })
+    
+    def import_products(self, limit: int = 250, import_mode: str = 'all', 
+                       overwrite_existing: bool = True, import_images: bool = True) -> ShopifySyncLog:
+        """Importiert Produkte mit Fortschrittsanzeige"""
+        
+        log = ShopifySyncLog.objects.create(
+            store=self.store,
+            action='import',
+            status='success'
+        )
+        
+        try:
+            self._update_progress(0, 0, 'Initialisiere Produkt-Import...')
+            
+            # Bei "reset_and_import" - alle lokalen Produkte löschen
+            if overwrite_existing:
+                self._update_progress(0, 0, 'Lösche lokale Produkte...')
+                deleted_count = ShopifyProduct.objects.filter(store=self.store).delete()[0]
+                print(f"🗑️ {deleted_count} lokale Produkte gelöscht")
+                self._update_progress(0, 0, f'{deleted_count} lokale Produkte gelöscht')
+            
+            self._update_progress(0, 0, 'Hole Produkte von Shopify...')
+            
+            # Hole Produkte je nach Modus
+            if import_mode == 'new_only':
+                # Finde nur die nächsten nicht-importierten Produkte
+                success, products, message = self._fetch_next_unimported_products(limit=limit)
+            else:
+                # Standard: Hole einfach die nächsten 250 Produkte (für reset_and_import)
+                success, products, message = self.api.fetch_products(limit=limit)
+            
+            if not success:
+                log.status = 'error'
+                log.error_message = message
+                log.completed_at = timezone.now()
+                log.save()
+                self._update_progress(0, 0, f'Fehler: {message}')
+                return log
+            
+            log.products_processed = len(products)
+            success_count = 0
+            failed_count = 0
+            total = len(products)
+            
+            self._update_progress(0, total, f'Verarbeite {total} Produkte...')
+            
+            # SQLite-optimierte Verarbeitung in kleineren Batches
+            from django.db import transaction
+            batch_size = 25  # Kleinere Batches für SQLite
+            
+            for i, product_data in enumerate(products):
+                try:
+                    shopify_id = str(product_data.get('id'))
+                    product_title = product_data.get('title', 'Unbekannt')
+                    
+                    # Prüfe ob Produkt bereits existiert (für new_only Modus)
+                    existing_product = None
+                    if import_mode == 'new_only':
+                        try:
+                            existing_product = ShopifyProduct.objects.get(
+                                shopify_id=shopify_id, 
+                                store=self.store
+                            )
+                            # Produkt existiert bereits - überspringen
+                            self._update_progress(
+                                i + 1, total, 
+                                f'Überspringe existierendes Produkt ({i + 1}/{total})',
+                                success_count, failed_count
+                            )
+                            continue
+                        except ShopifyProduct.DoesNotExist:
+                            # Produkt existiert noch nicht - kann importiert werden
+                            pass
+                    
+                    self._update_progress(
+                        i + 1, total, 
+                        f'Importiere: {product_title[:30]}... ({i + 1}/{total})',
+                        success_count, failed_count
+                    )
+                    
+                    # Importiere/aktualisiere das Produkt
+                    with transaction.atomic():
+                        product, created = self._create_or_update_product(
+                            product_data, 
+                            overwrite_existing=overwrite_existing,
+                            import_images=import_images
+                        )
+                        success_count += 1
+                    
+                    # Alle 10 Produkte Fortschritt ausgeben
+                    if (i + 1) % 10 == 0:
+                        print(f"📦 Verarbeitet: {i + 1}/{total} Produkte (Success: {success_count}, Failed: {failed_count})")
+                        
+                except Exception as e:
+                    failed_count += 1
+                    import traceback
+                    error_details = traceback.format_exc()
+                    print(f"❌ Fehler beim Import von Produkt {shopify_id}: {str(e)}")
+                    print(f"Details: {error_details}")
+                    
+                    self._update_progress(
+                        i + 1, total, 
+                        f'Fehler bei Produkt {i + 1}: {str(e)[:30]}...',
+                        success_count, failed_count
+                    )
+            
+            log.products_success = success_count
+            log.products_failed = failed_count
+            log.status = 'success' if failed_count == 0 else 'partial'
+            log.completed_at = timezone.now()
+            log.save()
+            
+            final_message = f'{success_count} Produkte importiert'
+            if failed_count > 0:
+                final_message += f', {failed_count} Fehler'
+            
+            self._update_progress(total, total, final_message, success_count, failed_count)
+            
+        except Exception as e:
+            log.status = 'error'
+            log.error_message = str(e)
+            log.completed_at = timezone.now()
+            log.save()
+            self._update_progress(0, 0, f'Import-Fehler: {str(e)}')
+        
+        return log
+
+
 @login_required
 @require_http_methods(["POST"])
 def update_blog_alt_text_view(request):
@@ -2355,7 +2559,15 @@ def update_blog_alt_text_view(request):
             shopify_api = ShopifyAPIClient(store)
             
             # Erstelle die Update-Daten für Shopify (korrekte Struktur)
-            update_data = {}
+            # WICHTIG: Shopify API erfordert immer einen title - verwende den aktuellen Titel
+            update_data = {
+                'title': blog_post.title,  # Aktueller Titel MUSS enthalten sein
+                'body_html': blog_post.content or '',  # Aktueller Inhalt
+            }
+            
+            # WICHTIG: published_at beibehalten, sonst wird der Post auf draft gesetzt
+            if blog_post.published_at:
+                update_data['published_at'] = blog_post.published_at.isoformat()
             
             # Wenn eine Featured Image URL vorhanden ist, füge sie hinzu
             if blog_post.featured_image_url:
@@ -2374,10 +2586,10 @@ def update_blog_alt_text_view(request):
                 print(f"DEBUG: Updating Featured Image - Blog ID: {blog_post.blog.shopify_id}, Post ID: {blog_post.shopify_id}")
                 print(f"DEBUG: Update data: {update_data}")
                 
-                response = shopify_api.update_blog_post(blog_post.blog.shopify_id, blog_post.shopify_id, update_data)
-                print(f"DEBUG: Shopify response: {response}")
+                success, response_data, message = shopify_api.update_blog_post(blog_post.blog.shopify_id, blog_post.shopify_id, update_data)
+                print(f"DEBUG: Shopify response: success={success}, data={response_data}, message={message}")
                 
-                if response and 'article' in response:
+                if success:
                     # Erfolgreiche Synchronisation
                     blog_post.needs_sync = False
                     blog_post.sync_error = ''  # Leerer String statt None für NOT NULL Feld
@@ -2392,7 +2604,7 @@ def update_blog_alt_text_view(request):
                 else:
                     # Shopify-Update fehlgeschlagen
                     blog_post.needs_sync = True
-                    blog_post.sync_error = f'Shopify-Update fehlgeschlagen - Response: {response}'
+                    blog_post.sync_error = f'Shopify-Update fehlgeschlagen: {message}'
                     blog_post.save(update_fields=['needs_sync', 'sync_error'])
                     
                     return JsonResponse({
@@ -3594,11 +3806,13 @@ def apply_integrated_seo_view(request):
                     blog__store__user=request.user
                 )
                 
-                # Hauptfelder aktualisieren
-                if title:
-                    content_object.title = title
-                if description:
-                    content_object.content = description
+                # Hauptfelder NICHT mehr aktualisieren bei reinen SEO-Änderungen
+                # um zu verhindern, dass Titel/Inhalt überschrieben werden
+                # Die SEO-Optimierung soll nur SEO-Metadaten ändern
+                # if title and title.strip():
+                #     content_object.title = title.strip()
+                # if description and description.strip():
+                #     content_object.content = description.strip()
                 
                 # SEO-Felder aktualisieren
                 if seo_title:
@@ -3611,8 +3825,8 @@ def apply_integrated_seo_view(request):
                 content_object.save()
                 
                 updated_fields = []
-                if title: updated_fields.append("Titel")
-                if description: updated_fields.append("Inhalt")
+                # if title and title.strip(): updated_fields.append("Titel")
+                # if description and description.strip(): updated_fields.append("Inhalt")
                 if seo_title: updated_fields.append("SEO-Titel")
                 if seo_description: updated_fields.append("SEO-Beschreibung")
                 
@@ -3622,15 +3836,47 @@ def apply_integrated_seo_view(request):
                     
                     api_client = ShopifyAPIClient(content_object.blog.store)
                     
-                    # Keine zusätzliche Datenaufbereitung nötig - nur SEO-Metadaten werden übertragen
+                    # Da Hauptfelder nicht mehr aktualisiert werden, verwende immer SEO-Only Sync
+                    main_fields_updated = False  # Fixiert auf False da nur SEO-Updates erfolgen
                     
-                    # Synchronisiere nur SEO-Metadaten zu Shopify (ohne Inhalt, Autor, Datum zu überschreiben)
-                    success, sync_message = api_client.update_blog_post_seo_only(
-                        content_object.blog.shopify_id, 
-                        content_object.shopify_id, 
-                        seo_title=content_object.seo_title,
-                        seo_description=content_object.seo_description
-                    )
+                    if main_fields_updated:
+                        # Wenn Hauptfelder geändert wurden, vollständige Synchronisation
+                        blog_post_data = {
+                            'title': content_object.title or 'Untitled',  # Fallback für leeren Titel
+                            'body_html': content_object.content or '',
+                            'summary': content_object.summary or '',
+                            'author': content_object.author or '',
+                            'tags': content_object.tags or '',
+                        }
+                        
+                        # WICHTIG: published_at beibehalten, sonst wird der Post auf draft gesetzt
+                        if content_object.published_at:
+                            blog_post_data['published_at'] = content_object.published_at.isoformat()
+                        
+                        success, updated_article, sync_message = api_client.update_blog_post(
+                            content_object.blog.shopify_id, 
+                            content_object.shopify_id, 
+                            blog_post_data
+                        )
+                        
+                        # Zusätzlich SEO-Metadaten aktualisieren falls vorhanden
+                        if success and (seo_title or seo_description):
+                            seo_success, seo_message = api_client.update_blog_post_seo_only(
+                                content_object.blog.shopify_id, 
+                                content_object.shopify_id, 
+                                seo_title=content_object.seo_title,
+                                seo_description=content_object.seo_description
+                            )
+                            if not seo_success:
+                                sync_message += f"; SEO-Update: {seo_message}"
+                    else:
+                        # Nur SEO-Metadaten synchronisieren
+                        success, sync_message = api_client.update_blog_post_seo_only(
+                            content_object.blog.shopify_id, 
+                            content_object.shopify_id, 
+                            seo_title=content_object.seo_title,
+                            seo_description=content_object.seo_description
+                        )
                     
                     if success:
                         # Aktualisiere lokale Daten
@@ -3870,12 +4116,31 @@ def apply_seo_view(request):
         data = json.loads(request.body)
         content_type = data.get('content_type')
         content_id = data.get('content_id')
-        # title und description werden nicht mehr verwendet, um zu verhindern
-        # dass die Produktbeschreibung überschrieben wird
-        # title = data.get('title', '').strip()
-        # description = data.get('description', '').strip()
+        # title und description werden für blog_post verwendet, aber nicht für products
+        title = data.get('title', '').strip()
+        description = data.get('description', '').strip()
         seo_title = data.get('seo_title', '').strip()
         seo_description = data.get('seo_description', '').strip()
+        
+        # DEBUG: Protokolliere was empfangen wird
+        debug_info = None
+        if content_type == 'blog_post':
+            debug_info = {
+                'content_id': content_id,
+                'title_len': len(title),
+                'description_len': len(description),
+                'seo_title_len': len(seo_title),
+                'seo_description_len': len(seo_description),
+                'title_value': title[:50] + '...' if len(title) > 50 else title,
+                'description_value': description[:50] + '...' if len(description) > 50 else description
+            }
+            print(f"\n=== BLOG SEO DEBUG ===")
+            print(f"Content ID: {content_id}")
+            print(f"Title: '{title}' (len: {len(title)})")
+            print(f"Description: '{description}' (len: {len(description)})")
+            print(f"SEO Title: '{seo_title}' (len: {len(seo_title)})")
+            print(f"SEO Description: '{seo_description}' (len: {len(seo_description)})")
+            print(f"======================\n")
         
         # Validierung
         if not content_type or not content_id:
@@ -3982,11 +4247,13 @@ def apply_seo_view(request):
                     blog__store__user=request.user
                 )
                 
-                # Hauptfelder aktualisieren
-                if title:
-                    content_object.title = title
-                if description:
-                    content_object.content = description
+                # Hauptfelder NICHT mehr aktualisieren bei reinen SEO-Änderungen
+                # um zu verhindern, dass Titel/Inhalt überschrieben werden
+                # Die SEO-Optimierung soll nur SEO-Metadaten ändern
+                # if title and title.strip():
+                #     content_object.title = title.strip()
+                # if description and description.strip():
+                #     content_object.content = description.strip()
                 
                 # SEO-Felder aktualisieren
                 if seo_title:
@@ -3999,8 +4266,8 @@ def apply_seo_view(request):
                 content_object.save()
                 
                 updated_fields = []
-                if title: updated_fields.append("Titel")
-                if description: updated_fields.append("Inhalt")
+                # if title and title.strip(): updated_fields.append("Titel")
+                # if description and description.strip(): updated_fields.append("Inhalt")
                 if seo_title: updated_fields.append("SEO-Titel")
                 if seo_description: updated_fields.append("SEO-Beschreibung")
                 
@@ -4010,15 +4277,47 @@ def apply_seo_view(request):
                     
                     api_client = ShopifyAPIClient(content_object.blog.store)
                     
-                    # Keine zusätzliche Datenaufbereitung nötig - nur SEO-Metadaten werden übertragen
+                    # Da Hauptfelder nicht mehr aktualisiert werden, verwende immer SEO-Only Sync
+                    main_fields_updated = False  # Fixiert auf False da nur SEO-Updates erfolgen
                     
-                    # Synchronisiere nur SEO-Metadaten zu Shopify (ohne Inhalt, Autor, Datum zu überschreiben)
-                    success, sync_message = api_client.update_blog_post_seo_only(
-                        content_object.blog.shopify_id, 
-                        content_object.shopify_id, 
-                        seo_title=content_object.seo_title,
-                        seo_description=content_object.seo_description
-                    )
+                    if main_fields_updated:
+                        # Wenn Hauptfelder geändert wurden, vollständige Synchronisation
+                        blog_post_data = {
+                            'title': content_object.title or 'Untitled',  # Fallback für leeren Titel
+                            'body_html': content_object.content or '',
+                            'summary': content_object.summary or '',
+                            'author': content_object.author or '',
+                            'tags': content_object.tags or '',
+                        }
+                        
+                        # WICHTIG: published_at beibehalten, sonst wird der Post auf draft gesetzt
+                        if content_object.published_at:
+                            blog_post_data['published_at'] = content_object.published_at.isoformat()
+                        
+                        success, updated_article, sync_message = api_client.update_blog_post(
+                            content_object.blog.shopify_id, 
+                            content_object.shopify_id, 
+                            blog_post_data
+                        )
+                        
+                        # Zusätzlich SEO-Metadaten aktualisieren falls vorhanden
+                        if success and (seo_title or seo_description):
+                            seo_success, seo_message = api_client.update_blog_post_seo_only(
+                                content_object.blog.shopify_id, 
+                                content_object.shopify_id, 
+                                seo_title=content_object.seo_title,
+                                seo_description=content_object.seo_description
+                            )
+                            if not seo_success:
+                                sync_message += f"; SEO-Update: {seo_message}"
+                    else:
+                        # Nur SEO-Metadaten synchronisieren
+                        success, sync_message = api_client.update_blog_post_seo_only(
+                            content_object.blog.shopify_id, 
+                            content_object.shopify_id, 
+                            seo_title=content_object.seo_title,
+                            seo_description=content_object.seo_description
+                        )
                     
                     if success:
                         # Aktualisiere lokale Daten
