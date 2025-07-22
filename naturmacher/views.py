@@ -6,6 +6,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.views.generic import ListView, DetailView
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from accounts.decorators import require_app_permission, AppPermissionMixin
 from django.core.management import call_command
 from django.http import HttpResponseRedirect, JsonResponse, HttpResponse
 from django.urls import reverse
@@ -17,7 +18,8 @@ from .api_pricing import calculate_cost, estimate_tokens, get_provider_from_mode
 from .utils import get_user_api_key
 
 
-class ThemaListView(ListView):
+class ThemaListView(AppPermissionMixin, ListView):
+    app_name = 'schulungen'
     model = Thema
     template_name = 'naturmacher/thema_list.html'
     context_object_name = 'themen'
@@ -57,7 +59,8 @@ class ThemaListView(ListView):
         return context
 
 
-class ThemaDetailView(DetailView):
+class ThemaDetailView(AppPermissionMixin, DetailView):
+    app_name = 'schulungen'
     model = Thema
     template_name = 'naturmacher/thema_detail.html'
     context_object_name = 'thema'
@@ -101,7 +104,8 @@ class ThemaDetailView(DetailView):
         return context
 
 
-class TrainingDetailView(DetailView):
+class TrainingDetailView(AppPermissionMixin, DetailView):
+    app_name = 'schulungen'
     model = Training
     template_name = 'naturmacher/training_detail.html'
     context_object_name = 'training'
@@ -610,6 +614,7 @@ def delete_training(request, training_id):
 from django.views.decorators.http import require_POST, require_http_methods
 
 @login_required
+@require_app_permission('schulungen')
 @require_http_methods(["POST"])
 def create_thema(request):
     """AJAX-View zum Erstellen eines neuen Themas"""
@@ -711,6 +716,7 @@ def delete_thema(request, thema_id):
 
 
 @login_required
+@require_app_permission('schulungen')
 def generate_ai_training(request):
     """AJAX-View für die KI-gestützte Schulungserstellung"""
     if request.method != 'POST':

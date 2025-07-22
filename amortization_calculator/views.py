@@ -1,7 +1,9 @@
 # amortization_calculator/views.py
 
 from django.shortcuts import render
+from accounts.decorators import require_app_permission
 
+@require_app_permission('wirtschaftlichkeitsrechner')
 def rechner_start_view(request):
     """
     Rendert die Startseite des Wirtschaftlichkeitsrechners.
@@ -22,6 +24,7 @@ def rechner_start_view(request):
 
 
 # Beispiel für eine weitere View, falls Sie weitere Seiten im Rechner haben
+@require_app_permission('wirtschaftlichkeitsrechner')
 def rechner_ergebnis_view(request):
     """
     Rendert die Ergebnisseite des Wirtschaftlichkeitsrechners.

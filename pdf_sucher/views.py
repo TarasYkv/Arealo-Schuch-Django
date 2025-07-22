@@ -14,6 +14,7 @@ from PIL import Image
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from accounts.decorators import require_app_permission
 from django.core.files.storage import FileSystemStorage
 from django.core.paginator import Paginator
 from django.db import models
@@ -1267,6 +1268,7 @@ def search_text_in_pdf(pdf_path, search_terms, page_range, user=None):
     return ergebnisse
 
 
+@require_app_permission('pdf_suche')
 def pdf_suche(request):
     """Hauptansicht für die PDF-Suche."""
     if request.method == "POST":
@@ -2283,6 +2285,7 @@ def pdf_page_preview(request, filename, page_num):
 # ===========================================
 
 @login_required
+@require_app_permission('ki_zusammenfassung')
 def document_list_view(request):
     """Übersicht aller hochgeladenen Dokumente"""
     documents = PDFDocument.objects.filter(user=request.user).order_by('-uploaded_at')
@@ -2324,6 +2327,7 @@ def document_list_view(request):
 
 
 @login_required
+@require_app_permission('ki_zusammenfassung')
 def document_upload_view(request):
     """Upload eines neuen PDF-Dokuments"""
     if request.method == 'POST':
@@ -2362,6 +2366,7 @@ def document_upload_view(request):
 
 
 @login_required
+@require_app_permission('ki_zusammenfassung')
 def document_detail_view(request, pk):
     """Detailansicht eines Dokuments mit Zusammenfassungsoptionen"""
     document = get_object_or_404(PDFDocument, pk=pk, user=request.user)
@@ -2386,6 +2391,7 @@ def document_detail_view(request, pk):
 
 
 @login_required
+@require_app_permission('ki_zusammenfassung')
 def create_summary_view(request, document_id):
     """Erstellt eine neue Zusammenfassung für ein Dokument"""
     document = get_object_or_404(PDFDocument, pk=document_id, user=request.user)
@@ -2419,6 +2425,7 @@ def create_summary_view(request, document_id):
 
 
 @login_required
+@require_app_permission('ki_zusammenfassung')
 def summary_list_view(request):
     """Übersicht aller Zusammenfassungen des Benutzers"""
     summaries = PDFSummary.objects.filter(user=request.user).order_by('-created_at')
@@ -2466,6 +2473,7 @@ def summary_list_view(request):
 
 
 @login_required
+@require_app_permission('ki_zusammenfassung')
 def summary_detail_view(request, pk):
     """Detailansicht einer Zusammenfassung"""
     summary = get_object_or_404(PDFSummary, pk=pk, user=request.user)
@@ -2490,6 +2498,7 @@ def summary_detail_view(request, pk):
 
 
 @login_required
+@require_app_permission('ki_zusammenfassung')
 def download_summary_pdf_view(request, pk):
     """Download der generierten Zusammenfassungs-PDF"""
     summary = get_object_or_404(PDFSummary, pk=pk, user=request.user)
@@ -2511,6 +2520,7 @@ def download_summary_pdf_view(request, pk):
 
 
 @login_required
+@require_app_permission('ki_zusammenfassung')
 @require_http_methods(["POST"])
 def delete_document_view(request, pk):
     """Löscht ein Dokument und alle zugehörigen Zusammenfassungen"""
@@ -2532,6 +2542,7 @@ def delete_document_view(request, pk):
 
 
 @login_required
+@require_app_permission('ki_zusammenfassung')
 @require_http_methods(["POST"])
 def delete_summary_view(request, pk):
     """Löscht eine Zusammenfassung"""
@@ -2552,6 +2563,7 @@ def delete_summary_view(request, pk):
 
 
 @login_required
+@require_app_permission('ki_zusammenfassung')
 @require_http_methods(["GET"])
 def summary_status_api_view(request, pk):
     """API-Endpoint für den aktuellen Status einer Zusammenfassung"""
@@ -2597,6 +2609,7 @@ def get_summary_progress(summary):
 # ======================================
 
 @login_required
+@require_app_permission('ki_zusammenfassung')
 @require_http_methods(["POST"])
 def regenerate_summary_pdf_view(request, pk):
     """Regeneriert die PDF-Zusammenfassung"""

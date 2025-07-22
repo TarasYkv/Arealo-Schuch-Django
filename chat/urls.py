@@ -6,6 +6,7 @@ app_name = 'chat'
 urlpatterns = [
     # Main chat pages
     path('', views.chat_home, name='home'),
+    path('schuch-dashboard/', views.schuch_dashboard, name='schuch_dashboard'),
     path('room/<int:room_id>/', views.redirect_to_chat, name='room_detail'),
     path('start/<int:user_id>/', views.start_chat, name='start_chat'),
     path('search/', views.user_search, name='user_search'),
@@ -32,6 +33,8 @@ urlpatterns = [
     path('check-incoming-calls/', views.check_incoming_calls, name='check_incoming_calls'),
     path('clear-call-notification/', views.clear_call_notification, name='clear_call_notification'),
     path('end-call-notification/', views.end_call_notification, name='end_call_notification'),
+    path('debug-calls/', views.debug_calls, name='debug_calls'),
+    path('cleanup-all-calls/', views.cleanup_all_calls, name='cleanup_all_calls'),
     path('reject-call/', views.reject_call, name='reject_call'),
     path('accept-call/', views.accept_call, name='accept_call'),
     

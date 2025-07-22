@@ -108,24 +108,43 @@ try:
             app_id = settings.AGORA_APP_ID
             app_certificate = settings.AGORA_APP_CERTIFICATE
             
+            print(f"DEBUG: Generating token for channel='{channel_name}', uid={uid}, role={role}")
+            print(f"DEBUG: APP_ID={app_id}, APP_CERT_LENGTH={len(app_certificate)}")
+            
             current_timestamp = int(time.time())
             privilege_expired_ts = current_timestamp + expire_time
             
-            if uid == 0:
-                uid = current_timestamp % 1000000
+            # For Agora RTC, uid can be 0 (auto-assigned) or specific number
+            # Some versions work better with 0 (null uid)
+            final_uid = 0  # Always use 0 for auto-assignment, let Agora handle UID
+                
+            print(f"DEBUG: Final uid={final_uid}, expire_ts={privilege_expired_ts}")
             
+            # Use Role.PUBLISHER (1) for video calls
+            # Role values: SUBSCRIBER = 2, PUBLISHER = 1
+            # Try to use string uid instead of int (some Agora versions expect string uid)
             token = RtcTokenBuilder.buildTokenWithUid(
-                app_id, app_certificate, channel_name, uid, role, privilege_expired_ts
+                app_id, app_certificate, channel_name, final_uid, role, privilege_expired_ts
             )
+            
+            print(f"DEBUG: Generated token length={len(token)}, starts with={token[:20]}...")
+            
+            # Validate generated token
+            if len(token) == 0:
+                raise Exception("Generated token is empty")
+            
+            if len(token) > 2047:
+                raise Exception(f"Generated token too long: {len(token)} characters")
             
             return {
                 'success': True,
                 'token': token,
-                'uid': uid,
+                'uid': final_uid,  # Return the actual uid used for token generation
                 'expire_time': privilege_expired_ts
             }
             
         except Exception as e:
+            print(f"ERROR: Token generation failed: {e}")
             return {
                 'success': False,
                 'error': str(e)
