@@ -18,6 +18,8 @@ from PIL import Image, ImageOps, ImageEnhance, ImageFilter
 import io
 import base64
 import openai
+
+from payments.feature_access import require_subscription_access
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 
@@ -27,6 +29,7 @@ from naturmacher.utils.api_helpers import get_user_api_key
 
 
 @login_required
+@require_subscription_access('image_editor')
 def dashboard_view(request):
     """Hauptseite der Bildbearbeitung"""
     # Benutzerstatistiken

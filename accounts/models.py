@@ -160,6 +160,7 @@ class AppPermission(models.Model):
         ('videos', 'Videos'),
         
         # Schuch Tools
+        ('schuch', 'Schuch'),
         ('wirtschaftlichkeitsrechner', 'Wirtschaftlichkeitsrechner'),
         ('sportplatz_konfigurator', 'Sportplatz-Konfigurator'),
         ('pdf_suche', 'PDF-Suche'),
@@ -402,3 +403,206 @@ class SEOSettings(models.Model):
     
     def get_description_length(self):
         return len(self.seo_description)
+
+
+class FeatureAccess(models.Model):
+    """Definiert welche Apps/Features mit welchen Abonnements verfügbar sind"""
+    
+    # Subscription Types
+    SUBSCRIPTION_REQUIRED_CHOICES = [
+        ('free', 'Kostenlos verfügbar'),
+        ('any_paid', 'Beliebiges bezahltes Abo erforderlich'),
+        ('founder_access', 'Founder\'s Early Access erforderlich'),
+        ('storage_plan', 'Storage-Plan erforderlich'),
+        ('blocked', 'Komplett gesperrt'),
+    ]
+    
+    # App Names - basierend auf den URLs und vorhandenen Apps
+    APP_CHOICES = [
+        # Hauptkategorien
+        ('chat', 'Chat'),
+        ('videos', 'Videos'), 
+        ('shopify_manager', 'Shopify Manager'),
+        ('image_editor', 'Bild Editor'),
+        ('naturmacher', 'Schulungen (Naturmacher)'),
+        ('organization', 'Organisation'),
+        ('todos', 'ToDos'),
+        ('pdf_sucher', 'PDF-Suche'),
+        ('amortization_calculator', 'Wirtschaftlichkeitsrechner'),
+        ('sportplatzApp', 'Sportplatz-Konfigurator'),
+        ('bug_report', 'Bug Report'),
+        ('payments', 'Zahlungen & Abos'),
+        ('core', 'Schuch (Startseite/Kern)'),
+        
+        # Spezifische Features/Sub-Bereiche
+        ('video_upload', 'Video Upload'),
+        ('video_sharing', 'Video Sharing'),
+        ('ai_features', 'KI-Features'),
+        ('premium_support', 'Premium Support'),
+        ('advanced_analytics', 'Erweiterte Analytik'),
+    ]
+    
+    app_name = models.CharField(max_length=50, choices=APP_CHOICES, unique=True, verbose_name="App/Feature")
+    subscription_required = models.CharField(
+        max_length=20, 
+        choices=SUBSCRIPTION_REQUIRED_CHOICES, 
+        default='free',
+        verbose_name="Erforderliches Abonnement"
+    )
+    description = models.TextField(blank=True, verbose_name="Beschreibung")
+    is_active = models.BooleanField(default=True, verbose_name="Aktiv")
+    show_upgrade_prompt = models.BooleanField(default=True, verbose_name="Upgrade-Hinweis anzeigen")
+    upgrade_message = models.TextField(
+        blank=True, 
+        verbose_name="Upgrade-Nachricht",
+        help_text="Benutzerdefinierte Nachricht für Upgrade-Prompt"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Feature-Zugriff"
+        verbose_name_plural = "Feature-Zugriffe"
+        ordering = ['app_name']
+    
+    def __str__(self):
+        return f"{self.get_app_name_display()} - {self.get_subscription_required_display()}"
+    
+    def get_parent_app(self):
+        """Gibt die übergeordnete App zurück, falls es sich um ein Sub-Feature handelt"""
+        feature_to_parent_map = {
+            'video_upload': 'videos',
+            'video_sharing': 'videos',
+            'ai_features': 'system',  # Systemweite KI-Features
+            'premium_support': 'system',  # Systemweiter Support
+            'advanced_analytics': 'system',  # Systemweite Analytik
+        }
+        return feature_to_parent_map.get(self.app_name, None)
+    
+    def get_display_name_with_parent(self):
+        """Gibt den Anzeigenamen mit übergeordneter App zurück"""
+        parent = self.get_parent_app()
+        display_name = self.get_app_name_display()
+        
+        if parent:
+            parent_names = {
+                'videos': 'Videos',
+                'system': 'System',
+            }
+            parent_display = parent_names.get(parent, parent)
+            return f"{display_name} ({parent_display})"
+        
+        return display_name
+    
+    def user_has_access(self, user):
+        """Prüft ob ein Benutzer Zugriff auf diese App/Feature hat"""
+        if not self.is_active:
+            return False
+        
+        # Superuser haben immer Zugriff
+        if user and user.is_authenticated and user.is_superuser:
+            return True
+        
+        # Kostenlos verfügbar
+        if self.subscription_required == 'free':
+            return True
+        
+        # Komplett gesperrt
+        if self.subscription_required == 'blocked':
+            return False
+        
+        # Benutzer muss angemeldet sein für alle anderen Optionen
+        if not user or not user.is_authenticated:
+            return False
+        
+        # Import hier um zirkuläre Imports zu vermeiden
+        from payments.feature_access import FeatureAccessService
+        
+        if self.subscription_required == 'founder_access':
+            return FeatureAccessService.has_founder_access(user)
+        elif self.subscription_required == 'any_paid':
+            return FeatureAccessService.has_premium_access(user)
+        elif self.subscription_required == 'storage_plan':
+            # Prüfe ob User einen Storage-Plan hat
+            subscription = FeatureAccessService.get_user_active_subscription(user)
+            return subscription and subscription.plan.plan_type == 'storage' and subscription.plan.price > 0
+        
+        return False
+    
+    def get_upgrade_message(self):
+        """Gibt die Upgrade-Nachricht zurück"""
+        if self.upgrade_message:
+            return self.upgrade_message
+        
+        # Standard-Nachrichten basierend auf erforderlichem Abo
+        messages = {
+            'founder_access': 'Diese Funktion ist nur mit dem WorkLoom - Founder\'s Early Access verfügbar.',
+            'any_paid': 'Diese Funktion erfordert ein bezahltes Abonnement.',
+            'storage_plan': 'Diese Funktion erfordert einen Storage-Plan.',
+            'blocked': 'Diese Funktion ist derzeit nicht verfügbar.',
+        }
+        return messages.get(self.subscription_required, 'Ein Upgrade ist erforderlich um diese Funktion zu nutzen.')
+    
+    @classmethod
+    def user_can_access_app(cls, app_name, user):
+        """Klassenmethod um schnell zu prüfen ob ein User auf eine App zugreifen kann"""
+        try:
+            feature = cls.objects.get(app_name=app_name, is_active=True)
+            return feature.user_has_access(user)
+        except cls.DoesNotExist:
+            # Wenn keine FeatureAccess-Regel existiert, prüfe alte AppPermission
+            if AppPermission.objects.filter(app_name=app_name).exists():
+                return AppPermission.user_has_access(app_name, user)
+            
+            # Standard: Kostenlos verfügbar für angemeldete Benutzer
+            return user and user.is_authenticated
+    
+    @classmethod
+    def get_user_accessible_apps(cls, user):
+        """Gibt alle Apps zurück auf die der Benutzer zugreifen kann"""
+        accessible_apps = []
+        
+        for app_choice in cls.APP_CHOICES:
+            app_name = app_choice[0]
+            if cls.user_can_access_app(app_name, user):
+                accessible_apps.append(app_name)
+        
+        return accessible_apps
+    
+    @classmethod
+    def setup_default_access_rules(cls):
+        """Erstellt Standard-Zugriffsregeln für alle Apps"""
+        default_rules = [
+            # Kostenlose Apps
+            ('chat', 'free', 'Basis-Chat verfügbar für alle Benutzer'),
+            ('videos', 'free', 'Video-Ansicht verfügbar, Upload erfordert Storage-Plan'),
+            ('bug_report', 'free', 'Bug-Meldungen verfügbar für alle'),
+            ('payments', 'free', 'Abo-Verwaltung verfügbar für alle'),
+            
+            # Founder's Early Access erforderlich
+            ('shopify_manager', 'founder_access', 'Vollständiger Shopify-Manager nur mit Early Access'),
+            ('image_editor', 'founder_access', 'Bild-Editor nur mit Early Access'),
+            ('naturmacher', 'founder_access', 'Schulungs-Tools nur mit Early Access'),
+            ('organization', 'founder_access', 'Organisations-Tools nur mit Early Access'),
+            ('todos', 'founder_access', 'Erweiterte ToDo-Features nur mit Early Access'),
+            ('pdf_sucher', 'founder_access', 'PDF-Suche nur mit Early Access'),
+            ('amortization_calculator', 'founder_access', 'Wirtschaftlichkeitsrechner nur mit Early Access'),
+            ('sportplatzApp', 'founder_access', 'Sportplatz-Konfigurator nur mit Early Access'),
+            
+            # Spezifische Features
+            ('video_upload', 'storage_plan', 'Video-Upload erfordert Storage-Plan'),
+            ('ai_features', 'founder_access', 'KI-Features nur mit Early Access'),
+            ('premium_support', 'any_paid', 'Premium-Support für alle bezahlten Pläne'),
+            ('advanced_analytics', 'founder_access', 'Erweiterte Analytik nur mit Early Access'),
+        ]
+        
+        for app_name, subscription_required, description in default_rules:
+            cls.objects.get_or_create(
+                app_name=app_name,
+                defaults={
+                    'subscription_required': subscription_required,
+                    'description': description,
+                    'is_active': True,
+                    'show_upgrade_prompt': True,
+                }
+            )

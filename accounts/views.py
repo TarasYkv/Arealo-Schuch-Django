@@ -9,8 +9,8 @@ from django.views.decorators.http import require_http_methods
 from django.http import JsonResponse
 from django.db import models
 import json
-from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm, ApiKeyForm, CompanyInfoForm, UserProfileForm, CustomPasswordChangeForm, SuperUserManagementForm, BugChatSettingsForm, AppPermissionForm
-from .models import CustomUser, AmpelCategory, CategoryKeyword, UserLoginHistory, EditableContent, CustomPage, SEOSettings
+from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm, ApiKeyForm, CompanyInfoForm, UserProfileForm, CustomPasswordChangeForm, SuperUserManagementForm, BugChatSettingsForm, AppPermissionForm, FeatureAccessForm, BulkFeatureAccessForm, FeatureAccessFilterForm
+from .models import CustomUser, AmpelCategory, CategoryKeyword, UserLoginHistory, EditableContent, CustomPage, SEOSettings, FeatureAccess
 from naturmacher.models import APIBalance
 from videos.models import UserStorage as VideoUserStorage, Subscription as VideoSubscription
 from .utils import redirect_with_params
@@ -436,6 +436,9 @@ def company_info_view(request):
                 messages.success(request, 'Ihr Profil wurde erfolgreich aktualisiert!')
                 return redirect('accounts:company_info')
             active_tab = 'profile'
+            bug_chat_form = BugChatSettingsForm(instance=request.user)
+            superuser_form = SuperUserManagementForm(current_user=request.user) if is_superuser else None
+            app_permission_form = AppPermissionForm() if can_manage_apps else None
             
         elif 'password_form' in request.POST:
             # Passwort-Formular
@@ -517,6 +520,69 @@ def company_info_view(request):
                 return redirect_with_params('accounts:company_info', tab='app_permissions')
             active_tab = 'app_permissions'
             
+        elif 'feature_access_form' in request.POST and is_superuser:
+            # Feature-Access-Verwaltung
+            company_form = CompanyInfoForm(instance=request.user)
+            profile_form = UserProfileForm(instance=request.user)
+            password_form = CustomPasswordChangeForm(request.user)
+            bug_chat_form = BugChatSettingsForm(instance=request.user)
+            superuser_form = SuperUserManagementForm(current_user=request.user) if is_superuser else None
+            app_permission_form = AppPermissionForm() if can_manage_apps else None
+            
+            # Handle different feature access actions
+            if 'add_feature' in request.POST:
+                # Neues Feature hinzufügen
+                feature_form = FeatureAccessForm(request.POST)
+                if feature_form.is_valid():
+                    feature_form.save()
+                    messages.success(request, f'Feature-Zugriff für {feature_form.cleaned_data["app_name"]} wurde erfolgreich erstellt!')
+                    return redirect_with_params('accounts:company_info', tab='feature_access')
+            elif 'bulk_action' in request.POST:
+                # Bulk-Aktion ausführen
+                bulk_form = BulkFeatureAccessForm(request.POST)
+                if bulk_form.is_valid():
+                    action = bulk_form.cleaned_data['action']
+                    selected_features = bulk_form.cleaned_data['selected_features']
+                    
+                    if action and selected_features:
+                        count = 0
+                        for feature in selected_features:
+                            if action == 'activate':
+                                feature.is_active = True
+                            elif action == 'deactivate':
+                                feature.is_active = False
+                            elif action == 'set_free':
+                                feature.subscription_required = 'free'
+                            elif action == 'set_founder_access':
+                                feature.subscription_required = 'founder_access'
+                            elif action == 'set_any_paid':
+                                feature.subscription_required = 'any_paid'
+                            elif action == 'set_storage_plan':
+                                feature.subscription_required = 'storage_plan'
+                            elif action == 'set_blocked':
+                                feature.subscription_required = 'blocked'
+                            
+                            feature.save()
+                            count += 1
+                        
+                        messages.success(request, f'{count} Feature(s) wurden erfolgreich bearbeitet!')
+                        return redirect_with_params('accounts:company_info', tab='feature_access')
+            else:
+                # Einzelnes Feature bearbeiten
+                feature_id = request.POST.get('feature_id')
+                if feature_id:
+                    try:
+                        feature = FeatureAccess.objects.get(id=feature_id)
+                        feature_form = FeatureAccessForm(request.POST, instance=feature)
+                        if feature_form.is_valid():
+                            feature_form.save()
+                            messages.success(request, f'Feature-Zugriff für {feature.get_app_name_display()} wurde erfolgreich aktualisiert!')
+                            return redirect_with_params('accounts:company_info', tab='feature_access')
+                    except FeatureAccess.DoesNotExist:
+                        messages.error(request, 'Feature nicht gefunden!')
+            
+            active_tab = 'feature_access'
+            
         else:
             # Fallback: Alle Formulare initialisieren
             company_form = CompanyInfoForm(instance=request.user)
@@ -535,6 +601,66 @@ def company_info_view(request):
         superuser_form = SuperUserManagementForm(current_user=request.user) if is_superuser else None
         app_permission_form = AppPermissionForm() if can_manage_apps else None
     
+    # Feature Access Daten für Superuser
+    feature_access_data = {}
+    if is_superuser:
+        # Filter-Parameter aus Request extrahieren
+        filter_form = FeatureAccessFilterForm(request.GET)
+        features_queryset = FeatureAccess.objects.all()
+        
+        if filter_form.is_valid():
+            if filter_form.cleaned_data['subscription_required']:
+                features_queryset = features_queryset.filter(
+                    subscription_required=filter_form.cleaned_data['subscription_required']
+                )
+            if filter_form.cleaned_data['is_active']:
+                is_active = filter_form.cleaned_data['is_active'] == 'active'
+                features_queryset = features_queryset.filter(is_active=is_active)
+            if filter_form.cleaned_data['search']:
+                search_term = filter_form.cleaned_data['search']
+                features_queryset = features_queryset.filter(
+                    models.Q(app_name__icontains=search_term) |
+                    models.Q(description__icontains=search_term)
+                )
+        
+        # Sortierung: Hauptapps zuerst, dann Sub-Features
+        main_apps = ['core', 'chat', 'videos', 'shopify_manager', 'image_editor', 'naturmacher', 
+                     'organization', 'todos', 'pdf_sucher', 'amortization_calculator', 
+                     'sportplatzApp', 'bug_report', 'payments']
+        
+        # Custom Sortierung: Hauptapps zuerst, dann Features
+        features_list = list(features_queryset)
+        features_list.sort(key=lambda x: (
+            0 if x.app_name in main_apps else 1,  # Hauptapps zuerst
+            main_apps.index(x.app_name) if x.app_name in main_apps else 999,  # Reihenfolge der Hauptapps
+            x.get_app_name_display()  # Alphabetisch für Sub-Features
+        ))
+        
+        features_queryset = features_list
+        
+        # Statistiken berechnen
+        total_features = FeatureAccess.objects.count()
+        free_features = FeatureAccess.objects.filter(subscription_required='free').count()
+        founder_features = FeatureAccess.objects.filter(subscription_required='founder_access').count()
+        paid_features = FeatureAccess.objects.filter(subscription_required='any_paid').count()
+        storage_features = FeatureAccess.objects.filter(subscription_required='storage_plan').count()
+        blocked_features = FeatureAccess.objects.filter(subscription_required='blocked').count()
+        
+        feature_access_data = {
+            'features': features_queryset,
+            'filter_form': filter_form,
+            'bulk_form': BulkFeatureAccessForm(),
+            'new_feature_form': FeatureAccessForm(),
+            'stats': {
+                'total': total_features,
+                'free': free_features,
+                'founder_access': founder_features,
+                'any_paid': paid_features,
+                'storage_plan': storage_features,
+                'blocked': blocked_features,
+            }
+        }
+    
     # Video-App Abo-Daten für Template
     video_storage, created = VideoUserStorage.objects.get_or_create(user=request.user)
     video_usage_percentage = (video_storage.used_storage / video_storage.max_storage * 100) if video_storage.max_storage > 0 else 0
@@ -552,6 +678,7 @@ def company_info_view(request):
         'user': request.user,
         'video_storage': video_storage,
         'video_usage_percentage': video_usage_percentage,
+        'feature_access_data': feature_access_data,
     })
 
 

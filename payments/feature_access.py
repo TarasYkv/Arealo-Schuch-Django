@@ -176,3 +176,73 @@ def require_app_access(app_name):
             return view_func(request, *args, **kwargs)
         return wrapper
     return decorator
+
+
+def require_subscription_access(app_name):
+    """Decorator to require subscription-based access to an app using FeatureAccess model"""
+    def decorator(view_func):
+        def wrapper(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                from django.contrib.auth.views import redirect_to_login
+                return redirect_to_login(request.get_full_path())
+            
+            # Import hier um zirkuläre Imports zu vermeiden
+            from accounts.models import FeatureAccess
+            
+            if not FeatureAccess.user_can_access_app(app_name, request.user):
+                from django.shortcuts import render
+                
+                # Hole FeatureAccess Objekt für detailliertere Informationen
+                try:
+                    feature = FeatureAccess.objects.get(app_name=app_name, is_active=True)
+                    upgrade_message = feature.get_upgrade_message()
+                    subscription_required = feature.get_subscription_required_display()
+                except FeatureAccess.DoesNotExist:
+                    upgrade_message = f'Zugriff auf {app_name} erfordert ein Abonnement.'
+                    subscription_required = 'Abonnement'
+                
+                return render(request, 'payments/feature_access_denied.html', {
+                    'app_name': app_name,
+                    'required_subscription': subscription_required,
+                    'upgrade_message': upgrade_message,
+                    'upgrade_url': '/payments/plans/',
+                    'show_upgrade_prompt': True
+                }, status=403)
+            
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def require_feature_access(feature_name):
+    """Decorator to require access to a specific feature (granular control)"""
+    def decorator(view_func):
+        def wrapper(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                from django.contrib.auth.views import redirect_to_login
+                return redirect_to_login(request.get_full_path())
+            
+            from accounts.models import FeatureAccess
+            
+            if not FeatureAccess.user_can_access_app(feature_name, request.user):
+                from django.shortcuts import render
+                
+                try:
+                    feature = FeatureAccess.objects.get(app_name=feature_name, is_active=True)
+                    upgrade_message = feature.get_upgrade_message()
+                    subscription_required = feature.get_subscription_required_display()
+                except FeatureAccess.DoesNotExist:
+                    upgrade_message = f'Diese Funktion erfordert ein Abonnement.'
+                    subscription_required = 'Abonnement'
+                
+                return render(request, 'payments/feature_access_denied.html', {
+                    'feature_name': feature_name,
+                    'required_subscription': subscription_required,
+                    'upgrade_message': upgrade_message,
+                    'upgrade_url': '/payments/plans/',
+                    'show_upgrade_prompt': True
+                }, status=403)
+            
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator

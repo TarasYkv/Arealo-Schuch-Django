@@ -107,6 +107,23 @@
 .selected-users-tags .user-tag .remove-btn:hover {
     color: #ffc107;
 }
+
+/* Feature Access Styling */
+.table-secondary {
+    background-color: rgba(108, 117, 125, 0.1) !important;
+}
+
+.feature-hierarchy {
+    padding-left: 1.5rem;
+    position: relative;
+}
+
+.feature-hierarchy::before {
+    content: "└─";
+    position: absolute;
+    left: 0.5rem;
+    color: #6c757d;
+}
 </style>
 {% endblock %}
 
@@ -181,6 +198,17 @@
                             type="button" role="tab" aria-controls="app-permissions-tab-pane" 
                             aria-selected="{% if active_tab == 'app_permissions' %}true{% else %}false{% endif %}">
                         <i class="bi bi-app-indicator"></i> App-Freigabe
+                    </button>
+                </li>
+                {% endif %}
+                
+                {% if is_superuser %}
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link {% if active_tab == 'feature_access' %}active{% endif %}" 
+                            id="feature-access-tab" data-bs-toggle="tab" data-bs-target="#feature-access-tab-pane" 
+                            type="button" role="tab" aria-controls="feature-access-tab-pane" 
+                            aria-selected="{% if active_tab == 'feature_access' %}true{% else %}false{% endif %}">
+                        <i class="bi bi-gear-fill"></i> Aboberechtigungen
                     </button>
                 </li>
                 {% endif %}
@@ -871,6 +899,411 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Feature Access Tab (nur für Superuser) -->
+            {% if is_superuser %}
+            <div class="tab-pane fade {% if active_tab == 'feature_access' %}show active{% endif %}" 
+                 id="feature-access-tab-pane" role="tabpanel" aria-labelledby="feature-access-tab" tabindex="0">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="bi bi-gear-fill"></i> Aboberechtigungen verwalten</h5>
+                        <div>
+                            {% if feature_access_data.stats.total > 0 %}
+                            <span class="badge bg-primary">{{ feature_access_data.stats.total }} Features</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="card bg-light mb-4">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <i class="bi bi-info-circle text-primary"></i> 
+                                    Aboberechtigungen verwalten - Hilfe
+                                </h6>
+                                <p class="card-text text-muted mb-3">
+                                    Hier können Sie steuern, welche Apps und Features für verschiedene Abonnement-Typen verfügbar sind.
+                                    Diese Einstellungen überschreiben die grundsätzlichen App-Freigaben.
+                                </p>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6><i class="bi bi-toggle2-on text-success"></i> Status "Aktiv"</h6>
+                                        <small class="text-muted">
+                                            ✅ <strong>Aktiv</strong>: Feature funktioniert und ist verfügbar<br>
+                                            ❌ <strong>Inaktiv</strong>: Feature ist komplett deaktiviert
+                                        </small>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6><i class="bi bi-exclamation-triangle text-warning"></i> Upgrade-Hinweis</h6>
+                                        <small class="text-muted">
+                                            💡 <strong>Anzeigen</strong>: Benutzer sehen Upgrade-Aufforderung<br>
+                                            🚫 <strong>Ausblenden</strong>: Stiller Zugriffsverweigerung
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        
+                        <!-- Statistiken -->
+                        {% if feature_access_data.stats %}
+                        <div class="row mb-4">
+                            <div class="col-md-2">
+                                <div class="text-center">
+                                    <div class="h4 text-success">{{ feature_access_data.stats.free }}</div>
+                                    <small class="text-muted">Kostenlos</small>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="text-center">
+                                    <div class="h4 text-warning">{{ feature_access_data.stats.founder_access }}</div>
+                                    <small class="text-muted">Early Access</small>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="text-center">
+                                    <div class="h4 text-info">{{ feature_access_data.stats.storage_plan }}</div>
+                                    <small class="text-muted">Storage Plan</small>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="text-center">
+                                    <div class="h4 text-primary">{{ feature_access_data.stats.any_paid }}</div>
+                                    <small class="text-muted">Beliebiges Abo</small>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="text-center">
+                                    <div class="h4 text-danger">{{ feature_access_data.stats.blocked }}</div>
+                                    <small class="text-muted">Gesperrt</small>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="text-center">
+                                    <div class="h4 text-secondary">{{ feature_access_data.stats.total }}</div>
+                                    <small class="text-muted">Gesamt</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Filter und Suche -->
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <form method="get" class="d-flex gap-2 align-items-end">
+                                    <input type="hidden" name="tab" value="feature_access">
+                                    <div class="flex-fill">
+                                        {{ feature_access_data.filter_form.search.label_tag }}
+                                        {{ feature_access_data.filter_form.search }}
+                                    </div>
+                                    <div>
+                                        {{ feature_access_data.filter_form.subscription_required.label_tag }}
+                                        {{ feature_access_data.filter_form.subscription_required }}
+                                    </div>
+                                    <div>
+                                        {{ feature_access_data.filter_form.is_active.label_tag }}
+                                        {{ feature_access_data.filter_form.is_active }}
+                                    </div>
+                                    <button type="submit" class="btn btn-outline-primary">
+                                        <i class="bi bi-search"></i> Filtern
+                                    </button>
+                                    <a href="?tab=feature_access" class="btn btn-outline-secondary">
+                                        <i class="bi bi-arrow-clockwise"></i> Zurücksetzen
+                                    </a>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <!-- Bulk-Aktionen -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h6><i class="bi bi-list-check"></i> Bulk-Aktionen</h6>
+                            </div>
+                            <div class="card-body">
+                                <form method="post" id="bulk-features-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="feature_access_form" value="1">
+                                    <input type="hidden" name="bulk_action" value="1">
+                                    
+                                    <div class="row align-items-end">
+                                        <div class="col-md-6">
+                                            {{ feature_access_data.bulk_form.action.label_tag }}
+                                            {{ feature_access_data.bulk_form.action }}
+                                        </div>
+                                        <div class="col-md-6">
+                                            <button type="submit" class="btn btn-warning">
+                                                <i class="bi bi-lightning-fill"></i> Bulk-Aktion ausführen
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="selectAllFeatures" 
+                                                   onchange="toggleAllFeatureSelection(this.checked)">
+                                            <label class="form-check-label" for="selectAllFeatures">
+                                                Alle Features auswählen
+                                            </label>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <!-- Features Tabelle -->
+                        {% if feature_access_data.features %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th width="30">
+                                            <input type="checkbox" id="selectAllFeaturesHeader" 
+                                                   onchange="toggleAllFeatureSelection(this.checked)">
+                                        </th>
+                                        <th>App/Feature</th>
+                                        <th>Abonnement erforderlich</th>
+                                        <th>
+                                            Status
+                                            <i class="bi bi-info-circle text-muted ms-1" 
+                                               data-bs-toggle="tooltip" 
+                                               data-bs-placement="top"
+                                               title="Aktiv: Feature ist verfügbar und funktioniert. Inaktiv: Feature ist komplett deaktiviert und für niemanden zugänglich."></i>
+                                        </th>
+                                        <th>
+                                            Upgrade-Hinweis
+                                            <i class="bi bi-info-circle text-muted ms-1" 
+                                               data-bs-toggle="tooltip" 
+                                               data-bs-placement="top"
+                                               title="Bestimmt ob Benutzern ohne entsprechendes Abo ein Upgrade-Hinweis mit Link zur Abo-Seite angezeigt wird, wenn sie versuchen auf das Feature zuzugreifen."></i>
+                                        </th>
+                                        <th>Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for feature in feature_access_data.features %}
+                                    <tr {% if feature.get_parent_app %}class="table-secondary"{% endif %}>
+                                        <td>
+                                            <input type="checkbox" name="selected_features" value="{{ feature.id }}"
+                                                   class="feature-checkbox form-check-input" form="bulk-features-form">
+                                        </td>
+                                        <td>
+                                            {% if feature.get_parent_app %}
+                                                <div class="d-flex align-items-start">
+                                                    <i class="bi bi-arrow-return-right text-muted me-2 mt-1"></i>
+                                                    <div>
+                                                        <strong>{{ feature.get_display_name_with_parent }}</strong>
+                                                        {% if feature.description %}
+                                                        <br><small class="text-muted">{{ feature.description }}</small>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            {% else %}
+                                                <strong>{{ feature.get_display_name_with_parent }}</strong>
+                                                {% if feature.description %}
+                                                <br><small class="text-muted">{{ feature.description }}</small>
+                                                {% endif %}
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if feature.subscription_required == 'free' %}
+                                                <span class="badge bg-success">Kostenlos</span>
+                                            {% elif feature.subscription_required == 'founder_access' %}
+                                                <span class="badge bg-warning">Early Access</span>
+                                            {% elif feature.subscription_required == 'any_paid' %}
+                                                <span class="badge bg-primary">Beliebiges Abo</span>
+                                            {% elif feature.subscription_required == 'storage_plan' %}
+                                                <span class="badge bg-info">Storage Plan</span>
+                                            {% elif feature.subscription_required == 'blocked' %}
+                                                <span class="badge bg-danger">Gesperrt</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if feature.is_active %}
+                                                <span class="badge bg-success">Aktiv</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Inaktiv</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if feature.show_upgrade_prompt %}
+                                                <i class="bi bi-check-circle text-success" title="Upgrade-Hinweis wird angezeigt"></i>
+                                            {% else %}
+                                                <i class="bi bi-x-circle text-muted" title="Kein Upgrade-Hinweis"></i>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                    onclick="editFeature({{ feature.id }}, '{{ feature.app_name }}', '{{ feature.subscription_required }}', '{{ feature.description|escapejs }}', {{ feature.is_active|yesno:'true,false' }}, {{ feature.show_upgrade_prompt|yesno:'true,false' }}, '{{ feature.upgrade_message|escapejs }}')">
+                                                <i class="bi bi-pencil"></i> Bearbeiten
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-inbox display-4 text-muted"></i>
+                            <p class="text-muted mt-2">Keine Features gefunden</p>
+                            <button type="button" class="btn btn-primary" onclick="showAddFeatureModal()">
+                                <i class="bi bi-plus-circle"></i> Erstes Feature hinzufügen
+                            </button>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Feature hinzufügen Button -->
+                        {% if feature_access_data.features %}
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-success" onclick="showAddFeatureModal()">
+                                <i class="bi bi-plus-circle"></i> Feature hinzufügen
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            <!-- Ende Feature Access Tab -->
+            
+        </div>
+    </div>
+</div>
+
+<!-- Feature Bearbeiten Modal -->
+<div class="modal fade" id="editFeatureModal" tabindex="-1" aria-labelledby="editFeatureModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editFeatureModalLabel">Feature bearbeiten</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" id="editFeatureForm">
+                {% csrf_token %}
+                <input type="hidden" name="feature_access_form" value="1">
+                <input type="hidden" name="feature_id" id="editFeatureId">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editAppName" class="form-label">App/Feature</label>
+                        <select class="form-select" name="app_name" id="editAppName" required>
+                            {% for choice in feature_access_data.new_feature_form.app_name.field.choices %}
+                            <option value="{{ choice.0 }}">{{ choice.1 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editSubscriptionRequired" class="form-label">Erforderliches Abonnement</label>
+                        <select class="form-select" name="subscription_required" id="editSubscriptionRequired" required>
+                            {% for choice in feature_access_data.new_feature_form.subscription_required.field.choices %}
+                            <option value="{{ choice.0 }}">{{ choice.1 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editDescription" class="form-label">Beschreibung</label>
+                        <textarea class="form-control" name="description" id="editDescription" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editUpgradeMessage" class="form-label">Benutzerdefinierte Upgrade-Nachricht</label>
+                        <textarea class="form-control" name="upgrade_message" id="editUpgradeMessage" rows="3"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="is_active" id="editIsActive">
+                                <label class="form-check-label" for="editIsActive">
+                                    Aktiv
+                                    <i class="bi bi-info-circle text-muted ms-1" 
+                                       data-bs-toggle="tooltip" 
+                                       data-bs-placement="top"
+                                       title="Feature ist verfügbar und funktioniert"></i>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="show_upgrade_prompt" id="editShowUpgradePrompt">
+                                <label class="form-check-label" for="editShowUpgradePrompt">
+                                    Upgrade-Hinweis anzeigen
+                                    <i class="bi bi-info-circle text-muted ms-1" 
+                                       data-bs-toggle="tooltip" 
+                                       data-bs-placement="top"
+                                       title="Zeigt Benutzern ohne Abo einen Upgrade-Hinweis an"></i>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Feature Hinzufügen Modal -->
+<div class="modal fade" id="addFeatureModal" tabindex="-1" aria-labelledby="addFeatureModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addFeatureModalLabel">Feature hinzufügen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="feature_access_form" value="1">
+                <input type="hidden" name="add_feature" value="1">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        {{ feature_access_data.new_feature_form.app_name.label_tag }}
+                        {{ feature_access_data.new_feature_form.app_name }}
+                    </div>
+                    <div class="mb-3">
+                        {{ feature_access_data.new_feature_form.subscription_required.label_tag }}
+                        {{ feature_access_data.new_feature_form.subscription_required }}
+                    </div>
+                    <div class="mb-3">
+                        {{ feature_access_data.new_feature_form.description.label_tag }}
+                        {{ feature_access_data.new_feature_form.description }}
+                    </div>
+                    <div class="mb-3">
+                        {{ feature_access_data.new_feature_form.upgrade_message.label_tag }}
+                        {{ feature_access_data.new_feature_form.upgrade_message }}
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                {{ feature_access_data.new_feature_form.is_active }}
+                                <label class="form-check-label" for="{{ feature_access_data.new_feature_form.is_active.id_for_label }}">
+                                    Aktiv
+                                    <i class="bi bi-info-circle text-muted ms-1" 
+                                       data-bs-toggle="tooltip" 
+                                       data-bs-placement="top"
+                                       title="Feature ist verfügbar und funktioniert"></i>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                {{ feature_access_data.new_feature_form.show_upgrade_prompt }}
+                                <label class="form-check-label" for="{{ feature_access_data.new_feature_form.show_upgrade_prompt.id_for_label }}">
+                                    Upgrade-Hinweis anzeigen
+                                    <i class="bi bi-info-circle text-muted ms-1" 
+                                       data-bs-toggle="tooltip" 
+                                       data-bs-placement="top"
+                                       title="Zeigt Benutzern ohne Abo einen Upgrade-Hinweis an"></i>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-success">Hinzufügen</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -1380,6 +1813,49 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// Feature Access Management JavaScript
+function toggleAllFeatureSelection(checked) {
+    const checkboxes = document.querySelectorAll('.feature-checkbox');
+    const headerCheckbox = document.getElementById('selectAllFeaturesHeader');
+    const bulkCheckbox = document.getElementById('selectAllFeatures');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = checked;
+    });
+    
+    if (headerCheckbox) headerCheckbox.checked = checked;
+    if (bulkCheckbox) bulkCheckbox.checked = checked;
+}
+
+function editFeature(id, appName, subscriptionRequired, description, isActive, showUpgradePrompt, upgradeMessage) {
+    document.getElementById('editFeatureId').value = id;
+    document.getElementById('editAppName').value = appName;
+    document.getElementById('editSubscriptionRequired').value = subscriptionRequired;
+    document.getElementById('editDescription').value = description;
+    document.getElementById('editUpgradeMessage').value = upgradeMessage;
+    document.getElementById('editIsActive').checked = isActive;
+    document.getElementById('editShowUpgradePrompt').checked = showUpgradePrompt;
+    
+    const modal = new bootstrap.Modal(document.getElementById('editFeatureModal'));
+    modal.show();
+}
+
+function showAddFeatureModal() {
+    const modal = new bootstrap.Modal(document.getElementById('addFeatureModal'));
+    modal.show();
+}
+
+// Bootstrap Tooltips initialisieren
+document.addEventListener('DOMContentLoaded', function() {
+    // Tooltips aktivieren
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+
+// Form ID für Bulk-Aktionen ist bereits im HTML gesetzt
 </script>
 
 {% endblock %}
