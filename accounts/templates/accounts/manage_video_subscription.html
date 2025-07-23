@@ -1,0 +1,600 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load math_filters %}
+
+{% block title %}Video-Hosting Abonnement verwalten{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h2">
+                    <i class="fas fa-video text-primary"></i> Video-Hosting Abonnement
+                </h1>
+                <a href="{% url 'accounts:profile' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück zum Profil
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Aktueller Plan -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-crown"></i> Ihr aktueller Plan
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center mb-3">
+                                {% if video_storage.is_premium %}
+                                    <span class="badge bg-warning me-3" style="font-size: 1.1em;">⭐ {{ video_storage.get_tier_name }}</span>
+                                    <div>
+                                        <strong class="text-warning">{{ current_storage_mb|floatformat:0 }} {% if current_storage_mb >= 1024 %}GB{% else %}MB{% endif %} Speicherplatz</strong>
+                                        <br><small class="text-muted">{{ current_price }}€/Monat</small>
+                                    </div>
+                                {% else %}
+                                    <span class="badge bg-secondary me-3" style="font-size: 1.1em;">📦 {{ video_storage.get_tier_name }}</span>
+                                    <div>
+                                        <strong class="text-secondary">{{ current_storage_mb|floatformat:0 }} MB Speicherplatz</strong>
+                                        <br><small class="text-muted">Kostenlos</small>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Speicherplatz-Anzeige -->
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Speicherplatz-Nutzung</span>
+                                    <span>{{ video_usage_percentage|floatformat:1 }}%</span>
+                                </div>
+                                <div class="progress mb-2" style="height: 20px;">
+                                    <div class="progress-bar {% if video_usage_percentage > 90 %}bg-danger{% elif video_usage_percentage > 75 %}bg-warning{% else %}bg-success{% endif %}" 
+                                         role="progressbar" 
+                                         style="width: {{ video_usage_percentage }}%">
+                                    </div>
+                                </div>
+                                <div class="row text-center">
+                                    <div class="col-4">
+                                        <small class="text-muted">Belegt:</small><br>
+                                        <strong>{{ video_storage.get_used_storage_mb|floatformat:2 }} MB</strong>
+                                    </div>
+                                    <div class="col-4">
+                                        <small class="text-muted">Verfügbar:</small><br>
+                                        <strong>{{ available_space_mb|floatformat:2 }} MB</strong>
+                                    </div>
+                                    <div class="col-4">
+                                        <small class="text-muted">Videos:</small><br>
+                                        <strong>{{ videos_count }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if video_usage_percentage > 80 %}
+                        <div class="card border-warning mt-3">
+                            <div class="card-body py-2">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                                    <div>
+                                        <strong>Speicherplatz wird knapp:</strong> 
+                                        Ihr Speicherplatz ist zu {{ video_usage_percentage|floatformat:1 }}% belegt.
+                                        {% if not video_storage.is_premium %}
+                                            Erwägen Sie ein Upgrade für deutlich mehr Speicherplatz.
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Plan-Auswahl mit Slider -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-sliders-h"></i> Speicherplan wählen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="planForm">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="change_plan">
+                        <input type="hidden" name="storage_mb" id="selectedStorageMB" value="{{ current_storage_mb|floatformat:0 }}">
+                        
+                        <!-- Slider Container -->
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <label class="form-label mb-0"><strong>Wählen Sie Ihren Speicherplan:</strong></label>
+                                <div id="currentSelection" class="badge bg-primary" style="font-size: 1em;">
+                                    {{ video_storage.get_tier_name }} - {% if current_price == 0 %}Kostenlos{% else %}{{ current_price }}€/Monat{% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Custom Slider -->
+                            <div class="slider-container mb-4">
+                                <input type="range" class="form-range" id="storageSlider" 
+                                       min="0" max="{{ storage_options|length|add:'-1' }}" 
+                                       value="0"
+                                       step="1">
+                                
+                                <!-- Slider Labels (will be positioned by JavaScript) -->
+                                <div class="slider-labels mt-3" id="sliderLabels" style="position: relative; height: 45px;">
+                                </div>
+                            </div>
+                            
+                            <!-- Selected Plan Details -->
+                            <div class="card bg-light border-primary" id="planDetails">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6 id="planName">{{ video_storage.get_tier_name }}</h6>
+                                            <p id="planDescription" class="mb-1">
+                                                Speicherplatz: <strong id="planStorage">{{ current_storage_mb|floatformat:0 }} {% if current_storage_mb >= 1024 %}GB{% else %}MB{% endif %}</strong>
+                                            </p>
+                                        </div>
+                                        <div class="col-md-6 text-end">
+                                            <h5 id="planPrice" class="mb-1">{% if current_price == 0 %}Kostenlos{% else %}{{ current_price }}€/Monat{% endif %}</h5>
+                                            <small class="text-muted" id="priceNote">
+                                                {% if current_price == 0 %}Kostenlos für immer{% else %}Monatlich abgerechnet{% endif %}
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Submit Button -->
+                        <div class="d-grid">
+                            {% if stripe_integration %}
+                                <button type="button" class="btn btn-primary" id="submitBtn" onclick="goToStripeCheckout()">
+                                    <i class="fas fa-external-link-alt"></i> <span id="submitText">Plan ändern (Stripe)</span>
+                                </button>
+                                <small class="text-muted mt-2 text-center">
+                                    <i class="fas fa-info-circle"></i> 
+                                    Plan-Änderungen erfolgen über die sichere Stripe-Plattform
+                                </small>
+                            {% else %}
+                                <button type="submit" class="btn btn-primary" id="submitBtn">
+                                    <i class="fas fa-save"></i> <span id="submitText">Plan ändern</span>
+                                </button>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Abo-Verlauf -->
+            {% if current_subscription %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-history"></i> Abonnement-Details
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Plan:</strong> {{ current_subscription.get_plan_name }}</p>
+                                <p><strong>Monatlicher Preis:</strong> {{ current_subscription.price_monthly }}€</p>
+                                <p><strong>Status:</strong> 
+                                    {% if current_subscription.is_active %}
+                                        <span class="badge bg-success">Aktiv</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Inaktiv</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Startdatum:</strong> {{ current_subscription.start_date|date:"d.m.Y" }}</p>
+                                {% if current_subscription.end_date %}
+                                    <p><strong>Enddatum:</strong> {{ current_subscription.end_date|date:"d.m.Y" }}</p>
+                                {% endif %}
+                                <p><strong>Erstellt:</strong> {{ current_subscription.created_at|date:"d.m.Y H:i" }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- Plan-Vergleich -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar"></i> Alle Pläne im Überblick
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% for option in storage_options %}
+                        <div class="mb-3">
+                            <div class="border rounded p-3 {% if option.mb == current_storage_mb|floatformat:0 %}border-primary bg-light{% endif %}">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="mb-0">
+                                        {% if option.price == 0 %}📦{% else %}⭐{% endif %}
+                                        {{ option.name }}
+                                    </h6>
+                                    <strong class="{% if option.price == 0 %}text-success{% else %}text-warning{% endif %}">
+                                        {% if option.price == 0 %}Kostenlos{% else %}{{ option.price }}€/Monat{% endif %}
+                                    </strong>
+                                </div>
+                                <p class="mb-2">
+                                    <strong>
+                                        {% if option.gb %}{{ option.gb|floatformat:0 }}GB{% else %}{{ option.mb }}MB{% endif %}
+                                    </strong> Speicherplatz
+                                </p>
+                                <ul class="list-unstyled mb-0">
+                                    <li><i class="fas fa-video text-primary"></i> 
+                                        {% if option.mb == 50 %}~2-3 Minuten{% elif option.mb == 1024 %}~40-60 Minuten{% elif option.mb == 2048 %}~80-120 Minuten{% elif option.mb == 5120 %}~200-300 Minuten{% elif option.mb == 10240 %}~400-600 Minuten{% endif %} Video
+                                    </li>
+                                    <li><i class="fas fa-music text-info"></i> 
+                                        {% if option.mb == 50 %}~50-60 Minuten{% elif option.mb == 1024 %}~17-20 Stunden{% elif option.mb == 2048 %}~34-40 Stunden{% elif option.mb == 5120 %}~85-100 Stunden{% elif option.mb == 10240 %}~170-200 Stunden{% endif %} Audio
+                                    </li>
+                                    <li><i class="fas fa-share-alt text-success"></i> Öffentliche Share-Links</li>
+                                </ul>
+                                {% if option.mb == current_storage_mb|floatformat:0 %}
+                                    <span class="badge bg-primary mt-2">Aktueller Plan</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Hilfe & Support -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-question-circle"></i> Hilfe & Support
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-3">Haben Sie Fragen zu Ihrem Abonnement?</p>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'videos:list' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-video"></i> Zu meinen Videos
+                        </a>
+                        <a href="{% url 'videos:storage' %}" class="btn btn-outline-info">
+                            <i class="fas fa-database"></i> Speicherplatz verwalten
+                        </a>
+                    </div>
+                    
+                    <hr>
+                    
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Hinweis:</strong> Bei einem Downgrade müssen Sie zunächst Videos löschen, 
+                        um unter die neue Speichergrenze zu kommen.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JSON Data for JavaScript -->
+<!-- Debug: current_price={{ current_price }}, current_storage_mb={{ current_storage_mb }} -->
+<script id="storage-data" type="application/json">
+{
+    "storage_options": [
+        {% for option in storage_options %}
+        {
+            "mb": {{ option.mb }},
+            {% if option.gb %}"gb": {{ option.gb }},{% endif %}
+            "price": {{ option.price }},
+            "name": "{{ option.name|escapejs }}",
+            "bytes": {{ option.bytes }}
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ],
+    "current_storage_mb": {{ current_storage_mb|floatformat:0 }},
+    "current_price": {{ current_price|floatformat:2 }}
+}
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        const slider = document.getElementById('storageSlider');
+        const selectedStorageMBInput = document.getElementById('selectedStorageMB');
+        const currentSelection = document.getElementById('currentSelection');
+        const planDetails = document.getElementById('planDetails');
+        const submitBtn = document.getElementById('submitBtn');
+        const submitText = document.getElementById('submitText');
+        const sliderLabels = document.getElementById('sliderLabels');
+        
+        // Check if elements exist
+        if (!slider || !selectedStorageMBInput || !currentSelection || !planDetails || !submitBtn || !submitText || !sliderLabels) {
+            console.error('Missing required elements');
+            return;
+        }
+        
+        // Storage options - safe loading from JSON script tag
+        let storageOptions = [
+            {mb: 50, price: 0, name: 'Kostenlos', bytes: 52428800},
+            {mb: 1024, gb: 1, price: 1.99, name: '1GB Plan', bytes: 1073741824},
+            {mb: 2048, gb: 2, price: 2.99, name: '2GB Plan', bytes: 2147483648},
+            {mb: 5120, gb: 5, price: 6.99, name: '5GB Plan', bytes: 5368709120},
+            {mb: 10240, gb: 10, price: 9.99, name: '10GB Plan', bytes: 10737418240}
+        ];
+        let currentStorageMB = 50;
+        
+        // Try to load from JSON script tag
+        try {
+            const storageDataScript = document.getElementById('storage-data');
+            if (storageDataScript) {
+                const storageData = JSON.parse(storageDataScript.textContent);
+                if (storageData.storage_options && Array.isArray(storageData.storage_options) && storageData.storage_options.length > 0) {
+                    storageOptions = storageData.storage_options;
+                }
+                if (storageData.current_storage_mb && !isNaN(parseFloat(storageData.current_storage_mb))) {
+                    currentStorageMB = parseFloat(storageData.current_storage_mb);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading storage data:', error);
+            // Keep defaults
+        }
+        
+        console.log('Storage options:', storageOptions);
+        console.log('Current storage MB:', currentStorageMB);
+        console.log('Current price from template:', {{ current_price|default:0 }});
+        console.log('Storage data loaded:', storageData);
+        
+        // Validate data
+        if (!storageOptions || storageOptions.length === 0) {
+            console.error('No storage options available');
+            return;
+        }
+        
+        // Find current user's slider position
+        let currentSliderIndex = 0;
+        for (let i = 0; i < storageOptions.length; i++) {
+            if (storageOptions[i].mb == currentStorageMB) {
+                currentSliderIndex = i;
+                break;
+            }
+        }
+        
+        console.log('Current slider index:', currentSliderIndex);
+        
+        // Set slider to current user position
+        slider.value = currentSliderIndex;
+    
+        // Create slider labels positioned exactly at slider stops
+        function createSliderLabels() {
+            try {
+                sliderLabels.innerHTML = '';
+                const maxValue = storageOptions.length - 1;
+                
+                storageOptions.forEach((option, index) => {
+                    // Calculate percentage correctly for left-to-right progression
+                    const percentage = maxValue === 0 ? 50 : (index / maxValue) * 100;
+                    
+                    const labelDiv = document.createElement('div');
+                    labelDiv.className = 'slider-label';
+                    labelDiv.style.cssText = `
+                        position: absolute; 
+                        left: ${percentage}%; 
+                        transform: translateX(-50%); 
+                        text-align: center;
+                        top: 0;
+                    `;
+                    
+                    const sizeSpan = document.createElement('small');
+                    sizeSpan.className = 'd-block fw-bold';
+                    sizeSpan.textContent = option.gb ? `${option.gb}GB` : `${option.mb}MB`;
+                    
+                    const priceSpan = document.createElement('small');
+                    priceSpan.className = 'text-muted';
+                    priceSpan.textContent = `${option.price}€`;
+                    
+                    labelDiv.appendChild(sizeSpan);
+                    labelDiv.appendChild(priceSpan);
+                    sliderLabels.appendChild(labelDiv);
+                });
+                console.log('Slider labels created successfully');
+            } catch (error) {
+                console.error('Error creating slider labels:', error);
+            }
+        }
+    
+        function updatePlanDisplay(index) {
+            try {
+                const option = storageOptions[index];
+                if (!option) {
+                    console.error('Invalid option for index:', index);
+                    return;
+                }
+                
+                const isCurrentPlan = option.mb == currentStorageMB;
+                
+                // Update storage value
+                selectedStorageMBInput.value = option.mb;
+                
+                // Update current selection badge - make it dynamic and prominent
+                const displaySize = option.gb ? `${option.gb}GB` : `${option.mb}MB`;
+                const priceText = option.price == 0 ? 'Kostenlos' : `${option.price}€/Monat`;
+                
+                // Update badge with current selection
+                currentSelection.innerHTML = `<strong>${displaySize}</strong> - <strong>${priceText}</strong>`;
+                
+                // Update badge color based on selection
+                currentSelection.className = 'badge ' + (option.price == 0 ? 'bg-success' : 'bg-primary') + ' fs-6';
+                
+                // Update plan details
+                const planName = document.getElementById('planName');
+                const planStorage = document.getElementById('planStorage');
+                const planPrice = document.getElementById('planPrice');
+                const priceNote = document.getElementById('priceNote');
+                
+                if (planName) planName.textContent = option.name;
+                if (planStorage) planStorage.textContent = displaySize;
+                if (planPrice) planPrice.textContent = option.price == 0 ? 'Kostenlos' : `${option.price}€/Monat`;
+                if (priceNote) priceNote.textContent = option.price == 0 ? 'Kostenlos für immer' : 'Monatlich abgerechnet';
+                
+                // Update submit button
+                if (isCurrentPlan) {
+                    submitText.textContent = 'Aktueller Plan';
+                    submitBtn.disabled = true;
+                    submitBtn.classList.remove('btn-primary');
+                    submitBtn.classList.add('btn-secondary');
+                } else {
+                    const action = option.mb > currentStorageMB ? 'Upgraden' : 'Wechseln';
+                    submitText.textContent = `Auf ${displaySize} ${action}`;
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('btn-secondary');
+                    submitBtn.classList.add('btn-primary');
+                }
+                
+                // Update plan details styling
+                if (option.price == 0) {
+                    planDetails.className = 'card bg-light border-success';
+                } else if (option.mb > currentStorageMB) {
+                    planDetails.className = 'card bg-light border-primary';
+                } else {
+                    planDetails.className = 'card bg-light border-warning';
+                }
+                
+                console.log('Plan display updated for index:', index, 'option:', option);
+            } catch (error) {
+                console.error('Error updating plan display:', error);
+            }
+        }
+        
+        // Initialize
+        createSliderLabels();
+        updatePlanDisplay(currentSliderIndex);
+        
+        // Handle slider changes
+        slider.addEventListener('input', function() {
+            updatePlanDisplay(parseInt(this.value));
+        });
+        
+        // Handle Stripe integration or form submission
+        {% if stripe_integration %}
+        // Stripe checkout function
+        window.goToStripeCheckout = function() {
+            try {
+                const selectedIndex = parseInt(slider.value);
+                const option = storageOptions[selectedIndex];
+                const displaySize = option.gb ? `${option.gb}GB` : `${option.mb}MB`;
+                const priceText = option.price == 0 ? 'kostenlos' : `${option.price}€/Monat`;
+                
+                const message = `Wechseln zu ${displaySize} Plan (${priceText})?`;
+                
+                if (confirm(message)) {
+                    // Redirect to Stripe plans page
+                    window.location.href = '/payments/plans/';
+                }
+            } catch (error) {
+                console.error('Error in Stripe checkout:', error);
+                alert('Fehler beim Aufrufen der Stripe-Kasse');
+            }
+        };
+        {% else %}
+        // Form submission confirmation (legacy)
+        document.getElementById('planForm').addEventListener('submit', function(e) {
+            try {
+                const selectedIndex = parseInt(slider.value);
+                const option = storageOptions[selectedIndex];
+                const displaySize = option.gb ? `${option.gb}GB` : `${option.mb}MB`;
+                const priceText = option.price == 0 ? 'kostenlos' : `${option.price}€/Monat`;
+                
+                const message = `Möchten Sie wirklich auf den ${displaySize} Plan (${priceText}) wechseln?`;
+                
+                if (!confirm(message)) {
+                    e.preventDefault();
+                }
+            } catch (error) {
+                console.error('Error in form submission:', error);
+                e.preventDefault();
+            }
+        });
+        {% endif %}
+        
+    } catch (error) {
+        console.error('Script initialization error:', error);
+    }
+});
+</script>
+
+<style>
+.slider-container {
+    position: relative;
+    margin: 20px 0;
+}
+
+.form-range {
+    height: 8px;
+    border-radius: 5px;
+    direction: ltr; /* Force left-to-right direction */
+}
+
+.form-range::-webkit-slider-thumb {
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    background: #007bff;
+    cursor: pointer;
+    border: 2px solid #ffffff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    -webkit-appearance: none;
+}
+
+.form-range::-moz-range-thumb {
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    background: #007bff;
+    cursor: pointer;
+    border: 2px solid #ffffff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    -moz-appearance: none;
+}
+
+.form-range::-webkit-slider-track {
+    height: 8px;
+    border-radius: 5px;
+    background: #dee2e6;
+}
+
+.form-range::-moz-range-track {
+    height: 8px;
+    border-radius: 5px;
+    background: #dee2e6;
+    border: none;
+}
+
+.slider-labels {
+    margin-top: 10px;
+}
+
+.slider-label {
+    position: relative;
+    font-size: 0.85em;
+}
+
+#planDetails {
+    border-radius: 8px;
+    margin-top: 15px;
+}
+
+.card {
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.badge {
+    border-radius: 6px;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load math_filters %}
+
+{% block title %}Speicherplatz verwalten{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1>Speicherplatz verwalten</h1>
+            
+            <!-- Storage Overview Card -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        📊 Speicherplatz-Übersicht
+                        {% if plan_info.is_premium %}
+                            <span class="badge bg-warning ms-2">⭐ Premium</span>
+                        {% endif %}
+                        <span class="badge bg-primary ms-2">{{ plan_info.plan_name }}</span>
+                    </h5>
+                    
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="progress mb-3" style="height: 25px;">
+                                <div class="progress-bar {% if used_percentage > 90 %}bg-danger{% elif used_percentage > 75 %}bg-warning{% else %}bg-success{% endif %}" 
+                                     role="progressbar" 
+                                     style="width: {{ used_percentage }}%" 
+                                     aria-valuenow="{{ used_percentage }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                    {{ used_percentage|floatformat:1 }}%
+                                </div>
+                            </div>
+                            
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <h6>Belegt</h6>
+                                    <strong class="text-primary">{{ plan_info.used_storage_mb|floatformat:2 }} MB</strong>
+                                </div>
+                                <div class="col-4">
+                                    <h6>Verfügbar</h6>
+                                    <strong class="text-success">{{ plan_info.available_mb|floatformat:2 }} MB</strong>
+                                </div>
+                                <div class="col-4">
+                                    <h6>Gesamt</h6>
+                                    <strong class="text-secondary">
+                                        {% if plan_info.max_storage_mb >= 1024 %}
+                                            {{ plan_info.max_storage_mb|div:1024|floatformat:0 }} GB
+                                        {% else %}
+                                            {{ plan_info.max_storage_mb|floatformat:0 }} MB
+                                        {% endif %}
+                                    </strong>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 text-center">
+                            <h3 class="mb-1">{{ video_count }}</h3>
+                            <p class="text-muted mb-0">Videos hochgeladen</p>
+                            
+                            <div class="mt-3">
+                                {% if plan_info.has_subscription %}
+                                    <p class="text-muted mb-2">
+                                        {{ plan_info.price }}€/{{ plan_info.interval }}
+                                        {% if plan_info.current_period_end %}
+                                            <br><small>Verlängert: {{ plan_info.current_period_end|date:"d.m.Y" }}</small>
+                                        {% endif %}
+                                        {% if plan_info.cancel_at_period_end %}
+                                            <br><small class="text-danger">Kündigung zum Periodenende</small>
+                                        {% endif %}
+                                    </p>
+                                    <a href="/payments/portal/" class="btn btn-outline-primary btn-sm">
+                                        Abonnement verwalten
+                                    </a>
+                                {% else %}
+                                    <a href="/payments/plans/" class="btn btn-warning btn-sm">
+                                        ⭐ Plan erweitern
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if used_percentage > 80 %}
+                        <div class="alert alert-warning mt-3">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Achtung:</strong> Ihr Speicherplatz ist zu {{ used_percentage|floatformat:1 }}% belegt. 
+                            {% if not plan_info.is_premium %}
+                                <a href="/payments/plans/" class="alert-link">Erwägen Sie ein Upgrade für mehr Speicherplatz.</a>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Videos List with Delete Options -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">📹 Ihre Videos ({{ video_count }})</h5>
+                    
+                    {% if videos %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Titel</th>
+                                        <th>Dateigröße</th>
+                                        <th>Hochgeladen</th>
+                                        <th>Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for video in videos %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ video.title }}</strong>
+                                                {% if video.description %}
+                                                    <br><small class="text-muted">{{ video.description|truncatechars:50 }}</small>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-info">{{ video.file_size|filesizeformat }}</span>
+                                            </td>
+                                            <td>
+                                                {{ video.created_at|date:"d.m.Y H:i" }}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm" role="group">
+                                                    <a href="{% url 'videos:detail' video.id %}" class="btn btn-outline-primary">
+                                                        <i class="fas fa-eye"></i> Ansehen
+                                                    </a>
+                                                    <a href="{% url 'videos:delete' video.id %}" class="btn btn-outline-danger">
+                                                        <i class="fas fa-trash"></i> Löschen
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                💡 <strong>Tipp:</strong> Löschen Sie nicht mehr benötigte Videos, um Speicherplatz freizugeben.
+                            </small>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-video fa-3x mb-3"></i>
+                            <p>Sie haben noch keine Videos hochgeladen.</p>
+                            <a href="{% url 'videos:upload' %}" class="btn btn-primary">
+                                <i class="fas fa-upload"></i> Erstes Video hochladen
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Available Plans Card -->
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">💳 Verfügbare Speicherpläne</h5>
+                    
+                    <div class="row">
+                        {% for plan in available_plans %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card h-100 {% if plan_info.has_subscription and plan.name == plan_info.plan_name %}border-primary{% endif %}">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title">
+                                        {{ plan.name }}
+                                        {% if plan_info.has_subscription and plan.name == plan_info.plan_name %}
+                                            <span class="badge bg-primary">Aktuell</span>
+                                        {% endif %}
+                                    </h6>
+                                    <h4 class="text-primary">{{ plan.price }}€</h4>
+                                    <p class="text-muted">pro {{ plan.interval }}</p>
+                                    
+                                    <ul class="list-unstyled">
+                                        <li>
+                                            {% if plan.storage_mb >= 1024 %}
+                                                {{ plan.storage_mb|div:1024 }}GB Speicherplatz
+                                            {% else %}
+                                                {{ plan.storage_mb }}MB Speicherplatz
+                                            {% endif %}
+                                        </li>
+                                        <li>✓ Unbegrenzte Videos</li>
+                                        <li>✓ Share-Links & Embed-Codes</li>
+                                        {% if plan.price > 0 %}
+                                            <li>✓ Prioritätssupport</li>
+                                        {% endif %}
+                                    </ul>
+                                    
+                                    {% if not plan_info.has_subscription or plan.name != plan_info.plan_name %}
+                                        {% if plan.price == 0 %}
+                                            <small class="text-muted">Automatisch verfügbar</small>
+                                        {% else %}
+                                            <a href="/payments/plans/" class="btn btn-primary btn-sm">
+                                                Wählen
+                                            </a>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="text-center mt-3">
+                        <a href="/payments/plans/" class="btn btn-outline-primary">
+                            Alle Pläne vergleichen
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4 text-center">
+                <a href="{% url 'videos:list' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück zu Videos
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

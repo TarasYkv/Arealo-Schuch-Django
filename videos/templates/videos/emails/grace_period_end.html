@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kulanzzeit abgelaufen - Funktionen eingeschränkt</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #f8d7da; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #dc3545; }
+        .restriction { background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .button { display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 10px 5px; font-weight: bold; }
+        .button-upgrade { background: #28a745; }
+        .stats { display: flex; justify-content: space-between; margin: 20px 0; }
+        .stat { text-align: center; flex: 1; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #dc3545; }
+        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666; }
+        .timeline { margin: 20px 0; }
+        .timeline-item { display: flex; align-items: center; margin: 15px 0; padding: 10px; background: #f8f9fa; border-radius: 5px; }
+        .timeline-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px; font-weight: bold; }
+        .current { background: #dc3545; color: white; }
+        .future { background: #6c757d; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔒 Kulanzzeit abgelaufen</h1>
+            <p>Hallo {{ user.first_name|default:user.username }},</p>
+            <p>Ihre 30-tägige Kulanzzeit ist am {{ grace_period_end|date:"d.m.Y" }} abgelaufen. <strong>Neue Uploads sind jetzt deaktiviert.</strong></p>
+        </div>
+
+        <div class="restriction">
+            <h3>⛔ Aktuell eingeschränkte Funktionen:</h3>
+            <ul>
+                <li>❌ <strong>Neue Video-Uploads</strong> sind blockiert</li>
+                <li>✅ Bestehende Videos bleiben zugänglich</li>
+                <li>✅ Videos können weiterhin geteilt werden</li>
+                <li>✅ Download aller Videos möglich</li>
+            </ul>
+        </div>
+
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-value">{{ used_mb|floatformat:1 }}MB</div>
+                <div>Verwendet</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">{{ max_mb|floatformat:1 }}MB</div>
+                <div>Limit</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">+{{ overage_mb|floatformat:1 }}MB</div>
+                <div>Zu viel</div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{ request.scheme }}://{{ request.get_host }}/payments/plans/" class="button button-upgrade">
+                🚀 Speicherplan erweitern
+            </a>
+            <a href="{{ request.scheme }}://{{ request.get_host }}/videos/manage/" class="button">
+                🗑️ Videos löschen
+            </a>
+        </div>
+
+        <div class="timeline">
+            <h3>📅 Weitere Einschränkungen bei fortgesetzter Überschreitung:</h3>
+            
+            <div class="timeline-item">
+                <div class="timeline-icon current">1</div>
+                <div>
+                    <strong>JETZT AKTIV:</strong> Neue Uploads deaktiviert<br>
+                    <small>Bestehende Videos bleiben verfügbar</small>
+                </div>
+            </div>
+            
+            <div class="timeline-item">
+                <div class="timeline-icon future">2</div>
+                <div>
+                    <strong>In 30 Tagen:</strong> Video-Sharing wird deaktiviert<br>
+                    <small>Videos können nicht mehr geteilt werden</small>
+                </div>
+            </div>
+            
+            <div class="timeline-item">
+                <div class="timeline-icon future">3</div>
+                <div>
+                    <strong>In 60 Tagen:</strong> Automatische Archivierung<br>
+                    <small>Älteste Videos werden archiviert</small>
+                </div>
+            </div>
+        </div>
+
+        <div style="background: #d1ecf1; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #b3d9f2;">
+            <h3>💡 Empfohlene Aktionen:</h3>
+            <ol>
+                <li><strong>Sofort:</strong> Upgraden Sie auf einen größeren Speicherplan (ab 1,99€/Monat)</li>
+                <li><strong>Alternativ:</strong> Löschen Sie {{ overage_mb|floatformat:1 }}MB an Videos</li>
+                <li><strong>Sicherung:</strong> Laden Sie wichtige Videos herunter, bevor Sie sie löschen</li>
+            </ol>
+        </div>
+
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h4>🎯 Verfügbare Speicherpläne:</h4>
+            <ul style="list-style: none; padding: 0;">
+                <li style="margin: 5px 0;">📦 <strong>1GB Plan:</strong> 1,99€/Monat</li>
+                <li style="margin: 5px 0;">📦 <strong>2GB Plan:</strong> 2,99€/Monat</li>
+                <li style="margin: 5px 0;">📦 <strong>5GB Plan:</strong> 6,99€/Monat</li>
+                <li style="margin: 5px 0;">📦 <strong>10GB Plan:</strong> 9,99€/Monat</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <p>Alle Einschränkungen werden sofort aufgehoben, sobald Ihr Speicher wieder im Limit ist.</p>
+            <p>Bei Fragen kontaktieren Sie unseren Support.</p>
+            <p>WorkLoom Team</p>
+        </div>
+    </div>
+</body>
+</html>

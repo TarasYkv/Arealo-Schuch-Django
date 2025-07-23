@@ -1,0 +1,191 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Meine Videos{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1>Meine Videos</h1>
+            
+            <!-- Info Banner -->
+            <div class="card border-info mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-info-circle text-info"></i> Video-Hosting für Shopify & Webprojekte</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2">
+                        <strong>Warum eine eigene Video-Hosting-Lösung?</strong> Viele Anbieter wie Shopify erlauben je nach Abo nur eine begrenzte Anzahl an Videos. 
+                        Zudem haben die meisten Webserver begrenzten Speicherplatz, was bei größeren Video-Dateien schnell zu Problemen führt.
+                    </p>
+                    <p class="mb-0">
+                        <strong>Die Lösung:</strong> Mit diesem Video-Hosting können Sie Videos extern speichern und über eindeutige Links in Ihre Shopify-Blogs, 
+                        Websites oder anderen Projekte einbinden - ohne die Speicherplatz-Limits Ihres Hauptservers zu belasten.
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Storage Overage Alert -->
+            {% if is_storage_exceeded %}
+            <div class="alert alert-{% if user_storage.is_in_grace_period %}warning{% else %}danger{% endif %} mb-4" role="alert">
+                <h4 class="alert-heading">
+                    {% if user_storage.is_in_grace_period %}
+                        ⏰ Speicher überschritten - Kulanzzeit aktiv
+                    {% else %}
+                        🚨 Speicher überschritten - Funktionen eingeschränkt
+                    {% endif %}
+                </h4>
+                <p class="mb-2">{{ restriction_message }}</p>
+                
+                {% if user_storage.is_in_grace_period %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <small>Kulanzzeit endet:</small>
+                    <strong>{{ user_storage.grace_period_end|date:"d.m.Y H:i" }}</strong>
+                </div>
+                {% endif %}
+                
+                <hr>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'payments:subscription_plans' %}" class="btn btn-{% if user_storage.is_in_grace_period %}warning{% else %}danger{% endif %} btn-sm">
+                        🚀 Speicherplan erweitern
+                    </a>
+                    <a href="#" onclick="showStorageOptimizer()" class="btn btn-outline-secondary btn-sm">
+                        🗑️ Videos löschen
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Storage Usage -->
+            <div class="card mb-4 {% if is_storage_exceeded %}border-{% if user_storage.is_in_grace_period %}warning{% else %}danger{% endif %}{% endif %}">
+                <div class="card-body">
+                    <h5 class="card-title">Speicherplatz-Nutzung</h5>
+                    <div class="progress mb-2">
+                        <div class="progress-bar {% if used_percentage > 100 %}bg-danger{% elif used_percentage > 80 %}bg-warning{% else %}bg-success{% endif %}" 
+                             role="progressbar" style="width: {% if used_percentage > 100 %}100{% else %}{{ used_percentage }}{% endif %}%" 
+                             aria-valuenow="{{ used_percentage }}" aria-valuemin="0" aria-valuemax="100">
+                            {{ used_percentage|floatformat:1 }}%
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="{% if is_storage_exceeded %}text-danger{% else %}text-muted{% endif %}">
+                            {{ user_storage.get_used_storage_mb|floatformat:2 }} MB / {{ user_storage.get_max_storage_mb|floatformat:2 }} MB belegt
+                            {% if is_storage_exceeded %}
+                                <strong>(+{{ user_storage.get_overage_amount_mb|floatformat:1 }} MB zu viel)</strong>
+                            {% endif %}
+                        </small>
+                        <div class="d-flex align-items-center gap-2">
+                            {% if not user_storage.is_premium %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-gift"></i> Kostenloser Plan
+                                </span>
+                                <a href="{% url 'payments:subscription_plans' %}" class="btn btn-sm btn-warning">
+                                    <i class="fas fa-rocket"></i> Upgraden
+                                </a>
+                            {% else %}
+                                <span class="badge bg-primary">
+                                    <i class="fas fa-crown"></i> Premium Plan
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if user_storage.overage_restriction_level > 0 %}
+                    <div class="mt-2">
+                        <small class="text-danger">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            {% if user_storage.overage_restriction_level == 1 %}
+                                Uploads deaktiviert
+                            {% elif user_storage.overage_restriction_level == 2 %}
+                                Uploads und Sharing deaktiviert
+                            {% elif user_storage.overage_restriction_level >= 3 %}
+                                Archivierung aktiv
+                            {% endif %}
+                        </small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="mb-3">
+                {% if can_upload %}
+                <a href="{% url 'videos:upload' %}" class="btn btn-success">
+                    <i class="fas fa-upload"></i> Video hochladen
+                </a>
+                {% else %}
+                <button class="btn btn-secondary" disabled title="{{ restriction_message }}">
+                    <i class="fas fa-ban"></i> Upload deaktiviert
+                </button>
+                {% endif %}
+                <a href="{% url 'videos:storage' %}" class="btn btn-info">
+                    <i class="fas fa-database"></i> Speicherplatz verwalten
+                </a>
+                {% if is_storage_exceeded %}
+                <a href="{% url 'payments:subscription_plans' %}" class="btn btn-warning">
+                    <i class="fas fa-rocket"></i> Plan erweitern
+                </a>
+                {% endif %}
+            </div>
+            
+            <!-- Videos Grid -->
+            <div class="row">
+                {% for video in videos %}
+                    <div class="col-md-4 mb-4">
+                        <div class="card">
+                            {% if video.thumbnail %}
+                                <img src="{{ video.thumbnail.url }}" class="card-img-top" alt="{{ video.title }}" style="height: 200px; object-fit: cover;">
+                            {% else %}
+                                <div class="card-img-top bg-secondary d-flex align-items-center justify-content-center" style="height: 200px;">
+                                    <i class="fas fa-video fa-3x text-white"></i>
+                                </div>
+                            {% endif %}
+                            <div class="card-body">
+                                <h5 class="card-title">{{ video.title }}</h5>
+                                <p class="card-text">
+                                    <small class="text-muted">
+                                        {{ video.file_size|filesizeformat }}
+                                        {% if video.duration > 0 %}
+                                            • {{ video.duration|floatformat:0 }}s
+                                        {% endif %}
+                                    </small>
+                                </p>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'videos:detail' video.id %}" class="btn btn-sm btn-primary">View</a>
+                                    <button type="button" class="btn btn-sm btn-info" onclick="copyLink('{{ request.scheme }}://{{ request.get_host }}{% url 'videos:view' video.unique_id %}')">
+                                        <i class="fas fa-link"></i> Link kopieren
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% empty %}
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body text-center py-5">
+                                <i class="fas fa-video fa-4x text-muted mb-3"></i>
+                                <h4>Noch keine Videos hochgeladen</h4>
+                                <p class="text-muted">Laden Sie Ihr erstes Video hoch, um zu beginnen.</p>
+                                <a href="{% url 'videos:upload' %}" class="btn btn-primary">
+                                    <i class="fas fa-upload"></i> Erstes Video hochladen
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyLink(link) {
+    navigator.clipboard.writeText(link).then(function() {
+        alert('Link in Zwischenablage kopiert!');
+    }, function(err) {
+        alert('Link konnte nicht kopiert werden');
+    });
+}
+</script>
+{% endblock %}

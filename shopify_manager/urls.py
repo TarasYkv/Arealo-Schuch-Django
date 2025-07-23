@@ -45,7 +45,6 @@ urlpatterns = [
     path('api/generate-seo/', views.generate_seo_view, name='generate_seo'),
     path('api/apply-seo/', views.apply_seo_view, name='apply_seo'),
     
-    # Alt-Text Manager
     path('alt-text-manager/', views.alt_text_manager_overview_view, name='alt_text_manager'),
     path('products/<int:product_id>/alt-text/', views.alt_text_manager_view, name='product_alt_text_manager'),
     path('api/alt-text-data/<int:store_id>/', views.get_alt_text_data_view, name='get_alt_text_data'),

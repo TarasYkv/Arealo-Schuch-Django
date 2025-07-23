@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speicher überschritten - Kulanzzeit gestartet</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .alert { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .info-box { background: #e7f3ff; border: 1px solid #b3d9ff; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .button { display: inline-block; background: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 10px 0; }
+        .stats { display: flex; justify-content: space-between; margin: 20px 0; }
+        .stat { text-align: center; flex: 1; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #007bff; }
+        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚨 Speicher überschritten</h1>
+            <p>Hallo {{ user.first_name|default:user.username }},</p>
+            <p>Ihr Video-Speicherplatz ist überschritten. Wir haben eine <strong>30-tägige Kulanzzeit</strong> gestartet.</p>
+        </div>
+
+        <div class="alert">
+            <h3>⏰ Kulanzzeit bis {{ grace_period_end|date:"d.m.Y H:i" }}</h3>
+            <p>Während dieser Zeit können Sie alle Funktionen weiterhin uneingeschränkt nutzen.</p>
+        </div>
+
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-value">{{ used_mb|floatformat:1 }}MB</div>
+                <div>Verwendet</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">{{ max_mb|floatformat:1 }}MB</div>
+                <div>Limit</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" style="color: #dc3545;">+{{ overage_mb|floatformat:1 }}MB</div>
+                <div>Überschritten</div>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>💡 Was können Sie jetzt tun?</h3>
+            <ul>
+                <li><strong>Videos löschen:</strong> Entfernen Sie nicht benötigte Videos</li>
+                <li><strong>Speicherplan erweitern:</strong> Upgrade auf einen größeren Plan</li>
+                <li><strong>Videos herunterladen:</strong> Sichern Sie wichtige Videos lokal</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{ request.scheme }}://{{ request.get_host }}/videos/manage/" class="button">
+                📹 Videos verwalten
+            </a>
+            <a href="{{ request.scheme }}://{{ request.get_host }}/payments/plans/" class="button">
+                📈 Speicherplan erweitern
+            </a>
+        </div>
+
+        <div class="info-box">
+            <h3>⚠️ Was passiert nach der Kulanzzeit?</h3>
+            <p>Falls Ihr Speicher nach 30 Tagen noch überschritten ist:</p>
+            <ul>
+                <li><strong>Tag 31-60:</strong> Neue Uploads werden blockiert</li>
+                <li><strong>Tag 61-90:</strong> Video-Sharing wird deaktiviert</li>
+                <li><strong>Tag 91+:</strong> Automatische Archivierung ältester Videos</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <p>Diese E-Mail wurde automatisch generiert. Bei Fragen wenden Sie sich an unseren Support.</p>
+            <p>WorkLoom Team</p>
+        </div>
+    </div>
+</body>
+</html>

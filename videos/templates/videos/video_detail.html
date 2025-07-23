@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ video.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <h1>{{ video.title }}</h1>
+            
+            <div class="video-container mb-4">
+                <video controls class="w-100">
+                    <source src="{% url 'videos:stream' video.unique_id %}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Teilen-Links</h5>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Direkter Link</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="directLink" 
+                                       value="{{ request.build_absolute_uri }}{{ video.share_link }}" readonly>
+                                <button class="btn btn-outline-secondary" type="button" 
+                                        onclick="copyToClipboard('directLink')">
+                                    <i class="fas fa-copy"></i> Kopieren
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Einbettungscode</label>
+                            <div class="input-group">
+                                <textarea class="form-control" id="embedCode" rows="3" readonly><iframe src="{{ request.build_absolute_uri }}{{ video.get_embed_url }}" width="640" height="360" frameborder="0" allowfullscreen></iframe></textarea>
+                                <button class="btn btn-outline-secondary" type="button" 
+                                        onclick="copyToClipboard('embedCode')">
+                                    <i class="fas fa-copy"></i> Kopieren
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            
+            {% if video.description %}
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Beschreibung</h5>
+                        <p>{{ video.description }}</p>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Video-Informationen</h5>
+                    <dl class="row">
+                        <dt class="col-sm-4">Größe:</dt>
+                        <dd class="col-sm-8">{{ video.file_size|filesizeformat }}</dd>
+                        
+                        <dt class="col-sm-4">Hochgeladen:</dt>
+                        <dd class="col-sm-8">{{ video.created_at|date:"M d, Y H:i" }}</dd>
+                    </dl>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Aktionen</h5>
+                    <a href="{% url 'videos:list' %}" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-arrow-left"></i> Zurück zur Liste
+                    </a>
+                    <a href="{% url 'videos:delete' video.id %}" class="btn btn-danger btn-sm">
+                        <i class="fas fa-trash"></i> Löschen
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyToClipboard(elementId) {
+    const element = document.getElementById(elementId);
+    element.select();
+    element.setSelectionRange(0, 99999);
+    document.execCommand('copy');
+    
+    // Show feedback
+    const button = element.nextElementSibling;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-check"></i> Kopiert!';
+    button.classList.remove('btn-outline-secondary');
+    button.classList.add('btn-success');
+    
+    setTimeout(function() {
+        button.innerHTML = originalText;
+        button.classList.remove('btn-success');
+        button.classList.add('btn-outline-secondary');
+    }, 2000);
+}
+</script>
+{% endblock %}

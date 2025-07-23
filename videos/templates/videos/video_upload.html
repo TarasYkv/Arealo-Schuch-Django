@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Video hochladen{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <h1>Video hochladen</h1>
+            
+            <!-- Speicherplatz-Info -->
+            <div class="alert alert-info d-flex justify-content-between align-items-center">
+                <span>
+                    <i class="fas fa-info-circle"></i> 
+                    Sie haben {{ user_storage.get_used_storage_mb|floatformat:2 }} MB / {{ user_storage.get_max_storage_mb|floatformat:2 }} MB belegt.
+                </span>
+                {% if not user_storage.is_premium %}
+                <a href="{% url 'payments:subscription_plans' %}" class="btn btn-warning btn-sm">
+                    <i class="fas fa-crown"></i> Mehr Speicher
+                </a>
+                {% endif %}
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data" id="uploadForm">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.title.id_for_label }}" class="form-label">Titel</label>
+                            {{ form.title }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.description.id_for_label }}" class="form-label">Beschreibung (optional)</label>
+                            {{ form.description }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.video_file.id_for_label }}" class="form-label">Video-Datei</label>
+                            {{ form.video_file }}
+                            <small class="form-text text-muted">
+                                Unterstützte Formate: MP4, AVI, MOV, WMV, FLV, MKV, WebM
+                            </small>
+                        </div>
+                        
+                        <div class="progress mb-3" style="display: none;" id="uploadProgress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" style="width: 0%"
+                                 aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            <i class="fas fa-upload"></i> Video hochladen
+                        </button>
+                        <a href="{% url 'videos:list' %}" class="btn btn-secondary">Abbrechen</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+    const submitBtn = document.getElementById('submitBtn');
+    const progressDiv = document.getElementById('uploadProgress');
+    const progressBar = progressDiv.querySelector('.progress-bar');
+    
+    // Show progress
+    progressDiv.style.display = 'block';
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Wird hochgeladen...';
+    
+    // Simulate progress (in real implementation, use XMLHttpRequest for actual progress)
+    let progress = 0;
+    const interval = setInterval(function() {
+        progress += Math.random() * 10;
+        if (progress > 90) {
+            clearInterval(interval);
+            progress = 90;
+        }
+        progressBar.style.width = progress + '%';
+        progressBar.textContent = Math.round(progress) + '%';
+        progressBar.setAttribute('aria-valuenow', progress);
+    }, 500);
+});
+</script>
+{% endblock %}

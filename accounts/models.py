@@ -157,6 +157,7 @@ class AppPermission(models.Model):
         ('chat', 'Chat'),
         ('organisation', 'Organisation'),
         ('editor', 'Editor'),
+        ('videos', 'Videos'),
         
         # Schuch Tools
         ('wirtschaftlichkeitsrechner', 'Wirtschaftlichkeitsrechner'),

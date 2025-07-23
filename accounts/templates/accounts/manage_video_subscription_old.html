@@ -1,0 +1,227 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Video-Hosting Abonnement verwalten{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h2">
+                    <i class="fas fa-video text-primary"></i> Video-Hosting Abonnement
+                </h1>
+                <a href="{% url 'accounts:company_info' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück zum Profil
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Aktueller Plan -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-crown"></i> Ihr aktueller Plan
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center mb-3">
+                                {% if video_storage.is_premium %}
+                                    <span class="badge bg-warning me-3" style="font-size: 1.1em;">⭐ Premium Plan</span>
+                                    <div>
+                                        <strong class="text-warning">5 GB Speicherplatz</strong>
+                                        <br><small class="text-muted">10€/Monat</small>
+                                    </div>
+                                {% else %}
+                                    <span class="badge bg-secondary me-3" style="font-size: 1.1em;">📦 Kostenloser Plan</span>
+                                    <div>
+                                        <strong class="text-secondary">50 MB Speicherplatz</strong>
+                                        <br><small class="text-muted">Kostenlos</small>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Speicherplatz-Anzeige -->
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Speicherplatz-Nutzung</span>
+                                    <span>{{ video_usage_percentage|floatformat:1 }}%</span>
+                                </div>
+                                <div class="progress mb-2" style="height: 20px;">
+                                    <div class="progress-bar {% if video_usage_percentage > 90 %}bg-danger{% elif video_usage_percentage > 75 %}bg-warning{% else %}bg-success{% endif %}" 
+                                         role="progressbar" 
+                                         style="width: {{ video_usage_percentage }}%">
+                                    </div>
+                                </div>
+                                <div class="row text-center">
+                                    <div class="col-4">
+                                        <small class="text-muted">Belegt:</small><br>
+                                        <strong>{{ video_storage.get_used_storage_mb|floatformat:2 }} MB</strong>
+                                    </div>
+                                    <div class="col-4">
+                                        <small class="text-muted">Verfügbar:</small><br>
+                                        <strong>{{ available_space_mb|floatformat:2 }} MB</strong>
+                                    </div>
+                                    <div class="col-4">
+                                        <small class="text-muted">Videos:</small><br>
+                                        <strong>{{ videos_count }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 text-center">
+                            {% if video_storage.is_premium %}
+                                <div class="d-grid gap-2">
+                                    <form method="post" onsubmit="return confirm('Möchten Sie wirklich auf den kostenlosen Plan (50MB) wechseln?')">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="downgrade_to_free">
+                                        <button type="submit" class="btn btn-outline-danger">
+                                            <i class="fas fa-arrow-down"></i> Auf kostenlos wechseln
+                                        </button>
+                                    </form>
+                                </div>
+                            {% else %}
+                                <div class="d-grid gap-2">
+                                    <form method="post" onsubmit="return confirm('Möchten Sie auf Premium (5GB) für 10€/Monat upgraden?')">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="upgrade_to_premium">
+                                        <button type="submit" class="btn btn-warning">
+                                            <i class="fas fa-star"></i> Auf Premium upgraden
+                                        </button>
+                                    </form>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if video_usage_percentage > 80 %}
+                        <div class="alert alert-warning mt-3">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Speicherplatz wird knapp:</strong> 
+                            Ihr Speicherplatz ist zu {{ video_usage_percentage|floatformat:1 }}% belegt.
+                            {% if not video_storage.is_premium %}
+                                Erwägen Sie ein Upgrade auf Premium für deutlich mehr Speicherplatz.
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Abo-Verlauf -->
+            {% if current_subscription %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-history"></i> Abonnement-Details
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Plan:</strong> {{ current_subscription.get_plan_display }}</p>
+                                <p><strong>Monatlicher Preis:</strong> {{ current_subscription.price_monthly }}€</p>
+                                <p><strong>Status:</strong> 
+                                    {% if current_subscription.is_active %}
+                                        <span class="badge bg-success">Aktiv</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Inaktiv</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Startdatum:</strong> {{ current_subscription.start_date|date:"d.m.Y" }}</p>
+                                {% if current_subscription.end_date %}
+                                    <p><strong>Enddatum:</strong> {{ current_subscription.end_date|date:"d.m.Y" }}</p>
+                                {% endif %}
+                                <p><strong>Erstellt:</strong> {{ current_subscription.created_at|date:"d.m.Y H:i" }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- Plan-Vergleich -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-balance-scale"></i> Plan-Vergleich
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <div class="border rounded p-3 {% if not video_storage.is_premium %}border-primary bg-light{% endif %}">
+                            <h6 class="mb-3">📦 Kostenloser Plan</h6>
+                            <ul class="list-unstyled mb-3">
+                                <li><i class="fas fa-check text-success"></i> 50 MB Speicherplatz</li>
+                                <li><i class="fas fa-check text-success"></i> Unbegrenzte Videos</li>
+                                <li><i class="fas fa-check text-success"></i> Öffentliche Share-Links</li>
+                                <li><i class="fas fa-check text-success"></i> Embed-Codes</li>
+                            </ul>
+                            <div class="text-center">
+                                <strong class="text-success h5">Kostenlos</strong>
+                                {% if not video_storage.is_premium %}
+                                    <br><span class="badge bg-primary">Aktueller Plan</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="border rounded p-3 {% if video_storage.is_premium %}border-warning bg-warning bg-opacity-10{% endif %}">
+                            <h6 class="mb-3">⭐ Premium Plan</h6>
+                            <ul class="list-unstyled mb-3">
+                                <li><i class="fas fa-check text-success"></i> 5 GB Speicherplatz</li>
+                                <li><i class="fas fa-check text-success"></i> <strong>100x mehr Platz</strong></li>
+                                <li><i class="fas fa-check text-success"></i> Alle Basis-Features</li>
+                                <li><i class="fas fa-check text-success"></i> Prioritätssupport</li>
+                            </ul>
+                            <div class="text-center">
+                                <strong class="text-warning h5">10€/Monat</strong>
+                                {% if video_storage.is_premium %}
+                                    <br><span class="badge bg-warning">Aktueller Plan</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Hilfe & Support -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-question-circle"></i> Hilfe & Support
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-3">Haben Sie Fragen zu Ihrem Abonnement?</p>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'videos:list' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-video"></i> Zu meinen Videos
+                        </a>
+                        <a href="{% url 'videos:storage' %}" class="btn btn-outline-info">
+                            <i class="fas fa-database"></i> Speicherplatz verwalten
+                        </a>
+                    </div>
+                    
+                    <hr>
+                    
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Hinweis:</strong> Bei einem Downgrade müssen Sie zunächst Videos löschen, 
+                        um unter die Speichergrenze von 50MB zu kommen.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
