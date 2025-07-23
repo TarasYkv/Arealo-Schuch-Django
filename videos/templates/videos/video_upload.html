@@ -10,16 +10,52 @@
             <h1>Video hochladen</h1>
             
             <!-- Speicherplatz-Info -->
-            <div class="alert alert-info d-flex justify-content-between align-items-center">
-                <span>
-                    <i class="fas fa-info-circle"></i> 
-                    Sie haben {{ user_storage.get_used_storage_mb|floatformat:2 }} MB / {{ user_storage.get_max_storage_mb|floatformat:2 }} MB belegt.
-                </span>
-                {% if not user_storage.is_premium %}
-                <a href="{% url 'payments:subscription_plans' %}" class="btn btn-warning btn-sm">
-                    <i class="fas fa-crown"></i> Mehr Speicher
-                </a>
-                {% endif %}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-hdd"></i> Speicherplatz-Übersicht
+                        </h6>
+                        {% if not user_storage.is_premium %}
+                        <a href="{% url 'payments:subscription_plans' %}" class="btn btn-warning btn-sm">
+                            <i class="fas fa-crown"></i> Mehr Speicher
+                        </a>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="progress mb-2" style="height: 20px;">
+                        <div class="progress-bar {% if used_percentage > 90 %}bg-danger{% elif used_percentage > 75 %}bg-warning{% else %}bg-success{% endif %}" 
+                             role="progressbar" 
+                             style="width: {{ used_percentage }}%"
+                             aria-valuenow="{{ used_percentage }}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                            {{ used_percentage|floatformat:1 }}%
+                        </div>
+                    </div>
+                    
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <small class="text-muted">Belegt</small><br>
+                            <strong>{{ user_storage.get_used_storage_mb|floatformat:1 }} MB</strong>
+                        </div>
+                        <div class="col-4">
+                            <small class="text-muted">Verfügbar</small><br>
+                            <strong>{{ available_storage_bytes|filesizeformat }}</strong>
+                        </div>
+                        <div class="col-4">
+                            <small class="text-muted">Gesamt</small><br>
+                            <strong>{{ user_storage.get_max_storage_mb|floatformat:0 }} MB</strong>
+                        </div>
+                    </div>
+                    
+                    {% if not can_upload %}
+                    <div class="alert alert-danger mt-3 mb-0">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        {{ restriction_message }}
+                    </div>
+                    {% endif %}
+                </div>
             </div>
             
             <div class="card">
@@ -41,8 +77,13 @@
                             <label for="{{ form.video_file.id_for_label }}" class="form-label">Video-Datei</label>
                             {{ form.video_file }}
                             <small class="form-text text-muted">
-                                Unterstützte Formate: MP4, AVI, MOV, WMV, FLV, MKV, WebM
+                                Unterstützte Formate: MP4, AVI, MOV, WMV, FLV, MKV, WebM<br>
+                                Verfügbarer Speicher: {{ available_storage_bytes|filesizeformat }}
                             </small>
+                            <div id="fileSizeWarning" class="alert alert-warning mt-2" style="display: none;">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <span id="fileSizeMessage"></span>
+                            </div>
                         </div>
                         
                         <div class="progress mb-3" style="display: none;" id="uploadProgress">
@@ -63,10 +104,71 @@
 </div>
 
 <script>
+// Storage limits from backend
+const maxStorage = {{ user_storage.max_storage }};
+const usedStorage = {{ user_storage.used_storage }};
+const availableStorage = maxStorage - usedStorage;
+
+// File size validation
+document.getElementById('{{ form.video_file.id_for_label }}').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    const warningDiv = document.getElementById('fileSizeWarning');
+    const messageSpan = document.getElementById('fileSizeMessage');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    if (file) {
+        const fileSize = file.size;
+        const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(1);
+        const availableMB = (availableStorage / (1024 * 1024)).toFixed(1);
+        const maxStorageMB = (maxStorage / (1024 * 1024)).toFixed(0);
+        
+        if (fileSize > availableStorage) {
+            const totalNeededMB = ((usedStorage + fileSize) / (1024 * 1024)).toFixed(1);
+            
+            messageSpan.innerHTML = `
+                Datei zu groß! Benötigt: <strong>${fileSizeMB} MB</strong>, 
+                verfügbar: <strong>${availableMB} MB</strong>
+                (gesamt würde: ${totalNeededMB} MB von ${maxStorageMB} MB belegen).
+                <br><a href="{% url 'payments:subscription_plans' %}" class="alert-link">Speicher erweitern</a> 
+                oder Videos löschen.
+            `;
+            warningDiv.style.display = 'block';
+            warningDiv.className = 'alert alert-danger mt-2';
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-ban"></i> Datei zu groß';
+        } else if (fileSize > availableStorage * 0.8) {
+            messageSpan.innerHTML = `
+                Warnung: Datei ist ${fileSizeMB} MB groß. 
+                Nach dem Upload verbleiben nur noch ${(availableMB - fileSizeMB).toFixed(1)} MB.
+            `;
+            warningDiv.style.display = 'block';
+            warningDiv.className = 'alert alert-warning mt-2';
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-upload"></i> Video hochladen';
+        } else {
+            warningDiv.style.display = 'none';
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-upload"></i> Video hochladen';
+        }
+    } else {
+        warningDiv.style.display = 'none';
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-upload"></i> Video hochladen';
+    }
+});
+
 document.getElementById('uploadForm').addEventListener('submit', function(e) {
     const submitBtn = document.getElementById('submitBtn');
     const progressDiv = document.getElementById('uploadProgress');
     const progressBar = progressDiv.querySelector('.progress-bar');
+    const fileInput = document.getElementById('{{ form.video_file.id_for_label }}');
+    
+    // Final check before submit
+    if (fileInput.files[0] && fileInput.files[0].size > availableStorage) {
+        e.preventDefault();
+        alert('Die gewählte Datei ist zu groß für Ihren verfügbaren Speicherplatz.');
+        return false;
+    }
     
     // Show progress
     progressDiv.style.display = 'block';

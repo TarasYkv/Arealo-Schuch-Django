@@ -21,6 +21,7 @@ from .forms import (
     BulkActionForm, ProductImportForm, SEOOptimizationForm, BlogPostSEOOptimizationForm, BlogPostFilterForm
 )
 from .shopify_api import ShopifyAPIClient, ShopifyProductSync, ShopifyBlogSync
+from payments.feature_access import require_subscription_access
 
 
 class ShopifyStoreListView(LoginRequiredMixin, ListView):
@@ -28,6 +29,28 @@ class ShopifyStoreListView(LoginRequiredMixin, ListView):
     model = ShopifyStore
     template_name = 'shopify_manager/store_list.html'
     context_object_name = 'stores'
+    
+    def dispatch(self, request, *args, **kwargs):
+        """Check feature access before processing request"""
+        from accounts.models import FeatureAccess
+        if not FeatureAccess.user_can_access_app('shopify_manager', request.user):
+            from django.shortcuts import render
+            try:
+                feature = FeatureAccess.objects.get(app_name='shopify_manager', is_active=True)
+                upgrade_message = feature.get_upgrade_message()
+                subscription_required = feature.get_subscription_required_display()
+            except FeatureAccess.DoesNotExist:
+                upgrade_message = 'Shopify Manager erfordert ein Abonnement.'
+                subscription_required = 'Abonnement'
+            
+            return render(request, 'payments/feature_access_denied.html', {
+                'app_name': 'shopify_manager',
+                'required_subscription': subscription_required,
+                'upgrade_message': upgrade_message,
+                'upgrade_url': '/payments/plans/',
+                'show_upgrade_prompt': True
+            }, status=403)
+        return super().dispatch(request, *args, **kwargs)
     
     def get_queryset(self):
         return ShopifyStore.objects.filter(user=self.request.user)

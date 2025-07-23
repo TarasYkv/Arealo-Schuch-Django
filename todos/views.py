@@ -10,11 +10,13 @@ from django.core.paginator import Paginator
 import json
 
 from .models import TodoList, Todo, TodoAssignment, TodoComment, TodoActivity
+from payments.feature_access import require_subscription_access
 
 User = get_user_model()
 
 
 @login_required
+@require_subscription_access('todos')
 def todo_home(request):
     """Übersichtsseite mit allen Listen des Benutzers"""
     # Listen die der Benutzer erstellt hat oder zu denen er Zugriff hat

@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm, PasswordChangeForm
 from django.contrib.auth import authenticate
-from .models import CustomUser, AmpelCategory, CategoryKeyword, AppPermission
+from .models import CustomUser, AmpelCategory, CategoryKeyword, AppPermission, FeatureAccess
 
 
 class CustomUserCreationForm(UserCreationForm):
@@ -311,3 +311,131 @@ class AppPermissionForm(forms.Form):
                 permission.selected_users.set(selected_users)
             
             permission.save()
+
+
+class FeatureAccessForm(forms.ModelForm):
+    """Form für die Verwaltung der Feature-Zugriffsrechte"""
+    
+    class Meta:
+        model = FeatureAccess
+        fields = ['app_name', 'subscription_required', 'description', 'is_active', 
+                  'show_upgrade_prompt', 'upgrade_message']
+        widgets = {
+            'app_name': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'subscription_required': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Beschreibung der Funktion/App...'
+            }),
+            'upgrade_message': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Benutzerdefinierte Upgrade-Nachricht (optional)...'
+            }),
+            'is_active': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'show_upgrade_prompt': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+        }
+        labels = {
+            'app_name': 'App/Feature',
+            'subscription_required': 'Erforderliches Abonnement',
+            'description': 'Beschreibung',
+            'is_active': 'Aktiv',
+            'show_upgrade_prompt': 'Upgrade-Hinweis anzeigen',
+            'upgrade_message': 'Benutzerdefinierte Upgrade-Nachricht',
+        }
+        help_texts = {
+            'description': 'Kurze Beschreibung der Funktion oder App',
+            'upgrade_message': 'Wird angezeigt wenn ein Benutzer ohne Berechtigung zugreifen möchte (optional)',
+            'show_upgrade_prompt': 'Ob ein Upgrade-Hinweis angezeigt werden soll',
+        }
+
+
+class BulkFeatureAccessForm(forms.Form):
+    """Form für Bulk-Aktionen auf Feature-Zugriffe"""
+    
+    BULK_ACTIONS = [
+        ('', '--- Aktion auswählen ---'),
+        ('activate', 'Aktivieren'),
+        ('deactivate', 'Deaktivieren'),
+        ('set_free', 'Auf kostenlosen Zugang setzen'),
+        ('set_founder_access', 'Auf Founder Access setzen'),
+        ('set_any_paid', 'Auf beliebiges bezahltes Abo setzen'),
+        ('set_storage_plan', 'Auf Storage-Plan setzen'),
+        ('set_blocked', 'Sperren'),
+    ]
+    
+    action = forms.ChoiceField(
+        choices=BULK_ACTIONS,
+        widget=forms.Select(attrs={
+            'class': 'form-select',
+        }),
+        label='Aktion'
+    )
+    
+    selected_features = forms.ModelMultipleChoiceField(
+        queryset=FeatureAccess.objects.all(),
+        widget=forms.CheckboxSelectMultiple(attrs={
+            'class': 'form-check-input'
+        }),
+        label='Ausgewählte Features',
+        required=False
+    )
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['selected_features'].queryset = FeatureAccess.objects.all().order_by('app_name')
+
+
+class FeatureAccessFilterForm(forms.Form):
+    """Filter-Form für Feature-Zugriffe"""
+    
+    SUBSCRIPTION_FILTER_CHOICES = [
+        ('', 'Alle Abonnement-Typen'),
+        ('free', 'Kostenlos verfügbar'),
+        ('founder_access', 'Founder\'s Early Access erforderlich'),
+        ('any_paid', 'Beliebiges bezahltes Abo erforderlich'),
+        ('storage_plan', 'Storage-Plan erforderlich'),
+        ('blocked', 'Komplett gesperrt'),
+    ]
+    
+    STATUS_FILTER_CHOICES = [
+        ('', 'Alle Status'),
+        ('active', 'Nur aktive'),
+        ('inactive', 'Nur inaktive'),
+    ]
+    
+    subscription_required = forms.ChoiceField(
+        choices=SUBSCRIPTION_FILTER_CHOICES,
+        required=False,
+        widget=forms.Select(attrs={
+            'class': 'form-select form-select-sm'
+        }),
+        label='Abonnement-Typ'
+    )
+    
+    is_active = forms.ChoiceField(
+        choices=STATUS_FILTER_CHOICES,
+        required=False,
+        widget=forms.Select(attrs={
+            'class': 'form-select form-select-sm'
+        }),
+        label='Status'
+    )
+    
+    search = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-sm',
+            'placeholder': 'Nach App/Feature suchen...'
+        }),
+        label='Suche'
+    )

@@ -66,7 +66,18 @@ def video_upload(request):
             # Check file size
             file_size = request.FILES['video_file'].size
             if not user_storage.has_storage_available(file_size):
-                messages.error(request, 'Nicht genügend Speicherplatz verfügbar. Bitte erweitern Sie Ihren Tarif.')
+                available_mb = (user_storage.max_storage - user_storage.used_storage) / (1024 * 1024)
+                needed_mb = file_size / (1024 * 1024)
+                total_needed_mb = (user_storage.used_storage + file_size) / (1024 * 1024)
+                
+                error_message = (
+                    f'Nicht genügend Speicherplatz verfügbar. '
+                    f'Verfügbar: {available_mb:.1f} MB, '
+                    f'benötigt: {needed_mb:.1f} MB '
+                    f'(gesamt: {total_needed_mb:.1f} MB von {user_storage.get_max_storage_mb():.0f} MB). '
+                    f'Bitte löschen Sie Videos oder erweitern Sie Ihren Tarif.'
+                )
+                messages.error(request, error_message)
                 return redirect('videos:upload')
             
             video.file_size = file_size
@@ -95,6 +106,7 @@ def video_upload(request):
         'form': form,
         'user_storage': user_storage,
         'used_percentage': (user_storage.used_storage / user_storage.max_storage * 100) if user_storage.max_storage > 0 else 0,
+        'available_storage_bytes': user_storage.max_storage - user_storage.used_storage,
         'can_upload': user_storage.can_upload(),
         'restriction_message': user_storage.get_restriction_message(),
     }
