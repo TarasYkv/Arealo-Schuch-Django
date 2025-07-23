@@ -9,7 +9,7 @@
                     <i class="fas fa-user-circle text-primary"></i> Mein Profil
                 </h1>
                 <div class="btn-group">
-                    <a href="{% url 'accounts:change_password' %}" class="btn btn-outline-secondary">
+                    <a href="{% url 'accounts:company_info' %}?tab=password" class="btn btn-outline-secondary">
                         <i class="fas fa-key"></i> Passwort ändern
                     </a>
                     <a href="{% url 'accounts:dashboard' %}" class="btn btn-outline-primary">
@@ -83,6 +83,121 @@
         </div>
 
         <div class="col-md-8">
+            <!-- Abo-Verwaltung -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-credit-card"></i> Meine Abonnements
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Video-App Abo -->
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <h6 class="mb-2">
+                                <i class="fas fa-video text-primary"></i> Video-Hosting
+                            </h6>
+                            <div class="d-flex align-items-center mb-2">
+                                {% if video_storage.get_tier_name == "Kostenlos" %}
+                                    <span class="badge bg-secondary me-2">📦 {{ video_storage.get_tier_name }}</span>
+                                {% else %}
+                                    <span class="badge bg-warning me-2">⭐ {{ video_storage.get_tier_name }}</span>
+                                {% endif %}
+                                <span class="{% if video_storage.get_tier_name != 'Kostenlos' %}text-success{% else %}text-muted{% endif %}">
+                                    <strong>{% if video_storage.get_max_storage_mb >= 1024 %}{{ video_storage.get_max_storage_gb|floatformat:0 }} GB{% else %}{{ video_storage.get_max_storage_mb|floatformat:0 }} MB{% endif %}</strong> Speicherplatz
+                                    {% if video_storage.get_current_price > 0 %}
+                                        • {{ video_storage.get_current_price }}€/Monat
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar {% if video_usage_percentage > 90 %}bg-danger{% elif video_usage_percentage > 75 %}bg-warning{% else %}bg-success{% endif %}" 
+                                     role="progressbar" 
+                                     style="width: {{ video_usage_percentage }}%">
+                                </div>
+                            </div>
+                            <small class="text-muted">
+                                {{ video_storage.get_used_storage_mb|floatformat:2 }} MB von {{ video_storage.get_max_storage_mb|floatformat:0 }} MB belegt
+                            </small>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            {% if video_storage.is_premium %}
+                                <a href="{% url 'accounts:manage_subscription' 'video' %}" class="btn btn-outline-secondary btn-sm">
+                                    <i class="fas fa-cog"></i> Verwalten
+                                </a>
+                            {% else %}
+                                <a href="{% url 'accounts:manage_subscription' 'video' %}" class="btn btn-warning btn-sm">
+                                    <i class="fas fa-star"></i> Upgraden
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <h6 class="text-muted mb-3">Verfügbare Speicherpläne:</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Plan</th>
+                                            <th>Speicher</th>
+                                            <th>Video</th>
+                                            <th>Audio</th>
+                                            <th>Preis</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr class="{% if video_storage.get_max_storage_mb|floatformat:0 == '50' %}table-active{% endif %}">
+                                            <td>📦 Kostenlos</td>
+                                            <td><strong>50 MB</strong></td>
+                                            <td><small>~2-3 Min</small></td>
+                                            <td><small>~50-60 Min</small></td>
+                                            <td><strong class="text-success">Kostenlos</strong></td>
+                                        </tr>
+                                        <tr class="{% if video_storage.get_max_storage_mb|floatformat:0 == '1024' %}table-active{% endif %}">
+                                            <td>⭐ 1GB Plan</td>
+                                            <td><strong>1 GB</strong></td>
+                                            <td><small>~40-60 Min</small></td>
+                                            <td><small>~17-20 Std</small></td>
+                                            <td><strong>1,99€/Monat</strong></td>
+                                        </tr>
+                                        <tr class="{% if video_storage.get_max_storage_mb|floatformat:0 == '2048' %}table-active{% endif %}">
+                                            <td>⭐ 2GB Plan</td>
+                                            <td><strong>2 GB</strong></td>
+                                            <td><small>~80-120 Min</small></td>
+                                            <td><small>~34-40 Std</small></td>
+                                            <td><strong>2,99€/Monat</strong></td>
+                                        </tr>
+                                        <tr class="{% if video_storage.get_max_storage_mb|floatformat:0 == '5120' %}table-active{% endif %}">
+                                            <td>⭐ 5GB Plan</td>
+                                            <td><strong>5 GB</strong></td>
+                                            <td><small>~200-300 Min</small></td>
+                                            <td><small>~85-100 Std</small></td>
+                                            <td><strong>6,99€/Monat</strong></td>
+                                        </tr>
+                                        <tr class="{% if video_storage.get_max_storage_mb|floatformat:0 == '10240' %}table-active{% endif %}">
+                                            <td>⭐ 10GB Plan</td>
+                                            <td><strong>10 GB</strong></td>
+                                            <td><small>~400-600 Min</small></td>
+                                            <td><small>~170-200 Std</small></td>
+                                            <td><strong>9,99€/Monat</strong></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="text-center mt-2">
+                                <a href="{% url 'accounts:manage_subscription' 'video' %}" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-sliders-h"></i> Plan ändern
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Profil bearbeiten -->
             <div class="card">
                 <div class="card-header">

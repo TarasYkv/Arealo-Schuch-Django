@@ -62,8 +62,10 @@ INSTALLED_APPS = [
     'shopify_manager',
     'image_editor',
     'bug_report',
+    'videos',
     'encrypted_model_fields',
     'organization',
+    'payments',
 ]
 
 
@@ -212,3 +214,10 @@ CACHES = {
         }
     }
 }
+
+# Video hosting without processing - direct file serving
+
+# Stripe Settings
+STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY', '')
+STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', '')
+STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET', '')

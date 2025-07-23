@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weitere Funktionen eingeschränkt</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #721c24; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .critical { background: #f8d7da; border: 2px solid #dc3545; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .button { display: inline-block; background: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 10px 5px; font-weight: bold; }
+        .button-upgrade { background: #28a745; }
+        .restriction-level { background: #495057; color: white; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }
+        .stats { display: flex; justify-content: space-between; margin: 20px 0; }
+        .stat { text-align: center; flex: 1; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #dc3545; }
+        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666; }
+        .disabled { color: #dc3545; font-weight: bold; }
+        .enabled { color: #28a745; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚨 Weitere Einschränkungen aktiviert</h1>
+            <p>Hallo {{ user.first_name|default:user.username }},</p>
+            <p>Da Ihr Speicher weiterhin überschritten ist, wurden zusätzliche Funktionen eingeschränkt.</p>
+        </div>
+
+        {% if storage.overage_restriction_level == 2 %}
+        <div class="restriction-level">
+            <h2>🔒 STUFE 2: Video-Sharing deaktiviert</h2>
+            <p>Ihre Videos können nicht mehr geteilt oder öffentlich zugänglich gemacht werden.</p>
+        </div>
+
+        <div class="critical">
+            <h3>⛔ Aktuell eingeschränkte Funktionen:</h3>
+            <ul>
+                <li class="disabled">❌ Neue Video-Uploads</li>
+                <li class="disabled">❌ Video-Sharing und öffentliche Links</li>
+                <li class="disabled">❌ Embed-Codes für Videos</li>
+                <li class="enabled">✅ Bestehende Videos ansehen (privat)</li>
+                <li class="enabled">✅ Videos herunterladen</li>
+                <li class="enabled">✅ Videos löschen</li>
+            </ul>
+        </div>
+
+        {% elif storage.overage_restriction_level >= 3 %}
+        <div class="restriction-level">
+            <h2>🗄️ STUFE 3: Archivierung eingeleitet</h2>
+            <p>Älteste Videos werden automatisch archiviert, um Speicherplatz freizugeben.</p>
+        </div>
+
+        <div class="critical">
+            <h3>⚠️ Archivierung läuft:</h3>
+            <ul>
+                <li class="disabled">❌ Neue Video-Uploads</li>
+                <li class="disabled">❌ Video-Sharing deaktiviert</li>
+                <li class="disabled">🗄️ Älteste Videos werden archiviert</li>
+                <li class="enabled">✅ Wichtige Videos bleiben verfügbar</li>
+                <li class="enabled">✅ Archivierte Videos sind 90 Tage wiederherstellbar</li>
+            </ul>
+        </div>
+        {% endif %}
+
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-value">{{ used_mb|floatformat:1 }}MB</div>
+                <div>Verwendet</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">{{ max_mb|floatformat:1 }}MB</div>
+                <div>Limit</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">+{{ overage_mb|floatformat:1 }}MB</div>
+                <div>Überschritten</div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{ request.scheme }}://{{ request.get_host }}/payments/plans/" class="button button-upgrade">
+                🚀 JETZT UPGRADEN - Alle Funktionen sofort zurück
+            </a>
+            <a href="{{ request.scheme }}://{{ request.get_host }}/videos/manage/" class="button">
+                🗑️ Videos löschen
+            </a>
+        </div>
+
+        <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #ffeaa7;">
+            <h3>⚡ Sofortige Wiederherstellung:</h3>
+            <p>Sobald Sie Ihren Speicherplan erweitern oder genügend Videos löschen, werden <strong>alle Funktionen sofort wieder aktiviert</strong>.</p>
+            
+            <div style="margin: 15px 0;">
+                <h4>💰 Kostengünstige Lösungen:</h4>
+                <ul>
+                    <li><strong>1GB Plan (1,99€/Monat):</strong> Löst das Problem sofort</li>
+                    <li><strong>Videos löschen:</strong> Benötigt {{ overage_mb|floatformat:1 }}MB freien Speicher</li>
+                </ul>
+            </div>
+        </div>
+
+        {% if storage.overage_restriction_level >= 3 %}
+        <div style="background: #f8d7da; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #f5c6cb;">
+            <h3>🗄️ Archivierungs-Info:</h3>
+            <ul>
+                <li>Videos werden nach Alter und Größe priorisiert</li>
+                <li>Archivierte Videos sind 90 Tage lang wiederherstellbar</li>
+                <li>Bei Upgrade werden alle Videos automatisch wiederhergestellt</li>
+                <li>Sie erhalten eine E-Mail mit der Liste archivierter Videos</li>
+            </ul>
+        </div>
+        {% endif %}
+
+        <div style="background: #e2e3e5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h4>📞 Brauchen Sie Hilfe?</h4>
+            <p>Unser Support-Team hilft Ihnen gerne bei der Auswahl des passenden Speicherplans oder bei der Optimierung Ihrer Videos.</p>
+        </div>
+
+        <div class="footer">
+            <p>Diese Einschränkungen werden automatisch aufgehoben, sobald Ihr Speicher wieder im erlaubten Bereich ist.</p>
+            <p>WorkLoom Team</p>
+        </div>
+    </div>
+</body>
+</html>

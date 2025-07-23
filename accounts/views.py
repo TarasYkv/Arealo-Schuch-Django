@@ -12,6 +12,7 @@ import json
 from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm, ApiKeyForm, CompanyInfoForm, UserProfileForm, CustomPasswordChangeForm, SuperUserManagementForm, BugChatSettingsForm, AppPermissionForm
 from .models import CustomUser, AmpelCategory, CategoryKeyword, UserLoginHistory, EditableContent, CustomPage, SEOSettings
 from naturmacher.models import APIBalance
+from videos.models import UserStorage as VideoUserStorage, Subscription as VideoSubscription
 from .utils import redirect_with_params
 
 
@@ -534,6 +535,10 @@ def company_info_view(request):
         superuser_form = SuperUserManagementForm(current_user=request.user) if is_superuser else None
         app_permission_form = AppPermissionForm() if can_manage_apps else None
     
+    # Video-App Abo-Daten für Template
+    video_storage, created = VideoUserStorage.objects.get_or_create(user=request.user)
+    video_usage_percentage = (video_storage.used_storage / video_storage.max_storage * 100) if video_storage.max_storage > 0 else 0
+    
     return render(request, 'accounts/company_info.html', {
         'company_form': company_form,
         'profile_form': profile_form,
@@ -545,6 +550,8 @@ def company_info_view(request):
         'is_superuser': is_superuser,
         'can_manage_apps': can_manage_apps,
         'user': request.user,
+        'video_storage': video_storage,
+        'video_usage_percentage': video_usage_percentage,
     })
 
 
@@ -1414,11 +1421,44 @@ def user_online_times(request, user_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 
-# Separate Profile-Views wurden in company_info_view integriert
-# @login_required
-# def profile_view(request):
-#     """Benutzer-Profil anzeigen und bearbeiten - INTEGRIERT IN COMPANY_INFO_VIEW"""
-#     pass
+@login_required
+def profile_view(request):
+    """Benutzer-Profil anzeigen und bearbeiten"""
+    # Video-App Abo-Daten für Template
+    video_storage, created = VideoUserStorage.objects.get_or_create(user=request.user)
+    video_usage_percentage = (video_storage.used_storage / video_storage.max_storage * 100) if video_storage.max_storage > 0 else 0
+    
+    if request.method == 'POST':
+        # Prüfe ob Profilbild gelöscht werden soll
+        if request.POST.get('delete_profile_picture') == 'true':
+            if request.user.profile_picture:
+                import os
+                try:
+                    os.remove(request.user.profile_picture.path)
+                except OSError:
+                    pass
+                request.user.profile_picture = None
+                request.user.save()
+                messages.success(request, 'Ihr Profilbild wurde erfolgreich gelöscht!')
+            else:
+                messages.info(request, 'Kein Profilbild vorhanden.')
+            return redirect('accounts:profile')
+        
+        # Normale Profilaktualisierung
+        profile_form = UserProfileForm(request.POST, request.FILES, instance=request.user)
+        if profile_form.is_valid():
+            profile_form.save()
+            messages.success(request, 'Ihr Profil wurde erfolgreich aktualisiert!')
+            return redirect('accounts:profile')
+    else:
+        profile_form = UserProfileForm(instance=request.user)
+    
+    return render(request, 'accounts/profile.html', {
+        'profile_form': profile_form,
+        'user': request.user,
+        'video_storage': video_storage,
+        'video_usage_percentage': video_usage_percentage,
+    })
 
 # @login_required
 # def change_password_view(request):
@@ -2079,3 +2119,73 @@ def get_alt_texts(request):
         
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def manage_subscription(request, app_name):
+    """Abo-Verwaltung für verschiedene Apps"""
+    if app_name == 'video':
+        return manage_video_subscription(request)
+    else:
+        messages.error(request, f'Abo-Verwaltung für App "{app_name}" nicht verfügbar.')
+        return redirect('accounts:profile')
+
+
+@login_required
+def manage_video_subscription(request):
+    """Video-App Abo-Verwaltung mit Stripe-Integration"""
+    from videos.subscription_sync import StorageSubscriptionSync
+    from payments.models import SubscriptionPlan
+    
+    # Sync user storage with Stripe subscriptions
+    video_storage = StorageSubscriptionSync.sync_user_storage(request.user)
+    plan_info = StorageSubscriptionSync.get_user_plan_info(request.user)
+    
+    # Get available Stripe plans
+    available_plans = SubscriptionPlan.objects.filter(
+        is_active=True,
+        plan_type='storage'
+    ).order_by('price')
+    
+    video_usage_percentage = plan_info['used_percentage']
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'change_plan':
+            # For now, redirect to Stripe checkout
+            # In the future, we could implement direct plan changes here
+            messages.info(request, 'Bitte verwenden Sie die neue Stripe-Integration für Plan-Änderungen.')
+            return redirect('payments:subscription_plans')
+        
+        return redirect('accounts:manage_subscription', app_name='video')
+    
+    # Prepare storage options for slider (maintaining compatibility)
+    storage_options = []
+    for plan in available_plans:
+        option = {
+            'mb': plan.storage_mb,
+            'gb': plan.storage_mb / 1024 if plan.storage_mb >= 1024 else None,
+            'price': float(plan.price),
+            'name': plan.name,
+            'bytes': plan.storage_mb * 1024 * 1024
+        }
+        storage_options.append(option)
+    
+    # Get current subscription info
+    stripe_subscription = StorageSubscriptionSync.get_user_active_subscription(request.user)
+    
+    context = {
+        'video_storage': video_storage,
+        'video_usage_percentage': video_usage_percentage,
+        'current_subscription': stripe_subscription,
+        'videos_count': request.user.videos.count() if hasattr(request.user, 'videos') else 0,
+        'available_space_mb': plan_info['available_mb'],
+        'storage_options': storage_options,
+        'current_storage_mb': plan_info['max_storage_mb'],
+        'current_price': plan_info['price'],
+        'plan_info': plan_info,
+        'stripe_integration': True,  # Flag to indicate we're using Stripe
+    }
+    
+    return render(request, 'accounts/manage_video_subscription.html', context)

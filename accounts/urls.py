@@ -36,6 +36,9 @@ urlpatterns = [
     path('nutzerrechte/', views.user_permissions, name='user_permissions'),
     path('api/user-online-times/<int:user_id>/', views.user_online_times, name='user_online_times'),
     
+    # Subscription management
+    path('abo/<str:app_name>/', views.manage_subscription, name='manage_subscription'),
+    
     # Kategorie-Management
     path('kategorien/', views.category_list, name='category_list'),
     path('kategorien/neu/', views.category_create, name='category_create'),
@@ -48,8 +51,8 @@ urlpatterns = [
     path('kategorien/<int:category_pk>/begriffe/bulk/', views.keyword_bulk_add, name='keyword_bulk_add'),
     path('begriffe/<int:keyword_pk>/loeschen/', views.keyword_delete, name='keyword_delete'),
     
-    # Profil-Management (integriert in Firmeninfo)
-    # path('profil/', views.profile_view, name='profile'),
+    # Profil-Management
+    path('profil/', views.profile_view, name='profile'),
     # path('passwort-aendern/', views.change_password_view, name='change_password'),
     
     # Content Editor

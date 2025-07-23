@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kulanzzeit läuft bald ab</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #fff3cd; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #ffc107; }
+        .urgent { background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .button { display: inline-block; background: #ffc107; color: #212529; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 10px 5px; font-weight: bold; }
+        .button-danger { background: #dc3545; color: white; }
+        .countdown { text-align: center; background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .countdown-value { font-size: 36px; font-weight: bold; color: #dc3545; }
+        .stats { display: flex; justify-content: space-between; margin: 20px 0; }
+        .stat { text-align: center; flex: 1; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #dc3545; }
+        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚠️ Kulanzzeit läuft bald ab!</h1>
+            <p>Hallo {{ user.first_name|default:user.username }},</p>
+            <p>Ihre 30-tägige Kulanzzeit für überschrittenen Speicher läuft in <strong>3 Tagen</strong> ab.</p>
+        </div>
+
+        <div class="countdown">
+            <div class="countdown-value">3 TAGE</div>
+            <div>bis zum Ende der Kulanzzeit</div>
+            <div style="margin-top: 10px; color: #666;">{{ grace_period_end|date:"d.m.Y H:i" }}</div>
+        </div>
+
+        <div class="urgent">
+            <h3>🚨 Handeln Sie jetzt!</h3>
+            <p>Nach Ablauf der Kulanzzeit werden Ihre Video-Funktionen schrittweise eingeschränkt.</p>
+        </div>
+
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-value">{{ used_mb|floatformat:1 }}MB</div>
+                <div>Verwendet</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">{{ max_mb|floatformat:1 }}MB</div>
+                <div>Limit</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">+{{ overage_mb|floatformat:1 }}MB</div>
+                <div>Überschritten</div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{ request.scheme }}://{{ request.get_host }}/payments/plans/" class="button">
+                🚀 JETZT UPGRADEN
+            </a>
+            <a href="{{ request.scheme }}://{{ request.get_host }}/videos/manage/" class="button button-danger">
+                🗑️ Videos löschen
+            </a>
+        </div>
+
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3>📅 Zeitplan nach Kulanzzeit-Ende:</h3>
+            <ul style="list-style: none; padding: 0;">
+                <li style="margin: 10px 0; padding: 10px; background: #fff; border-left: 4px solid #ffc107; border-radius: 4px;">
+                    <strong>Tag 31-60:</strong> Neue Video-Uploads werden blockiert
+                </li>
+                <li style="margin: 10px 0; padding: 10px; background: #fff; border-left: 4px solid #fd7e14; border-radius: 4px;">
+                    <strong>Tag 61-90:</strong> Video-Sharing wird deaktiviert
+                </li>
+                <li style="margin: 10px 0; padding: 10px; background: #fff; border-left: 4px solid #dc3545; border-radius: 4px;">
+                    <strong>Tag 91+:</strong> Automatische Archivierung beginnt
+                </li>
+            </ul>
+        </div>
+
+        <div style="background: #e7f3ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3>💡 Schnelle Lösungen:</h3>
+            <ul>
+                <li><strong>Upgrade auf 1GB:</strong> Nur 1,99€/Monat - Problem sofort gelöst</li>
+                <li><strong>Alte Videos löschen:</strong> Schaffen Sie {{ overage_mb|floatformat:1 }}MB Platz</li>
+                <li><strong>Videos herunterladen:</strong> Lokale Kopien erstellen und dann löschen</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <p>Diese Warnung wird nur einmal versendet. Handeln Sie rechtzeitig!</p>
+            <p>WorkLoom Team</p>
+        </div>
+    </div>
+</body>
+</html>

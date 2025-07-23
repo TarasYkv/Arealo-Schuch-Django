@@ -26,3 +26,24 @@ def dynamic_page_view(request, page_name):
             raise Http404("Seite nicht gefunden")
     else:
         raise Http404("Seite nicht verfügbar")
+
+def impressum_view(request):
+    """Impressum Seite"""
+    context = {
+        'page_title': 'Impressum',
+    }
+    return render(request, 'core/impressum.html', context)
+
+def agb_view(request):
+    """AGB Seite"""
+    context = {
+        'page_title': 'Allgemeine Geschäftsbedingungen',
+    }
+    return render(request, 'core/agb.html', context)
+
+def datenschutz_view(request):
+    """Datenschutzbedingungen Seite"""
+    context = {
+        'page_title': 'Datenschutzerklärung',
+    }
+    return render(request, 'core/datenschutz.html', context)

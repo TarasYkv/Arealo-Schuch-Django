@@ -27,6 +27,48 @@
     </div>
 </div>
 
+<!-- Subscription Status Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow-sm border-warning">
+            <div class="card-header bg-warning text-dark">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-crown me-2"></i>
+                        Abonnement Status
+                    </h5>
+                    <a href="{% url 'payments:subscription_plans' %}" class="btn btn-dark btn-sm">
+                        Verwalten
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <div id="subscription-info">
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="badge bg-secondary me-2">Kostenlos</span>
+                                <span class="text-muted">50MB Video-Speicher</span>
+                            </div>
+                            <p class="text-muted mb-0">
+                                Erweitern Sie Ihr Abonnement für mehr Speicherplatz und Premium-Features.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <a href="{% url 'payments:subscription_plans' %}" class="btn btn-warning">
+                            <i class="fas fa-arrow-up me-1"></i> Upgrade
+                        </a>
+                        <a href="{% url 'videos:storage' %}" class="btn btn-outline-primary ms-2">
+                            <i class="fas fa-chart-bar me-1"></i> Speicher
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Verfügbare Apps Section -->
 <div class="row mb-4">
     <div class="col-12">
@@ -353,6 +395,62 @@ function updateNoResultsMessage() {
     }
 }
 
-// toggleAiExpansion function removed as Ampel-Kategorien section was removed
+// Load subscription status
+async function loadSubscriptionStatus() {
+    try {
+        const response = await fetch('/payments/api/status/');
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                updateSubscriptionDisplay(data.subscription);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading subscription status:', error);
+    }
+}
+
+function updateSubscriptionDisplay(subscription) {
+    const subscriptionInfo = document.getElementById('subscription-info');
+    
+    let statusBadge = 'bg-secondary';
+    let statusText = subscription.plan_name;
+    
+    if (subscription.is_premium) {
+        statusBadge = 'bg-warning';
+        statusText = `⭐ ${subscription.plan_name}`;
+    }
+    
+    let storageText = '';
+    if (subscription.storage_mb >= 1024) {
+        storageText = `${(subscription.storage_mb / 1024)}GB Video-Speicher`;
+    } else {
+        storageText = `${subscription.storage_mb}MB Video-Speicher`;
+    }
+    
+    let description = '';
+    if (subscription.is_premium) {
+        description = `Premium-Features aktiv. ${subscription.price}€/${subscription.interval}`;
+    } else {
+        description = 'Erweitern Sie Ihr Abonnement für mehr Speicherplatz und Premium-Features.';
+    }
+    
+    subscriptionInfo.innerHTML = `
+        <div class="d-flex align-items-center mb-2">
+            <span class="badge ${statusBadge} me-2">${statusText}</span>
+            <span class="text-muted">${storageText}</span>
+            <span class="badge bg-info ms-2">${subscription.used_percentage.toFixed(1)}% genutzt</span>
+        </div>
+        <p class="text-muted mb-0">${description}</p>
+    `;
+}
+
+// Add subscription status loading to the initialization
+document.addEventListener('DOMContentLoaded', function() {
+    initializeAppTiles();
+    initializeAppSearch();
+    initializeAppFilters();
+    loadSubscriptionStatus();
+});
 </script>
 {% endblock %}
