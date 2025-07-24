@@ -161,6 +161,7 @@ class AppPermission(models.Model):
         
         # Schuch Tools
         ('schuch', 'Schuch'),
+        ('schuch_dashboard', 'Schuch Dashboard'),
         ('wirtschaftlichkeitsrechner', 'Wirtschaftlichkeitsrechner'),
         ('sportplatz_konfigurator', 'Sportplatz-Konfigurator'),
         ('pdf_suche', 'PDF-Suche'),
@@ -187,6 +188,7 @@ class AppPermission(models.Model):
         ('anonymous', 'Nicht angemeldete Besucher'),
         ('authenticated', 'Angemeldete Nutzer'),
         ('selected', 'Ausgewählte Nutzer'),
+        ('in_development', 'In Entwicklung'),
     ]
     
     app_name = models.CharField(max_length=50, choices=APP_CHOICES, unique=True, verbose_name="App/Funktion")
@@ -233,6 +235,9 @@ class AppPermission(models.Model):
             return user and user.is_authenticated
         elif self.access_level == 'selected':
             return user and user.is_authenticated and self.selected_users.filter(id=user.id).exists()
+        elif self.access_level == 'in_development':
+            # Apps in Entwicklung sind nur für Superuser zugänglich
+            return user and user.is_authenticated and user.is_superuser
         
         return False
     
@@ -405,6 +410,287 @@ class SEOSettings(models.Model):
         return len(self.seo_description)
 
 
+class AppUsageTracking(models.Model):
+    """Trackt die Nutzung von Apps/Features pro Benutzer"""
+    
+    ACTIVITY_TYPE_CHOICES = [
+        ('app_usage', 'App-Nutzung'),
+        ('video_call', 'Videoanruf'),
+        ('audio_call', 'Audioanruf'),
+        ('screen_share', 'Bildschirmfreigabe'),
+        ('file_upload', 'Datei-Upload'),
+        ('chat_message', 'Chat-Nachricht'),
+    ]
+    
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='app_usage_logs')
+    app_name = models.CharField(max_length=50, verbose_name="App/Feature Name")
+    activity_type = models.CharField(max_length=20, choices=ACTIVITY_TYPE_CHOICES, default='app_usage', verbose_name="Aktivitätstyp")
+    url_path = models.CharField(max_length=255, verbose_name="URL Pfad")
+    session_start = models.DateTimeField(auto_now_add=True, verbose_name="Session Start")
+    session_end = models.DateTimeField(null=True, blank=True, verbose_name="Session Ende")
+    duration_seconds = models.IntegerField(default=0, verbose_name="Dauer in Sekunden")
+    
+    # Call-spezifische Felder
+    call_participants = models.JSONField(default=list, blank=True, verbose_name="Anruf-Teilnehmer")
+    call_quality_rating = models.IntegerField(null=True, blank=True, verbose_name="Anruf-Qualitätsbewertung (1-5)")
+    
+    # Zusätzliche Metadaten
+    ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name="IP-Adresse")
+    user_agent = models.TextField(blank=True, verbose_name="User Agent")
+    referrer = models.URLField(blank=True, verbose_name="Referrer URL")
+    extra_data = models.JSONField(default=dict, blank=True, verbose_name="Zusätzliche Daten")
+    
+    # Status
+    is_active_session = models.BooleanField(default=True, verbose_name="Aktive Session")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "App-Nutzungs-Tracking"
+        verbose_name_plural = "App-Nutzungs-Trackings"
+        ordering = ['-session_start']
+        indexes = [
+            models.Index(fields=['user', 'app_name', 'session_start']),
+            models.Index(fields=['session_start']),
+            models.Index(fields=['is_active_session']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.app_name} ({self.session_start.strftime('%d.%m.%Y %H:%M')})"
+    
+    def end_session(self):
+        """Beendet die aktuelle Session"""
+        from django.utils import timezone
+        if self.is_active_session:
+            self.session_end = timezone.now()
+            self.duration_seconds = int((self.session_end - self.session_start).total_seconds())
+            self.is_active_session = False
+            self.save()
+    
+    def get_duration_display(self):
+        """Gibt die Dauer in lesbarer Form zurück"""
+        if self.duration_seconds:
+            hours, remainder = divmod(self.duration_seconds, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            if hours:
+                return f"{hours}h {minutes}m {seconds}s"
+            elif minutes:
+                return f"{minutes}m {seconds}s"
+            else:
+                return f"{seconds}s"
+        return "Läuft noch..."
+    
+    def get_app_display_name(self):
+        """Gibt den Anzeigenamen der App zurück"""
+        app_name_mapping = {
+            'chat': 'Chat',
+            'videos': 'Videos',
+            'schuch': 'Schuch',
+            'schuch_dashboard': 'Schuch Dashboard',
+            'shopify_manager': 'Shopify Manager',
+            'image_editor': 'Bild Editor',
+            'naturmacher': 'Schulungen',
+            'organization': 'Organisation',
+            'todos': 'ToDos',
+            'pdf_sucher': 'PDF-Suche',
+            'amortization_calculator': 'Wirtschaftlichkeitsrechner',
+            'sportplatzApp': 'Sportplatz-Konfigurator',
+            'bug_report': 'Bug Report',
+            'payments': 'Zahlungen & Abos',
+            'accounts': 'Konto-Verwaltung',
+        }
+        return app_name_mapping.get(self.app_name, self.app_name.replace('_', ' ').title())
+    
+    @classmethod
+    def get_user_app_statistics(cls, user, days=30):
+        """Gibt umfassende App-Nutzungsstatistiken für einen Benutzer zurück"""
+        from django.utils import timezone
+        from datetime import timedelta
+        from django.db.models import Sum, Count, Avg, Q
+        
+        start_date = timezone.now() - timedelta(days=days)
+        
+        # App-spezifische Statistiken
+        app_stats = cls.objects.filter(
+            user=user,
+            session_start__gte=start_date
+        ).values('app_name').annotate(
+            total_sessions=Count('id'),
+            total_duration=Sum('duration_seconds'),
+            avg_duration=Avg('duration_seconds'),
+            last_used=models.Max('session_start'),
+            video_calls=Count('id', filter=Q(activity_type='video_call')),
+            audio_calls=Count('id', filter=Q(activity_type='audio_call')),
+            video_call_duration=Sum('duration_seconds', filter=Q(activity_type='video_call')),
+            audio_call_duration=Sum('duration_seconds', filter=Q(activity_type='audio_call')),
+        ).order_by('-total_duration')
+        
+        # Aktivitätstyp-Statistiken
+        activity_stats = cls.objects.filter(
+            user=user,
+            session_start__gte=start_date
+        ).values('activity_type').annotate(
+            total_sessions=Count('id'),
+            total_duration=Sum('duration_seconds'),
+            avg_duration=Avg('duration_seconds')
+        ).order_by('-total_duration')
+        
+        # Tägliche Aktivitätsstatistiken
+        daily_stats = cls.objects.filter(
+            user=user,
+            session_start__gte=start_date
+        ).extra(
+            select={'day': 'date(session_start)'}
+        ).values('day').annotate(
+            sessions=Count('id'),
+            duration=Sum('duration_seconds'),
+            video_calls=Count('id', filter=Q(activity_type='video_call')),
+            audio_calls=Count('id', filter=Q(activity_type='audio_call')),
+            video_call_duration=Sum('duration_seconds', filter=Q(activity_type='video_call')),
+            audio_call_duration=Sum('duration_seconds', filter=Q(activity_type='audio_call'))
+        ).order_by('day')
+        
+        # Call-spezifische Statistiken
+        call_stats = {
+            'total_video_calls': cls.objects.filter(user=user, activity_type='video_call', session_start__gte=start_date).count(),
+            'total_audio_calls': cls.objects.filter(user=user, activity_type='audio_call', session_start__gte=start_date).count(),
+            'total_video_duration': cls.objects.filter(user=user, activity_type='video_call', session_start__gte=start_date).aggregate(total=Sum('duration_seconds'))['total'] or 0,
+            'total_audio_duration': cls.objects.filter(user=user, activity_type='audio_call', session_start__gte=start_date).aggregate(total=Sum('duration_seconds'))['total'] or 0,
+            'avg_video_call_duration': cls.objects.filter(user=user, activity_type='video_call', session_start__gte=start_date).aggregate(avg=Avg('duration_seconds'))['avg'] or 0,
+            'avg_audio_call_duration': cls.objects.filter(user=user, activity_type='audio_call', session_start__gte=start_date).aggregate(avg=Avg('duration_seconds'))['avg'] or 0,
+        }
+        
+        return {
+            'app_stats': app_stats,
+            'activity_stats': activity_stats,
+            'daily_stats': daily_stats,
+            'call_stats': call_stats,
+            'total_sessions': cls.objects.filter(user=user, session_start__gte=start_date).count(),
+            'total_duration': cls.objects.filter(user=user, session_start__gte=start_date).aggregate(
+                total=Sum('duration_seconds')
+            )['total'] or 0,
+        }
+    
+    @classmethod
+    def start_session(cls, user, app_name, url_path, request=None, activity_type='app_usage', **kwargs):
+        """Startet eine neue App-Session oder Activity"""
+        # Beende alle aktiven Sessions für diesen User zuerst (nur bei App-Nutzung)
+        if activity_type == 'app_usage':
+            active_sessions = cls.objects.filter(user=user, is_active_session=True, activity_type='app_usage')
+            for session in active_sessions:
+                session.end_session()
+        
+        # Erstelle neue Session
+        session_data = {
+            'user': user,
+            'app_name': app_name,
+            'activity_type': activity_type,
+            'url_path': url_path,
+        }
+        
+        # Zusätzliche Daten für Calls
+        if activity_type in ['video_call', 'audio_call']:
+            session_data.update({
+                'call_participants': kwargs.get('participants', []),
+                'extra_data': kwargs.get('extra_data', {}),
+            })
+        
+        if request:
+            session_data.update({
+                'ip_address': request.META.get('REMOTE_ADDR'),
+                'user_agent': request.META.get('HTTP_USER_AGENT', ''),
+                'referrer': request.META.get('HTTP_REFERER', ''),
+            })
+        
+        return cls.objects.create(**session_data)
+    
+    @classmethod
+    def track_video_call(cls, user, participants=None, quality_rating=None, extra_data=None):
+        """Trackt einen Videoanruf"""
+        return cls.start_session(
+            user=user,
+            app_name='chat',
+            url_path='/chat/video-call/',
+            activity_type='video_call',
+            participants=participants or [],
+            extra_data=extra_data or {}
+        )
+    
+    @classmethod
+    def track_audio_call(cls, user, participants=None, quality_rating=None, extra_data=None):
+        """Trackt einen Audioanruf"""
+        return cls.start_session(
+            user=user,
+            app_name='chat',
+            url_path='/chat/audio-call/',
+            activity_type='audio_call',
+            participants=participants or [],
+            extra_data=extra_data or {}
+        )
+
+
+class AppInfo(models.Model):
+    """Detaillierte Informationen über Apps/Features für Info-Seiten"""
+    
+    # App Names - based on FeatureAccess APP_CHOICES
+    APP_CHOICES = [
+        # Hauptkategorien
+        ('chat', 'Chat'),
+        ('videos', 'Videos'), 
+        ('shopify_manager', 'Shopify Manager'),
+        ('image_editor', 'Bild Editor'),
+        ('naturmacher', 'Schulungen (Naturmacher)'),
+        ('organization', 'Organisation'),
+        ('todos', 'ToDos'),
+        ('pdf_sucher', 'PDF-Suche'),
+        ('amortization_calculator', 'Wirtschaftlichkeitsrechner'),
+        ('sportplatzApp', 'Sportplatz-Konfigurator'),
+        ('bug_report', 'Bug Report'),
+        ('payments', 'Zahlungen & Abos'),
+        ('core', 'Schuch (Startseite/Kern)'),
+    ]
+    
+    app_name = models.CharField(max_length=50, choices=APP_CHOICES, unique=True, verbose_name="App/Feature")
+    title = models.CharField(max_length=200, verbose_name="Titel")
+    short_description = models.CharField(max_length=300, verbose_name="Kurzbeschreibung")
+    detailed_description = models.TextField(verbose_name="Detaillierte Beschreibung")
+    
+    # Features als JSON Field für flexible Liste
+    key_features = models.JSONField(default=list, verbose_name="Hauptfunktionen", 
+                                   help_text="Liste der wichtigsten Features als JSON Array")
+    
+    # Requirements
+    subscription_requirements = models.TextField(blank=True, verbose_name="Abo-Anforderungen")
+    technical_requirements = models.TextField(blank=True, verbose_name="Technische Anforderungen")
+    
+    # Visual content
+    icon_class = models.CharField(max_length=100, default="bi bi-app", verbose_name="Icon CSS Klasse")
+    screenshot_url = models.URLField(blank=True, verbose_name="Screenshot URL")
+    
+    # Status und Meta
+    is_active = models.BooleanField(default=True, verbose_name="Aktiv")
+    development_status = models.CharField(max_length=50, default="stable", 
+                                        choices=[
+                                            ('development', 'In Entwicklung'),
+                                            ('beta', 'Beta'),
+                                            ('stable', 'Stabil'),
+                                            ('deprecated', 'Veraltet')
+                                        ], verbose_name="Entwicklungsstatus")
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Erstellt am")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Aktualisiert am")
+    
+    class Meta:
+        verbose_name = "App Information"
+        verbose_name_plural = "App Informationen"
+        ordering = ['title']
+    
+    def __str__(self):
+        return f"{self.title} ({self.app_name})"
+
+
 class FeatureAccess(models.Model):
     """Definiert welche Apps/Features mit welchen Abonnements verfügbar sind"""
     
@@ -414,6 +700,7 @@ class FeatureAccess(models.Model):
         ('any_paid', 'Beliebiges bezahltes Abo erforderlich'),
         ('founder_access', 'Founder\'s Early Access erforderlich'),
         ('storage_plan', 'Storage-Plan erforderlich'),
+        ('in_development', 'In Entwicklung'),
         ('blocked', 'Komplett gesperrt'),
     ]
     
@@ -506,6 +793,10 @@ class FeatureAccess(models.Model):
         # Kostenlos verfügbar
         if self.subscription_required == 'free':
             return True
+        
+        # In Entwicklung - nicht verfügbar (außer für Superuser, die oben bereits geprüft wurden)
+        if self.subscription_required == 'in_development':
+            return False
         
         # Komplett gesperrt
         if self.subscription_required == 'blocked':

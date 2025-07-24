@@ -157,107 +157,59 @@
     display: none !important;
 }
 
+/* In Development Apps Styling */
+.app-tile.in-development {
+    opacity: 0.7;
+}
+
+.app-tile.in-development .card {
+    background-color: #f8f9fa;
+    border: 1px dashed #dee2e6;
+}
+
+.app-tile.in-development .card-header {
+    background-color: #6c757d !important;
+    color: white !important;
+}
+
+.app-tile.in-development:hover {
+    transform: translateY(-2px);
+}
+
 @media (max-width: 768px) {
     .app-tile:hover {
+        transform: none;
+    }
+    
+    .app-tile.in-development:hover {
         transform: none;
     }
 }
 </style>
 
 <script>
-// Available apps configuration - using basic availability check
+// Available apps configuration - dynamically generated from backend with permissions
 const availableApps = [
+    {% for app in available_apps %}
     {
-        name: 'Chat System',
-        description: 'Kommunizieren Sie direkt mit anderen Nutzern über unser integriertes Chat-System.',
-        icon: 'bi-chat-dots',
-        url: '{% url "chat:home" %}',
-        color: 'bg-primary',
-        category: 'communication',
-        available: true
-    },
-    {
-        name: 'Wirtschaftlichkeitsrechner',
-        description: 'Berechnen Sie die Wirtschaftlichkeit Ihrer Projekte mit unserem professionellen Tool.',
-        icon: 'bi-calculator',
-        url: '#',
-        color: 'bg-success',
-        category: 'tools',
-        available: true
-    },
-    {
-        name: 'Sportplatz-Konfigurator',
-        description: 'Planen und konfigurieren Sie Sportplätze nach Ihren spezifischen Anforderungen.',
-        icon: 'bi-grid-3x3',
-        url: '#',
-        color: 'bg-info',
-        category: 'tools',
-        available: true
-    },
-    {
-        name: 'PDF-Suche',
-        description: 'Durchsuchen Sie Ihre PDF-Dokumente schnell und effizient nach Inhalten.',
-        icon: 'bi-file-pdf',
-        url: '#',
-        color: 'bg-danger',
-        category: 'tools',
-        available: true
-    },
-    {
-        name: 'KI-Zusammenfassung',
-        description: 'Lassen Sie wichtige Dokumente automatisch durch KI zusammenfassen.',
-        icon: 'bi-robot',
-        url: '#',
-        color: 'bg-secondary',
-        category: 'ai',
-        available: true
-    },
-    {
-        name: 'Shopify Integration',
-        description: 'Verwalten Sie Ihre Shopify-Daten und synchronisieren Sie Produktinformationen.',
-        icon: 'bi-shop',
-        url: '{% url "shopify_manager:dashboard" %}',
-        color: 'bg-success',
-        category: 'ecommerce',
-        available: true
-    },
-    {
-        name: 'Bilder-Editor',
-        description: 'Bearbeiten und optimieren Sie Bilder direkt in der Anwendung.',
-        icon: 'bi-image',
-        url: '{% url "image_editor:dashboard" %}',
-        color: 'bg-info',
-        category: 'media',
-        available: true
-    },
-    {
-        name: 'Organisation',
-        description: 'Verwalten Sie Organisationsstrukturen und Zuständigkeiten.',
-        icon: 'bi-building',
-        url: '{% url "organization:dashboard" %}',
-        color: 'bg-secondary',
-        category: 'management',
-        available: true
-    },
-    {
-        name: 'Schulungen',
-        description: 'Zugriff auf Schulungsmaterialien und Weiterbildungsangebote.',
-        icon: 'bi-book',
-        url: '#',
-        color: 'bg-warning',
-        category: 'education',
-        available: true
-    }
+        name: '{{ app.name|escapejs }}',
+        description: '{{ app.description|escapejs }}',
+        icon: '{{ app.icon }}',
+        url: '{% url app.url %}',
+        color: '{{ app.color }}',
+        category: '{{ app.category }}',
+        app_name: '{{ app.app_name }}',
+        available: {{ app.available|yesno:"true,false" }},
+        is_in_development: {{ app.is_in_development|yesno:"true,false" }}
+    }{% if not forloop.last %},{% endif %}
+    {% empty %}
+    // No apps available for this user
+    {% endfor %}
 ];
-
-document.addEventListener('DOMContentLoaded', function() {
-    initializeAppTiles();
-    initializeAppSearch();
-    initializeAppFilters();
-});
 
 function initializeAppTiles() {
     const appsGrid = document.getElementById('appsGrid');
+    appsGrid.innerHTML = ''; // Clear existing tiles to prevent duplicates
     const availableAppsOnly = availableApps.filter(app => app.available);
     
     // Update app count
@@ -278,11 +230,11 @@ function initializeAppTiles() {
     
     availableAppsOnly.forEach(app => {
         const appTile = document.createElement('div');
-        appTile.className = 'col-lg-4 col-md-6 mb-3 app-tile';
+        appTile.className = `col-lg-4 col-md-6 mb-3 app-tile${app.is_in_development ? ' in-development' : ''}`;
         appTile.dataset.category = app.category;
         appTile.dataset.name = app.name.toLowerCase();
         
-        const isClickable = app.url !== '#';
+        const isClickable = app.url !== '#' && !app.is_in_development;
         const clickHandler = isClickable ? `onclick="window.location.href='${app.url}'"` : '';
         const cardClass = isClickable ? 'shadow-sm h-100' : 'shadow-sm h-100 opacity-75';
         
@@ -295,9 +247,11 @@ function initializeAppTiles() {
                             <h6 class="mb-0">${app.name}</h6>
                         </div>
                         <span class="badge bg-white bg-opacity-25 app-status-badge">
-                            ${isClickable 
-                                ? '<i class="bi bi-check-circle me-1"></i>Verfügbar'
-                                : '<i class="bi bi-hammer me-1"></i>In Entwicklung'
+                            ${app.is_in_development
+                                ? '<i class="bi bi-hammer me-1"></i>In Entwicklung'
+                                : isClickable 
+                                    ? '<i class="bi bi-check-circle me-1"></i>Verfügbar'
+                                    : '<i class="bi bi-hammer me-1"></i>In Entwicklung'
                             }
                         </span>
                     </div>
@@ -308,11 +262,18 @@ function initializeAppTiles() {
                         <small class="text-muted">
                             <i class="bi bi-tag me-1"></i>${app.category}
                         </small>
-                        <div class="btn btn-sm ${isClickable ? 'btn-outline-primary' : 'btn-outline-secondary disabled'}">
+                        <div class="btn-group btn-group-sm">
                             ${isClickable 
-                                ? '<i class="bi bi-arrow-right me-1"></i>Öffnen'
-                                : '<i class="bi bi-hammer me-1"></i>Bald verfügbar'
+                                ? `<a href="${app.url}" class="btn btn-outline-primary">
+                                     <i class="bi bi-arrow-right me-1"></i>Öffnen
+                                   </a>`
+                                : `<button class="btn btn-outline-secondary" disabled>
+                                     <i class="bi bi-hammer me-1"></i>Bald verfügbar
+                                   </button>`
                             }
+                            <a href="/accounts/apps/${app.app_name}/info/" class="btn btn-outline-info">
+                                <i class="bi bi-info-circle"></i>
+                            </a>
                         </div>
                     </div>
                 </div>

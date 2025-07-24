@@ -1,0 +1,223 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex align-items-center">
+            <i class="{{ app_info.icon_class }} fs-1 text-primary me-3"></i>
+            <div>
+                <h1 class="mb-1">{{ app_info.title }}</h1>
+                <p class="text-muted mb-0">{{ app_info.short_description }}</p>
+            </div>
+        </div>
+        <div>
+            <a href="{% url 'accounts:dashboard' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Zurück zum Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            <!-- Status Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-info-circle"></i> Status & Verfügbarkeit
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center mb-2">
+                                {% if feature_access.subscription_required == 'free' %}
+                                    <span class="badge bg-success me-2">
+                                        <i class="bi bi-check-circle me-1"></i>Kostenlos verfügbar
+                                    </span>
+                                {% elif feature_access.subscription_required == 'in_development' %}
+                                    <span class="badge bg-secondary me-2">
+                                        <i class="bi bi-hammer me-1"></i>In Entwicklung
+                                    </span>
+                                {% elif feature_access.subscription_required == 'founder_access' %}
+                                    <span class="badge bg-warning me-2">
+                                        <i class="bi bi-star me-1"></i>Early Access
+                                    </span>
+                                {% elif feature_access.subscription_required == 'any_paid' %}
+                                    <span class="badge bg-primary me-2">
+                                        <i class="bi bi-credit-card me-1"></i>Bezahltes Abo
+                                    </span>
+                                {% elif feature_access.subscription_required == 'storage_plan' %}
+                                    <span class="badge bg-info me-2">
+                                        <i class="bi bi-hdd me-1"></i>Storage Plan
+                                    </span>
+                                {% elif feature_access.subscription_required == 'blocked' %}
+                                    <span class="badge bg-danger me-2">
+                                        <i class="bi bi-x-circle me-1"></i>Nicht verfügbar
+                                    </span>
+                                {% endif %}
+                                
+                                <span class="badge bg-outline-secondary">
+                                    {% if app_info.development_status == 'development' %}
+                                        <i class="bi bi-tools me-1"></i>Entwicklung
+                                    {% elif app_info.development_status == 'beta' %}
+                                        <i class="bi bi-bug me-1"></i>Beta
+                                    {% elif app_info.development_status == 'stable' %}
+                                        <i class="bi bi-check-all me-1"></i>Stabil
+                                    {% elif app_info.development_status == 'deprecated' %}
+                                        <i class="bi bi-exclamation-triangle me-1"></i>Veraltet
+                                    {% endif %}
+                                    {{ app_info.get_development_status_display }}
+                                </span>
+                            </div>
+                            <p class="text-muted mb-0">{{ access_message }}</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            {% if has_access and feature_access.subscription_required != 'in_development' %}
+                                <a href="#" class="btn btn-success">
+                                    <i class="bi bi-arrow-right me-1"></i>App öffnen
+                                </a>
+                            {% elif feature_access.subscription_required == 'in_development' %}
+                                <button class="btn btn-secondary" disabled>
+                                    <i class="bi bi-hammer me-1"></i>Bald verfügbar
+                                </button>
+                            {% else %}
+                                <a href="{% url 'payments:subscription_plans' %}" class="btn btn-warning">
+                                    <i class="bi bi-arrow-up me-1"></i>Upgrade
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Description -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-file-text"></i> Beschreibung
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p>{{ app_info.detailed_description|linebreaks }}</p>
+                </div>
+            </div>
+
+            <!-- Features -->
+            {% if app_info.key_features %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-list-stars"></i> Hauptfunktionen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        {% for feature in app_info.key_features %}
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>{{ feature }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Screenshot -->
+            {% if app_info.screenshot_url %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-image"></i> Vorschau
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <img src="{{ app_info.screenshot_url }}" class="img-fluid rounded" alt="Screenshot von {{ app_info.title }}">
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Requirements -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-gear"></i> Voraussetzungen
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if app_info.subscription_requirements %}
+                        <div class="mb-3">
+                            <h6 class="text-muted">Abonnement</h6>
+                            <p class="small mb-0">{{ app_info.subscription_requirements }}</p>
+                        </div>
+                    {% endif %}
+                    
+                    {% if app_info.technical_requirements %}
+                        <div class="mb-3">
+                            <h6 class="text-muted">Technisch</h6>
+                            <p class="small mb-0">{{ app_info.technical_requirements }}</p>
+                        </div>
+                    {% endif %}
+                    
+                    {% if not app_info.subscription_requirements and not app_info.technical_requirements %}
+                        <p class="text-muted small mb-0">Keine besonderen Voraussetzungen</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Metadata -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-info"></i> Details
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-2">
+                        <div class="col-sm-6">
+                            <small class="text-muted">Kategorie</small>
+                        </div>
+                        <div class="col-sm-6">
+                            <small>{{ app_info.get_app_name_display|default:app_info.app_name }}</small>
+                        </div>
+                    </div>
+                    
+                    {% if app_info.created_at %}
+                    <div class="row mb-2">
+                        <div class="col-sm-6">
+                            <small class="text-muted">Hinzugefügt</small>
+                        </div>
+                        <div class="col-sm-6">
+                            <small>{{ app_info.created_at|date:"d.m.Y" }}</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if app_info.updated_at %}
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <small class="text-muted">Aktualisiert</small>
+                        </div>
+                        <div class="col-sm-6">
+                            <small>{{ app_info.updated_at|date:"d.m.Y" }}</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.badge.bg-outline-secondary {
+    color: #6c757d;
+    border: 1px solid #6c757d;
+    background-color: transparent;
+}
+</style>
+{% endblock %}

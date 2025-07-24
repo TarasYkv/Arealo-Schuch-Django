@@ -186,6 +186,12 @@
                                                         title="Onlinezeiten anzeigen">
                                                     <i class="fas fa-clock"></i>
                                                 </button>
+                                                
+                                                <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                        onclick="showAppUsageStats({{ user.id }}, '{{ user.username|escapejs }}')"
+                                                        title="App-Nutzungsstatistiken anzeigen">
+                                                    <i class="fas fa-chart-bar"></i>
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -235,6 +241,40 @@
                             <span class="visually-hidden">Loading...</span>
                         </div>
                         <p>Lade Onlinezeiten...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal für App-Nutzungsstatistiken -->
+<div class="modal fade" id="appUsageModal" tabindex="-1" aria-labelledby="appUsageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="appUsageModalLabel">
+                    <i class="fas fa-chart-bar"></i> App-Nutzungsstatistiken für <span id="appUsageModalUserName"></span>
+                </h5>
+                <div class="btn-group" role="group" aria-label="Zeitraum">
+                    <input type="radio" class="btn-check" name="appUsageDays" id="days7" value="7">
+                    <label class="btn btn-outline-primary btn-sm" for="days7">7 Tage</label>
+                    
+                    <input type="radio" class="btn-check" name="appUsageDays" id="days30" value="30" checked>
+                    <label class="btn btn-outline-primary btn-sm" for="days30">30 Tage</label>
+                    
+                    <input type="radio" class="btn-check" name="appUsageDays" id="days90" value="90">
+                    <label class="btn btn-outline-primary btn-sm" for="days90">90 Tage</label>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="appUsageContent">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p>Lade App-Nutzungsstatistiken...</p>
                     </div>
                 </div>
             </div>
@@ -452,5 +492,270 @@ function renderOnlineTimesChart(data) {
         }
     });
 }
+
+// Globale Variable für aktuellen User
+let currentAppUsageUserId = null;
+
+function showAppUsageStats(userId, username) {
+    currentAppUsageUserId = userId;
+    document.getElementById('appUsageModalUserName').textContent = username;
+    document.getElementById('appUsageContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Lade App-Nutzungsstatistiken...</p>
+        </div>
+    `;
+    
+    // Modal anzeigen
+    const modal = new bootstrap.Modal(document.getElementById('appUsageModal'));
+    modal.show();
+    
+    // Daten laden
+    loadAppUsageStats(userId, 30); // Standard: 30 Tage
+}
+
+function loadAppUsageStats(userId, days) {
+    fetch(`/accounts/api/user-app-usage/${userId}/?days=${days}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                document.getElementById('appUsageContent').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i> Fehler: ${data.error}
+                    </div>
+                `;
+                return;
+            }
+            
+            renderAppUsageStats(data);
+        })
+        .catch(error => {
+            document.getElementById('appUsageContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> Fehler beim Laden der Daten: ${error.message}
+                </div>
+            `;
+        });
+}
+
+function renderAppUsageStats(data) {
+    const content = `
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body text-center">
+                        <h3>${data.summary.total_sessions}</h3>
+                        <p class="mb-0">Gesamt-Sessions</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body text-center">
+                        <h3>${data.summary.total_duration_hours}h</h3>
+                        <p class="mb-0">Gesamt-Zeit</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body text-center">
+                        <h3>${data.call_stats.total_video_calls}</h3>
+                        <p class="mb-0">Videoanrufe</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-white">
+                    <div class="card-body text-center">
+                        <h3>${data.call_stats.total_audio_calls}</h3>
+                        <p class="mb-0">Audioanrufe</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h6><i class="fas fa-chart-line"></i> Aktivitätsverlauf</h6>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="appUsageChart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h6><i class="fas fa-phone"></i> Anruf-Statistiken</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="d-flex justify-content-between">
+                                    <span>Video-Zeit:</span>
+                                    <strong>${data.call_stats.total_video_hours}h</strong>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Audio-Zeit:</span>
+                                    <strong>${data.call_stats.total_audio_hours}h</strong>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Ø Video-Anruf:</span>
+                                    <strong>${data.call_stats.avg_video_call_minutes}min</strong>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Ø Audio-Anruf:</span>
+                                    <strong>${data.call_stats.avg_audio_call_minutes}min</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6><i class="fas fa-apps"></i> App-Nutzung</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>App/Feature</th>
+                                        <th>Sessions</th>
+                                        <th>Gesamt-Zeit</th>
+                                        <th>Ø Session</th>
+                                        <th>Video-Anrufe</th>
+                                        <th>Audio-Anrufe</th>
+                                        <th>Letzte Nutzung</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.app_data.map(app => `
+                                        <tr>
+                                            <td><strong>${app.app_display_name}</strong></td>
+                                            <td>${app.total_sessions}</td>
+                                            <td>${app.total_duration_hours}h</td>
+                                            <td>${app.avg_duration_minutes}min</td>
+                                            <td>${app.video_calls || 0} (${app.video_call_hours || 0}h)</td>
+                                            <td>${app.audio_calls || 0} (${app.audio_call_hours || 0}h)</td>
+                                            <td>${app.last_used ? new Date(app.last_used).toLocaleDateString('de-DE') : 'Nie'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('appUsageContent').innerHTML = content;
+    
+    // Chart.js Chart erstellen
+    const ctx = document.getElementById('appUsageChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.chart_data.map(item => {
+                const date = new Date(item.date);
+                return date.toLocaleDateString('de-DE', { 
+                    month: 'short', 
+                    day: 'numeric' 
+                });
+            }),
+            datasets: [{
+                label: 'App-Sessions',
+                data: data.chart_data.map(item => item.sessions),
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                yAxisID: 'y'
+            }, {
+                label: 'Stunden gesamt',
+                data: data.chart_data.map(item => item.duration_hours),
+                borderColor: 'rgb(255, 99, 132)',
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                yAxisID: 'y1'
+            }, {
+                label: 'Videoanrufe',
+                data: data.chart_data.map(item => item.video_calls),
+                borderColor: 'rgb(54, 162, 235)',
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                yAxisID: 'y'
+            }, {
+                label: 'Audioanrufe',
+                data: data.chart_data.map(item => item.audio_calls),
+                borderColor: 'rgb(255, 206, 86)',
+                backgroundColor: 'rgba(255, 206, 86, 0.2)',
+                yAxisID: 'y'
+            }]
+        },
+        options: {
+            responsive: true,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            scales: {
+                x: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Datum'
+                    }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Anzahl Sessions/Anrufe'
+                    },
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Stunden'
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'App-Nutzung und Anruf-Aktivität'
+                }
+            }
+        }
+    });
+}
+
+// Event Listener für Zeitraum-Buttons
+document.addEventListener('DOMContentLoaded', function() {
+    const dayButtons = document.querySelectorAll('input[name="appUsageDays"]');
+    dayButtons.forEach(button => {
+        button.addEventListener('change', function() {
+            if (this.checked && currentAppUsageUserId) {
+                loadAppUsageStats(currentAppUsageUserId, this.value);
+            }
+        });
+    });
+});
 </script>
 {% endblock %}
