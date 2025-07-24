@@ -10,7 +10,7 @@ from django.http import JsonResponse
 from django.db import models
 import json
 from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm, ApiKeyForm, CompanyInfoForm, UserProfileForm, CustomPasswordChangeForm, SuperUserManagementForm, BugChatSettingsForm, AppPermissionForm, FeatureAccessForm, BulkFeatureAccessForm, FeatureAccessFilterForm
-from .models import CustomUser, AmpelCategory, CategoryKeyword, UserLoginHistory, EditableContent, CustomPage, SEOSettings, FeatureAccess
+from .models import CustomUser, AmpelCategory, CategoryKeyword, UserLoginHistory, EditableContent, CustomPage, SEOSettings, FeatureAccess, AppUsageTracking, AppInfo
 from naturmacher.models import APIBalance
 from videos.models import UserStorage as VideoUserStorage, Subscription as VideoSubscription
 from .utils import redirect_with_params
@@ -73,11 +73,185 @@ def dashboard(request):
         return redirect('accounts:dashboard')
     
     categories = AmpelCategory.objects.filter(user=request.user)
+    
+    # Generiere verfügbare Apps basierend auf Berechtigungen
+    from .models import AppPermission
+    
+    # App-Definitionen mit URLs, Icons und Kategorien
+    app_definitions = {
+        'chat': {
+            'name': 'Chat System',
+            'description': 'Kommunizieren Sie direkt mit anderen Nutzern über unser integriertes Chat-System.',
+            'icon': 'bi-chat-dots',
+            'url': 'chat:home',
+            'color': 'bg-primary',
+            'category': 'communication'
+        },
+        'videos': {
+            'name': 'Videos',
+            'description': 'Verwalten und teilen Sie Ihre Video-Inhalte sicher und effizient.',
+            'icon': 'bi-play-circle',
+            'url': 'videos:list',
+            'color': 'bg-danger',
+            'category': 'media'
+        },
+        'schuch': {
+            'name': 'Schuch Startseite',
+            'description': 'Zugriff auf die zentrale Schuch Startseite und Kernfunktionen.',
+            'icon': 'bi-house',
+            'url': 'startseite',
+            'color': 'bg-primary',
+            'category': 'dashboard'
+        },
+        'schuch_dashboard': {
+            'name': 'Schuch Dashboard',
+            'description': 'Erweiterte Dashboard-Funktionen und Übersichten.',
+            'icon': 'bi-speedometer2',
+            'url': 'chat:schuch_dashboard',
+            'color': 'bg-info',
+            'category': 'dashboard'
+        },
+        'wirtschaftlichkeitsrechner': {
+            'name': 'Wirtschaftlichkeitsrechner',
+            'description': 'Berechnen Sie die Wirtschaftlichkeit Ihrer Projekte mit unserem professionellen Tool.',
+            'icon': 'bi-calculator',
+            'url': 'amortization_calculator:rechner_start',
+            'color': 'bg-success',
+            'category': 'tools'
+        },
+        'sportplatz_konfigurator': {
+            'name': 'Sportplatz-Konfigurator',
+            'description': 'Planen und konfigurieren Sie Sportplätze nach Ihren spezifischen Anforderungen.',
+            'icon': 'bi-grid-3x3',
+            'url': 'sportplatzApp:sportplatz_start',
+            'color': 'bg-info',
+            'category': 'tools'
+        },
+        'pdf_suche': {
+            'name': 'PDF-Suche',
+            'description': 'Durchsuchen Sie Ihre PDF-Dokumente schnell und effizient nach Inhalten.',
+            'icon': 'bi-file-pdf',
+            'url': 'pdf_sucher:pdf_suche',
+            'color': 'bg-danger',
+            'category': 'tools'
+        },
+        'ki_zusammenfassung': {
+            'name': 'KI-Zusammenfassung',
+            'description': 'Lassen Sie wichtige Dokumente automatisch durch KI zusammenfassen.',
+            'icon': 'bi-robot',
+            'url': 'pdf_sucher:document_list',
+            'color': 'bg-secondary',
+            'category': 'ai'
+        },
+        'shopify': {
+            'name': 'Shopify Integration',
+            'description': 'Verwalten Sie Ihre Shopify-Daten und synchronisieren Sie Produktinformationen.',
+            'icon': 'bi-shop',
+            'url': 'shopify_manager:dashboard',
+            'color': 'bg-success',
+            'category': 'ecommerce'
+        },
+        'bilder': {
+            'name': 'Bilder-Editor',
+            'description': 'Bearbeiten und optimieren Sie Bilder direkt in der Anwendung.',
+            'icon': 'bi-image',
+            'url': 'image_editor:dashboard',
+            'color': 'bg-info',
+            'category': 'media'
+        },
+        'organisation': {
+            'name': 'Organisation',
+            'description': 'Verwalten Sie Organisationsstrukturen und Zuständigkeiten.',
+            'icon': 'bi-building',
+            'url': 'organization:dashboard',
+            'color': 'bg-secondary',
+            'category': 'management'
+        },
+        'schulungen': {
+            'name': 'Schulungen',
+            'description': 'Zugriff auf Schulungsmaterialien und Weiterbildungsangebote.',
+            'icon': 'bi-book',
+            'url': 'naturmacher:thema_list',
+            'color': 'bg-warning',
+            'category': 'education'
+        },
+        'todos': {
+            'name': 'ToDos',
+            'description': 'Verwalten Sie Ihre Aufgaben und Projekte effizient.',
+            'icon': 'bi-check-square',
+            'url': 'todos:home',
+            'color': 'bg-primary',
+            'category': 'management'
+        },
+        'editor': {
+            'name': 'Content Editor',
+            'description': 'Bearbeiten Sie Inhalte und Seiten Ihrer Website.',
+            'icon': 'bi-pencil-square',
+            'url': 'accounts:content_editor',
+            'color': 'bg-warning',
+            'category': 'tools'
+        },
+        'bug_report': {
+            'name': 'Bug Report',
+            'description': 'Melden Sie Fehler und Verbesserungsvorschläge.',
+            'icon': 'bi-bug',
+            'url': 'bug_report:submit_bug_report',
+            'color': 'bg-danger',
+            'category': 'support'
+        },
+        'payments': {
+            'name': 'Zahlungen & Abos',
+            'description': 'Verwalten Sie Ihre Abonnements und Zahlungsinformationen.',
+            'icon': 'bi-credit-card',
+            'url': 'payments:subscription_plans',
+            'color': 'bg-success',
+            'category': 'management'
+        }
+    }
+    
+    # Filtere Apps basierend auf Berechtigungen
+    available_apps = []
+    for app_name, app_config in app_definitions.items():
+        if AppPermission.user_can_see_in_frontend(app_name, request.user):
+            # Prüfe ob App in Entwicklung ist (entweder in AppPermission oder FeatureAccess)
+            is_in_development = False
+            
+            # Prüfe AppPermission
+            try:
+                app_permission = AppPermission.objects.get(app_name=app_name)
+                if app_permission.access_level == 'in_development':
+                    is_in_development = True
+            except AppPermission.DoesNotExist:
+                pass
+            
+            # Prüfe FeatureAccess Status
+            feature_access = None
+            try:
+                feature_access = FeatureAccess.objects.get(app_name=app_name)
+                if feature_access.subscription_required == 'in_development':
+                    is_in_development = True
+            except FeatureAccess.DoesNotExist:
+                pass
+            
+            available_apps.append({
+                'name': app_config['name'],
+                'description': app_config['description'],
+                'icon': app_config['icon'],
+                'url': app_config['url'],
+                'color': app_config['color'],
+                'category': app_config['category'],
+                'app_name': app_name,
+                'available': True,
+                'is_in_development': is_in_development,
+                'feature_access': feature_access
+            })
+    
     context = {
         'categories': categories,
         'use_custom_categories': request.user.use_custom_categories,
         'enable_ai_keyword_expansion': request.user.enable_ai_keyword_expansion,
         'dark_mode': request.user.dark_mode,
+        'available_apps': available_apps,
     }
     return render(request, 'accounts/dashboard.html', context)
 
@@ -644,6 +818,7 @@ def company_info_view(request):
         founder_features = FeatureAccess.objects.filter(subscription_required='founder_access').count()
         paid_features = FeatureAccess.objects.filter(subscription_required='any_paid').count()
         storage_features = FeatureAccess.objects.filter(subscription_required='storage_plan').count()
+        development_features = FeatureAccess.objects.filter(subscription_required='in_development').count()
         blocked_features = FeatureAccess.objects.filter(subscription_required='blocked').count()
         
         feature_access_data = {
@@ -657,6 +832,7 @@ def company_info_view(request):
                 'founder_access': founder_features,
                 'any_paid': paid_features,
                 'storage_plan': storage_features,
+                'in_development': development_features,
                 'blocked': blocked_features,
             }
         }
@@ -1549,6 +1725,103 @@ def user_online_times(request, user_id):
 
 
 @login_required
+def user_app_usage_statistics(request, user_id):
+    """
+    API Endpoint für detaillierte App-Nutzungsstatistiken eines Benutzers (nur für Superuser)
+    """
+    print(f"DEBUG: user_app_usage_statistics called with user_id={user_id}, user={request.user}")
+    
+    if not request.user.is_superuser:
+        return JsonResponse({'error': 'Keine Berechtigung'}, status=403)
+    
+    try:
+        user = CustomUser.objects.get(id=user_id)
+        days = int(request.GET.get('days', 30))
+        
+        # Hole App-Nutzungsstatistiken
+        statistics = AppUsageTracking.get_user_app_statistics(user, days=days)
+        
+        # Formatiere Daten für Chart.js
+        chart_data = []
+        for day_stat in statistics['daily_stats']:
+            chart_data.append({
+                'date': day_stat['day'],
+                'sessions': day_stat['sessions'],
+                'duration_hours': round((day_stat['duration'] or 0) / 3600, 2),
+                'video_calls': day_stat['video_calls'] or 0,
+                'audio_calls': day_stat['audio_calls'] or 0,
+                'video_call_hours': round((day_stat['video_call_duration'] or 0) / 3600, 2),
+                'audio_call_hours': round((day_stat['audio_call_duration'] or 0) / 3600, 2),
+            })
+        
+        # App-spezifische Daten formatieren
+        app_data = []
+        for app_stat in statistics['app_stats']:
+            app_tracking = AppUsageTracking()
+            app_tracking.app_name = app_stat['app_name']
+            
+            app_data.append({
+                'app_name': app_stat['app_name'],
+                'app_display_name': app_tracking.get_app_display_name(),
+                'total_sessions': app_stat['total_sessions'],
+                'total_duration_hours': round((app_stat['total_duration'] or 0) / 3600, 2),
+                'avg_duration_minutes': round((app_stat['avg_duration'] or 0) / 60, 1),
+                'last_used': app_stat['last_used'].isoformat() if app_stat['last_used'] else None,
+                'video_calls': app_stat['video_calls'] or 0,
+                'audio_calls': app_stat['audio_calls'] or 0,
+                'video_call_hours': round((app_stat['video_call_duration'] or 0) / 3600, 2),
+                'audio_call_hours': round((app_stat['audio_call_duration'] or 0) / 3600, 2),
+            })
+        
+        # Aktivitätstyp-Daten formatieren
+        activity_data = []
+        for activity_stat in statistics['activity_stats']:
+            activity_data.append({
+                'activity_type': activity_stat['activity_type'],
+                'activity_display_name': dict(AppUsageTracking.ACTIVITY_TYPE_CHOICES)[activity_stat['activity_type']],
+                'total_sessions': activity_stat['total_sessions'],
+                'total_duration_hours': round((activity_stat['total_duration'] or 0) / 3600, 2),
+                'avg_duration_minutes': round((activity_stat['avg_duration'] or 0) / 60, 1),
+            })
+        
+        # Call-Statistiken formatieren
+        call_stats = statistics['call_stats']
+        formatted_call_stats = {
+            'total_video_calls': call_stats['total_video_calls'],
+            'total_audio_calls': call_stats['total_audio_calls'],
+            'total_video_hours': round(call_stats['total_video_duration'] / 3600, 2),
+            'total_audio_hours': round(call_stats['total_audio_duration'] / 3600, 2),
+            'avg_video_call_minutes': round((call_stats['avg_video_call_duration'] or 0) / 60, 1),
+            'avg_audio_call_minutes': round((call_stats['avg_audio_call_duration'] or 0) / 60, 1),
+        }
+        
+        data = {
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'full_name': user.get_full_name(),
+                'is_online': user.is_currently_online(),
+            },
+            'summary': {
+                'total_sessions': statistics['total_sessions'],
+                'total_duration_hours': round(statistics['total_duration'] / 3600, 2),
+                'days_analyzed': days,
+            },
+            'chart_data': chart_data,
+            'app_data': app_data,
+            'activity_data': activity_data,
+            'call_stats': formatted_call_stats,
+        }
+        
+        return JsonResponse(data)
+        
+    except CustomUser.DoesNotExist:
+        return JsonResponse({'error': 'Benutzer nicht gefunden'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': f'Fehler beim Laden der Statistiken: {str(e)}'}, status=500)
+
+
+@login_required
 def profile_view(request):
     """Benutzer-Profil anzeigen und bearbeiten"""
     # Video-App Abo-Daten für Template
@@ -2316,3 +2589,55 @@ def manage_video_subscription(request):
     }
     
     return render(request, 'accounts/manage_video_subscription.html', context)
+
+
+@login_required
+def app_info(request, app_name):
+    """Zeigt detaillierte Informationen über eine App/Feature"""
+    try:
+        app_info = AppInfo.objects.get(app_name=app_name)
+    except AppInfo.DoesNotExist:
+        # Fallback: Erstelle minimale Info wenn nicht vorhanden
+        app_info = AppInfo(
+            app_name=app_name,
+            title=app_name.replace('_', ' ').title(),
+            short_description=f"Informationen über {app_name}",
+            detailed_description="Detaillierte Informationen zu dieser App sind noch nicht verfügbar.",
+            key_features=[],
+            development_status='development'
+        )
+    
+    # Feature Access Status prüfen
+    feature_access = None
+    try:
+        feature_access = FeatureAccess.objects.get(app_name=app_name)
+    except FeatureAccess.DoesNotExist:
+        pass
+    
+    # Aktuellen Zugriffsstatus ermitteln
+    has_access = False
+    access_message = "Zugriff nicht verfügbar"
+    
+    if feature_access:
+        has_access = feature_access.user_has_access(request.user)
+        if feature_access.subscription_required == 'in_development':
+            access_message = "Diese App befindet sich in der Entwicklung"
+        elif feature_access.subscription_required == 'free':
+            access_message = "Kostenlos verfügbar"
+        elif feature_access.subscription_required == 'founder_access':
+            access_message = "Founder's Early Access erforderlich"
+        elif feature_access.subscription_required == 'any_paid':
+            access_message = "Beliebiges bezahltes Abonnement erforderlich"
+        elif feature_access.subscription_required == 'storage_plan':
+            access_message = "Storage-Plan erforderlich"
+        elif feature_access.subscription_required == 'blocked':
+            access_message = "Aktuell nicht verfügbar"
+    
+    context = {
+        'app_info': app_info,
+        'feature_access': feature_access,
+        'has_access': has_access,
+        'access_message': access_message,
+    }
+    
+    return render(request, 'accounts/app_info.html', context)

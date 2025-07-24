@@ -124,6 +124,31 @@
     left: 0.5rem;
     color: #6c757d;
 }
+
+/* In Development App Styling */
+.app-in-development {
+    opacity: 0.7;
+    position: relative;
+}
+
+.app-in-development .card-body {
+    background-color: rgba(108, 117, 125, 0.05);
+}
+
+.app-in-development .card-title {
+    color: #6c757d;
+}
+
+.development-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 0.75rem;
+}
+
+.info-button {
+    margin-left: 0.5rem;
+}
 </style>
 {% endblock %}
 
@@ -799,6 +824,7 @@
                                                 <li><strong>Nicht angemeldete Besucher:</strong> Öffentlich zugänglich</li>
                                                 <li><strong>Angemeldete Nutzer:</strong> Nur für eingeloggte Benutzer</li>
                                                 <li><strong>Ausgewählte Nutzer:</strong> Nur für ausgewählte Benutzer</li>
+                                                <li><strong>In Entwicklung:</strong> App ist noch nicht fertig (nur Superuser)</li>
                                             </ul>
                                         </div>
                                         <div class="col-md-6">
@@ -972,7 +998,13 @@
                                     <small class="text-muted">Beliebiges Abo</small>
                                 </div>
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-1">
+                                <div class="text-center">
+                                    <div class="h4 text-muted">{{ feature_access_data.stats.in_development|default:0 }}</div>
+                                    <small class="text-muted">In Entwicklung</small>
+                                </div>
+                            </div>
+                            <div class="col-md-1">
                                 <div class="text-center">
                                     <div class="h4 text-danger">{{ feature_access_data.stats.blocked }}</div>
                                     <small class="text-muted">Gesperrt</small>
@@ -1113,6 +1145,10 @@
                                                 <span class="badge bg-primary">Beliebiges Abo</span>
                                             {% elif feature.subscription_required == 'storage_plan' %}
                                                 <span class="badge bg-info">Storage Plan</span>
+                                            {% elif feature.subscription_required == 'in_development' %}
+                                                <span class="badge bg-secondary">
+                                                    <i class="bi bi-hammer me-1"></i>In Entwicklung
+                                                </span>
                                             {% elif feature.subscription_required == 'blocked' %}
                                                 <span class="badge bg-danger">Gesperrt</span>
                                             {% endif %}

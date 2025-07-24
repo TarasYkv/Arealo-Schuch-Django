@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
-from .models import CustomUser, AmpelCategory, CategoryKeyword, AppPermission, FeatureAccess
+from .models import CustomUser, AmpelCategory, CategoryKeyword, AppPermission, FeatureAccess, AppInfo
 
 
 @admin.register(CustomUser)
@@ -159,3 +159,40 @@ class FeatureAccessAdmin(admin.ModelAdmin):
         }
         
         return super().changelist_view(request, extra_context=extra_context)
+
+
+@admin.register(AppInfo)
+class AppInfoAdmin(admin.ModelAdmin):
+    list_display = ('title', 'app_name', 'development_status', 'is_active', 'updated_at')
+    list_filter = ('development_status', 'is_active', 'app_name')
+    search_fields = ('title', 'app_name', 'short_description')
+    readonly_fields = ('created_at', 'updated_at')
+    
+    fieldsets = (
+        ('Grundinformationen', {
+            'fields': ('app_name', 'title', 'short_description', 'icon_class')
+        }),
+        ('Detaillierte Beschreibung', {
+            'fields': ('detailed_description', 'key_features'),
+            'description': 'Detaillierte Informationen über die App/Feature'
+        }),
+        ('Voraussetzungen', {
+            'fields': ('subscription_requirements', 'technical_requirements'),
+            'description': 'Anforderungen für die Nutzung'
+        }),
+        ('Visual & Status', {
+            'fields': ('screenshot_url', 'development_status', 'is_active'),
+            'description': 'Visuelle Elemente und Status'
+        }),
+        ('Zeitstempel', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        # Hilfetext für key_features Feld
+        if 'key_features' in form.base_fields:
+            form.base_fields['key_features'].help_text = 'Liste als JSON Array, z.B.: ["Feature 1", "Feature 2", "Feature 3"]'
+        return form

@@ -542,15 +542,23 @@
                     <!-- Schuch Dropdown Menu -->
                     {% comment %} Schuch Dropdown - nur anzeigen wenn mindestens eine App sichtbar ist {% endcomment %}
                     {% if user.is_authenticated %}
+                    {% load app_permissions %}
+                    {% if user|can_see_app_in_frontend:"schuch" or user|can_see_app_in_frontend:"schuch_dashboard" or user|can_see_app_in_frontend:"wirtschaftlichkeitsrechner" or user|can_see_app_in_frontend:"sportplatz_konfigurator" or user|can_see_app_in_frontend:"pdf_suche" or user|can_see_app_in_frontend:"ki_zusammenfassung" %}
                     <div class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="schuchDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             Schuch
                         </a>
                         <ul class="dropdown-menu" aria-labelledby="schuchDropdown">
+                            {% if user|can_see_app_in_frontend:"schuch_dashboard" %}
                             <li><a class="dropdown-item" href="{% url 'chat:schuch_dashboard' %}">
                                 <i class="bi bi-speedometer2"></i> Schuch Dashboard
                             </a></li>
-                            <li><hr class="dropdown-divider"></li>
+                            {% endif %}
+                            {% if user|can_see_app_in_frontend:"schuch_dashboard" %}
+                                {% if user|can_see_app_in_frontend:"wirtschaftlichkeitsrechner" or user|can_see_app_in_frontend:"sportplatz_konfigurator" or user|can_see_app_in_frontend:"pdf_suche" or user|can_see_app_in_frontend:"ki_zusammenfassung" %}
+                                <li><hr class="dropdown-divider"></li>
+                                {% endif %}
+                            {% endif %}
                             {% if user|can_see_app_in_frontend:"wirtschaftlichkeitsrechner" %}
                             <li><a class="dropdown-item" href="{% url 'amortization_calculator:rechner_start' %}">
                                 <i class="bi bi-calculator"></i> Wirtschaftlichkeitsrechner
@@ -576,6 +584,7 @@
                             {% endif %}
                         </ul>
                     </div>
+                    {% endif %}
                     {% endif %}
                     
                     {% if user|can_see_app_in_frontend:"schulungen" %}

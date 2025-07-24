@@ -35,6 +35,7 @@ urlpatterns = [
     # User permissions management
     path('nutzerrechte/', views.user_permissions, name='user_permissions'),
     path('api/user-online-times/<int:user_id>/', views.user_online_times, name='user_online_times'),
+    path('api/user-app-usage/<int:user_id>/', views.user_app_usage_statistics, name='user_app_usage_statistics'),
     
     # Subscription management
     path('abo/<str:app_name>/', views.manage_subscription, name='manage_subscription'),
@@ -70,4 +71,7 @@ urlpatterns = [
     path('seo/get/', views.get_seo_settings, name='get_seo_settings'),
     path('seo/save/', views.save_seo_settings, name='save_seo_settings'),
     path('seo/alt-texts/', views.get_alt_texts, name='get_alt_texts'),
+    
+    # App Info
+    path('apps/<str:app_name>/info/', views.app_info, name='app_info'),
 ]
