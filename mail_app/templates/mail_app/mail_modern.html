@@ -1,0 +1,787 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mail - {{ account.email_address }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Hide floating widgets that interfere */
+    #bug-report-widget {
+        display: none !important;
+    }
+    
+    /* Force hide any bootstrap containers that might interfere */
+    body {
+        overflow: hidden !important;
+    }
+    
+    /* Folder sidebar */
+    .folder-sidebar {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-right: 1px solid #e0e0e0;
+        overflow-y: auto;
+        padding: 20px 0;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    }
+    
+    .folder-item {
+        display: flex;
+        align-items: center;
+        padding: 15px 25px;
+        color: rgba(255, 255, 255, 0.9);
+        text-decoration: none;
+        transition: all 0.3s ease;
+        position: relative;
+        font-weight: 500;
+        border-radius: 8px;
+        margin: 2px 10px;
+    }
+    
+    .folder-item:hover {
+        background: rgba(255, 255, 255, 0.2);
+        text-decoration: none;
+        color: white;
+        transform: translateX(5px);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    
+    .folder-item.active {
+        background: rgba(255, 255, 255, 0.25);
+        color: white;
+        font-weight: 600;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        transform: translateX(8px);
+    }
+    
+    .folder-item.active::before {
+        content: '';
+        position: absolute;
+        left: -10px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 0;
+        height: 0;
+        border-left: 8px solid white;
+        border-top: 8px solid transparent;
+        border-bottom: 8px solid transparent;
+    }
+    
+    .folder-icon {
+        font-size: 20px;
+        margin-right: 12px;
+        width: 24px;
+        text-align: center;
+    }
+    
+    .folder-name {
+        flex: 1;
+    }
+    
+    .folder-count {
+        background: rgba(255, 255, 255, 0.2);
+        color: rgba(255, 255, 255, 0.8);
+        padding: 4px 10px;
+        border-radius: 15px;
+        font-size: 11px;
+        font-weight: 600;
+        min-width: 20px;
+        text-align: center;
+    }
+    
+    .folder-count.unread {
+        background: #ff4444;
+        color: white;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(255, 68, 68, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0); }
+    }
+    
+    /* Email list */
+    .email-list {
+        background: #f8f9fa;
+        border-right: 1px solid #e0e0e0;
+        overflow-y: auto;
+        box-shadow: 1px 0 5px rgba(0,0,0,0.1);
+    }
+    
+    .email-list-header {
+        padding: 25px;
+        border-bottom: 2px solid #e0e0e0;
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .email-list-title {
+        font-size: 18px;
+        font-weight: 500;
+        margin: 0;
+    }
+    
+    .email-item {
+        display: block;
+        padding: 18px 25px;
+        border-bottom: 1px solid #e8e9ea;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        color: inherit;
+        background: white;
+        margin: 0 10px 5px 10px;
+        border-radius: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .email-item:hover {
+        background: #f8f9fa;
+        text-decoration: none;
+        color: inherit;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .email-item.active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-left: 4px solid #fff;
+        padding-left: 21px;
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        transform: translateY(-3px);
+    }
+    
+    .email-item.unread {
+        background: linear-gradient(135deg, #fff 0%, #f8f9ff 100%);
+        font-weight: 600;
+        border-left: 4px solid #667eea;
+        padding-left: 21px;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+    }
+    
+    .email-from {
+        font-size: 14px;
+        color: #333;
+        margin-bottom: 4px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .email-time {
+        font-size: 12px;
+        color: #999;
+        font-weight: normal;
+    }
+    
+    .email-subject {
+        font-size: 14px;
+        color: #333;
+        margin-bottom: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .email-preview {
+        font-size: 13px;
+        color: #666;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-weight: normal;
+    }
+    
+    /* Email viewer */
+    .email-viewer {
+        background: white;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+    }
+    
+    .email-viewer-header {
+        padding: 30px;
+        border-bottom: 2px solid #e0e0e0;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .email-actions {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 25px;
+        flex-wrap: wrap;
+    }
+    
+    .email-actions .btn {
+        border-radius: 25px;
+        padding: 8px 16px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .email-actions .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    
+    .email-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+    }
+    
+    .email-meta {
+        margin-bottom: 20px;
+    }
+    
+    .email-body {
+        line-height: 1.6;
+    }
+    
+    /* Empty states */
+    .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: #999;
+        text-align: center;
+        padding: 40px;
+    }
+    
+    .empty-state-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+        opacity: 0.5;
+    }
+    
+    /* Responsive */
+    @media (max-width: 1200px) {
+        .mail-container {
+            grid-template-columns: 200px 350px 1fr;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .mail-container {
+            grid-template-columns: 1fr;
+            position: relative;
+            height: auto;
+            min-height: calc(100vh - 56px);
+        }
+        
+        body {
+            overflow: auto; /* Allow scrolling on mobile */
+        }
+        
+        .folder-sidebar,
+        .email-list {
+            display: none;
+        }
+        
+        .folder-sidebar.mobile-show,
+        .email-list.mobile-show {
+            display: block;
+        }
+        
+        .email-viewer {
+            display: none;
+        }
+        
+        .email-viewer.mobile-show {
+            display: flex;
+        }
+    }
+    
+    /* Loading spinner */
+    .loading-spinner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+    }
+    
+    .spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #1976d2;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    /* New Email Button Hover Effect */
+    .btn-new-email:hover {
+        transform: translateY(-3px) scale(1.05);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3) !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+    }
+</style>
+{% endblock %}
+
+{% block fullscreen_content %}
+<style>
+/* Override base.html container styles */
+body { overflow: hidden !important; }
+.container, .container-fluid { display: none !important; }
+
+/* Fixed positioning mail container */
+.mail-grid {
+    position: fixed !important;
+    top: 56px !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 1000 !important;
+    display: grid !important;
+    grid-template-columns: 250px 400px 1fr !important;
+    background: #f5f5f5 !important;
+}
+</style>
+
+<div class="mail-grid">
+    <!-- Folder Sidebar -->
+    <div class="folder-sidebar" id="folderSidebar">
+        <div style="padding: 0 20px 20px;">
+            <button class="btn btn-primary btn-block" onclick="composeNewEmail()">
+                ✏️ Neue Email
+            </button>
+        </div>
+        
+        {% for folder in folders %}
+        <a href="{% url 'mail_app:mail_modern' %}?folder={{ folder.id }}" 
+           class="folder-item {% if current_folder.id == folder.id %}active{% endif %}">
+            <span class="folder-icon">{{ folder.icon|default:"📁" }}</span>
+            <span class="folder-name">{{ folder.name }}</span>
+            {% if folder.unread_count > 0 %}
+            <span class="folder-count unread">{{ folder.unread_count }}</span>
+            {% elif folder.total_count > 0 %}
+            <span class="folder-count">{{ folder.total_count }}</span>
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
+    
+    <!-- Email List -->
+    <div class="email-list" id="emailList">
+        <div class="email-list-header">
+            <h3 class="email-list-title">{{ current_folder.name }}</h3>
+            <div class="mt-2">
+                <button class="btn btn-sm btn-outline-primary" onclick="refreshEmails()">
+                    🔄 Aktualisieren
+                </button>
+            </div>
+        </div>
+        
+        <div id="emailListContent">
+            {% if emails %}
+                {% for email in emails %}
+                <a href="{% url 'mail_app:mail_modern' %}?folder={{ current_folder.id }}&email={{ email.id }}"
+                   class="email-item {% if current_email.id == email.id %}active{% endif %} {% if not email.is_read %}unread{% endif %}"
+                    <div class="email-from">
+                        <span>{{ email.from_name|default:email.from_email }}</span>
+                        <span class="email-time">{{ email.sent_at|date:"H:i" }}</span>
+                    </div>
+                    <div class="email-subject">{{ email.subject|default:"(Kein Betreff)" }}</div>
+                    <div class="email-preview">{{ email.body_preview|default:email.body_text|truncatechars:80 }}</div>
+                </a>
+                {% endfor %}
+                
+                <!-- Pagination -->
+                {% if emails.has_other_pages %}
+                <div class="p-3">
+                    <nav>
+                        <ul class="pagination pagination-sm justify-content-center">
+                            {% if emails.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?folder={{ current_folder.id }}&page={{ emails.previous_page_number }}">
+                                    Zurück
+                                </a>
+                            </li>
+                            {% endif %}
+                            
+                            <li class="page-item active">
+                                <span class="page-link">
+                                    Seite {{ emails.number }} von {{ emails.paginator.num_pages }}
+                                </span>
+                            </li>
+                            
+                            {% if emails.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?folder={{ current_folder.id }}&page={{ emails.next_page_number }}">
+                                    Weiter
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">📭</div>
+                    <p>Keine Emails in diesem Ordner</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Email Viewer -->
+    <div class="email-viewer" id="emailViewer">
+        {% if current_email %}
+        <div class="email-viewer-header">
+            <div class="email-actions">
+                <button class="btn btn-primary btn-sm" onclick="replyToEmail({{ current_email.id }})">
+                    ↩️ Antworten
+                </button>
+                <button class="btn btn-outline-primary btn-sm" onclick="replyAllToEmail({{ current_email.id }})">
+                    ↩️ Allen antworten
+                </button>
+                <button class="btn btn-outline-primary btn-sm" onclick="forwardEmail({{ current_email.id }})">
+                    ➡️ Weiterleiten
+                </button>
+                <button class="btn btn-outline-danger btn-sm" onclick="deleteEmail({{ current_email.id }})">
+                    🗑️ Löschen
+                </button>
+            </div>
+            
+            <h4>{{ current_email.subject|default:"(Kein Betreff)" }}</h4>
+            
+            <div class="email-meta text-muted">
+                <div><strong>Von:</strong> {{ current_email.from_name|default:current_email.from_email }}</div>
+                <div><strong>An:</strong> {{ current_email.to_emails|join:", " }}</div>
+                {% if current_email.cc_emails %}
+                <div><strong>CC:</strong> {{ current_email.cc_emails|join:", " }}</div>
+                {% endif %}
+                <div><strong>Datum:</strong> {{ current_email.sent_at|date:"d.m.Y H:i" }}</div>
+            </div>
+        </div>
+        
+        <div class="email-content">
+            {% if current_email.body_html and current_email.body_html|length > 10 %}
+                <!-- HTML Email in iframe for security -->
+                <iframe id="emailFrame" 
+                        srcdoc="{{ current_email.body_html|escapejs }}" 
+                        style="width: 100%; min-height: 600px; border: none;"
+                        sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox">
+                </iframe>
+            {% elif current_email.body_text %}
+                <div class="email-body">
+                    {{ current_email.body_text|linebreaks }}
+                </div>
+            {% else %}
+                <div class="empty-state" style="height: 200px;">
+                    <div class="empty-state-icon">📄</div>
+                    <p>Diese Email hat keinen Inhalt</p>
+                </div>
+            {% endif %}
+            
+            {% if current_email.attachments.count > 0 %}
+            <div class="mt-4 p-3 bg-light rounded">
+                <h6>📎 Anhänge ({{ current_email.attachments.count }})</h6>
+                {% for attachment in current_email.attachments.all %}
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <span>{{ attachment.filename }}</span>
+                    <a href="{% url 'mail_app:api_download_attachment' attachment.id %}" 
+                       class="btn btn-sm btn-outline-primary">
+                        💾 Download
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">✉️</div>
+            <p>Wähle eine Email aus der Liste</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Compose Modal (reuse existing) -->
+<div class="modal fade" id="composeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">✏️ Email schreiben</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="composeForm">
+                    <div class="mb-3">
+                        <label for="toEmails" class="form-label">An:</label>
+                        <input type="email" class="form-control" id="toEmails" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="subject" class="form-label">Betreff:</label>
+                        <input type="text" class="form-control" id="subject" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nachricht:</label>
+                        <div id="richTextEditor" style="height: 300px; background: white;"></div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="sendEmail()">📤 Email senden</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+
+
+<script>
+// Define functions globally first
+function resizeIframe(iframe) {
+    try {
+        // Try to resize iframe to content height
+        if (iframe.contentDocument) {
+            const height = Math.max(
+                iframe.contentDocument.body.scrollHeight,
+                iframe.contentDocument.body.offsetHeight,
+                300  // Minimum height
+            );
+            iframe.style.height = height + 'px';
+        }
+    } catch (e) {
+        // Cross-origin content or other security restrictions
+        console.log('Cannot resize iframe due to security restrictions');
+        iframe.style.height = '600px';  // Fallback height
+    }
+}
+
+let quillEditor = null;
+const accountId = {{ account.id }};
+
+// Serialize current email data for JavaScript
+const currentEmailData = {% if current_email %}
+{
+    id: {{ current_email.id }},
+    subject: "{{ current_email.subject|default:'(Kein Betreff)'|escapejs }}",
+    from_email: "{{ current_email.from_email|escapejs }}",
+    from_name: "{{ current_email.from_name|default:''|escapejs }}",
+    to_emails: {{ current_email.to_emails|default:'[]'|safe }},
+    cc_emails: {{ current_email.cc_emails|default:'[]'|safe }},
+    sent_at: "{{ current_email.sent_at|date:'c' }}",
+    body_text: "{{ current_email.body_text|default:''|escapejs }}"
+}
+{% else %}
+null
+{% endif %};
+
+// Initialize Quill editor
+document.addEventListener('DOMContentLoaded', function() {
+    quillEditor = new Quill('#richTextEditor', {
+        theme: 'snow',
+        modules: {
+            toolbar: [
+                ['bold', 'italic', 'underline', 'strike'],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                ['link'],
+                ['clean']
+            ]
+        },
+        placeholder: 'Schreibe deine Nachricht...'
+    });
+    
+    // Auto-resize iframe if present
+    const emailFrame = document.getElementById('emailFrame');
+    if (emailFrame) {
+        emailFrame.onload = function() {
+            resizeIframe(this);
+        };
+        // Try to resize immediately if already loaded
+        if (emailFrame.contentDocument) {
+            resizeIframe(emailFrame);
+        }
+    }
+    
+    // Mark email as read when viewed
+    {% if current_email and not current_email.is_read %}
+    // Auto-mark as read after 2 seconds
+    setTimeout(() => {
+        fetch(`/mail/api/emails/{{ current_email.id }}/mark/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ action: 'read' })
+        });
+    }, 2000);
+    {% endif %}
+});
+
+function refreshEmails() {
+    location.reload();
+}
+
+function composeNewEmail() {
+    // Reset form
+    document.getElementById('composeForm').reset();
+    if (quillEditor) {
+        quillEditor.setText('');
+    }
+    new bootstrap.Modal(document.getElementById('composeModal')).show();
+}
+
+function replyToEmail(emailId) {
+    // Load current email data and prefill reply
+    if (!currentEmailData) return;
+    
+    // Prefill reply data
+    document.getElementById('toEmails').value = currentEmailData.from_email;
+    document.getElementById('subject').value = 'Re: ' + (currentEmailData.subject || '');
+    
+    // Add quoted text
+    const quotedText = `\n\n--- Original Message ---\nVon: ${currentEmailData.from_name || currentEmailData.from_email}\nDatum: ${new Date(currentEmailData.sent_at).toLocaleString('de-DE')}\nBetreff: ${currentEmailData.subject || '(Kein Betreff)'}\n\n${currentEmailData.body_text || ''}`;
+    
+    if (quillEditor) {
+        quillEditor.setText(quotedText);
+    }
+    
+    new bootstrap.Modal(document.getElementById('composeModal')).show();
+}
+
+function replyAllToEmail(emailId) {
+    // Load current email data and prefill reply all
+    if (!currentEmailData) return;
+    
+    // Build recipient list (from + cc, excluding current user)
+    let recipients = [currentEmailData.from_email];
+    if (currentEmailData.cc_emails && currentEmailData.cc_emails.length > 0) {
+        recipients = recipients.concat(currentEmailData.cc_emails);
+    }
+    
+    // Remove duplicates and current user email
+    recipients = [...new Set(recipients)].filter(email => 
+        email !== '{{ account.email_address }}'
+    );
+    
+    // Prefill reply data
+    document.getElementById('toEmails').value = recipients.join(', ');
+    document.getElementById('subject').value = 'Re: ' + (currentEmailData.subject || '');
+    
+    // Add quoted text
+    const quotedText = `\n\n--- Original Message ---\nVon: ${currentEmailData.from_name || currentEmailData.from_email}\nDatum: ${new Date(currentEmailData.sent_at).toLocaleString('de-DE')}\nBetreff: ${currentEmailData.subject || '(Kein Betreff)'}\n\n${currentEmailData.body_text || ''}`;
+    
+    if (quillEditor) {
+        quillEditor.setText(quotedText);
+    }
+    
+    new bootstrap.Modal(document.getElementById('composeModal')).show();
+}
+
+function forwardEmail(emailId) {
+    // Load current email data and prefill forward
+    if (!currentEmailData) return;
+    
+    // Clear recipients, prefill subject
+    document.getElementById('toEmails').value = '';
+    document.getElementById('subject').value = 'Fwd: ' + (currentEmailData.subject || '');
+    
+    // Add forwarded message
+    const forwardedText = `\n\n--- Forwarded Message ---\nVon: ${currentEmailData.from_name || currentEmailData.from_email}\nAn: ${currentEmailData.to_emails ? currentEmailData.to_emails.join(', ') : ''}\nDatum: ${new Date(currentEmailData.sent_at).toLocaleString('de-DE')}\nBetreff: ${currentEmailData.subject || '(Kein Betreff)'}\n\n${currentEmailData.body_text || ''}`;
+    
+    if (quillEditor) {
+        quillEditor.setText(forwardedText);
+    }
+    
+    new bootstrap.Modal(document.getElementById('composeModal')).show();
+}
+
+async function deleteEmail(emailId) {
+    if (!confirm('Diese Email wirklich löschen?')) return;
+    
+    try {
+        const response = await fetch(`/mail/api/emails/${emailId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+        
+        if (response.ok) {
+            location.reload();
+        } else {
+            alert('Fehler beim Löschen der Email');
+        }
+    } catch (error) {
+        alert('Fehler beim Löschen der Email');
+    }
+}
+
+async function sendEmail() {
+    const toEmails = document.getElementById('toEmails').value;
+    const subject = document.getElementById('subject').value;
+    const bodyHtml = quillEditor.root.innerHTML;
+    const bodyText = quillEditor.getText();
+    
+    try {
+        const response = await fetch('/mail/api/send/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                account_id: accountId,
+                to_emails: [toEmails],
+                subject: subject,
+                body_text: bodyText,
+                body_html: bodyHtml
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('Email erfolgreich gesendet!');
+            bootstrap.Modal.getInstance(document.getElementById('composeModal')).hide();
+            location.reload();
+        } else {
+            alert('Fehler beim Senden: ' + result.error);
+        }
+    } catch (error) {
+        alert('Fehler beim Senden der Email');
+    }
+}
+
+// CSRF Token helper
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,1466 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load app_permissions %}
+
+{% block title %}Email Dashboard - Workloom{% endblock %}
+
+{% block extra_head %}
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Quill Rich Text Editor CSS -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-blue: #2563eb;
+            --primary-light: #3b82f6;
+            --secondary-blue: #1e40af;
+            --accent-purple: #7c3aed;
+            --soft-gray: #f8fafc;
+            --border-light: #e2e8f0;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: var(--text-primary);
+        }
+        
+        .mail-header {
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--accent-purple) 100%);
+            color: white;
+            padding: 60px 0;
+            margin-bottom: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .mail-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.1) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        
+        .mail-header h1 {
+            font-weight: 700;
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+        }
+        
+        .mail-header .lead {
+            font-size: 1.25rem;
+            font-weight: 400;
+            opacity: 0.9;
+            margin-bottom: 0;
+        }
+        
+        .account-card {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-light);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .account-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary-blue) 0%, var(--accent-purple) 100%);
+        }
+        
+        .account-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-xl);
+            border-color: var(--primary-light);
+        }
+        
+        .account-email {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            letter-spacing: -0.01em;
+        }
+        
+        .account-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .detail-item {
+            background: var(--soft-gray);
+            padding: 1rem;
+            border-radius: 12px;
+            border: 1px solid var(--border-light);
+            transition: all 0.2s ease;
+        }
+        
+        .detail-item:hover {
+            background: white;
+            box-shadow: var(--shadow-md);
+        }
+        
+        .detail-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+        
+        .detail-value {
+            font-size: 1rem;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+        
+        .folder-card {
+            background: white;
+            padding: 1.25rem;
+            border-radius: 16px;
+            text-align: center;
+            border: 1px solid var(--border-light);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            margin-bottom: 1rem;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .folder-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, var(--primary-blue), var(--accent-purple));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .folder-card:hover::before {
+            opacity: 0.03;
+        }
+        
+        .folder-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--primary-light);
+        }
+        
+        .folder-card-unread {
+            background: linear-gradient(135deg, #fef3c7 0%, #fff 100%);
+            border: 1px solid #fbbf24;
+            animation: pulse-subtle 3s infinite;
+        }
+        
+        @keyframes pulse-subtle {
+            0% { box-shadow: var(--shadow-md); }
+            50% { box-shadow: 0 8px 25px -5px rgba(251, 191, 36, 0.25), var(--shadow-md); }
+            100% { box-shadow: var(--shadow-md); }
+        }
+        
+        .folder-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.75rem;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+        }
+        
+        .sync-status {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: var(--soft-gray);
+            border-radius: 12px;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-light);
+            transition: all 0.2s ease;
+        }
+        
+        .sync-status:hover {
+            background: white;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .loading {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+        }
+        
+        .loading-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: var(--shadow-xl);
+            border: 1px solid var(--border-light);
+        }
+        
+        .spinner {
+            border: 3px solid var(--border-light);
+            border-top: 3px solid var(--primary-blue);
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .email-item {
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            margin-bottom: 0.75rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: white;
+        }
+        
+        .email-item:hover {
+            background: var(--soft-gray);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+            border-color: var(--primary-light);
+        }
+        
+        .email-unread {
+            border-left: 3px solid var(--primary-blue);
+            background: linear-gradient(135deg, #dbeafe 0%, #fff 100%);
+            font-weight: 600;
+        }
+        
+        .status-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            letter-spacing: 0.025em;
+        }
+        
+        .status-active {
+            background: linear-gradient(135deg, #dcfce7 0%, #f0fdf4 100%);
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+        
+        /* Modern Button Styles */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-light) 100%);
+            border: none;
+            border-radius: 12px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+            background: linear-gradient(135deg, var(--secondary-blue) 0%, var(--primary-blue) 100%);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border: none;
+            border-radius: 12px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        }
+        
+        /* Floating Email Notification Button */
+        .email-notification-btn {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--accent-purple) 100%);
+            border-radius: 50%;
+            border: none;
+            color: white;
+            font-size: 24px;
+            box-shadow: var(--shadow-xl);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .email-notification-btn:hover {
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            background: linear-gradient(135deg, var(--secondary-blue) 0%, var(--primary-blue) 100%);
+        }
+        
+        .email-notification-btn.has-unread {
+            animation: pulse-notification 3s infinite;
+        }
+        
+        @keyframes pulse-notification {
+            0% { transform: scale(1); box-shadow: var(--shadow-xl); }
+            50% { transform: scale(1.05); box-shadow: 0 25px 50px -12px rgba(37, 99, 235, 0.4); }
+            100% { transform: scale(1); box-shadow: var(--shadow-xl); }
+        }
+        
+        .unread-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            font-size: 11px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 3px solid white;
+            box-shadow: var(--shadow-lg);
+        }
+        
+        /* Ticket Summary in Header */
+        .ticket-summary {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            padding: 1.5rem;
+            text-align: center;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .ticket-count {
+            font-size: 3rem;
+            font-weight: 800;
+            color: #fbbf24;
+            text-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+        }
+        
+        .ticket-label {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.95);
+            margin-bottom: 1rem;
+            font-weight: 600;
+            letter-spacing: 0.025em;
+        }
+        
+        /* Welcome Card Styles */
+        .card {
+            border: none;
+            border-radius: 20px;
+            box-shadow: var(--shadow-lg);
+            background: white;
+        }
+        
+        .card-body {
+            padding: 3rem 2rem;
+        }
+        
+        /* Alert Styles */
+        .alert {
+            border: none;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .alert-success {
+            background: linear-gradient(135deg, #dcfce7 0%, #f0fdf4 100%);
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+        
+        .alert-danger {
+            background: linear-gradient(135deg, #fecaca 0%, #fef2f2 100%);
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+        
+        .alert-info {
+            background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
+            color: #1e40af;
+            border: 1px solid #93c5fd;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="mail-header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="display-4">✉️ Email Management</h1>
+                    <p class="lead">Zentrale Verwaltung Ihrer Email-Konten und Nachrichten</p>
+                </div>
+                <div class="col-md-4 text-end">
+                    {% if total_open_tickets > 0 %}
+                    <div class="ticket-summary">
+                        <div class="ticket-count">{{ total_open_tickets }}</div>
+                        <div class="ticket-label">Offene Tickets</div>
+                        <a href="{% url 'mail_app:mail_tickets' %}" class="btn btn-light btn-sm mt-2">
+                            🎫 Zu den Tickets
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid">
+        <!-- Django Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{% if message.tags == 'success' %}success{% elif message.tags == 'error' %}danger{% else %}info{% endif %} alert-dismissible fade show">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% if has_accounts %}
+            {% for account in accounts %}
+            <div class="account-card">
+                <div class="row align-items-center mb-4">
+                    <div class="col-md-8">
+                        <div class="account-email">
+                            📧 {{ account.email_address }}
+                        </div>
+                        <div class="account-details">
+                            <div class="detail-item">
+                                <div class="detail-label">Anzeigename</div>
+                                <div class="detail-value">{{ account.display_name|default:"Nicht gesetzt" }}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Letzte Sync</div>
+                                <div class="detail-value">
+                                    {% if account.last_sync %}
+                                        {{ account.last_sync|date:"d.m.Y H:i" }}
+                                    {% else %}
+                                        Nie
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        {% if account.is_active %}
+                            <span class="status-badge status-active">✅ Aktiv</span>
+                        {% else %}
+                            <span class="status-badge" style="background: linear-gradient(135deg, #fecaca 0%, #fef2f2 100%); color: #991b1b; border: 1px solid #fca5a5;">❌ Inaktiv</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mb-3 flex-wrap">
+                    <a href="{% url 'mail_app:mail_standalone' %}" class="btn btn-primary">📬 Zum Postfach</a>
+                    <button class="btn btn-success" onclick="syncEmails({{ account.id }})">🔄 Jetzt synchronisieren</button>
+                </div>
+
+                <div class="sync-status" id="sync-status-{{ account.id }}">
+                    Bereit zum Synchronisieren
+                </div>
+
+                <!-- Folders Grid -->
+                <div class="row" id="folders-{{ account.id }}">
+                    <!-- Folders will be loaded here via JavaScript -->
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <div class="card text-center">
+                        <div class="card-body py-5">
+                            <div style="font-size: 4em; margin-bottom: 20px;">📮</div>
+                            <h2>Willkommen zur Mail App</h2>
+                            <p class="lead">Verbinde deinen Zoho Mail Account um mit dem Email-Management zu beginnen.</p>
+                            
+                            {% if zoho_auth_url %}
+                                <a href="{{ zoho_auth_url }}" class="btn btn-primary btn-lg">
+                                    🔗 Email-Account verbinden
+                                </a>
+                            {% else %}
+                                <a href="{% url 'mail_app:oauth_authorize' %}" class="btn btn-primary btn-lg">
+                                    🔗 Email-Account verbinden
+                                </a>
+                            {% endif %}
+                            
+                            <div class="row mt-5">
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div style="font-size: 2em; margin-bottom: 10px;">📥</div>
+                                        <h6>Email-Empfang</h6>
+                                        <small class="text-muted">Emails empfangen und organisieren</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div style="font-size: 2em; margin-bottom: 10px;">📤</div>
+                                        <h6>Email-Versand</h6>
+                                        <small class="text-muted">Emails mit Rich-Text senden</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div style="font-size: 2em; margin-bottom: 10px;">📁</div>
+                                        <h6>Ordner-Management</h6>
+                                        <small class="text-muted">Ordner verwalten und organisieren</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div style="font-size: 2em; margin-bottom: 10px;">🔄</div>
+                                        <h6>Auto-Sync</h6>
+                                        <small class="text-muted">Automatische Synchronisation</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Floating Email Notification Button -->
+    <button class="email-notification-btn" id="emailNotificationBtn" onclick="goToMailbox()" title="Zum Postfach">
+        ✉️
+        <span class="unread-badge" id="unreadBadge" style="display: none;">0</span>
+    </button>
+
+    <!-- Loading overlay -->
+    <div class="loading" id="loading">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <p>Verarbeitung läuft...</p>
+        </div>
+    </div>
+
+    <!-- Email List Modal -->
+    <div class="modal fade" id="emailModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">📧 Email-Liste</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="emailModalBody">
+                    <!-- Email list will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Compose Email Modal -->
+    <div class="modal fade" id="composeModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">✏️ Email schreiben</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="composeForm">
+                        <div class="mb-3">
+                            <label for="toEmails" class="form-label">An:</label>
+                            <input type="email" class="form-control" id="toEmails" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="subject" class="form-label">Betreff:</label>
+                            <input type="text" class="form-control" id="subject" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Nachricht:</label>
+                            
+                            <!-- Editor Format Toggle -->
+                            <div class="btn-group mb-2" role="group">
+                                <input type="radio" class="btn-check" name="editorFormat" id="richTextMode" checked>
+                                <label class="btn btn-outline-primary" for="richTextMode">📝 Rich Text</label>
+                                
+                                <input type="radio" class="btn-check" name="editorFormat" id="plainTextMode">
+                                <label class="btn btn-outline-secondary" for="plainTextMode">📄 Einfacher Text</label>
+                            </div>
+                            
+                            <!-- Rich Text Editor -->
+                            <div id="richTextEditor" style="height: 300px; background: white;"></div>
+                            
+                            <!-- Plain Text Editor (hidden by default) -->
+                            <textarea class="form-control" id="plainTextEditor" rows="15" style="display: none;" placeholder="Ihre Nachricht..."></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="attachments" class="form-label">Anhänge:</label>
+                            <input type="file" class="form-control" id="attachments" multiple>
+                            <div class="form-text">Maximal 25MB pro Datei</div>
+                            <div id="attachmentList" class="mt-2"></div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" onclick="sendEmail()">📤 Email senden</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block scripts %}
+    <!-- Quill Rich Text Editor JS -->
+    <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+    
+    <script>
+    let currentAccountId = null;
+    let uploadedAttachments = [];
+    let quillEditor = null;
+    let isRichTextMode = true;
+
+    // Load folders for all accounts on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        {% for account in accounts %}
+            loadFolders({{ account.id }});
+        {% endfor %}
+
+        // Check for unread emails on page load
+        checkUnreadEmails();
+        
+        // Set up periodic check for unread emails (every 2 minutes)
+        setInterval(checkUnreadEmails, 120000);
+
+        // Initialize Rich Text Editor
+        initializeRichTextEditor();
+
+        // Handle file selection for attachments
+        document.getElementById('attachments').addEventListener('change', function(e) {
+            handleAttachmentSelection(e.target.files);
+        });
+
+        // Handle editor mode switching
+        document.getElementById('richTextMode').addEventListener('change', switchToRichText);
+        document.getElementById('plainTextMode').addEventListener('change', switchToPlainText);
+    });
+
+    function initializeRichTextEditor() {
+        quillEditor = new Quill('#richTextEditor', {
+            theme: 'snow',
+            modules: {
+                toolbar: [
+                    [{ 'header': [1, 2, 3, false] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ 'color': [] }, { 'background': [] }],
+                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                    [{ 'align': [] }],
+                    ['link', 'image'],
+                    ['clean']
+                ]
+            },
+            placeholder: 'Schreiben Sie Ihre Nachricht...'
+        });
+    }
+
+    function switchToRichText() {
+        isRichTextMode = true;
+        document.getElementById('richTextEditor').style.display = 'block';
+        document.getElementById('plainTextEditor').style.display = 'none';
+        
+        // Copy content from plain text to rich text if exists
+        const plainText = document.getElementById('plainTextEditor').value;
+        if (plainText && quillEditor) {
+            quillEditor.setText(plainText);
+        }
+    }
+
+    function switchToPlainText() {
+        isRichTextMode = false;
+        document.getElementById('richTextEditor').style.display = 'none';
+        document.getElementById('plainTextEditor').style.display = 'block';
+        
+        // Copy content from rich text to plain text
+        if (quillEditor) {
+            const plainText = quillEditor.getText();
+            document.getElementById('plainTextEditor').value = plainText;
+        }
+    }
+
+    async function loadFolders(accountId) {
+        try {
+            const response = await fetch(`/mail/api/accounts/${accountId}/folders/`);
+            const folders = await response.json();
+            
+            const foldersContainer = document.getElementById(`folders-${accountId}`);
+            if (!foldersContainer) return;
+            
+            foldersContainer.innerHTML = '';
+            
+            // Sort folders by priority and then by name
+            const sortedFolders = folders.sort((a, b) => {
+                const priorityDiff = getFolderPriority(a.folder_type) - getFolderPriority(b.folder_type);
+                if (priorityDiff !== 0) return priorityDiff;
+                return a.name.localeCompare(b.name);
+            });
+            
+            // Group folders into important and others
+            const importantFolders = sortedFolders.filter(f => ['inbox', 'sent', 'drafts'].includes(f.folder_type));
+            const otherFolders = sortedFolders.filter(f => !['inbox', 'sent', 'drafts'].includes(f.folder_type));
+            
+            // Display important folders first
+            importantFolders.forEach(folder => {
+                if (folder.total_count > 0) { // Only show folders with emails
+                    foldersContainer.appendChild(createFolderCard(accountId, folder, true));
+                }
+            });
+            
+            // Display other folders with emails
+            otherFolders.forEach(folder => {
+                if (folder.total_count > 0) { // Only show folders with emails
+                    foldersContainer.appendChild(createFolderCard(accountId, folder, false));
+                }
+            });
+            
+            // If no folders have emails, show a message
+            if (sortedFolders.every(f => f.total_count === 0)) {
+                foldersContainer.innerHTML = `
+                    <div class="col-12">
+                        <div class="text-center text-muted py-4">
+                            <div style="font-size: 3em;">📭</div>
+                            <p>Keine Emails gefunden. Klicken Sie auf "Jetzt synchronisieren" um Emails zu laden.</p>
+                        </div>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading folders:', error);
+        }
+    }
+    
+    function createFolderCard(accountId, folder, isImportant) {
+        const folderDiv = document.createElement('div');
+        folderDiv.className = isImportant ? 'col-md-4 col-lg-3' : 'col-md-3 col-lg-2';
+        
+        const icon = getFolderIcon(folder.folder_type);
+        const hasUnread = folder.unread_count > 0;
+        const cardClass = hasUnread ? 'folder-card folder-card-unread' : 'folder-card';
+        
+        folderDiv.innerHTML = `
+            <div class="${cardClass}" onclick="viewFolderEmails(${accountId}, ${folder.id}, '${folder.name}')">
+                <div class="folder-icon">${icon}</div>
+                <div class="fw-bold">${folder.name}</div>
+                <div class="text-muted">${folder.total_count} Emails</div>
+                ${hasUnread ? `<div class="badge bg-danger mt-1">${folder.unread_count} neu</div>` : ''}
+            </div>
+        `;
+        
+        return folderDiv;
+    }
+
+    function getFolderIcon(folderType) {
+        const icons = {
+            'inbox': '📥',
+            'sent': '📤',
+            'drafts': '📝',
+            'trash': '🗑️',
+            'spam': '🚫',
+            'custom': '📁'
+        };
+        return icons[folderType] || '📁';
+    }
+    
+    function getFolderPriority(folderType) {
+        // Define display priority (lower number = higher priority)
+        const priorities = {
+            'inbox': 1,
+            'sent': 2, 
+            'drafts': 3,
+            'custom': 4,
+            'spam': 5,
+            'trash': 6
+        };
+        return priorities[folderType] || 4;
+    }
+
+    async function syncEmails(accountId) {
+        const statusElement = document.getElementById(`sync-status-${accountId}`);
+        const loading = document.getElementById('loading');
+        
+        try {
+            statusElement.innerHTML = '🔄 Synchronisiere Emails...';
+            loading.style.display = 'block';
+            
+            const response = await fetch(`/mail/api/accounts/${accountId}/sync/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    limit: 500,  // Increased limit for 90-day sync
+                    background: false
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                statusElement.innerHTML = `✅ Sync vollständig! Abgerufen: ${result.sync_stats.fetched}, Erstellt: ${result.sync_stats.created}`;
+                // Reload folders to update counts
+                await loadFolders(accountId);
+                // Check for unread emails to update notification
+                await checkUnreadEmails();
+            } else {
+                statusElement.innerHTML = `❌ Sync fehlgeschlagen: ${result.error}`;
+            }
+        } catch (error) {
+            console.error('Error syncing emails:', error);
+            statusElement.innerHTML = '❌ Sync fehlgeschlagen';
+        } finally {
+            loading.style.display = 'none';
+            // Force hide loading screen after timeout
+            setTimeout(() => {
+                loading.style.display = 'none';
+            }, 500);
+        }
+    }
+
+    async function viewEmails(accountId) {
+        currentAccountId = accountId;
+        const folders = await fetch(`/mail/api/accounts/${accountId}/folders/`).then(r => r.json());
+        
+        // Sort folders by priority
+        const sortedFolders = folders.sort((a, b) => {
+            const priorityDiff = getFolderPriority(a.folder_type) - getFolderPriority(b.folder_type);
+            if (priorityDiff !== 0) return priorityDiff;
+            return a.name.localeCompare(b.name);
+        });
+        
+        // Filter folders with emails only
+        const foldersWithEmails = sortedFolders.filter(f => f.total_count > 0);
+        
+        let content = '<div class="row">';
+        
+        if (foldersWithEmails.length === 0) {
+            content += `
+                <div class="col-12">
+                    <div class="text-center text-muted py-5">
+                        <div style="font-size: 4em;">📭</div>
+                        <h4>Keine Emails gefunden</h4>
+                        <p>Klicken Sie auf "Jetzt synchronisieren" um Emails zu laden.</p>
+                    </div>
+                </div>
+            `;
+        } else {
+            for (const folder of foldersWithEmails) {
+                const hasUnread = folder.unread_count > 0;
+                const cardClass = hasUnread ? 'card folder-card folder-card-unread' : 'card folder-card';
+                
+                content += `
+                    <div class="col-md-4 col-lg-3 mb-3">
+                        <div class="${cardClass}" onclick="viewFolderEmails(${accountId}, ${folder.id}, '${folder.name}')">
+                            <div class="card-body text-center">
+                                <div style="font-size: 2em;">${getFolderIcon(folder.folder_type)}</div>
+                                <h6>${folder.name}</h6>
+                                <p class="text-muted">${folder.total_count} Emails</p>
+                                ${hasUnread ? `<span class="badge bg-danger">${folder.unread_count} neu</span>` : `<span class="badge bg-secondary">alle gelesen</span>`}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        content += '</div>';
+        
+        // Create modal with proper cleanup
+        showModalWithCleanup('emailModal', content, '📧 Email-Liste');
+    }
+
+    async function viewFolderEmails(accountId, folderId, folderName) {
+        try {
+            const response = await fetch(`/mail/api/accounts/${accountId}/folders/${folderId}/emails/`);
+            const result = await response.json();
+            
+            let content = `<h6>📁 ${folderName}</h6><hr>`;
+            
+            if (result.emails && result.emails.length > 0) {
+                content += '<div class="list-group">';
+                
+                result.emails.forEach(email => {
+                    const unreadClass = !email.is_read ? 'email-unread fw-bold' : '';
+                    const starIcon = email.is_starred ? '⭐' : '☆';
+                    
+                    content += `
+                        <div class="list-group-item email-item ${unreadClass}">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">${starIcon} ${email.subject || '(Kein Betreff)'}</h6>
+                                    <p class="mb-1"><strong>Von:</strong> ${email.from_name || email.from_email}</p>
+                                    <small class="text-muted">${new Date(email.sent_at).toLocaleString('de-DE')}</small>
+                                    ${email.body_preview ? `<p class="mt-2 text-muted">${email.body_preview}</p>` : ''}
+                                </div>
+                                <div class="ms-3">
+                                    ${!email.is_read ? '<span class="badge bg-primary">Neu</span>' : ''}
+                                    ${email.has_attachments ? '<span class="badge bg-secondary" title="Mit Anhängen">📎</span>' : ''}
+                                    <button class="btn btn-sm btn-outline-primary ms-2" onclick="viewEmailDetail(${email.id})" title="Email öffnen">
+                                        👁️
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                content += '</div>';
+            } else {
+                content += '<div class="text-center text-muted py-4">📭 Keine Emails in diesem Ordner</div>';
+            }
+            
+            // Use helper function for consistent modal handling
+            showModalWithCleanup('emailModal', content, `📁 ${folderName}`);
+        } catch (error) {
+            console.error('Error loading emails:', error);
+            alert('Fehler beim Laden der Emails');
+        }
+    }
+
+    function composeEmail(accountId) {
+        currentAccountId = accountId;
+        uploadedAttachments = [];
+        
+        // Reset form
+        document.getElementById('composeForm').reset();
+        document.getElementById('attachmentList').innerHTML = '';
+        
+        // Reset editor content
+        if (quillEditor) {
+            quillEditor.setText('');
+        }
+        document.getElementById('plainTextEditor').value = '';
+        
+        // Reset to rich text mode
+        document.getElementById('richTextMode').checked = true;
+        switchToRichText();
+        
+        new bootstrap.Modal(document.getElementById('composeModal')).show();
+    }
+
+    async function handleAttachmentSelection(files) {
+        const attachmentList = document.getElementById('attachmentList');
+        const loading = document.getElementById('loading');
+        
+        for (let file of files) {
+            // Check file size (25MB limit)
+            if (file.size > 25 * 1024 * 1024) {
+                alert(`Datei "${file.name}" ist zu groß. Maximal 25MB erlaubt.`);
+                continue;
+            }
+            
+            try {
+                loading.style.display = 'block';
+                
+                // Upload file
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('account_id', currentAccountId);
+                
+                const response = await fetch('/mail/api/attachments/upload/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    uploadedAttachments.push(result.attachment);
+                    addAttachmentToList(result.attachment);
+                } else {
+                    alert(`Fehler beim Hochladen von "${file.name}": ${result.error}`);
+                }
+                
+            } catch (error) {
+                console.error('Error uploading attachment:', error);
+                alert(`Fehler beim Hochladen von "${file.name}"`);
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+        
+        // Clear file input
+        document.getElementById('attachments').value = '';
+    }
+
+    function addAttachmentToList(attachment) {
+        const attachmentList = document.getElementById('attachmentList');
+        
+        const attachmentDiv = document.createElement('div');
+        attachmentDiv.className = 'alert alert-info d-flex justify-content-between align-items-center';
+        attachmentDiv.innerHTML = `
+            <div>
+                <strong>📎 ${attachment.filename}</strong>
+                <small class="text-muted">(${formatFileSize(attachment.size)})</small>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeAttachment('${attachment.filename}')">
+                ✕ Entfernen
+            </button>
+        `;
+        
+        attachmentList.appendChild(attachmentDiv);
+    }
+
+    function removeAttachment(filename) {
+        uploadedAttachments = uploadedAttachments.filter(att => att.filename !== filename);
+        
+        // Rebuild attachment list display
+        const attachmentList = document.getElementById('attachmentList');
+        attachmentList.innerHTML = '';
+        uploadedAttachments.forEach(attachment => {
+            addAttachmentToList(attachment);
+        });
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    async function viewEmailDetail(emailId) {
+        try {
+            const response = await fetch(`/mail/api/emails/${emailId}/`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const email = await response.json();
+            
+            // Debug log to check what we receive
+            console.log('Email detail response:', email);
+            
+            // Check for error in response
+            if (email.error) {
+                throw new Error(email.error);
+            }
+            
+            let content = `
+                <div class="email-detail">
+                    <h5>${email.subject || '(Kein Betreff)'}</h5>
+                    <div class="mb-3">
+                        <strong>Von:</strong> ${email.from_name || email.from_email || 'Unbekannt'}<br>
+                        <strong>An:</strong> ${Array.isArray(email.to_emails) ? email.to_emails.join(', ') : (email.to_emails || 'Unbekannt')}<br>
+                        ${email.cc_emails && Array.isArray(email.cc_emails) && email.cc_emails.length > 0 ? `<strong>CC:</strong> ${email.cc_emails.join(', ')}<br>` : ''}
+                        <strong>Datum:</strong> ${email.sent_at ? new Date(email.sent_at).toLocaleString('de-DE') : 'Unbekannt'}<br>
+                    </div>
+                    <hr>
+                    <div class="email-body" style="max-height: 400px; overflow-y: auto; border: 1px solid #e9ecef; padding: 15px; border-radius: 5px; background: #fafafa;">
+                        ${email.body_html || (email.body_text ? email.body_text.replace(/\n/g, '<br>') : 'Keine Nachricht verfügbar')}
+                    </div>
+            `;
+            
+            if (email.attachments && Array.isArray(email.attachments) && email.attachments.length > 0) {
+                content += `
+                    <hr>
+                    <h6>📎 Anhänge (${email.attachments.length})</h6>
+                    <div class="attachments-list">
+                `;
+                
+                email.attachments.forEach(attachment => {
+                    content += `
+                        <div class="attachment-item d-flex justify-content-between align-items-center border rounded p-2 mb-2">
+                            <div>
+                                <strong>${attachment.filename || 'Unbekannte Datei'}</strong>
+                                <small class="text-muted">(${attachment.file_size ? formatFileSize(attachment.file_size) : 'Unbekannte Größe'})</small>
+                            </div>
+                            <a href="/mail/api/attachments/${attachment.id}/download/" 
+                               class="btn btn-sm btn-primary" 
+                               target="_blank"
+                               title="Anhang herunterladen">
+                                💾 Download
+                            </a>
+                        </div>
+                    `;
+                });
+                
+                content += '</div>';
+            }
+            
+            content += '</div>';
+            
+            // Use helper function for consistent modal handling
+            showModalWithCleanup('emailModal', content, '📧 Email Details');
+            
+        } catch (error) {
+            console.error('Error loading email detail:', error);
+            alert(`Fehler beim Laden der Email-Details: ${error.message}`);
+        }
+    }
+
+    async function sendEmail() {
+        if (!currentAccountId) return;
+        
+        const loading = document.getElementById('loading');
+        const form = document.getElementById('composeForm');
+        
+        try {
+            loading.style.display = 'block';
+            
+            // Get email content based on current editor mode
+            let bodyText = '';
+            let bodyHtml = '';
+            
+            if (isRichTextMode && quillEditor) {
+                bodyHtml = quillEditor.root.innerHTML;
+                bodyText = quillEditor.getText();
+            } else {
+                bodyText = document.getElementById('plainTextEditor').value;
+                bodyHtml = bodyText.replace(/\\n/g, '<br>');
+            }
+            
+            const formData = {
+                account_id: currentAccountId,
+                to_emails: [document.getElementById('toEmails').value],
+                subject: document.getElementById('subject').value,
+                body_text: bodyText,
+                body_html: isRichTextMode ? bodyHtml : '',
+                attachments: uploadedAttachments
+            };
+            
+            const response = await fetch('/mail/api/send/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                alert('✅ Email erfolgreich gesendet!');
+                bootstrap.Modal.getInstance(document.getElementById('composeModal')).hide();
+                form.reset();
+            } else {
+                alert(`❌ Email senden fehlgeschlagen: ${result.error}`);
+            }
+        } catch (error) {
+            console.error('Error sending email:', error);
+            alert('❌ Fehler beim Senden der Email');
+        } finally {
+            loading.style.display = 'none';
+        }
+    }
+
+    async function viewThreads(accountId) {
+        try {
+            const response = await fetch(`/mail/api/accounts/${accountId}/threads/`);
+            const result = await response.json();
+            
+            let content = '<h6>🧵 Email-Threads</h6><hr>';
+            
+            if (result.threads && result.threads.length > 0) {
+                content += '<div class="list-group">';
+                
+                result.threads.forEach(thread => {
+                    const unreadBadge = thread.unread_count > 0 ? 
+                        `<span class="badge bg-danger">${thread.unread_count} ungelesen</span>` : '';
+                    
+                    content += `
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">${thread.subject || '(Kein Betreff)'}</h6>
+                                    <p class="mb-1"><strong>Teilnehmer:</strong> ${thread.participants.join(', ')}</p>
+                                    <small class="text-muted">
+                                        ${thread.message_count} Nachrichten • 
+                                        Zuletzt: ${new Date(thread.last_message_at).toLocaleString('de-DE')}
+                                    </small>
+                                    ${thread.latest_preview ? `
+                                        <p class="mt-2 text-muted">
+                                            <strong>${thread.latest_preview.from_name || thread.latest_preview.from_email}:</strong>
+                                            ${thread.latest_preview.body_preview}
+                                        </p>
+                                    ` : ''}
+                                </div>
+                                <div class="ms-3">
+                                    ${unreadBadge}
+                                    <button class="btn btn-sm btn-outline-primary ms-2" 
+                                            onclick="viewThreadEmails(${thread.id})" 
+                                            title="Thread öffnen">
+                                        👁️
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                content += '</div>';
+            } else {
+                content += '<div class="text-center text-muted py-4">🧵 Keine Threads gefunden</div>';
+            }
+            
+            // Use helper function for consistent modal handling
+            showModalWithCleanup('emailModal', content, '🧵 Email-Threads');
+            
+        } catch (error) {
+            console.error('Error loading threads:', error);
+            alert('Fehler beim Laden der Threads');
+        }
+    }
+
+    async function viewThreadEmails(threadId) {
+        try {
+            const response = await fetch(`/mail/api/threads/${threadId}/emails/`);
+            const result = await response.json();
+            
+            let content = `
+                <h6>🧵 ${result.thread.subject}</h6>
+                <p class="text-muted">${result.thread.message_count} Nachrichten • ${result.thread.participants.join(', ')}</p>
+                <hr>
+            `;
+            
+            if (result.emails && result.emails.length > 0) {
+                content += '<div class="thread-emails">';
+                
+                result.emails.forEach((email, index) => {
+                    const isFirst = index === 0;
+                    const isLast = index === result.emails.length - 1;
+                    const unreadClass = !email.is_read ? 'border-primary bg-light' : '';
+                    
+                    content += `
+                        <div class="card mb-3 ${unreadClass}">
+                            <div class="card-header">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>${email.from_name || email.from_email}</strong>
+                                        ${!email.is_read ? '<span class="badge bg-primary ms-2">Neu</span>' : ''}
+                                        ${email.is_starred ? '⭐' : ''}
+                                    </div>
+                                    <small class="text-muted">
+                                        ${new Date(email.sent_at).toLocaleString('de-DE')}
+                                    </small>
+                                </div>
+                                <div class="mt-1">
+                                    <small class="text-muted">An: ${email.to_emails.join(', ')}</small>
+                                    ${email.cc_emails.length > 0 ? `<br><small class="text-muted">CC: ${email.cc_emails.join(', ')}</small>` : ''}
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="email-content" style="max-height: 300px; overflow-y: auto;">
+                                    ${email.body_html || email.body_text.replace(/\\n/g, '<br>') || 'Keine Nachricht'}
+                                </div>
+                                ${email.attachments.length > 0 ? `
+                                    <hr>
+                                    <div class="attachments">
+                                        <small class="text-muted">📎 ${email.attachments.length} Anhang(e):</small>
+                                        ${email.attachments.map(att => `
+                                            <a href="/mail/api/attachments/${att.id}/download/" 
+                                               class="btn btn-sm btn-outline-secondary ms-2"
+                                               target="_blank">
+                                                ${att.filename}
+                                            </a>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                content += '</div>';
+            } else {
+                content += '<div class="text-center text-muted py-4">📭 Keine Emails in diesem Thread</div>';
+            }
+            
+            // Use helper function for consistent modal handling
+            showModalWithCleanup('emailModal', content, '🧵 Thread-Ansicht');
+            
+        } catch (error) {
+            console.error('Error loading thread emails:', error);
+            alert('Fehler beim Laden der Thread-Emails');
+        }
+    }
+    
+    function openMailDashboard() {
+        window.open('/mail/', '_blank');
+    }
+
+    // Helper function for consistent modal handling with cleanup
+    function showModalWithCleanup(modalId, content, title) {
+        const modalElement = document.getElementById(modalId);
+        
+        // First close any existing modal to reset state
+        const existingModal = bootstrap.Modal.getInstance(modalElement);
+        if (existingModal) {
+            existingModal.hide();
+        }
+        
+        // Clean up any leftover modal artifacts
+        const backdrop = document.querySelector('.modal-backdrop');
+        if (backdrop) {
+            backdrop.remove();
+        }
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+        
+        // Wait a moment for cleanup, then show new modal
+        setTimeout(() => {
+            // Set content and title
+            document.getElementById(modalId + 'Body').innerHTML = content;
+            if (title) {
+                const titleElement = document.querySelector(`#${modalId} .modal-title`);
+                if (titleElement) {
+                    titleElement.textContent = title;
+                }
+            }
+            
+            // Create new modal instance
+            const modal = new bootstrap.Modal(modalElement, {
+                backdrop: true,
+                keyboard: true,
+                focus: true
+            });
+            modal.show();
+            
+            // Add cleanup event listener
+            modalElement.addEventListener('hidden.bs.modal', function() {
+                // Force cleanup of any remaining modal artifacts
+                const remainingBackdrop = document.querySelector('.modal-backdrop');
+                if (remainingBackdrop) {
+                    remainingBackdrop.remove();
+                }
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+                document.body.style.paddingRight = '';
+            }, { once: true });
+            
+        }, 100);
+    }
+
+    // Check for unread emails across all accounts
+    async function checkUnreadEmails() {
+        try {
+            let totalUnread = 0;
+            
+            {% for account in accounts %}
+            // Check each account for unread emails
+            const response{{ account.id }} = await fetch(`/mail/api/accounts/{{ account.id }}/folders/`);
+            const folders{{ account.id }} = await response{{ account.id }}.json();
+            
+            // Sum up unread emails from all folders for this account
+            if (Array.isArray(folders{{ account.id }})) {
+                folders{{ account.id }}.forEach(folder => {
+                    totalUnread += folder.unread_count || 0;
+                });
+            }
+            {% endfor %}
+            
+            // Update the notification button
+            updateNotificationButton(totalUnread);
+            
+        } catch (error) {
+            console.error('Error checking unread emails:', error);
+        }
+    }
+    
+    // Update the notification button based on unread count
+    function updateNotificationButton(unreadCount) {
+        const button = document.getElementById('emailNotificationBtn');
+        const badge = document.getElementById('unreadBadge');
+        
+        if (unreadCount > 0) {
+            button.classList.add('has-unread');
+            badge.style.display = 'flex';
+            badge.textContent = unreadCount > 99 ? '99+' : unreadCount.toString();
+        } else {
+            button.classList.remove('has-unread');
+            badge.style.display = 'none';
+        }
+    }
+    
+    // Navigate to mailbox
+    function goToMailbox() {
+        window.location.href = '{% url "mail_app:mail_standalone" %}';
+    }
+
+    // Helper function to get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    </script>
+{% endblock %}

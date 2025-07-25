@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mail Dashboard - Workloom</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        .header {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .title {
+            font-size: 28px;
+            font-weight: 600;
+            color: #333;
+            margin: 0;
+        }
+        .setup-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .setup-card h2 {
+            margin: 0 0 15px 0;
+            font-size: 24px;
+        }
+        .setup-card p {
+            margin: 0 0 25px 0;
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            border: 2px solid rgba(255,255,255,0.3);
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        .btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+        .accounts-list {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        .account-item {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border-left: 4px solid #28a745;
+        }
+        .account-email {
+            font-weight: 600;
+            color: #333;
+        }
+        .account-status {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .success-message {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .error-message {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .feature-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .feature-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        .feature-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .feature-desc {
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">📧 Mail Dashboard</h1>
+            <p>Verwalte deine Zoho Mail Integration für kontakt@workloom.de</p>
+        </div>
+
+        <!-- Django Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="{% if message.tags == 'success' %}success-message{% else %}error-message{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% if not has_accounts %}
+            <!-- Setup Card -->
+            <div class="setup-card">
+                <h2>🚀 Email-Integration einrichten</h2>
+                <p>
+                    Verbinde dich mit deinem Zoho Mail Account (kontakt@workloom.de)<br>
+                    um Emails zu empfangen, zu senden und zu verwalten.
+                </p>
+                {% if zoho_auth_url %}
+                    <a href="{{ zoho_auth_url }}" class="btn">
+                        🔗 Mit Zoho Mail verbinden
+                    </a>
+                {% else %}
+                    <a href="{% url 'mail_app:oauth_authorize' %}" class="btn">
+                        🔗 Mit Zoho Mail verbinden
+                    </a>
+                {% endif %}
+            </div>
+
+            <!-- Features Preview -->
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📥</div>
+                    <div class="feature-title">Email Empfang</div>
+                    <div class="feature-desc">Automatische Synchronisation aller eingehenden Emails</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📤</div>
+                    <div class="feature-title">Email Versand</div>
+                    <div class="feature-desc">Emails direkt aus der Anwendung senden</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📎</div>
+                    <div class="feature-title">Anhänge</div>
+                    <div class="feature-desc">Dateien hochladen und anhängen</div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <div class="feature-title">Real-time Sync</div>
+                    <div class="feature-desc">Automatische Synchronisation alle 5 Minuten</div>
+                </div>
+            </div>
+
+        {% else %}
+            <!-- Connected Accounts -->
+            <div class="accounts-list">
+                <h3>📋 Verbundene Email-Accounts</h3>
+                {% for account in accounts %}
+                    <div class="account-item">
+                        <div class="account-email">
+                            {{ account.email_address }}
+                            {% if account.is_default %}
+                                <span style="background: #007bff; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 10px;">Standard</span>
+                            {% endif %}
+                        </div>
+                        <div class="account-status">
+                            {% if account.last_sync %}
+                                Letzte Synchronisation: {{ account.last_sync|date:"d.m.Y H:i" }}
+                            {% else %}
+                                Noch nicht synchronisiert
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <!-- Quick Actions -->
+            <div style="margin-top: 30px; text-align: center;">
+                <a href="#" class="btn" style="background: #28a745; color: white; margin: 0 10px;">
+                    📧 Neue Email
+                </a>
+                <a href="#" class="btn" style="background: #17a2b8; color: white; margin: 0 10px;">
+                    🔄 Synchronisieren
+                </a>
+                <a href="#" class="btn" style="background: #6c757d; color: white; margin: 0 10px;">
+                    ⚙️ Einstellungen
+                </a>
+            </div>
+
+            <!-- Coming Soon Features -->
+            <div style="margin-top: 40px; padding: 20px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+                <h4 style="margin: 0 0 10px 0; color: #856404;">🚧 Wird gerade entwickelt:</h4>
+                <ul style="margin: 0; color: #856404;">
+                    <li>Web-Interface für Email-Management</li>
+                    <li>Rich-Text-Editor für Email-Komposition</li>
+                    <li>Real-time Email-Benachrichtigungen</li>
+                    <li>Erweiterte Suchfunktionen</li>
+                </ul>
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        // Simple JavaScript for future enhancements
+        console.log('📧 Workloom Mail Dashboard loaded');
+        
+        // Add click handlers for future API calls
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('✅ Mail Dashboard ready');
+        });
+    </script>
+</body>
+</html>

@@ -158,6 +158,7 @@ class AppPermission(models.Model):
         ('organisation', 'Organisation'),
         ('editor', 'Editor'),
         ('videos', 'Videos'),
+        ('mail', 'Email'),
         
         # Schuch Tools
         ('schuch', 'Schuch'),
@@ -410,6 +411,82 @@ class SEOSettings(models.Model):
         return len(self.seo_description)
 
 
+class ZohoAPISettings(models.Model):
+    """Model für Zoho Mail API-Einstellungen pro Benutzer"""
+    
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='zoho_mail_settings')
+    client_id = EncryptedCharField(max_length=255, blank=True, verbose_name="Zoho Client ID")
+    client_secret = EncryptedCharField(max_length=255, blank=True, verbose_name="Zoho Client Secret")
+    redirect_uri = models.URLField(blank=True, verbose_name="Redirect URI")
+    region = models.CharField(max_length=5, choices=[('US', 'US'), ('EU', 'EU'), ('IN', 'India'), ('AU', 'Australia')], 
+                             default='EU', verbose_name="Zoho Region")
+    
+    # OAuth2 Tokens (werden nach Autorisierung gefüllt)
+    access_token = EncryptedCharField(max_length=1000, blank=True, null=True)
+    refresh_token = EncryptedCharField(max_length=1000, blank=True, null=True)
+    token_expires_at = models.DateTimeField(blank=True, null=True)
+    
+    # Status und Konfiguration
+    is_configured = models.BooleanField(default=False, verbose_name="Konfiguriert")
+    is_active = models.BooleanField(default=True, verbose_name="Aktiv")
+    last_test_success = models.DateTimeField(blank=True, null=True, verbose_name="Letzter erfolgreicher Test")
+    last_error = models.TextField(blank=True, verbose_name="Letzter Fehler")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Zoho Mail API Einstellung"
+        verbose_name_plural = "Zoho Mail API Einstellungen"
+    
+    def __str__(self):
+        return f"{self.user.username} - Zoho Mail ({self.region})"
+    
+    @property
+    def base_url(self):
+        """Gibt die Basis-URL für die jeweilige Region zurück"""
+        region_urls = {
+            'US': 'https://mail.zoho.com/api/',
+            'EU': 'https://mail.zoho.eu/api/',
+            'IN': 'https://mail.zoho.in/api/',
+            'AU': 'https://mail.zoho.com.au/api/',
+        }
+        return region_urls.get(self.region, region_urls['EU'])
+    
+    @property
+    def auth_url(self):
+        """Gibt die Autorisierungs-URL für die jeweilige Region zurück"""
+        region_auth_urls = {
+            'US': 'https://accounts.zoho.com/oauth/v2/auth',
+            'EU': 'https://accounts.zoho.eu/oauth/v2/auth', 
+            'IN': 'https://accounts.zoho.in/oauth/v2/auth',
+            'AU': 'https://accounts.zoho.com.au/oauth/v2/auth',
+        }
+        return region_auth_urls.get(self.region, region_auth_urls['EU'])
+    
+    @property
+    def token_url(self):
+        """Gibt die Token-URL für die jeweilige Region zurück"""
+        region_token_urls = {
+            'US': 'https://accounts.zoho.com/oauth/v2/token',
+            'EU': 'https://accounts.zoho.eu/oauth/v2/token',
+            'IN': 'https://accounts.zoho.in/oauth/v2/token', 
+            'AU': 'https://accounts.zoho.com.au/oauth/v2/token',
+        }
+        return region_token_urls.get(self.region, region_token_urls['EU'])
+    
+    def get_configuration_status(self):
+        """Gibt den Konfigurationsstatus zurück"""
+        if not self.client_id or not self.client_secret:
+            return 'Nicht konfiguriert'
+        elif not self.access_token:
+            return 'Autorisierung erforderlich'
+        elif self.last_test_success:
+            return 'Konfiguriert und getestet'
+        else:
+            return 'Konfiguriert'
+
+
 class AppUsageTracking(models.Model):
     """Trackt die Nutzung von Apps/Features pro Benutzer"""
     
@@ -486,6 +563,7 @@ class AppUsageTracking(models.Model):
         app_name_mapping = {
             'chat': 'Chat',
             'videos': 'Videos',
+            'mail': 'Email',
             'schuch': 'Schuch',
             'schuch_dashboard': 'Schuch Dashboard',
             'shopify_manager': 'Shopify Manager',
@@ -638,6 +716,7 @@ class AppInfo(models.Model):
         # Hauptkategorien
         ('chat', 'Chat'),
         ('videos', 'Videos'), 
+        ('mail', 'Email'),
         ('shopify_manager', 'Shopify Manager'),
         ('image_editor', 'Bild Editor'),
         ('naturmacher', 'Schulungen (Naturmacher)'),
@@ -709,6 +788,7 @@ class FeatureAccess(models.Model):
         # Hauptkategorien
         ('chat', 'Chat'),
         ('videos', 'Videos'), 
+        ('mail', 'Email'),
         ('shopify_manager', 'Shopify Manager'),
         ('image_editor', 'Bild Editor'),
         ('naturmacher', 'Schulungen (Naturmacher)'),

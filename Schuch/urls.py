@@ -31,6 +31,7 @@ urlpatterns = [
     path('organization/', include('organization.urls')),
     path('videos/', include('videos.urls')),
     path('payments/', include('payments.urls')),
+    path('mail/', include('mail_app.urls')),
     path('page/<str:page_name>/', core_views.dynamic_page_view, name='dynamic_page'),
     path('admin/', admin.site.urls),
 ]

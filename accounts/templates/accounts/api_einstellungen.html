@@ -516,6 +516,49 @@
                                 </div>
                             </div>
                             
+                            <!-- Zoho Mail Integration -->
+                            <div class="col-md-6 col-lg-3 mb-3">
+                                <div class="card api-provider-card">
+                                    <div class="card-header bg-primary text-white">
+                                        <h6 class="mb-0"><i class="fas fa-envelope"></i> Zoho Mail</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-2">
+                                            <div class="api-status-indicator" id="zoho_status_indicator">
+                                                <div class="status-light status-gray" title="Nicht getestet"></div>
+                                            </div>
+                                            <small class="text-muted ms-2">
+                                                Status: <span id="zoho_key_status" class="api-key-status-text">Nicht konfiguriert</span>
+                                            </small>
+                                        </div>
+                                        
+                                        <div class="mb-2">
+                                            <button type="button" class="btn btn-sm btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#zohoSettingsModal">
+                                                <i class="fas fa-cog"></i> Konfigurieren
+                                            </button>
+                                        </div>
+                                        
+                                        <div class="btn-group w-100 mb-2" role="group">
+                                            <button type="button" class="btn btn-sm btn-outline-success" onclick="testZohoConnection()">
+                                                <i class="fas fa-vial"></i> Test
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-info" onclick="openMailDashboard()">
+                                                <i class="fas fa-external-link-alt"></i> Mail App
+                                            </button>
+                                        </div>
+                                        
+                                        <button type="button" class="btn btn-sm btn-outline-danger w-100 mb-2" onclick="deleteAllEmails()">
+                                            <i class="fas fa-trash"></i> Alle Emails löschen
+                                        </button>
+                                        
+                                        <a href="https://accounts.zoho.eu/developerconsole" 
+                                           target="_blank" class="btn btn-sm btn-outline-secondary w-100">
+                                            <i class="fas fa-external-link-alt"></i> Developer Console
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <!-- Shopify Integration -->
                             <div class="col-md-6 col-lg-3 mb-3">
                                 <div class="card api-provider-card">
@@ -599,6 +642,208 @@
                             <span class="visually-hidden">Laden...</span>
                         </div>
                         <p class="text-muted">Statistiken werden geladen...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Zoho Mail Settings Modal -->
+            <div class="modal fade" id="zohoSettingsModal" tabindex="-1" aria-labelledby="zohoSettingsModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header bg-primary text-white">
+                            <h5 class="modal-title" id="zohoSettingsModalLabel">
+                                <i class="fas fa-envelope"></i> Zoho Mail API-Einstellungen
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="zohoSettingsForm">
+                                {% csrf_token %}
+                                
+                                <div class="mb-4">
+                                    <h5 class="text-primary mb-3">
+                                        <i class="fas fa-cogs"></i> Setup-Anleitung für Zoho Developer Console
+                                    </h5>
+                                    
+                                    <div class="card mb-3">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0"><i class="fas fa-plus-circle text-primary"></i> Schritt 1: Application erstellen</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <ol class="mb-0">
+                                                <li>Öffnen Sie die <a href="https://accounts.zoho.eu/developerconsole" target="_blank" class="fw-bold text-decoration-none">Zoho Developer Console <i class="fas fa-external-link-alt"></i></a></li>
+                                                <li>Klicken Sie auf <span class="badge bg-primary">"Add Client"</span></li>
+                                                <li>Wählen Sie <span class="badge bg-success">"Server-based Applications"</span></li>
+                                            </ol>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="card mb-3">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0"><i class="fas fa-sliders-h text-primary"></i> Schritt 2: Application konfigurieren</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <ul class="mb-2">
+                                                <li><strong>Client Name:</strong> <code class="bg-light px-2 py-1 rounded">Workloom Mail Integration</code> (oder beliebiger Name)</li>
+                                                <li><strong>Homepage URL:</strong> 
+                                                    <div class="mt-1">
+                                                        <code class="bg-light px-2 py-1 rounded">{{ request.build_absolute_uri|slice:":-1" }}</code>
+                                                        <br>
+                                                        <small class="text-muted">(Development: <code>http://127.0.0.1:8000</code> | Production: <code>https://workloom.de</code>)</small>
+                                                    </div>
+                                                </li>
+                                                <li><strong>Authorized Redirect URIs:</strong> 
+                                                    <div class="mt-2 p-3 bg-light border rounded">
+                                                        <code class="text-primary fw-bold fs-6">{{ request.build_absolute_uri }}mail/auth/callback/</code>
+                                                    </div>
+                                                    <div class="mt-2 border border-info rounded p-3 bg-light">
+                                                        <div class="d-flex align-items-start">
+                                                            <i class="fas fa-info-circle text-info me-2 mt-1"></i>
+                                                            <div>
+                                                                <strong class="text-info">Wichtig - Umgebungsabhängige URLs:</strong>
+                                                                <ul class="mb-2 mt-2">
+                                                                    <li><strong>Development:</strong> <code>http://127.0.0.1:8000/mail/auth/callback/</code></li>
+                                                                    <li><strong>Production:</strong> <code>https://workloom.de/mail/auth/callback/</code></li>
+                                                                </ul>
+                                                                <small class="text-muted">
+                                                                    Verwenden Sie die URL entsprechend Ihrer Umgebung. Bei Production unbedingt die HTTPS workloom.de URL verwenden!
+                                                                </small>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="card mb-3">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0"><i class="fas fa-key text-primary"></i> Schritt 3: Scopes auswählen</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <p class="mb-3">Folgende <strong>API-Berechtigungen (Scopes)</strong> müssen aktiviert werden:</p>
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <ul class="list-unstyled">
+                                                        <li class="mb-1"><i class="fas fa-check-circle text-success"></i> <code class="ms-2">ZohoMail.messages.ALL</code></li>
+                                                        <li class="mb-1"><i class="fas fa-check-circle text-success"></i> <code class="ms-2">ZohoMail.folders.ALL</code></li>
+                                                        <li class="mb-1"><i class="fas fa-check-circle text-success"></i> <code class="ms-2">ZohoMail.accounts.READ</code></li>
+                                                    </ul>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <ul class="list-unstyled">
+                                                        <li class="mb-1"><i class="fas fa-check-circle text-success"></i> <code class="ms-2">ZohoMail.messages.CREATE</code></li>
+                                                        <li class="mb-1"><i class="fas fa-check-circle text-success"></i> <code class="ms-2">ZohoMail.attachments.READ</code></li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="card mb-3">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0"><i class="fas fa-download text-primary"></i> Schritt 4: Credentials verwenden</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <ol class="mb-0">
+                                                <li>Nach dem Erstellen erhalten Sie <strong>Client ID</strong> und <strong>Client Secret</strong></li>
+                                                <li>Kopieren Sie beide Werte in die entsprechenden Felder unten</li>
+                                                <li>Wählen Sie Ihre Zoho-Region (meist <span class="badge bg-info">EU</span>)</li>
+                                                <li>Klicken Sie <span class="badge bg-primary">"Speichern"</span> und dann <span class="badge bg-success">"Autorisieren"</span></li>
+                                            </ol>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">
+                                                <i class="fas fa-key"></i> Client ID
+                                            </label>
+                                            <input type="text" name="client_id" id="zoho_client_id" class="form-control" 
+                                                   placeholder="1000.XXXXXXXXXXXXXXXXX">
+                                            <div class="form-text">Ihre Zoho OAuth Client ID</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">
+                                                <i class="fas fa-lock"></i> Client Secret
+                                            </label>
+                                            <input type="password" name="client_secret" id="zoho_client_secret" class="form-control" 
+                                                   placeholder="Ihr Client Secret">
+                                            <div class="form-text">Ihr Zoho OAuth Client Secret</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">
+                                                <i class="fas fa-globe"></i> Region
+                                            </label>
+                                            <select name="region" id="zoho_region" class="form-select">
+                                                <option value="EU">EU (Europa)</option>
+                                                <option value="US">US (USA)</option>
+                                                <option value="IN">IN (Indien)</option>
+                                                <option value="AU">AU (Australien)</option>
+                                            </select>
+                                            <div class="form-text">Ihre Zoho-Region</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">
+                                                <i class="fas fa-link"></i> Redirect URI
+                                            </label>
+                                            <div class="input-group">
+                                                <input type="url" name="redirect_uri" id="zoho_redirect_uri" class="form-control" 
+                                                       value="{{ request.build_absolute_uri }}mail/auth/callback/" readonly>
+                                                <button class="btn btn-outline-secondary" type="button" onclick="copyRedirectUri()" title="URL kopieren">
+                                                    <i class="fas fa-copy"></i>
+                                                </button>
+                                            </div>
+                                            <div class="form-text">
+                                                <i class="fas fa-info-circle text-primary"></i> 
+                                                Diese URL in Zoho Console als "Authorized Redirect URI" eintragen
+                                                <br>
+                                                <small class="text-muted">
+                                                    <strong>Hinweis:</strong> Für Production verwenden Sie: <code>https://workloom.de/mail/auth/callback/</code>
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3" id="zohoAuthStatus" style="display: none;">
+                                    <div class="border border-success rounded p-3 bg-light">
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-check-circle text-success me-2"></i>
+                                            <div>
+                                                <strong class="text-success">Autorisierung erfolgreich!</strong>
+                                                <div class="text-muted mt-1">Sie können jetzt die Mail App verwenden.</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                <i class="fas fa-times"></i> Schließen
+                            </button>
+                            <button type="button" class="btn btn-primary" onclick="saveZohoSettings()">
+                                <i class="fas fa-save"></i> Speichern
+                            </button>
+                            <button type="button" class="btn btn-success" onclick="authorizeZohoMail()" id="authorizeZohoBtn" disabled>
+                                <i class="fas fa-key"></i> Autorisieren
+                            </button>
+                            <button type="button" class="btn btn-outline-danger" onclick="disconnectZohoMail()" id="disconnectZohoBtn" disabled>
+                                <i class="fas fa-unlink"></i> Trennen
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -837,6 +1082,247 @@
 </div>
 
 <script>
+// Zoho Mail Functions - Must be declared before HTML elements that reference them
+function toggleZohoSettings() {
+    // This function is no longer needed as we use Bootstrap modal attributes
+    // But keeping it for backwards compatibility
+    const modal = new bootstrap.Modal(document.getElementById('zohoSettingsModal'));
+    modal.show();
+    loadZohoSettings();
+}
+
+function loadZohoSettings() {
+    fetch('/accounts/api/zoho-settings/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const settings = data.settings;
+                document.getElementById('zoho_client_id').value = settings.client_id || '';
+                document.getElementById('zoho_client_secret').value = settings.client_secret || '';
+                document.getElementById('zoho_region').value = settings.region || 'EU';
+                document.getElementById('zoho_redirect_uri').value = settings.redirect_uri || '';
+                
+                // Update status
+                updateZohoStatus(settings.status, settings.is_configured, settings.access_token);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading Zoho settings:', error);
+        });
+}
+
+function saveZohoSettings() {
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('client_id', document.getElementById('zoho_client_id').value);
+    formData.append('client_secret', document.getElementById('zoho_client_secret').value);
+    formData.append('region', document.getElementById('zoho_region').value);
+    formData.append('redirect_uri', document.getElementById('zoho_redirect_uri').value);
+    
+    fetch('/accounts/api/zoho-settings/', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Zoho Mail Einstellungen gespeichert!');
+            document.getElementById('authorizeZohoBtn').disabled = false;
+            updateZohoStatus('Gespeichert', true, false);
+            // Close modal after successful save
+            const modal = bootstrap.Modal.getInstance(document.getElementById('zohoSettingsModal'));
+            if (modal) {
+                modal.hide();
+            }
+        } else {
+            alert(`Fehler: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error saving Zoho settings:', error);
+        alert('Fehler beim Speichern der Einstellungen');
+    });
+}
+
+function authorizeZohoMail() {
+    // Redirect to Zoho authorization
+    window.location.href = '/mail/auth/authorize/';
+}
+
+function disconnectZohoMail() {
+    if (confirm('Möchten Sie die Zoho Mail Verbindung wirklich trennen?')) {
+        fetch('/accounts/api/zoho-disconnect/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Zoho Mail Verbindung getrennt!');
+                updateZohoStatus('Getrennt', false, false);
+                document.getElementById('authorizeZohoBtn').disabled = true;
+                document.getElementById('disconnectZohoBtn').disabled = true;
+                // Close modal after successful disconnect
+                const modal = bootstrap.Modal.getInstance(document.getElementById('zohoSettingsModal'));
+                if (modal) {
+                    modal.hide();
+                }
+            } else {
+                alert(`Fehler: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error disconnecting Zoho:', error);
+            alert('Fehler beim Trennen der Verbindung');
+        });
+    }
+}
+
+function testZohoConnection() {
+    const indicator = document.getElementById('zoho_status_indicator').querySelector('.status-light');
+    const statusText = document.getElementById('zoho_key_status');
+    
+    // Show loading state
+    indicator.className = 'status-light status-yellow pulsing';
+    statusText.textContent = 'Teste...';
+    
+    fetch('/accounts/api/zoho-test/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            indicator.className = 'status-light status-green';
+            statusText.textContent = 'Verbindung erfolgreich';
+        } else {
+            indicator.className = 'status-light status-red';
+            statusText.textContent = `Fehler: ${data.error}`;
+        }
+    })
+    .catch(error => {
+        console.error('Error testing Zoho connection:', error);
+        indicator.className = 'status-light status-red';
+        statusText.textContent = 'Test fehlgeschlagen';
+    });
+}
+
+function deleteAllEmails() {
+    // Show confirmation dialog
+    const confirmed = confirm(
+        'ACHTUNG: Möchten Sie wirklich ALLE Emails aus der Datenbank löschen?\n\n' +
+        'Diese Aktion:\n' +
+        '• Löscht alle Email-Datensätze aus der lokalen Datenbank\n' +
+        '• Löscht NICHT die Emails auf dem Zoho Mail Server\n' +
+        '• Kann NICHT rückgängig gemacht werden\n\n' +
+        'Klicken Sie OK um fortzufahren, oder Abbrechen um abzubrechen.'
+    );
+    
+    if (!confirmed) {
+        return;
+    }
+    
+    // Second confirmation for safety
+    const doubleConfirmed = confirm(
+        'LETZTE WARNUNG!\n\n' +
+        'Sie sind dabei, alle Email-Datensätze aus der Datenbank zu löschen.\n' +
+        'Diese Aktion kann nicht rückgängig gemacht werden.\n\n' +
+        'Sind Sie absolut sicher?'
+    );
+    
+    if (!doubleConfirmed) {
+        return;
+    }
+    
+    // Show loading state
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Lösche...';
+    button.disabled = true;
+    
+    fetch('/accounts/api/zoho-delete-all-emails/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Erfolgreich! ${data.deleted_count} Emails wurden aus der Datenbank gelöscht.`);
+        } else {
+            alert(`Fehler beim Löschen der Emails: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error deleting emails:', error);
+        alert('Fehler beim Löschen der Emails');
+    })
+    .finally(() => {
+        // Restore button
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
+}
+
+function updateZohoStatus(status, isConfigured, hasAccessToken) {
+    const indicator = document.getElementById('zoho_status_indicator').querySelector('.status-light');
+    const statusText = document.getElementById('zoho_key_status');
+    
+    if (hasAccessToken) {
+        indicator.className = 'status-light status-green';
+        statusText.textContent = 'Autorisiert';
+        document.getElementById('authorizeZohoBtn').disabled = true;
+        document.getElementById('disconnectZohoBtn').disabled = false;
+    } else if (isConfigured) {
+        indicator.className = 'status-light status-yellow';
+        statusText.textContent = 'Konfiguriert (nicht autorisiert)';
+        document.getElementById('authorizeZohoBtn').disabled = false;
+        document.getElementById('disconnectZohoBtn').disabled = true;
+    } else {
+        indicator.className = 'status-light status-gray';
+        statusText.textContent = 'Nicht konfiguriert';
+        document.getElementById('authorizeZohoBtn').disabled = true;
+        document.getElementById('disconnectZohoBtn').disabled = true;
+    }
+}
+
+function copyRedirectUri() {
+    const redirectUriInput = document.getElementById('zoho_redirect_uri');
+    
+    // Select and copy the text
+    redirectUriInput.select();
+    redirectUriInput.setSelectionRange(0, 99999); // For mobile devices
+    
+    try {
+        document.execCommand('copy');
+        
+        // Temporary feedback
+        const button = event.target.closest('button');
+        const originalContent = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-check text-success"></i>';
+        button.classList.add('btn-success');
+        button.classList.remove('btn-outline-secondary');
+        
+        setTimeout(() => {
+            button.innerHTML = originalContent;
+            button.classList.remove('btn-success');
+            button.classList.add('btn-outline-secondary');
+        }, 2000);
+        
+    } catch (err) {
+        console.error('Copy failed:', err);
+        alert('Kopieren fehlgeschlagen. Bitte manuell kopieren.');
+    }
+    
+    // Remove selection
+    redirectUriInput.blur();
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Lade initiale Daten
     loadCurrentBalances();
@@ -885,6 +1371,14 @@ document.addEventListener('DOMContentLoaded', function() {
             testApiKey(provider);
         });
     });
+    
+    // Zoho Modal Event Listener
+    const zohoModal = document.getElementById('zohoSettingsModal');
+    if (zohoModal) {
+        zohoModal.addEventListener('show.bs.modal', function() {
+            loadZohoSettings();
+        });
+    }
     
     function loadCurrentBalances() {
         console.log('Lade API-Kontostände...');
@@ -1459,6 +1953,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error:', error);
             });
         });
+    }
+    
+    function openMailDashboard() {
+        window.open('/mail/', '_blank');
     }
 });
 </script>

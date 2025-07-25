@@ -74,4 +74,10 @@ urlpatterns = [
     
     # App Info
     path('apps/<str:app_name>/info/', views.app_info, name='app_info'),
+    
+    # Zoho Mail API Management
+    path('api/zoho-settings/', views.zoho_settings_api, name='zoho_settings_api'),
+    path('api/zoho-test/', views.zoho_test_api, name='zoho_test_api'),
+    path('api/zoho-disconnect/', views.zoho_disconnect_api, name='zoho_disconnect_api'),
+    path('api/zoho-delete-all-emails/', views.zoho_delete_all_emails_api, name='zoho_delete_all_emails_api'),
 ]

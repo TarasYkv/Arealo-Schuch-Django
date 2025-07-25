@@ -1,0 +1,49 @@
+{% for email in current_ticket.emails.all|dictsort:"sent_at" %}
+<div class="thread-email {% if current_email and current_email.id == email.id %}active{% endif %}{% if not email.is_read %} unread{% endif %}"
+     onclick="selectEmail({{ email.id }})">
+    <div class="thread-email-header">
+        <span class="thread-email-from">
+            {% if not email.is_read %}📩 {% endif %}
+            {% if email.from_email == account.email_address %}
+                📤 Du ({{ email.from_name|default:email.from_email }})
+            {% else %}
+                📥 {{ email.from_name|default:email.from_email }}
+            {% endif %}
+        </span>
+        <span class="thread-email-date">
+            {{ email.sent_at|date:"d.m H:i" }}
+            {% if email.has_attachments %}📎{% endif %}
+        </span>
+    </div>
+    <div class="thread-email-subject">
+        {% if "Re:" in email.subject or "Aw:" in email.subject %}
+            <span class="reply-indicator" 
+                  onmouseover="showReplyPopup(event, {{ email.id }})" 
+                  onmouseout="hideReplyPopup()">
+                ↩️ Antwort
+            </span>
+            {{ email.subject|default:"(Kein Betreff)" }}
+        {% elif "Fwd:" in email.subject or "Fw:" in email.subject %}
+            <span class="reply-indicator" 
+                  onmouseover="showReplyPopup(event, {{ email.id }})" 
+                  onmouseout="hideReplyPopup()">
+                ➡️ Weiterleitung
+            </span>
+            {{ email.subject|default:"(Kein Betreff)" }}
+        {% else %}
+            {{ email.subject|default:"(Kein Betreff)" }}
+        {% endif %}
+    </div>
+    <div class="thread-email-preview">
+        {{ email.body_preview }}
+    </div>
+</div>
+{% empty %}
+<div class="empty-state" style="height: 300px;">
+    <div class="empty-icon">📭</div>
+    <h5>Keine Emails im Ticket</h5>
+    <p style="font-size: 14px; opacity: 0.8;">
+        Dieses Ticket hat keine zugehörigen Emails mehr.
+    </p>
+</div>
+{% endfor %}

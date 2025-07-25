@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Mail - {{ account.email_address }}{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'mail_app/css/mail_simple.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="mail-container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <button class="new-email-btn" onclick="composeNewEmail()">
+            ✏️ Neue Email
+        </button>
+        
+        {% for folder in folders %}
+        <a href="{% url 'mail_app:mail_simple' %}?folder={{ folder.id }}" 
+           class="folder-item {% if current_folder.id == folder.id %}active{% endif %}">
+            <span class="folder-icon">{{ folder.icon|default:"📁" }}</span>
+            {{ folder.name }}
+            {% if folder.unread_count > 0 %}
+            <span style="background: #ff4444; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: auto;">
+                {{ folder.unread_count }}
+            </span>
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
+    
+    <!-- Email List -->
+    <div class="email-list">
+        <div class="email-header">
+            <h4 style="margin: 0;">{{ current_folder.name }}</h4>
+        </div>
+        
+        {% if emails %}
+            {% for email in emails %}
+            <a href="{% url 'mail_app:mail_simple' %}?folder={{ current_folder.id }}&email={{ email.id }}"
+               class="email-item {% if current_email and current_email.id == email.id %}active{% endif %} {% if not email.is_read %}unread{% endif %}">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <strong>{{ email.from_name|default:email.from_email }}</strong>
+                    <small>{{ email.sent_at|date:"H:i" }}</small>
+                </div>
+                <div style="margin-bottom: 5px;">{{ email.subject|default:"(Kein Betreff)" }}</div>
+                <div style="color: #666; font-size: 13px;">
+                    {{ email.body_preview|default:email.body_text|truncatechars:60 }}
+                </div>
+            </a>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <p>Keine Emails in diesem Ordner</p>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- Email Viewer -->
+    <div class="email-viewer">
+        {% if current_email %}
+        <div class="email-actions">
+            <button class="btn btn-primary btn-sm" onclick="alert('Reply')">↩️ Antworten</button>
+            <button class="btn btn-outline-primary btn-sm" onclick="alert('Forward')">➡️ Weiterleiten</button>
+            <button class="btn btn-outline-danger btn-sm" onclick="alert('Delete')">🗑️ Löschen</button>
+        </div>
+        
+        <h4>{{ current_email.subject|default:"(Kein Betreff)" }}</h4>
+        
+        <div style="margin: 15px 0; color: #666; border-bottom: 1px solid #eee; padding-bottom: 15px;">
+            <div><strong>Von:</strong> {{ current_email.from_name|default:current_email.from_email }}</div>
+            <div><strong>Datum:</strong> {{ current_email.sent_at|date:"d.m.Y H:i" }}</div>
+        </div>
+        
+        <div style="line-height: 1.6;">
+            {% if current_email.body_html and current_email.body_html|length > 10 %}
+                <iframe srcdoc="{{ current_email.body_html|escapejs }}" 
+                        style="width: 100%; min-height: 400px; border: none;"></iframe>
+            {% else %}
+                {{ current_email.body_text|linebreaks }}
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">✉️</div>
+            <p>Wähle eine Email aus der Liste</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function composeNewEmail() {
+    alert('Compose Email - coming soon!');
+}
+</script>
+{% endblock %}
