@@ -591,14 +591,18 @@ def api_sync_emails(request, account_id):
                     id=folder_id
                 )
             
-            # Set date range for last 90 days
+            # Always sync emails from last 90 days
             from datetime import timedelta
             end_date = timezone.now()
             start_date = end_date - timedelta(days=90)
             
+            # Increase limit to ensure we get all emails from last 90 days
+            # Since Zoho doesn't filter by date, we need to fetch more
+            sync_limit = max(limit, 500)  # At least 500 to cover 90 days
+            
             sync_stats = sync_service.sync_emails(
                 folder=folder_filter, 
-                limit=limit,
+                limit=sync_limit,
                 start_date=start_date,
                 end_date=end_date
             )
