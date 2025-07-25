@@ -620,7 +620,7 @@ class ZohoMailAPIService:
                 if start_date or end_date:
                     filtered_emails = []
                     for email in emails:
-                        email_date = self._parse_datetime(email.get('sentTime', email.get('date')))
+                        email_date = self._parse_datetime(email.get('sentTime', email.get('sentDateInGMT', email.get('date'))))
                         
                         # Check if email is within date range
                         if start_date and email_date < start_date:
@@ -1158,7 +1158,7 @@ class EmailSyncService:
             is_read=not email_data.get('isUnread', False),
             is_starred=email_data.get('isStarred', False),
             is_important=email_data.get('isImportant', False),
-            sent_at=self._parse_datetime(email_data.get('sentTime', email_data.get('date'))),
+            sent_at=self._parse_datetime(email_data.get('sentTime', email_data.get('sentDateInGMT', email_data.get('date')))),
             received_at=self._parse_datetime(email_data.get('receivedTime', email_data.get('receivedDate'))),
         )
         
