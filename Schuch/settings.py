@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.humanize',
     'channels',
+    'rest_framework',
     'accounts',
     'sportplatzApp',
     'pdf_sucher',
@@ -66,6 +67,7 @@ INSTALLED_APPS = [
     'encrypted_model_fields',
     'organization',
     'payments',
+    'mail_app',
 ]
 
 
@@ -221,3 +223,53 @@ CACHES = {
 STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY', '')
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', '')
 STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET', '')
+
+# Mail App Configuration - EU Region
+ZOHO_MAIL_CONFIG = {
+    'CLIENT_ID': os.getenv('ZOHO_CLIENT_ID', ''),
+    'CLIENT_SECRET': os.getenv('ZOHO_CLIENT_SECRET', ''),
+    'REDIRECT_URI': os.getenv('ZOHO_REDIRECT_URI', ''),
+    'SCOPE': 'ZohoMail.messages.ALL,ZohoMail.folders.ALL,ZohoMail.accounts.READ',
+    'BASE_URL': 'https://mail.zoho.eu/api/',
+    'AUTH_URL': 'https://accounts.zoho.eu/oauth/v2/auth',
+    'TOKEN_URL': 'https://accounts.zoho.eu/oauth/v2/token',
+    'REGION': 'EU',
+}
+
+# Email Settings for Mail App
+MAIL_APP_SETTINGS = {
+    'DEFAULT_EMAIL_ACCOUNT': 'kontakt@workloom.de',
+    'EMAIL_SYNC_INTERVAL': 300,  # 5 minutes
+    'MAX_ATTACHMENT_SIZE': 25,   # MB
+    'MAX_EMAILS_PER_SYNC': 100,
+    'ENABLE_REAL_TIME_SYNC': True,
+}
+
+# Django REST Framework Configuration
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 50,
+}
+
+# Celery Configuration for Background Tasks
+CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+
+# Celery Beat Scheduler for periodic tasks
+CELERY_BEAT_SCHEDULE = {
+    'sync-emails': {
+        'task': 'mail_app.tasks.sync_emails',
+        'schedule': MAIL_APP_SETTINGS['EMAIL_SYNC_INTERVAL'],
+    },
+}

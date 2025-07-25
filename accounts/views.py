@@ -9,11 +9,14 @@ from django.views.decorators.http import require_http_methods
 from django.http import JsonResponse
 from django.db import models
 import json
+import logging
 from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm, ApiKeyForm, CompanyInfoForm, UserProfileForm, CustomPasswordChangeForm, SuperUserManagementForm, BugChatSettingsForm, AppPermissionForm, FeatureAccessForm, BulkFeatureAccessForm, FeatureAccessFilterForm
-from .models import CustomUser, AmpelCategory, CategoryKeyword, UserLoginHistory, EditableContent, CustomPage, SEOSettings, FeatureAccess, AppUsageTracking, AppInfo
+from .models import CustomUser, AmpelCategory, CategoryKeyword, UserLoginHistory, EditableContent, CustomPage, SEOSettings, FeatureAccess, AppUsageTracking, AppInfo, ZohoAPISettings
 from naturmacher.models import APIBalance
 from videos.models import UserStorage as VideoUserStorage, Subscription as VideoSubscription
 from .utils import redirect_with_params
+
+logger = logging.getLogger(__name__)
 
 
 class CustomLoginView(LoginView):
@@ -551,9 +554,13 @@ def neue_api_einstellungen_view(request):
     from shopify_manager.models import ShopifyStore
     shopify_stores = ShopifyStore.objects.filter(user=request.user, is_active=True)
     
+    # Zoho Mail Settings laden oder erstellen
+    zoho_settings, created = ZohoAPISettings.objects.get_or_create(user=request.user)
+    
     return render(request, 'accounts/api_einstellungen.html', {
         'canva_settings': canva_settings,
-        'shopify_stores': shopify_stores
+        'shopify_stores': shopify_stores,
+        'zoho_settings': zoho_settings
     })
 
 
@@ -2641,3 +2648,275 @@ def app_info(request, app_name):
     }
     
     return render(request, 'accounts/app_info.html', context)
+
+
+# Zoho Mail API Management Views
+@login_required
+@require_http_methods(["GET", "POST"])
+def zoho_settings_api(request):
+    """API endpoint für Zoho Mail Einstellungen"""
+    try:
+        zoho_settings, created = ZohoAPISettings.objects.get_or_create(user=request.user)
+        
+        if request.method == 'GET':
+            # Einstellungen laden
+            return JsonResponse({
+                'success': True,
+                'settings': {
+                    'client_id': zoho_settings.client_id or '',
+                    'client_secret': '***' if zoho_settings.client_secret else '',
+                    'region': zoho_settings.region,
+                    'redirect_uri': zoho_settings.redirect_uri or f"{request.build_absolute_uri('/')[:-1]}/mail/auth/callback/",
+                    'status': zoho_settings.get_configuration_status(),
+                    'is_configured': zoho_settings.is_configured,
+                    'access_token': bool(zoho_settings.access_token),
+                    'last_test_success': zoho_settings.last_test_success.isoformat() if zoho_settings.last_test_success else None,
+                }
+            })
+        
+        elif request.method == 'POST':
+            # Einstellungen speichern
+            client_id = request.POST.get('client_id', '').strip()
+            client_secret = request.POST.get('client_secret', '').strip()
+            region = request.POST.get('region', 'EU')
+            redirect_uri = request.POST.get('redirect_uri', '').strip()
+            
+            if not client_id or not client_secret:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Client ID und Client Secret sind erforderlich'
+                })
+            
+            # Einstellungen aktualisieren
+            zoho_settings.client_id = client_id
+            zoho_settings.client_secret = client_secret
+            zoho_settings.region = region
+            zoho_settings.redirect_uri = redirect_uri
+            zoho_settings.is_configured = True
+            zoho_settings.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Zoho Mail Einstellungen gespeichert'
+            })
+            
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Verarbeiten der Einstellungen: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["POST"])
+def zoho_test_api(request):
+    """API endpoint zum Testen der Zoho Mail Verbindung"""
+    try:
+        zoho_settings = ZohoAPISettings.objects.get(user=request.user)
+        
+        if not zoho_settings.is_configured:
+            return JsonResponse({
+                'success': False,
+                'error': 'Zoho Mail ist nicht konfiguriert'
+            })
+        
+        # Importiere die Mail App Services
+        from mail_app.services import ZohoMailAPIService
+        from mail_app.models import EmailAccount
+        
+        # Erstelle temporären Account für Test
+        if zoho_settings.access_token:
+            temp_account = EmailAccount(
+                user=request.user,
+                email_address='test@example.com',
+                access_token=zoho_settings.access_token
+            )
+            
+            api_service = ZohoMailAPIService(temp_account)
+            api_service.base_url = zoho_settings.base_url
+            
+            # Test API Connection
+            if api_service.test_connection():
+                from django.utils import timezone
+                zoho_settings.last_test_success = timezone.now()
+                zoho_settings.last_error = ''
+                zoho_settings.save()
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Zoho Mail Verbindung erfolgreich getestet'
+                })
+            else:
+                zoho_settings.last_error = 'API Test fehlgeschlagen'
+                zoho_settings.save()
+                
+                return JsonResponse({
+                    'success': False,
+                    'error': 'API Test fehlgeschlagen - Überprüfen Sie Ihre Konfiguration'
+                })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Keine Autorisierung vorhanden - bitte erst autorisieren'
+            })
+            
+    except ZohoAPISettings.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Zoho Mail Einstellungen nicht gefunden'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Testen der Verbindung: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["POST"])
+def zoho_disconnect_api(request):
+    """API endpoint zum Trennen der Zoho Mail Verbindung und Löschen aller Email-Daten"""
+    try:
+        # Get user's email accounts before deletion
+        from mail_app.models import EmailAccount
+        user_accounts = EmailAccount.objects.filter(user=request.user, is_active=True)
+        
+        total_deleted_data = {}
+        
+        for account in user_accounts:
+            # Count data before deletion for logging and user feedback
+            emails_count = account.emails.count()
+            folders_count = account.folders.count() 
+            threads_count = account.threads.count()
+            drafts_count = account.drafts.count()
+            attachments_count = sum(email.attachments.count() for email in account.emails.all())
+            sync_logs_count = account.sync_logs.count()
+            
+            logger.info(f"Disconnecting account {account.email_address} via API - deleting {emails_count} emails, {folders_count} folders, {threads_count} threads, {drafts_count} drafts, {attachments_count} attachments, {sync_logs_count} sync logs")
+            
+            # Delete all related data (CASCADE will handle most of this automatically)
+            # But let's be explicit for clarity and logging
+            
+            # Delete emails (this will also delete attachments due to CASCADE)
+            account.emails.all().delete()
+            
+            # Delete folders
+            account.folders.all().delete()
+            
+            # Delete threads
+            account.threads.all().delete()
+            
+            # Delete drafts
+            account.drafts.all().delete()
+            
+            # Delete sync logs
+            account.sync_logs.all().delete()
+            
+            # Update totals for logging
+            total_deleted_data['emails'] = total_deleted_data.get('emails', 0) + emails_count
+            total_deleted_data['folders'] = total_deleted_data.get('folders', 0) + folders_count
+            total_deleted_data['threads'] = total_deleted_data.get('threads', 0) + threads_count
+            total_deleted_data['drafts'] = total_deleted_data.get('drafts', 0) + drafts_count
+            total_deleted_data['attachments'] = total_deleted_data.get('attachments', 0) + attachments_count
+            total_deleted_data['sync_logs'] = total_deleted_data.get('sync_logs', 0) + sync_logs_count
+            
+            # Deactivate the account and clear OAuth data
+            account.is_active = False
+            account.access_token = ''
+            account.refresh_token = ''
+            account.token_expires_at = None
+            account.last_sync = None
+            account.save()
+            
+            logger.info(f"Successfully disconnected account {account.email_address} via API")
+        
+        # Also clear ZohoAPISettings
+        try:
+            zoho_settings = ZohoAPISettings.objects.get(user=request.user)
+            # OAuth Tokens löschen
+            zoho_settings.access_token = ''
+            zoho_settings.refresh_token = ''
+            zoho_settings.token_expires_at = None
+            zoho_settings.is_active = False
+            zoho_settings.last_test_success = None
+            zoho_settings.save()
+            logger.info(f"Cleared ZohoAPISettings for user {request.user.username} via API")
+        except ZohoAPISettings.DoesNotExist:
+            # Settings don't exist, which is fine
+            pass
+        
+        # Create user-friendly message with deletion summary
+        deleted_summary = []
+        if total_deleted_data.get('emails', 0) > 0:
+            deleted_summary.append(f"{total_deleted_data['emails']} Emails")
+        if total_deleted_data.get('folders', 0) > 0:
+            deleted_summary.append(f"{total_deleted_data['folders']} Ordner")
+        if total_deleted_data.get('threads', 0) > 0:
+            deleted_summary.append(f"{total_deleted_data['threads']} Unterhaltungen")
+        if total_deleted_data.get('drafts', 0) > 0:
+            deleted_summary.append(f"{total_deleted_data['drafts']} Entwürfe")
+        if total_deleted_data.get('attachments', 0) > 0:
+            deleted_summary.append(f"{total_deleted_data['attachments']} Anhänge")
+        
+        summary_text = ", ".join(deleted_summary) if deleted_summary else "keine Daten"
+        
+        logger.info(f"Successfully disconnected Zoho Mail for user {request.user.username} via API: {summary_text}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Zoho Mail Verbindung getrennt. Gelöscht: {summary_text}.'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error disconnecting Zoho Mail for user {request.user.username} via API: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Trennen der Verbindung: {str(e)}'
+        })
+
+
+@login_required
+@require_http_methods(["POST"])
+def zoho_delete_all_emails_api(request):
+    """API endpoint zum Löschen aller Emails aus der Datenbank (nicht vom Server)"""
+    try:
+        from mail_app.models import Email, EmailAccount
+        
+        # Get user's email accounts
+        user_accounts = EmailAccount.objects.filter(user=request.user, is_active=True)
+        
+        if not user_accounts.exists():
+            return JsonResponse({
+                'success': False,
+                'error': 'Keine aktiven Email-Accounts gefunden'
+            })
+        
+        total_deleted = 0
+        
+        for account in user_accounts:
+            # Count emails before deletion
+            emails_count = account.emails.count()
+            
+            logger.info(f"Deleting all emails for account {account.email_address} - {emails_count} emails")
+            
+            # Delete all emails (attachments will be deleted via CASCADE)
+            account.emails.all().delete()
+            
+            total_deleted += emails_count
+            
+            logger.info(f"Successfully deleted {emails_count} emails from account {account.email_address}")
+        
+        logger.info(f"Successfully deleted {total_deleted} total emails for user {request.user.username}")
+        
+        return JsonResponse({
+            'success': True,
+            'deleted_count': total_deleted,
+            'message': f'{total_deleted} Emails wurden aus der Datenbank gelöscht'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error deleting all emails for user {request.user.username}: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Löschen der Emails: {str(e)}'
+        })

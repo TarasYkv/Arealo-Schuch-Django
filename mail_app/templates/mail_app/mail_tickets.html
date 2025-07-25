@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workloom Mail - Offene Anfragen</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Shared Styles from mail_standalone.html -->
+    <style>
+        :root {
+            --primary-color: #004077;
+            --secondary-color: #17a2b8;
+            --light-color: #f8f9fa;
+            --dark-color: #495057;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f8f9fa;
+            overflow: hidden;
+        }
+        
+        /* Header */
+        .workloom-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 15px 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1001;
+            height: 60px;
+        }
+        
+        .mail-navigation {
+            display: flex;
+            gap: 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 25px;
+            padding: 4px;
+        }
+        
+        .nav-btn {
+            padding: 8px 20px;
+            border: none;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.8);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .nav-btn:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .nav-btn.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        .workloom-header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .workloom-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 8px 20px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .workloom-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+            text-decoration: none;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        /* Ticket Container */
+        .ticket-container {
+            position: fixed;
+            top: 60px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: grid;
+            grid-template-columns: 280px 420px 1fr;
+            background: #f8f9fa;
+        }
+        
+        /* Ticket Sidebar */
+        .ticket-sidebar {
+            background: var(--dark-color);
+            color: white;
+            padding: 25px 20px;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+        
+        .ticket-sidebar h3 {
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .ticket-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .ticket-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(5px);
+        }
+        
+        .ticket-item.active {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            box-shadow: 0 4px 15px rgba(0, 64, 119, 0.3);
+        }
+        
+        .ticket-sender {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        
+        .ticket-subject {
+            font-size: 13px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+        
+        .ticket-count {
+            font-size: 12px;
+            color: var(--secondary-color);
+            font-weight: 600;
+        }
+        
+        .ticket-status {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+        }
+        
+        .ticket-age {
+            font-size: 11px;
+            opacity: 0.7;
+        }
+        
+        .unread-count {
+            background: #dc3545;
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+        
+        /* Email Thread */
+        .email-thread {
+            background: white;
+            overflow-y: auto;
+            border-right: 1px solid #dee2e6;
+        }
+        
+        .thread-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 25px 30px;
+            border-bottom: 1px solid #dee2e6;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        
+        .thread-title {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .thread-subtitle {
+            margin: 5px 0 0 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .thread-email {
+            padding: 20px 25px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .thread-email:hover {
+            background: #f8f9fa;
+        }
+        
+        .thread-email.active {
+            background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .thread-email-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .thread-email-from {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .thread-email-date {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .thread-email-subject {
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .thread-email-preview {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.4;
+            max-height: 3.6em; /* 3 lines */
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+        }
+        
+        .thread-email.unread {
+            background: #f0f8ff;
+            border-left: 4px solid var(--secondary-color);
+            font-weight: 600;
+        }
+        
+        .thread-email.unread .thread-email-from {
+            font-weight: 700;
+        }
+        
+        /* Email Viewer (same as mail_standalone) */
+        .email-viewer {
+            background: white;
+            padding: 0;
+            overflow-y: auto;
+        }
+        
+        .email-viewer-header {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px 25px;
+            border-bottom: 1px solid #dee2e6;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .email-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .email-actions .btn {
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: none;
+            font-size: 13px;
+        }
+        
+        .email-actions .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .email-actions .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+        
+        .ticket-actions {
+            gap: 10px;
+        }
+        
+        .btn-close-ticket {
+            background: #28a745;
+            color: white;
+        }
+        
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #6c757d;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .empty-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        
+        /* Reply Hover Popup */
+        .reply-popup {
+            position: absolute;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            padding: 20px;
+            max-width: 400px;
+            min-width: 300px;
+            z-index: 1000;
+            display: none;
+            font-size: 14px;
+        }
+        
+        .reply-popup .popup-header {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+            color: var(--primary-color);
+        }
+        
+        .reply-popup .popup-meta {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 15px;
+        }
+        
+        .reply-popup .popup-content {
+            max-height: 200px;
+            overflow-y: auto;
+            line-height: 1.5;
+        }
+        
+        .reply-indicator {
+            position: relative;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(23, 162, 184, 0.1);
+            color: var(--secondary-color);
+            font-weight: 600;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        
+        .reply-indicator:hover {
+            background: rgba(23, 162, 184, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <!-- Workloom Header -->
+    <div class="workloom-header">
+        <h1>Workloom Mail</h1>
+        
+        <!-- Mail Navigation -->
+        <div class="mail-navigation">
+            <button class="nav-btn" onclick="switchToPostfach()">
+                📧 Postfach
+            </button>
+            <button class="nav-btn active">
+                🎫 Offene Anfragen
+            </button>
+        </div>
+        
+        <a href="/" class="workloom-btn">Workloom</a>
+    </div>
+    
+    <!-- Ticket Interface -->
+    <div class="ticket-container">
+        <!-- Ticket Sidebar -->
+        <div class="ticket-sidebar">
+            <h3>🎫 Offene Tickets</h3>
+            
+            {% if tickets %}
+                {% for ticket in tickets %}
+                <div class="ticket-item {% if current_ticket and current_ticket.id == ticket.id %}active{% endif %}"
+                     onclick="selectTicket({{ ticket.id }})">
+                    <div class="ticket-sender">
+                        {{ ticket.sender_name|default:ticket.sender_email }}
+                        {% if ticket.sender_name %}
+                            <div style="font-size: 11px; opacity: 0.7;">{{ ticket.sender_email }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="ticket-subject">{{ ticket.subject_prefix|truncatechars:50 }}</div>
+                    <div class="ticket-status">
+                        <span class="ticket-count">{{ ticket.email_count }} Email{{ ticket.email_count|pluralize:"s" }}</span>
+                        {% with unread_count=ticket.emails.all|length %}
+                            {% if unread_count > 0 %}
+                                <span class="unread-count">{{ unread_count }}</span>
+                            {% endif %}
+                        {% endwith %}
+                    </div>
+                    <div class="ticket-age">{{ ticket.last_email_at|timesince }} her</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state" style="height: 300px;">
+                    <div class="empty-icon">📭</div>
+                    <h5>Keine offenen Tickets</h5>
+                    <p style="font-size: 14px; opacity: 0.8;">
+                        Markiere Emails als "offen" im Postfach, um Tickets zu erstellen.
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Email Thread -->
+        <div class="email-thread">
+            {% if current_ticket %}
+            <div class="thread-header">
+                <div>
+                    <h3 class="thread-title">{{ current_ticket.subject_prefix }}</h3>
+                    <p class="thread-subtitle">
+                        💌 {{ current_ticket.sender_email }}
+                        <span style="margin-left: 15px; font-size: 12px; opacity: 0.8;">
+                            📧 {{ current_ticket.email_count }} Email{{ current_ticket.email_count|pluralize:"s" }}
+                            • 📅 {{ current_ticket.last_email_at|date:"d.m.Y H:i" }}
+                        </span>
+                    </p>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button class="btn btn-sm" style="background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 15px; padding: 5px 12px;" 
+                            onclick="closeTicket({{ current_ticket.id }})">
+                        ✅ Schließen
+                    </button>
+                </div>
+            </div>
+            
+            {% for email in current_ticket.emails.all|dictsort:"sent_at" %}
+            <div class="thread-email {% if current_email and current_email.id == email.id %}active{% endif %}{% if not email.is_read %} unread{% endif %}"
+                 onclick="selectEmail({{ email.id }})">
+                <div class="thread-email-header">
+                    <span class="thread-email-from">
+                        {% if not email.is_read %}📩 {% endif %}
+                        {% if email.from_email == account.email_address %}
+                            📤 Du ({{ email.from_name|default:email.from_email }})
+                        {% else %}
+                            📥 {{ email.from_name|default:email.from_email }}
+                        {% endif %}
+                    </span>
+                    <span class="thread-email-date">
+                        {{ email.sent_at|date:"d.m H:i" }}
+                        {% if email.has_attachments %}📎{% endif %}
+                    </span>
+                </div>
+                <div class="thread-email-subject">
+                    {% if "Re:" in email.subject or "Aw:" in email.subject %}
+                        <span class="reply-indicator" 
+                              onmouseover="showReplyPopup(event, {{ email.id }})" 
+                              onmouseout="hideReplyPopup()">
+                            ↩️ Antwort
+                        </span>
+                        {{ email.subject|default:"(Kein Betreff)" }}
+                    {% elif "Fwd:" in email.subject or "Fw:" in email.subject %}
+                        <span class="reply-indicator" 
+                              onmouseover="showReplyPopup(event, {{ email.id }})" 
+                              onmouseout="hideReplyPopup()">
+                            ➡️ Weiterleitung
+                        </span>
+                        {{ email.subject|default:"(Kein Betreff)" }}
+                    {% else %}
+                        {{ email.subject|default:"(Kein Betreff)" }}
+                    {% endif %}
+                </div>
+                <div class="thread-email-preview">
+                    {{ email.body_preview }}
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-state" style="height: 300px;">
+                <div class="empty-icon">📭</div>
+                <h5>Keine Emails im Ticket</h5>
+                <p style="font-size: 14px; opacity: 0.8;">
+                    Dieses Ticket hat keine zugehörigen Emails mehr.
+                </p>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">🎫</div>
+                <h4>Kein Ticket ausgewählt</h4>
+                <p>Wähle ein Ticket aus der linken Liste</p>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Email Viewer -->
+        <div class="email-viewer">
+            {% if current_email %}
+            <div class="email-viewer-header">
+                <div class="email-actions ticket-actions">
+                    <button class="btn btn-primary" onclick="replyToEmail({{ current_email.id }})">
+                        ↩️ Antworten
+                    </button>
+                    <button class="btn btn-outline-primary" onclick="forwardEmail({{ current_email.id }})">
+                        ➡️ Weiterleiten
+                    </button>
+                    {% if current_ticket %}
+                    <button class="btn btn-close-ticket" onclick="closeTicket({{ current_ticket.id }})">
+                        ✅ Ticket schließen
+                    </button>
+                    {% endif %}
+                </div>
+                
+                <h4 style="margin: 0; color: var(--primary-color); font-size: 18px; font-weight: 600; line-height: 1.3;">
+                    {{ current_email.subject|default:"(Kein Betreff)" }}
+                </h4>
+            </div>
+            
+            <div style="padding: 25px; line-height: 1.7;">
+                <!-- Email Meta (same as standalone) -->
+                <div style="background: #f8f9fa; padding: 12px 15px; border-radius: 6px; margin-bottom: 15px; border-left: 3px solid var(--primary-color); font-size: 13px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 20px;">
+                    <div>
+                        <strong style="color: var(--primary-color);">Von:</strong> {{ current_email.from_name|default:current_email.from_email }}
+                    </div>
+                    <div>
+                        <strong style="color: var(--primary-color);">Datum:</strong> {{ current_email.sent_at|date:"d.m.Y H:i" }}
+                    </div>
+                    <div>
+                        <strong style="color: var(--primary-color);">An:</strong> 
+                        {% for to_email in current_email.to_emails %}
+                            {{ to_email|safe }}{% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% if current_email.cc_emails %}
+                    <div>
+                        <strong style="color: var(--primary-color);">CC:</strong> 
+                        {% for cc_email in current_email.cc_emails %}
+                            {{ cc_email|safe }}{% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div style="opacity: 0.5;">
+                        <strong style="color: var(--primary-color);">CC:</strong> <span style="font-style: italic;">Keine</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Email Content (same as standalone) -->
+                {% if current_email.body_html and current_email.body_html|length > 10 %}
+                    <div style="border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; background: white; min-height: 400px; overflow-y: auto; max-height: 800px;">
+                        {{ current_email.body_html|safe }}
+                    </div>
+                {% elif current_email.body_text %}
+                    <div style="background: white; padding: 25px; border-radius: 8px; border: 1px solid #dee2e6; line-height: 1.8; font-size: 15px; min-height: 400px; max-height: 800px; overflow-y: auto; white-space: pre-wrap;">{{ current_email.body_text }}</div>
+                {% else %}
+                    <div class="empty-state" style="height: 200px;">
+                        <div class="empty-icon">📄</div>
+                        <p>Diese Email hat keinen Inhalt</p>
+                    </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">✉️</div>
+                <h4>Keine Email ausgewählt</h4>
+                <p>Wähle eine Email aus dem Thread</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Reply Popup -->
+    <div id="replyPopup" class="reply-popup">
+        <div class="popup-header">Email Details</div>
+        <div class="popup-meta" id="popupMeta"></div>
+        <div class="popup-content" id="popupContent">Lädt...</div>
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- JavaScript -->
+    <script>
+        function switchToPostfach() {
+            window.location.href = '{% url "mail_app:mail_standalone" %}';
+        }
+        
+        async function selectTicket(ticketId) {
+            try {
+                // Update URL without page reload
+                const currentUrl = new URL(window.location);
+                currentUrl.searchParams.set('ticket', ticketId);
+                currentUrl.searchParams.delete('email'); // Clear email param when selecting new ticket
+                window.history.pushState({}, '', currentUrl);
+                
+                // Mark current ticket as active
+                document.querySelectorAll('.ticket-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                document.querySelector(`[onclick="selectTicket(${ticketId})"]`).classList.add('active');
+                
+                // Clear email viewer first
+                const emailViewer = document.querySelector('.email-viewer');
+                emailViewer.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 300px;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 48px; margin-bottom: 20px;">⏳</div>
+                            <p style="color: #666;">Ticket wird geladen...</p>
+                        </div>
+                    </div>
+                `;
+                
+                // Fetch ticket emails and update the email list
+                const response = await fetch(`/mail/api/tickets/${ticketId}/emails/`);
+                const ticketData = await response.json();
+                
+                if (ticketData.success) {
+                    // Find the email list container (everything after thread-header)
+                    const emailThread = document.querySelector('.email-thread');
+                    const threadHeader = emailThread.querySelector('.thread-header');
+                    
+                    // Remove all elements after the header
+                    const elementsToRemove = [];
+                    let nextElement = threadHeader.nextElementSibling;
+                    while (nextElement) {
+                        elementsToRemove.push(nextElement);
+                        nextElement = nextElement.nextElementSibling;
+                    }
+                    elementsToRemove.forEach(el => el.remove());
+                    
+                    // Add the new email list HTML
+                    emailThread.insertAdjacentHTML('beforeend', ticketData.html);
+                    
+                    // Show ticket selected state in email viewer
+                    emailViewer.innerHTML = `
+                        <div style="display: flex; align-items: center; justify-content: center; height: 300px;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 48px; margin-bottom: 20px;">🎫</div>
+                                <h4>Ticket ausgewählt</h4>
+                                <p style="color: #666;">Wählen Sie eine Email aus der Liste um sie anzuzeigen</p>
+                                <p style="color: #888; font-size: 14px; margin-top: 10px;">
+                                    📧 ${ticketData.email_count} Email${ticketData.email_count !== 1 ? 's' : ''} gefunden
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(ticketData.error || 'Failed to load ticket emails');
+                }
+                
+            } catch (error) {
+                console.error('Error loading ticket:', error);
+                // Fallback to page reload if AJAX fails
+                window.location.href = `{% url "mail_app:mail_tickets" %}?ticket=${ticketId}`;
+            }
+        }
+        
+        async function selectEmail(emailId) {
+            try {
+                // Update URL without page reload
+                const currentUrl = new URL(window.location);
+                currentUrl.searchParams.set('email', emailId);
+                window.history.pushState({}, '', currentUrl);
+                
+                // Mark current email as active in the email list
+                document.querySelectorAll('.email-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                const emailElement = document.querySelector(`[onclick="selectEmail(${emailId})"]`);
+                if (emailElement) {
+                    emailElement.classList.add('active');
+                }
+                
+                // Fetch email content via AJAX (using the same endpoint as standalone)
+                const response = await fetch(`/mail/api/emails/${emailId}/`);
+                const emailData = await response.json();
+                
+                if (emailData.success) {
+                    // Update email viewer with new content
+                    const emailViewer = document.querySelector('.email-viewer');
+                    if (emailViewer) {
+                        emailViewer.innerHTML = emailData.html;
+                    }
+                } else {
+                    throw new Error(emailData.error || 'Failed to load email');
+                }
+                
+            } catch (error) {
+                console.error('Error loading email:', error);
+                // Fallback to page reload if AJAX fails
+                const currentUrl = new URL(window.location);
+                currentUrl.searchParams.set('email', emailId);
+                window.location.href = currentUrl.toString();
+            }
+        }
+        
+        function replyToEmail(emailId) {
+            openReplyModal(emailId, 'reply');
+        }
+        
+        function replyAllToEmail(emailId) {
+            openReplyModal(emailId, 'reply_all');
+        }
+        
+        function forwardEmail(emailId) {
+            openReplyModal(emailId, 'forward');
+        }
+        
+        // Open reply modal
+        async function openReplyModal(emailId, action) {
+            try {
+                // Fetch email details for reply
+                const response = await fetch(`/mail/api/emails/${emailId}/detail/`);
+                const emailData = await response.json();
+                
+                if (!emailData.success) {
+                    throw new Error(emailData.error || 'Failed to load email');
+                }
+                
+                const email = emailData.email;
+                
+                // Determine recipient(s)
+                let to = '';
+                let subject = '';
+                let body = '';
+                
+                switch(action) {
+                    case 'reply':
+                        to = email.from_email;
+                        subject = email.subject.startsWith('Re: ') ? email.subject : `Re: ${email.subject}`;
+                        body = `\n\n--- Original Message ---\nFrom: ${email.from_email}\nDate: ${new Date(email.sent_at).toLocaleString()}\nSubject: ${email.subject}\n\n${email.body_text || ''}`;
+                        break;
+                    case 'reply_all':
+                        to = email.from_email;
+                        if (email.to_emails && email.to_emails.length > 1) {
+                            to += ', ' + email.to_emails.filter(addr => addr !== email.from_email).join(', ');
+                        }
+                        subject = email.subject.startsWith('Re: ') ? email.subject : `Re: ${email.subject}`;
+                        body = `\n\n--- Original Message ---\nFrom: ${email.from_email}\nDate: ${new Date(email.sent_at).toLocaleString()}\nSubject: ${email.subject}\n\n${email.body_text || ''}`;
+                        break;
+                    case 'forward':
+                        subject = email.subject.startsWith('Fwd: ') ? email.subject : `Fwd: ${email.subject}`;
+                        body = `\n\n--- Forwarded Message ---\nFrom: ${email.from_email}\nDate: ${new Date(email.sent_at).toLocaleString()}\nSubject: ${email.subject}\n\n${email.body_text || ''}`;
+                        break;
+                }
+                
+                // Create and show modal
+                showReplyModal(to, subject, body, action);
+                
+            } catch (error) {
+                console.error('Error opening reply modal:', error);
+                showNotification('Fehler beim Öffnen des Antwort-Formulars', 'error');
+            }
+        }
+        
+        // Show reply modal
+        function showReplyModal(to, subject, body, action) {
+            // Remove existing modal if any
+            const existingModal = document.getElementById('replyModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
+            // Create modal HTML
+            const modal = document.createElement('div');
+            modal.id = 'replyModal';
+            modal.innerHTML = `
+                <div class="modal-overlay" onclick="closeReplyModal()" style="
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.5);
+                    z-index: 10000;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                ">
+                    <div class="modal-content" onclick="event.stopPropagation()" style="
+                        background: white;
+                        border-radius: 10px;
+                        width: 90%;
+                        max-width: 700px;
+                        max-height: 80vh;
+                        overflow: hidden;
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                    ">
+                        <div class="modal-header" style="
+                            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+                            color: white;
+                            padding: 20px;
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                        ">
+                            <h3 style="margin: 0; font-size: 18px;">
+                                ${action === 'reply' ? '↩️ Antworten' : 
+                                  action === 'reply_all' ? '↩️ Allen antworten' : '➡️ Weiterleiten'}
+                            </h3>
+                            <button onclick="closeReplyModal()" style="
+                                background: none;
+                                border: none;
+                                color: white;
+                                font-size: 24px;
+                                cursor: pointer;
+                                padding: 0;
+                                width: 30px;
+                                height: 30px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            ">×</button>
+                        </div>
+                        <div class="modal-body" style="padding: 20px; overflow-y: auto; max-height: 60vh;">
+                            <form id="replyForm">
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 600;">An:</label>
+                                    <input type="email" id="replyTo" value="${to}" ${action === 'forward' ? '' : 'readonly'} style="
+                                        width: 100%;
+                                        padding: 10px;
+                                        border: 1px solid #ddd;
+                                        border-radius: 5px;
+                                        font-size: 14px;
+                                        ${action === 'forward' ? '' : 'background: #f8f9fa;'}
+                                    ">
+                                </div>
+                                <div style="margin-bottom: 15px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 600;">Betreff:</label>
+                                    <input type="text" id="replySubject" value="${subject}" style="
+                                        width: 100%;
+                                        padding: 10px;
+                                        border: 1px solid #ddd;
+                                        border-radius: 5px;
+                                        font-size: 14px;
+                                    ">
+                                </div>
+                                <div style="margin-bottom: 20px;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 600;">Nachricht:</label>
+                                    <textarea id="replyBody" rows="12" style="
+                                        width: 100%;
+                                        padding: 10px;
+                                        border: 1px solid #ddd;
+                                        border-radius: 5px;
+                                        font-size: 14px;
+                                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                                        resize: vertical;
+                                    ">${body}</textarea>
+                                </div>
+                                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                                    <button type="button" onclick="closeReplyModal()" style="
+                                        padding: 10px 20px;
+                                        border: 1px solid #ddd;
+                                        background: white;
+                                        border-radius: 5px;
+                                        cursor: pointer;
+                                    ">Abbrechen</button>
+                                    <button type="submit" style="
+                                        padding: 10px 20px;
+                                        background: var(--primary-color);
+                                        color: white;
+                                        border: none;
+                                        border-radius: 5px;
+                                        cursor: pointer;
+                                    ">📧 Senden</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Focus on message field and position cursor at beginning
+            setTimeout(() => {
+                const bodyField = document.getElementById('replyBody');
+                bodyField.focus();
+                bodyField.setSelectionRange(0, 0);
+            }, 100);
+            
+            // Handle form submission
+            document.getElementById('replyForm').addEventListener('submit', handleReplySubmit);
+        }
+        
+        // Close reply modal
+        function closeReplyModal() {
+            const modal = document.getElementById('replyModal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+        
+        // Handle reply form submission
+        async function handleReplySubmit(event) {
+            event.preventDefault();
+            
+            const to = document.getElementById('replyTo').value;
+            const subject = document.getElementById('replySubject').value;
+            const body = document.getElementById('replyBody').value;
+            
+            if (!to || !subject || !body.trim()) {
+                showNotification('Bitte füllen Sie alle Felder aus', 'warning');
+                return;
+            }
+            
+            try {
+                // Show sending state
+                const submitBtn = event.target.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '⏳ Wird gesendet...';
+                submitBtn.disabled = true;
+                
+                // Send email via API
+                const response = await fetch('/mail/api/send/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({
+                        account_id: 1, // TODO: Get dynamic account ID
+                        to_emails: to.split(',').map(email => email.trim()),
+                        subject: subject,
+                        body_text: body
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showNotification('Email erfolgreich gesendet!', 'success');
+                    closeReplyModal();
+                } else {
+                    throw new Error(result.error || 'Failed to send email');
+                }
+                
+            } catch (error) {
+                console.error('Error sending email:', error);
+                showNotification('Fehler beim Senden der Email: ' + error.message, 'error');
+                
+                // Restore button
+                const submitBtn = event.target.querySelector('button[type="submit"]');
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
+        }
+        
+        async function closeTicket(ticketId) {
+            // Custom confirmation dialog
+            const confirmed = confirm(
+                '🎫 Ticket schließen?\n\n' +
+                'Das Ticket wird geschlossen und alle zugehörigen Emails werden als "erledigt" markiert.\n' +
+                'Diese Aktion kann nicht rückgängig gemacht werden.\n\n' +
+                'Möchten Sie fortfahren?'
+            );
+            
+            if (!confirmed) return;
+            
+            // Show loading state
+            const button = event.target;
+            const originalText = button.innerHTML;
+            button.innerHTML = '⏳ Schließe...';
+            button.disabled = true;
+            
+            try {
+                const response = await fetch(`/mail/api/tickets/${ticketId}/close/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Success animation
+                    button.innerHTML = '✅ Geschlossen!';
+                    button.style.background = '#28a745';
+                    
+                    // Redirect after short delay
+                    setTimeout(() => {
+                        window.location.href = '{% url "mail_app:mail_tickets" %}';
+                    }, 1500);
+                } else {
+                    alert('❌ Fehler beim Schließen des Tickets:\n' + result.error);
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error closing ticket:', error);
+                alert('❌ Netzwerkfehler beim Schließen des Tickets');
+                button.innerHTML = originalText;
+                button.disabled = false;
+            }
+        }
+        
+        // CSRF Token helper
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
+        // Notification system
+        function showNotification(message, type = 'info') {
+            // Create notification element if it doesn't exist
+            let notification = document.getElementById('notification');
+            if (!notification) {
+                notification = document.createElement('div');
+                notification.id = 'notification';
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 15px 20px;
+                    border-radius: 8px;
+                    color: white;
+                    font-weight: 500;
+                    z-index: 10000;
+                    max-width: 400px;
+                    word-wrap: break-word;
+                    transform: translateX(400px);
+                    transition: transform 0.3s ease;
+                `;
+                document.body.appendChild(notification);
+            }
+            
+            // Set notification style based on type
+            const colors = {
+                'success': '#28a745',
+                'error': '#dc3545',
+                'info': '#17a2b8',
+                'warning': '#ffc107'
+            };
+            
+            notification.style.backgroundColor = colors[type] || colors.info;
+            notification.textContent = message;
+            
+            // Show notification
+            notification.style.transform = 'translateX(0)';
+            
+            // Hide after 4 seconds
+            setTimeout(() => {
+                notification.style.transform = 'translateX(400px)';
+            }, 4000);
+        }
+        
+        // Reply popup functionality
+        let popupTimeout;
+        
+        function showReplyPopup(event, emailId) {
+            clearTimeout(popupTimeout);
+            
+            const popup = document.getElementById('replyPopup');
+            const popupMeta = document.getElementById('popupMeta');
+            const popupContent = document.getElementById('popupContent');
+            
+            // Position popup near cursor
+            popup.style.left = (event.pageX + 10) + 'px';
+            popup.style.top = (event.pageY - 50) + 'px';
+            popup.style.display = 'block';
+            
+            // Reset content
+            popupMeta.textContent = 'Lädt Email-Details...';
+            popupContent.textContent = 'Lädt...';
+            
+            // Fetch email details
+            fetch(`/mail/api/emails/${emailId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const email = data.email;
+                        popupMeta.innerHTML = `
+                            <strong>Von:</strong> ${email.from_name || email.from_email}<br>
+                            <strong>Datum:</strong> ${new Date(email.sent_at).toLocaleString('de-DE')}
+                        `;
+                        
+                        let content = email.body_text || email.body_html || 'Kein Inhalt verfügbar';
+                        if (content.length > 300) {
+                            content = content.substring(0, 300) + '...';
+                        }
+                        
+                        // Remove HTML tags if it's HTML content
+                        if (email.body_html && !email.body_text) {
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = content;
+                            content = tempDiv.textContent || tempDiv.innerText || '';
+                        }
+                        
+                        popupContent.textContent = content;
+                    } else {
+                        popupContent.textContent = 'Fehler beim Laden der Email-Details';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading email details:', error);
+                    popupContent.textContent = 'Fehler beim Laden der Email-Details';
+                });
+        }
+        
+        function hideReplyPopup() {
+            popupTimeout = setTimeout(() => {
+                document.getElementById('replyPopup').style.display = 'none';
+            }, 300); // Small delay to allow moving cursor to popup
+        }
+        
+        // Keep popup open when hovering over it
+        document.getElementById('replyPopup').addEventListener('mouseenter', function() {
+            clearTimeout(popupTimeout);
+        });
+        
+        document.getElementById('replyPopup').addEventListener('mouseleave', function() {
+            hideReplyPopup();
+        });
+        
+        console.log('Workloom Mail Tickets loaded successfully');
+    </script>
+</body>
+</html>
