@@ -39,6 +39,10 @@ urlpatterns = [
     path('api/emails/<int:email_id>/toggle-open/', views_modern.toggle_email_open, name='api_toggle_email_open'),
     path('api/tickets/<int:ticket_id>/close/', views_modern.close_ticket, name='api_close_ticket'),
     path('api/tickets/<int:ticket_id>/emails/', views_modern.api_ticket_emails, name='api_ticket_emails'),
+    path('api/search/', views_modern.api_email_search, name='api_email_search'),
+    
+    # Image display for email content
+    path('ImageDisplay', views_modern.image_display, name='image_display'),
     
     # Debug route
     path('debug-css/', lambda request: render(request, 'mail_app/debug_css.html'), name='debug_css'),
