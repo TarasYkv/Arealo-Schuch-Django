@@ -560,23 +560,42 @@ def api_sync_emails(request, account_id):
             is_active=True
         )
         
-        # Get optional parameters
-        folder_id = request.data.get('folder_id')
-        limit = min(int(request.data.get('limit', 100)), 500)  # Max 500 for 90-day sync
-        use_background = request.data.get('background', False)
+        # Get optional parameters - handle both JSON and form data safely
+        try:
+            if hasattr(request, 'data') and request.data:
+                data = request.data
+            else:
+                data = request.POST
+        except Exception:
+            data = {}
+            
+        folder_id = data.get('folder_id')
+        try:
+            limit = int(data.get('limit', 500))  # Allow higher limits: 100, 500, 1000, 5000
+        except (ValueError, TypeError):
+            limit = 500
+        if limit not in [100, 500, 1000, 5000]:
+            limit = 500  # Default to 500 if invalid
+        use_background = data.get('background', False)
         
         if use_background:
-            # Use Celery task for background sync
-            from .tasks import sync_single_account
-            task = sync_single_account.delay(account_id, folder_id, limit)
-            
-            return Response({
-                'success': True,
-                'message': 'Email sync started in background',
-                'task_id': task.id,
-                'background': True
-            })
-        else:
+            # Use Celery task for background sync if available
+            try:
+                from .tasks import sync_single_account
+                task = sync_single_account.delay(account_id, folder_id, limit)
+                
+                return Response({
+                    'success': True,
+                    'message': 'Email sync started in background',
+                    'task_id': task.id,
+                    'background': True
+                })
+            except Exception as e:
+                logger.warning(f"Celery not available, falling back to synchronous sync: {str(e)}")
+                # Fall through to synchronous sync below
+                use_background = False
+        
+        if not use_background:
             # Synchronous sync
             sync_service = EmailSyncService(account)
             
@@ -627,9 +646,15 @@ def api_sync_emails(request, account_id):
         )
         
     except Exception as e:
-        logger.error(f"Error syncing emails for account {account_id}: {str(e)}")
+        import traceback
+        error_details = traceback.format_exc()
+        logger.error(f"Error syncing emails for account {account_id}: {str(e)}\nFull traceback: {error_details}")
         return Response(
-            {'error': 'Failed to sync emails'}, 
+            {
+                'success': False,
+                'error': 'Failed to sync emails', 
+                'details': str(e) if settings.DEBUG else 'Internal server error'
+            }, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 

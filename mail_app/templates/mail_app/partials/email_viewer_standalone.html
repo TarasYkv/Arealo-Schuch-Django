@@ -19,43 +19,44 @@
 
 <div class="email-content">
     <div class="email-header">
-        <h4>{{ current_email.subject|default:"(Kein Betreff)" }}</h4>
-        <div class="email-meta">
-            <div>
-                <strong>Von:</strong> 
-                <span>
-                    {% if current_email.from_name and current_email.from_name != current_email.from_email %}
-                        {{ current_email.from_name }} <{{ current_email.from_email }}>
-                    {% else %}
-                        {{ current_email.from_email }}
-                    {% endif %}
-                </span>
-            </div>
-            <div>
-                <strong>An:</strong> 
-                <span>
-                    {% for email in current_email.to_emails %}
-                        {{ email }}{% if not forloop.last %}, {% endif %}
-                    {% endfor %}
-                </span>
-            </div>
-            <div>
-                <strong>Datum:</strong> 
-                <span>{{ current_email.sent_at|date:"d.m.Y H:i" }} Uhr</span>
-            </div>
-            {% if current_email.cc_emails %}
-            <div>
-                <strong>CC:</strong> 
-                <span>
-                    {% for email in current_email.cc_emails %}
-                        {{ email }}{% if not forloop.last %}, {% endif %}
-                    {% endfor %}
-                </span>
-            </div>
-            {% endif %}
+    <h4>{{ current_email.subject|default:"(Kein Betreff)" }}</h4>
+    <div class="email-meta">
+        <div>
+            <strong>Von:</strong> 
+            <span>
+                {% if current_email.from_name and current_email.from_name != current_email.from_email %}
+                    {{ current_email.from_name }} <{{ current_email.from_email }}>
+                {% else %}
+                    {{ current_email.from_email }}
+                {% endif %}
+            </span>
         </div>
+        <div>
+            <strong>An:</strong> 
+            <span>
+                {% for email in current_email.to_emails %}
+                    {{ email }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+            </span>
+        </div>
+        <div>
+            <strong>Datum:</strong> 
+            <span>{{ current_email.sent_at|date:"d.m.Y H:i" }} Uhr</span>
+        </div>
+        {% if current_email.cc_emails %}
+        <div>
+            <strong>CC:</strong> 
+            <span>
+                {% for email in current_email.cc_emails %}
+                    {{ email }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+            </span>
+        </div>
+        {% endif %}
     </div>
-    
+</div>
+
+<div class="email-content">
     {% if current_email.body_html and current_email.body_html|length > 20 %}
         <!-- HTML Email Content -->
         <div class="email-html-content" style="padding: 20px; min-height: 400px; overflow-y: auto; max-height: 800px;">
@@ -224,23 +225,18 @@
         <h6 style="margin-bottom: 15px; color: var(--primary-color);">
             📎 Anhänge ({{ current_email.attachments.count }})
         </h6>
-        <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-            {% for attachment in current_email.attachments.all %}
-            <a href="#" 
-               class="attachment-item"
-               style="display: flex; align-items: center; padding: 10px 15px; text-decoration: none; color: #333; transition: all 0.3s ease;"
-               onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.1)'; this.style.transform='translateY(-1px)';"
-               onmouseout="this.style.boxShadow='none'; this.style.transform='none';">
-                <span style="margin-right: 8px;">📄</span>
-                <span style="font-size: 14px;">{{ attachment.filename }}</span>
-                <span style="margin-left: 8px; font-size: 12px; color: #666;">
-                    ({{ attachment.file_size|filesizeformat }})
-                </span>
+        {% for attachment in current_email.attachments.all %}
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0;">
+            <span>{{ attachment.filename }}</span>
+            <a href="{% url 'mail_app:api_download_attachment' attachment.id %}" 
+               class="btn btn-sm btn-outline-primary">
+                💾 Download
             </a>
-            {% endfor %}
         </div>
+        {% endfor %}
     </div>
     {% endif %}
+</div>
 </div>
 {% else %}
 <div class="empty-state">
