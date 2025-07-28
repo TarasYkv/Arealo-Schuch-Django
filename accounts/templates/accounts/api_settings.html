@@ -137,6 +137,81 @@
     overflow: hidden;
 }
 
+/* Model Selection Cards */
+.model-selection-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.model-card {
+    background: #f8f9fa;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    padding: 0.75rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    user-select: none;
+}
+
+.model-card:hover {
+    border-color: #0d6efd;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.model-card.selected {
+    border-color: #0d6efd;
+    background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2);
+}
+
+.model-card.selected::after {
+    content: "✓";
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    background: #0d6efd;
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: bold;
+}
+
+.model-icon {
+    font-size: 1.2rem;
+    margin-bottom: 0.25rem;
+}
+
+.model-name {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #212529;
+    margin-bottom: 0.125rem;
+}
+
+.model-tier {
+    font-size: 0.7rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-bottom: 0.125rem;
+}
+
+.model-cost {
+    font-size: 0.65rem;
+    color: #868e96;
+    font-style: italic;
+}
+
 /* Mobile responsiveness */
 @media (max-width: 768px) {
     .api-key-status-text {
@@ -148,6 +223,28 @@
         flex-wrap: wrap;
         gap: 0.25rem;
     }
+    
+    .model-selection-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+    }
+    
+    .model-card {
+        padding: 0.5rem;
+    }
+    
+    .model-name {
+        font-size: 0.75rem;
+    }
+    
+    .model-tier {
+        font-size: 0.65rem;
+    }
+    
+    .model-cost {
+        font-size: 0.6rem;
+    }
+}
     
     .status-row .test-api-key-btn {
         margin-left: 0;
@@ -245,6 +342,48 @@
                                                        step="0.01" min="0" placeholder="5.00" value="5.00">
                                             </div>
                                         </div>
+                                        
+                                        <!-- OpenAI Model Selection -->
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">KI-Modell auswählen:</label>
+                                            <div class="model-selection-grid">
+                                                <div class="model-card" data-model="gpt-4o" data-provider="openai">
+                                                    <div class="model-icon">
+                                                        <i class="fas fa-crown text-warning"></i>
+                                                    </div>
+                                                    <div class="model-name">GPT-4o</div>
+                                                    <div class="model-tier">Premium</div>
+                                                    <div class="model-cost">Höchste Qualität</div>
+                                                </div>
+                                                
+                                                <div class="model-card selected" data-model="gpt-4o-mini" data-provider="openai">
+                                                    <div class="model-icon">
+                                                        <i class="fas fa-star text-primary"></i>
+                                                    </div>
+                                                    <div class="model-name">GPT-4o Mini</div>
+                                                    <div class="model-tier">Standard</div>
+                                                    <div class="model-cost">Empfohlen</div>
+                                                </div>
+                                                
+                                                <div class="model-card" data-model="gpt-4-turbo" data-provider="openai">
+                                                    <div class="model-icon">
+                                                        <i class="fas fa-rocket text-info"></i>
+                                                    </div>
+                                                    <div class="model-name">GPT-4 Turbo</div>
+                                                    <div class="model-tier">Schnell</div>
+                                                    <div class="model-cost">Sehr gut</div>
+                                                </div>
+                                                
+                                                <div class="model-card" data-model="gpt-3.5-turbo" data-provider="openai">
+                                                    <div class="model-icon">
+                                                        <i class="fas fa-dollar-sign text-success"></i>
+                                                    </div>
+                                                    <div class="model-name">GPT-3.5 Turbo</div>
+                                                    <div class="model-tier">Günstig</div>
+                                                    <div class="model-cost">Sparsam</div>
+                                                </div>
+                                            </div>
+                                        </div>
                                         <div class="btn-group" role="group">
                                             <button type="button" class="btn btn-sm btn-primary update-balance-btn" 
                                                     data-provider="openai">
@@ -309,6 +448,57 @@
                                                 <span class="input-group-text">$</span>
                                                 <input type="number" class="form-control" id="anthropic_threshold" 
                                                        step="0.01" min="0" placeholder="5.00" value="5.00">
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Anthropic Model Selection -->
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">KI-Modell auswählen:</label>
+                                            <div class="model-selection-grid">
+                                                <div class="model-card selected" data-model="claude-3-5-sonnet-20241022" data-provider="anthropic">
+                                                    <div class="model-icon">
+                                                        <i class="fas fa-crown text-warning"></i>
+                                                    </div>
+                                                    <div class="model-name">Claude 3.5 Sonnet</div>
+                                                    <div class="model-tier">Premium</div>
+                                                    <div class="model-cost">Empfohlen</div>
+                                                </div>
+                                                
+                                                <div class="model-card" data-model="claude-3-5-haiku-20241022" data-provider="anthropic">
+                                                    <div class="model-icon">
+                                                        <i class="fas fa-bolt text-success"></i>
+                                                    </div>
+                                                    <div class="model-name">Claude 3.5 Haiku</div>
+                                                    <div class="model-tier">Schnell</div>
+                                                    <div class="model-cost">Reaktionsschnell</div>
+                                                </div>
+                                                
+                                                <div class="model-card" data-model="claude-3-opus-20240229" data-provider="anthropic">
+                                                    <div class="model-icon">
+                                                        <i class="fas fa-gem text-danger"></i>
+                                                    </div>
+                                                    <div class="model-name">Claude 3 Opus</div>
+                                                    <div class="model-tier">Top-Tier</div>
+                                                    <div class="model-cost">Höchste Qualität</div>
+                                                </div>
+                                                
+                                                <div class="model-card" data-model="claude-3-sonnet-20240229" data-provider="anthropic">
+                                                    <div class="model-icon">
+                                                        <i class="fas fa-star text-primary"></i>
+                                                    </div>
+                                                    <div class="model-name">Claude 3 Sonnet</div>
+                                                    <div class="model-tier">Standard</div>
+                                                    <div class="model-cost">Ausgewogen</div>
+                                                </div>
+                                                
+                                                <div class="model-card" data-model="claude-3-haiku-20240307" data-provider="anthropic">
+                                                    <div class="model-icon">
+                                                        <i class="fas fa-dollar-sign text-success"></i>
+                                                    </div>
+                                                    <div class="model-name">Claude 3 Haiku</div>
+                                                    <div class="model-tier">Günstig</div>
+                                                    <div class="model-cost">Sparsam</div>
+                                                </div>
                                             </div>
                                         </div>
                                         <div class="btn-group" role="group">
@@ -973,6 +1163,102 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         return cookieValue;
     }
+    
+    // Model Selection Functionality
+    function initializeModelSelection() {
+        // Load current user model preferences from server
+        loadCurrentModelPreferences();
+        
+        // Add click handlers to model cards
+        $('.model-card').on('click', function() {
+            const modelId = $(this).data('model');
+            const provider = $(this).data('provider');
+            
+            // Update selection UI
+            $(this).siblings('.model-card').removeClass('selected');
+            $(this).addClass('selected');
+            
+            // Save preference
+            saveModelPreference(provider, modelId);
+        });
+    }
+    
+    function loadCurrentModelPreferences() {
+        $.ajax({
+            url: '/accounts/api/get-model-preferences/',
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            success: function(data) {
+                // Set OpenAI model selection
+                if (data.openai_model) {
+                    $('.model-card[data-provider="openai"]').removeClass('selected');
+                    $('.model-card[data-model="' + data.openai_model + '"][data-provider="openai"]').addClass('selected');
+                }
+                
+                // Set Anthropic model selection  
+                if (data.anthropic_model) {
+                    $('.model-card[data-provider="anthropic"]').removeClass('selected');
+                    $('.model-card[data-model="' + data.anthropic_model + '"][data-provider="anthropic"]').addClass('selected');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Fehler beim Laden der Model-Präferenzen:', error);
+            }
+        });
+    }
+    
+    function saveModelPreference(provider, modelId) {
+        $.ajax({
+            url: '/accounts/api/save-model-preference/',
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            },
+            data: JSON.stringify({
+                provider: provider,
+                model: modelId
+            }),
+            success: function(data) {
+                // Show success feedback
+                showModelSaveSuccess(provider, modelId);
+            },
+            error: function(xhr, status, error) {
+                console.error('Fehler beim Speichern der Model-Präferenz:', error);
+                showModelSaveError(provider, modelId);
+            }
+        });
+    }
+    
+    function showModelSaveSuccess(provider, modelId) {
+        const providerName = provider === 'openai' ? 'OpenAI' : 'Anthropic';
+        const card = $('.model-card[data-model="' + modelId + '"][data-provider="' + provider + '"]');
+        
+        // Temporarily show success indicator
+        const originalContent = card.html();
+        card.html('<div class="text-success"><i class="fas fa-check"></i><br><small>Gespeichert!</small></div>');
+        
+        setTimeout(() => {
+            card.html(originalContent);
+        }, 2000);
+    }
+    
+    function showModelSaveError(provider, modelId) {
+        const card = $('.model-card[data-model="' + modelId + '"][data-provider="' + provider + '"]');
+        
+        // Temporarily show error indicator
+        const originalContent = card.html();
+        card.html('<div class="text-danger"><i class="fas fa-times"></i><br><small>Fehler!</small></div>');
+        
+        setTimeout(() => {
+            card.html(originalContent);
+        }, 2000);
+    }
+    
+    // Initialize model selection when page loads
+    initializeModelSelection();
 });
 </script>
 

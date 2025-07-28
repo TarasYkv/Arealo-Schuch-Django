@@ -16,7 +16,7 @@ from rest_framework.response import Response
 from rest_framework import status
 import json
 
-from .models import EmailAccount, Email, Folder, EmailDraft, EmailThread
+from .models import EmailAccount, Email, Folder, EmailDraft
 from .services import ZohoOAuthService, ZohoMailAPIService, EmailSyncService, ReAuthorizationRequiredError
 
 logger = logging.getLogger(__name__)

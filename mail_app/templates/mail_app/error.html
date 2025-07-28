@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ error_title|default:"Fehler" }} - Workloom Mail</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #004077;
+            --secondary-color: #17a2b8;
+            --error-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #17a2b8;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .error-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 40px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .error-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.7;
+        }
+        
+        .error-title {
+            color: var(--error-color);
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        
+        .error-message {
+            color: #6c757d;
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        
+        .error-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 64, 119, 0.3);
+        }
+        
+        .btn-outline-secondary {
+            border: 2px solid #6c757d;
+            color: #6c757d;
+            padding: 10px 22px;
+            border-radius: 25px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-outline-secondary:hover {
+            background: #6c757d;
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        .error-details {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid var(--warning-color);
+            text-align: left;
+        }
+        
+        .error-details-title {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+        
+        .error-details-content {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #6c757d;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .back-link:hover {
+            color: var(--secondary-color);
+            text-decoration: none;
+            transform: translateX(-5px);
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <!-- Error Icon -->
+        <div class="error-icon">
+            {% if 'permission' in error_title|lower %}
+                🔒
+            {% elif 'database' in error_title|lower %}
+                🗄️
+            {% elif 'authentication' in error_title|lower or 'auth' in error_title|lower %}
+                🔑
+            {% elif 'network' in error_title|lower or 'connection' in error_title|lower %}
+                🌐
+            {% else %}
+                ⚠️
+            {% endif %}
+        </div>
+        
+        <!-- Error Title -->
+        <h1 class="error-title">{{ error_title|default:"Unerwarteter Fehler" }}</h1>
+        
+        <!-- Error Message -->
+        <p class="error-message">
+            {{ error_message|default:"Es ist ein unerwarteter Fehler aufgetreten. Bitte versuchen Sie es später erneut." }}
+        </p>
+        
+        <!-- Action Buttons -->
+        <div class="error-actions">
+            <button onclick="history.back()" class="btn btn-outline-secondary">
+                ← Zurück
+            </button>
+            <a href="{% url 'mail_app:dashboard' %}" class="btn btn-primary">
+                📧 Zu Mail Dashboard
+            </a>
+            <button onclick="location.reload()" class="btn btn-outline-secondary">
+                🔄 Seite neu laden
+            </button>
+        </div>
+        
+        <!-- Error Details (only in debug mode) -->
+        {% if show_details and error_details %}
+        <div class="error-details">
+            <div class="error-details-title">🔍 Technische Details</div>
+            <div class="error-details-content">{{ error_details }}</div>
+        </div>
+        {% endif %}
+        
+        <!-- Quick Actions -->
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e9ecef;">
+            <p style="color: #6c757d; font-size: 14px; margin-bottom: 15px;">
+                Häufige Lösungsansätze:
+            </p>
+            <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                <a href="{% url 'mail_app:oauth_authorize' %}" class="back-link">
+                    🔄 Email-Konto neu verbinden
+                </a>
+                <a href="{% url 'accounts:dashboard' %}" class="back-link">
+                    🏠 Zur Hauptseite
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Auto-refresh for temporary errors (if specified)
+        {% if auto_refresh_seconds %}
+        let countdown = {{ auto_refresh_seconds }};
+        const refreshBtn = document.querySelector('button[onclick="location.reload()"]');
+        
+        function updateCountdown() {
+            if (countdown > 0) {
+                refreshBtn.innerHTML = `🔄 Automatisch neu laden in ${countdown}s`;
+                countdown--;
+                setTimeout(updateCountdown, 1000);
+            } else {
+                location.reload();
+            }
+        }
+        
+        updateCountdown();
+        {% endif %}
+        
+        // Log error for debugging
+        console.error('Mail App Error:', {
+            title: '{{ error_title|escapejs }}',
+            message: '{{ error_message|escapejs }}',
+            {% if error_details %}details: '{{ error_details|escapejs }}',{% endif %}
+            timestamp: new Date().toISOString(),
+            url: window.location.href
+        });
+    </script>
+</body>
+</html>

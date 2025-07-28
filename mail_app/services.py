@@ -15,7 +15,7 @@ from typing import Dict, List, Optional, Tuple
 from django.conf import settings
 from django.utils import timezone
 from requests_oauthlib import OAuth2Session
-from .models import EmailAccount, Email, Folder, Attachment, SyncLog, EmailThread
+from .models import EmailAccount, Email, Folder, EmailAttachment, SyncLog, EmailThread
 
 logger = logging.getLogger(__name__)
 
@@ -1237,7 +1237,7 @@ class EmailSyncService:
     def _sync_attachments(self, email_obj: Email, attachments_data: List[Dict]):
         """Sync attachments for an email."""
         for attachment_data in attachments_data:
-            Attachment.objects.get_or_create(
+            EmailAttachment.objects.get_or_create(
                 email=email_obj,
                 zoho_attachment_id=attachment_data.get('attachmentId'),
                 defaults={

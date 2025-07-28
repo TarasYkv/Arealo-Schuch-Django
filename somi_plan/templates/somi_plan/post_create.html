@@ -1,0 +1,802 @@
+{% extends "somi_plan/base.html" %}
+{% load static %}
+
+{% block page_title %}Neuen Post erstellen{% endblock %}
+{% block page_description %}Erstelle einen neuen intelligenten Post für {{ plan.platform.name }}{% endblock %}
+
+{% block main_content %}
+<div class="container-fluid px-3">
+    <div class="row">
+        <div class="col-12">
+            
+            <!-- Enhanced Header Section -->
+            <div class="post-create-header mb-4">
+                <!-- Breadcrumb Navigation -->
+                <nav aria-label="breadcrumb" class="mb-3">
+                    <ol class="breadcrumb custom-breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'somi_plan:dashboard' %}">
+                                <i class="fas fa-home"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'somi_plan:plan_detail' plan.pk %}">{{ plan.title|truncatechars:30 }}</a>
+                        </li>
+                        <li class="breadcrumb-item active">Neuen Post erstellen</li>
+                    </ol>
+                </nav>
+                
+                <!-- Hero Header Card -->
+                <div class="hero-card mb-4">
+                    <div class="hero-gradient"></div>
+                    <div class="hero-content">
+                        <div class="d-flex align-items-center">
+                            <div class="platform-icon-wrapper me-4">
+                                <i class="{{ plan.platform.icon }} fa-3x text-white"></i>
+                                <div class="platform-badge">{{ plan.platform.name }}</div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h1 class="hero-title mb-2">
+                                    <i class="fas fa-plus-circle me-3"></i>Neuen Post erstellen
+                                </h1>
+                                <div class="hero-meta">
+                                    <span class="meta-item">
+                                        <i class="fas fa-ruler-horizontal me-1"></i>
+                                        {{ plan.platform.character_limit }} Zeichen Limit
+                                    </span>
+                                    <span class="meta-item">
+                                        <i class="fas fa-robot me-1"></i>
+                                        KI-gestützt
+                                    </span>
+                                    <span class="meta-item">
+                                        <i class="fas fa-lightbulb me-1"></i>
+                                        Intelligent & Einzigartig
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        
+            <!-- Modern Create Form -->
+            <div class="create-form-container">
+                <div class="form-header mb-4">
+                    <h2 class="form-title">
+                        <i class="fas fa-wand-magic-sparkles me-3"></i>KI-assistierte Post-Erstellung
+                    </h2>
+                    <p class="form-subtitle text-muted">Gib eine Richtung vor und lass die KI einen einzigartigen Post für {{ plan.platform.name }} erstellen</p>
+                </div>
+
+                <form method="post" id="post-create-form" class="modern-form">
+                    {% csrf_token %}
+                    
+                    <!-- Main Content (Full Width) -->
+                    <div class="col-12">
+                        <!-- Content Section 1: Thema & Richtung -->
+                        <div class="form-section mb-5">
+                            <h4 class="section-title">
+                                <span class="section-number">1</span>
+                                <span class="section-text">Thema & Richtung</span>
+                            </h4>
+                            
+                            <!-- Topic Input -->
+                            <div class="form-group mb-4">
+                                <label for="topic" class="form-label-modern">
+                                    <i class="fas fa-target label-icon"></i>
+                                    <span class="label-text">Thema/Richtung</span>
+                                    <span class="label-required">*</span>
+                                </label>
+                                <textarea name="topic" id="topic" class="form-control" rows="4" 
+                                    placeholder="Beschreibe das Thema, die Richtung oder den Fokus für deinen neuen Post. Z.B.: 'Tipps für bessere Produktivität im Homeoffice' oder 'Nachhaltigkeit im Alltag'..." required></textarea>
+                                <div class="form-help">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Je detaillierter deine Vorgabe, desto passgenauer wird der generierte Content
+                                </div>
+                            </div>
+
+                            <!-- Content Type Selection -->
+                            <div class="form-group mb-4">
+                                <label for="post_type" class="form-label-modern">
+                                    <i class="fas fa-layer-group label-icon"></i>
+                                    <span class="label-text">Post-Typ</span>
+                                </label>
+                                <select name="post_type" id="post_type" class="form-control">
+                                    <option value="tips">Tipps & Tricks</option>
+                                    <option value="behind_scenes">Behind the Scenes</option>
+                                    <option value="product">Produktvorstellungen</option>
+                                    <option value="educational">Bildungsinhalte</option>
+                                    <option value="motivational">Motivierende Posts</option>
+                                    <option value="testimonials">Kundenstimmen</option>
+                                    <option value="news">News & Updates</option>
+                                    <option value="questions">Fragen an Community</option>
+                                </select>
+                                <div class="form-help">Wähle den Typ des Posts, den die KI erstellen soll</div>
+                            </div>
+                        </div>
+
+                        <!-- Content Section 2: KI-Einstellungen -->
+                        <div class="form-section mb-5">
+                            <h4 class="section-title">
+                                <span class="section-number">2</span>
+                                <span class="section-text">KI-Einstellungen</span>
+                            </h4>
+                            
+                            <div class="row">
+                                <div class="col-lg-6">
+                                    <!-- AI Provider Selection -->
+                                    <div class="form-group mb-4">
+                                        <label for="ai_provider" class="form-label-modern">
+                                            <i class="fas fa-brain label-icon"></i>
+                                            <span class="label-text">KI-Anbieter</span>
+                                        </label>
+                                        <select name="ai_provider" id="ai_provider" class="form-control" onchange="updateModelOptions()">
+                                            <option value="openai">OpenAI (GPT)</option>
+                                            <option value="anthropic">Anthropic (Claude)</option>
+                                            <option value="gemini">Google (Gemini)</option>
+                                        </select>
+                                        <div class="form-help">Wähle den KI-Anbieter für die Content-Generierung</div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-6">
+                                    <!-- AI Model Selection -->
+                                    <div class="form-group mb-4">
+                                        <label for="ai_model" class="form-label-modern">
+                                            <i class="fas fa-microchip label-icon"></i>
+                                            <span class="label-text">KI-Modell</span>
+                                        </label>
+                                        <select name="ai_model" id="ai_model" class="form-control">
+                                            <!-- Options will be populated by JavaScript -->
+                                        </select>
+                                        <div class="form-help">Wähle das spezifische Modell für die Generierung</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Creativity Level -->
+                            <div class="form-group mb-4">
+                                <label for="creativity_level" class="form-label-modern">
+                                    <i class="fas fa-palette label-icon"></i>
+                                    <span class="label-text">Kreativitätslevel</span>
+                                </label>
+                                <select name="creativity_level" id="creativity_level" class="form-control">
+                                    <option value="conservative">Konservativ - Bewährte Ansätze</option>
+                                    <option value="balanced" selected>Ausgewogen - Mix aus Sicherheit und Innovation</option>
+                                    <option value="creative">Kreativ - Neue und ungewöhnliche Ideen</option>
+                                    <option value="experimental">Experimentell - Sehr innovative Ansätze</option>
+                                </select>
+                                <div class="form-help">Bestimme, wie kreativ und experimentell der generierte Content sein soll</div>
+                            </div>
+                        </div>
+
+                        <!-- Content Section 3: Zusätzliche Einstellungen -->
+                        <div class="form-section mb-5">
+                            <h4 class="section-title">
+                                <span class="section-number">3</span>
+                                <span class="section-text">Zusätzliche Einstellungen</span>
+                            </h4>
+                            
+                            <div class="row">
+                                <div class="col-lg-6">
+                                    <!-- Priority -->
+                                    <div class="form-group mb-4">
+                                        <label for="priority" class="form-label-modern">
+                                            <i class="fas fa-exclamation-circle label-icon"></i>
+                                            <span class="label-text">Priorität</span>
+                                        </label>
+                                        <select name="priority" id="priority" class="form-control">
+                                            <option value="3">Niedrig</option>
+                                            <option value="2" selected>Mittel</option>
+                                            <option value="1">Hoch</option>
+                                        </select>
+                                        <div class="form-help">Setze die Wichtigkeit für die Veröffentlichungsreihenfolge</div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-6">
+                                    <!-- Include Hashtags -->
+                                    <div class="form-group mb-4">
+                                        <label class="form-label-modern">
+                                            <i class="fas fa-hashtag label-icon"></i>
+                                            <span class="label-text">Content-Elemente</span>
+                                        </label>
+                                        <div class="checkbox-group">
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="include_hashtags" id="include_hashtags" checked>
+                                                <label class="form-check-label" for="include_hashtags">
+                                                    Hashtags generieren
+                                                </label>
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" name="include_cta" id="include_cta" checked>
+                                                <label class="form-check-label" for="include_cta">
+                                                    Call-to-Action hinzufügen
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="include_script" id="include_script" checked>
+                                                <label class="form-check-label" for="include_script">
+                                                    Umsetzungs-Anweisungen erstellen
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="form-help">Wähle, welche zusätzlichen Elemente generiert werden sollen</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Analysis Info Card -->
+                            <div class="analysis-info-card mt-4">
+                                <div class="d-flex align-items-center">
+                                    <div class="analysis-icon me-3">
+                                        <i class="fas fa-search-plus fa-2x"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h6 class="analysis-title mb-1">Intelligente Content-Analyse</h6>
+                                        <p class="analysis-description mb-0">
+                                            Die KI analysiert automatisch alle bestehenden Posts in diesem Plan, um einzigartigen, 
+                                            sich nicht wiederholenden Content zu erstellen, der dennoch spannend und relevant ist.
+                                        </p>
+                                    </div>
+                                    <div class="analysis-stats">
+                                        <div class="stat-badge">
+                                            <span class="stat-number">{{ plan.postcontent_set.count }}</span>
+                                            <span class="stat-label">Posts analysiert</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="form-actions">
+                        <div class="action-buttons">
+                            <div class="left-actions">
+                                <a href="{% url 'somi_plan:plan_detail' plan.pk %}" class="btn btn-outline-secondary btn-lg">
+                                    <i class="fas fa-arrow-left me-2"></i>Zurück
+                                </a>
+                            </div>
+                            <div class="right-actions">
+                                <button type="submit" class="btn btn-success btn-lg" id="generate-btn">
+                                    <i class="fas fa-wand-magic-sparkles me-2"></i>Post generieren
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center p-4">
+                <div class="loading-animation mb-3">
+                    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                <h5 class="mb-2">KI erstellt deinen Post...</h5>
+                <p class="text-muted mb-0">
+                    <span id="loading-step">Analysiere bestehende Posts...</span>
+                </p>
+                <div class="progress mt-3" style="height: 6px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" id="progress-bar" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+// AI Model Options
+const modelOptions = {
+    openai: [
+        { value: 'gpt-4o', label: 'GPT-4o (Premium)', description: 'Höchste Qualität' },
+        { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Standard)', description: 'Ausgewogen' },
+        { value: 'gpt-4-turbo', label: 'GPT-4 Turbo', description: 'Schnell & Günstig' },
+        { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo', description: 'Günstig' }
+    ],
+    anthropic: [
+        { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (Premium)', description: 'Top-Tier' },
+        { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (Schnell)', description: 'Schnell' },
+        { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus', description: 'Höchste Qualität' },
+        { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet (Standard)', description: 'Standard' },
+        { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku', description: 'Günstig' }
+    ],
+    gemini: [
+        { value: 'gemini-pro', label: 'Gemini Pro', description: 'Google Standard' },
+        { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro', description: 'Premium' }
+    ]
+};
+
+function updateModelOptions() {
+    const provider = document.getElementById('ai_provider').value;
+    const modelSelect = document.getElementById('ai_model');
+    
+    // Clear existing options
+    modelSelect.innerHTML = '';
+    
+    // Add new options
+    modelOptions[provider].forEach(model => {
+        const option = document.createElement('option');
+        option.value = model.value;
+        option.textContent = model.label;
+        option.title = model.description;
+        modelSelect.appendChild(option);
+    });
+}
+
+// Load user preferences
+function loadUserPreferences() {
+    fetch('/accounts/api/get-model-preferences/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Set default selections based on user preferences
+                const openaiModel = data.openai_model || 'gpt-4o-mini';
+                const anthropicModel = data.anthropic_model || 'claude-3-5-sonnet-20241022';
+                
+                // Update model options first
+                updateModelOptions();
+                
+                // Set the appropriate model based on current provider
+                const currentProvider = document.getElementById('ai_provider').value;
+                if (currentProvider === 'openai') {
+                    document.getElementById('ai_model').value = openaiModel;
+                } else {
+                    document.getElementById('ai_model').value = anthropicModel;
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading user preferences:', error);
+            updateModelOptions(); // Fallback to default options
+        });
+}
+
+// Form submission with loading animation
+document.getElementById('post-create-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const topic = document.getElementById('topic').value.trim();
+    if (!topic) {
+        alert('Bitte gib ein Thema oder eine Richtung an.');
+        return;
+    }
+    
+    // Show loading modal
+    const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+    loadingModal.show();
+    
+    // Simulate progress steps
+    const steps = [
+        'Analysiere bestehende Posts...',
+        'Entwickle einzigartige Ideen...',
+        'Erstelle Content-Struktur...',
+        'Generiere finalen Post...',
+        'Optimiere für {{ plan.platform.name }}...'
+    ];
+    
+    let currentStep = 0;
+    const progressBar = document.getElementById('progress-bar');
+    const loadingStep = document.getElementById('loading-step');
+    
+    const progressInterval = setInterval(() => {
+        if (currentStep < steps.length) {
+            loadingStep.textContent = steps[currentStep];
+            progressBar.style.width = ((currentStep + 1) / steps.length) * 100 + '%';
+            currentStep++;
+        }
+    }, 2000);
+    
+    // Submit form
+    const formData = new FormData(this);
+    
+    fetch(window.location.href, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => {
+        clearInterval(progressInterval);
+        loadingModal.hide();
+        
+        if (response.ok) {
+            return response.json();
+        } else {
+            throw new Error('Network response was not ok');
+        }
+    })
+    .then(data => {
+        if (data.success) {
+            // Redirect to the created post edit page
+            window.location.href = data.redirect_url;
+        } else {
+            alert('Fehler beim Erstellen des Posts: ' + (data.error || 'Unbekannter Fehler'));
+        }
+    })
+    .catch(error => {
+        clearInterval(progressInterval);
+        loadingModal.hide();
+        console.error('Error:', error);
+        alert('Es ist ein Fehler aufgetreten. Bitte versuche es erneut.');
+    });
+});
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadUserPreferences();
+});
+</script>
+{% endblock %}
+
+{% block page_css %}
+<style>
+    /* ===== MODERN FORM STYLES ===== */
+    .create-form-container {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        padding: 2.5rem;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        position: relative;
+        overflow: hidden;
+        max-width: none;
+    }
+    
+    .create-form-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        z-index: 1;
+    }
+    
+    .modern-form {
+        position: relative;
+        z-index: 2;
+    }
+    
+    /* ===== HEADER STYLES ===== */
+    .custom-breadcrumb {
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(10px);
+        border-radius: 10px;
+        padding: 0.75rem 1.5rem;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    
+    .custom-breadcrumb a {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 500;
+    }
+    
+    .hero-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        overflow: hidden;
+        position: relative;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    }
+    
+    .hero-gradient {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+    }
+    
+    .hero-content {
+        position: relative;
+        z-index: 2;
+        padding: 2.5rem;
+        color: white;
+    }
+    
+    .platform-icon-wrapper {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .platform-badge {
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        margin-top: 0.5rem;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .hero-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        margin: 0;
+    }
+    
+    .hero-meta {
+        display: flex;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+        opacity: 0.9;
+    }
+    
+    .meta-item {
+        display: flex;
+        align-items: center;
+        font-size: 0.95rem;
+    }
+    
+    /* ===== FORM SECTIONS ===== */
+    .form-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    .form-title {
+        color: #2d3748;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-subtitle {
+        font-size: 1.1rem;
+    }
+    
+    .form-section {
+        background: white;
+        border-radius: 15px;
+        padding: 2rem;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    
+    .section-title {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        font-weight: 600;
+        color: #2d3748;
+    }
+    
+    .section-number {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        margin-right: 1rem;
+        font-size: 0.9rem;
+    }
+    
+    /* ===== FORM CONTROLS ===== */
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-label-modern {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.75rem;
+        font-weight: 600;
+        color: #2d3748;
+        font-size: 1rem;
+    }
+    
+    .label-icon {
+        margin-right: 0.5rem;
+        color: #667eea;
+        width: 16px;
+    }
+    
+    .label-required {
+        color: #e53e3e;
+        margin-left: 0.25rem;
+    }
+    
+    .form-control {
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: #f8fafc;
+    }
+    
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        background: white;
+    }
+    
+    textarea.form-control {
+        min-height: 120px;
+        resize: vertical;
+    }
+    
+    .form-help {
+        font-size: 0.9rem;
+        color: #718096;
+        margin-top: 0.5rem;
+        font-style: italic;
+    }
+    
+    /* ===== CHECKBOX GROUP ===== */
+    .checkbox-group {
+        background: #f8fafc;
+        border-radius: 10px;
+        padding: 1rem;
+        border: 2px solid #e2e8f0;
+    }
+    
+    .form-check-input:checked {
+        background-color: #667eea;
+        border-color: #667eea;
+    }
+    
+    .form-check-label {
+        font-weight: 500;
+        color: #2d3748;
+    }
+    
+    /* ===== ANALYSIS INFO CARD ===== */
+    .analysis-info-card {
+        background: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 100%);
+        border-radius: 15px;
+        padding: 1.5rem;
+        border: 2px solid rgba(0, 188, 212, 0.2);
+        box-shadow: 0 4px 12px rgba(0, 188, 212, 0.1);
+    }
+    
+    .analysis-icon {
+        background: rgba(0, 188, 212, 0.1);
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #00acc1;
+    }
+    
+    .analysis-title {
+        color: #00695c;
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+    
+    .analysis-description {
+        color: #004d40;
+        line-height: 1.6;
+    }
+    
+    .stat-badge {
+        background: rgba(0, 188, 212, 0.1);
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        text-align: center;
+        border: 1px solid rgba(0, 188, 212, 0.2);
+    }
+    
+    .stat-number {
+        display: block;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #00695c;
+        line-height: 1;
+    }
+    
+    .stat-label {
+        font-size: 0.8rem;
+        color: #004d40;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 500;
+    }
+    
+    /* ===== ACTION BUTTONS ===== */
+    .form-actions {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        margin-top: 2rem;
+    }
+    
+    .action-buttons {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .btn-lg {
+        padding: 0.75rem 2rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-success {
+        background: linear-gradient(135deg, #48bb78, #38a169);
+        border: none;
+        box-shadow: 0 4px 12px rgba(72, 187, 120, 0.3);
+    }
+    
+    .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(72, 187, 120, 0.4);
+    }
+    
+    .btn-outline-secondary {
+        border: 2px solid #a0aec0;
+        color: #4a5568;
+        background: transparent;
+    }
+    
+    .btn-outline-secondary:hover {
+        background: #4a5568;
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    /* ===== LOADING MODAL ===== */
+    .loading-animation {
+        position: relative;
+    }
+    
+    .progress {
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    
+    .progress-bar {
+        background: linear-gradient(90deg, #667eea, #764ba2);
+    }
+    
+    /* ===== RESPONSIVE DESIGN ===== */
+    @media (max-width: 768px) {
+        .hero-title {
+            font-size: 1.8rem;
+        }
+        
+        .hero-meta {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .create-form-container {
+            padding: 1.5rem;
+        }
+        
+        .form-section {
+            padding: 1.5rem;
+        }
+    }
+</style>
+{% endblock %}

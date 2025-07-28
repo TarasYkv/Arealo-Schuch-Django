@@ -1,0 +1,971 @@
+{% extends "somi_plan/base.html" %}
+{% load static %}
+
+{% block page_title %}{{ plan.title }} - Schritt 2{% endblock %}
+{% block page_description %}Strategie-Entwicklung: KI-gestützte Posting-Strategie{% endblock %}
+
+{% block main_content %}
+<!-- Progress Steps -->
+<div class="progress-steps mb-4">
+    <div class="step completed">
+        <div class="step-number">
+            <i class="fas fa-check"></i>
+        </div>
+        <span>Basis-Setup</span>
+    </div>
+    <div class="step active">
+        <div class="step-number">2</div>
+        <span>Strategie</span>
+    </div>
+    <div class="step">
+        <div class="step-number">3</div>
+        <span>Content</span>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        
+        <!-- Plan Info Header -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <i class="{{ plan.platform.icon }} fa-2x me-3" style="color: {{ plan.platform.color }};"></i>
+                    <div>
+                        <h5 class="card-title mb-1">{{ plan.title }}</h5>
+                        <small class="text-muted">{{ plan.platform.name }} • {{ plan.platform.character_limit }} Zeichen Limit</small>
+                    </div>
+                    <div class="ms-auto">
+                        <span class="badge bg-primary">{{ plan.get_status_display }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- AI Model Selection -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-robot me-2"></i>KI-Assistent auswählen
+                </h5>
+                <small class="text-muted">Wähle den KI-Assistenten, der deine Strategie und Content erstellen soll.</small>
+            </div>
+            <div class="card-body">
+                <!-- Model Provider Tabs -->
+                <nav>
+                    <div class="nav nav-tabs" id="nav-tab" role="tablist">
+                        <button class="nav-link active" id="nav-openai-tab" data-bs-toggle="tab" data-bs-target="#nav-openai" type="button" role="tab">
+                            <i class="fab fa-openai me-2"></i>OpenAI
+                        </button>
+                        <button class="nav-link" id="nav-anthropic-tab" data-bs-toggle="tab" data-bs-target="#nav-anthropic" type="button" role="tab">
+                            <i class="fas fa-brain me-2"></i>Anthropic
+                        </button>
+                        <button class="nav-link" id="nav-gemini-tab" data-bs-toggle="tab" data-bs-target="#nav-gemini" type="button" role="tab">
+                            <i class="fab fa-google me-2"></i>Google
+                        </button>
+                    </div>
+                </nav>
+                
+                <div class="tab-content mt-3" id="nav-tabContent">
+                    <!-- OpenAI Models -->
+                    <div class="tab-pane fade show active" id="nav-openai" role="tabpanel">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="ai-model-card" data-model="gpt-4o" onclick="selectAIModel('gpt-4o')">
+                                    <div class="ai-model-icon">
+                                        <i class="fas fa-crown text-warning"></i>
+                                    </div>
+                                    <h6 class="ai-model-name">GPT-4o</h6>
+                                    <p class="ai-model-description">Premium-Modell mit höchster Qualität und neuesten Features</p>
+                                    <div class="ai-model-features">
+                                        <span class="badge bg-warning">Premium</span>
+                                        <span class="badge bg-success">Neueste Version</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="ai-model-card" data-model="gpt-4o-mini" onclick="selectAIModel('gpt-4o-mini')">
+                                    <div class="ai-model-icon">
+                                        <i class="fas fa-star text-info"></i>
+                                    </div>
+                                    <h6 class="ai-model-name">GPT-4o Mini</h6>
+                                    <p class="ai-model-description">Ausgewogenes Modell zwischen Qualität und Geschwindigkeit</p>
+                                    <div class="ai-model-features">
+                                        <span class="badge bg-info">Standard</span>
+                                        <span class="badge bg-primary">Empfohlen</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Anthropic Models -->
+                    <div class="tab-pane fade" id="nav-anthropic" role="tabpanel">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="ai-model-card" data-model="claude-3-5-sonnet-20241022" onclick="selectAIModel('claude-3-5-sonnet-20241022')">
+                                    <div class="ai-model-icon">
+                                        <i class="fas fa-gem text-purple"></i>
+                                    </div>
+                                    <h6 class="ai-model-name">Claude 3.5 Sonnet</h6>
+                                    <p class="ai-model-description">Top-Tier Modell für Analyse und kreative Aufgaben</p>
+                                    <div class="ai-model-features">
+                                        <span class="badge bg-primary">Premium</span>
+                                        <span class="badge bg-success">Analytisch</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="ai-model-card" data-model="claude-3-5-haiku-20241022" onclick="selectAIModel('claude-3-5-haiku-20241022')">
+                                    <div class="ai-model-icon">
+                                        <i class="fas fa-zap text-warning"></i>
+                                    </div>
+                                    <h6 class="ai-model-name">Claude 3.5 Haiku</h6>
+                                    <p class="ai-model-description">Schnelles Modell für effiziente Antworten</p>
+                                    <div class="ai-model-features">
+                                        <span class="badge bg-warning">Schnell</span>
+                                        <span class="badge bg-info">Effizient</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Gemini Models -->
+                    <div class="tab-pane fade" id="nav-gemini" role="tabpanel">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="ai-model-card" data-model="gemini-pro" onclick="selectAIModel('gemini-pro')">
+                                    <div class="ai-model-icon">
+                                        <i class="fas fa-diamond text-primary"></i>
+                                    </div>
+                                    <h6 class="ai-model-name">Gemini Pro</h6>
+                                    <p class="ai-model-description">Multimodales Modell mit Text- und Bildverständnis</p>
+                                    <div class="ai-model-features">
+                                        <span class="badge bg-primary">Multimodal</span>
+                                        <span class="badge bg-success">Vielseitig</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="ai-model-card" data-model="gemini-flash" onclick="selectAIModel('gemini-flash')">
+                                    <div class="ai-model-icon">
+                                        <i class="fas fa-flash text-warning"></i>
+                                    </div>
+                                    <h6 class="ai-model-name">Gemini Flash</h6>
+                                    <p class="ai-model-description">Lightweight-Modell für schnelle Antworten</p>
+                                    <div class="ai-model-features">
+                                        <span class="badge bg-warning">Lightweight</span>
+                                        <span class="badge bg-info">Schnell</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Selected AI Model Status -->
+                <div id="ai-model-status" class="alert alert-warning mt-3" style="display: none;">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <span>Bitte wähle einen KI-Assistenten aus, um fortzufahren.</span>
+                </div>
+                
+                <div id="ai-model-selected" class="alert alert-success mt-3" style="display: none;">
+                    <i class="fas fa-check-circle me-2"></i>
+                    <span id="selected-ai-model-name">KI-Assistent ausgewählt</span>
+                </div>
+                
+                <!-- Hidden input for AI model -->
+                <input type="hidden" name="ai_model" id="id_ai_model" value="">
+            </div>
+        </div>
+
+        <!-- Strategy Form -->
+        <form method="post" id="strategy-form">
+            {% csrf_token %}
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>Content-Strategie entwickeln
+                    </h5>
+                    <small class="text-muted">Lasse die KI eine optimale Strategie erstellen oder passe sie manuell an.</small>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- AI Strategy Option -->
+                    <div class="mb-4">
+                        <div class="form-check form-switch">
+                            {{ form.use_ai_strategy }}
+                            <label class="form-check-label" for="{{ form.use_ai_strategy.id_for_label }}">
+                                <strong>{{ form.use_ai_strategy.label }}</strong>
+                            </label>
+                            <div class="form-text">{{ form.use_ai_strategy.help_text }}</div>
+                        </div>
+                    </div>
+
+                    <!-- AI Strategy Loading/Results -->
+                    <div id="ai-strategy-results" style="display: none;">
+                        <!-- Loading State -->
+                        <div id="strategy-loading" class="text-center py-4">
+                            <div class="spinner-border text-primary mb-3" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <h6>KI analysiert deine Eingaben...</h6>
+                            <p class="text-muted">
+                                Die KI erstellt basierend auf deinem Profil, deiner Zielgruppe und deinen Zielen 
+                                eine optimale Posting-Strategie für {{ plan.platform.name }}.
+                            </p>
+                            <div class="progress">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- AI Strategy Results -->
+                        <div id="ai-strategy-content" style="display: none;">
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle me-2"></i>
+                                <strong>KI-Strategie erfolgreich erstellt!</strong> Du kannst sie unten anpassen.
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6><i class="fas fa-calendar-alt me-2"></i>Posting-Frequenz</h6>
+                                    <div class="mb-3">
+                                        <div class="ai-recommendation p-3 bg-light rounded">
+                                            <div id="frequency-recommendation">
+                                                <!-- Will be populated by AI response -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6><i class="fas fa-clock me-2"></i>Beste Zeiten</h6>
+                                    <div class="mb-3">
+                                        <div class="ai-recommendation p-3 bg-light rounded">
+                                            <div id="timing-recommendation">
+                                                <!-- Will be populated by AI response -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-12">
+                                    <h6><i class="fas fa-layer-group me-2"></i>Content-Mix</h6>
+                                    <div class="mb-3">
+                                        <div class="ai-recommendation p-3 bg-light rounded">
+                                            <div id="content-mix-recommendation">
+                                                <!-- Will be populated by AI response -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-12">
+                                    <h6><i class="fas fa-lightbulb me-2"></i>Strategische Empfehlungen</h6>
+                                    <div class="mb-3">
+                                        <div class="ai-recommendation p-3 bg-light rounded">
+                                            <div id="strategic-recommendations">
+                                                <!-- Will be populated by AI response -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Manual Strategy Options (collapsible) -->
+                    <div class="collapse" id="manual-strategy-options">
+                        <div class="card card-body mb-4">
+                            <h6 class="text-muted mb-3">Manuelle Strategie-Anpassungen</h6>
+                            
+                            <!-- Posting Frequency -->
+                            <div class="mb-4">
+                                <label class="form-label">
+                                    <i class="fas fa-calendar-alt me-2"></i>{{ form.posting_frequency.label }}
+                                </label>
+                                <div class="row">
+                                    {% for radio in form.posting_frequency %}
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            {{ radio.tag }}
+                                            <label class="form-check-label" for="{{ radio.id_for_label }}">
+                                                {{ radio.choice_label }}
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            
+                            <!-- Best Times -->
+                            <div class="mb-4">
+                                <label class="form-label">
+                                    <i class="fas fa-clock me-2"></i>{{ form.best_times.label }}
+                                </label>
+                                <div class="row">
+                                    {% for checkbox in form.best_times %}
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            {{ checkbox.tag }}
+                                            <label class="form-check-label" for="{{ checkbox.id_for_label }}">
+                                                {{ checkbox.choice_label }}
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            
+                            <!-- Content Types -->
+                            <div class="mb-4">
+                                <label class="form-label">
+                                    <i class="fas fa-layer-group me-2"></i>{{ form.content_types.label }}
+                                </label>
+                                <div class="row">
+                                    {% for checkbox in form.content_types %}
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            {{ checkbox.tag }}
+                                            <label class="form-check-label" for="{{ checkbox.id_for_label }}">
+                                                {{ checkbox.choice_label }}
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            
+                            <!-- Cross Platform -->
+                            <div class="mb-4">
+                                <div class="form-check form-switch">
+                                    {{ form.cross_platform }}
+                                    <label class="form-check-label" for="{{ form.cross_platform.id_for_label }}">
+                                        <i class="fas fa-share-alt me-2"></i>
+                                        <strong>{{ form.cross_platform.label }}</strong>
+                                        <br>
+                                        <small class="text-muted">
+                                            Erstelle Varianten der Posts die für andere Social Media Plattformen optimiert sind
+                                        </small>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- Additional Notes -->
+                            <div class="mb-4">
+                                <label for="{{ form.additional_notes.id_for_label }}" class="form-label">
+                                    <i class="fas fa-sticky-note me-2"></i>{{ form.additional_notes.label }}
+                                </label>
+                                {{ form.additional_notes }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'somi_plan:create_plan_step1' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Zurück zu Schritt 1
+                        </a>
+                        
+                        <div>
+                            <button type="button" class="btn btn-outline-primary me-2" onclick="regenerateStrategy()" id="regenerate-btn">
+                                <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+                                <i class="fas fa-sync-alt me-2"></i>Strategie neu generieren
+                            </button>
+                            
+                            <button type="submit" class="btn btn-primary btn-lg" id="strategy-submit-btn">
+                                <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+                                <i class="fas fa-arrow-right me-2"></i>Weiter zu Schritt 3
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </form>
+        
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+// AI Model selection data
+const aiModels = {
+    // OpenAI Models
+    'gpt-4o': {
+        provider: 'openai',
+        name: 'GPT-4o',
+        description: 'Premium - Höchste Qualität und neueste Features'
+    },
+    'gpt-4o-mini': {
+        provider: 'openai', 
+        name: 'GPT-4o Mini',
+        description: 'Standard - Ausgewogen zwischen Qualität und Geschwindigkeit'
+    },
+    'gpt-4-turbo': {
+        provider: 'openai',
+        name: 'GPT-4 Turbo', 
+        description: 'Schnell - Effizient für schnelle Antworten'
+    },
+    'gpt-3.5-turbo': {
+        provider: 'openai',
+        name: 'GPT-3.5 Turbo',
+        description: 'Günstig - Kostensparend für einfache Aufgaben'
+    },
+    
+    // Anthropic Models  
+    'claude-3-5-sonnet-20241022': {
+        provider: 'anthropic',
+        name: 'Claude 3.5 Sonnet',
+        description: 'Premium - Top-Tier Analyse und Kreativität'
+    },
+    'claude-3-5-haiku-20241022': {
+        provider: 'anthropic',
+        name: 'Claude 3.5 Haiku', 
+        description: 'Schnell - Effizient für schnelle Antworten'
+    },
+    'claude-3-opus-20240229': {
+        provider: 'anthropic',
+        name: 'Claude 3 Opus',
+        description: 'Ultra - Höchste Qualität für komplexe Aufgaben'  
+    },
+    'claude-3-sonnet-20240229': {
+        provider: 'anthropic',
+        name: 'Claude 3 Sonnet',
+        description: 'Standard - Ausgewogene Leistung'
+    },
+    
+    // Google Models
+    'gemini-pro': {
+        provider: 'gemini',
+        name: 'Gemini Pro',
+        description: 'Premium - Multimodal mit Text und Bild-Verständnis'
+    },
+    'gemini-pro-vision': {
+        provider: 'gemini', 
+        name: 'Gemini Pro Vision',
+        description: 'Vision - Spezialisiert auf Bild- und Textanalyse'
+    },
+    'gemini-flash': {
+        provider: 'gemini',
+        name: 'Gemini Flash',
+        description: 'Schnell - Lightweight für schnelle Antworten'
+    }
+};
+
+// Make AI model selection function globally available
+window.selectAIModel = function(modelId) {
+    console.log('AI Model selected:', modelId);
+    
+    // Get the hidden input
+    const aiModelInput = document.getElementById('id_ai_model');
+    if (!aiModelInput) {
+        console.error('AI model input not found!');
+        return;
+    }
+    
+    // Update hidden input
+    aiModelInput.value = modelId;
+    
+    // Remove selected class from all cards
+    document.querySelectorAll('.ai-model-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    
+    // Add selected class to clicked card
+    const selectedCard = document.querySelector(`[data-model="${modelId}"]`);
+    if (selectedCard) {
+        selectedCard.classList.add('selected');
+        selectedCard.classList.add('pulse');
+        setTimeout(() => selectedCard.classList.remove('pulse'), 600);
+    }
+    
+    // Update status messages
+    const aiModelStatus = document.getElementById('ai-model-status');
+    const aiModelSelected = document.getElementById('ai-model-selected');
+    const selectedAiModelName = document.getElementById('selected-ai-model-name');
+    
+    if (aiModelStatus) aiModelStatus.style.display = 'none';
+    if (aiModelSelected) {
+        aiModelSelected.style.display = 'block';
+        if (selectedAiModelName && aiModels[modelId]) {
+            selectedAiModelName.textContent = `${aiModels[modelId].name} ausgewählt - ${aiModels[modelId].description}`;
+        }
+    }
+};
+document.addEventListener('DOMContentLoaded', function() {
+    const useAICheckbox = document.querySelector('#{{ form.use_ai_strategy.id_for_label }}');
+    const aiResultsDiv = document.getElementById('ai-strategy-results');
+    const manualOptionsDiv = document.getElementById('manual-strategy-options');
+    
+    // Store initial state
+    let isAIEnabled = localStorage.getItem('somi_ai_strategy_enabled');
+    if (isAIEnabled === null) {
+        isAIEnabled = 'true'; // Default to AI enabled
+    }
+    
+    // Set checkbox based on stored state
+    useAICheckbox.checked = (isAIEnabled === 'true');
+    
+    // Handle AI strategy toggle
+    useAICheckbox.addEventListener('change', function(e) {
+        // Prevent default if needed
+        e.preventDefault();
+        
+        // Store the new state
+        localStorage.setItem('somi_ai_strategy_enabled', this.checked.toString());
+        
+        if (this.checked) {
+            // Show AI strategy, hide manual options
+            aiResultsDiv.style.display = 'block';
+            manualOptionsDiv.classList.remove('show');
+            generateAIStrategy();
+        } else {
+            // Hide AI strategy, show manual options
+            aiResultsDiv.style.display = 'none';
+            manualOptionsDiv.classList.add('show');
+        }
+        
+        // Re-enable the event after a brief delay to prevent rapid toggling
+        setTimeout(() => {
+            useAICheckbox.disabled = false;
+        }, 100);
+    });
+    
+    // Initialize based on current checkbox state
+    setTimeout(() => {
+        if (useAICheckbox.checked) {
+            aiResultsDiv.style.display = 'block';
+            manualOptionsDiv.classList.remove('show');
+            generateAIStrategy();
+        } else {
+            aiResultsDiv.style.display = 'none';
+            manualOptionsDiv.classList.add('show');
+        }
+    }, 100);
+});
+
+async function generateAIStrategy() {
+    const loadingDiv = document.getElementById('strategy-loading');
+    const contentDiv = document.getElementById('ai-strategy-content');
+    const progressBar = loadingDiv.querySelector('.progress-bar');
+    
+    // Show loading
+    loadingDiv.style.display = 'block';
+    contentDiv.style.display = 'none';
+    
+    try {
+        // Make real API call to generate strategy
+        const response = await fetch(`{% url 'somi_plan:regenerate_strategy' plan.id %}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            }
+        });
+        
+        const result = await response.json();
+        
+        // Simulate progress for better UX
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += Math.random() * 20;
+            if (progress > 90) {
+                clearInterval(progressInterval);
+                progress = 100;
+            }
+            progressBar.style.width = progress + '%';
+        }, 200);
+        
+        setTimeout(() => {
+            clearInterval(progressInterval);
+            progressBar.style.width = '100%';
+            
+            if (result.status === 'success') {
+                // Populate AI recommendations
+                populateAIRecommendations(result.strategy_data);
+                
+                // Show results
+                loadingDiv.style.display = 'none';
+                contentDiv.style.display = 'block';
+            } else {
+                // Show error and fall back to manual
+                loadingDiv.style.display = 'none';
+                showError(result.message);
+                fallbackToManual();
+            }
+        }, 2000);
+        
+    } catch (error) {
+        console.error('Strategy generation failed:', error);
+        showError('Netzwerkfehler bei der Strategiegenerierung');
+        fallbackToManual();
+    }
+}
+
+function populateAIRecommendations(strategyData) {
+    // Frequency recommendation
+    const frequencyMap = {
+        'daily': 'Täglich',
+        'every_other_day': 'Jeden 2. Tag',
+        '3_times_week': '3x pro Woche',
+        '2_times_week': '2x pro Woche',
+        'weekly': 'Wöchentlich'
+    };
+    
+    document.getElementById('frequency-recommendation').innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="fas fa-calendar-check text-success fa-2x me-3"></i>
+            <div>
+                <strong>${frequencyMap[strategyData.posting_frequency] || strategyData.posting_frequency}</strong>
+                <br>
+                <small class="text-muted">
+                    ${strategyData.frequency_explanation || 'Optimal für deine Zielgruppe und Ressourcen'}
+                </small>
+            </div>
+        </div>
+    `;
+    
+    // Timing recommendation  
+    const timeMap = {
+        'morning': 'Morgens (6-9 Uhr)',
+        'midday': 'Mittags (11-14 Uhr)', 
+        'afternoon': 'Nachmittags (15-17 Uhr)',
+        'evening': 'Abends (18-21 Uhr)',
+        'night': 'Nachts (21-23 Uhr)'
+    };
+    
+    const bestTimes = strategyData.best_times || [];
+    const timeLabels = bestTimes.map(time => timeMap[time] || time).join(', ');
+    
+    document.getElementById('timing-recommendation').innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="fas fa-clock text-info fa-2x me-3"></i>
+            <div>
+                <strong>${timeLabels}</strong>
+                <br>
+                <small class="text-muted">
+                    ${strategyData.posting_times_explanation || 'Beste Zeiten für deine Zielgruppe auf ' + '{{ plan.platform.name }}'}
+                </small>
+            </div>
+        </div>
+    `;
+    
+    // Content mix recommendation
+    const contentMix = strategyData.content_mix_percentages || {};
+    let mixHtml = '<div class="row text-center">';
+    
+    Object.entries(contentMix).forEach(([type, percentage]) => {
+        const typeLabels = {
+            'tips': 'Tipps',
+            'behind_scenes': 'Behind Scenes', 
+            'motivational': 'Motivation',
+            'product': 'Produkte',
+            'educational': 'Bildung',
+            'testimonials': 'Testimonials',
+            'news': 'News',
+            'questions': 'Fragen'
+        };
+        
+        mixHtml += `
+            <div class="col-3">
+                <div class="p-2 bg-primary text-white rounded">
+                    <strong>${percentage}%</strong>
+                    <br>
+                    <small>${typeLabels[type] || type}</small>
+                </div>
+            </div>
+        `;
+    });
+    
+    mixHtml += '</div>';
+    document.getElementById('content-mix-recommendation').innerHTML = mixHtml;
+    
+    // Strategic recommendations
+    const recommendations = strategyData.strategic_recommendations || [];
+    let recHtml = '<ul class="list-unstyled mb-0">';
+    
+    recommendations.forEach(rec => {
+        recHtml += `
+            <li class="mb-2">
+                <i class="fas fa-check-circle text-success me-2"></i>
+                ${rec}
+            </li>
+        `;
+    });
+    
+    recHtml += '</ul>';
+    document.getElementById('strategic-recommendations').innerHTML = recHtml;
+    
+    // Pre-select recommended options in manual form
+    if (strategyData.posting_frequency) {
+        const freqRadio = document.querySelector(`input[name="posting_frequency"][value="${strategyData.posting_frequency}"]`);
+        if (freqRadio) freqRadio.checked = true;
+    }
+    
+    if (strategyData.best_times) {
+        strategyData.best_times.forEach(time => {
+            const timeCheckbox = document.querySelector(`input[name="best_times"][value="${time}"]`);
+            if (timeCheckbox) timeCheckbox.checked = true;
+        });
+    }
+    
+    if (strategyData.content_types) {
+        strategyData.content_types.forEach(type => {
+            const typeCheckbox = document.querySelector(`input[name="content_types"][value="${type}"]`);
+            if (typeCheckbox) typeCheckbox.checked = true;
+        });
+    }
+}
+
+// Make function globally available
+window.regenerateStrategy = async function() {
+    const btn = document.getElementById('regenerate-btn');
+    if (typeof SomiPlan !== 'undefined' && SomiPlan.setLoading) {
+        SomiPlan.setLoading(btn);
+    } else {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Regeneriere...';
+    }
+    
+    try {
+        await generateAIStrategy();
+        
+        if (typeof SomiPlan !== 'undefined' && SomiPlan.setLoading) {
+            SomiPlan.setLoading(btn, false);
+        } else {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i>Strategie neu generieren';
+        }
+        
+        // Show success message
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-success alert-dismissible fade show';
+        alert.innerHTML = `
+            <i class="fas fa-sync-alt me-2"></i>
+            Strategie wurde neu generiert!
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.querySelector('.col-lg-10').insertBefore(alert, document.querySelector('.col-lg-10').firstChild);
+    } catch (error) {
+        if (typeof SomiPlan !== 'undefined' && SomiPlan.setLoading) {
+            SomiPlan.setLoading(btn, false);
+        } else {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i>Strategie neu generieren';
+        }
+        showError('Fehler beim Neu-Generieren der Strategie');
+    }
+};
+
+function fallbackToManual() {
+    // Switch to manual mode and store state
+    const checkbox = document.querySelector('#{{ form.use_ai_strategy.id_for_label }}');
+    checkbox.checked = false;
+    localStorage.setItem('somi_ai_strategy_enabled', 'false');
+    
+    document.getElementById('ai-strategy-results').style.display = 'none';
+    document.getElementById('manual-strategy-options').classList.add('show');
+}
+
+function showError(message) {
+    const alert = document.createElement('div');
+    alert.className = 'alert alert-danger alert-dismissible fade show';
+    alert.innerHTML = `
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.querySelector('.col-lg-10').insertBefore(alert, document.querySelector('.col-lg-10').firstChild);
+}
+
+// Form submission handling
+document.getElementById('strategy-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const submitBtn = document.getElementById('strategy-submit-btn');
+    SomiPlan.setLoading(submitBtn);
+    
+    // Submit the form normally
+    this.submit();
+});
+</script>
+{% endblock %}
+
+{% block page_css %}
+<style>
+    /* Progress Steps */
+    .progress-steps {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 2rem 0;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .progress-steps .step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+        flex: 1;
+        max-width: 120px;
+    }
+    
+    .progress-steps .step:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        top: 20px;
+        right: -50%;
+        width: 100%;
+        height: 2px;
+        background: #dee2e6;
+        z-index: 1;
+    }
+    
+    .progress-steps .step.active:not(:last-child)::after,
+    .progress-steps .step.completed:not(:last-child)::after {
+        background: #0d6efd;
+    }
+    
+    .progress-steps .step-number {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #dee2e6;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+        position: relative;
+        z-index: 2;
+        transition: all 0.3s ease;
+    }
+    
+    .progress-steps .step.active .step-number {
+        background: #0d6efd;
+        color: white;
+        transform: scale(1.1);
+        box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.2);
+    }
+    
+    .progress-steps .step.completed .step-number {
+        background: #198754;
+        color: white;
+    }
+    
+    .progress-steps .step.completed .step-number i {
+        font-size: 1rem;
+    }
+    
+    .progress-steps .step span {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #6c757d;
+        text-align: center;
+        transition: color 0.3s ease;
+    }
+    
+    .progress-steps .step.active span {
+        color: #0d6efd;
+        font-weight: 600;
+    }
+    
+    .progress-steps .step.completed span {
+        color: #198754;
+    }
+    
+    /* AI Model Cards */
+    .ai-model-card {
+        background: #ffffff;
+        border: 2px solid #dee2e6;
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    
+    .ai-model-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        border-color: #0d6efd;
+    }
+    
+    .ai-model-card.selected {
+        border-color: #0d6efd;
+        border-width: 3px;
+        background: rgba(13, 110, 253, 0.05);
+        transform: scale(1.02);
+    }
+    
+    .ai-model-icon {
+        margin-bottom: 1rem;
+    }
+    
+    .ai-model-icon i {
+        font-size: 3rem;
+        color: #0d6efd;
+        margin-bottom: 0.5rem;
+    }
+    
+    .ai-model-name {
+        color: #212529;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+    }
+    
+    .ai-model-description {
+        color: #6c757d;
+        font-size: 0.875rem;
+        line-height: 1.4;
+        margin-bottom: 1rem;
+        flex-grow: 1;
+    }
+    
+    .ai-model-features {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        justify-content: center;
+    }
+    
+    .ai-model-features .badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    /* AI Model animations */
+    @keyframes aiModelPulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+    
+    .ai-model-card.pulse {
+        animation: aiModelPulse 0.6s ease-in-out;
+    }
+</style>
+{% endblock %}

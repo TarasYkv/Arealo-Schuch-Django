@@ -1,0 +1,1032 @@
+{% extends "somi_plan/base.html" %}
+{% load static %}
+{% load math_filters %}
+
+{% block page_title %}{{ plan.title }} - Schritt 3{% endblock %}
+{% block page_description %}Content-Erstellung: Die KI erstellt deine Post-Ideen{% endblock %}
+
+{% block main_content %}
+<!-- Progress Steps -->
+<div class="progress-steps mb-4">
+    <div class="step completed">
+        <div class="step-number">
+            <i class="fas fa-check"></i>
+        </div>
+        <span>Basis-Setup</span>
+    </div>
+    <div class="step completed">
+        <div class="step-number">
+            <i class="fas fa-check"></i>
+        </div>
+        <span>Strategie</span>
+    </div>
+    <div class="step active">
+        <div class="step-number">3</div>
+        <span>Content</span>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        
+        <!-- Plan Info Header -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center">
+                        <i class="{{ plan.platform.icon }} fa-2x me-3" style="color: {{ plan.platform.color }};"></i>
+                        <div>
+                            <h5 class="card-title mb-1">{{ plan.title }}</h5>
+                            <small class="text-muted">{{ plan.platform.name }} • Content Posts werden erstellt...</small>
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-info mb-1">{{ posts.count }} Posts erstellt</span><br>
+                        <span class="badge bg-{{ plan.status|yesno:"success,warning,secondary" }}">{{ plan.get_status_display }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- AI Content Generation Status -->
+        <div class="card mb-4" id="content-generation-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-magic me-2"></i>KI-Content-Erstellung
+                </h5>
+                <button class="btn btn-outline-primary btn-sm" onclick="generateMoreIdeas()" id="generate-more-btn">
+                    <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+                    <i class="fas fa-plus me-1"></i>Mehr kreative Ideen
+                </button>
+            </div>
+            <div class="card-body">
+                
+                <!-- Initial Loading State -->
+                <div id="content-loading" {% if posts %}style="display: none;"{% endif %}>
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary mb-3" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <h6>KI erstellt deine Content-Posts...</h6>
+                        <p class="text-muted">
+                            Basierend auf deiner Strategie werden jetzt individuelle Posts mit Skripten 
+                            und Anweisungen für {{ plan.platform.name }} generiert.
+                        </p>
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" style="width: 0%" id="content-progress"></div>
+                        </div>
+                        <small class="text-muted mt-2 d-block" id="progress-text">Analyse der Strategie...</small>
+                    </div>
+                </div>
+                
+                <!-- Content Generated State -->
+                <div id="content-generated" {% if not posts %}style="display: none;"{% endif %}>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            <strong id="posts-count">{{ posts.count }} Posts erstellt</strong>
+                            <small class="text-muted ms-2">Klicke auf eine Kachel um den vollständigen Inhalt zu sehen</small>
+                        </div>
+                        <div>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-secondary" onclick="selectAllPosts()">
+                                    <i class="fas fa-check-square me-1"></i>Alle auswählen
+                                </button>
+                                <button type="button" class="btn btn-outline-danger" onclick="deleteSelectedPosts()" id="delete-selected-btn" disabled>
+                                    <i class="fas fa-trash me-1"></i>Ausgewählte löschen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+        
+        <!-- Post Cards Grid -->
+        <div id="posts-grid">
+            {% for post in posts %}
+            <div class="post-card" data-post-id="{{ post.id }}">
+                <div class="ai-badge">
+                    <i class="fas fa-robot me-1"></i>{{ post.ai_model_used|default:"AI" }}
+                </div>
+                
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="form-check">
+                        <input class="form-check-input post-checkbox" type="checkbox" value="{{ post.id }}" onchange="updateBulkActions()">
+                    </div>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" onclick="editPost({{ post.id }})">
+                                <i class="fas fa-edit me-2"></i>Bearbeiten
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="duplicatePost({{ post.id }})">
+                                <i class="fas fa-copy me-2"></i>Duplizieren
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="schedulePost({{ post.id }})">
+                                <i class="fas fa-calendar me-2"></i>Terminieren
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="#" onclick="deletePost({{ post.id }})">
+                                <i class="fas fa-trash me-2"></i>Löschen
+                            </a></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <h6 class="post-title mb-2">{{ post.title }}</h6>
+                
+                <div class="post-preview mb-3">
+                    <p class="text-muted small mb-2">{{ post.content|truncatechars:120|linebreaks }}</p>
+                    {% if post.hashtags %}
+                    <div class="hashtags mb-2">
+                        {% for hashtag in post.hashtags|split:" " %}
+                            {% if hashtag %}
+                            <span class="badge bg-light text-dark me-1">{{ hashtag }}</span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="post-meta d-flex justify-content-between align-items-center">
+                    <div>
+                        <small class="text-muted">
+                            <i class="fas fa-font me-1"></i>
+                            <span class="character-counter {% if post.get_character_limit_percentage > 100 %}danger{% elif post.get_character_limit_percentage > 80 %}warning{% endif %}">
+                                {{ post.character_count }}/{{ post.posting_plan.platform.character_limit }}
+                            </span>
+                        </small>
+                        {% if post.post_type %}
+                        <span class="badge bg-secondary ms-2">{{ post.post_type }}</span>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <small class="text-muted">
+                            Priorität: 
+                            {% if post.priority == 1 %}
+                                <span class="text-danger">Hoch</span>
+                            {% elif post.priority == 2 %}
+                                <span class="text-warning">Mittel</span>
+                            {% else %}
+                                <span class="text-muted">Niedrig</span>
+                            {% endif %}
+                        </small>
+                    </div>
+                </div>
+                
+                <!-- Expanded Content (hidden by default) -->
+                <div class="post-expanded mt-3" style="display: none;">
+                    <hr>
+                    <h6><i class="fas fa-file-alt me-2"></i>Vollständiger Content:</h6>
+                    <div class="bg-light p-3 rounded mb-3 border">
+                        <div class="content-formatted" style="line-height: 1.6; font-size: 0.95rem;">
+                            {{ post.content|linebreaks }}
+                        </div>
+                    </div>
+                    
+                    <h6><i class="fas fa-script me-2"></i>Umsetzungs-Skript:</h6>
+                    <div class="bg-info bg-opacity-10 p-3 rounded mb-3 border border-info">
+                        <div class="script-formatted" style="line-height: 1.5; font-size: 0.9rem;">
+                            {{ post.script|linebreaks }}
+                        </div>
+                    </div>
+                    
+                    {% if post.call_to_action %}
+                    <h6><i class="fas fa-bullhorn me-2"></i>Call-to-Action:</h6>
+                    <div class="bg-warning bg-opacity-10 p-2 rounded mb-3">
+                        <strong>{{ post.call_to_action }}</strong>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-flex justify-content-end">
+                        <button class="btn btn-primary btn-sm me-2" onclick="schedulePost({{ post.id }})">
+                            <i class="fas fa-calendar me-1"></i>Terminieren
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="editPost({{ post.id }})">
+                            <i class="fas fa-edit me-1"></i>Bearbeiten
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <!-- Empty state - will be replaced by JavaScript generated content -->
+            <div class="text-center py-5" id="empty-state">
+                <i class="fas fa-magic fa-4x text-muted mb-3"></i>
+                <h5 class="text-muted">Content wird generiert...</h5>
+                <p class="text-muted">Die KI erstellt gerade deine ersten Post-Ideen basierend auf deiner Strategie.</p>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Action Bar -->
+        <div class="card mt-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <a href="{% url 'somi_plan:create_plan_step2' plan.id %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Zurück zu Schritt 2
+                        </a>
+                    </div>
+                    
+                    <div class="d-flex align-items-center">
+                        <span class="text-muted me-3">
+                            <i class="fas fa-check-circle me-1"></i>
+                            <span id="ready-posts-count">{{ posts.count }}</span> Posts bereit
+                        </span>
+                        
+                        <button class="btn btn-outline-primary me-2" onclick="saveAsDraft()">
+                            <i class="fas fa-save me-2"></i>Als Entwurf speichern
+                        </button>
+                        
+                        <button class="btn btn-success btn-lg" onclick="activatePlan()" id="activate-plan-btn">
+                            <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+                            <i class="fas fa-rocket me-2"></i>Plan aktivieren
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    {% if not posts %}
+    // Start content generation if no posts exist
+    generateInitialContent();
+    {% endif %}
+    
+    // Add click listeners to post cards
+    document.querySelectorAll('.post-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            // Don't expand if clicking on checkbox or dropdown
+            if (e.target.closest('.form-check') || e.target.closest('.dropdown')) {
+                return;
+            }
+            
+            togglePostExpansion(this);
+        });
+    });
+});
+
+async function generateInitialContent() {
+    const progressBar = document.getElementById('content-progress');
+    const progressText = document.getElementById('progress-text');
+    
+    const steps = [
+        'Analyse der Strategie...',
+        'Content-Themen identifizieren...',
+        'Post-Strukturen erstellen...',
+        'Texte generieren...',
+        'Skripte und Anweisungen hinzufügen...',
+        'Hashtags optimieren...',
+        'Finale Überprüfung...'
+    ];
+    
+    let currentStep = 0;
+    let progress = 0;
+    
+    const updateProgress = () => {
+        if (currentStep < steps.length) {
+            progress = (currentStep / steps.length) * 100;
+            progressBar.style.width = progress + '%';
+            progressText.textContent = steps[currentStep];
+            currentStep++;
+            
+            setTimeout(updateProgress, 800 + Math.random() * 1200);
+        } else {
+            // Generation complete
+            progressBar.style.width = '100%';
+            progressText.textContent = 'Content-Erstellung abgeschlossen!';
+            
+            setTimeout(() => {
+                document.getElementById('content-loading').style.display = 'none';
+                document.getElementById('content-generated').style.display = 'block';
+                document.getElementById('empty-state').style.display = 'none';
+                
+                // Show generated posts
+                showGeneratedPosts();
+            }, 1000);
+        }
+    };
+    
+    updateProgress();
+}
+
+function showGeneratedPosts() {
+    // Mock generated posts (in real implementation, this would come from AI API)
+    const mockPosts = [
+        {
+            id: 'new_1',
+            title: '5 Tipps für mehr Motivation im Alltag',
+            content: `💪 5 TIPPS FÜR MEHR MOTIVATION IM ALLTAG
+
+Du kennst das: Montag morgen und die Motivation ist im Keller? 😴
+
+Hier sind meine bewährtesten Strategien:
+
+✅ 1. Kleine Ziele setzen
+Statt "Ich werde fit" → "Ich mache heute 10 Liegestütze"
+
+✅ 2. Erfolge sichtbar machen
+Führe ein Erfolgs-Journal. Auch kleine Siege zählen!
+
+✅ 3. Routine entwickeln
+Motivation ist vergänglich, Gewohnheiten bleiben.
+
+✅ 4. Dich belohnen
+Kleine Erfolge verdienen kleine Belohnungen.
+
+✅ 5. Community suchen
+Umgib dich mit Menschen, die ähnliche Ziele haben.
+
+👉 Welcher Tipp spricht dich am meisten an? Schreib's in die Kommentare!
+
+#motivation #erfolg #tipps #mindset #ziele`,
+            script: `POST-SKRIPT: Motivations-Tipps
+
+🎯 ZIEL: Praktische Hilfe bieten und Engagement fördern
+
+📱 ANWEISUNGEN:
+1. Mit relatable Hook starten (Montag-Motivation)
+2. Konkrete, umsetzbare Tipps geben
+3. Beispiele für besseres Verständnis
+4. Community-Frage am Ende für Interaktion
+5. Relevante Hashtags für Reichweite
+
+⏰ BESTE POSTING-ZEIT: Montag 7-8 Uhr oder Sonntag Abend
+📊 ERWARTUNG: Hohe Engagement-Rate durch praktischen Nutzen
+🎨 VISUAL: Carousel mit jedem Tipp oder motivierendes Zitat-Design
+💬 FOLLOW-UP: Auf Kommentare eingehen und weitere Tipps teilen`,
+            hashtags: '#motivation #erfolg #tipps #mindset #ziele #inspiration #persönlichkeitsentwicklung',
+            post_type: 'Tipps & Tricks',
+            priority: 1
+        },
+        {
+            id: 'new_2', 
+            title: 'Behind the Scenes: Mein Arbeitsplatz',
+            content: `🏠 BEHIND THE SCENES: Mein Arbeitsplatz
+
+Ihr habt so oft gefragt, wie mein Setup aussieht! 👀
+
+Hier ist mein "Command Center":
+
+🖥️ Monitor: 27" für den Überblick
+⌨️ Tastatur: Mechanisch - für das Gefühl
+☕ Kaffee: IMMER griffbereit (Lebenselixier!)
+📝 Notizbuch: Für spontane Ideen
+🪴 Pflanze: Bringt Leben in den Raum
+🎧 Kopfhörer: Für die Fokus-Sessions
+
+Das Geheimnis? Es ist nicht die perfekte Ausrüstung...
+...sondern die Konstanz, jeden Tag dranzubleiben! 💪
+
+Wie sieht euer Arbeitsplatz aus? Zeigt mir gern eure Setups! 📸
+
+#behindthescenes #workspace #homeoffice #productivity #setup`,
+            script: `POST-SKRIPT: Behind the Scenes Arbeitsplatz
+
+🎯 ZIEL: Persönlichkeit zeigen und Community-Austausch fördern
+
+📱 ANWEISUNGEN:
+1. Authentischen Einblick geben
+2. Setup-Items einzeln auflisten (relatable)
+3. Persönliche Note hinzufügen (Kaffee-Liebe)
+4. Wertvolle Message am Ende (Konstanz > Equipment)
+5. Community zum Teilen ermutigen
+
+⏰ BESTE POSTING-ZEIT: Dienstag oder Mittwoch 9-10 Uhr
+📊 ERWARTUNG: Hohe Story-Shares und Kommentare
+🎨 VISUAL: Arbeitsplatz-Foto von oben oder Carousel mit Details
+💬 FOLLOW-UP: Auf geteilte Setups reagieren und kommentieren`,
+            hashtags: '#behindthescenes #workspace #homeoffice #productivity #setup',
+            post_type: 'Behind the Scenes',
+            priority: 2
+        },
+        {
+            id: 'new_3',
+            title: 'Motivations-Montag: Dein Warum finden',
+            content: `🔥 MOTIVATIONS-MONTAG: Finde dein WARUM
+
+"Wer ein Warum zum Leben hat, erträgt fast jedes Wie." - Nietzsche
+
+Aber wie findest du dein WARUM? 🤔
+
+3 mächtige Fragen:
+
+❓ Was würdest du tun, auch wenn du nicht dafür bezahlt würdest?
+
+❓ Wofür werden Menschen dir am meisten danken?
+
+❓ Was würdest du bereuen, wenn du es nie versucht hättest?
+
+Dein WARUM ist nicht nur ein schöner Gedanke...
+...es ist dein Antrieb, wenn es schwer wird! 💪
+
+Nimm dir heute 10 Minuten Zeit für diese Fragen.
+Schreib die Antworten auf. Du wirst überrascht sein! ✍️
+
+Was ist DEIN Warum? Teile es in den Kommentaren! 👇
+
+#motivation #warum #sinn #ziele #klarheit #montag`,
+            script: `POST-SKRIPT: Motivations-Montag WARUM
+
+🎯 ZIEL: Tiefere Reflexion anregen und starkes Engagement
+
+📱 ANWEISUNGEN:
+1. Starkes Zitat als Hook verwenden
+2. Praktische Fragen zum Nachdenken geben
+3. Wichtigkeit des WARUM erklären
+4. Klare Handlungsaufforderung (10 Min Time)
+5. Persönliche Frage für Kommentare
+
+⏰ BESTE POSTING-ZEIT: Montag 6-8 Uhr (Wochenstart)
+📊 ERWARTUNG: Nachdenkliche Kommentare und Saves
+🎨 VISUAL: Inspirierendes Zitat-Design oder Mindmap-Stil
+💬 FOLLOW-UP: Auf persönliche WARUM-Antworten eingehen`,
+            hashtags: '#motivation #warum #sinn #ziele #klarheit #montag',
+            post_type: 'Motivation',
+            priority: 1
+        }
+    ];
+    
+    const postsGrid = document.getElementById('posts-grid');
+    postsGrid.innerHTML = '';
+    
+    mockPosts.forEach((post, index) => {
+        setTimeout(() => {
+            const postCard = createPostCard(post);
+            postsGrid.appendChild(postCard);
+            
+            // Update counter
+            document.getElementById('posts-count').textContent = `${index + 1} Posts erstellt`;
+            document.getElementById('ready-posts-count').textContent = index + 1;
+            
+            // Animate in
+            postCard.style.opacity = '0';
+            postCard.style.transform = 'translateY(20px)';
+            setTimeout(() => {
+                postCard.style.transition = 'all 0.5s ease';
+                postCard.style.opacity = '1';
+                postCard.style.transform = 'translateY(0)';
+            }, 100);
+            
+        }, index * 600);
+    });
+}
+
+function createPostCard(post) {
+    const card = document.createElement('div');
+    card.className = 'post-card';
+    card.dataset.postId = post.id;
+    
+    const characterCount = post.content.length;
+    const characterLimit = {{ plan.platform.character_limit }};
+    const percentage = (characterCount / characterLimit) * 100;
+    
+    let characterClass = '';
+    if (percentage > 100) characterClass = 'danger';
+    else if (percentage > 80) characterClass = 'warning';
+    
+    card.innerHTML = `
+        <div class="ai-badge">
+            <i class="fas fa-robot me-1"></i>GPT-4
+        </div>
+        
+        <div class="d-flex justify-content-between align-items-start mb-2">
+            <div class="form-check">
+                <input class="form-check-input post-checkbox" type="checkbox" value="${post.id}" onchange="updateBulkActions()">
+            </div>
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" onclick="editPost('${post.id}')">
+                        <i class="fas fa-edit me-2"></i>Bearbeiten
+                    </a></li>
+                    <li><a class="dropdown-item" href="#" onclick="duplicatePost('${post.id}')">
+                        <i class="fas fa-copy me-2"></i>Duplizieren
+                    </a></li>
+                    <li><a class="dropdown-item" href="#" onclick="schedulePost('${post.id}')">
+                        <i class="fas fa-calendar me-2"></i>Terminieren
+                    </a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item text-danger" href="#" onclick="deletePost('${post.id}')">
+                        <i class="fas fa-trash me-2"></i>Löschen
+                    </a></li>
+                </ul>
+            </div>
+        </div>
+        
+        <h6 class="post-title mb-2">${post.title}</h6>
+        
+        <div class="post-preview mb-3">
+            <p class="text-muted small mb-2" style="white-space: pre-line;">${post.content.substring(0, 120)}...</p>
+            <div class="hashtags mb-2">
+                ${post.hashtags.split(' ').filter(tag => tag).map(tag => 
+                    `<span class="badge bg-light text-dark me-1">${tag}</span>`
+                ).join('')}
+            </div>
+        </div>
+        
+        <div class="post-meta d-flex justify-content-between align-items-center">
+            <div>
+                <small class="text-muted">
+                    <i class="fas fa-font me-1"></i>
+                    <span class="character-counter ${characterClass}">
+                        ${characterCount}/${characterLimit}
+                    </span>
+                </small>
+                <span class="badge bg-secondary ms-2">${post.post_type}</span>
+            </div>
+            <div>
+                <small class="text-muted">
+                    Priorität: 
+                    <span class="${post.priority === 1 ? 'text-danger' : post.priority === 2 ? 'text-warning' : 'text-muted'}">
+                        ${post.priority === 1 ? 'Hoch' : post.priority === 2 ? 'Mittel' : 'Niedrig'}
+                    </span>
+                </small>
+            </div>
+        </div>
+        
+        <!-- Expanded Content -->
+        <div class="post-expanded mt-3" style="display: none;">
+            <hr>
+            <h6><i class="fas fa-file-alt me-2"></i>Vollständiger Content:</h6>
+            <div class="bg-light p-3 rounded mb-3 border">
+                <div class="content-formatted" style="line-height: 1.6; font-size: 0.95rem;">
+                    ${post.content.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>').replace(/^/, '<p>').replace(/$/, '</p>').replace(/<p><\/p>/g, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>').replace(/#(\w+)/g, '<span class="text-primary fw-bold">#$1</span>')}
+                </div>
+            </div>
+            
+            <h6><i class="fas fa-script me-2"></i>Umsetzungs-Skript:</h6>
+            <div class="bg-info bg-opacity-10 p-3 rounded mb-3 border border-info">
+                <div class="script-formatted" style="line-height: 1.5; font-size: 0.9rem;">
+                    ${post.script.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>').replace(/^/, '<p>').replace(/$/, '</p>').replace(/<p><\/p>/g, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>').replace(/(\d+\.|\-|\•)/g, '<span class="text-primary fw-bold">$1</span>').replace(/(Schritt \d+|Phase \d+|Teil \d+)/gi, '<span class="badge bg-info me-1">$1</span>')}
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-end">
+                <button class="btn btn-primary btn-sm me-2" onclick="schedulePost('${post.id}')">
+                    <i class="fas fa-calendar me-1"></i>Terminieren
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="editPost('${post.id}')">
+                    <i class="fas fa-edit me-1"></i>Bearbeiten
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Add click listener
+    card.addEventListener('click', function(e) {
+        if (e.target.closest('.form-check') || e.target.closest('.dropdown')) {
+            return;
+        }
+        togglePostExpansion(this);
+    });
+    
+    return card;
+}
+
+function togglePostExpansion(card) {
+    const expandedContent = card.querySelector('.post-expanded');
+    const isExpanded = expandedContent.style.display !== 'none';
+    
+    // Close all other cards
+    document.querySelectorAll('.post-card').forEach(otherCard => {
+        if (otherCard !== card) {
+            otherCard.querySelector('.post-expanded').style.display = 'none';
+            otherCard.classList.remove('expanded');
+        }
+    });
+    
+    // Toggle this card
+    if (isExpanded) {
+        expandedContent.style.display = 'none';
+        card.classList.remove('expanded');
+    } else {
+        expandedContent.style.display = 'block';
+        card.classList.add('expanded');
+    }
+}
+
+async function generateMoreIdeas() {
+    const btn = document.getElementById('generate-more-btn');
+    SomiPlan.setLoading(btn);
+    
+    try {
+        const response = await fetch(`{% url 'somi_plan:generate_more_ideas' plan.id %}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            }
+        });
+        
+        const result = await response.json();
+        SomiPlan.setLoading(btn, false);
+        
+        if (result.status === 'success') {
+            // Add new posts to the grid
+            result.new_posts.forEach(postData => {
+                const newPost = {
+                    id: postData.id,
+                    title: postData.title,
+                    content: postData.content,
+                    script: '', // Will be populated from actual data
+                    hashtags: postData.hashtags,
+                    post_type: postData.post_type,
+                    priority: 2
+                };
+                
+                const postCard = createPostCard(newPost);
+                document.getElementById('posts-grid').appendChild(postCard);
+                
+                // Animate in
+                postCard.style.opacity = '0';
+                postCard.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    postCard.style.transition = 'all 0.5s ease';
+                    postCard.style.opacity = '1';
+                    postCard.style.transform = 'translateY(0)';
+                }, 100);
+            });
+            
+            // Update counters
+            const currentCount = document.querySelectorAll('.post-card').length;
+            document.getElementById('posts-count').textContent = `${currentCount} Posts erstellt`;
+            document.getElementById('ready-posts-count').textContent = currentCount;
+            
+            // Show success message
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-success alert-dismissible fade show';
+            alert.innerHTML = `
+                <i class="fas fa-magic me-2"></i>
+                ${result.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.querySelector('.col-12').insertBefore(alert, document.querySelector('.col-12').firstChild);
+            
+        } else {
+            // Show error message
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-danger alert-dismissible fade show';
+            alert.innerHTML = `
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Fehler: ${result.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.querySelector('.col-12').insertBefore(alert, document.querySelector('.col-12').firstChild);
+        }
+        
+    } catch (error) {
+        SomiPlan.setLoading(btn, false);
+        console.error('Error generating ideas:', error);
+        
+        // Show error message
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-danger alert-dismissible fade show';
+        alert.innerHTML = `
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Netzwerkfehler beim Generieren neuer Ideen. Bitte versuche es später erneut.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.querySelector('.col-12').insertBefore(alert, document.querySelector('.col-12').firstChild);
+    }
+}
+
+function updateBulkActions() {
+    const checkboxes = document.querySelectorAll('.post-checkbox');
+    const checkedBoxes = document.querySelectorAll('.post-checkbox:checked');
+    const deleteBtn = document.getElementById('delete-selected-btn');
+    
+    deleteBtn.disabled = checkedBoxes.length === 0;
+}
+
+function selectAllPosts() {
+    const checkboxes = document.querySelectorAll('.post-checkbox');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    
+    checkboxes.forEach(cb => {
+        cb.checked = !allChecked;
+    });
+    
+    updateBulkActions();
+}
+
+function deleteSelectedPosts() {
+    const checkedBoxes = document.querySelectorAll('.post-checkbox:checked');
+    if (checkedBoxes.length === 0) return;
+    
+    if (confirm(`${checkedBoxes.length} Posts löschen?`)) {
+        checkedBoxes.forEach(checkbox => {
+            const postCard = checkbox.closest('.post-card');
+            postCard.remove();
+        });
+        
+        // Update counters
+        const remainingCount = document.querySelectorAll('.post-card').length;
+        document.getElementById('posts-count').textContent = `${remainingCount} Posts erstellt`;
+        document.getElementById('ready-posts-count').textContent = remainingCount;
+        
+        updateBulkActions();
+    }
+}
+
+window.editPost = function(postId) {
+    // Redirect to edit page
+    window.location.href = "{% url 'somi_plan:post_edit' 0 %}".replace('0', postId);
+};
+
+window.duplicatePost = function(postId) {
+    const originalCard = document.querySelector(`[data-post-id="${postId}"]`);
+    const newCard = originalCard.cloneNode(true);
+    
+    // Update ID
+    const newId = 'copy_' + Date.now();
+    newCard.dataset.postId = newId;
+    newCard.querySelector('.post-checkbox').value = newId;
+    
+    // Add "Kopie" to title
+    const title = newCard.querySelector('.post-title');
+    title.textContent = title.textContent + ' (Kopie)';
+    
+    // Insert after original
+    originalCard.parentNode.insertBefore(newCard, originalCard.nextSibling);
+    
+    // Update counters
+    const currentCount = document.querySelectorAll('.post-card').length;
+    document.getElementById('posts-count').textContent = `${currentCount} Posts erstellt`;
+    document.getElementById('ready-posts-count').textContent = currentCount;
+}
+
+// Make function globally available
+window.schedulePost = function(postId) {
+    // Redirect to scheduling page
+    window.location.href = "{% url 'somi_plan:schedule_post' 0 %}".replace('0', postId);
+};
+
+window.deletePost = function(postId) {
+    if (confirm('Post löschen?')) {
+        const postCard = document.querySelector(`[data-post-id="${postId}"]`);
+        postCard.remove();
+        
+        // Update counters
+        const remainingCount = document.querySelectorAll('.post-card').length;
+        document.getElementById('posts-count').textContent = `${remainingCount} Posts erstellt`;
+        document.getElementById('ready-posts-count').textContent = remainingCount;
+    }
+};
+
+window.saveAsDraft = function() {
+    // Save plan as draft
+    fetch("{% url 'somi_plan:plan_detail' plan.id %}", {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+        },
+        body: JSON.stringify({ status: 'draft' })
+    }).then(() => {
+        alert('Plan als Entwurf gespeichert!');
+        window.location.href = "{% url 'somi_plan:dashboard' %}";
+    });
+};
+
+window.activatePlan = function() {
+    const btn = document.getElementById('activate-plan-btn');
+    SomiPlan.setLoading(btn);
+    
+    // Simulate activation
+    setTimeout(() => {
+        alert('🎉 Plan wurde aktiviert! Du kannst jetzt deine Posts im Kalender terminieren.');
+        window.location.href = "{% url 'somi_plan:plan_detail' plan.id %}";
+    }, 1500);
+};
+</script>
+{% endblock %}
+
+{% block page_css %}
+<style>
+    /* Progress Steps */
+    .progress-steps {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 2rem 0;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .progress-steps .step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+        flex: 1;
+        max-width: 120px;
+    }
+    
+    .progress-steps .step:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        top: 20px;
+        right: -50%;
+        width: 100%;
+        height: 2px;
+        background: #dee2e6;
+        z-index: 1;
+    }
+    
+    .progress-steps .step.active:not(:last-child)::after,
+    .progress-steps .step.completed:not(:last-child)::after {
+        background: #0d6efd;
+    }
+    
+    .progress-steps .step-number {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #dee2e6;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+        position: relative;
+        z-index: 2;
+        transition: all 0.3s ease;
+    }
+    
+    .progress-steps .step.active .step-number {
+        background: #0d6efd;
+        color: white;
+        transform: scale(1.1);
+        box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.2);
+    }
+    
+    .progress-steps .step.completed .step-number {
+        background: #198754;
+        color: white;
+    }
+    
+    .progress-steps .step.completed .step-number i {
+        font-size: 1rem;
+    }
+    
+    .progress-steps .step span {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #6c757d;
+        text-align: center;
+        transition: color 0.3s ease;
+    }
+    
+    .progress-steps .step.active span {
+        color: #0d6efd;
+        font-weight: 600;
+    }
+    
+    .progress-steps .step.completed span {
+        color: #198754;
+    }
+    
+    /* Post Cards in Grid */
+    #posts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1rem;
+    }
+    
+    .post-card {
+        background: #ffffff;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 1.5rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+    
+    .post-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        border-color: #0d6efd;
+    }
+    
+    .post-card.expanded {
+        border-color: #0d6efd;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    }
+    
+    .ai-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: #e7f1ff;
+        color: #0d6efd;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    
+    .post-title {
+        color: #212529;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+    }
+    
+    .post-preview {
+        margin-bottom: 1rem;
+    }
+    
+    .post-meta {
+        font-size: 0.875rem;
+    }
+    
+    .character-counter {
+        font-weight: 500;
+    }
+    
+    .character-counter.danger {
+        color: #dc3545;
+    }
+    
+    .character-counter.warning {
+        color: #ffc107;
+    }
+    
+    .post-expanded {
+        border-top: 1px solid #dee2e6;
+        margin-top: 1rem;
+        padding-top: 1rem;
+    }
+    
+    .hashtags .badge {
+        margin-right: 0.25rem;
+        margin-bottom: 0.25rem;
+    }
+    
+    /* Loading spinner in buttons */
+    .loading-spinner {
+        display: none;
+    }
+    
+    .loading .loading-spinner {
+        display: inline-block;
+    }
+    
+    /* Content formatting */
+    .content-formatted p {
+        margin-bottom: 0.75rem;
+    }
+    
+    .content-formatted p:last-child {
+        margin-bottom: 0;
+    }
+    
+    .content-formatted strong {
+        font-weight: 600;
+        color: #212529;
+    }
+    
+    .content-formatted em {
+        font-style: italic;
+        color: #495057;
+    }
+    
+    .script-formatted p {
+        margin-bottom: 0.5rem;
+    }
+    
+    .script-formatted p:last-child {
+        margin-bottom: 0;
+    }
+    
+    .script-formatted .badge {
+        font-size: 0.7rem;
+        margin-right: 0.25rem;
+    }
+    
+    /* Enhanced post preview */
+    .post-preview p {
+        line-height: 1.4;
+        white-space: pre-line;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,589 @@
+{% extends "somi_plan/base.html" %}
+{% load static %}
+
+{% block page_title %}Neuen Plan erstellen - Schritt 1{% endblock %}
+{% block page_description %}Basis-Setup deines Social Media Plans{% endblock %}
+
+{% block main_content %}
+<!-- Progress Steps -->
+<div class="progress-steps mb-4">
+    <div class="step active">
+        <div class="step-number">1</div>
+        <span>Basis-Setup</span>
+    </div>
+    <div class="step">
+        <div class="step-number">2</div>
+        <span>Strategie</span>
+    </div>
+    <div class="step">
+        <div class="step-number">3</div>
+        <span>Content</span>
+    </div>
+</div>
+
+<form method="post" id="step1-form">
+    {% csrf_token %}
+    <!-- Hidden input field for platform - moved here to be inside form -->
+    <input type="hidden" name="platform" id="id_platform" value="{{ form.platform.value|default:'' }}">
+    
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            
+            <!-- Plan Titel -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-tag me-2"></i>Plan-Titel
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        {{ form.title.label_tag }}
+                        {{ form.title }}
+                        {% if form.title.errors %}
+                            <div class="text-danger mt-2">{{ form.title.errors.0 }}</div>
+                        {% endif %}
+                        <div class="form-text">
+                            <i class="fas fa-info-circle text-info me-1"></i>
+                            <strong>Tipp:</strong> Wähle einen aussagekräftigen Namen, der Plattform, Zielgruppe und Zeitraum beschreibt<br>
+                            <small class="text-muted">Beispiele: "Instagram Fitness Q1 2024", "LinkedIn B2B Marketing März", "TikTok Lifestyle Content"</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Plattform Auswahl -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-share-alt me-2"></i>Plattform wählen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if form.platform.errors %}
+                        <div class="alert alert-danger mt-2">
+                            <i class="fas fa-exclamation-circle me-2"></i>{{ form.platform.errors.0 }}
+                        </div>
+                    {% endif %}
+                    
+                    <div class="row" id="platform-selection">
+                        {% for platform in platforms %}
+                        <div class="col-md-4 col-lg-3 mb-3">
+                            <div class="platform-card text-center p-3" 
+                                 data-platform-id="{{ platform.id }}"
+                                 onclick="selectPlatform({{ platform.id }})"
+                                 style="border-color: {{ platform.color }}; cursor: pointer;">
+                                <i class="{{ platform.icon }} fa-3x mb-2" style="color: {{ platform.color }};"></i>
+                                <h6 class="card-title">{{ platform.name }}</h6>
+                                <small class="text-muted">{{ platform.character_limit }} Zeichen</small>
+                                {% if platform.description %}
+                                <p class="small text-muted mt-1">{{ platform.description }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="form-text">
+                        <i class="fas fa-info-circle text-info me-1"></i>
+                        Wähle die Plattform für die du Content erstellen möchtest. Du kannst später weitere Pläne für andere Plattformen erstellen.
+                    </div>
+                    
+                    <!-- Platform Selection Status -->
+                    <div id="platform-status" class="alert alert-warning mt-3" style="display: none;">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <span>Bitte wähle eine Plattform aus, um fortzufahren.</span>
+                    </div>
+                    
+                    <div id="platform-selected" class="alert alert-success mt-3" style="display: none;">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <span id="selected-platform-name">Platform ausgewählt</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- User Profile -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-user me-2"></i>Dein Profil / Unternehmen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        {{ form.user_profile.label_tag }}
+                        {{ form.user_profile }}
+                        {% if form.user_profile.errors %}
+                            <div class="text-danger mt-2">{{ form.user_profile.errors.0 }}</div>
+                        {% endif %}
+                        <div class="form-text">
+                            <i class="fas fa-lightbulb text-warning me-1"></i>
+                            <strong>Je detaillierter deine Beschreibung, desto besser die KI-Vorschläge!</strong><br>
+                            Beschreibe dich/dein Unternehmen: Was bietest du an? Was sind deine Stärken? Welche Ressourcen hast du?
+                            Beispiele: "Personal Trainer mit 10 Jahren Erfahrung", "Nachhaltige Mode-Boutique", "Tech-Startup für KI-Lösungen"
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Target Audience -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-users me-2"></i>Zielgruppe
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        {{ form.target_audience.label_tag }}
+                        {{ form.target_audience }}
+                        {% if form.target_audience.errors %}
+                            <div class="text-danger mt-2">{{ form.target_audience.errors.0 }}</div>
+                        {% endif %}
+                        <div class="form-text">
+                            <i class="fas fa-users text-primary me-1"></i>
+                            <strong>Beschreibe deine ideale Zielgruppe möglichst genau:</strong><br>
+                            Wer ist deine Zielgruppe? Welche Themen interessieren sie? Welche Probleme haben sie?<br>
+                            Beispiele: "Fitness-begeisterte Frauen 25-40", "Startup-Gründer im Tech-Bereich", "Umweltbewusste Millennials"
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Goals -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-bullseye me-2"></i>Ziele
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        {{ form.goals.label_tag }}
+                        {{ form.goals }}
+                        {% if form.goals.errors %}
+                            <div class="text-danger mt-2">{{ form.goals.errors.0 }}</div>
+                        {% endif %}
+                        <div class="form-text">
+                            <i class="fas fa-bullseye text-success me-1"></i>
+                            <strong>Was möchtest du mit deinem Social Media Auftritt erreichen?</strong><br>
+                            Definiere konkrete, messbare Ziele für deinen Content.<br>
+                            Beispiele: "Mehr Kunden gewinnen", "Markenbekanntheit steigern", "Community aufbauen", "Website-Traffic erhöhen"
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Vision -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-eye me-2"></i>Vision & Tonalität
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        {{ form.vision.label_tag }}
+                        {{ form.vision }}
+                        {% if form.vision.errors %}
+                            <div class="text-danger mt-2">{{ form.vision.errors.0 }}</div>
+                        {% endif %}
+                        <div class="form-text">
+                            <i class="fas fa-eye text-info me-1"></i>
+                            <strong>Wie soll deine Marke wahrgenommen werden? Welchen Stil verfolgst du?</strong><br>
+                            Beschreibe den gewünschten Ton und die Persönlichkeit deiner Marke.<br>
+                            Beispiele: "Professionell aber nahbar", "Jung und trendig", "Vertrauensvoll und kompetent", "Humorvoll und authentisch"
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Submit Button -->
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'somi_plan:dashboard' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Zurück
+                </a>
+                <button type="submit" class="btn btn-primary btn-lg" id="submit-btn">
+                    Weiter zur Strategie <i class="fas fa-arrow-right ms-2"></i>
+                </button>
+            </div>
+            
+        </div>
+    </div>
+</form>
+
+<script>
+// Platform data for JavaScript
+const platformsData = {
+    {% for platform in platforms %}
+    {{ platform.id }}: {
+        id: {{ platform.id }},
+        name: "{{ platform.name }}",
+        character_limit: {{ platform.character_limit }},
+        color: "{{ platform.color }}",
+        icon: "{{ platform.icon }}"
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+};
+
+// Global platform selection function - MUST be defined before it's used
+function selectPlatform(platformId) {
+    console.log('selectPlatform called with:', platformId);
+    
+    // Get the hidden input
+    const platformInput = document.getElementById('id_platform');
+    if (!platformInput) {
+        console.error('Platform input not found!');
+        return;
+    }
+    
+    // Update hidden input
+    platformInput.value = platformId;
+    console.log('Platform input value set to:', platformInput.value);
+    
+    // Remove selected class from all cards
+    document.querySelectorAll('.platform-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    
+    // Add selected class to clicked card
+    const selectedCard = document.querySelector(`[data-platform-id="${platformId}"]`);
+    if (selectedCard) {
+        selectedCard.classList.add('selected');
+        console.log('Selected card:', selectedCard);
+    } else {
+        console.error('Selected card not found for platform:', platformId);
+    }
+    
+    // Update status messages
+    const platformStatus = document.getElementById('platform-status');
+    const platformSelected = document.getElementById('platform-selected');
+    const selectedPlatformName = document.getElementById('selected-platform-name');
+    
+    if (platformStatus) platformStatus.style.display = 'none';
+    if (platformSelected) {
+        platformSelected.style.display = 'block';
+        if (selectedPlatformName && platformsData[platformId]) {
+            selectedPlatformName.textContent = `${platformsData[platformId].name} ausgewählt (${platformsData[platformId].character_limit} Zeichen pro Post)`;
+        }
+    }
+    
+    // Add success animation
+    if (selectedCard) {
+        selectedCard.style.transform = 'scale(1.1)';
+        setTimeout(() => {
+            selectedCard.style.transform = 'scale(1.05)';
+        }, 200);
+    }
+}
+</script>
+{% endblock %}
+
+{% block page_css %}
+<style>
+    /* Progress Steps */
+    .progress-steps {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 2rem 0;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .progress-steps .step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+        flex: 1;
+        max-width: 120px;
+    }
+    
+    .progress-steps .step:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        top: 20px;
+        right: -50%;
+        width: 100%;
+        height: 2px;
+        background: #dee2e6;
+        z-index: 1;
+    }
+    
+    .progress-steps .step.active:not(:last-child)::after,
+    .progress-steps .step.completed:not(:last-child)::after {
+        background: #0d6efd;
+    }
+    
+    .progress-steps .step-number {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #dee2e6;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+        position: relative;
+        z-index: 2;
+        transition: all 0.3s ease;
+    }
+    
+    .progress-steps .step.active .step-number {
+        background: #0d6efd;
+        color: white;
+        transform: scale(1.1);
+        box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.2);
+    }
+    
+    .progress-steps .step.completed .step-number {
+        background: #198754;
+        color: white;
+    }
+    
+    .progress-steps .step.completed .step-number i {
+        font-size: 1rem;
+    }
+    
+    .progress-steps .step span {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #6c757d;
+        text-align: center;
+        transition: color 0.3s ease;
+    }
+    
+    .progress-steps .step.active span {
+        color: #0d6efd;
+        font-weight: 600;
+    }
+    
+    .progress-steps .step.completed span {
+        color: #198754;
+    }
+    .platform-card {
+        cursor: pointer;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        background-color: var(--card-bg);
+    }
+    
+    .platform-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .platform-card.selected {
+        border-width: 3px;
+        background-color: rgba(102, 126, 234, 0.1);
+        transform: scale(1.05);
+    }
+    
+    [data-theme="dark"] .platform-card {
+        border-color: var(--border-color);
+    }
+    
+    [data-theme="dark"] .platform-card.selected {
+        background-color: rgba(102, 126, 234, 0.2);
+    }
+    
+    @keyframes pulse {
+        0% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.7);
+        }
+        50% {
+            transform: scale(1.02);
+            box-shadow: 0 0 0 10px rgba(102, 126, 234, 0);
+        }
+        100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(102, 126, 234, 0);
+        }
+    }
+    
+    .platform-card.pulse {
+        animation: pulse 1s ease-in-out;
+    }
+    
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-5px); }
+        75% { transform: translateX(5px); }
+    }
+    
+    .shake {
+        animation: shake 0.5s ease-in-out;
+    }
+    
+    /* Platform card improvements */
+    .platform-card {
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .platform-card::before {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        background: linear-gradient(45deg, transparent, transparent);
+        border-radius: 10px;
+        z-index: -1;
+        transition: all 0.3s ease;
+    }
+    
+    .platform-card.selected::before {
+        background: linear-gradient(45deg, 
+            rgba(102, 126, 234, 0.3), 
+            rgba(116, 92, 235, 0.3), 
+            rgba(102, 126, 234, 0.3)
+        );
+    }
+    
+    .platform-card .card-title {
+        font-weight: 600;
+        transition: color 0.3s ease;
+    }
+    
+    .platform-card.selected .card-title {
+        color: #667eea !important;
+    }
+    
+    /* Form improvements */
+    .form-text {
+        font-size: 0.875rem;
+        line-height: 1.4;
+    }
+    
+    .form-text strong {
+        display: block;
+        margin-bottom: 0.25rem;
+    }
+    
+    /* Alert improvements */
+    .alert {
+        border-radius: 8px;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .alert-warning {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        color: #856404;
+    }
+    
+    .alert-success {
+        background: linear-gradient(135deg, #d1e7dd 0%, #00b894 100%);
+        color: #0f5132;
+    }
+    
+    /* Mobile responsiveness improvements */
+    @media (max-width: 768px) {
+        .platform-card {
+            margin-bottom: 1rem;
+        }
+        
+        .platform-card .fa-3x {
+            font-size: 2.5em !important;
+        }
+        
+        .form-text {
+            font-size: 0.8rem;
+        }
+        
+        .alert {
+            font-size: 0.875rem;
+            padding: 0.75rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('SoMi-Plan Step 1 loaded');
+    
+    const form = document.getElementById('step1-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const platformInput = document.getElementById('id_platform');
+    
+    console.log('Form:', form);
+    console.log('Submit button:', submitBtn);
+    console.log('Platform input:', platformInput);
+    console.log('Platform cards:', document.querySelectorAll('.platform-card').length);
+    
+    // Add click event listeners as fallback
+    document.querySelectorAll('.platform-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const platformId = this.getAttribute('data-platform-id');
+            console.log('Card clicked (event listener), platform ID:', platformId);
+            selectPlatform(platformId);
+        });
+    });
+    
+    // Show platform warning on page load if none selected
+    function checkPlatformSelection() {
+        const platformStatus = document.getElementById('platform-status');
+        const platformSelected = document.getElementById('platform-selected');
+        
+        if (!platformInput || !platformInput.value) {
+            if (platformStatus) platformStatus.style.display = 'block';
+            if (platformSelected) platformSelected.style.display = 'none';
+        } else {
+            if (platformStatus) platformStatus.style.display = 'none';
+            if (platformSelected) platformSelected.style.display = 'block';
+        }
+    }
+    
+    // Check platform selection on load
+    checkPlatformSelection();
+    
+    // Form validation
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            // Check if platform is selected
+            if (!platformInput || !platformInput.value) {
+                e.preventDefault();
+                
+                // Show warning message
+                const platformStatus = document.getElementById('platform-status');
+                if (platformStatus) {
+                    platformStatus.style.display = 'block';
+                    platformStatus.classList.add('shake');
+                    setTimeout(() => platformStatus.classList.remove('shake'), 500);
+                }
+                
+                // Highlight platform selection area
+                document.getElementById('platform-selection').scrollIntoView({ behavior: 'smooth' });
+                
+                // Add visual indicator to all cards
+                const platformCards = document.querySelectorAll('.platform-card');
+                platformCards.forEach(card => {
+                    card.classList.add('pulse');
+                    setTimeout(() => card.classList.remove('pulse'), 1000);
+                });
+                
+                return false;
+            }
+            
+            // Show loading state
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Wird erstellt...';
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

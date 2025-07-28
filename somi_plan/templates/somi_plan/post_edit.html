@@ -1,0 +1,1188 @@
+{% extends "somi_plan/base.html" %}
+{% load static %}
+
+{% block page_title %}{{ post.title }} bearbeiten{% endblock %}
+{% block page_description %}Post-Inhalt und Einstellungen anpassen{% endblock %}
+
+{% block main_content %}
+<div class="container-fluid px-3">
+    <div class="row">
+        <div class="col-12">
+            
+            <!-- Enhanced Header Section -->
+            <div class="post-edit-header mb-4">
+                <!-- Breadcrumb Navigation -->
+                <nav aria-label="breadcrumb" class="mb-3">
+                    <ol class="breadcrumb custom-breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'somi_plan:dashboard' %}">
+                                <i class="fas fa-home"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'somi_plan:plan_detail' plan.pk %}">{{ plan.title|truncatechars:30 }}</a>
+                        </li>
+                        <li class="breadcrumb-item active">Post bearbeiten</li>
+                    </ol>
+                </nav>
+                
+                <!-- Hero Header Card -->
+                <div class="hero-card mb-4">
+                    <div class="hero-gradient"></div>
+                    <div class="hero-content">
+                        <div class="d-flex align-items-center">
+                            <div class="platform-icon-wrapper me-4">
+                                <i class="{{ plan.platform.icon }} fa-3x text-white"></i>
+                                <div class="platform-badge">{{ plan.platform.name }}</div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h1 class="hero-title mb-2">{{ post.title }}</h1>
+                                <div class="hero-meta">
+                                    <span class="meta-item">
+                                        <i class="fas fa-ruler-horizontal me-1"></i>
+                                        {{ character_limit }} Zeichen Limit
+                                    </span>
+                                    {% if post.ai_generated %}
+                                    <span class="meta-item">
+                                        <i class="fas fa-robot me-1"></i>
+                                        KI-generiert
+                                    </span>
+                                    {% endif %}
+                                    <span class="meta-item">
+                                        <i class="fas fa-calendar me-1"></i>
+                                        {{ post.updated_at|date:"d.m.Y H:i" }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="hero-actions">
+                                <span class="priority-badge priority-{{ post.priority }}">
+                                    <i class="fas fa-{% if post.priority == 1 %}exclamation-triangle{% elif post.priority == 2 %}star{% else %}info{% endif %} me-1"></i>
+                                    {% if post.priority == 1 %}Hoch{% elif post.priority == 2 %}Mittel{% else %}Niedrig{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        
+            <!-- Modern Edit Form -->
+            <div class="edit-form-container">
+                <div class="form-header mb-4">
+                    <h2 class="form-title">
+                        <i class="fas fa-edit me-3"></i>Post bearbeiten
+                    </h2>
+                    <p class="form-subtitle text-muted">Passe deinen Content für {{ plan.platform.name }} an</p>
+                </div>
+
+                <form method="post" id="post-edit-form" class="modern-form">
+                    {% csrf_token %}
+                    
+                    <!-- Main Content (Full Width) -->
+                    <div class="col-12">
+                        <!-- Content Section 1: Grundinformationen -->
+                        <div class="form-section mb-5">
+                            <h4 class="section-title">
+                                <span class="section-number">1</span>
+                                <span class="section-text">Grundinformationen</span>
+                            </h4>
+                            
+                            <!-- Title -->
+                            <div class="form-group mb-4">
+                                <label for="{{ form.title.id_for_label }}" class="form-label-modern">
+                                    <i class="fas fa-heading label-icon"></i>
+                                    <span class="label-text">{{ form.title.label }}</span>
+                                    <span class="label-required">*</span>
+                                </label>
+                                {{ form.title }}
+                                {% if form.title.errors %}
+                                    <div class="error-feedback">
+                                        <i class="fas fa-exclamation-circle me-1"></i>
+                                        {{ form.title.errors.0 }}
+                                    </div>
+                                {% endif %}
+                                <div class="form-help">Aussagekräftige Überschrift für diesen Post</div>
+                            </div>
+                            
+                            <!-- Content -->
+                            <div class="form-group mb-4">
+                                <label for="{{ form.content.id_for_label }}" class="form-label-modern">
+                                    <i class="fas fa-file-alt label-icon"></i>
+                                    <span class="label-text">{{ form.content.label }}</span>
+                                    <span class="label-required">*</span>
+                                </label>
+                                {{ form.content }}
+                                {% if form.content.errors %}
+                                    <div class="error-feedback">
+                                        <i class="fas fa-exclamation-circle me-1"></i>
+                                        {{ form.content.errors.0 }}
+                                    </div>
+                                {% endif %}
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <div class="form-help">Der Hauptinhalt deines Posts</div>
+                                    <div class="character-counter-modern" id="character-counter">
+                                        <span class="current-count">{{ post.character_count }}</span>
+                                        <span class="separator">/</span>
+                                        <span class="limit">{{ character_limit }}</span>
+                                        <span class="unit">Zeichen</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Content Section 2: Umsetzung -->
+                        <div class="form-section mb-5">
+                            <h4 class="section-title">
+                                <span class="section-number">2</span>
+                                <span class="section-text">Umsetzung</span>
+                            </h4>
+                            
+                            <!-- Script -->
+                            <div class="form-group mb-4">
+                                <label for="{{ form.script.id_for_label }}" class="form-label-modern">
+                                    <i class="fas fa-clipboard-list label-icon"></i>
+                                    <span class="label-text">{{ form.script.label }}</span>
+                                </label>
+                                {{ form.script }}
+                                {% if form.script.errors %}
+                                    <div class="error-feedback">
+                                        <i class="fas fa-exclamation-circle me-1"></i>
+                                        {{ form.script.errors.0 }}
+                                    </div>
+                                {% endif %}
+                                <div class="form-help">Detaillierte Anweisungen für die Umsetzung dieses Posts</div>
+                            </div>
+                        </div>
+
+                        <!-- Content Section 3: Engagement -->
+                        <div class="form-section mb-5">
+                            <h4 class="section-title">
+                                <span class="section-number">3</span>
+                                <span class="section-text">Engagement</span>
+                            </h4>
+                            
+                            <div class="row">
+                                <!-- Hashtags -->
+                                <div class="col-lg-6">
+                                    <div class="form-group mb-4">
+                                        <label for="{{ form.hashtags.id_for_label }}" class="form-label-modern">
+                                            <i class="fas fa-hashtag label-icon"></i>
+                                            <span class="label-text">{{ form.hashtags.label }}</span>
+                                        </label>
+                                        {{ form.hashtags }}
+                                        {% if form.hashtags.errors %}
+                                            <div class="error-feedback">
+                                                <i class="fas fa-exclamation-circle me-1"></i>
+                                                {{ form.hashtags.errors.0 }}
+                                            </div>
+                                        {% endif %}
+                                        <div class="form-help">Relevante Hashtags (mit # Zeichen)</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Call to Action -->
+                                <div class="col-lg-6">
+                                    <div class="form-group mb-4">
+                                        <label for="{{ form.call_to_action.id_for_label }}" class="form-label-modern">
+                                            <i class="fas fa-bullhorn label-icon"></i>
+                                            <span class="label-text">{{ form.call_to_action.label }}</span>
+                                        </label>
+                                        {{ form.call_to_action }}
+                                        {% if form.call_to_action.errors %}
+                                            <div class="error-feedback">
+                                                <i class="fas fa-exclamation-circle me-1"></i>
+                                                {{ form.call_to_action.errors.0 }}
+                                            </div>
+                                        {% endif %}
+                                        <div class="form-help">Handlungsaufforderung für deine Follower</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Settings Section (moved here) -->
+                        <div class="form-section mb-5">
+                            <h4 class="section-title">
+                                <span class="section-number">4</span>
+                                <span class="section-text">Einstellungen</span>
+                            </h4>
+                            
+                            <div class="row">
+                                <div class="col-lg-6">
+                                    <!-- Post Type -->
+                                    <div class="form-group mb-4">
+                                        <label for="{{ form.post_type.id_for_label }}" class="form-label-modern">
+                                            <i class="fas fa-layer-group label-icon"></i>
+                                            <span class="label-text">{{ form.post_type.label }}</span>
+                                        </label>
+                                        <select name="post_type" id="{{ form.post_type.id_for_label }}" class="form-control">
+                                            <option value="tips" {% if post.post_type == 'tips' %}selected{% endif %}>Tipps & Tricks</option>
+                                            <option value="behind_scenes" {% if post.post_type == 'behind_scenes' %}selected{% endif %}>Behind the Scenes</option>
+                                            <option value="product" {% if post.post_type == 'product' %}selected{% endif %}>Produktvorstellungen</option>
+                                            <option value="educational" {% if post.post_type == 'educational' %}selected{% endif %}>Bildungsinhalte</option>
+                                            <option value="motivational" {% if post.post_type == 'motivational' %}selected{% endif %}>Motivierende Posts</option>
+                                            <option value="testimonials" {% if post.post_type == 'testimonials' %}selected{% endif %}>Kundenstimmen</option>
+                                            <option value="news" {% if post.post_type == 'news' %}selected{% endif %}>News & Updates</option>
+                                            <option value="questions" {% if post.post_type == 'questions' %}selected{% endif %}>Fragen an Community</option>
+                                        </select>
+                                        <div class="form-help">Kategorisiere deinen Post für bessere Organisation</div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-6">
+                                    <!-- Priority -->
+                                    <div class="form-group mb-4">
+                                        <label for="{{ form.priority.id_for_label }}" class="form-label-modern">
+                                            <i class="fas fa-exclamation-circle label-icon"></i>
+                                            <span class="label-text">{{ form.priority.label }}</span>
+                                        </label>
+                                        {{ form.priority }}
+                                        <div class="form-help">Setze die Wichtigkeit für die Veröffentlichungsreihenfolge</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- AI Info and Stats Row -->
+                            {% if post.ai_generated %}
+                            <div class="row mt-4">
+                                <div class="col-lg-6">
+                                    <div class="ai-info-card">
+                                        <div class="ai-header">
+                                            <i class="fas fa-robot fa-2x me-3"></i>
+                                            <div>
+                                                <h6 class="ai-title mb-1">KI-generierter Content</h6>
+                                                <small class="ai-details">
+                                                    {{ post.ai_model_used|default:"KI-Assistent" }}
+                                                    {% if post.created_at %}
+                                                    • {{ post.created_at|date:"d.m.Y H:i" }}
+                                                    {% endif %}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="quick-stats-card">
+                                        <h6 class="stats-title mb-3">
+                                            <i class="fas fa-chart-line me-2"></i>Schnellübersicht
+                                        </h6>
+                                        <div class="stats-grid">
+                                            <div class="stat-item">
+                                                <div class="stat-icon text-primary">
+                                                    <i class="fas fa-font"></i>
+                                                </div>
+                                                <div class="stat-content">
+                                                    <div class="stat-number" id="sidebar-char-count">{{ post.character_count }}</div>
+                                                    <div class="stat-label">Zeichen</div>
+                                                </div>
+                                            </div>
+                                            <div class="stat-item">
+                                                <div class="stat-icon text-success">
+                                                    <i class="fas fa-hashtag"></i>
+                                                </div>
+                                                <div class="stat-content">
+                                                    <div class="stat-number" id="sidebar-hashtag-count">{{ post.hashtags|length }}</div>
+                                                    <div class="stat-label">Hashtags</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="row mt-4">
+                                <div class="col-lg-6 mx-auto">
+                                    <div class="quick-stats-card">
+                                        <h6 class="stats-title mb-3">
+                                            <i class="fas fa-chart-line me-2"></i>Schnellübersicht
+                                        </h6>
+                                        <div class="stats-grid">
+                                            <div class="stat-item">
+                                                <div class="stat-icon text-primary">
+                                                    <i class="fas fa-font"></i>
+                                                </div>
+                                                <div class="stat-content">
+                                                    <div class="stat-number" id="sidebar-char-count">{{ post.character_count }}</div>
+                                                    <div class="stat-label">Zeichen</div>
+                                                </div>
+                                            </div>
+                                            <div class="stat-item">
+                                                <div class="stat-icon text-success">
+                                                    <i class="fas fa-hashtag"></i>
+                                                </div>
+                                                <div class="stat-content">
+                                                    <div class="stat-number" id="sidebar-hashtag-count">{{ post.hashtags|length }}</div>
+                                                    <div class="stat-label">Hashtags</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="form-actions">
+                        <div class="action-buttons">
+                            <div class="left-actions">
+                                <a href="{% url 'somi_plan:plan_detail' plan.pk %}" class="btn btn-outline-secondary btn-lg">
+                                    <i class="fas fa-arrow-left me-2"></i>Zurück
+                                </a>
+                            </div>
+                            <div class="right-actions">
+                                <button type="button" class="btn btn-outline-primary btn-lg me-3" onclick="previewPost()">
+                                    <i class="fas fa-eye me-2"></i>Vorschau
+                                </button>
+                                <button type="submit" class="btn btn-success btn-lg">
+                                    <i class="fas fa-save me-2"></i>Änderungen speichern
+                                </button>
+                            </div>
+                        </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Preview Modal -->
+        <div class="modal fade" id="previewModal" tabindex="-1">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-eye me-2"></i>Post-Vorschau
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <div class="row">
+                            <div class="col-lg-6">
+                                <div class="preview-content">
+                                    <!-- Content will be populated by JavaScript -->
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="preview-info">
+                                    <h6 class="text-muted mb-3">
+                                        <i class="fas fa-info-circle me-2"></i>Post-Informationen
+                                    </h6>
+                                    <div class="info-cards">
+                                        <!-- Info cards will be populated by JavaScript -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i>Schließen
+                        </button>
+                        <button type="button" class="btn btn-success" onclick="document.getElementById('post-edit-form').submit()">
+                            <i class="fas fa-save me-1"></i>Speichern & Schließen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+// Character counter functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const contentTextarea = document.getElementById('{{ form.content.id_for_label }}');
+    const counter = document.getElementById('character-counter');
+    const currentCountSpan = counter.querySelector('.current-count');
+    const limitSpan = counter.querySelector('.limit');
+    const limit = parseInt(limitSpan.textContent);
+    
+    function updateCharacterCount() {
+        const count = contentTextarea.value.length;
+        currentCountSpan.textContent = count;
+        
+        // Remove existing classes
+        counter.classList.remove('text-success', 'text-warning', 'text-danger');
+        
+        // Add appropriate class based on usage
+        const percentage = (count / limit) * 100;
+        if (percentage > 100) {
+            counter.classList.add('text-danger');
+        } else if (percentage > 80) {
+            counter.classList.add('text-warning');
+        } else {
+            counter.classList.add('text-success');
+        }
+    }
+    
+    // Update on input
+    contentTextarea.addEventListener('input', updateCharacterCount);
+    
+    // Initial update
+    updateCharacterCount();
+});
+
+// Preview functionality
+function previewPost() {
+    const title = document.getElementById('{{ form.title.id_for_label }}').value;
+    const content = document.getElementById('{{ form.content.id_for_label }}').value;
+    const script = document.getElementById('{{ form.script.id_for_label }}').value;
+    const hashtags = document.getElementById('{{ form.hashtags.id_for_label }}').value;
+    const callToAction = document.getElementById('{{ form.call_to_action.id_for_label }}').value;
+    
+    // Format content with proper line breaks and structure
+    const formatContent = (text) => {
+        if (!text) return '';
+        return text
+            .replace(/\n\n/g, '</p><p>')
+            .replace(/\n/g, '<br>')
+            .replace(/^/, '<p>')
+            .replace(/$/, '</p>')
+            .replace(/<p><\/p>/g, '')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/#(\w+)/g, '<span class="text-primary fw-bold">#$1</span>');
+    };
+    
+    const formatScript = (text) => {
+        if (!text) return '';
+        return text
+            .replace(/\n\n/g, '</p><p>')
+            .replace(/\n/g, '<br>')
+            .replace(/^/, '<p>')
+            .replace(/$/, '</p>')
+            .replace(/<p><\/p>/g, '')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/(\d+\.|\-|\•)/g, '<span class="text-primary fw-bold">$1</span>')
+            .replace(/(Schritt \d+|Phase \d+|Teil \d+)/gi, '<span class="badge bg-info me-1">$1</span>');
+    };
+    
+    const previewContent = `
+        <div class="post-preview-card p-4 border rounded shadow-sm mb-4">
+            <div class="d-flex align-items-center mb-3 pb-2 border-bottom">
+                <i class="{{ plan.platform.icon }} fa-2x me-3" style="color: {{ plan.platform.color }};"></i>
+                <div>
+                    <h5 class="mb-0">{{ plan.platform.name }}</h5>
+                    <small class="text-muted">Post-Vorschau</small>
+                </div>
+            </div>
+            
+            <h4 class="mb-3 fw-bold text-dark">${title}</h4>
+            
+            <div class="content-formatted mb-3" style="line-height: 1.8; font-size: 1.1rem;">
+                ${formatContent(content)}
+            </div>
+            
+            ${hashtags ? `<div class="hashtags-section mb-3">
+                ${hashtags.split(' ').filter(tag => tag).map(tag => 
+                    `<span class="badge bg-primary fs-6 me-2 mb-1">${tag}</span>`
+                ).join('')}
+            </div>` : ''}
+            
+            ${callToAction ? `<div class="call-to-action bg-warning bg-opacity-15 p-3 rounded border-start border-warning border-4 mb-3">
+                <strong class="text-dark"><i class="fas fa-bullhorn me-2"></i>${callToAction}</strong>
+            </div>` : ''}
+        </div>
+        
+        ${script ? `
+        <div class="script-preview-section">
+            <h5 class="mb-3"><i class="fas fa-clipboard-list me-2 text-info"></i>Umsetzungs-Anweisungen</h5>
+            <div class="bg-light p-4 rounded border">
+                <div class="script-formatted" style="line-height: 1.6; font-size: 0.95rem;">
+                    ${formatScript(script)}
+                </div>
+            </div>
+        </div>
+        ` : ''}
+    `;
+    
+    // Calculate statistics
+    const characterCount = content.length;
+    const wordCount = content.trim().split(/\s+/).filter(word => word.length > 0).length;
+    const hashtagCount = hashtags ? hashtags.split(' ').filter(tag => tag).length : 0;
+    const characterLimit = {{ plan.platform.character_limit }};
+    const characterPercentage = Math.round((characterCount / characterLimit) * 100);
+    
+    const previewInfo = `
+        <div class="info-card mb-3">
+            <div class="card border-0 bg-light">
+                <div class="card-body">
+                    <h6 class="card-title text-primary">
+                        <i class="fas fa-chart-bar me-2"></i>Statistiken
+                    </h6>
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="stat-item">
+                                <div class="stat-number text-primary fw-bold">${characterCount}</div>
+                                <div class="stat-label text-muted small">Zeichen</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-item">
+                                <div class="stat-number text-success fw-bold">${wordCount}</div>
+                                <div class="stat-label text-muted small">Wörter</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-item">
+                                <div class="stat-number text-info fw-bold">${hashtagCount}</div>
+                                <div class="stat-label text-muted small">Hashtags</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="info-card mb-3">
+            <div class="card border-0 ${characterPercentage > 100 ? 'bg-danger bg-opacity-10' : characterPercentage > 80 ? 'bg-warning bg-opacity-10' : 'bg-success bg-opacity-10'}">
+                <div class="card-body">
+                    <h6 class="card-title ${characterPercentage > 100 ? 'text-danger' : characterPercentage > 80 ? 'text-warning' : 'text-success'}">
+                        <i class="fas fa-ruler me-2"></i>Zeichen-Limit
+                    </h6>
+                    <div class="progress mb-2" style="height: 8px;">
+                        <div class="progress-bar ${characterPercentage > 100 ? 'bg-danger' : characterPercentage > 80 ? 'bg-warning' : 'bg-success'}" 
+                             style="width: ${Math.min(characterPercentage, 100)}%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">${characterCount} / ${characterLimit}</small>
+                        <small class="${characterPercentage > 100 ? 'text-danger' : characterPercentage > 80 ? 'text-warning' : 'text-success'} fw-bold">
+                            ${characterPercentage}%
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="info-card">
+            <div class="card border-0 bg-light">
+                <div class="card-body">
+                    <h6 class="card-title text-secondary">
+                        <i class="fas fa-tags me-2"></i>Post-Details
+                    </h6>
+                    <div class="detail-list">
+                        <div class="detail-item d-flex justify-content-between py-1">
+                            <span class="text-muted">Plattform:</span>
+                            <span class="fw-medium">{{ plan.platform.name }}</span>
+                        </div>
+                        <div class="detail-item d-flex justify-content-between py-1">
+                            <span class="text-muted">Plan:</span>
+                            <span class="fw-medium">{{ plan.title|truncatechars:25 }}</span>
+                        </div>
+                        ${callToAction ? `<div class="detail-item d-flex justify-content-between py-1">
+                            <span class="text-muted">Call-to-Action:</span>
+                            <span class="text-success"><i class="fas fa-check"></i></span>
+                        </div>` : ''}
+                        ${hashtagCount > 0 ? `<div class="detail-item d-flex justify-content-between py-1">
+                            <span class="text-muted">Hashtags:</span>
+                            <span class="text-info">${hashtagCount} Tags</span>
+                        </div>` : ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.querySelector('#previewModal .preview-content').innerHTML = previewContent;
+    document.querySelector('#previewModal .info-cards').innerHTML = previewInfo;
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+    modal.show();
+}
+
+// Form validation
+document.getElementById('post-edit-form').addEventListener('submit', function(e) {
+    const title = document.getElementById('{{ form.title.id_for_label }}').value.trim();
+    const content = document.getElementById('{{ form.content.id_for_label }}').value.trim();
+    
+    if (!title) {
+        alert('Bitte gib einen Titel für den Post ein.');
+        e.preventDefault();
+        return false;
+    }
+    
+    if (!content) {
+        alert('Bitte gib den Inhalt für den Post ein.');
+        e.preventDefault();
+        return false;
+    }
+    
+    // Show loading state
+    const submitBtn = this.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Speichere...';
+});
+</script>
+{% endblock %}
+
+{% block page_css %}
+<style>
+    /* ===== MODERN FORM STYLES ===== */
+    .edit-form-container {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        padding: 2.5rem;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        position: relative;
+        overflow: hidden;
+        max-width: none;
+    }
+    
+    .edit-form-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        z-index: 1;
+    }
+    
+    .modern-form {
+        position: relative;
+        z-index: 2;
+    }
+    
+    /* ===== HEADER STYLES ===== */
+    .custom-breadcrumb {
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(10px);
+        border-radius: 10px;
+        padding: 0.75rem 1.5rem;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    
+    .custom-breadcrumb a {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 500;
+    }
+    
+    .hero-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        overflow: hidden;
+        position: relative;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    }
+    
+    .hero-gradient {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+    }
+    
+    .hero-content {
+        position: relative;
+        z-index: 2;
+        padding: 2.5rem;
+        color: white;
+    }
+    
+    .platform-icon-wrapper {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .platform-badge {
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        margin-top: 0.5rem;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .hero-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        margin: 0;
+    }
+    
+    .hero-meta {
+        display: flex;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+        opacity: 0.9;
+    }
+    
+    .meta-item {
+        display: flex;
+        align-items: center;
+        font-size: 0.95rem;
+    }
+    
+    .priority-badge {
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        padding: 0.5rem 1rem;
+        border-radius: 25px;
+        font-weight: 600;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: white;
+    }
+    
+    .priority-1 {
+        background: rgba(220, 53, 69, 0.8) !important;
+        border-color: rgba(220, 53, 69, 0.6) !important;
+    }
+    
+    .priority-2 {
+        background: rgba(255, 193, 7, 0.8) !important;
+        border-color: rgba(255, 193, 7, 0.6) !important;
+    }
+    
+    .priority-3 {
+        background: rgba(108, 117, 125, 0.8) !important;
+        border-color: rgba(108, 117, 125, 0.6) !important;
+    }
+    
+    /* ===== FORM SECTIONS ===== */
+    .form-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    .form-title {
+        color: #2d3748;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-subtitle {
+        font-size: 1.1rem;
+    }
+    
+    .form-section {
+        background: white;
+        border-radius: 15px;
+        padding: 2rem;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    
+    .section-title {
+        display: flex;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        font-weight: 600;
+        color: #2d3748;
+    }
+    
+    .section-number {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        margin-right: 1rem;
+        font-size: 0.9rem;
+    }
+    
+    /* ===== FORM CONTROLS ===== */
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-label-modern {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.75rem;
+        font-weight: 600;
+        color: #2d3748;
+        font-size: 1rem;
+    }
+    
+    .label-icon {
+        margin-right: 0.5rem;
+        color: #667eea;
+        width: 16px;
+    }
+    
+    .label-required {
+        color: #e53e3e;
+        margin-left: 0.25rem;
+    }
+    
+    .form-control {
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: #f8fafc;
+    }
+    
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        background: white;
+    }
+    
+    textarea.form-control {
+        min-height: 120px;
+        resize: vertical;
+    }
+    
+    .form-control[name="script"] {
+        min-height: 180px;
+    }
+    
+    .form-help {
+        font-size: 0.9rem;
+        color: #718096;
+        margin-top: 0.5rem;
+        font-style: italic;
+    }
+    
+    .error-feedback {
+        color: #e53e3e;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+        display: flex;
+        align-items: center;
+        font-weight: 500;
+    }
+    
+    /* ===== CHARACTER COUNTER ===== */
+    .character-counter-modern {
+        background: #2d3748;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+    
+    .separator {
+        color: #a0aec0;
+        font-weight: 600;
+    }
+    
+    .unit {
+        color: #e2e8f0;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    
+    /* ===== SIDEBAR ===== */
+    .sidebar-sticky {
+        position: sticky;
+        top: 2rem;
+    }
+    
+    .settings-card {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    
+    .settings-title {
+        color: #2d3748;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+    }
+    
+    .form-label-sidebar {
+        font-weight: 600;
+        color: #4a5568;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+    }
+    
+    .form-control-sidebar {
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.9rem;
+        background: #f8fafc;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control-sidebar:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+        background: white;
+    }
+    
+    /* ===== AI INFO CARD ===== */
+    .ai-info-card {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        border-radius: 12px;
+        padding: 1.5rem;
+        color: white;
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+    }
+    
+    .ai-header {
+        display: flex;
+        align-items: center;
+    }
+    
+    .ai-title {
+        font-weight: 600;
+        margin: 0;
+    }
+    
+    .ai-details {
+        opacity: 0.9;
+    }
+    
+    /* ===== QUICK STATS ===== */
+    .quick-stats-card {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    
+    .stats-title {
+        color: #2d3748;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+    
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(102, 126, 234, 0.1);
+        font-size: 1.2rem;
+    }
+    
+    .stat-content {
+        text-align: left;
+    }
+    
+    .stat-number {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #2d3748;
+        line-height: 1;
+    }
+    
+    .stat-label {
+        font-size: 0.8rem;
+        color: #718096;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 500;
+    }
+    
+    /* ===== ACTION BUTTONS ===== */
+    .form-actions {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        margin-top: 2rem;
+    }
+    
+    .action-buttons {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .btn-lg {
+        padding: 0.75rem 2rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-success {
+        background: linear-gradient(135deg, #48bb78, #38a169);
+        border: none;
+        box-shadow: 0 4px 12px rgba(72, 187, 120, 0.3);
+    }
+    
+    .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(72, 187, 120, 0.4);
+    }
+    
+    .btn-outline-primary {
+        border: 2px solid #667eea;
+        color: #667eea;
+        background: transparent;
+    }
+    
+    .btn-outline-primary:hover {
+        background: #667eea;
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    .btn-outline-secondary {
+        border: 2px solid #a0aec0;
+        color: #4a5568;
+        background: transparent;
+    }
+    
+    .btn-outline-secondary:hover {
+        background: #4a5568;
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    /* ===== LEGACY STYLES (for compatibility) ===== */
+    .character-counter {
+        font-weight: 500;
+        transition: color 0.3s ease;
+    }
+    
+    .character-counter.text-danger {
+        font-weight: 600;
+    }
+    
+    .character-counter.text-warning {
+        font-weight: 600;
+    }
+    
+    .post-preview-card {
+        background: #ffffff;
+        border: 1px solid #e9ecef !important;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important;
+    }
+    
+    .post-preview-card h4 {
+        color: #212529;
+        line-height: 1.3;
+    }
+    
+    .hashtags-section .badge {
+        padding: 0.5rem 0.75rem;
+        border-radius: 1rem;
+        text-decoration: none;
+    }
+    
+    .call-to-action {
+        border-left: 4px solid #ffc107 !important;
+    }
+    
+    .script-preview-section {
+        margin-top: 1.5rem;
+    }
+    
+    .script-preview-section h5 {
+        color: #17a2b8;
+        font-weight: 600;
+    }
+    
+    .info-card .stat-number {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    
+    .info-card .stat-label {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .detail-item {
+        border-bottom: 1px solid rgba(0,0,0,.05);
+    }
+    
+    .detail-item:last-child {
+        border-bottom: none;
+    }
+    
+    .progress {
+        border-radius: 1rem;
+    }
+    
+    .progress-bar {
+        border-radius: 1rem;
+    }
+    
+    .content-formatted p {
+        margin-bottom: 0.75rem;
+    }
+    
+    .content-formatted p:last-child {
+        margin-bottom: 0;
+    }
+    
+    .content-formatted strong {
+        font-weight: 600;
+        color: #212529;
+    }
+    
+    .content-formatted em {
+        font-style: italic;
+        color: #495057;
+    }
+    
+    .script-formatted p {
+        margin-bottom: 0.5rem;
+    }
+    
+    .script-formatted p:last-child {
+        margin-bottom: 0;
+    }
+    
+    .script-formatted .badge {
+        font-size: 0.7rem;
+        margin-right: 0.25rem;
+    }
+    
+    .form-control:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    
+    .alert-info .fas.fa-robot {
+        color: #0dcaf0;
+    }
+</style>
+{% endblock %}

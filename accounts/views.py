@@ -2920,3 +2920,91 @@ def zoho_delete_all_emails_api(request):
             'success': False,
             'error': f'Fehler beim Löschen der Emails: {str(e)}'
         })
+
+
+@login_required
+def get_model_preferences(request):
+    """API Endpoint zum Abrufen der aktuellen KI-Model-Präferenzen des Users"""
+    try:
+        user = request.user
+        return JsonResponse({
+            'success': True,
+            'openai_model': getattr(user, 'preferred_openai_model', 'gpt-4o-mini'),
+            'anthropic_model': getattr(user, 'preferred_anthropic_model', 'claude-3-5-sonnet-20241022')
+        })
+    except Exception as e:
+        logger.error(f"Error fetching model preferences for user {request.user.username}: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Laden der Model-Präferenzen: {str(e)}'
+        })
+
+
+@login_required
+def save_model_preference(request):
+    """API Endpoint zum Speichern einer KI-Model-Präferenz"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST request required'})
+    
+    try:
+        data = json.loads(request.body)
+        provider = data.get('provider')
+        model = data.get('model')
+        
+        if not provider or not model:
+            return JsonResponse({
+                'success': False,
+                'error': 'Provider und Model sind erforderlich'
+            })
+        
+        user = request.user
+        
+        # Validate and save based on provider
+        if provider == 'openai':
+            valid_models = ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo']
+            if model not in valid_models:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Ungültiges OpenAI Model: {model}'
+                })
+            user.preferred_openai_model = model
+            
+        elif provider == 'anthropic':
+            valid_models = [
+                'claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022',
+                'claude-3-opus-20240229', 'claude-3-sonnet-20240229', 
+                'claude-3-haiku-20240307'
+            ]
+            if model not in valid_models:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Ungültiges Anthropic Model: {model}'
+                })
+            user.preferred_anthropic_model = model
+            
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': f'Ungültiger Provider: {provider}'
+            })
+        
+        user.save()
+        
+        logger.info(f"Updated {provider} model preference to {model} for user {request.user.username}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'{provider.capitalize()} Model auf {model} aktualisiert'
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Ungültige JSON-Daten'
+        })
+    except Exception as e:
+        logger.error(f"Error saving model preference for user {request.user.username}: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Speichern der Model-Präferenz: {str(e)}'
+        })

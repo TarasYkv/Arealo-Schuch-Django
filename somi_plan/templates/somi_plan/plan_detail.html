@@ -1,0 +1,674 @@
+{% extends "somi_plan/base.html" %}
+{% load static %}
+{% load math_filters %}
+
+{% block page_title %}{{ plan.title }}{% endblock %}
+{% block page_description %}{{ plan.platform.name }} • {{ posts.count }} Posts • {{ plan.get_status_display }}{% endblock %}
+
+{% block header_actions %}
+<div class="btn-group">
+    <a href="{% url 'somi_plan:plan_edit' plan.pk %}" class="btn btn-outline-light">
+        <i class="fas fa-edit me-2"></i>Bearbeiten
+    </a>
+    <a href="{% url 'somi_plan:calendar' %}" class="btn btn-light">
+        <i class="fas fa-calendar me-2"></i>Kalender
+    </a>
+</div>
+{% endblock %}
+
+{% block main_content %}
+<!-- Plan Overview -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <i class="{{ plan.platform.icon }} fa-3x me-3" style="color: {{ plan.platform.color }};"></i>
+                    <div class="flex-grow-1">
+                        <h4 class="mb-1">{{ plan.title }}</h4>
+                        <p class="text-muted mb-0">{{ plan.description|default:"Keine Beschreibung vorhanden" }}</p>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-{% if plan.status == 'active' %}success{% elif plan.status == 'draft' %}secondary{% elif plan.status == 'completed' %}primary{% else %}warning{% endif %} fs-6">
+                            {{ plan.get_status_display }}
+                        </span>
+                    </div>
+                </div>
+                
+                {% if plan.description %}
+                <div class="card-text mb-3">
+                    <div class="plan-description" style="line-height: 1.5;">
+                        {{ plan.description|linebreaks }}
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="row text-center">
+                    <div class="col-3">
+                        <div class="p-2">
+                            <i class="fas fa-file-alt fa-2x text-primary mb-2"></i>
+                            <div class="h5 mb-0">{{ posts.count }}</div>
+                            <small class="text-muted">Posts</small>
+                        </div>
+                    </div>
+                    <div class="col-3">
+                        <div class="p-2">
+                            <i class="fas fa-calendar fa-2x text-info mb-2"></i>
+                            <div class="h5 mb-0">{{ plan.get_scheduled_posts_count }}</div>
+                            <small class="text-muted">Geplant</small>
+                        </div>
+                    </div>
+                    <div class="col-3">
+                        <div class="p-2">
+                            <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                            <div class="h5 mb-0">0</div>
+                            <small class="text-muted">Erledigt</small>
+                        </div>
+                    </div>
+                    <div class="col-3">
+                        <div class="p-2">
+                            <i class="fas fa-chart-line fa-2x text-warning mb-2"></i>
+                            <div class="h5 mb-0">--</div>
+                            <small class="text-muted">Reichweite</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-cog me-2"></i>Plan-Einstellungen
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label small text-muted">Plattform</label>
+                    <div class="d-flex align-items-center">
+                        <i class="{{ plan.platform.icon }} me-2" style="color: {{ plan.platform.color }};"></i>
+                        <span>{{ plan.platform.name }}</span>
+                        <small class="text-muted ms-auto">{{ plan.platform.character_limit }} Zeichen</small>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label small text-muted">Erstellt</label>
+                    <div>{{ plan.created_at|date:"d.m.Y H:i" }}</div>
+                </div>
+                
+                {% if plan.strategy_data %}
+                <div class="mb-3">
+                    <label class="form-label small text-muted">Posting-Häufigkeit</label>
+                    <div>
+                        {% if plan.strategy_data.posting_frequency == 'daily' %}Täglich
+                        {% elif plan.strategy_data.posting_frequency == 'every_other_day' %}Jeden 2. Tag
+                        {% elif plan.strategy_data.posting_frequency == '3_times_week' %}3x pro Woche
+                        {% elif plan.strategy_data.posting_frequency == '2_times_week' %}2x pro Woche
+                        {% elif plan.strategy_data.posting_frequency == 'weekly' %}Wöchentlich
+                        {% else %}{{ plan.strategy_data.posting_frequency }}{% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="d-grid gap-2">
+                    {% if plan.status == 'draft' %}
+                    <a href="{% url 'somi_plan:create_plan_step2' plan.id %}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-play me-1"></i>Weiter bearbeiten
+                    </a>
+                    {% endif %}
+                    
+                    <a href="{% url 'somi_plan:plan_edit' plan.pk %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-edit me-1"></i>Plan bearbeiten
+                    </a>
+                    
+                    <button class="btn btn-outline-info btn-sm" onclick="exportPlan()">
+                        <i class="fas fa-download me-1"></i>Exportieren
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Strategy Overview -->
+{% if plan.strategy_data %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-chart-pie me-2"></i>Content-Strategie
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            {% if plan.strategy_data.content_types %}
+            <div class="col-md-6">
+                <h6>Content-Typen</h6>
+                <div class="mb-3">
+                    {% for content_type in plan.strategy_data.content_types %}
+                    <span class="badge bg-primary me-1 mb-1">
+                        {% if content_type == 'tips' %}Tipps & Tricks
+                        {% elif content_type == 'behind_scenes' %}Behind the Scenes  
+                        {% elif content_type == 'product' %}Produktvorstellungen
+                        {% elif content_type == 'educational' %}Bildungsinhalte
+                        {% elif content_type == 'motivational' %}Motivierende Posts
+                        {% elif content_type == 'testimonials' %}Kundenstimmen
+                        {% elif content_type == 'news' %}News & Updates
+                        {% elif content_type == 'questions' %}Fragen an Community
+                        {% else %}{{ content_type }}{% endif %}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if plan.strategy_data.best_times %}
+            <div class="col-md-6">
+                <h6>Beste Posting-Zeiten</h6>
+                <div class="mb-3">
+                    {% for time in plan.strategy_data.best_times %}
+                    <span class="badge bg-info me-1 mb-1">
+                        {% if time == 'morning' %}Morgens (6-9 Uhr)
+                        {% elif time == 'midday' %}Mittags (11-14 Uhr)
+                        {% elif time == 'afternoon' %}Nachmittags (15-17 Uhr)
+                        {% elif time == 'evening' %}Abends (18-21 Uhr)
+                        {% elif time == 'night' %}Nachts (21-23 Uhr)
+                        {% else %}{{ time }}{% endif %}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        {% if plan.strategy_data.additional_notes %}
+        <div class="mt-3">
+            <h6><i class="fas fa-sticky-note me-2"></i>Zusätzliche Anmerkungen</h6>
+            <div class="bg-light p-3 rounded border">
+                <div class="strategy-notes" style="line-height: 1.5;">
+                    {{ plan.strategy_data.additional_notes|linebreaks }}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Posts Section -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">
+            <i class="fas fa-layer-group me-2"></i>Content Posts ({{ posts.count }})
+        </h5>
+        <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-primary" onclick="generateMorePosts()">
+                <i class="fas fa-magic me-1"></i>Mehr Ideen
+            </button>
+            <a href="{% url 'somi_plan:post_create' plan.id %}" class="btn btn-outline-secondary">
+                <i class="fas fa-plus me-1"></i>Manuell hinzufügen
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        {% if posts %}
+        <div class="row">
+            {% for post in posts %}
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card h-100 post-card" onclick="showPostModal({{ post.id }})">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="card-title mb-0">{{ post.title|truncatechars:40 }}</h6>
+                            {% if post.ai_generated %}
+                            <span class="badge bg-gradient-primary">
+                                <i class="fas fa-robot"></i>
+                            </span>
+                            {% endif %}
+                        </div>
+                        
+                        <p class="card-text small text-muted">{{ post.content|truncatechars:80|linebreaks }}</p>
+                        
+                        {% if post.hashtags %}
+                        <div class="mb-2">
+                            {% for hashtag in post.hashtags|split:" "|slice:":3" %}
+                            <span class="badge bg-light text-dark">{{ hashtag }}</span>
+                            {% endfor %}
+                            {% if post.hashtags|split:" "|length > 3 %}
+                            <span class="text-muted small">+{{ post.hashtags|split:" "|length|add:"-3" }} mehr</span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">
+                                <i class="fas fa-font me-1"></i>
+                                <span class="{% if post.get_character_limit_percentage > 100 %}text-danger{% elif post.get_character_limit_percentage > 80 %}text-warning{% endif %}">
+                                    {{ post.character_count }}/{{ post.posting_plan.platform.character_limit }}
+                                </span>
+                            </small>
+                            
+                            <div>
+                                {% if post.schedule %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-calendar me-1"></i>{{ post.schedule.scheduled_date|date:"d.m." }}
+                                </span>
+                                {% else %}
+                                <button class="btn btn-outline-primary btn-sm" onclick="event.stopPropagation(); schedulePost({{ post.id }})">
+                                    <i class="fas fa-calendar me-1"></i>Planen
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+            <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+            <h6 class="text-muted">Noch keine Posts erstellt</h6>
+            <p class="text-muted">Erstelle Posts automatisch mit KI oder füge sie manuell hinzu.</p>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="generateMorePosts()">
+                    <i class="fas fa-magic me-2"></i>Posts mit KI erstellen
+                </button>
+                <a href="{% url 'somi_plan:post_create' plan.id %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-plus me-2"></i>Manuell hinzufügen
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Post Detail Modal -->
+<div class="modal fade" id="postModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="postModalTitle">Post Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="postModalBody">
+                <!-- Content will be loaded dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                <button type="button" class="btn btn-outline-primary" id="editPostBtn">
+                    <i class="fas fa-edit me-1"></i>Bearbeiten
+                </button>
+                <button type="button" class="btn btn-primary" id="schedulePostBtn">
+                    <i class="fas fa-calendar me-1"></i>Terminieren
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+// Add functions to global scope - ensure they're available
+window.showPostModal = function(postId) {
+    console.log('showPostModal called with postId:', postId);
+    
+    // Mock post data - in real implementation, this would fetch from API
+    const posts = {
+        {% for post in posts %}
+        {{ post.id }}: {
+            title: `{{ post.title|escapejs }}`,
+            content: `{{ post.content|escapejs }}`,
+            script: `{{ post.script|escapejs }}`,
+            hashtags: `{{ post.hashtags|escapejs }}`,
+            call_to_action: `{{ post.call_to_action|escapejs }}`,
+            character_count: {{ post.character_count }},
+            character_limit: {{ post.posting_plan.platform.character_limit }}
+        },
+        {% endfor %}
+    };
+    
+    const post = posts[postId];
+    if (!post) return;
+    
+    document.getElementById('postModalTitle').textContent = post.title;
+    
+    const percentage = (post.character_count / post.character_limit) * 100;
+    let characterClass = '';
+    if (percentage > 100) characterClass = 'text-danger';
+    else if (percentage > 80) characterClass = 'text-warning';
+    
+    // Format content with proper line breaks and structure
+    const formatContent = (text) => {
+        if (!text) return '';
+        return text
+            .replace(/\n\n/g, '</p><p>')  // Double line breaks become paragraph breaks
+            .replace(/\n/g, '<br>')       // Single line breaks become <br>
+            .replace(/^/, '<p>')          // Start with paragraph
+            .replace(/$/, '</p>')         // End with paragraph
+            .replace(/<p><\/p>/g, '')     // Remove empty paragraphs
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // Bold text **text**
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')              // Italic text *text*
+            .replace(/#(\w+)/g, '<span class="text-primary fw-bold">#$1</span>'); // Hashtags
+    };
+    
+    const formatScript = (text) => {
+        if (!text) return '';
+        return text
+            .replace(/\n\n/g, '</p><p>')
+            .replace(/\n/g, '<br>')
+            .replace(/^/, '<p>')
+            .replace(/$/, '</p>')
+            .replace(/<p><\/p>/g, '')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/(\d+\.|\-|\•)/g, '<span class="text-primary fw-bold">$1</span>') // Numbers and bullets
+            .replace(/(Schritt \d+|Phase \d+|Teil \d+)/gi, '<span class="badge bg-info me-1">$1</span>'); // Steps/phases
+    };
+
+    document.getElementById('postModalBody').innerHTML = `
+        <div class="mb-3">
+            <h6><i class="fas fa-file-alt me-2"></i>Content</h6>
+            <div class="bg-light p-3 rounded border">
+                <div class="content-formatted" style="line-height: 1.6; font-size: 0.95rem;">
+                    ${formatContent(post.content)}
+                </div>
+            </div>
+            <small class="text-muted mt-1 d-block">
+                <i class="fas fa-font me-1"></i>
+                <span class="${characterClass}">${post.character_count}/${post.character_limit} Zeichen</span>
+            </small>
+        </div>
+        
+        ${post.script ? `
+        <div class="mb-3">
+            <h6><i class="fas fa-script me-2"></i>Umsetzungs-Skript</h6>
+            <div class="bg-info bg-opacity-10 p-3 rounded border border-info">
+                <div class="script-formatted" style="line-height: 1.5; font-size: 0.9rem;">
+                    ${formatScript(post.script)}
+                </div>
+            </div>
+        </div>
+        ` : ''}
+        
+        ${post.hashtags ? `
+        <div class="mb-3">
+            <h6><i class="fas fa-hashtag me-2"></i>Hashtags</h6>
+            <div>
+                ${post.hashtags.split(' ').filter(tag => tag).map(tag => 
+                    `<span class="badge bg-primary me-1">${tag}</span>`
+                ).join('')}
+            </div>
+        </div>
+        ` : ''}
+        
+        ${post.call_to_action ? `
+        <div class="mb-3">
+            <h6><i class="fas fa-bullhorn me-2"></i>Call-to-Action</h6>
+            <div class="bg-warning bg-opacity-10 p-2 rounded">
+                <strong>${post.call_to_action}</strong>
+            </div>
+        </div>
+        ` : ''}
+    `;
+    
+    // Set button actions
+    document.getElementById('editPostBtn').onclick = () => editPost(postId);
+    document.getElementById('schedulePostBtn').onclick = () => schedulePost(postId);
+    
+    // Show modal - check if Bootstrap is loaded
+    if (typeof bootstrap !== 'undefined') {
+        new bootstrap.Modal(document.getElementById('postModal')).show();
+    } else {
+        console.error('Bootstrap is not loaded!');
+        // Fallback: show modal manually
+        const modal = document.getElementById('postModal');
+        if (modal) {
+            modal.classList.add('show');
+            modal.style.display = 'block';
+            document.body.classList.add('modal-open');
+        }
+    }
+};
+
+window.generateMorePosts = async function() {
+    if (confirm('Neue Post-Ideen mit KI generieren? Dies fügt weitere kreative Vorschläge zu deinem Plan hinzu.')) {
+        const btn = event.target;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generiere...';
+        
+        try {
+            const response = await fetch(`{% url 'somi_plan:generate_more_ideas' plan.id %}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                }
+            });
+            
+            const result = await response.json();
+            
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-magic me-1"></i>Mehr Ideen';
+            
+            if (result.status === 'success') {
+                // Show success message
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-success alert-dismissible fade show';
+                alert.innerHTML = `
+                    <i class="fas fa-magic me-2"></i>
+                    ${result.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                
+                // Insert alert at top of page
+                const mainContent = document.querySelector('.col-lg-8, .col-12');
+                mainContent.insertBefore(alert, mainContent.firstChild);
+                
+                // Reload to show new posts
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                alert(`Fehler: ${result.message}`);
+            }
+            
+        } catch (error) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-magic me-1"></i>Mehr Ideen';
+            console.error('Error generating posts:', error);
+            alert('Netzwerkfehler beim Generieren neuer Posts. Bitte versuche es später erneut.');
+        }
+    }
+}
+
+window.editPost = function(postId) {
+    // Close modal and redirect to edit page
+    bootstrap.Modal.getInstance(document.getElementById('postModal')).hide();
+    window.location.href = "{% url 'somi_plan:post_edit' 0 %}".replace('0', postId);
+}
+
+window.schedulePost = function(postId) {
+    // Close modal if open
+    const modal = bootstrap.Modal.getInstance(document.getElementById('postModal'));
+    if (modal) modal.hide();
+    
+    // Redirect to scheduling page using Django URL
+    window.location.href = "{% url 'somi_plan:schedule_post' 0 %}".replace('0', postId);
+};
+
+window.exportPlan = function() {
+    alert('Export-Funktion wird in Phase 5 implementiert');
+};
+
+// Verify functions are available
+console.log('Functions registered:', {
+    showPostModal: typeof window.showPostModal,
+    editPost: typeof window.editPost,
+    schedulePost: typeof window.schedulePost,
+    generateMorePosts: typeof window.generateMorePosts,
+    exportPlan: typeof window.exportPlan
+});
+</script>
+{% endblock %}
+
+{% block page_css %}
+<style>
+    /* Post Cards */
+    .post-card {
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 1px solid #dee2e6;
+        background: #ffffff;
+    }
+    
+    .post-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        border-color: #0d6efd;
+    }
+    
+    .post-card .card-body {
+        padding: 1.25rem;
+    }
+    
+    .post-card .card-title {
+        color: #212529;
+        font-weight: 600;
+    }
+    
+    .post-card .card-text {
+        color: #6c757d;
+        line-height: 1.4;
+    }
+    
+    .post-card .badge {
+        font-size: 0.75rem;
+    }
+    
+    .post-card .btn {
+        font-size: 0.875rem;
+    }
+    
+    /* Post card states */
+    .post-card.scheduled {
+        border-left: 4px solid #198754;
+    }
+    
+    .post-card.draft {
+        border-left: 4px solid #ffc107;
+    }
+    
+    /* Character counter colors */
+    .character-counter {
+        font-weight: 500;
+    }
+    
+    .character-counter.danger {
+        color: #dc3545 !important;
+    }
+    
+    .character-counter.warning {
+        color: #ffc107 !important;
+    }
+    
+    /* Content formatting in modal */
+    .content-formatted p {
+        margin-bottom: 0.75rem;
+    }
+    
+    .content-formatted p:last-child {
+        margin-bottom: 0;
+    }
+    
+    .content-formatted strong {
+        font-weight: 600;
+        color: #212529;
+    }
+    
+    .content-formatted em {
+        font-style: italic;
+        color: #495057;
+    }
+    
+    .script-formatted p {
+        margin-bottom: 0.5rem;
+    }
+    
+    .script-formatted p:last-child {
+        margin-bottom: 0;
+    }
+    
+    .script-formatted .badge {
+        font-size: 0.7rem;
+        margin-right: 0.25rem;
+    }
+    
+    /* Enhanced post card content preview */
+    .post-card .card-text {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        line-height: 1.4;
+        height: calc(1.4em * 3);
+    }
+    
+    /* Hashtag styling */
+    .hashtag-preview {
+        display: inline-block;
+        max-width: 100px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    /* Modal content styling */
+    .modal-content {
+        border: none;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+    
+    .modal-header {
+        border-bottom: 2px solid #e9ecef;
+        background: #f8f9fa;
+    }
+    
+    .modal-body h6 {
+        color: #495057;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+    }
+    
+    .modal-body h6 i {
+        color: #6c757d;
+    }
+    
+    /* Plan description formatting */
+    .plan-description p {
+        margin-bottom: 0.5rem;
+        color: #495057;
+    }
+    
+    .plan-description p:last-child {
+        margin-bottom: 0;
+    }
+    
+    /* Strategy notes formatting */
+    .strategy-notes p {
+        margin-bottom: 0.5rem;
+        color: #495057;
+    }
+    
+    .strategy-notes p:last-child {
+        margin-bottom: 0;
+    }
+    
+    /* Better line height for formatted content */
+    .linebreaks {
+        line-height: 1.5;
+    }
+</style>
+{% endblock %}
