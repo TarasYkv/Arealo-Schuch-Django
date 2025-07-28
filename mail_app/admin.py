@@ -2,7 +2,7 @@
 Mail App Admin Configuration
 """
 from django.contrib import admin
-from .models import EmailAccount, Email, Folder, Attachment, EmailDraft, SyncLog
+from .models import EmailAccount, Email, Folder, EmailAttachment, EmailDraft, SyncLog
 
 
 @admin.register(EmailAccount)
@@ -78,8 +78,8 @@ class EmailAdmin(admin.ModelAdmin):
     subject_truncated.short_description = 'Subject'
 
 
-@admin.register(Attachment)
-class AttachmentAdmin(admin.ModelAdmin):
+@admin.register(EmailAttachment)
+class EmailAttachmentAdmin(admin.ModelAdmin):
     list_display = ['filename', 'email_subject', 'content_type', 'file_size_human', 'is_cached']
     list_filter = ['content_type', 'is_cached', 'created_at']
     search_fields = ['filename', 'email__subject']
@@ -124,7 +124,7 @@ class EmailDraftAdmin(admin.ModelAdmin):
 
 @admin.register(SyncLog)
 class SyncLogAdmin(admin.ModelAdmin):
-    list_display = ['account', 'sync_type', 'status', 'emails_fetched', 'emails_created', 'errors_count', 'started_at']
+    list_display = ['account', 'sync_type', 'status', 'emails_fetched', 'emails_created', 'error_count', 'started_at']
     list_filter = ['sync_type', 'status', 'started_at']
     search_fields = ['account__email_address', 'error_message']
     readonly_fields = ['started_at', 'completed_at', 'sync_duration']
@@ -135,7 +135,7 @@ class SyncLogAdmin(admin.ModelAdmin):
             'fields': ('account', 'sync_type', 'status')
         }),
         ('Statistics', {
-            'fields': ('emails_fetched', 'emails_created', 'emails_updated', 'errors_count')
+            'fields': ('emails_fetched', 'emails_created', 'emails_updated', 'error_count')
         }),
         ('Details', {
             'fields': ('error_message', 'sync_duration'),

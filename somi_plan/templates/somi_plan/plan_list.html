@@ -1,0 +1,253 @@
+{% extends "somi_plan/base.html" %}
+{% load static %}
+
+{% block page_title %}Meine Pläne{% endblock %}
+{% block page_description %}Übersicht aller deiner Social Media Posting-Pläne{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'somi_plan:create_plan_step1' %}" class="btn btn-light btn-lg">
+    <i class="fas fa-plus me-2"></i>Neuer Plan
+</a>
+{% endblock %}
+
+{% block main_content %}
+<!-- Filter and Search -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label for="platform" class="form-label">Plattform</label>
+                <select name="platform" id="platform" class="form-control">
+                    <option value="">Alle Plattformen</option>
+                    {% for platform in platforms %}
+                    <option value="{{ platform.id }}">{{ platform.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="status" class="form-label">Status</label>
+                <select name="status" id="status" class="form-control">
+                    <option value="">Alle Status</option>
+                    <option value="draft">Entwurf</option>
+                    <option value="active">Aktiv</option>
+                    <option value="completed">Abgeschlossen</option>
+                    <option value="archived">Archiviert</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="search" class="form-label">Suche</label>
+                <input type="text" name="search" id="search" class="form-control" placeholder="Titel oder Beschreibung...">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <button type="submit" class="btn btn-primary d-block w-100">
+                    <i class="fas fa-search me-1"></i>Filtern
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Plans Grid -->
+{% if page_obj %}
+<div class="row">
+    {% for plan in page_obj %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                    <i class="{{ plan.platform.icon }} fa-lg me-2" style="color: {{ plan.platform.color }};"></i>
+                    <small class="text-muted">{{ plan.platform.name }}</small>
+                </div>
+                <span class="badge bg-{% if plan.status == 'active' %}success{% elif plan.status == 'draft' %}secondary{% elif plan.status == 'completed' %}primary{% else %}warning{% endif %}">
+                    {{ plan.get_status_display }}
+                </span>
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">
+                    <a href="{% url 'somi_plan:plan_detail' plan.pk %}" class="text-decoration-none">
+                        {{ plan.title }}
+                    </a>
+                </h5>
+                
+                {% if plan.description %}
+                <p class="card-text text-muted small">{{ plan.description|truncatechars:100 }}</p>
+                {% endif %}
+                
+                <div class="mb-3">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="text-primary">
+                                <i class="fas fa-file-alt fa-lg"></i>
+                                <div class="small">{{ plan.get_post_count }}</div>
+                                <div class="text-muted small">Posts</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-info">
+                                <i class="fas fa-calendar fa-lg"></i>
+                                <div class="small">{{ plan.get_scheduled_posts_count }}</div>
+                                <div class="text-muted small">Geplant</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-success">
+                                <i class="fas fa-check-circle fa-lg"></i>
+                                <div class="small">0</div>
+                                <div class="text-muted small">Erledigt</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <small class="text-muted">
+                    <i class="fas fa-clock me-1"></i>
+                    Erstellt: {{ plan.created_at|date:"d.m.Y" }}
+                </small>
+            </div>
+            <div class="card-footer bg-transparent">
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'somi_plan:plan_detail' plan.pk %}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-eye me-1"></i>Anzeigen
+                    </a>
+                    
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'somi_plan:plan_edit' plan.pk %}">
+                                <i class="fas fa-edit me-2"></i>Bearbeiten
+                            </a></li>
+                            {% if plan.status == 'draft' %}
+                            <li><a class="dropdown-item" href="{% url 'somi_plan:create_plan_step2' plan.id %}">
+                                <i class="fas fa-play me-2"></i>Weiter bearbeiten
+                            </a></li>
+                            {% endif %}
+                            <li><a class="dropdown-item" href="#" onclick="duplicatePlan({{ plan.id }})">
+                                <i class="fas fa-copy me-2"></i>Duplizieren
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="{% url 'somi_plan:plan_delete' plan.pk %}">
+                                <i class="fas fa-trash me-2"></i>Löschen
+                            </a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <!-- Empty State -->
+    <div class="col-12">
+        <div class="text-center py-5">
+            <i class="fas fa-clipboard-list fa-5x text-muted mb-4"></i>
+            <h4 class="text-muted">Keine Pläne gefunden</h4>
+            <p class="text-muted mb-4">Du hast noch keine Social Media Pläne erstellt oder die Filterkriterien passen zu keinem Plan.</p>
+            <a href="{% url 'somi_plan:create_plan_step1' %}" class="btn btn-primary btn-lg">
+                <i class="fas fa-plus me-2"></i>Ersten Plan erstellen
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+<nav aria-label="Plan pagination" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1{% if request.GET.platform %}&platform={{ request.GET.platform }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                    <i class="fas fa-angle-double-left"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.platform %}&platform={{ request.GET.platform }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                    <i class="fas fa-angle-left"></i>
+                </a>
+            </li>
+        {% endif %}
+        
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ num }}{% if request.GET.platform %}&platform={{ request.GET.platform }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">{{ num }}</a>
+                </li>
+            {% endif %}
+        {% endfor %}
+        
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.platform %}&platform={{ request.GET.platform }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                    <i class="fas fa-angle-right"></i>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.platform %}&platform={{ request.GET.platform }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                    <i class="fas fa-angle-double-right"></i>
+                </a>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<!-- No plans at all -->
+<div class="text-center py-5">
+    <i class="fas fa-clipboard-list fa-5x text-muted mb-4"></i>
+    <h4 class="text-muted">Noch keine Pläne erstellt</h4>
+    <p class="text-muted mb-4">
+        Erstelle deinen ersten Social Media Plan mit KI-Unterstützung!<br>
+        Der 3-Stufen-Assistent hilft dir dabei, eine professionelle Content-Strategie zu entwickeln.
+    </p>
+    <a href="{% url 'somi_plan:create_plan_step1' %}" class="btn btn-primary btn-lg">
+        <i class="fas fa-magic me-2"></i>Ersten Plan mit KI erstellen
+    </a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block floating_actions %}
+<div class="floating-action">
+    <a href="{% url 'somi_plan:create_plan_step1' %}" class="btn btn-ai btn-lg rounded-circle" data-bs-toggle="tooltip" title="Neuen Plan mit KI erstellen">
+        <i class="fas fa-magic fa-lg"></i>
+    </a>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+function duplicatePlan(planId) {
+    if (confirm('Plan duplizieren? Es wird eine Kopie mit allen Posts erstellt.')) {
+        // TODO: Implement plan duplication
+        alert('Duplikation wird in Phase 5 implementiert');
+    }
+}
+
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Restore filter values from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('platform')) {
+        document.getElementById('platform').value = urlParams.get('platform');
+    }
+    if (urlParams.get('status')) {
+        document.getElementById('status').value = urlParams.get('status');
+    }
+    if (urlParams.get('search')) {
+        document.getElementById('search').value = urlParams.get('search');
+    }
+});
+</script>
+{% endblock %}

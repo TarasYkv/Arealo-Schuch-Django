@@ -1,0 +1,629 @@
+{% extends "somi_plan/base.html" %}
+{% load static %}
+
+{% block page_title %}Plan löschen{% endblock %}
+{% block page_description %}{{ plan.title }} unwiderruflich löschen{% endblock %}
+
+{% block main_content %}
+<div class="container-fluid px-3">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            
+            <!-- Delete Confirmation Card -->
+            <div class="delete-confirmation-card">
+                <div class="delete-header">
+                    <div class="delete-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <h2 class="delete-title">Plan löschen?</h2>
+                    <p class="delete-subtitle">Diese Aktion kann nicht rückgängig gemacht werden</p>
+                </div>
+                
+                <!-- Plan Info -->
+                <div class="plan-info-card mb-4">
+                    <div class="d-flex align-items-center">
+                        <div class="platform-icon me-3">
+                            <i class="{{ plan.platform.icon }} fa-2x" style="color: {{ plan.platform.color }};"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h5 class="plan-title mb-1">{{ plan.title }}</h5>
+                            <div class="plan-meta">
+                                <span class="meta-item">
+                                    <i class="fas fa-layer-group me-1"></i>
+                                    {{ plan.platform.name }}
+                                </span>
+                                <span class="meta-item">
+                                    <i class="fas fa-calendar me-1"></i>
+                                    Erstellt: {{ plan.created_at|date:"d.m.Y" }}
+                                </span>
+                                <span class="meta-item">
+                                    <i class="fas fa-file-alt me-1"></i>
+                                    {{ plan.postcontent_set.count }} Posts
+                                </span>
+                            </div>
+                        </div>
+                        <div class="plan-status">
+                            <span class="badge bg-{{ plan.status|default:'primary' }}">
+                                {{ plan.get_status_display|default:'Aktiv' }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Warning Information -->
+                <div class="warning-info mb-4">
+                    <h6 class="warning-title">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Was wird gelöscht?
+                    </h6>
+                    <ul class="warning-list">
+                        <li>
+                            <i class="fas fa-check text-danger me-2"></i>
+                            Der komplette Posting-Plan "{{ plan.title }}"
+                        </li>
+                        <li>
+                            <i class="fas fa-check text-danger me-2"></i>
+                            Alle zugehörigen Posts ({{ plan.postcontent_set.count }} Stück)
+                        </li>
+                        <li>
+                            <i class="fas fa-check text-danger me-2"></i>
+                            Alle Terminierungen und Zeitpläne
+                        </li>
+                        <li>
+                            <i class="fas fa-check text-danger me-2"></i>
+                            Strategien und KI-generierte Inhalte
+                        </li>
+                        <li>
+                            <i class="fas fa-check text-danger me-2"></i>
+                            Alle Planungshistorien und Metadaten
+                        </li>
+                    </ul>
+                </div>
+                
+                <!-- Alternative Actions -->
+                <div class="alternative-actions mb-4">
+                    <h6 class="alternative-title">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        Alternativen zum Löschen
+                    </h6>
+                    <div class="alternatives">
+                        <div class="alternative-item">
+                            <i class="fas fa-pause-circle text-warning me-2"></i>
+                            <strong>Plan pausieren:</strong> Deaktiviere den Plan temporär statt ihn zu löschen
+                        </div>
+                        <div class="alternative-item">
+                            <i class="fas fa-archive text-info me-2"></i>
+                            <strong>Plan archivieren:</strong> Bewahre den Plan für späteren Zugriff auf
+                        </div>
+                        <div class="alternative-item">
+                            <i class="fas fa-download text-success me-2"></i>
+                            <strong>Content exportieren:</strong> Sichere alle Posts vor dem Löschen
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Confirmation Input -->
+                <div class="confirmation-input mb-4">
+                    <label class="form-label confirmation-label">
+                        <i class="fas fa-keyboard me-2"></i>
+                        Gib zur Bestätigung den Plan-Namen ein:
+                    </label>
+                    <input type="text" 
+                           class="form-control confirmation-field" 
+                           placeholder="{{ plan.title }}"
+                           id="confirmationInput"
+                           autocomplete="off">
+                    <div class="form-help">
+                        Gib exakt "{{ plan.title }}" ein, um das Löschen zu bestätigen
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <form method="post" id="deleteForm">
+                    {% csrf_token %}
+                    <div class="action-buttons">
+                        <div class="button-group">
+                            <a href="{% url 'somi_plan:plan_detail' plan.pk %}" 
+                               class="btn btn-outline-secondary btn-lg">
+                                <i class="fas fa-arrow-left me-2"></i>
+                                Zurück zum Plan
+                            </a>
+                            
+                            <button type="submit" 
+                                    class="btn btn-danger btn-lg" 
+                                    id="deleteButton"
+                                    disabled>
+                                <i class="fas fa-trash me-2"></i>
+                                Unwiderruflich löschen
+                            </button>
+                        </div>
+                        
+                        <div class="alternative-buttons mt-3">
+                            <button type="button" 
+                                    class="btn btn-warning btn-sm me-2"
+                                    onclick="pausePlan()">
+                                <i class="fas fa-pause me-1"></i>
+                                Plan pausieren
+                            </button>
+                            <button type="button" 
+                                    class="btn btn-info btn-sm me-2"
+                                    onclick="archivePlan()">
+                                <i class="fas fa-archive me-1"></i>
+                                Archivieren
+                            </button>
+                            <button type="button" 
+                                    class="btn btn-success btn-sm"
+                                    onclick="exportPlan()">
+                                <i class="fas fa-download me-1"></i>
+                                Exportieren
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal fade" id="exportModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-download me-2"></i>Plan exportieren
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Exportiere alle Inhalte dieses Plans für die spätere Verwendung.</p>
+                <div class="export-options">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="exportPosts" checked>
+                        <label class="form-check-label" for="exportPosts">
+                            Alle Posts ({{ plan.postcontent_set.count }} Stück)
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="exportStrategy" checked>
+                        <label class="form-check-label" for="exportStrategy">
+                            Strategie und Einstellungen
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="exportSchedules" checked>
+                        <label class="form-check-label" for="exportSchedules">
+                            Terminierungen und Zeitpläne
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-success" onclick="performExport()">
+                    <i class="fas fa-download me-1"></i>Jetzt exportieren
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_css %}
+<style>
+    /* ===== DELETE CONFIRMATION CARD ===== */
+    .delete-confirmation-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 15px 35px rgba(220, 53, 69, 0.15);
+        overflow: hidden;
+        border: 2px solid rgba(220, 53, 69, 0.1);
+    }
+    
+    .delete-header {
+        background: linear-gradient(135deg, #dc3545, #c82333);
+        color: white;
+        padding: 2.5rem;
+        text-align: center;
+        position: relative;
+    }
+    
+    .delete-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+    }
+    
+    .delete-header > * {
+        position: relative;
+        z-index: 2;
+    }
+    
+    .delete-icon {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        width: 80px;
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.5rem;
+        font-size: 2rem;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .delete-title {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+    
+    .delete-subtitle {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin: 0;
+    }
+    
+    /* ===== PLAN INFO CARD ===== */
+    .plan-info-card {
+        background: linear-gradient(45deg, #f8f9fa, #e9ecef);
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin: 2rem;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+    
+    .platform-icon {
+        background: white;
+        border-radius: 12px;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .plan-title {
+        color: #2d3748;
+        font-weight: 700;
+        margin: 0;
+    }
+    
+    .plan-meta {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .meta-item {
+        display: flex;
+        align-items: center;
+    }
+    
+    /* ===== WARNING INFO ===== */
+    .warning-info {
+        background: rgba(220, 53, 69, 0.05);
+        border: 1px solid rgba(220, 53, 69, 0.2);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 0 2rem;
+    }
+    
+    .warning-title {
+        color: #dc3545;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+    
+    .warning-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .warning-list li {
+        padding: 0.5rem 0;
+        display: flex;
+        align-items: center;
+        color: #6c757d;
+    }
+    
+    /* ===== ALTERNATIVE ACTIONS ===== */
+    .alternative-actions {
+        background: rgba(23, 162, 184, 0.05);
+        border: 1px solid rgba(23, 162, 184, 0.2);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 0 2rem;
+    }
+    
+    .alternative-title {
+        color: #17a2b8;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+    
+    .alternative-item {
+        padding: 0.75rem 0;
+        display: flex;
+        align-items: flex-start;
+        color: #495057;
+        line-height: 1.5;
+    }
+    
+    /* ===== CONFIRMATION INPUT ===== */
+    .confirmation-input {
+        margin: 0 2rem;
+    }
+    
+    .confirmation-label {
+        font-weight: 600;
+        color: #2d3748;
+        margin-bottom: 0.75rem;
+    }
+    
+    .confirmation-field {
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: #f8fafc;
+    }
+    
+    .confirmation-field:focus {
+        border-color: #dc3545;
+        box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+        background: white;
+    }
+    
+    .confirmation-field.valid {
+        border-color: #28a745;
+        background: rgba(40, 167, 69, 0.05);
+    }
+    
+    .form-help {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-top: 0.5rem;
+        font-style: italic;
+    }
+    
+    /* ===== ACTION BUTTONS ===== */
+    .action-buttons {
+        padding: 2rem;
+        text-align: center;
+    }
+    
+    .button-group {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .btn-lg {
+        padding: 0.75rem 2rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-danger {
+        background: linear-gradient(135deg, #dc3545, #c82333);
+        border: none;
+        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+    }
+    
+    .btn-danger:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(220, 53, 69, 0.4);
+    }
+    
+    .btn-danger:disabled {
+        background: #6c757d;
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+    
+    .btn-outline-secondary {
+        border: 2px solid #6c757d;
+        color: #6c757d;
+        background: transparent;
+    }
+    
+    .btn-outline-secondary:hover {
+        background: #6c757d;
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    .alternative-buttons {
+        padding-top: 1rem;
+        border-top: 1px solid #dee2e6;
+    }
+    
+    .alternative-buttons .btn-sm {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+    
+    .alternative-buttons .btn-sm:hover {
+        transform: translateY(-1px);
+    }
+    
+    /* ===== RESPONSIVE DESIGN ===== */
+    @media (max-width: 768px) {
+        .delete-header {
+            padding: 2rem 1.5rem;
+        }
+        
+        .delete-title {
+            font-size: 1.5rem;
+        }
+        
+        .plan-info-card,
+        .warning-info,
+        .alternative-actions,
+        .confirmation-input,
+        .action-buttons {
+            margin-left: 1rem;
+            margin-right: 1rem;
+        }
+        
+        .plan-meta {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .button-group {
+            flex-direction: column;
+        }
+        
+        .btn-lg {
+            width: 100%;
+        }
+        
+        .alternative-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+        
+        .alternative-buttons .btn-sm {
+            flex: 1;
+            min-width: 120px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block page_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const confirmationInput = document.getElementById('confirmationInput');
+    const deleteButton = document.getElementById('deleteButton');
+    const planTitle = "{{ plan.title }}";
+    
+    // Enable/disable delete button based on confirmation input
+    confirmationInput.addEventListener('input', function() {
+        const inputValue = this.value.trim();
+        
+        if (inputValue === planTitle) {
+            deleteButton.disabled = false;
+            confirmationInput.classList.add('valid');
+            confirmationInput.classList.remove('invalid');
+        } else {
+            deleteButton.disabled = true;
+            confirmationInput.classList.remove('valid');
+            if (inputValue.length > 0) {
+                confirmationInput.classList.add('invalid');
+            } else {
+                confirmationInput.classList.remove('invalid');
+            }
+        }
+    });
+    
+    // Confirmation dialog before final delete
+    document.getElementById('deleteForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (confirmationInput.value.trim() !== planTitle) {
+            alert('Bitte gib den exakten Plan-Namen ein, um das Löschen zu bestätigen.');
+            confirmationInput.focus();
+            return;
+        }
+        
+        const finalConfirm = confirm(
+            `Bist du dir absolut sicher, dass du "${planTitle}" unwiderruflich löschen möchtest?\n\n` +
+            `Diese Aktion kann NICHT rückgängig gemacht werden!`
+        );
+        
+        if (finalConfirm) {
+            // Show loading state
+            deleteButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Lösche...';
+            deleteButton.disabled = true;
+            
+            // Submit form
+            this.submit();
+        }
+    });
+});
+
+// Alternative actions
+function pausePlan() {
+    if (confirm('Plan "{{ plan.title }}" pausieren? Du kannst ihn später wieder aktivieren.')) {
+        // Implement pause functionality
+        fetch(`{% url 'somi_plan:plan_detail' plan.pk %}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            },
+            body: JSON.stringify({ status: 'paused' })
+        }).then(response => {
+            if (response.ok) {
+                window.location.href = "{% url 'somi_plan:plan_detail' plan.pk %}";
+            }
+        });
+    }
+}
+
+function archivePlan() {
+    if (confirm('Plan "{{ plan.title }}" archivieren? Er wird in das Archiv verschoben.')) {
+        // Implement archive functionality
+        fetch(`{% url 'somi_plan:plan_detail' plan.pk %}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            },
+            body: JSON.stringify({ status: 'archived' })
+        }).then(response => {
+            if (response.ok) {
+                window.location.href = "{% url 'somi_plan:plan_list' %}";
+            }
+        });
+    }
+}
+
+function exportPlan() {
+    new bootstrap.Modal(document.getElementById('exportModal')).show();
+}
+
+function performExport() {
+    const exportPosts = document.getElementById('exportPosts').checked;
+    const exportStrategy = document.getElementById('exportStrategy').checked;
+    const exportSchedules = document.getElementById('exportSchedules').checked;
+    
+    // Create export URL with parameters
+    const params = new URLSearchParams({
+        posts: exportPosts,
+        strategy: exportStrategy,
+        schedules: exportSchedules
+    });
+    
+    // Trigger download
+    window.location.href = `{% url 'somi_plan:plan_detail' plan.pk %}export/?${params}`;
+    
+    // Close modal
+    bootstrap.Modal.getInstance(document.getElementById('exportModal')).hide();
+}
+</script>
+{% endblock %}

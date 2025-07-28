@@ -80,4 +80,8 @@ urlpatterns = [
     path('api/zoho-test/', views.zoho_test_api, name='zoho_test_api'),
     path('api/zoho-disconnect/', views.zoho_disconnect_api, name='zoho_disconnect_api'),
     path('api/zoho-delete-all-emails/', views.zoho_delete_all_emails_api, name='zoho_delete_all_emails_api'),
+    
+    # KI Model Selection API
+    path('api/get-model-preferences/', views.get_model_preferences, name='get_model_preferences'),
+    path('api/save-model-preference/', views.save_model_preference, name='save_model_preference'),
 ]

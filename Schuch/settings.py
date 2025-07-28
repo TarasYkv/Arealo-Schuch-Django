@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     'organization',
     'payments',
     'mail_app',
+    'somi_plan',
 ]
 
 

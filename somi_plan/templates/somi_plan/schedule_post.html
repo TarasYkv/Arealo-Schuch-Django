@@ -1,0 +1,370 @@
+{% extends "somi_plan/base.html" %}
+{% load static %}
+{% load math_filters %}
+
+{% block page_title %}Post terminieren{% endblock %}
+{% block page_description %}{{ post.title }} für {{ post.posting_plan.platform.name }} planen{% endblock %}
+
+{% block header_actions %}
+<div class="btn-group">
+    <a href="{% url 'somi_plan:calendar' %}" class="btn btn-outline-light">
+        <i class="fas fa-calendar me-2"></i>Kalender
+    </a>
+    <a href="{% url 'somi_plan:plan_detail' post.posting_plan.pk %}" class="btn btn-light">
+        <i class="fas fa-arrow-left me-2"></i>Zurück zum Plan
+    </a>
+</div>
+{% endblock %}
+
+{% block main_content %}
+<div class="row">
+    <div class="col-lg-8">
+        <!-- Scheduling Form -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-calendar-plus me-2"></i>Post terminieren
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post" id="scheduleForm">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label for="{{ form.scheduled_date.id_for_label }}" class="form-label">
+                            <i class="fas fa-calendar me-2"></i>{{ form.scheduled_date.label }}
+                        </label>
+                        {{ form.scheduled_date }}
+                        {% if form.scheduled_date.help_text %}
+                        <div class="form-text">{{ form.scheduled_date.help_text }}</div>
+                        {% endif %}
+                        {% if form.scheduled_date.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.scheduled_date.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="{{ form.scheduled_time.id_for_label }}" class="form-label">
+                            <i class="fas fa-clock me-2"></i>{{ form.scheduled_time.label }}
+                        </label>
+                        {{ form.scheduled_time }}
+                        {% if form.scheduled_time.help_text %}
+                        <div class="form-text">{{ form.scheduled_time.help_text }}</div>
+                        {% endif %}
+                        {% if form.scheduled_time.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.scheduled_time.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Quick Time Selection -->
+                        <div class="mt-2">
+                            <small class="text-muted">Schnellauswahl:</small>
+                            <div class="btn-group btn-group-sm ms-2" role="group">
+                                <button type="button" class="btn btn-outline-secondary" onclick="setTime('08:00')">8:00</button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="setTime('12:00')">12:00</button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="setTime('16:00')">16:00</button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="setTime('18:00')">18:00</button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="setTime('20:00')">20:00</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="{{ form.notes.id_for_label }}" class="form-label">
+                            <i class="fas fa-sticky-note me-2"></i>{{ form.notes.label }}
+                        </label>
+                        {{ form.notes }}
+                        {% if form.notes.help_text %}
+                        <div class="form-text">{{ form.notes.help_text }}</div>
+                        {% endif %}
+                        {% if form.notes.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.notes.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Submit Buttons -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'somi_plan:plan_detail' post.posting_plan.pk %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-2"></i>Abbrechen
+                        </a>
+                        
+                        <div>
+                            {% if existing_schedule %}
+                            <button type="submit" name="action" value="update" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Terminierung aktualisieren
+                            </button>
+                            {% else %}
+                            <button type="submit" name="action" value="schedule" class="btn btn-primary">
+                                <i class="fas fa-calendar-check me-2"></i>Post terminieren
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        {% if existing_schedule %}
+        <!-- Current Schedule Info -->
+        <div class="card mt-4">
+            <div class="card-header bg-info text-white">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>Aktuelle Terminierung
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>Geplant für:</strong>
+                        <br>{{ existing_schedule.scheduled_date|date:"l, d.m.Y" }}
+                        <br>{{ existing_schedule.scheduled_time|time:"H:i" }} Uhr
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Status:</strong>
+                        <br>
+                        <span class="badge bg-{% if existing_schedule.status == 'scheduled' %}warning{% elif existing_schedule.status == 'completed' %}success{% elif existing_schedule.status == 'failed' %}danger{% else %}secondary{% endif %}">
+                            {{ existing_schedule.get_status_display }}
+                        </span>
+                    </div>
+                </div>
+                
+                {% if existing_schedule.notes %}
+                <div class="mt-3">
+                    <strong>Notizen:</strong>
+                    <p class="mb-0">{{ existing_schedule.notes }}</p>
+                </div>
+                {% endif %}
+                
+                <div class="mt-3">
+                    <form method="post" action="{% url 'somi_plan:mark_completed' existing_schedule.pk %}" class="d-inline">
+                        {% csrf_token %}
+                        <input type="url" name="url" placeholder="Link zum veröffentlichten Post (optional)" class="form-control form-control-sm d-inline-block me-2" style="width: auto;">
+                        <button type="submit" class="btn btn-success btn-sm">
+                            <i class="fas fa-check me-1"></i>Als erledigt markieren
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="col-lg-4">
+        <!-- Post Preview -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-eye me-2"></i>Post-Vorschau
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <i class="{{ post.posting_plan.platform.icon }} fa-2x me-3" style="color: {{ post.posting_plan.platform.color }};"></i>
+                    <div>
+                        <h6 class="mb-0">{{ post.title }}</h6>
+                        <small class="text-muted">{{ post.posting_plan.title }}</small>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <h6>Content:</h6>
+                    <div class="bg-light p-3 rounded" style="max-height: 200px; overflow-y: auto;">
+                        <pre style="white-space: pre-wrap; font-family: inherit; margin: 0; font-size: 0.9rem;">{{ post.content }}</pre>
+                    </div>
+                    
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="fas fa-font me-1"></i>
+                            <span class="{% if post.get_character_limit_percentage > 100 %}text-danger{% elif post.get_character_limit_percentage > 80 %}text-warning{% endif %}">
+                                {{ post.character_count }}/{{ post.posting_plan.platform.character_limit }} Zeichen
+                            </span>
+                        </small>
+                    </div>
+                </div>
+                
+                {% if post.hashtags %}
+                <div class="mb-3">
+                    <h6>Hashtags:</h6>
+                    <div>
+                        {% for hashtag in post.hashtags|split:" " %}
+                        {% if hashtag %}
+                        <span class="badge bg-primary me-1">{{ hashtag }}</span>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if post.call_to_action %}
+                <div class="mb-3">
+                    <h6>Call-to-Action:</h6>
+                    <div class="bg-warning bg-opacity-10 p-2 rounded">
+                        <strong>{{ post.call_to_action }}</strong>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if post.script %}
+                <div class="mb-3">
+                    <h6>Umsetzungs-Skript:</h6>
+                    <div class="bg-light p-3 rounded" style="max-height: 150px; overflow-y: auto;">
+                        <pre style="white-space: pre-wrap; font-family: inherit; margin: 0; font-size: 0.8rem;">{{ post.script }}</pre>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="mt-3">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="text-primary">
+                                <i class="fas fa-star fa-lg"></i>
+                                <div class="small">Priorität</div>
+                                <div class="text-muted small">
+                                    {% if post.priority == 1 %}Hoch
+                                    {% elif post.priority == 2 %}Mittel
+                                    {% else %}Niedrig{% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-info">
+                                <i class="fas fa-tag fa-lg"></i>
+                                <div class="small">Typ</div>
+                                <div class="text-muted small">{{ post.post_type|default:"Standard" }}</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="text-success">
+                                {% if post.ai_generated %}
+                                <i class="fas fa-robot fa-lg"></i>
+                                <div class="small">KI-generiert</div>
+                                <div class="text-muted small">{{ post.ai_model_used|default:"AI" }}</div>
+                                {% else %}
+                                <i class="fas fa-user fa-lg"></i>
+                                <div class="small">Manuell</div>
+                                <div class="text-muted small">Erstellt</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Platform Guidelines -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="{{ post.posting_plan.platform.icon }} me-2"></i>{{ post.posting_plan.platform.name }} Richtlinien
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="small">
+                    <div class="mb-2">
+                        <strong>Beste Posting-Zeiten:</strong>
+                        {% if post.posting_plan.platform.name == 'Instagram' %}
+                        <br>Werktags: 11-13 Uhr, 17-19 Uhr
+                        <br>Wochenende: 10-11 Uhr, 14-15 Uhr
+                        {% elif post.posting_plan.platform.name == 'LinkedIn' %}
+                        <br>Dienstag-Donnerstag: 8-10 Uhr, 12-14 Uhr
+                        <br>Wochenende: Weniger aktiv
+                        {% elif post.posting_plan.platform.name == 'Twitter' %}
+                        <br>Werktags: 9-11 Uhr, 13-15 Uhr
+                        <br>Events: Live-Tweeting empfohlen
+                        {% else %}
+                        <br>Allgemein: 11-13 Uhr, 18-20 Uhr
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-2">
+                        <strong>Zeichen-Limit:</strong>
+                        <br>{{ post.posting_plan.platform.character_limit }} Zeichen
+                    </div>
+                    
+                    <div>
+                        <strong>Empfehlungen:</strong>
+                        {% if post.posting_plan.platform.name == 'Instagram' %}
+                        <br>• Nutze hochwertige Bilder
+                        <br>• 5-10 relevante Hashtags
+                        <br>• Stories für Behind-the-Scenes
+                        {% elif post.posting_plan.platform.name == 'LinkedIn' %}
+                        <br>• Professioneller Ton
+                        <br>• Längere, wertvolle Inhalte
+                        <br>• Nutze native Video-Uploads
+                        {% elif post.posting_plan.platform.name == 'Twitter' %}
+                        <br>• Kurz und prägnant
+                        <br>• Nutze Trending Hashtags
+                        <br>• Engagement durch Fragen
+                        {% else %}
+                        <br>• Konsistente Posting-Zeiten
+                        <br>• Authentischer Content
+                        <br>• Community-Interaktion
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+function setTime(time) {
+    document.getElementById('{{ form.scheduled_time.id_for_label }}').value = time;
+}
+
+// Auto-suggest optimal posting times based on platform
+document.addEventListener('DOMContentLoaded', function() {
+    const platformName = '{{ post.posting_plan.platform.name }}';
+    const timeInput = document.getElementById('{{ form.scheduled_time.id_for_label }}');
+    
+    // Set default time if none is set
+    if (!timeInput.value) {
+        let defaultTime = '12:00';
+        
+        if (platformName === 'Instagram') {
+            defaultTime = '18:00';
+        } else if (platformName === 'LinkedIn') {
+            defaultTime = '09:00';
+        } else if (platformName === 'Twitter') {
+            defaultTime = '14:00';
+        }
+        
+        timeInput.value = defaultTime;
+    }
+    
+    // Set minimum date to today
+    const dateInput = document.getElementById('{{ form.scheduled_date.id_for_label }}');
+    const today = new Date().toISOString().split('T')[0];
+    dateInput.min = today;
+    
+    // Set default date to today if none is set
+    if (!dateInput.value) {
+        dateInput.value = today;
+    }
+});
+
+// Form validation
+document.getElementById('scheduleForm').addEventListener('submit', function(e) {
+    const dateInput = document.getElementById('{{ form.scheduled_date.id_for_label }}');
+    const timeInput = document.getElementById('{{ form.scheduled_time.id_for_label }}');
+    
+    const selectedDateTime = new Date(dateInput.value + 'T' + timeInput.value);
+    const now = new Date();
+    
+    if (selectedDateTime <= now) {
+        e.preventDefault();
+        alert('Die gewählte Zeit liegt in der Vergangenheit. Bitte wähle einen zukünftigen Zeitpunkt.');
+        return false;
+    }
+    
+    return true;
+});
+</script>
+{% endblock %}

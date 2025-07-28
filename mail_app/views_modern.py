@@ -11,21 +11,16 @@ from django.views.decorators.http import require_http_methods
 from django.template.loader import render_to_string
 
 from .models import EmailAccount, Email, Folder, Ticket
+from .base_views import mail_access_required, get_folder_icons, prepare_folders_with_icons
 
 logger = logging.getLogger(__name__)
 
 
-@login_required
+@mail_access_required
 def mail_modern(request):
     """
     Modern three-column mail interface.
     """
-    # Check app permission
-    from accounts.models import AppPermission
-    if not AppPermission.user_has_access('mail', request.user):
-        messages.error(request, 'Sie haben keine Berechtigung für die Email-App.')
-        return redirect('accounts:dashboard')
-    
     # Get active account (for now, just the first one)
     account = request.user.email_accounts.filter(is_active=True).first()
     if not account:
@@ -34,19 +29,7 @@ def mail_modern(request):
     
     # Get all folders for sidebar
     folders = account.folders.all().order_by('name')
-    
-    # Add icons to folders based on type
-    folder_icons = {
-        'inbox': '📥',
-        'sent': '📤',
-        'drafts': '📝',
-        'trash': '🗑️',
-        'spam': '🚫',
-        'custom': '📁'
-    }
-    
-    for folder in folders:
-        folder.icon = folder_icons.get(folder.folder_type, '📁')
+    folders = prepare_folders_with_icons(folders)
     
     # Get current folder from request
     folder_id = request.GET.get('folder')
@@ -89,17 +72,11 @@ def mail_modern(request):
     return render(request, 'mail_app/mail_modern.html', context)
 
 
-@login_required
+@mail_access_required
 def mail_simple(request):
     """
     Simple three-column mail interface that definitely works.
     """
-    # Check app permission
-    from accounts.models import AppPermission
-    if not AppPermission.user_has_access('mail', request.user):
-        messages.error(request, 'Sie haben keine Berechtigung für die Email-App.')
-        return redirect('accounts:dashboard')
-    
     # Get active account (for now, just the first one)
     account = request.user.email_accounts.filter(is_active=True).first()
     if not account:
@@ -108,19 +85,7 @@ def mail_simple(request):
     
     # Get all folders for sidebar
     folders = account.folders.all().order_by('name')
-    
-    # Add icons to folders based on type
-    folder_icons = {
-        'inbox': '📥',
-        'sent': '📤',
-        'drafts': '📝',
-        'trash': '🗑️',
-        'spam': '🚫',
-        'custom': '📁'
-    }
-    
-    for folder in folders:
-        folder.icon = folder_icons.get(folder.folder_type, '📁')
+    folders = prepare_folders_with_icons(folders)
     
     # Get current folder from request
     folder_id = request.GET.get('folder')
@@ -163,17 +128,11 @@ def mail_simple(request):
     return render(request, 'mail_app/mail_simple.html', context)
 
 
-@login_required
+@mail_access_required
 def mail_standalone(request):
     """
     Standalone mail interface with custom header and design.
     """
-    # Check app permission
-    from accounts.models import AppPermission
-    if not AppPermission.user_has_access('mail', request.user):
-        messages.error(request, 'Sie haben keine Berechtigung für die Email-App.')
-        return redirect('accounts:dashboard')
-    
     # Get active account (for now, just the first one)
     account = request.user.email_accounts.filter(is_active=True).first()
     if not account:
@@ -182,19 +141,7 @@ def mail_standalone(request):
     
     # Get all folders for sidebar
     folders = account.folders.all().order_by('name')
-    
-    # Add icons to folders based on type
-    folder_icons = {
-        'inbox': '📥',
-        'sent': '📤',
-        'drafts': '📝',
-        'trash': '🗑️',
-        'spam': '🚫',
-        'custom': '📁'
-    }
-    
-    for folder in folders:
-        folder.icon = folder_icons.get(folder.folder_type, '📁')
+    folders = prepare_folders_with_icons(folders)
     
     # Get current folder from request
     folder_id = request.GET.get('folder')
@@ -237,17 +184,11 @@ def mail_standalone(request):
     return render(request, 'mail_app/mail_standalone.html', context)
 
 
-@login_required
+@mail_access_required
 def mail_tickets(request):
     """
     Ticket-System für offene Email-Anfragen.
     """
-    # Check app permission
-    from accounts.models import AppPermission
-    if not AppPermission.user_has_access('mail', request.user):
-        messages.error(request, 'Sie haben keine Berechtigung für die Email-App.')
-        return redirect('accounts:dashboard')
-    
     # Get active account (for now, just the first one)
     account = request.user.email_accounts.filter(is_active=True).first()
     if not account:

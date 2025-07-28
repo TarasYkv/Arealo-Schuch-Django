@@ -23,6 +23,35 @@
     <link rel="stylesheet" href="{% static 'css/bug-button.css' %}">
     
     <!-- Dark Mode CSS -->
+    <style>
+        /* Dark Mode Variables */
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #212529;
+            --card-bg: #ffffff;
+            --border-color: #dee2e6;
+        }
+        
+        [data-theme="dark"] {
+            --bg-color: #212529;
+            --text-color: #ffffff;
+            --card-bg: #343a40;
+            --border-color: #495057;
+        }
+        
+        [data-theme="dark"] body {
+            background-color: var(--bg-color) !important;
+            color: var(--text-color) !important;
+        }
+        
+        [data-theme="dark"] .card,
+        [data-theme="dark"] .bg-white {
+            background-color: var(--card-bg) !important;
+            color: var(--text-color);
+            border-color: var(--border-color);
+        }
+    </style>
+    
     {% if user.is_authenticated and user.dark_mode %}
     <style>
         /* Dark Mode Styles - Base Colors */
@@ -638,6 +667,12 @@
                     </a>
                     {% endif %}
                     
+                    {% if user|can_see_app_in_frontend:"somi_plan" %}
+                    <a class="nav-link" href="{% url 'somi_plan:dashboard' %}">
+                        <i class="fas fa-chart-line"></i> SoMi-Plan
+                    </a>
+                    {% endif %}
+                    
                     
                     <!-- User Menu Dropdown -->
                     <div class="nav-item dropdown">
@@ -708,6 +743,12 @@
                             </ul>
                         {% endif %}
                     </div>
+                    <!-- Dark Mode Toggle -->
+                    <li class="nav-item">
+                        <button class="btn btn-outline-light btn-sm ms-2" onclick="toggleDarkMode()" title="Dark Mode umschalten">
+                            <i class="fas fa-moon" id="darkModeIcon"></i>
+                        </button>
+                    </li>
                 </div>
             </div>
         </div>
@@ -2955,7 +2996,92 @@
     </script>
     {% endif %}
 
+    <script>
+    // SomiPlan Utilities - Make globally available
+    window.SomiPlan = {
+        setLoading: function(element, loading = true, text = '') {
+            if (loading) {
+                element.classList.add('loading');
+                element.disabled = true;
+                
+                // Add spinner if not exists
+                if (!element.querySelector('.loading-spinner')) {
+                    const spinner = document.createElement('span');
+                    spinner.className = 'loading-spinner spinner-border spinner-border-sm me-2';
+                    element.insertBefore(spinner, element.firstChild);
+                } else {
+                    // Show existing spinner
+                    const spinner = element.querySelector('.loading-spinner');
+                    spinner.style.display = 'inline-block';
+                }
+                
+                // Update text if provided
+                if (text) {
+                    const textElement = element.querySelector('.btn-text') || element;
+                    textElement.dataset.originalText = textElement.textContent;
+                    textElement.textContent = text;
+                }
+            } else {
+                element.classList.remove('loading');
+                element.disabled = false;
+                
+                // Hide spinner
+                const spinner = element.querySelector('.loading-spinner');
+                if (spinner) {
+                    spinner.style.display = 'none';
+                }
+                
+                // Restore original text
+                const textElement = element.querySelector('.btn-text') || element;
+                if (textElement.dataset.originalText) {
+                    textElement.textContent = textElement.dataset.originalText;
+                    delete textElement.dataset.originalText;
+                }
+            }
+        }
+    };
+
+    // Dark Mode Functions - Make globally available
+    window.toggleDarkMode = function() {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+        
+        const icon = document.getElementById('darkModeIcon');
+        if (icon) {
+            if (newTheme === 'dark') {
+                icon.className = 'fas fa-sun';
+            } else {
+                icon.className = 'fas fa-moon';
+            }
+        }
+    };
+
+    // Initialize Dark Mode on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        
+        const icon = document.getElementById('darkModeIcon');
+        if (icon) {
+            if (savedTheme === 'dark') {
+                icon.className = 'fas fa-sun';
+            } else {
+                icon.className = 'fas fa-moon';
+            }
+        }
+    });
+    </script>
+
     {% block scripts %}
+    {% endblock %}
+    
+    {% block page_js %}
+    {% endblock %}
+    
+    {% block page_css %}
     {% endblock %}
 
 </body>

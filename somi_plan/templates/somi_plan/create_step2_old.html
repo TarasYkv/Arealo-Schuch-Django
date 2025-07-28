@@ -1,0 +1,550 @@
+{% extends "somi_plan/base.html" %}
+{% load static %}
+
+{% block page_title %}{{ plan.title }} - Schritt 2{% endblock %}
+{% block page_description %}Strategie-Entwicklung: Die KI schlägt eine Posting-Strategie vor{% endblock %}
+
+{% block main_content %}
+<!-- Step Indicator -->
+<div class="step-indicator">
+    <div class="step completed">
+        <div class="step-number">
+            <i class="fas fa-check"></i>
+        </div>
+        <span>Basis-Setup</span>
+    </div>
+    <div class="step-arrow">
+        <i class="fas fa-chevron-right"></i>
+    </div>
+    <div class="step active">
+        <div class="step-number">2</div>
+        <span>Strategie</span>
+    </div>
+    <div class="step-arrow">
+        <i class="fas fa-chevron-right"></i>
+    </div>
+    <div class="step">
+        <div class="step-number">3</div>
+        <span>Content</span>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        
+        <!-- Plan Info Header -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <i class="{{ plan.platform.icon }} fa-2x me-3" style="color: {{ plan.platform.color }};"></i>
+                    <div>
+                        <h5 class="card-title mb-1">{{ plan.title }}</h5>
+                        <small class="text-muted">{{ plan.platform.name }} • {{ plan.platform.character_limit }} Zeichen Limit</small>
+                    </div>
+                    <div class="ms-auto">
+                        <span class="badge bg-primary">{{ plan.get_status_display }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Strategy Form -->
+        <form method="post" id="strategy-form">
+            {% csrf_token %}
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>Content-Strategie entwickeln
+                    </h5>
+                    <small class="text-muted">Lasse die KI eine optimale Strategie erstellen oder passe sie manuell an.</small>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- AI Strategy Option -->
+                    <div class="mb-4">
+                        <div class="form-check form-switch">
+                            {{ form.use_ai_strategy }}
+                            <label class="form-check-label" for="{{ form.use_ai_strategy.id_for_label }}">
+                                <strong>{{ form.use_ai_strategy.label }}</strong>
+                            </label>
+                            <div class="form-text">{{ form.use_ai_strategy.help_text }}</div>
+                        </div>
+                    </div>
+
+                    <!-- AI Strategy Loading/Results -->
+                    <div id="ai-strategy-results" style="display: none;">
+                        <!-- Loading State -->
+                        <div id="strategy-loading" class="text-center py-4">
+                            <div class="spinner-border text-primary mb-3" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <h6>KI analysiert deine Eingaben...</h6>
+                            <p class="text-muted">
+                                Die KI erstellt basierend auf deinem Profil, deiner Zielgruppe und deinen Zielen 
+                                eine optimale Posting-Strategie für {{ plan.platform.name }}.
+                            </p>
+                            <div class="progress">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                
+                <!-- Strategy Results (hidden initially) -->
+                <div id="strategy-results" style="display: none;">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-calendar-alt me-2"></i>Posting-Frequenz</h6>
+                            <div class="mb-3">
+                                <div class="ai-recommendation p-3 bg-light rounded">
+                                    <div id="frequency-recommendation">
+                                        <!-- Will be populated by JavaScript -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-clock me-2"></i>Beste Zeiten</h6>
+                            <div class="mb-3">
+                                <div class="ai-recommendation p-3 bg-light rounded">
+                                    <div id="timing-recommendation">
+                                        <!-- Will be populated by JavaScript -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <h6><i class="fas fa-layer-group me-2"></i>Content-Mix</h6>
+                            <div class="mb-3">
+                                <div class="ai-recommendation p-3 bg-light rounded">
+                                    <div id="content-mix-recommendation">
+                                        <!-- Will be populated by JavaScript -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <h6><i class="fas fa-lightbulb me-2"></i>Strategische Empfehlungen</h6>
+                            <div class="mb-3">
+                                <div class="ai-recommendation p-3 bg-light rounded">
+                                    <div id="strategic-recommendations">
+                                        <!-- Will be populated by JavaScript -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+        
+        <!-- Strategy Customization Form -->
+        <form method="post" id="strategy-form" style="display: none;">
+            {% csrf_token %}
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-edit me-2"></i>Strategie anpassen
+                    </h5>
+                    <small class="text-muted">Du kannst die KI-Vorschläge nach deinen Wünschen anpassen</small>
+                </div>
+                <div class="card-body">
+                    
+                    <!-- Posting Frequency -->
+                    <div class="mb-4">
+                        <label class="form-label">
+                            <i class="fas fa-calendar-alt me-2"></i>Posting-Häufigkeit
+                        </label>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="posting_frequency" value="daily" id="freq_daily">
+                                    <label class="form-check-label" for="freq_daily">
+                                        <strong>Täglich</strong> - Maximale Reichweite
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="posting_frequency" value="every_other_day" id="freq_eod">
+                                    <label class="form-check-label" for="freq_eod">
+                                        <strong>Jeden 2. Tag</strong> - Ausgewogen
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="posting_frequency" value="3_times_week" id="freq_3tw">
+                                    <label class="form-check-label" for="freq_3tw">
+                                        <strong>3x pro Woche</strong> - Regelmäßig
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="posting_frequency" value="2_times_week" id="freq_2tw">
+                                    <label class="form-check-label" for="freq_2tw">
+                                        <strong>2x pro Woche</strong> - Entspannt
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="posting_frequency" value="weekly" id="freq_weekly">
+                                    <label class="form-check-label" for="freq_weekly">
+                                        <strong>Wöchentlich</strong> - Minimal
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="posting_frequency" value="custom" id="freq_custom">
+                                    <label class="form-check-label" for="freq_custom">
+                                        <strong>Benutzerdefiniert</strong>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Best Times -->
+                    <div class="mb-4">
+                        <label class="form-label">
+                            <i class="fas fa-clock me-2"></i>Bevorzugte Posting-Zeiten
+                        </label>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="best_times" value="morning" id="time_morning">
+                                    <label class="form-check-label" for="time_morning">
+                                        <strong>Morgens</strong> (6-9 Uhr) - Pendler & Frühaufsteher
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="best_times" value="midday" id="time_midday">
+                                    <label class="form-check-label" for="time_midday">
+                                        <strong>Mittags</strong> (11-14 Uhr) - Mittagspause
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="best_times" value="afternoon" id="time_afternoon">
+                                    <label class="form-check-label" for="time_afternoon">
+                                        <strong>Nachmittags</strong> (15-17 Uhr) - Arbeitsende
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="best_times" value="evening" id="time_evening">
+                                    <label class="form-check-label" for="time_evening">
+                                        <strong>Abends</strong> (18-21 Uhr) - Prime Time
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="best_times" value="night" id="time_night">
+                                    <label class="form-check-label" for="time_night">
+                                        <strong>Nachts</strong> (21-23 Uhr) - Entspannung
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Content Types -->
+                    <div class="mb-4">
+                        <label class="form-label">
+                            <i class="fas fa-layer-group me-2"></i>Content-Typen
+                        </label>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="content_types" value="tips" id="content_tips">
+                                    <label class="form-check-label" for="content_tips">
+                                        <i class="fas fa-lightbulb me-1"></i><strong>Tipps & Tricks</strong>
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="content_types" value="behind_scenes" id="content_bts">
+                                    <label class="form-check-label" for="content_bts">
+                                        <i class="fas fa-camera me-1"></i><strong>Behind the Scenes</strong>
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="content_types" value="product" id="content_product">
+                                    <label class="form-check-label" for="content_product">
+                                        <i class="fas fa-star me-1"></i><strong>Produktvorstellungen</strong>
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="content_types" value="educational" id="content_edu">
+                                    <label class="form-check-label" for="content_edu">
+                                        <i class="fas fa-graduation-cap me-1"></i><strong>Bildungsinhalte</strong>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="content_types" value="motivational" id="content_motivation">
+                                    <label class="form-check-label" for="content_motivation">
+                                        <i class="fas fa-rocket me-1"></i><strong>Motivierende Posts</strong>
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="content_types" value="testimonials" id="content_testimonials">
+                                    <label class="form-check-label" for="content_testimonials">
+                                        <i class="fas fa-quote-left me-1"></i><strong>Kundenstimmen</strong>
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="content_types" value="news" id="content_news">
+                                    <label class="form-check-label" for="content_news">
+                                        <i class="fas fa-newspaper me-1"></i><strong>News & Updates</strong>
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="content_types" value="questions" id="content_questions">
+                                    <label class="form-check-label" for="content_questions">
+                                        <i class="fas fa-question-circle me-1"></i><strong>Fragen an Community</strong>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Cross Platform -->
+                    <div class="mb-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="cross_platform" id="cross_platform">
+                            <label class="form-check-label" for="cross_platform">
+                                <i class="fas fa-share-alt me-2"></i>
+                                <strong>Content für andere Plattformen anpassen</strong>
+                                <br>
+                                <small class="text-muted">
+                                    Erstelle Varianten der Posts die für andere Social Media Plattformen optimiert sind
+                                </small>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Additional Notes -->
+                    <div class="mb-4">
+                        <label for="additional_notes" class="form-label">
+                            <i class="fas fa-sticky-note me-2"></i>Zusätzliche Anmerkungen
+                        </label>
+                        <textarea class="form-control" name="additional_notes" id="additional_notes" rows="3" 
+                                  placeholder="Weitere Wünsche, Anpassungen oder spezielle Anforderungen für deine Strategie..."></textarea>
+                    </div>
+                    
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'somi_plan:create_plan_step1' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Zurück zu Schritt 1
+                        </a>
+                        
+                        <div>
+                            <button type="button" class="btn btn-outline-primary me-2" onclick="regenerateStrategy()">
+                                <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+                                <i class="fas fa-sync-alt me-2"></i>Strategie neu generieren
+                            </button>
+                            
+                            <button type="submit" class="btn btn-primary btn-lg" id="strategy-submit-btn">
+                                <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+                                <i class="fas fa-arrow-right me-2"></i>Weiter zu Schritt 3
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </form>
+        
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Simulate AI strategy generation on page load
+    generateAIStrategy();
+});
+
+async function generateAIStrategy() {
+    const loadingDiv = document.getElementById('strategy-loading');
+    const resultsDiv = document.getElementById('strategy-results');
+    const form = document.getElementById('strategy-form');
+    const progressBar = loadingDiv.querySelector('.progress-bar');
+    
+    // Simulate progress
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+        progress += Math.random() * 20;
+        if (progress > 90) {
+            clearInterval(progressInterval);
+            progress = 100;
+        }
+        progressBar.style.width = progress + '%';
+    }, 500);
+    
+    // Simulate API call delay
+    setTimeout(() => {
+        clearInterval(progressInterval);
+        progressBar.style.width = '100%';
+        
+        // Hide loading, show results
+        loadingDiv.style.display = 'none';
+        resultsDiv.style.display = 'block';
+        form.style.display = 'block';
+        
+        // Populate AI recommendations (mock data for now)
+        populateAIRecommendations();
+        
+    }, 3000);
+}
+
+function populateAIRecommendations() {
+    // Mock AI recommendations based on plan data
+    const planData = {
+        platform: "{{ plan.platform.name }}",
+        title: "{{ plan.title }}",
+        userProfile: `{{ plan.user_profile|escapejs }}`,
+        targetAudience: `{{ plan.target_audience|escapejs }}`,
+        goals: `{{ plan.goals|escapejs }}`,
+        vision: `{{ plan.vision|escapejs }}`
+    };
+    
+    // Frequency recommendation
+    document.getElementById('frequency-recommendation').innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="fas fa-calendar-check text-success fa-2x me-3"></i>
+            <div>
+                <strong>3x pro Woche empfohlen</strong>
+                <br>
+                <small class="text-muted">
+                    Basierend auf deiner Zielgruppe und verfügbaren Ressourcen ist dies optimal 
+                    für konstante Präsenz ohne Überforderung.
+                </small>
+            </div>
+        </div>
+    `;
+    
+    // Timing recommendation
+    document.getElementById('timing-recommendation').innerHTML = `
+        <div class="d-flex align-items-center">
+            <i class="fas fa-clock text-info fa-2x me-3"></i>
+            <div>
+                <strong>Abends 18-20 Uhr</strong>
+                <br>
+                <small class="text-muted">
+                    Deine Zielgruppe ist zu dieser Zeit am aktivsten auf {{ plan.platform.name }}.
+                    Alternativ: Mittags 12-13 Uhr.
+                </small>
+            </div>
+        </div>
+    `;
+    
+    // Content mix recommendation
+    document.getElementById('content-mix-recommendation').innerHTML = `
+        <div class="row text-center">
+            <div class="col-3">
+                <div class="p-2 bg-primary text-white rounded">
+                    <strong>40%</strong>
+                    <br>
+                    <small>Tipps & Tricks</small>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="p-2 bg-success text-white rounded">
+                    <strong>30%</strong>
+                    <br>
+                    <small>Behind Scenes</small>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="p-2 bg-info text-white rounded">
+                    <strong>20%</strong>
+                    <br>
+                    <small>Motivation</small>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="p-2 bg-warning text-white rounded">
+                    <strong>10%</strong>
+                    <br>
+                    <small>Produkte</small>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Strategic recommendations
+    document.getElementById('strategic-recommendations').innerHTML = `
+        <ul class="list-unstyled mb-0">
+            <li class="mb-2">
+                <i class="fas fa-check-circle text-success me-2"></i>
+                <strong>Storytelling fokussieren:</strong> Deine persönliche Geschichte resoniert stark mit der Zielgruppe
+            </li>
+            <li class="mb-2">
+                <i class="fas fa-check-circle text-success me-2"></i>
+                <strong>Interaktion erhöhen:</strong> Fragen und Umfragen für mehr Engagement nutzen
+            </li>
+            <li class="mb-2">
+                <i class="fas fa-check-circle text-success me-2"></i>
+                <strong>Hashtag-Strategie:</strong> Mix aus 5-10 relevanten und nischigen Hashtags
+            </li>
+            <li class="mb-0">
+                <i class="fas fa-check-circle text-success me-2"></i>
+                <strong>Call-to-Actions:</strong> Klare Handlungsaufforderungen in jedem 3. Post
+            </li>
+        </ul>
+    `;
+    
+    // Pre-select recommended options in form
+    document.querySelector('input[name="posting_frequency"][value="3_times_week"]').checked = true;
+    document.querySelector('input[name="best_times"][value="evening"]').checked = true;
+    document.querySelector('input[name="best_times"][value="midday"]').checked = true;
+    document.querySelector('input[name="content_types"][value="tips"]').checked = true;
+    document.querySelector('input[name="content_types"][value="behind_scenes"]').checked = true;
+    document.querySelector('input[name="content_types"][value="motivational"]').checked = true;
+}
+
+async function regenerateStrategy() {
+    const btn = event.target;
+    SomiPlan.setLoading(btn);
+    
+    // Simulate regeneration
+    setTimeout(() => {
+        SomiPlan.setLoading(btn, false);
+        populateAIRecommendations();
+        
+        // Show success message
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-success alert-dismissible fade show';
+        alert.innerHTML = `
+            <i class="fas fa-sync-alt me-2"></i>
+            Strategie wurde neu generiert!
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.querySelector('.col-lg-10').insertBefore(alert, document.querySelector('.col-lg-10').firstChild);
+    }, 2000);
+}
+
+// Form submission handling
+document.getElementById('strategy-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const submitBtn = document.getElementById('strategy-submit-btn');
+    SomiPlan.setLoading(submitBtn);
+    
+    // Simulate form processing
+    setTimeout(() => {
+        window.location.href = "{% url 'somi_plan:create_plan_step3' plan.id %}";
+    }, 1500);
+});
+</script>
+{% endblock %}

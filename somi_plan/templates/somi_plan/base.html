@@ -1,0 +1,1353 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}SoMi-Plan - AI Social Media Planner{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* SoMi-Plan Specific Styles */
+
+    /* Mobile-First Responsive Design */
+    .somi-plan-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem 0;
+        margin-bottom: 1.5rem;
+    }
+    
+    /* Mobile header optimization */
+    @media (max-width: 768px) {
+        .somi-plan-header {
+            padding: 1rem 0;
+            margin-bottom: 1rem;
+        }
+        
+        .somi-plan-header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .somi-plan-header .lead {
+            font-size: 0.9rem;
+        }
+        
+        .somi-plan-header .col-md-4 {
+            margin-top: 1rem;
+            text-align: center !important;
+        }
+        
+        .somi-plan-header .btn-group {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .somi-plan-header .btn {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+    
+    .step-indicator {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 2rem;
+        overflow-x: auto;
+        padding: 0 1rem;
+    }
+    
+    .step {
+        display: flex;
+        align-items: center;
+        margin: 0 1rem;
+        flex-shrink: 0;
+    }
+    
+    .step-number {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 0.5rem;
+        color: #6c757d;
+        flex-shrink: 0;
+    }
+    
+    /* Mobile step indicator */
+    @media (max-width: 768px) {
+        .step-indicator {
+            margin-bottom: 1rem;
+            justify-content: flex-start;
+            padding: 0.5rem 1rem;
+        }
+        
+        .step {
+            margin: 0 0.5rem;
+        }
+        
+        .step-number {
+            width: 32px;
+            height: 32px;
+            font-size: 0.85rem;
+        }
+        
+        .step-text {
+            display: none;
+        }
+        
+        .step-arrow {
+            font-size: 0.8rem;
+        }
+    }
+    
+    .step.active .step-number {
+        background-color: #007bff;
+        color: white;
+    }
+    
+    .step.completed .step-number {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .step-arrow {
+        margin: 0 0.5rem;
+        color: #dee2e6;
+    }
+    
+    .platform-card {
+        border: 2px solid transparent;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        height: 100%;
+        margin-bottom: 1rem;
+    }
+    
+    .platform-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    .platform-card.selected {
+        border-color: #007bff;
+        background-color: #f8f9fa;
+    }
+    
+    /* Mobile platform cards */
+    @media (max-width: 768px) {
+        .platform-card {
+            margin-bottom: 0.5rem;
+            padding: 0.75rem;
+        }
+        
+        .platform-card:hover {
+            transform: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .platform-card .card-body {
+            padding: 1rem 0.75rem;
+        }
+        
+        .platform-card h5 {
+            font-size: 1rem;
+        }
+        
+        .platform-card .fa-2x {
+            font-size: 1.5em !important;
+        }
+    }
+    
+    .post-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+    
+    .post-card:hover {
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .post-card.expanded {
+        transform: scale(1.02);
+        z-index: 10;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+    }
+    
+    /* Mobile post cards */
+    @media (max-width: 768px) {
+        .post-card {
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .post-card:hover {
+            box-shadow: 0 1px 6px rgba(0,0,0,0.1);
+        }
+        
+        .post-card.expanded {
+            transform: none;
+            box-shadow: 0 3px 15px rgba(0,0,0,0.15);
+        }
+        
+        .post-card .btn-group {
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        
+        .post-card .btn-sm {
+            font-size: 0.8rem;
+            padding: 0.25rem 0.5rem;
+        }
+    }
+    
+    .character-counter {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    .character-counter.warning {
+        color: #ffc107;
+    }
+    
+    .character-counter.danger {
+        color: #dc3545;
+    }
+    
+    .ai-badge {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+    }
+    
+    .floating-action {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        z-index: 1000;
+    }
+    
+    /* Mobile floating action */
+    @media (max-width: 768px) {
+        .floating-action {
+            bottom: 1rem;
+            right: 1rem;
+        }
+        
+        .floating-action .btn {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+    }
+    
+    .btn-ai {
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        border: none;
+        color: white;
+    }
+    
+    .btn-ai:hover {
+        background: linear-gradient(45deg, #5a6fd8, #6a4190);
+        color: white;
+    }
+    
+    /* ===== LOADING STATES & USER FEEDBACK ===== */
+    .loading-spinner {
+        display: none;
+        width: 1rem;
+        height: 1rem;
+        border: 2px solid transparent;
+        border-top: 2px solid currentColor;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    
+    .loading .loading-spinner {
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .loading .btn-text {
+        opacity: 0.7;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    /* Loading overlay */
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        border-radius: inherit;
+    }
+    
+    .loading-overlay.dark {
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+    }
+    
+    /* Skeleton loading */
+    .skeleton {
+        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 37%, #f0f0f0 63%);
+        background-size: 400% 100%;
+        animation: skeleton-loading 1.5s ease-in-out infinite;
+    }
+    
+    @keyframes skeleton-loading {
+        0% { background-position: 100% 0; }
+        100% { background-position: -100% 0; }
+    }
+    
+    .skeleton-text {
+        height: 1rem;
+        border-radius: 4px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .skeleton-text.w-75 { width: 75%; }
+    .skeleton-text.w-50 { width: 50%; }
+    .skeleton-text.w-25 { width: 25%; }
+    
+    /* Success/Error feedback */
+    .feedback-message {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        max-width: 300px;
+        z-index: 9999;
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+    }
+    
+    .feedback-message.show {
+        transform: translateX(0);
+    }
+    
+    /* Progress indicators */
+    .progress-ring {
+        width: 60px;
+        height: 60px;
+        transform: rotate(-90deg);
+    }
+    
+    .progress-ring-circle {
+        stroke: currentColor;
+        stroke-width: 4;
+        stroke-linecap: round;
+        fill: transparent;
+        r: 26;
+        cx: 30;
+        cy: 30;
+        stroke-dasharray: 164;
+        stroke-dashoffset: 164;
+        transition: stroke-dashoffset 0.3s ease;
+    }
+    
+    /* Form feedback */
+    .form-feedback {
+        display: none;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+    
+    .form-feedback.show {
+        display: block;
+    }
+    
+    .form-feedback.success {
+        color: #28a745;
+    }
+    
+    .form-feedback.error {
+        color: #dc3545;
+    }
+    
+    .form-feedback.loading {
+        color: #6c757d;
+    }
+    
+    /* Calendar styles */
+    .calendar-day {
+        background-color: #ffffff;
+        border-color: #dee2e6;
+    }
+
+    .calendar-day:hover {
+        background-color: #f8f9fa;
+    }
+
+    .calendar-day-today {
+        background-color: rgba(13, 110, 253, 0.1);
+        border-color: #0d6efd;
+    }
+
+    .calendar-post {
+        background-color: #f8f9fa;
+        border-color: #dee2e6;
+        color: #212529;
+    }
+
+    .unscheduled-post {
+        background-color: #ffffff;
+        border-color: #dee2e6;
+        color: #212529;
+    }
+
+    /* ===== PROGRESS STEPS ===== */
+    .progress-steps {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 2rem 0;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .progress-steps .step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+        flex: 1;
+        max-width: 120px;
+    }
+    
+    .progress-steps .step:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        top: 20px;
+        right: -50%;
+        width: 100%;
+        height: 2px;
+        background: #dee2e6;
+        z-index: 1;
+    }
+    
+    .progress-steps .step.active:not(:last-child)::after,
+    .progress-steps .step.completed:not(:last-child)::after {
+        background: #0d6efd;
+    }
+    
+    .progress-steps .step-number {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #dee2e6;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+        position: relative;
+        z-index: 2;
+        transition: all 0.3s ease;
+    }
+    
+    .progress-steps .step.active .step-number {
+        background: #0d6efd;
+        color: white;
+        transform: scale(1.1);
+        box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.2);
+    }
+    
+    .progress-steps .step.completed .step-number {
+        background: #198754;
+        color: white;
+    }
+    
+    .progress-steps .step span {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #6c757d;
+        text-align: center;
+        transition: color 0.3s ease;
+    }
+    
+    .progress-steps .step.active span {
+        color: #0d6efd;
+        font-weight: 600;
+    }
+    
+    .progress-steps .step.completed span {
+        color: #198754;
+    }
+    
+    /* Mobile responsiveness for progress steps */
+    @media (max-width: 768px) {
+        .progress-steps {
+            padding: 0.75rem;
+            margin: 1rem 0;
+        }
+        
+        .progress-steps .step {
+            max-width: 80px;
+        }
+        
+        .progress-steps .step-number {
+            width: 32px;
+            height: 32px;
+            font-size: 0.875rem;
+        }
+        
+        .progress-steps .step span {
+            font-size: 0.75rem;
+        }
+        
+        .progress-steps .step:not(:last-child)::after {
+            top: 16px;
+        }
+    }
+
+    /* ===== POST CARDS ===== */
+    .post-card {
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 1px solid #dee2e6;
+        background: #ffffff;
+    }
+    
+    .post-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        border-color: #0d6efd;
+    }
+    
+    .post-card .card-body {
+        padding: 1.25rem;
+    }
+    
+    .post-card .card-title {
+        color: #212529;
+        font-weight: 600;
+    }
+    
+    .post-card .card-text {
+        color: #6c757d;
+        line-height: 1.4;
+    }
+    
+    .post-card .badge {
+        font-size: 0.75rem;
+    }
+    
+    .post-card .btn {
+        font-size: 0.875rem;
+    }
+    
+    /* Post card states */
+    .post-card.scheduled {
+        border-left: 4px solid #198754;
+    }
+    
+    .post-card.draft {
+        border-left: 4px solid #ffc107;
+    }
+    
+    .post-card.ai-generated {
+        position: relative;
+    }
+    
+    .post-card.ai-generated::before {
+        content: '🤖';
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        font-size: 1rem;
+        opacity: 0.7;
+    }
+
+    /* ===== AI MODEL CARDS ===== */
+    .ai-model-card {
+        background: #ffffff;
+        border: 2px solid #dee2e6;
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    
+    .ai-model-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        border-color: #0d6efd;
+    }
+    
+    .ai-model-card.selected {
+        border-color: #0d6efd;
+        border-width: 3px;
+        background: rgba(13, 110, 253, 0.05);
+        transform: scale(1.02);
+    }
+    
+    .ai-model-icon {
+        margin-bottom: 1rem;
+    }
+    
+    .ai-model-icon i {
+        font-size: 3rem;
+        color: #0d6efd;
+        margin-bottom: 0.5rem;
+    }
+    
+    .ai-model-name {
+        color: #212529;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+    }
+    
+    .ai-model-description {
+        color: #6c757d;
+        font-size: 0.875rem;
+        line-height: 1.4;
+        margin-bottom: 1rem;
+        flex-grow: 1;
+    }
+    
+    .ai-model-features {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        justify-content: center;
+    }
+    
+    .ai-model-features .badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    /* AI Model animations */
+    @keyframes aiModelPulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+    
+    .ai-model-card.pulse {
+        animation: aiModelPulse 0.6s ease-in-out;
+    }
+    
+    /* Mobile responsiveness for AI model cards */
+    @media (max-width: 768px) {
+        .ai-model-card {
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .ai-model-icon i {
+            font-size: 2.5rem;
+        }
+        
+        .ai-model-description {
+            font-size: 0.8rem;
+        }
+    }
+
+    /* ===== MOBILE RESPONSIVENESS & TOUCH OPTIMIZATION ===== */
+    
+    /* Touch-friendly interactions */
+    @media (max-width: 768px) {
+        /* Increase touch targets */
+        .btn {
+            min-height: 44px;
+            padding: 0.5rem 1rem;
+        }
+        
+        .btn-sm {
+            min-height: 36px;
+            padding: 0.375rem 0.75rem;
+        }
+        
+        /* Form optimizations */
+        .form-control, .form-select {
+            font-size: 16px; /* Prevents zoom on iOS */
+            min-height: 44px;
+        }
+        
+        /* Card optimizations */
+        .card {
+            margin-bottom: 1rem;
+        }
+        
+        .card-body {
+            padding: 1rem;
+        }
+        
+        /* Table responsiveness */
+        .table-responsive {
+            font-size: 0.9rem;
+        }
+        
+        /* Modal optimizations */
+        .modal-dialog {
+            margin: 0.5rem;
+        }
+        
+        .modal-body {
+            padding: 1rem;
+        }
+        
+        /* Navigation improvements */
+        .navbar-nav .nav-link {
+            padding: 0.75rem 1rem;
+        }
+        
+        /* List group touch optimization */
+        .list-group-item {
+            padding: 1rem 0.75rem;
+            border-width: 1px 0;
+        }
+        
+        .list-group-item:first-child {
+            border-top-width: 1px;
+        }
+        
+        .list-group-item:last-child {
+            border-bottom-width: 1px;
+        }
+        
+        /* Progress bar visibility */
+        .progress {
+            height: 8px;
+            border-radius: 4px;
+        }
+        
+        /* Badge optimizations */
+        .badge {
+            font-size: 0.75rem;
+            padding: 0.35em 0.65em;
+        }
+        
+        /* Text size adjustments */
+        .display-1 { font-size: 2.5rem; }
+        .display-2 { font-size: 2rem; }
+        .display-3 { font-size: 1.75rem; }
+        .display-4 { font-size: 1.5rem; }
+        .display-5 { font-size: 1.25rem; }
+        .display-6 { font-size: 1rem; }
+        
+        /* Container spacing */
+        .container, .container-fluid {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+        
+        /* Row spacing */
+        .row > * {
+            margin-bottom: 1rem;
+        }
+        
+        /* Alert optimizations */
+        .alert {
+            border-radius: 8px;
+            padding: 1rem;
+        }
+        
+        /* Dropdown optimizations */
+        .dropdown-menu {
+            font-size: 0.9rem;
+        }
+        
+        .dropdown-item {
+            padding: 0.75rem 1rem;
+        }
+    }
+    
+    /* Extra small devices (phones, 576px and down) */
+    @media (max-width: 575.98px) {
+        .container {
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+        }
+        
+        .card-body {
+            padding: 0.75rem;
+        }
+        
+        .btn {
+            font-size: 0.9rem;
+        }
+        
+        h1 { font-size: 1.5rem; }
+        h2 { font-size: 1.25rem; }
+        h3 { font-size: 1.1rem; }
+        h4 { font-size: 1rem; }
+        h5 { font-size: 0.9rem; }
+        h6 { font-size: 0.8rem; }
+    }
+    
+    /* Landscape phone optimization */
+    @media (max-width: 768px) and (orientation: landscape) {
+        .somi-plan-header {
+            padding: 0.75rem 0;
+        }
+        
+        .floating-action {
+            bottom: 0.5rem;
+            right: 0.5rem;
+        }
+    }
+    
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="somi-plan-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-8">
+                <h1><i class="fas fa-magic me-2"></i>{% block page_title %}SoMi-Plan{% endblock %}</h1>
+                <p class="lead mb-0">{% block page_description %}AI-gestützter Social Media Posting-Planer{% endblock %}</p>
+            </div>
+            <div class="col-md-4 text-end">
+                {% block header_actions %}{% endblock %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+    
+    {% block main_content %}{% endblock %}
+</div>
+
+{% block floating_actions %}{% endblock %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// SoMi-Plan JavaScript utilities
+const SomiPlan = {
+    // Character counter utility
+    updateCharacterCounter: function(input, counter, limit) {
+        const count = input.value.length;
+        const percentage = (count / limit) * 100;
+        
+        counter.textContent = `${count}/${limit}`;
+        counter.classList.remove('warning', 'danger');
+        
+        if (percentage > 100) {
+            counter.classList.add('danger');
+        } else if (percentage > 80) {
+            counter.classList.add('warning');
+        }
+    },
+    
+    // Platform selection
+    selectPlatform: function(platformId) {
+        document.querySelectorAll('.platform-card').forEach(card => {
+            card.classList.remove('selected');
+        });
+        
+        const selectedCard = document.querySelector(`[data-platform="${platformId}"]`);
+        if (selectedCard) {
+            selectedCard.classList.add('selected');
+        }
+        
+        // Update hidden input if exists
+        const hiddenInput = document.querySelector('input[name="platform"]');
+        if (hiddenInput) {
+            hiddenInput.value = platformId;
+        }
+    },
+    
+    // Post card expansion
+    togglePostCard: function(card) {
+        const isExpanded = card.classList.contains('expanded');
+        
+        // Close all cards
+        document.querySelectorAll('.post-card').forEach(c => {
+            c.classList.remove('expanded');
+        });
+        
+        // Open clicked card if it wasn't expanded
+        if (!isExpanded) {
+            card.classList.add('expanded');
+        }
+    },
+    
+    // ===== LOADING STATES & USER FEEDBACK =====
+    
+    // Enhanced loading states
+    setLoading: function(element, loading = true, text = '') {
+        if (loading) {
+            element.classList.add('loading');
+            element.disabled = true;
+            
+            // Add spinner if not exists
+            if (!element.querySelector('.loading-spinner')) {
+                const spinner = document.createElement('span');
+                spinner.className = 'loading-spinner spinner-border spinner-border-sm me-2';
+                element.insertBefore(spinner, element.firstChild);
+            } else {
+                // Show existing spinner
+                const spinner = element.querySelector('.loading-spinner');
+                spinner.style.display = 'inline-block';
+            }
+            
+            // Update text if provided
+            if (text) {
+                const textElement = element.querySelector('.btn-text') || element;
+                textElement.dataset.originalText = textElement.textContent;
+                textElement.textContent = text;
+            }
+        } else {
+            element.classList.remove('loading');
+            element.disabled = false;
+            
+            // Hide spinner
+            const spinner = element.querySelector('.loading-spinner');
+            if (spinner) {
+                spinner.style.display = 'none';
+            }
+            
+            // Restore original text
+            const textElement = element.querySelector('.btn-text') || element;
+            if (textElement.dataset.originalText) {
+                textElement.textContent = textElement.dataset.originalText;
+                delete textElement.dataset.originalText;
+            }
+        }
+    },
+    
+    // Loading overlay for cards/containers
+    showLoadingOverlay: function(container, message = 'Lädt...') {
+        const overlay = document.createElement('div');
+        overlay.className = 'loading-overlay';
+        overlay.innerHTML = `
+            <div class="text-center">
+                <div class="loading-spinner" style="display: inline-block; width: 2rem; height: 2rem; margin-bottom: 1rem;"></div>
+                <div>${message}</div>
+            </div>
+        `;
+        
+        container.style.position = 'relative';
+        container.appendChild(overlay);
+        return overlay;
+    },
+    
+    hideLoadingOverlay: function(container) {
+        const overlay = container.querySelector('.loading-overlay');
+        if (overlay) overlay.remove();
+    },
+    
+    // Skeleton loading
+    showSkeleton: function(container, lines = 3) {
+        const skeleton = document.createElement('div');
+        skeleton.className = 'skeleton-container';
+        
+        for (let i = 0; i < lines; i++) {
+            const line = document.createElement('div');
+            line.className = `skeleton skeleton-text ${i === lines - 1 ? 'w-75' : 'w-100'}`;
+            skeleton.appendChild(line);
+        }
+        
+        container.innerHTML = '';
+        container.appendChild(skeleton);
+    },
+    
+    // Progress ring
+    updateProgress: function(element, percentage) {
+        const circle = element.querySelector('.progress-ring-circle');
+        if (circle) {
+            const circumference = 2 * Math.PI * 26;
+            const offset = circumference - (percentage / 100) * circumference;
+            circle.style.strokeDashoffset = offset;
+        }
+    },
+    
+    // Toast notifications
+    showToast: function(message, type = 'success', duration = 5000) {
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type} alert-dismissible fade feedback-message`;
+        toast.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+        `;
+        
+        document.body.appendChild(toast);
+        
+        // Trigger animation
+        setTimeout(() => toast.classList.add('show'), 10);
+        
+        // Auto remove
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, duration);
+    },
+    
+    // Form feedback
+    showFormFeedback: function(input, message, type = 'success') {
+        let feedback = input.parentElement.querySelector('.form-feedback');
+        
+        if (!feedback) {
+            feedback = document.createElement('div');
+            feedback.className = 'form-feedback';
+            input.parentElement.appendChild(feedback);
+        }
+        
+        feedback.className = `form-feedback show ${type}`;
+        feedback.textContent = message;
+        
+        // Auto hide after 3 seconds for success messages
+        if (type === 'success') {
+            setTimeout(() => {
+                feedback.classList.remove('show');
+            }, 3000);
+        }
+    },
+    
+    hideFormFeedback: function(input) {
+        const feedback = input.parentElement.querySelector('.form-feedback');
+        if (feedback) {
+            feedback.classList.remove('show');
+        }
+    },
+    
+    // Loading button with progress
+    setButtonProgress: function(button, progress, text = '') {
+        const progressBar = button.querySelector('.progress') || document.createElement('div');
+        
+        if (!button.querySelector('.progress')) {
+            progressBar.className = 'progress mt-1';
+            progressBar.style.height = '4px';
+            progressBar.innerHTML = '<div class="progress-bar" style="transition: width 0.3s ease;"></div>';
+            button.appendChild(progressBar);
+        }
+        
+        const bar = progressBar.querySelector('.progress-bar');
+        bar.style.width = `${progress}%`;
+        
+        if (text) {
+            button.querySelector('.btn-text').textContent = text;
+        }
+        
+        if (progress >= 100) {
+            setTimeout(() => {
+                progressBar.remove();
+                this.setLoading(button, false);
+                this.showToast('Vorgang erfolgreich abgeschlossen!', 'success');
+            }, 500);
+        }
+    },
+    
+    // Enhanced AJAX helper with loading states
+    ajaxCall: function(url, data, method = 'POST', options = {}) {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const { 
+            loadingElement = null, 
+            loadingText = 'Lädt...', 
+            successMessage = '', 
+            errorMessage = 'Ein Fehler ist aufgetreten',
+            showToasts = true 
+        } = options;
+        
+        // Show loading state
+        if (loadingElement) {
+            this.setLoading(loadingElement, true, loadingText);
+        }
+        
+        return fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: method !== 'GET' ? JSON.stringify(data) : undefined
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(result => {
+            // Hide loading state
+            if (loadingElement) {
+                this.setLoading(loadingElement, false);
+            }
+            
+            // Show success message
+            if (showToasts && (result.success || successMessage)) {
+                this.showToast(successMessage || result.message || 'Erfolgreich gespeichert!', 'success');
+            }
+            
+            return result;
+        })
+        .catch(error => {
+            // Hide loading state
+            if (loadingElement) {
+                this.setLoading(loadingElement, false);
+            }
+            
+            // Show error message
+            if (showToasts) {
+                this.showToast(errorMessage + ': ' + error.message, 'danger');
+            }
+            
+            console.error('AJAX Error:', error);
+            throw error;
+        });
+    },
+    
+    // Form validation helper
+    validateForm: function(form) {
+        const inputs = form.querySelectorAll('input[required], textarea[required], select[required]');
+        let isValid = true;
+        
+        inputs.forEach(input => {
+            this.hideFormFeedback(input);
+            
+            if (!input.value.trim()) {
+                this.showFormFeedback(input, 'Dieses Feld ist erforderlich', 'error');
+                input.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                input.classList.remove('is-invalid');
+                input.classList.add('is-valid');
+            }
+        });
+        
+        return isValid;
+    },
+    
+    // Auto-save functionality
+    autoSave: function(form, url, interval = 30000) {
+        let timeout;
+        const inputs = form.querySelectorAll('input, textarea, select');
+        
+        const saveData = () => {
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
+            
+            this.ajaxCall(url, data, 'POST', {
+                showToasts: false
+            }).then(() => {
+                this.showToast('💾 Automatisch gespeichert', 'info', 2000);
+            }).catch(() => {
+                this.showToast('⚠️ Auto-Save fehlgeschlagen', 'warning', 3000);
+            });
+        };
+        
+        inputs.forEach(input => {
+            input.addEventListener('input', () => {
+                clearTimeout(timeout);
+                timeout = setTimeout(saveData, interval);
+            });
+        });
+        
+        // Save every interval regardless of changes
+        setInterval(saveData, interval * 2);
+    }
+};
+
+// SoMi-Plan uses the global dark mode system from user profile
+// No local dark mode implementation needed
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Platform selection listeners
+    document.querySelectorAll('.platform-card').forEach(card => {
+        card.addEventListener('click', function() {
+            const platformId = this.dataset.platform;
+            SomiPlan.selectPlatform(platformId);
+        });
+    });
+    
+    // Post card listeners
+    document.querySelectorAll('.post-card').forEach(card => {
+        card.addEventListener('click', function() {
+            SomiPlan.togglePostCard(this);
+        });
+    });
+    
+    // Character counter listeners
+    document.querySelectorAll('textarea[data-character-limit]').forEach(textarea => {
+        const limit = parseInt(textarea.dataset.characterLimit);
+        const counter = document.querySelector(textarea.dataset.counter);
+        
+        if (counter) {
+            textarea.addEventListener('input', function() {
+                SomiPlan.updateCharacterCounter(this, counter, limit);
+            });
+            
+            // Initial count
+            SomiPlan.updateCharacterCounter(textarea, counter, limit);
+        }
+    });
+    
+    // ===== ENHANCED LOADING & FEEDBACK INITIALIZATION =====
+    
+    // Auto-enhance all forms with loading states
+    document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            const submitButton = form.querySelector('button[type="submit"], input[type="submit"]');
+            
+            if (submitButton && !submitButton.dataset.noLoading) {
+                SomiPlan.setLoading(submitButton, true, 'Wird verarbeitet...');
+            }
+            
+            // Validate form if it has required fields
+            const hasRequired = form.querySelector('[required]');
+            if (hasRequired && !SomiPlan.validateForm(form)) {
+                e.preventDefault();
+                if (submitButton) {
+                    SomiPlan.setLoading(submitButton, false);
+                }
+                SomiPlan.showToast('Bitte fülle alle erforderlichen Felder aus', 'danger');
+                return false;
+            }
+        });
+    });
+    
+    // Auto-enhance AJAX buttons
+    document.querySelectorAll('[data-ajax-url]').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            const url = this.dataset.ajaxUrl;
+            const method = this.dataset.ajaxMethod || 'POST';
+            const data = JSON.parse(this.dataset.ajaxData || '{}');
+            const successMessage = this.dataset.successMessage;
+            const errorMessage = this.dataset.errorMessage;
+            
+            SomiPlan.ajaxCall(url, data, method, {
+                loadingElement: this,
+                successMessage: successMessage,
+                errorMessage: errorMessage
+            }).then(result => {
+                // Handle specific success actions
+                const action = this.dataset.successAction;
+                if (action === 'reload') {
+                    location.reload();
+                } else if (action === 'redirect' && result.redirect_url) {
+                    location.href = result.redirect_url;
+                }
+            });
+        });
+    });
+    
+    // Auto-save for forms with data-auto-save
+    document.querySelectorAll('form[data-auto-save]').forEach(form => {
+        const url = form.dataset.autoSave;
+        const interval = parseInt(form.dataset.autoSaveInterval) || 30000;
+        SomiPlan.autoSave(form, url, interval);
+    });
+    
+    // Real-time form validation
+    document.querySelectorAll('input[required], textarea[required], select[required]').forEach(input => {
+        input.addEventListener('blur', function() {
+            if (!this.value.trim()) {
+                SomiPlan.showFormFeedback(this, 'Dieses Feld ist erforderlich', 'error');
+                this.classList.add('is-invalid');
+            } else {
+                SomiPlan.hideFormFeedback(this);
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            }
+        });
+        
+        input.addEventListener('input', function() {
+            if (this.classList.contains('is-invalid') && this.value.trim()) {
+                SomiPlan.hideFormFeedback(this);
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            }
+        });
+    });
+    
+    // Show loading skeleton for slow-loading content
+    document.querySelectorAll('[data-skeleton-loading]').forEach(container => {
+        const lines = parseInt(container.dataset.skeletonLines) || 3;
+        SomiPlan.showSkeleton(container, lines);
+        
+        // Simulate content loading (replace with actual loading logic)
+        setTimeout(() => {
+            // This would be replaced with actual content loading
+            container.innerHTML = '<p>Content loaded!</p>';
+        }, 2000);
+    });
+    
+    // Initialize progress rings
+    document.querySelectorAll('.progress-ring').forEach(ring => {
+        const percentage = parseInt(ring.dataset.percentage) || 0;
+        SomiPlan.updateProgress(ring, percentage);
+    });
+    
+    // Network status indicator
+    let isOnline = navigator.onLine;
+    
+    window.addEventListener('online', () => {
+        if (!isOnline) {
+            SomiPlan.showToast('🌐 Internetverbindung wiederhergestellt', 'success', 3000);
+            isOnline = true;
+        }
+    });
+    
+    window.addEventListener('offline', () => {
+        SomiPlan.showToast('📡 Keine Internetverbindung', 'warning', 5000);
+        isOnline = false;
+    });
+    
+    // Page visibility change handling
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            // Save any unsaved changes when page becomes hidden
+            document.querySelectorAll('form[data-auto-save]').forEach(form => {
+                const url = form.dataset.autoSave;
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData);
+                
+                SomiPlan.ajaxCall(url, data, 'POST', { showToasts: false });
+            });
+        }
+    });
+});
+</script>
+{% block page_js %}{% endblock %}
+{% endblock %}

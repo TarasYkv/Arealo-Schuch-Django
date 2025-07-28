@@ -1,0 +1,73 @@
+{% extends "somi_plan/base.html" %}
+{% load static %}
+
+{% block page_title %}{{ plan.title }} bearbeiten{% endblock %}
+{% block page_description %}Plan-Details und Einstellungen anpassen{% endblock %}
+
+{% block main_content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-edit me-2"></i>Plan bearbeiten
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.title.id_for_label }}" class="form-label">{{ form.title.label }}</label>
+                        {{ form.title }}
+                        {% if form.title.errors %}
+                            <div class="invalid-feedback d-block">{{ form.title.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.description.id_for_label }}" class="form-label">{{ form.description.label }}</label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                            <div class="invalid-feedback d-block">{{ form.description.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.status.id_for_label }}" class="form-label">{{ form.status.label }}</label>
+                        {{ form.status }}
+                        {% if form.status.errors %}
+                            <div class="invalid-feedback d-block">{{ form.status.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'somi_plan:plan_detail' plan.pk %}" class="btn btn-secondary">
+                            <i class="fas fa-times me-2"></i>Abbrechen
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Änderungen speichern
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Danger Zone -->
+        <div class="card mt-4 border-danger">
+            <div class="card-header bg-danger text-white">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Gefahrenzone
+                </h6>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Dieser Plan und alle zugehörigen Posts werden unwiderruflich gelöscht.</p>
+                <a href="{% url 'somi_plan:plan_delete' plan.pk %}" class="btn btn-danger" 
+                   onclick="return confirm('Bist du sicher, dass du diesen Plan löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.')">
+                    <i class="fas fa-trash me-2"></i>Plan löschen
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

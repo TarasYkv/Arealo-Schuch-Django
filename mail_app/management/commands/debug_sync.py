@@ -1,104 +1,129 @@
 """
-Debug email sync issues
+Debug email sync process
 """
 from django.core.management.base import BaseCommand
-from mail_app.models import EmailAccount, Folder
-from mail_app.services import ZohoMailAPIService
-import logging
-
-logger = logging.getLogger(__name__)
+from django.utils import timezone
+from datetime import timedelta
+from mail_app.models import EmailAccount, Folder, Email
+from mail_app.services import ZohoMailAPIService, EmailSyncService
 
 
 class Command(BaseCommand):
-    help = 'Debug email sync issues'
-
+    help = 'Debug email sync process'
+    
     def add_arguments(self, parser):
-        parser.add_argument('--email', type=str, help='Email address of the account to debug')
-
+        parser.add_argument(
+            '--account',
+            type=int,
+            help='Account ID to debug'
+        )
+        parser.add_argument(
+            '--limit',
+            type=int,
+            default=10,
+            help='Number of emails to check'
+        )
+    
     def handle(self, *args, **options):
-        email_address = options.get('email')
+        account_id = options.get('account')
+        limit = options.get('limit')
         
-        # Get all active email accounts
-        if email_address:
-            accounts = EmailAccount.objects.filter(email_address=email_address, is_active=True)
+        if account_id:
+            accounts = EmailAccount.objects.filter(id=account_id, is_active=True)
         else:
             accounts = EmailAccount.objects.filter(is_active=True)
         
-        if not accounts.exists():
-            self.stdout.write(self.style.ERROR('No active email accounts found'))
-            return
-        
         for account in accounts:
             self.stdout.write(f"\n{'='*60}")
-            self.stdout.write(f"Debugging account: {account.email_address}")
-            self.stdout.write(f"{'='*60}")
+            self.stdout.write(f"Debugging sync for account: {account.email_address}")
+            self.stdout.write(f"{'='*60}\n")
             
-            # Check basic info
-            self.stdout.write(f"✓ Account ID: {account.id}")
-            self.stdout.write(f"✓ User: {account.user.email}")
-            self.stdout.write(f"✓ Is Active: {account.is_active}")
-            self.stdout.write(f"✓ Last Sync: {account.last_sync}")
+            # Check account status
+            self.stdout.write(f"Account active: {account.is_active}")
+            self.stdout.write(f"Last sync: {account.last_sync}")
+            self.stdout.write(f"Total emails in DB: {account.emails.count()}")
             
-            # Check OAuth tokens
+            # Check folders
+            folders = account.folders.all()
+            self.stdout.write(f"\nFolders ({folders.count()}):")
+            for folder in folders:
+                email_count = folder.emails.count()
+                self.stdout.write(f"  - {folder.name}: {email_count} emails (Zoho ID: {folder.zoho_folder_id})")
+            
+            # Try to fetch emails from API
             try:
                 api_service = ZohoMailAPIService(account)
-                zoho_settings = account.user.zoho_mail_settings
-                self.stdout.write(f"\n📋 OAuth Settings:")
-                self.stdout.write(f"   - Has Client ID: {'Yes' if zoho_settings.client_id else 'No'}")
-                self.stdout.write(f"   - Has Client Secret: {'Yes' if zoho_settings.client_secret else 'No'}")
-                self.stdout.write(f"   - Has Access Token: {'Yes' if zoho_settings.access_token else 'No'}")
-                self.stdout.write(f"   - Has Refresh Token: {'Yes' if zoho_settings.refresh_token else 'No'}")
-                self.stdout.write(f"   - Token Expires At: {zoho_settings.token_expires_at}")
                 
-                # Check account ID
-                self.stdout.write(f"\n🔍 Checking Zoho Account ID...")
-                try:
-                    zoho_account_id = api_service.get_account_id()
-                    self.stdout.write(f"   ✅ Zoho Account ID: {zoho_account_id}")
-                except Exception as e:
-                    self.stdout.write(self.style.ERROR(f"   ❌ Error getting account ID: {str(e)}"))
-                    continue
+                # Get account ID from API
+                self.stdout.write(f"\nTesting API connection...")
+                api_account_id = api_service.get_account_id()
+                self.stdout.write(self.style.SUCCESS(f"✓ API connection successful. Account ID: {api_account_id}"))
                 
-                # Check folders
-                self.stdout.write(f"\n📁 Checking folders...")
-                folders = account.folders.all()
-                self.stdout.write(f"   - Total folders in DB: {folders.count()}")
+                # Get inbox folder
+                inbox = folders.filter(folder_type='inbox').first()
+                if not inbox:
+                    inbox = folders.first()
                 
-                if folders.count() == 0:
-                    self.stdout.write(self.style.WARNING("   ⚠️  No folders found! Fetching from API..."))
-                    try:
-                        folder_data = api_service.fetch_folders()
-                        self.stdout.write(f"   - Folders from API: {len(folder_data)}")
-                        for folder in folder_data[:5]:  # Show first 5
-                            self.stdout.write(f"     • {folder['folderName']} (ID: {folder['folderId']})")
-                    except Exception as e:
-                        self.stdout.write(self.style.ERROR(f"   ❌ Error fetching folders: {str(e)}"))
+                if inbox:
+                    self.stdout.write(f"\nFetching emails from {inbox.name}...")
+                    
+                    # Get emails from API
+                    emails_data = api_service.get_emails(
+                        account_id=api_account_id,
+                        folder_id=inbox.zoho_folder_id,
+                        limit=limit
+                    )
+                    
+                    self.stdout.write(f"Found {len(emails_data)} emails in API")
+                    
+                    if emails_data:
+                        self.stdout.write(f"\nFirst {min(5, len(emails_data))} emails from API:")
+                        for i, email_data in enumerate(emails_data[:5]):
+                            subject = email_data.get('subject', 'No subject')
+                            from_email = email_data.get('fromAddress', 'Unknown')
+                            sent_date = email_data.get('sentDateInGMT', 'Unknown date')
+                            message_id = email_data.get('messageId', 'No ID')
+                            
+                            self.stdout.write(f"\n  Email {i+1}:")
+                            self.stdout.write(f"    Subject: {subject[:50]}...")
+                            self.stdout.write(f"    From: {from_email}")
+                            self.stdout.write(f"    Date: {sent_date}")
+                            self.stdout.write(f"    Message ID: {message_id}")
+                            
+                            # Check if already in DB
+                            exists = Email.objects.filter(zoho_message_id=message_id).exists()
+                            if exists:
+                                self.stdout.write(self.style.WARNING("    Status: Already in database"))
+                            else:
+                                self.stdout.write(self.style.SUCCESS("    Status: New email"))
+                    
+                    # Test sync service
+                    self.stdout.write(f"\n\nTesting sync service...")
+                    sync_service = EmailSyncService(account)
+                    
+                    # Sync with date range
+                    end_date = timezone.now()
+                    start_date = end_date - timedelta(days=90)
+                    
+                    self.stdout.write(f"Sync date range: {start_date} to {end_date}")
+                    
+                    sync_stats = sync_service.sync_emails(
+                        folder=inbox,
+                        limit=10,
+                        start_date=start_date,
+                        end_date=end_date
+                    )
+                    
+                    self.stdout.write(f"\nSync results:")
+                    self.stdout.write(f"  Fetched: {sync_stats['fetched']}")
+                    self.stdout.write(f"  Created: {sync_stats['created']}")
+                    self.stdout.write(f"  Updated: {sync_stats['updated']}")
+                    self.stdout.write(f"  Errors: {sync_stats['errors']}")
+                    
                 else:
-                    for folder in folders[:5]:  # Show first 5
-                        self.stdout.write(f"   • {folder.name} - {folder.total_count} emails")
-                
-                # Try to sync a small batch
-                self.stdout.write(f"\n🔄 Testing sync with limit=10...")
-                try:
-                    # First sync folders
-                    folder_stats = api_service.sync_folders()
-                    self.stdout.write(f"   ✅ Folders synced: {folder_stats}")
-                    
-                    # Then sync emails
-                    sync_stats = api_service.sync_emails(limit=10)
-                    self.stdout.write(f"   ✅ Sync stats: {sync_stats}")
-                    
-                    # Check if any emails were created
-                    email_count = account.emails.count()
-                    self.stdout.write(f"   📧 Total emails in DB: {email_count}")
-                    
-                except Exception as e:
-                    self.stdout.write(self.style.ERROR(f"   ❌ Sync error: {str(e)}"))
-                    import traceback
-                    self.stdout.write(self.style.ERROR(f"   Traceback: {traceback.format_exc()}"))
+                    self.stdout.write(self.style.ERROR("No folders found for this account"))
                     
             except Exception as e:
-                self.stdout.write(self.style.ERROR(f"Error initializing API service: {str(e)}"))
-                
-        self.stdout.write(f"\n{'='*60}")
-        self.stdout.write("Debug complete!")
+                self.stdout.write(self.style.ERROR(f"Error during debug: {str(e)}"))
+                import traceback
+                self.stdout.write(traceback.format_exc())

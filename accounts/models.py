@@ -49,6 +49,23 @@ class CustomUser(AbstractUser):
     # Design-Einstellungen
     dark_mode = models.BooleanField(default=False, verbose_name="Dunkles Design aktivieren")
     
+    # KI-Model-Einstellungen
+    preferred_openai_model = models.CharField(max_length=50, default='gpt-4o-mini', verbose_name="Bevorzugtes OpenAI Modell",
+                                             choices=[
+                                                 ('gpt-4o', 'GPT-4o (Premium)'),
+                                                 ('gpt-4o-mini', 'GPT-4o Mini (Standard)'),
+                                                 ('gpt-4-turbo', 'GPT-4 Turbo'),
+                                                 ('gpt-3.5-turbo', 'GPT-3.5 Turbo (Günstig)'),
+                                             ])
+    preferred_anthropic_model = models.CharField(max_length=50, default='claude-3-5-sonnet-20241022', verbose_name="Bevorzugtes Anthropic Modell",
+                                                choices=[
+                                                    ('claude-3-5-sonnet-20241022', 'Claude 3.5 Sonnet (Premium)'),
+                                                    ('claude-3-5-haiku-20241022', 'Claude 3.5 Haiku (Schnell)'),
+                                                    ('claude-3-opus-20240229', 'Claude 3 Opus (Top-Tier)'),
+                                                    ('claude-3-sonnet-20240229', 'Claude 3 Sonnet (Standard)'),
+                                                    ('claude-3-haiku-20240307', 'Claude 3 Haiku (Günstig)'),
+                                                ])
+    
     def __str__(self):
         return self.username
     
@@ -159,6 +176,7 @@ class AppPermission(models.Model):
         ('editor', 'Editor'),
         ('videos', 'Videos'),
         ('mail', 'Email'),
+        ('somi_plan', 'SoMi-Plan'),
         
         # Schuch Tools
         ('schuch', 'Schuch'),
