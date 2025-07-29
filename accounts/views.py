@@ -317,6 +317,28 @@ def toggle_dark_mode(request):
 
 
 @login_required
+def toggle_desktop_view(request):
+    """Toggle für Desktop-Ansicht (nur für Superuser)."""
+    if not request.user.is_superuser:
+        messages.error(request, 'Sie haben keine Berechtigung für diese Funktion.')
+        return redirect('accounts:dashboard')
+    
+    if request.method == 'POST':
+        desktop_view = request.POST.get('desktop_view') == 'on'
+        request.user.desktop_view = desktop_view
+        request.user.save()
+        
+        if desktop_view:
+            messages.success(request, 'Desktop-Ansicht wurde aktiviert. Seite wird in voller Desktop-Auflösung angezeigt.')
+        else:
+            messages.info(request, 'Responsive Ansicht wurde aktiviert. Seite passt sich an Ihr Gerät an.')
+    
+    # Redirect zurück zur vorherigen Seite oder Dashboard
+    next_url = request.POST.get('next') or request.GET.get('next') or 'accounts:dashboard'
+    return redirect(next_url)
+
+
+@login_required
 def manage_api_keys(request):
     if request.method == 'POST':
         form = ApiKeyForm(request.POST, instance=request.user)
