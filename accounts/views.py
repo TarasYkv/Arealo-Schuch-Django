@@ -3466,52 +3466,41 @@ def send_verification_email(user, request):
             # Fallback URL
             verification_url = f"{request.build_absolute_uri('/')[:-1]}/accounts/verify-email/{token}/"
         
-        # Versuche zuerst Zoho-System zu verwenden
+        # Verwende das neue Trigger-System
         try:
-            # Hole aktive Zoho-Verbindung
-            zoho_connection = ZohoMailServerConnection.objects.filter(
-                is_active=True,
-                is_configured=True
-            ).first()
+            # Importiere das neue Trigger-System
+            from email_templates.trigger_manager import trigger_manager
             
-            if zoho_connection:
-                # Suche nach Account Activation Template
-                template = EmailTemplate.objects.filter(
-                    template_type='account_activation',
-                    is_active=True
-                ).first()
-                
-                if template:
-                    # Verwende Email-Template System
-                    context_data = {
-                        'user_name': user.get_full_name() or user.username,
-                        'username': user.username,
-                        'verification_url': verification_url,
-                        'domain': request.get_host(),
-                        'site_name': 'Workloom',
-                        'company_name': 'Workloom'
-                    }
-                    
-                    result = EmailTemplateService.send_template_email(
-                        template=template,
-                        connection=zoho_connection,
-                        recipient_email=user.email,
-                        recipient_name=user.username,
-                        context_data=context_data
-                    )
-                    
-                    if result['success']:
-                        logger.info(f"Verification email sent via Zoho to {user.email}")
-                        return True
-                    else:
-                        logger.warning(f"Zoho email failed: {result['message']}, falling back to Django mail")
-                else:
-                    logger.warning("No account_activation template found, falling back to Django mail")
+            context_data = {
+                'user_name': user.get_full_name() or user.username,
+                'username': user.username,
+                'verification_url': verification_url,
+                'domain': request.get_host(),
+                'site_name': 'Workloom',
+                'company_name': 'Workloom'
+            }
+            
+            # Feuer den account_activation Trigger
+            results = trigger_manager.fire_trigger(
+                trigger_key='account_activation',
+                context_data=context_data,
+                recipient_email=user.email,
+                recipient_name=user.get_full_name() or user.username
+            )
+            
+            # Check if any email was sent successfully
+            if results and any(result['success'] for result in results):
+                logger.info(f"Verification email sent via trigger system to {user.email}")
+                return True
+            elif results:
+                # Some results but all failed
+                logger.warning(f"All trigger templates failed for {user.email}, falling back to Django mail")
             else:
-                logger.warning("No active Zoho connection found, falling back to Django mail")
+                # No results (no templates)
+                logger.warning(f"No active templates found for account_activation trigger, falling back to Django mail")
         
-        except Exception as zoho_error:
-            logger.warning(f"Zoho system failed: {str(zoho_error)}, falling back to Django mail")
+        except Exception as trigger_error:
+            logger.warning(f"Trigger system failed: {str(trigger_error)}, falling back to Django mail")
         
         # Fallback auf Django E-Mail-System
         html_content = render_to_string('accounts/emails/welcome_verification.html', {

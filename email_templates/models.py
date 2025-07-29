@@ -93,6 +93,49 @@ class EmailTemplateCategory(models.Model):
         return self.name
 
 
+class EmailTrigger(models.Model):
+    """
+    Triggers that define when emails should be sent automatically
+    """
+    CATEGORY_CHOICES = [
+        ('authentication', 'Authentifizierung'),
+        ('storage', 'Speicher-Management'),
+        ('payments', 'Zahlungen & Abonnements'),
+        ('system', 'System-Benachrichtigungen'),
+        ('organization', 'Organisation & Termine'),
+        ('ecommerce', 'E-Commerce'),
+        ('custom', 'Benutzerdefiniert'),
+    ]
+    
+    trigger_key = models.CharField(max_length=100, unique=True, verbose_name="Trigger-Schlüssel",
+                                 help_text="Eindeutiger Schlüssel für diesen Trigger (z.B. 'user_registration')")
+    name = models.CharField(max_length=200, verbose_name="Name")
+    description = models.TextField(verbose_name="Beschreibung",
+                                 help_text="Beschreibung wann dieser Trigger ausgelöst wird")
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, default='custom',
+                              verbose_name="Kategorie")
+    is_active = models.BooleanField(default=True, verbose_name="Aktiv")
+    is_system_trigger = models.BooleanField(default=True, verbose_name="System-Trigger",
+                                          help_text="System-Trigger können nicht gelöscht werden")
+    
+    # Available template variables for this trigger
+    available_variables = models.JSONField(default=dict, blank=True,
+                                         verbose_name="Verfügbare Variablen",
+                                         help_text="JSON-Definition der verfügbaren Template-Variablen")
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "E-Mail-Trigger"
+        verbose_name_plural = "E-Mail-Trigger"
+        ordering = ['category', 'name']
+    
+    def __str__(self):
+        return f"{self.name} ({self.trigger_key})"
+
+
 class EmailTemplate(models.Model):
     """
     Email templates that can be designed by superusers
@@ -118,6 +161,18 @@ class EmailTemplate(models.Model):
                                 verbose_name="Kategorie")
     template_type = models.CharField(max_length=50, choices=TEMPLATE_TYPE_CHOICES, 
                                    default='custom', verbose_name="Vorlagentyp")
+    
+    # NEW: Trigger-based system
+    trigger = models.ForeignKey(EmailTrigger, on_delete=models.SET_NULL, 
+                               null=True, blank=True, related_name='templates',
+                               verbose_name="E-Mail-Trigger",
+                               help_text="Trigger der diese Vorlage automatisch auslöst")
+    is_auto_send = models.BooleanField(default=True, verbose_name="Automatisch senden",
+                                     help_text="Template automatisch bei Trigger-Ereignis senden")
+    send_delay_minutes = models.IntegerField(default=0, verbose_name="Versendungs-Verzögerung (Minuten)",
+                                           help_text="Verzögerung in Minuten bevor die E-Mail gesendet wird")
+    conditions = models.JSONField(default=dict, blank=True, verbose_name="Bedingungen",
+                                help_text="Erweiterte Bedingungen für die Versendung (JSON)")
     
     # Email content
     subject = models.CharField(max_length=255, verbose_name="Betreff",

@@ -7,8 +7,49 @@ from .models import (
     EmailTemplateCategory, 
     EmailTemplate, 
     EmailTemplateVersion,
-    EmailSendLog
+    EmailSendLog,
+    EmailTrigger
 )
+
+
+@admin.register(EmailTrigger)
+class EmailTriggerAdmin(admin.ModelAdmin):
+    list_display = ['name', 'trigger_key', 'category', 'is_active', 'template_count', 'is_system_trigger']
+    list_filter = ['category', 'is_active', 'is_system_trigger']
+    search_fields = ['name', 'trigger_key', 'description']
+    readonly_fields = ['trigger_key', 'created_at', 'updated_at']
+    
+    fieldsets = (
+        ('Grundinformationen', {
+            'fields': ('name', 'trigger_key', 'description', 'category')
+        }),
+        ('Status', {
+            'fields': ('is_active', 'is_system_trigger')
+        }),
+        ('Verfügbare Variablen', {
+            'fields': ('available_variables',),
+            'classes': ('collapse',)
+        }),
+        ('Zeitstempel', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def template_count(self, obj):
+        count = obj.templates.count()
+        if count > 0:
+            return format_html(
+                '<a href="/admin/email_templates/emailtemplate/?trigger__id__exact={}">{} Templates</a>',
+                obj.id, count
+            )
+        return "0 Templates"
+    template_count.short_description = "Templates"
+    
+    def has_delete_permission(self, request, obj=None):
+        if obj and obj.is_system_trigger:
+            return False
+        return super().has_delete_permission(request, obj)
 
 
 @admin.register(ZohoMailServerConnection)
@@ -77,8 +118,8 @@ class EmailTemplateVersionInline(admin.TabularInline):
 
 @admin.register(EmailTemplate)
 class EmailTemplateAdmin(admin.ModelAdmin):
-    list_display = ['name', 'template_type', 'category', 'is_active', 'is_default', 'times_used', 'last_used_at', 'created_by']
-    list_filter = ['template_type', 'category', 'is_active', 'is_default', 'created_at']
+    list_display = ['name', 'template_type', 'trigger', 'category', 'is_active', 'is_auto_send', 'times_used', 'created_by']
+    list_filter = ['template_type', 'trigger__category', 'category', 'is_active', 'is_default', 'is_auto_send', 'created_at']
     search_fields = ['name', 'subject', 'html_content']
     prepopulated_fields = {'slug': ('name',)}
     readonly_fields = ['times_used', 'last_used_at', 'created_by', 'last_modified_by', 'created_at', 'updated_at']
@@ -87,6 +128,10 @@ class EmailTemplateAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Grundeinstellungen', {
             'fields': ('name', 'slug', 'category', 'template_type')
+        }),
+        ('Trigger-System', {
+            'fields': ('trigger', 'is_auto_send', 'send_delay_minutes', 'conditions'),
+            'description': 'Konfiguration des automatischen E-Mail-Versands'
         }),
         ('E-Mail Inhalt', {
             'fields': ('subject', 'html_content', 'text_content')
