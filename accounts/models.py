@@ -48,6 +48,8 @@ class CustomUser(AbstractUser):
     
     # Design-Einstellungen
     dark_mode = models.BooleanField(default=False, verbose_name="Dunkles Design aktivieren")
+    desktop_view = models.BooleanField(default=False, verbose_name="Desktop-Ansicht erzwingen",
+                                      help_text="Zeigt immer die Desktop-Version an, unabhängig vom Gerät")
     
     # E-Mail-Verifikation
     email_verified = models.BooleanField(default=False, verbose_name="E-Mail verifiziert")

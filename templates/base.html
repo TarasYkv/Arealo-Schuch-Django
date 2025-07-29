@@ -939,8 +939,147 @@
         }
     </style>
     {% endif %}
+    
+    <!-- Desktop View Override CSS -->
+    <style>
+    /* Force Desktop View - Override all responsive styles */
+    body.force-desktop-view {
+        min-width: 1200px !important;
+    }
+    
+    /* Force minimum viewport for desktop experience */
+    @media (max-width: 1199px) {
+        body.force-desktop-view {
+            zoom: 0.8;
+            transform-origin: 0 0;
+        }
+    }
+    
+    @media (max-width: 991px) {
+        body.force-desktop-view {
+            zoom: 0.7;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        body.force-desktop-view {
+            zoom: 0.6;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        body.force-desktop-view {
+            zoom: 0.5;
+        }
+    }
+    
+    /* Disable all mobile-specific styles when desktop view is forced */
+    body.force-desktop-view .mobile-menu-toggle,
+    body.force-desktop-view .sidebar-overlay {
+        display: none !important;
+    }
+    
+    body.force-desktop-view .modern-sidebar {
+        position: relative !important;
+        left: 0 !important;
+        width: auto !important;
+        height: auto !important;
+        box-shadow: none !important;
+        transform: none !important;
+        transition: none !important;
+    }
+    
+    /* Force desktop layout for navigation */
+    body.force-desktop-view .navbar-nav {
+        flex-direction: row !important;
+    }
+    
+    body.force-desktop-view .navbar-collapse {
+        display: flex !important;
+    }
+    
+    body.force-desktop-view .navbar-toggler {
+        display: none !important;
+    }
+    
+    /* Override Bootstrap responsive utilities */
+    body.force-desktop-view .d-md-none,
+    body.force-desktop-view .d-lg-none,
+    body.force-desktop-view .d-xl-none {
+        display: none !important;
+    }
+    
+    body.force-desktop-view .d-none.d-md-block,
+    body.force-desktop-view .d-none.d-lg-block,
+    body.force-desktop-view .d-none.d-xl-block {
+        display: block !important;
+    }
+    
+    body.force-desktop-view .d-none.d-md-flex,
+    body.force-desktop-view .d-none.d-lg-flex,
+    body.force-desktop-view .d-none.d-xl-flex {
+        display: flex !important;
+    }
+    
+    /* Force desktop column layouts */
+    body.force-desktop-view .col-sm-12,
+    body.force-desktop-view .col-md-6,
+    body.force-desktop-view .col-lg-4,
+    body.force-desktop-view .col-xl-3 {
+        flex: 0 0 auto;
+    }
+    
+    /* Ensure tables are full width */
+    body.force-desktop-view .table-responsive {
+        overflow-x: visible !important;
+    }
+    
+    body.force-desktop-view .table {
+        width: 100% !important;
+        font-size: 1rem !important;
+    }
+    
+    /* Reset form sizes */
+    body.force-desktop-view .form-control,
+    body.force-desktop-view .form-select,
+    body.force-desktop-view .btn {
+        font-size: 1rem !important;
+        padding: 0.375rem 0.75rem !important;
+    }
+    
+    /* Reset heading sizes */
+    body.force-desktop-view h1 { font-size: 2.5rem !important; }
+    body.force-desktop-view h2 { font-size: 2rem !important; }
+    body.force-desktop-view h3 { font-size: 1.75rem !important; }
+    body.force-desktop-view h4 { font-size: 1.5rem !important; }
+    body.force-desktop-view h5 { font-size: 1.25rem !important; }
+    body.force-desktop-view h6 { font-size: 1rem !important; }
+    
+    /* Reset card padding */
+    body.force-desktop-view .card-body {
+        padding: 1.25rem !important;
+    }
+    
+    /* Reset spacing */
+    body.force-desktop-view .mt-4 { margin-top: 1.5rem !important; }
+    body.force-desktop-view .mb-4 { margin-bottom: 1.5rem !important; }
+    body.force-desktop-view .pt-4 { padding-top: 1.5rem !important; }
+    body.force-desktop-view .pb-4 { padding-bottom: 1.5rem !important; }
+    
+    /* Force desktop sidebar behavior for Shopify Manager */
+    body.force-desktop-view .col-md-3.col-lg-2.modern-sidebar {
+        flex: 0 0 auto;
+        width: 16.666667% !important;
+    }
+    
+    body.force-desktop-view .col-md-9.ms-sm-auto.col-lg-10 {
+        flex: 0 0 auto;
+        width: 83.333333% !important;
+        margin-left: auto !important;
+    }
+    </style>
 </head>
-<body class="{% if user.is_authenticated and user.dark_mode %}bg-dark text-light{% else %}bg-light{% endif %}">
+<body class="{% if user.is_authenticated and user.dark_mode %}bg-dark text-light{% else %}bg-light{% endif %}{% if user.is_authenticated and user.desktop_view %} force-desktop-view{% endif %}">
 
     <!-- Editable Header Section -->
     {% load editable_content %}
@@ -1169,6 +1308,24 @@
                                         </div>
                                     </form>
                                 </li>
+                                
+                                {% if user.is_superuser %}
+                                <!-- Desktop View Toggle im Dropdown (nur für Superuser) -->
+                                <li class="px-3 py-2">
+                                    <form method="post" action="{% url 'accounts:toggle_desktop_view' %}" class="d-flex align-items-center justify-content-between">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                        <label class="form-check-label me-2" for="navDesktopViewToggle">
+                                            <i class="bi bi-display me-1"></i> Desktop-Ansicht
+                                        </label>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="navDesktopViewToggle" 
+                                                   name="desktop_view" {% if user.desktop_view %}checked{% endif %}
+                                                   onchange="this.form.submit()">
+                                        </div>
+                                    </form>
+                                </li>
+                                {% endif %}
                                 
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="{% url 'accounts:logout' %}">
