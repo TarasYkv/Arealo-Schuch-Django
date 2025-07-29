@@ -1,5 +1,5 @@
 from django import template
-from accounts.models import AppPermission
+from accounts.models import AppPermission, UserAppPermission
 
 register = template.Library()
 
@@ -8,6 +8,7 @@ register = template.Library()
 def has_app_permission(user, app_name):
     """
     Template Filter um zu prüfen ob ein User Zugriff auf eine App hat.
+    Berücksichtigt individuelle Berechtigungen mit höchster Priorität.
     
     Usage:
         {% if user|has_app_permission:"schulungen" %}
@@ -21,13 +22,15 @@ def has_app_permission(user, app_name):
     Returns:
         bool - True wenn Zugriff erlaubt, sonst False
     """
-    return AppPermission.user_has_access(app_name, user)
+    # Nutze die neue Methode die individuelle Berechtigungen prüft
+    return UserAppPermission.get_user_app_access(app_name, user)
 
 
 @register.filter
 def can_see_app_in_frontend(user, app_name):
     """
     Template Filter um zu prüfen ob eine App im Frontend angezeigt werden soll.
+    Berücksichtigt individuelle Berechtigungen mit höchster Priorität.
     
     Usage:
         {% if user|can_see_app_in_frontend:"schulungen" %}
@@ -41,13 +44,15 @@ def can_see_app_in_frontend(user, app_name):
     Returns:
         bool - True wenn App im Frontend sichtbar sein soll, sonst False
     """
-    return AppPermission.user_can_see_in_frontend(app_name, user)
+    # Nutze die neue Methode die individuelle Berechtigungen prüft
+    return UserAppPermission.user_can_see_app_in_frontend(app_name, user)
 
 
 @register.simple_tag
 def check_app_access(app_name, user=None):
     """
     Template Tag um App-Zugriff zu prüfen.
+    Berücksichtigt individuelle Berechtigungen mit höchster Priorität.
     
     Usage:
         {% check_app_access "schulungen" user as can_access_schulungen %}
@@ -62,7 +67,7 @@ def check_app_access(app_name, user=None):
     Returns:
         bool - True wenn Zugriff erlaubt, sonst False
     """
-    return AppPermission.user_has_access(app_name, user)
+    return UserAppPermission.get_user_app_access(app_name, user)
 
 
 @register.inclusion_tag('accounts/fragments/app_nav_link.html')
@@ -85,9 +90,9 @@ def app_nav_link(app_name, url_name, icon_class, title, user=None, check_fronten
         Dict mit Context für das Template
     """
     if check_frontend_visibility:
-        has_access = AppPermission.user_can_see_in_frontend(app_name, user)
+        has_access = UserAppPermission.user_can_see_app_in_frontend(app_name, user)
     else:
-        has_access = AppPermission.user_has_access(app_name, user)
+        has_access = UserAppPermission.get_user_app_access(app_name, user)
     
     return {
         'has_access': has_access,

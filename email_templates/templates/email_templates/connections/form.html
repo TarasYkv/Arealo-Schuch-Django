@@ -1,0 +1,390 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="h3 mb-4">
+                <i class="fas fa-server me-2"></i>
+                {{ title }}
+            </h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {{ form.non_field_errors }}
+                            </div>
+                        {% endif %}
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.name.id_for_label }}" class="form-label">
+                                    {{ form.name.label }}
+                                </label>
+                                {{ form.name }}
+                                {% if form.name.errors %}
+                                    <div class="text-danger small">{{ form.name.errors }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.email_address.id_for_label }}" class="form-label">
+                                    {{ form.email_address.label }}
+                                </label>
+                                {{ form.email_address }}
+                                {% if form.email_address.errors %}
+                                    <div class="text-danger small">{{ form.email_address.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.display_name.id_for_label }}" class="form-label">
+                                    {{ form.display_name.label }}
+                                </label>
+                                {{ form.display_name }}
+                                {% if form.display_name.errors %}
+                                    <div class="text-danger small">{{ form.display_name.errors }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.region.id_for_label }}" class="form-label">
+                                    {{ form.region.label }}
+                                </label>
+                                {{ form.region }}
+                                {% if form.region.errors %}
+                                    <div class="text-danger small">{{ form.region.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.description.id_for_label }}" class="form-label">
+                                {{ form.description.label }}
+                            </label>
+                            {{ form.description }}
+                            {% if form.description.errors %}
+                                <div class="text-danger small">{{ form.description.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <hr>
+                        <h5>Zoho API Konfiguration</h5>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.client_id.id_for_label }}" class="form-label">
+                                    {{ form.client_id.label }}
+                                </label>
+                                {{ form.client_id }}
+                                {% if form.client_id.errors %}
+                                    <div class="text-danger small">{{ form.client_id.errors }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.client_secret.id_for_label }}" class="form-label">
+                                    {{ form.client_secret.label }}
+                                </label>
+                                {{ form.client_secret }}
+                                {% if form.client_secret.errors %}
+                                    <div class="text-danger small">{{ form.client_secret.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.redirect_uri.id_for_label }}" class="form-label">
+                                {{ form.redirect_uri.label }}
+                            </label>
+                            {{ form.redirect_uri }}
+                            {% if form.redirect_uri.errors %}
+                                <div class="text-danger small">{{ form.redirect_uri.errors }}</div>
+                            {% endif %}
+                            <div class="form-text">
+                                Empfohlener Wert: {{ request.scheme }}://{{ request.get_host }}{% url 'email_templates:oauth_callback' %}
+                            </div>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            {{ form.is_active }}
+                            <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                {{ form.is_active.label }}
+                            </label>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Speichern
+                            </button>
+                            <a href="{% url 'email_templates:connection_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>Abbrechen
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- Zoho Setup Guide Card -->
+            <div class="card mb-3">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-rocket me-2"></i>
+                        Zoho API Setup
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <a href="https://accounts.zoho.eu/developerconsole" 
+                           target="_blank" class="btn btn-primary">
+                            <i class="fas fa-external-link-alt me-2"></i>
+                            Zoho Developer Console öffnen
+                        </a>
+                    </div>
+                    
+                    <h6 class="text-primary">
+                        <i class="fas fa-list-ol me-2"></i>
+                        Schritt-für-Schritt Anleitung:
+                    </h6>
+                    <ol class="small mb-3">
+                        <li>Öffnen Sie die <a href="https://accounts.zoho.eu/developerconsole" target="_blank" class="fw-bold text-decoration-none">Zoho Developer Console <i class="fas fa-external-link-alt"></i></a></li>
+                        <li>Klicken Sie auf <span class="badge bg-primary">"Add Client"</span></li>
+                        <li>Wählen Sie <span class="badge bg-success">"Server-based Applications"</span></li>
+                        <li>Geben Sie folgende Daten ein:
+                            <ul class="mt-2">
+                                <li><strong>Client Name:</strong> Email Templates App</li>
+                                <li><strong>Homepage URL:</strong> {{ request.scheme }}://{{ request.get_host }}</li>
+                                <li><strong>Authorized redirect URIs:</strong><br>
+                                    <small class="text-muted">Fügen Sie BEIDE URIs in Zoho Console hinzu:</small>
+                                    <div class="mt-2">
+                                        <div class="d-flex align-items-center mb-1">
+                                            <code class="small flex-grow-1" id="redirect-uri-127">http://127.0.0.1:8000{% url 'email_templates:oauth_callback' %}</code>
+                                            <button class="btn btn-sm btn-outline-secondary ms-2" onclick="copyText('redirect-uri-127')">
+                                                <i class="fas fa-copy"></i>
+                                            </button>
+                                        </div>
+                                        <div class="d-flex align-items-center">
+                                            <code class="small flex-grow-1" id="redirect-uri-localhost">http://localhost:8000{% url 'email_templates:oauth_callback' %}</code>
+                                            <button class="btn btn-sm btn-outline-secondary ms-2" onclick="copyText('redirect-uri-localhost')">
+                                                <i class="fas fa-copy"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </li>
+                            </ul>
+                        </li>
+                        <li>Wählen Sie <strong>Scopes:</strong>
+                            <ul class="mt-2">
+                                <li><code>ZohoMail.messages.CREATE</code> (E-Mails senden)</li>
+                                <li><code>ZohoMail.folders.READ</code> (Ordner lesen)</li>
+                            </ul>
+                        </li>
+                        <li>Kopieren Sie <strong>Client ID</strong> und <strong>Client Secret</strong> hierher</li>
+                    </ol>
+                    
+                    <!-- Quick Links -->
+                    <div class="row">
+                        <div class="col-6">
+                            <a href="https://accounts.zoho.eu/developerconsole" 
+                               target="_blank" class="btn btn-sm btn-outline-primary w-100">
+                                <i class="fas fa-external-link-alt"></i> EU Console
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <a href="https://accounts.zoho.com/developerconsole" 
+                               target="_blank" class="btn btn-sm btn-outline-secondary w-100">
+                                <i class="fas fa-external-link-alt"></i> US Console
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Region Guide Card -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-globe me-2"></i>
+                        Region auswählen
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted mb-2">
+                        Wählen Sie die Region basierend auf Ihrem Zoho Account:
+                    </p>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <div class="p-2 border rounded">
+                                <strong class="text-primary">🇪🇺 EU</strong><br>
+                                <small class="text-muted">Europa, Deutschland</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-2 border rounded">
+                                <strong class="text-info">🇺🇸 US</strong><br>
+                                <small class="text-muted">USA, Nordamerika</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-2 border rounded">
+                                <strong class="text-warning">🇮🇳 IN</strong><br>
+                                <small class="text-muted">Indien</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-2 border rounded">
+                                <strong class="text-success">🇦🇺 AU</strong><br>
+                                <small class="text-muted">Australien</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Troubleshooting Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-tools me-2"></i>
+                        Häufige Probleme
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="accordion accordion-flush" id="troubleshootingAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne">
+                                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                                    OAuth-Fehler
+                                </button>
+                            </h2>
+                            <div id="collapseOne" class="accordion-collapse collapse" data-bs-parent="#troubleshootingAccordion">
+                                <div class="accordion-body">
+                                    <ul class="small mb-0">
+                                        <li><strong>Invalid client_id:</strong> Client ID falsch</li>
+                                        <li><strong>Redirect URI mismatch:</strong> URI exakt wie in Console eingeben</li>
+                                        <li><strong>Invalid scope:</strong> Scopes ZohoMail.messages.CREATE hinzufügen</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo">
+                                    <i class="fas fa-key text-info me-2"></i>
+                                    API-Keys nicht sichtbar
+                                </button>
+                            </h2>
+                            <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#troubleshootingAccordion">
+                                <div class="accordion-body">
+                                    <p class="small mb-2">Nach App-Erstellung in Zoho Console:</p>
+                                    <ul class="small mb-0">
+                                        <li>Auf App-Namen klicken</li>
+                                        <li>Tab <strong>"Client Secret"</strong> öffnen</li>
+                                        <li>Secret mit <strong>"Generate"</strong> erstellen</li>
+                                        <li>Keys sofort kopieren (werden nur einmal angezeigt)</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyText(elementId) {
+    const text = document.getElementById(elementId).textContent;
+    copyToClipboard(text);
+}
+
+function copyToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        // Moderne Browser mit HTTPS
+        navigator.clipboard.writeText(text).then(function() {
+            showCopySuccess();
+        }).catch(function(err) {
+            console.error('Fehler beim Kopieren: ', err);
+            fallbackCopyTextToClipboard(text);
+        });
+    } else {
+        // Fallback für ältere Browser oder HTTP
+        fallbackCopyTextToClipboard(text);
+    }
+}
+
+function fallbackCopyTextToClipboard(text) {
+    var textArea = document.createElement("textarea");
+    textArea.value = text;
+    
+    // Textarea unsichtbar machen
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
+    textArea.style.opacity = "0";
+    
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        var successful = document.execCommand('copy');
+        if (successful) {
+            showCopySuccess();
+        } else {
+            console.error('Fallback: Kopieren fehlgeschlagen');
+        }
+    } catch (err) {
+        console.error('Fallback: Fehler beim Kopieren', err);
+    }
+    
+    document.body.removeChild(textArea);
+}
+
+function showCopySuccess() {
+    // Temporäre Erfolgsmeldung anzeigen
+    const toast = document.createElement('div');
+    toast.className = 'toast align-items-center text-white bg-success border-0 position-fixed';
+    toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999;';
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="fas fa-check me-2"></i>
+                Redirect URI in die Zwischenablage kopiert!
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Bootstrap Toast initialisieren und anzeigen
+    const bsToast = new bootstrap.Toast(toast, {
+        delay: 3000
+    });
+    bsToast.show();
+    
+    // Toast nach dem Ausblenden entfernen
+    toast.addEventListener('hidden.bs.toast', function() {
+        document.body.removeChild(toast);
+    });
+}
+</script>
+{% endblock %}

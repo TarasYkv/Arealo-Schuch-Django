@@ -248,6 +248,63 @@
 .content-type-button_text { background: #fff9c4; color: #f57f17; }
 .content-type-testimonial { background: #f1f8e9; color: #689f38; }
 
+/* Section-based layout styles */
+.content-section {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+    border-left: 4px solid #667eea;
+}
+
+.section-header h5 {
+    font-weight: 600;
+    color: #333;
+    margin: 0;
+}
+
+.section-content {
+    border: 2px dashed #e9ecef;
+    border-radius: 8px;
+    padding: 1rem;
+    min-height: 80px;
+}
+
+.section-content:hover {
+    border-color: #667eea;
+    background: #f8f9ff;
+}
+
+.add-to-section-btn {
+    background: #f8f9fa;
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    color: #6c757d;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 1rem;
+}
+
+.add-to-section-btn:hover {
+    background: #e7f1ff;
+    border-color: #667eea;
+    color: #667eea;
+}
+
+.add-section-btn {
+    margin-top: 2rem;
+    padding: 2rem;
+}
+
+.no-content-message {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    padding: 3rem;
+}
+
 /* Visual Editor Styles */
 .visual-editor-container {
     background: #f8f9fa;
@@ -401,24 +458,107 @@
     <!-- Left Sidebar -->
     <div class="editor-sidebar">
         <div class="sidebar-section">
-            <h6 class="text-muted mb-2">Seite</h6>
+            <h6 class="text-muted mb-2">
+                <i class="fas fa-file-alt me-1"></i>Seite auswählen
+            </h6>
+            
+            <!-- Page categories with grouped options -->
             <select class="form-select mb-2" id="pageSelector" onchange="changePage()">
+                <optgroup label="📑 Hauptseiten">
+                    {% for choice in page_choices %}
+                        {% if choice.0 in 'startseite,impressum,agb,datenschutz' %}
+                            <option value="{{ choice.0 }}" {% if choice.0 == page %}selected{% endif %}>
+                                {{ choice.1 }}
+                            </option>
+                        {% endif %}
+                    {% endfor %}
+                </optgroup>
+                
+                <optgroup label="🎛️ App Dashboards">
+                    {% for choice in page_choices %}
+                        {% if 'dashboard' in choice.0 %}
+                            <option value="{{ choice.0 }}" {% if choice.0 == page %}selected{% endif %}>
+                                {{ choice.1 }}
+                            </option>
+                        {% endif %}
+                    {% endfor %}
+                </optgroup>
+                
+                <optgroup label="🌟 Landing Pages">
+                    {% for choice in page_choices %}
+                        {% if 'landing' in choice.0 %}
+                            <option value="{{ choice.0 }}" {% if choice.0 == page %}selected{% endif %}>
+                                {{ choice.1 }}
+                            </option>
+                        {% endif %}
+                    {% endfor %}
+                </optgroup>
+                
+                <optgroup label="🛒 Shop Seiten">
+                    {% for choice in page_choices %}
+                        {% if 'shop' in choice.0 %}
+                            <option value="{{ choice.0 }}" {% if choice.0 == page %}selected{% endif %}>
+                                {{ choice.1 }}
+                            </option>
+                        {% endif %}
+                    {% endfor %}
+                </optgroup>
+                
+                <optgroup label="🔧 Funktional">
+                    {% for choice in page_choices %}
+                        {% if choice.0 in 'search_results,error_404,error_500,maintenance,coming_soon' %}
+                            <option value="{{ choice.0 }}" {% if choice.0 == page %}selected{% endif %}>
+                                {{ choice.1 }}
+                            </option>
+                        {% endif %}
+                    {% endfor %}
+                </optgroup>
+                
+                <optgroup label="🌐 Global">
+                    {% for choice in page_choices %}
+                        {% if choice.0 in 'header,footer' %}
+                            <option value="{{ choice.0 }}" {% if choice.0 == page %}selected{% endif %}>
+                                {{ choice.1 }}
+                            </option>
+                        {% endif %}
+                    {% endfor %}
+                </optgroup>
+                
+                <!-- Custom pages -->
                 {% for choice in page_choices %}
-                    <option value="{{ choice.0 }}" {% if choice.0 == page %}selected{% endif %}>
-                        {{ choice.1 }}
-                    </option>
+                    {% if choice.1|slice:':3' == '📝 ' %}
+                        {% if forloop.first %}
+                            <optgroup label="📝 Benutzerdefiniert">
+                        {% endif %}
+                        <option value="{{ choice.0 }}" {% if choice.0 == page %}selected{% endif %}>
+                            {{ choice.1 }}
+                        </option>
+                        {% if forloop.last %}
+                            </optgroup>
+                        {% endif %}
+                    {% endif %}
                 {% endfor %}
             </select>
             
+            <div class="current-page-info mb-2">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Aktuell: <strong>{{ page|title }}</strong>
+                </small>
+            </div>
+            
             <div class="d-grid gap-1">
-                <button class="btn btn-outline-success" type="button" onclick="showNewPageModal()">
-                    <i class="fas fa-plus me-1"></i>Neu
+                <button class="btn btn-outline-success btn-sm" type="button" onclick="showNewPageModal()">
+                    <i class="fas fa-plus me-1"></i>Neue Seite
                 </button>
-                {% if page != 'startseite' %}
-                <button class="btn btn-outline-danger" type="button" onclick="deletePage('{{ page }}')">
-                    <i class="fas fa-trash me-1"></i>Lösch
+                {% if page not in 'startseite,impressum,agb,datenschutz,header,footer' %}
+                <button class="btn btn-outline-danger btn-sm" type="button" onclick="deletePage('{{ page }}')">
+                    <i class="fas fa-trash me-1"></i>Seite löschen
                 </button>
                 {% endif %}
+                <button class="btn btn-outline-info btn-sm" type="button" onclick="showPageSettings()">
+                    <i class="fas fa-cog me-1"></i>Einstellungen
+                </button>
             </div>
         </div>
         
@@ -506,7 +646,7 @@
                 <!-- Live Preview Frame -->
                 <div class="preview-container" id="previewContainer">
                     <iframe id="previewFrame" 
-                            src="{% if page == 'header' or page == 'footer' %}{% url 'startseite' %}{% elif page == 'startseite' %}{% url 'startseite' %}{% else %}{% url 'dynamic_page' page_name=page %}{% endif %}?preview=true&page={{ page }}&t={{ request.GET.t|default:'1' }}&v=2" 
+                            src="{% if page == 'header' or page == 'footer' %}{% url 'startseite' %}{% elif page == 'startseite' %}{% url 'startseite' %}{% elif page == 'impressum' %}{% url 'impressum' %}{% elif page == 'agb' %}{% url 'agb' %}{% elif page == 'datenschutz' %}{% url 'datenschutz' %}{% else %}{% url 'dynamic_page' page_name=page %}{% endif %}?preview=true&page={{ page }}&t={{ request.GET.t|default:'1' }}&v=2" 
                             class="preview-frame"
                             onload="initializePreviewFrame()">
                     </iframe>
@@ -612,7 +752,87 @@
         
         <!-- List Mode Tab -->
         <div class="tab-pane fade" id="list" role="tabpanel">
-            <div id="contentList" class="sortable-list">
+            {% if content_sections %}
+                <!-- Section-based Content Display -->
+                {% for section_key, section_data in content_sections.items %}
+                <div class="content-section mb-4">
+                    <div class="section-header">
+                        <h5 class="mb-3">
+                            <i class="fas fa-layer-group me-2 text-primary"></i>
+                            {{ section_data.name }}
+                            <span class="badge bg-secondary ms-2">{{ section_data.contents|length }}</span>
+                        </h5>
+                    </div>
+                    
+                    <div class="section-content sortable-list" data-section="{{ section_key }}">
+                        {% for content in section_data.contents %}
+                        <div class="content-item" data-content-id="{{ content.id }}" data-sort-order="{{ content.sort_order }}" draggable="true">
+                            <div class="drag-handle"><i class="fas fa-grip-vertical"></i></div>
+                            <div class="content-header">
+                                <div>
+                                    <span class="content-type-badge content-type-{{ content.content_type }}">
+                                        {{ content.get_content_type_display }}
+                                    </span>
+                                    <span class="ms-2 fw-bold">{{ content.content_key }}</span>
+                                </div>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-primary me-1" onclick="editContent({{ content.id }})">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-info me-1" onclick="modifyWithAI({{ content.id }})">
+                                        <i class="fas fa-robot"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteElement({{ content.id }})">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="content-body">
+                                {% if content.content_type == 'image' and content.image_content %}
+                                    <img src="{{ content.image_content.url }}" alt="{{ content.image_alt_text }}" class="image-preview mb-2">
+                                    {% if content.image_alt_text %}
+                                        <p class="text-muted small mb-0">Alt-Text: {{ content.image_alt_text }}</p>
+                                    {% endif %}
+                                {% elif content.content_type in 'html_block,ai_generated' and content.html_content %}
+                                    <div class="border rounded p-2 bg-light">
+                                        <small class="text-muted">HTML Block:</small>
+                                        <div style="max-height: 100px; overflow: hidden;">{{ content.html_content|safe }}</div>
+                                    </div>
+                                {% else %}
+                                    <p class="mb-0">{{ content.text_content|truncatechars:100 }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                        
+                        <!-- Add content button for this section -->
+                        <div class="add-to-section-btn" onclick="showAddContentModal('{{ section_key }}')">
+                            <i class="fas fa-plus me-2"></i>Inhalt zu {{ section_data.name }} hinzufügen
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                
+                <!-- Add new section button -->
+                <div class="add-section-btn text-center">
+                    <button class="btn btn-outline-primary btn-lg" onclick="showAddSectionModal()">
+                        <i class="fas fa-plus-circle me-2"></i>Neuen Bereich hinzufügen
+                    </button>
+                </div>
+            {% else %}
+                <!-- No content available -->
+                <div class="no-content-message text-center py-5">
+                    <i class="fas fa-layer-group fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">Noch keine Inhalte vorhanden</h4>
+                    <p class="text-muted">Beginnen Sie mit dem Hinzufügen von Inhalten zu Ihrer Seite.</p>
+                    <button class="btn btn-primary btn-lg" onclick="showAddContentModal()">
+                        <i class="fas fa-plus me-2"></i>Ersten Inhalt erstellen
+                    </button>
+                </div>
+            {% endif %}
+            
+            <!-- Hidden fallback for compatibility -->
+            <div id="contentList" class="sortable-list d-none">
                 {% for content in contents %}
                 <div class="content-item" data-content-id="{{ content.id }}" data-sort-order="{{ content.sort_order }}" draggable="true">
                     <div class="drag-handle"><i class="fas fa-grip-vertical"></i></div>
@@ -2500,16 +2720,59 @@ function convertToEditableContent(staticId) {
         // Get the container's HTML content
         const htmlContent = container.innerHTML;
         
-        // Create editable content via AI generation
-        const prompt = `Konvertiere diesen statischen HTML-Bereich in bearbeitbaren Inhalt: ${htmlContent}`;
+        // Generate a unique content key
+        const contentKey = `converted_${staticId}_${Date.now()}`;
         
-        // Set up AI content generation with the existing content
-        document.getElementById('aiPrompt').value = prompt;
-        document.getElementById('aiContentKey').value = `converted_${staticId}`;
+        // Get current page from URL parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentPage = urlParams.get('page') || 'startseite';
         
-        // Close static modal and open AI generation modal
-        bootstrap.Modal.getInstance(document.getElementById('staticEditModal')).hide();
-        aiContentModal.show();
+        // Create FormData for the request
+        const formData = new FormData();
+        formData.append('content_key', contentKey);
+        formData.append('content_type', 'html_block');
+        formData.append('html_content', htmlContent);
+        formData.append('text_content', '');
+        formData.append('page', currentPage);
+        formData.append('is_active', 'true');
+        formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+        
+        // Send AJAX request to create editable content
+        fetch('{% url "accounts:update_content" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Replace static container with editable content
+                container.setAttribute('data-editable-id', data.content_id);
+                container.setAttribute('data-editable-key', contentKey);
+                container.setAttribute('data-editable-type', 'html_block');
+                container.removeAttribute('data-static-id');
+                
+                // Add editable styling
+                container.classList.add('editable-content');
+                
+                // Refresh the iframe to show updated content
+                reloadIframe();
+                
+                // Close modal
+                bootstrap.Modal.getInstance(document.getElementById('staticEditModal')).hide();
+                
+                // Show success message
+                alert('Inhalt wurde erfolgreich in bearbeitbaren Inhalt umgewandelt!');
+            } else {
+                alert('Fehler beim Umwandeln des Inhalts: ' + (data.error || 'Unbekannter Fehler'));
+            }
+        })
+        .catch(error => {
+            console.error('Error converting to editable content:', error);
+            alert('Fehler beim Umwandeln des Inhalts.');
+        });
     }
 }
 
@@ -3143,14 +3406,22 @@ function generateAiContent() {
                 html: data.html_content,
                 css: data.css_content,
                 prompt: data.prompt,
-                contentKey: contentKey
+                contentKey: contentKey,
+                isDemo: data.is_demo || false
             };
             
-            displayAiContent(data.html_content, data.css_content);
+            displayAiContent(data.html_content, data.css_content, data.description, data.is_demo);
             document.getElementById('aiPreviewContainer').style.display = 'block';
             document.getElementById('saveAiContentBtn').style.display = 'inline-block';
+            
+            // Show demo notice if applicable
+            if (data.is_demo) {
+                showDemoNotice();
+            }
         } else {
-            alert('Fehler bei der KI-Generierung: ' + data.error);
+            // Enhanced error handling
+            const errorMessage = data.error || 'Unbekannter Fehler';
+            showErrorMessage(errorMessage);
         }
     })
     .catch(error => {
@@ -3161,7 +3432,7 @@ function generateAiContent() {
     });
 }
 
-function displayAiContent(html, css) {
+function displayAiContent(html, css, description = '', isDemo = false) {
     // HTML Code anzeigen
     document.getElementById('aiHtmlCode').value = html;
     
@@ -3179,6 +3450,74 @@ function displayAiContent(html, css) {
     styledContent += html;
     
     previewDiv.innerHTML = styledContent;
+    
+    // Show description if available
+    if (description) {
+        const descDiv = document.getElementById('aiDescription') || createDescriptionDiv();
+        descDiv.innerHTML = `<small class="text-muted"><i class="fas fa-info-circle me-1"></i>${description}</small>`;
+        descDiv.style.display = 'block';
+    }
+}
+
+function createDescriptionDiv() {
+    const descDiv = document.createElement('div');
+    descDiv.id = 'aiDescription';
+    descDiv.className = 'mb-3';
+    document.getElementById('aiPreviewContainer').insertBefore(descDiv, document.getElementById('aiPreview'));
+    return descDiv;
+}
+
+function showDemoNotice() {
+    const notice = document.createElement('div');
+    notice.className = 'alert alert-info alert-dismissible fade show';
+    notice.innerHTML = `
+        <i class="fas fa-lightbulb me-2"></i>
+        <strong>Demo-Modus:</strong> Dies ist ein Beispiel-Inhalt. Für echte KI-Generierung fügen Sie einen API-Key in den 
+        <a href="/accounts/api-settings/" target="_blank" class="alert-link">API-Einstellungen</a> hinzu.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.getElementById('aiPreviewContainer').insertBefore(notice, document.getElementById('aiPreview'));
+}
+
+function showErrorMessage(errorMessage) {
+    // Check if error contains HTML link
+    const hasLink = errorMessage.includes('<a href');
+    
+    if (hasLink) {
+        // Create modal with HTML content for links
+        const modalHtml = `
+            <div class="modal fade" id="aiErrorModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title"><i class="fas fa-exclamation-triangle text-warning me-2"></i>KI-Generierung fehlgeschlagen</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>${errorMessage}</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Verstanden</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if any
+        const existingModal = document.getElementById('aiErrorModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Add modal to page
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('aiErrorModal'));
+        modal.show();
+    } else {
+        // Simple alert for non-HTML errors
+        alert('Fehler bei der KI-Generierung: ' + errorMessage);
+    }
 }
 
 function saveAiContent() {

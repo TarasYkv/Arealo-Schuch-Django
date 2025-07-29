@@ -1,0 +1,478 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Test-E-Mail senden{% endblock %}
+
+{% block extra_css %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-paper-plane me-2"></i>
+                        Test-E-Mail senden
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="test-email-form">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.connection.id_for_label }}" class="form-label">
+                                        {{ form.connection.label }}
+                                    </label>
+                                    {{ form.connection }}
+                                    {% if form.connection.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.connection.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        Wählen Sie die Mail-Server-Verbindung
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.template.id_for_label }}" class="form-label">
+                                        {{ form.template.label }}
+                                    </label>
+                                    {{ form.template }}
+                                    {% if form.template.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.template.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        Wählen Sie eine E-Mail-Vorlage zum Testen
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.recipient_email.id_for_label }}" class="form-label">
+                                        {{ form.recipient_email.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.recipient_email }}
+                                    {% if form.recipient_email.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.recipient_email.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.recipient_name.id_for_label }}" class="form-label">
+                                        {{ form.recipient_name.label }}
+                                    </label>
+                                    {{ form.recipient_name }}
+                                    {% if form.recipient_name.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.recipient_name.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Dynamic Variable Fields Section -->
+                        <div id="template-variables-section" class="mb-4" style="display: none;">
+                            <h5 class="mb-3">
+                                <i class="fas fa-edit me-2"></i>
+                                Template-Variablen ausfüllen
+                            </h5>
+                            
+                            <div class="alert alert-info mb-3">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Füllen Sie die Variablen aus, die in der E-Mail-Vorlage verwendet werden:
+                            </div>
+                            
+                            <div id="variable-fields" class="mb-3">
+                                <!-- Dynamic fields will be inserted here -->
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-secondary" onclick="fillSampleData()">
+                                        <i class="fas fa-magic me-2"></i>Beispieldaten einfügen
+                                    </button>
+                                    <div class="btn-group ms-2" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary active" onclick="switchFieldType('text')" id="btn-text">
+                                            <i class="fas fa-font me-1"></i>Text
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="switchFieldType('html')" id="btn-html">
+                                            <i class="fas fa-code me-1"></i>HTML
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="switchFieldType('markdown')" id="btn-markdown">
+                                            <i class="fab fa-markdown me-1"></i>Markdown
+                                        </button>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-primary" onclick="toggleJsonMode()">
+                                    <i class="fas fa-code me-2"></i>JSON-Modus
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- JSON Mode (initially hidden) -->
+                        <div id="json-mode-section" class="mb-3" style="display: none;">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label for="{{ form.test_data.id_for_label }}" class="form-label">
+                                    <i class="fas fa-code me-2"></i>{{ form.test_data.label }} (JSON-Modus)
+                                </label>
+                                <button type="button" class="btn btn-sm btn-secondary" onclick="toggleJsonMode()">
+                                    <i class="fas fa-edit me-2"></i>Formular-Modus
+                                </button>
+                            </div>
+                            {{ form.test_data }}
+                            {% if form.test_data.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.test_data.errors.0 }}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted">
+                                JSON-Format für erweiterte Anwendungsfälle. Beispiel:
+                                <code>{"kunde_name": "Max Mustermann", "bestellnummer": "12345"}</code>
+                            </small>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'email_templates:dashboard' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Zurück
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane me-2"></i>Test-E-Mail senden
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Global variable to store template variables
+var templateVariables = {};
+var useJsonMode = false;
+var currentFieldType = 'text';
+
+// Toggle between form and JSON mode
+function toggleJsonMode() {
+    useJsonMode = !useJsonMode;
+    
+    if (useJsonMode) {
+        // Switch to JSON mode
+        $('#template-variables-section').hide();
+        $('#json-mode-section').show();
+        
+        // Convert form fields to JSON
+        var data = {};
+        $('#variable-fields input, #variable-fields textarea').each(function() {
+            var key = $(this).data('variable');
+            var value = $(this).val();
+            if (key && value) {
+                data[key] = value;
+            }
+        });
+        
+        $('#{{ form.test_data.id_for_label }}').val(JSON.stringify(data, null, 2));
+    } else {
+        // Switch to form mode
+        $('#json-mode-section').hide();
+        $('#template-variables-section').show();
+        
+        // Parse JSON and update form fields
+        try {
+            var jsonData = $('#{{ form.test_data.id_for_label }}').val();
+            if (jsonData) {
+                var data = JSON.parse(jsonData);
+                $('#variable-fields input, #variable-fields textarea').each(function() {
+                    var key = $(this).data('variable');
+                    if (key && data[key]) {
+                        $(this).val(data[key]);
+                    }
+                });
+            }
+        } catch (e) {
+            console.error('Invalid JSON:', e);
+        }
+    }
+}
+
+// Fill sample data based on variable type and field type
+function fillSampleData() {
+    $('#variable-fields input, #variable-fields textarea').each(function() {
+        var key = $(this).data('variable');
+        var sampleValue = '';
+        
+        // Generate appropriate sample data based on variable name and field type
+        if (currentFieldType === 'html') {
+            // HTML samples
+            if (key.includes('name') || key.includes('Name')) {
+                sampleValue = '<strong>Max Mustermann</strong>';
+            } else if (key.includes('email') || key.includes('Email')) {
+                sampleValue = '<a href="mailto:max.mustermann@example.com">max.mustermann@example.com</a>';
+            } else if (key.includes('nummer') || key.includes('number') || key.includes('id')) {
+                sampleValue = '<code>12345</code>';
+            } else if (key.includes('datum') || key.includes('date')) {
+                sampleValue = '<time>' + new Date().toLocaleDateString('de-DE') + '</time>';
+            } else if (key.includes('betrag') || key.includes('preis') || key.includes('amount') || key.includes('price')) {
+                sampleValue = '<span style="color: #28a745; font-weight: bold;">99,99 €</span>';
+            } else if (key.includes('adresse') || key.includes('address')) {
+                sampleValue = '<address>Musterstraße 123<br>12345 Musterstadt</address>';
+            } else if (key.includes('link') || key.includes('url')) {
+                sampleValue = '<a href="https://example.com" target="_blank">Hier klicken</a>';
+            } else if (key.includes('beschreibung') || key.includes('description') || key.includes('text')) {
+                sampleValue = '<p>Dies ist ein <em>Beispieltext</em> für <strong>' + key + '</strong> mit HTML-Formatierung.</p>';
+            } else {
+                sampleValue = '<span>' + key + '</span>';
+            }
+        } else if (currentFieldType === 'markdown') {
+            // Markdown samples
+            if (key.includes('name') || key.includes('Name')) {
+                sampleValue = '**Max Mustermann**';
+            } else if (key.includes('email') || key.includes('Email')) {
+                sampleValue = '[max.mustermann@example.com](mailto:max.mustermann@example.com)';
+            } else if (key.includes('nummer') || key.includes('number') || key.includes('id')) {
+                sampleValue = '`12345`';
+            } else if (key.includes('datum') || key.includes('date')) {
+                sampleValue = '*' + new Date().toLocaleDateString('de-DE') + '*';
+            } else if (key.includes('betrag') || key.includes('preis') || key.includes('amount') || key.includes('price')) {
+                sampleValue = '**99,99 €**';
+            } else if (key.includes('adresse') || key.includes('address')) {
+                sampleValue = 'Musterstraße 123  \n12345 Musterstadt';
+            } else if (key.includes('link') || key.includes('url')) {
+                sampleValue = '[Hier klicken](https://example.com)';
+            } else if (key.includes('beschreibung') || key.includes('description') || key.includes('text')) {
+                sampleValue = 'Dies ist ein *Beispieltext* für **' + key + '** mit Markdown-Formatierung.\n\n- Punkt 1\n- Punkt 2';
+            } else {
+                sampleValue = '*' + key + '*';
+            }
+        } else {
+            // Text samples (original)
+            if (key.includes('name') || key.includes('Name')) {
+                sampleValue = 'Max Mustermann';
+            } else if (key.includes('email') || key.includes('Email')) {
+                sampleValue = 'max.mustermann@example.com';
+            } else if (key.includes('nummer') || key.includes('number') || key.includes('id')) {
+                sampleValue = '12345';
+            } else if (key.includes('datum') || key.includes('date')) {
+                sampleValue = new Date().toLocaleDateString('de-DE');
+            } else if (key.includes('zeit') || key.includes('time')) {
+                sampleValue = new Date().toLocaleTimeString('de-DE');
+            } else if (key.includes('betrag') || key.includes('preis') || key.includes('amount') || key.includes('price')) {
+                sampleValue = '99,99 €';
+            } else if (key.includes('adresse') || key.includes('address')) {
+                sampleValue = 'Musterstraße 123, 12345 Musterstadt';
+            } else if (key.includes('telefon') || key.includes('phone')) {
+                sampleValue = '+49 123 456789';
+            } else if (key.includes('beschreibung') || key.includes('description') || key.includes('text')) {
+                sampleValue = 'Dies ist ein Beispieltext für ' + key;
+            } else {
+                sampleValue = 'Beispielwert für ' + key;
+            }
+        }
+        
+        $(this).val(sampleValue);
+    });
+}
+
+// Switch field type (text, html, markdown)
+function switchFieldType(type) {
+    // Store current values
+    var currentValues = {};
+    $('#variable-fields input, #variable-fields textarea').each(function() {
+        var key = $(this).data('variable');
+        if (key) {
+            currentValues[key] = $(this).val();
+        }
+    });
+    
+    // Update button states
+    $('.btn-group button').removeClass('active');
+    $('#btn-' + type).addClass('active');
+    
+    currentFieldType = type;
+    
+    // Recreate fields with new type
+    createVariableFields(templateVariables);
+    
+    // Restore values
+    $('#variable-fields input, #variable-fields textarea').each(function() {
+        var key = $(this).data('variable');
+        if (key && currentValues[key]) {
+            $(this).val(currentValues[key]);
+        }
+    });
+}
+
+// Create form fields for template variables
+function createVariableFields(variables) {
+    var container = $('#variable-fields');
+    container.empty();
+    
+    $.each(variables, function(key, description) {
+        var fieldHtml = '<div class="mb-3">';
+        fieldHtml += '<label class="form-label">' + key;
+        if (description) {
+            fieldHtml += ' <small class="text-muted">(' + description + ')</small>';
+        }
+        fieldHtml += '<span class="badge bg-secondary ms-2">' + currentFieldType.toUpperCase() + '</span>';
+        fieldHtml += '</label>';
+        
+        // Create field based on current type
+        if (currentFieldType === 'html') {
+            fieldHtml += '<textarea class="form-control code-editor" data-variable="' + key + '" rows="6" placeholder="<p>' + (description || key) + '</p>" data-language="html"></textarea>';
+            fieldHtml += '<small class="form-text text-muted">HTML-Code eingeben (z.B. &lt;strong&gt;Text&lt;/strong&gt;, &lt;a href=&quot;#&quot;&gt;Link&lt;/a&gt;)</small>';
+        } else if (currentFieldType === 'markdown') {
+            fieldHtml += '<textarea class="form-control code-editor" data-variable="' + key + '" rows="4" placeholder="**' + (description || key) + '**" data-language="markdown"></textarea>';
+            fieldHtml += '<small class="form-text text-muted">Markdown-Syntax (z.B. **fett**, *kursiv*, [Link](url))</small>';
+        } else {
+            // Text mode - determine if input or textarea based on variable name
+            if (key.includes('beschreibung') || key.includes('text') || key.includes('nachricht') || key.includes('adresse')) {
+                fieldHtml += '<textarea class="form-control" data-variable="' + key + '" rows="3" placeholder="' + (description || key) + '"></textarea>';
+            } else {
+                fieldHtml += '<input type="text" class="form-control" data-variable="' + key + '" placeholder="' + (description || key) + '">';
+            }
+        }
+        
+        fieldHtml += '</div>';
+        container.append(fieldHtml);
+    });
+    
+    // Initialize code editors for HTML/Markdown fields
+    if (currentFieldType === 'html' || currentFieldType === 'markdown') {
+        initializeCodeEditors();
+    }
+}
+
+// Initialize code editors (if CodeMirror is available)
+function initializeCodeEditors() {
+    if (typeof CodeMirror !== 'undefined') {
+        $('.code-editor').each(function() {
+            var language = $(this).data('language');
+            var mode = language === 'html' ? 'htmlmixed' : 'markdown';
+            
+            CodeMirror.fromTextArea(this, {
+                mode: mode,
+                lineNumbers: true,
+                theme: 'default',
+                lineWrapping: true,
+                height: 'auto'
+            });
+        });
+    } else {
+        // Fallback: add syntax highlighting classes
+        $('.code-editor').addClass('font-monospace').css({
+            'font-size': '14px',
+            'font-family': 'Consolas, Monaco, "Courier New", monospace'
+        });
+    }
+}
+
+// Form submission handler
+$('#test-email-form').on('submit', function(e) {
+    if (!useJsonMode) {
+        // Convert form fields to JSON before submission
+        var data = {};
+        $('#variable-fields input, #variable-fields textarea').each(function() {
+            var key = $(this).data('variable');
+            var value = $(this).val();
+            if (key) {
+                data[key] = value || '';
+            }
+        });
+        
+        $('#{{ form.test_data.id_for_label }}').val(JSON.stringify(data));
+    }
+});
+
+$(document).ready(function() {
+    // Initialize select2 for better dropdowns
+    $('#{{ form.connection.id_for_label }}').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Verbindung wählen...'
+    });
+    
+    $('#{{ form.template.id_for_label }}').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Vorlage wählen...'
+    });
+    
+    // Load template variables when template is selected
+    $('#{{ form.template.id_for_label }}').on('change', function() {
+        var templateId = $(this).val();
+        if (templateId) {
+            $.ajax({
+                url: '{% url "email_templates:api_template_variables" 0 %}'.replace('0', templateId),
+                success: function(data) {
+                    if (data && Object.keys(data).length > 0) {
+                        templateVariables = data;
+                        createVariableFields(data);
+                        $('#template-variables-section').show();
+                        $('#json-mode-section').hide();
+                        useJsonMode = false;
+                    } else {
+                        $('#template-variables-section').hide();
+                        $('#json-mode-section').show();
+                        templateVariables = {};
+                    }
+                },
+                error: function() {
+                    $('#template-variables-section').hide();
+                    $('#json-mode-section').show();
+                    templateVariables = {};
+                }
+            });
+        } else {
+            $('#template-variables-section').hide();
+            $('#json-mode-section').hide();
+            templateVariables = {};
+        }
+    });
+    
+    // Auto-format JSON in test data field
+    $('#{{ form.test_data.id_for_label }}').on('blur', function() {
+        var value = $(this).val();
+        if (value) {
+            try {
+                var json = JSON.parse(value);
+                $(this).val(JSON.stringify(json, null, 2));
+            } catch (e) {
+                // Invalid JSON, leave as is
+            }
+        }
+    });
+    
+    // Set connection from URL parameter if present
+    var urlParams = new URLSearchParams(window.location.search);
+    var connectionId = urlParams.get('connection');
+    if (connectionId) {
+        $('#{{ form.connection.id_for_label }}').val(connectionId).trigger('change');
+    }
+    
+    // Set template from URL parameter if present
+    var templateId = urlParams.get('template');
+    if (templateId) {
+        $('#{{ form.template.id_for_label }}').val(templateId).trigger('change');
+    }
+});
+</script>
+{% endblock %}

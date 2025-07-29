@@ -3,15 +3,22 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.views.generic import CreateView
 from django.views.decorators.http import require_http_methods
 from django.http import JsonResponse
 from django.db import models
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from django.utils import timezone
+from datetime import timedelta
 import json
 import logging
+import secrets
+import uuid
 from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm, ApiKeyForm, CompanyInfoForm, UserProfileForm, CustomPasswordChangeForm, SuperUserManagementForm, BugChatSettingsForm, AppPermissionForm, FeatureAccessForm, BulkFeatureAccessForm, FeatureAccessFilterForm
-from .models import CustomUser, AmpelCategory, CategoryKeyword, UserLoginHistory, EditableContent, CustomPage, SEOSettings, FeatureAccess, AppUsageTracking, AppInfo, ZohoAPISettings
+from .models import CustomUser, AmpelCategory, CategoryKeyword, UserLoginHistory, EditableContent, CustomPage, SEOSettings, FeatureAccess, AppUsageTracking, AppInfo, ZohoAPISettings, AppPermission, UserAppPermission
 from naturmacher.models import APIBalance
 from videos.models import UserStorage as VideoUserStorage, Subscription as VideoSubscription
 from .utils import redirect_with_params
@@ -23,17 +30,48 @@ class CustomLoginView(LoginView):
     form_class = CustomAuthenticationForm
     template_name = 'accounts/login.html'
     success_url = reverse_lazy('accounts:dashboard')
+    
+    def form_valid(self, form):
+        user = form.get_user()
+        
+        # Prüfe ob E-Mail verifiziert ist
+        if not user.email_verified:
+            messages.error(self.request, 
+                'Ihr Konto ist noch nicht aktiviert. Bitte bestätigen Sie Ihre E-Mail-Adresse.')
+            return redirect('accounts:resend_verification')
+        
+        return super().form_valid(form)
 
 
 class SignUpView(CreateView):
     form_class = CustomUserCreationForm
     template_name = 'accounts/signup.html'
-    success_url = reverse_lazy('accounts:login')
+    success_url = reverse_lazy('accounts:signup_success')
     
     def form_valid(self, form):
-        response = super().form_valid(form)
-        messages.success(self.request, 'Ihr Konto wurde erfolgreich erstellt! Sie können sich jetzt einloggen.')
-        return response
+        # Benutzer erstellen aber nicht aktivieren
+        user = form.save(commit=False)
+        user.is_active = False  # Benutzer erst nach E-Mail-Verifikation aktivieren
+        user.save()
+        
+        # Sende Verifikations-E-Mail
+        if send_verification_email(user, self.request):
+            messages.success(self.request, 
+                f'Ihr Konto wurde erstellt! Wir haben eine Bestätigungs-E-Mail an {user.email} gesendet. '
+                'Bitte klicken Sie auf den Link in der E-Mail, um Ihr Konto zu aktivieren.')
+        else:
+            messages.warning(self.request, 
+                'Ihr Konto wurde erstellt, aber es gab ein Problem beim Senden der Bestätigungs-E-Mail. '
+                'Bitte versuchen Sie es über "E-Mail erneut senden" noch einmal.')
+        
+        # Setze self.object für den Erfolgscase
+        self.object = user
+        return super(CreateView, self).form_valid(form)
+
+
+def signup_success(request):
+    """Zeigt die Erfolgsseite nach der Registrierung."""
+    return render(request, 'accounts/signup_success.html')
 
 
 @login_required
@@ -212,10 +250,11 @@ def dashboard(request):
         }
     }
     
-    # Filtere Apps basierend auf Berechtigungen
+    # Filtere Apps basierend auf Berechtigungen (inklusive individuelle Berechtigungen)
     available_apps = []
     for app_name, app_config in app_definitions.items():
-        if AppPermission.user_can_see_in_frontend(app_name, request.user):
+        # Prüfe ob App im Frontend angezeigt werden soll (berücksichtigt individuelle Berechtigungen)
+        if UserAppPermission.user_can_see_app_in_frontend(app_name, request.user):
             # Prüfe ob App in Entwicklung ist (entweder in AppPermission oder FeatureAccess)
             is_in_development = False
             
@@ -848,6 +887,11 @@ def company_info_view(request):
     video_storage, created = VideoUserStorage.objects.get_or_create(user=request.user)
     video_usage_percentage = (video_storage.used_storage / video_storage.max_storage * 100) if video_storage.max_storage > 0 else 0
     
+    # Lade alle Nutzer für die individuellen App-Berechtigungen (nur für Superuser)
+    users = None
+    if is_superuser:
+        users = CustomUser.objects.all().order_by('username')
+    
     return render(request, 'accounts/company_info.html', {
         'company_form': company_form,
         'profile_form': profile_form,
@@ -859,6 +903,7 @@ def company_info_view(request):
         'is_superuser': is_superuser,
         'can_manage_apps': can_manage_apps,
         'user': request.user,
+        'users': users,
         'video_storage': video_storage,
         'video_usage_percentage': video_usage_percentage,
         'feature_access_data': feature_access_data,
@@ -1637,6 +1682,105 @@ def user_permissions(request):
 
 
 @login_required
+def get_individual_permissions(request, user_id):
+    """
+    API View to get individual app permissions for a specific user
+    """
+    if not request.user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'Keine Berechtigung'}, status=403)
+    
+    try:
+        user = CustomUser.objects.get(id=user_id)
+        
+        permissions_data = []
+        for app_choice in AppPermission.APP_CHOICES:
+            app_name = app_choice[0]
+            app_display_name = app_choice[1]
+            
+            # Get global permission
+            try:
+                global_permission = AppPermission.objects.get(app_name=app_name)
+                global_access = global_permission.access_level
+            except AppPermission.DoesNotExist:
+                global_access = 'blocked'
+            
+            # Get individual permission
+            try:
+                individual_permission = UserAppPermission.objects.get(
+                    user=user, app_name=app_name, is_active=True
+                )
+                individual_override = individual_permission.override_type
+            except UserAppPermission.DoesNotExist:
+                individual_override = None
+            
+            permissions_data.append({
+                'app_name': app_name,
+                'app_display_name': app_display_name,
+                'global_access': global_access,
+                'individual_permission': individual_override
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'permissions': permissions_data
+        })
+        
+    except CustomUser.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Benutzer nicht gefunden'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def save_individual_permissions(request):
+    """
+    API View to save individual app permissions for a user
+    """
+    if not request.user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'Keine Berechtigung'}, status=403)
+    
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Nur POST erlaubt'}, status=405)
+    
+    try:
+        user_id = request.POST.get('user_id')
+        permissions_json = request.POST.get('permissions')
+        
+        if not user_id or not permissions_json:
+            return JsonResponse({'success': False, 'error': 'Fehlende Parameter'}, status=400)
+        
+        user = CustomUser.objects.get(id=user_id)
+        permissions = json.loads(permissions_json)
+        
+        for app_name, permission_type in permissions.items():
+            if permission_type == 'remove':
+                # Remove individual permission (fall back to global)
+                UserAppPermission.objects.filter(
+                    user=user, app_name=app_name
+                ).delete()
+            else:
+                # Create or update individual permission
+                permission, created = UserAppPermission.objects.update_or_create(
+                    user=user,
+                    app_name=app_name,
+                    defaults={
+                        'override_type': permission_type,
+                        'is_active': True,
+                        'created_by': request.user
+                    }
+                )
+        
+        return JsonResponse({'success': True})
+        
+    except CustomUser.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Benutzer nicht gefunden'}, status=404)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültige JSON-Daten'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
 def user_online_times(request, user_id):
     """
     Zeigt die Onlinezeiten eines Benutzers grafisch an (nur für Superuser)
@@ -1881,16 +2025,280 @@ def content_editor(request):
     # Hole existierende Inhalte für diese Seite
     contents = EditableContent.objects.filter(user=request.user, page=page).order_by('sort_order', 'created_at')
     
+    # Automatische Erstellung von Standard-Inhalten für verschiedene Seiten, falls keine vorhanden
+    if not contents.exists():
+        _create_default_page_contents(request.user, page)
+        contents = EditableContent.objects.filter(user=request.user, page=page).order_by('sort_order', 'created_at')
+    
     # Dynamische Seiten-Choices basierend auf benutzerdefinierten Seiten
     page_choices = CustomPage.get_all_page_choices(request.user)
+    
+    # Organisiere Inhalte in Bereiche für bessere Übersicht
+    content_sections = _organize_contents_by_section(contents)
     
     context = {
         'page': page,
         'contents': contents,
+        'content_sections': content_sections,
         'page_choices': page_choices,
         'content_type_choices': EditableContent.CONTENT_TYPE_CHOICES,
     }
     return render(request, 'accounts/content_editor.html', context)
+
+
+def _create_default_page_contents(user, page):
+    """Erstellt Standard-Inhalte für verschiedene Seitentypen"""
+    if page == 'startseite':
+        _create_default_startseite_contents(user)
+    elif page == 'impressum':
+        _create_default_impressum_contents(user)
+    elif page == 'agb':
+        _create_default_agb_contents(user)
+    elif page == 'datenschutz':
+        _create_default_datenschutz_contents(user)
+    elif 'dashboard' in page:
+        _create_default_dashboard_contents(user, page)
+    elif 'landing' in page:
+        _create_default_landing_contents(user, page)
+    elif 'shop' in page:
+        _create_default_shop_contents(user, page)
+    elif page in ['header', 'footer']:
+        _create_default_global_contents(user, page)
+    else:
+        _create_default_generic_contents(user, page)
+
+
+def _create_default_startseite_contents(user):
+    """Erstellt Standard-Inhalte für die Startseite basierend auf dem Template"""
+    default_contents = [
+        # Hero Section
+        {'key': 'hero_title', 'type': 'hero_title', 'content': 'Dein All-in-One Business Hub', 'section': 'hero', 'order': 1},
+        {'key': 'hero_subtitle', 'type': 'hero_subtitle', 'content': 'Alle wichtigen Tools für Selbständige und Online-Shop-Gründer an einem Ort', 'section': 'hero', 'order': 2},
+        {'key': 'hero_button', 'type': 'button_text', 'content': 'Kostenlos starten', 'section': 'hero', 'order': 3},
+        
+        # Value Proposition
+        {'key': 'value_title', 'type': 'section_title', 'content': 'Starte dein Business ohne hohe Kosten', 'section': 'value', 'order': 4},
+        {'key': 'value_text', 'type': 'section_text', 'content': 'Workloom bündelt alle wichtigen Business-Tools in einer Plattform. Spare Zeit und Geld, während du dein Unternehmen aufbaust.', 'section': 'value', 'order': 5},
+        
+        # Community Section
+        {'key': 'community_title', 'type': 'section_title', 'content': 'Gemeinsam stärker', 'section': 'community', 'order': 6},
+        {'key': 'community_text', 'type': 'section_text', 'content': 'Bei Workloom bist du nicht allein. Unsere Community aus Selbständigen und Shop-Betreibern unterstützt sich gegenseitig.', 'section': 'community', 'order': 7},
+        {'key': 'testimonial_1', 'type': 'testimonial', 'content': 'Workloom hat mir geholfen, meinen Shop aufzubauen ohne teure Tools kaufen zu müssen. Die Community ist unbezahlbar!', 'section': 'community', 'order': 8},
+        {'key': 'testimonial_1_author', 'type': 'text', 'content': '- Sarah, Online-Shop-Gründerin', 'section': 'community', 'order': 9},
+        {'key': 'testimonial_2', 'type': 'testimonial', 'content': 'Endlich alle wichtigen Business-Tools an einem Ort. Das spart mir täglich Zeit und Nerven.', 'section': 'community', 'order': 10},
+        {'key': 'testimonial_2_author', 'type': 'text', 'content': '- Max, Selbständiger Designer', 'section': 'community', 'order': 11},
+        
+        # Pricing Section
+        {'key': 'pricing_title', 'type': 'section_title', 'content': 'Einfache, transparente Preise', 'section': 'pricing', 'order': 12},
+        {'key': 'price_value', 'type': 'text', 'content': 'Kostenlos', 'section': 'pricing', 'order': 13},
+        {'key': 'pricing_text', 'type': 'section_text', 'content': 'Starte ohne Risiko und ohne versteckte Kosten.<br>Upgrade nur wenn du mehr brauchst.', 'section': 'pricing', 'order': 14},
+        {'key': 'pricing_button', 'type': 'button_text', 'content': 'Jetzt kostenlos registrieren', 'section': 'pricing', 'order': 15},
+        
+        # Call to Action
+        {'key': 'cta_title', 'type': 'section_title', 'content': 'Bereit durchzustarten?', 'section': 'cta', 'order': 16},
+        {'key': 'cta_text', 'type': 'section_text', 'content': 'Schließe dich hunderten von Selbständigen und Shop-Gründern an, die mit Workloom ihr Business aufbauen.', 'section': 'cta', 'order': 17},
+        {'key': 'cta_button_1', 'type': 'button_text', 'content': 'Kostenlos starten', 'section': 'cta', 'order': 18},
+        {'key': 'cta_button_2', 'type': 'button_text', 'content': 'Mehr erfahren', 'section': 'cta', 'order': 19},
+    ]
+    
+    for item in default_contents:
+        EditableContent.objects.get_or_create(
+            user=user,
+            page='startseite',
+            content_key=item['key'],
+            defaults={
+                'content_type': item['type'],
+                'text_content': item['content'],
+                'sort_order': item['order'],
+                'is_active': True,
+                'section': item['section']
+            }
+        )
+
+
+def _organize_contents_by_section(contents):
+    """Organisiert Inhalte nach Bereichen für bessere Übersicht"""
+    sections = {}
+    section_names = {
+        'hero': 'Hero-Bereich',
+        'value': 'Wertversprechen',
+        'features': 'Features',
+        'community': 'Community',
+        'pricing': 'Preise',
+        'cta': 'Call-to-Action',
+        'custom': 'Benutzerdefiniert'
+    }
+    
+    for content in contents:
+        section = getattr(content, 'section', 'custom') or 'custom'
+        section_name = section_names.get(section, section.title())
+        
+        if section not in sections:
+            sections[section] = {
+                'name': section_name,
+                'contents': []
+            }
+        sections[section]['contents'].append(content)
+    
+    return sections
+
+
+def _create_default_impressum_contents(user):
+    """Erstellt Standard-Inhalte für Impressum"""
+    default_contents = [
+        {'key': 'impressum_title', 'type': 'section_title', 'content': 'Impressum', 'section': 'legal', 'order': 1},
+        {'key': 'company_info', 'type': 'section_text', 'content': 'Angaben gemäß § 5 TMG\n\nFirmenname\nStraße Hausnummer\nPLZ Ort', 'section': 'legal', 'order': 2},
+        {'key': 'contact_title', 'type': 'section_title', 'content': 'Kontakt', 'section': 'contact', 'order': 3},
+        {'key': 'contact_info', 'type': 'section_text', 'content': 'Telefon: +49 (0) 123 456789\nE-Mail: info@example.com', 'section': 'contact', 'order': 4},
+    ]
+    
+    for item in default_contents:
+        EditableContent.objects.get_or_create(
+            user=user, page='impressum', content_key=item['key'],
+            defaults={
+                'content_type': item['type'], 'text_content': item['content'],
+                'sort_order': item['order'], 'is_active': True, 'section': item['section']
+            }
+        )
+
+
+def _create_default_agb_contents(user):
+    """Erstellt Standard-Inhalte für AGB"""
+    default_contents = [
+        {'key': 'agb_title', 'type': 'section_title', 'content': 'Allgemeine Geschäftsbedingungen', 'section': 'legal', 'order': 1},
+        {'key': 'scope_title', 'type': 'section_title', 'content': '§ 1 Geltungsbereich', 'section': 'terms', 'order': 2},
+        {'key': 'scope_text', 'type': 'section_text', 'content': 'Diese AGB gelten für alle Geschäfte zwischen uns und unseren Kunden.', 'section': 'terms', 'order': 3},
+    ]
+    
+    for item in default_contents:
+        EditableContent.objects.get_or_create(
+            user=user, page='agb', content_key=item['key'],
+            defaults={
+                'content_type': item['type'], 'text_content': item['content'],
+                'sort_order': item['order'], 'is_active': True, 'section': item['section']
+            }
+        )
+
+
+def _create_default_datenschutz_contents(user):
+    """Erstellt Standard-Inhalte für Datenschutz"""
+    default_contents = [
+        {'key': 'privacy_title', 'type': 'section_title', 'content': 'Datenschutzerklärung', 'section': 'legal', 'order': 1},
+        {'key': 'data_collection_title', 'type': 'section_title', 'content': 'Datenerfassung', 'section': 'privacy', 'order': 2},
+        {'key': 'data_collection_text', 'type': 'section_text', 'content': 'Wir erheben und verwenden Ihre Daten nur im Rahmen der gesetzlichen Bestimmungen.', 'section': 'privacy', 'order': 3},
+    ]
+    
+    for item in default_contents:
+        EditableContent.objects.get_or_create(
+            user=user, page='datenschutz', content_key=item['key'],
+            defaults={
+                'content_type': item['type'], 'text_content': item['content'],
+                'sort_order': item['order'], 'is_active': True, 'section': item['section']
+            }
+        )
+
+
+def _create_default_dashboard_contents(user, page):
+    """Erstellt Standard-Inhalte für Dashboard-Seiten"""
+    app_name = page.replace('_dashboard', '').replace('_', ' ').title()
+    default_contents = [
+        {'key': 'dashboard_title', 'type': 'section_title', 'content': f'{app_name} Dashboard', 'section': 'header', 'order': 1},
+        {'key': 'welcome_text', 'type': 'section_text', 'content': f'Willkommen im {app_name} Bereich. Hier können Sie alle Funktionen verwalten.', 'section': 'header', 'order': 2},
+        {'key': 'features_title', 'type': 'section_title', 'content': 'Verfügbare Funktionen', 'section': 'features', 'order': 3},
+    ]
+    
+    for item in default_contents:
+        EditableContent.objects.get_or_create(
+            user=user, page=page, content_key=item['key'],
+            defaults={
+                'content_type': item['type'], 'text_content': item['content'],
+                'sort_order': item['order'], 'is_active': True, 'section': item['section']
+            }
+        )
+
+
+def _create_default_landing_contents(user, page):
+    """Erstellt Standard-Inhalte für Landing Pages"""
+    page_type = page.replace('landing_', '').replace('_', ' ').title()
+    default_contents = [
+        {'key': 'landing_title', 'type': 'hero_title', 'content': f'{page_type}', 'section': 'hero', 'order': 1},
+        {'key': 'landing_subtitle', 'type': 'hero_subtitle', 'content': f'Erfahren Sie mehr über unsere {page_type.lower()}', 'section': 'hero', 'order': 2},
+        {'key': 'cta_button', 'type': 'button_text', 'content': 'Mehr erfahren', 'section': 'hero', 'order': 3},
+    ]
+    
+    for item in default_contents:
+        EditableContent.objects.get_or_create(
+            user=user, page=page, content_key=item['key'],
+            defaults={
+                'content_type': item['type'], 'text_content': item['content'],
+                'sort_order': item['order'], 'is_active': True, 'section': item['section']
+            }
+        )
+
+
+def _create_default_shop_contents(user, page):
+    """Erstellt Standard-Inhalte für Shop-Seiten"""
+    page_type = page.replace('shop_', '').replace('_', ' ').title()
+    default_contents = [
+        {'key': 'shop_title', 'type': 'section_title', 'content': f'{page_type}', 'section': 'header', 'order': 1},
+        {'key': 'shop_description', 'type': 'section_text', 'content': f'Hier finden Sie alle {page_type.lower()} in unserem Online-Shop.', 'section': 'header', 'order': 2},
+    ]
+    
+    for item in default_contents:
+        EditableContent.objects.get_or_create(
+            user=user, page=page, content_key=item['key'],
+            defaults={
+                'content_type': item['type'], 'text_content': item['content'],
+                'sort_order': item['order'], 'is_active': True, 'section': item['section']
+            }
+        )
+
+
+def _create_default_global_contents(user, page):
+    """Erstellt Standard-Inhalte für globale Bereiche (Header/Footer)"""
+    if page == 'header':
+        default_contents = [
+            {'key': 'site_logo', 'type': 'image', 'content': '', 'section': 'branding', 'order': 1},
+            {'key': 'site_title', 'type': 'text', 'content': 'Ihre Website', 'section': 'branding', 'order': 2},
+            {'key': 'nav_home', 'type': 'button_text', 'content': 'Startseite', 'section': 'navigation', 'order': 3},
+            {'key': 'nav_about', 'type': 'button_text', 'content': 'Über uns', 'section': 'navigation', 'order': 4},
+            {'key': 'nav_contact', 'type': 'button_text', 'content': 'Kontakt', 'section': 'navigation', 'order': 5},
+        ]
+    else:  # footer
+        default_contents = [
+            {'key': 'footer_copyright', 'type': 'text', 'content': '© 2024 Ihre Website. Alle Rechte vorbehalten.', 'section': 'legal', 'order': 1},
+            {'key': 'footer_links_title', 'type': 'section_title', 'content': 'Links', 'section': 'links', 'order': 2},
+            {'key': 'footer_impressum', 'type': 'button_text', 'content': 'Impressum', 'section': 'links', 'order': 3},
+            {'key': 'footer_datenschutz', 'type': 'button_text', 'content': 'Datenschutz', 'section': 'links', 'order': 4},
+        ]
+    
+    for item in default_contents:
+        EditableContent.objects.get_or_create(
+            user=user, page=page, content_key=item['key'],
+            defaults={
+                'content_type': item['type'], 'text_content': item['content'],
+                'sort_order': item['order'], 'is_active': True, 'section': item['section']
+            }
+        )
+
+
+def _create_default_generic_contents(user, page):
+    """Erstellt Standard-Inhalte für generische Seiten"""
+    page_name = page.replace('_', ' ').title()
+    default_contents = [
+        {'key': 'page_title', 'type': 'section_title', 'content': page_name, 'section': 'header', 'order': 1},
+        {'key': 'page_content', 'type': 'section_text', 'content': f'Willkommen auf der {page_name} Seite. Hier können Sie Inhalte hinzufügen und bearbeiten.', 'section': 'content', 'order': 2},
+        {'key': 'page_cta', 'type': 'button_text', 'content': 'Mehr erfahren', 'section': 'content', 'order': 3},
+    ]
+    
+    for item in default_contents:
+        EditableContent.objects.get_or_create(
+            user=user, page=page, content_key=item['key'],
+            defaults={
+                'content_type': item['type'], 'text_content': item['content'],
+                'sort_order': item['order'], 'is_active': True, 'section': item['section']
+            }
+        )
 
 
 @login_required
@@ -3008,3 +3416,175 @@ def save_model_preference(request):
             'success': False,
             'error': f'Fehler beim Speichern der Model-Präferenz: {str(e)}'
         })
+
+
+# E-Mail-Verifikation Funktionen
+def send_verification_email(user, request):
+    """Sendet eine E-Mail-Verifikation über das Zoho-System an den Benutzer."""
+    try:
+        # Importiere Zoho-Services
+        from email_templates.models import ZohoMailServerConnection, EmailTemplate
+        from email_templates.services import EmailTemplateService
+        
+        # Generiere einen sicheren Token
+        token = secrets.token_urlsafe(32)
+        
+        # Speichere Token und Zeitstempel
+        user.email_verification_token = token
+        user.email_verification_sent_at = timezone.now()
+        user.save()
+        
+        # Erstelle Verifikations-URL
+        try:
+            verification_url = request.build_absolute_uri(
+                reverse('accounts:verify_email', kwargs={'token': token})
+            )
+        except Exception as e:
+            logger.error(f"Error building verification URL: {str(e)}")
+            # Fallback URL
+            verification_url = f"{request.build_absolute_uri('/')[:-1]}/accounts/verify-email/{token}/"
+        
+        # Versuche zuerst Zoho-System zu verwenden
+        try:
+            # Hole aktive Zoho-Verbindung
+            zoho_connection = ZohoMailServerConnection.objects.filter(
+                is_active=True,
+                is_configured=True
+            ).first()
+            
+            if zoho_connection:
+                # Suche nach Account Activation Template
+                template = EmailTemplate.objects.filter(
+                    template_type='account_activation',
+                    is_active=True
+                ).first()
+                
+                if template:
+                    # Verwende Email-Template System
+                    context_data = {
+                        'user_name': user.get_full_name() or user.username,
+                        'username': user.username,
+                        'verification_url': verification_url,
+                        'domain': request.get_host(),
+                        'site_name': 'Workloom',
+                        'company_name': 'Workloom'
+                    }
+                    
+                    result = EmailTemplateService.send_template_email(
+                        template=template,
+                        connection=zoho_connection,
+                        recipient_email=user.email,
+                        recipient_name=user.username,
+                        context_data=context_data
+                    )
+                    
+                    if result['success']:
+                        logger.info(f"Verification email sent via Zoho to {user.email}")
+                        return True
+                    else:
+                        logger.warning(f"Zoho email failed: {result['message']}, falling back to Django mail")
+                else:
+                    logger.warning("No account_activation template found, falling back to Django mail")
+            else:
+                logger.warning("No active Zoho connection found, falling back to Django mail")
+        
+        except Exception as zoho_error:
+            logger.warning(f"Zoho system failed: {str(zoho_error)}, falling back to Django mail")
+        
+        # Fallback auf Django E-Mail-System
+        html_content = render_to_string('accounts/emails/welcome_verification.html', {
+            'user': user,
+            'verification_url': verification_url,
+        })
+        text_content = render_to_string('accounts/emails/welcome_verification.txt', {
+            'user': user,
+            'verification_url': verification_url,
+        })
+        
+        # Sende E-Mail über Django
+        send_mail(
+            subject=f'Willkommen bei Workloom - E-Mail bestätigen',
+            message=text_content,
+            from_email=None,  # Verwendet DEFAULT_FROM_EMAIL
+            recipient_list=[user.email],
+            html_message=html_content,
+        )
+        
+        logger.info(f"Verification email sent via Django mail to {user.email}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
+        return False
+
+
+def verify_email(request, token):
+    """Verifiziert die E-Mail-Adresse eines Benutzers."""
+    try:
+        # Finde Benutzer mit diesem Token
+        user = get_object_or_404(CustomUser, email_verification_token=token)
+        
+        # Prüfe ob Token noch gültig ist (24 Stunden)
+        if user.email_verification_sent_at:
+            token_age = timezone.now() - user.email_verification_sent_at
+            if token_age > timedelta(hours=24):
+                messages.error(request, 
+                    'Der Bestätigungslink ist abgelaufen. Bitte fordern Sie einen neuen Link an.')
+                return redirect('accounts:resend_verification')
+        
+        # Aktiviere Benutzer und bestätige E-Mail
+        user.email_verified = True
+        user.is_active = True
+        user.email_verification_token = None  # Token löschen
+        user.save()
+        
+        # Logge Benutzer automatisch ein
+        login(request, user)
+        
+        messages.success(request, 
+            f'🎉 Herzlich willkommen bei Workloom, {user.username}! '
+            'Ihre E-Mail-Adresse wurde erfolgreich bestätigt.')
+        
+        logger.info(f"Email verified for user {user.username}")
+        return redirect('accounts:dashboard')
+        
+    except Exception as e:
+        logger.error(f"Email verification failed for token {token}: {str(e)}")
+        messages.error(request, 
+            'Der Bestätigungslink ist ungültig oder abgelaufen. '
+            'Bitte fordern Sie einen neuen Link an.')
+        return redirect('accounts:resend_verification')
+
+
+def resend_verification(request):
+    """Sendet eine neue Verifikations-E-Mail."""
+    if request.method == 'POST':
+        email = request.POST.get('email')
+        if email:
+            try:
+                user = CustomUser.objects.get(email=email, email_verified=False)
+                
+                # Prüfe ob seit letzter E-Mail genug Zeit vergangen ist (5 Minuten)
+                if user.email_verification_sent_at:
+                    time_since_last = timezone.now() - user.email_verification_sent_at
+                    if time_since_last < timedelta(minutes=5):
+                        remaining_minutes = 5 - int(time_since_last.total_seconds() / 60)
+                        messages.warning(request, 
+                            f'Bitte warten Sie noch {remaining_minutes} Minuten, '
+                            'bevor Sie eine neue E-Mail anfordern.')
+                        return render(request, 'accounts/resend_verification.html')
+                
+                # Sende neue Verifikations-E-Mail
+                if send_verification_email(user, request):
+                    messages.success(request, 
+                        'Eine neue Bestätigungs-E-Mail wurde gesendet. '
+                        'Bitte prüfen Sie Ihr Postfach.')
+                else:
+                    messages.error(request, 
+                        'Fehler beim Senden der E-Mail. Bitte versuchen Sie es später erneut.')
+                        
+            except CustomUser.DoesNotExist:
+                messages.error(request, 
+                    'Keine unverifizierte E-Mail-Adresse gefunden oder E-Mail bereits bestätigt.')
+    
+    return render(request, 'accounts/resend_verification.html')
