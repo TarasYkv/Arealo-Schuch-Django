@@ -1,0 +1,453 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ connection.name }} - Verbindungsdetails{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3">
+                        <i class="fas fa-server me-2"></i>
+                        {{ connection.name }}
+                    </h1>
+                    <p class="text-muted mb-0">
+                        <i class="fas fa-envelope me-1"></i>
+                        {{ connection.email_address }} 
+                        <span class="badge bg-secondary ms-2">{{ connection.get_region_display }}</span>
+                    </p>
+                </div>
+                <div>
+                    <a href="{% url 'email_templates:connection_edit' connection.pk %}" class="btn btn-primary me-2">
+                        <i class="fas fa-edit me-2"></i>Bearbeiten
+                    </a>
+                    <a href="{% url 'email_templates:connection_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Zurück
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Connection Status Card -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Verbindungsstatus
+                    </h5>
+                    {% if connection.is_configured %}
+                        <span class="badge bg-success">
+                            <i class="fas fa-check-circle me-1"></i>Konfiguriert
+                        </span>
+                    {% else %}
+                        <span class="badge bg-warning">
+                            <i class="fas fa-exclamation-triangle me-1"></i>Nicht konfiguriert
+                        </span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-4">Status:</dt>
+                                <dd class="col-sm-8">
+                                    {% if connection.is_active %}
+                                        <span class="text-success">
+                                            <i class="fas fa-circle me-1"></i>Aktiv
+                                        </span>
+                                    {% else %}
+                                        <span class="text-danger">
+                                            <i class="fas fa-circle me-1"></i>Inaktiv
+                                        </span>
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-4">E-Mail:</dt>
+                                <dd class="col-sm-8">{{ connection.email_address }}</dd>
+                                
+                                <dt class="col-sm-4">Region:</dt>
+                                <dd class="col-sm-8">{{ connection.get_region_display }}</dd>
+                                
+                                <dt class="col-sm-4">Erstellt:</dt>
+                                <dd class="col-sm-8">
+                                    {{ connection.created_at|date:"d.m.Y H:i" }}
+                                    {% if connection.created_by %}
+                                        <br><small class="text-muted">von {{ connection.created_by.username }}</small>
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-5">Letzter Test:</dt>
+                                <dd class="col-sm-7">
+                                    {% if connection.last_test_success %}
+                                        <span class="text-success">
+                                            <i class="fas fa-check me-1"></i>
+                                            {{ connection.last_test_success|timesince }} ago
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">Noch nicht getestet</span>
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-5">Token Status:</dt>
+                                <dd class="col-sm-7">
+                                    {% if connection.access_token %}
+                                        {% if connection.needs_reauth %}
+                                            <span class="text-warning">
+                                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                                Reauth erforderlich
+                                            </span>
+                                        {% else %}
+                                            <span class="text-success">
+                                                <i class="fas fa-check me-1"></i>
+                                                Gültig
+                                            </span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-danger">
+                                            <i class="fas fa-times me-1"></i>
+                                            Nicht autorisiert
+                                        </span>
+                                    {% endif %}
+                                </dd>
+                                
+                                {% if connection.token_expires_at %}
+                                <dt class="col-sm-5">Token läuft ab:</dt>
+                                <dd class="col-sm-7">
+                                    <small class="text-muted">
+                                        {{ connection.token_expires_at|date:"d.m.Y H:i" }}
+                                    </small>
+                                </dd>
+                                {% endif %}
+                            </dl>
+                        </div>
+                    </div>
+                    
+                    {% if connection.last_error %}
+                    <div class="alert alert-danger mt-3">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Letzter Fehler:
+                        </h6>
+                        <p class="mb-0">{{ connection.last_error }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if connection.description %}
+                    <div class="mt-3">
+                        <h6>Beschreibung:</h6>
+                        <p class="text-muted">{{ connection.description }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Recent Email Logs -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history me-2"></i>
+                        Kürzlich versendete E-Mails
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Empfänger</th>
+                                    <th>Betreff</th>
+                                    <th>Gesendet</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in connection.emailsendlog_set.all|slice:":10" %}
+                                <tr>
+                                    <td>
+                                        {% if log.is_sent %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check"></i>
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-times"></i>
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ log.recipient_email }}</td>
+                                    <td>{{ log.subject|truncatechars:50 }}</td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ log.created_at|timesince }} ago
+                                        </small>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-3">
+                                        <i class="fas fa-inbox fa-2x mb-2"></i><br>
+                                        Noch keine E-Mails über diese Verbindung gesendet.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions Sidebar -->
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-cogs me-2"></i>
+                        Aktionen
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if connection.is_configured and connection.access_token and not connection.needs_reauth %}
+                        <form method="post" action="{% url 'email_templates:connection_test' connection.pk %}" class="mb-3">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success w-100">
+                                <i class="fas fa-vial me-2"></i>
+                                Verbindung testen
+                            </button>
+                        </form>
+                    {% else %}
+                        <div class="text-center mb-3">
+                            <button type="button" class="btn btn-primary w-100" onclick="startOAuthFlow('{{ auth_url }}')">
+                                <i class="fas fa-key me-2"></i>
+                                {% if not connection.access_token %}
+                                    OAuth2 autorisieren
+                                {% else %}
+                                    OAuth2 erneuern
+                                {% endif %}
+                            </button>
+                            <small class="text-muted d-block mt-2">
+                                {% if not connection.access_token %}
+                                    Öffnet Zoho-Autorisierung in neuem Fenster
+                                {% else %}
+                                    Token ist abgelaufen - Autorisierung erneuern
+                                {% endif %}
+                            </small>
+                            
+                            <!-- Debug: Show OAuth URL -->
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#oauth-debug">
+                                    <i class="fas fa-bug me-1"></i>Debug OAuth URL
+                                </button>
+                                <div class="collapse mt-2" id="oauth-debug">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h6>OAuth URL:</h6>
+                                            <textarea class="form-control form-control-sm font-monospace" rows="4" readonly>{{ auth_url }}</textarea>
+                                            <div class="mt-2">
+                                                <a href="{{ auth_url }}" target="_blank" class="btn btn-sm btn-primary">
+                                                    <i class="fas fa-external-link-alt me-1"></i>Direkt öffnen
+                                                </a>
+                                                <button type="button" class="btn btn-sm btn-secondary" onclick="copyToClipboard('{{ auth_url }}')">
+                                                    <i class="fas fa-copy me-1"></i>URL kopieren
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                    
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'email_templates:connection_edit' connection.pk %}" class="btn btn-outline-primary">
+                            <i class="fas fa-edit me-2"></i>
+                            Bearbeiten
+                        </a>
+                        
+                        <a href="{% url 'email_templates:send_test_email' %}?connection={{ connection.pk }}" class="btn btn-outline-info">
+                            <i class="fas fa-paper-plane me-2"></i>
+                            Test-E-Mail senden
+                        </a>
+                        
+                        <hr>
+                        
+                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                            <i class="fas fa-trash me-2"></i>
+                            Verbindung löschen
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configuration Info -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Konfiguration
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <dl class="mb-0">
+                        <dt class="small">Client ID:</dt>
+                        <dd class="small font-monospace">
+                            {{ connection.client_id|slice:":20" }}...
+                        </dd>
+                        
+                        <dt class="small">Gespeicherte Redirect URI:</dt>
+                        <dd class="small font-monospace text-primary">
+                            {{ connection.redirect_uri }}
+                        </dd>
+                        
+                        <dt class="small">Aktuelle Redirect URI:</dt>
+                        <dd class="small font-monospace text-success">
+                            {{ debug_info.current_redirect_uri }}
+                        </dd>
+                        
+                        <dt class="small">Scopes:</dt>
+                        <dd class="small">
+                            <code>ZohoMail.messages.CREATE</code><br>
+                            <code>ZohoMail.folders.READ</code>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Debug Info -->
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h6 class="mb-0">
+                        <i class="fas fa-bug me-2"></i>
+                        Debug Information
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if debug_info.stored_redirect_uri != debug_info.current_redirect_uri %}
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>URI-Mismatch erkannt!</strong><br>
+                        Die gespeicherte Redirect URI stimmt nicht mit der aktuellen überein.
+                    </div>
+                    {% endif %}
+                    
+                    <dl class="mb-0">
+                        <dt class="small">Auth URL:</dt>
+                        <dd class="small">
+                            <div class="text-break font-monospace" style="font-size: 0.7rem;">
+                                {{ debug_info.auth_url }}
+                            </div>
+                        </dd>
+                        
+                        <dt class="small">URI Match:</dt>
+                        <dd class="small">
+                            {% if debug_info.stored_redirect_uri == debug_info.current_redirect_uri %}
+                                <span class="badge bg-success">✓ URIs stimmen überein</span>
+                            {% else %}
+                                <span class="badge bg-danger">✗ URIs unterschiedlich</span>
+                            {% endif %}
+                        </dd>
+                    </dl>
+                    
+                    {% if debug_info.stored_redirect_uri != debug_info.current_redirect_uri %}
+                    <div class="mt-3">
+                        <a href="{% url 'email_templates:connection_edit' connection.pk %}" class="btn btn-warning btn-sm">
+                            <i class="fas fa-edit me-1"></i>
+                            Redirect URI korrigieren
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                    Verbindung löschen
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Sind Sie sicher, dass Sie die Verbindung <strong>"{{ connection.name }}"</strong> löschen möchten?</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Achtung:</strong> Diese Aktion kann nicht rückgängig gemacht werden. 
+                    Alle E-Mail-Sendungen über diese Verbindung werden in den Logs weiterhin angezeigt.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Abbrechen
+                </button>
+                <a href="{% url 'email_templates:connection_delete' connection.pk %}" class="btn btn-danger">
+                    <i class="fas fa-trash me-2"></i>Löschen
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function startOAuthFlow(authUrl) {
+    // Open OAuth window with specific size and features
+    const oauthWindow = window.open(
+        authUrl,
+        'zoho_oauth',
+        'width=600,height=700,scrollbars=yes,resizable=yes,status=yes,location=yes'
+    );
+    
+    if (!oauthWindow) {
+        alert('Popup wurde blockiert. Bitte erlauben Sie Popups für diese Seite und versuchen Sie es erneut.');
+        return;
+    }
+    
+    // Monitor the OAuth window
+    const checkClosed = setInterval(() => {
+        if (oauthWindow.closed) {
+            clearInterval(checkClosed);
+            // Reload the page after a short delay to check if auth was successful
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        }
+    }, 1000);
+    
+    // Focus the OAuth window
+    oauthWindow.focus();
+}
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        // Show temporary success message
+        const btn = event.target;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check me-1"></i>Kopiert!';
+        btn.classList.remove('btn-secondary');
+        btn.classList.add('btn-success');
+        
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-secondary');
+        }, 2000);
+    }).catch(err => {
+        console.error('Could not copy text: ', err);
+        alert('URL konnte nicht kopiert werden. Bitte manuell markieren und kopieren.');
+    });
+}
+</script>
+{% endblock %}

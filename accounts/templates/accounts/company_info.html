@@ -849,11 +849,120 @@
                             </form>
                         </div>
                     </div>
+                    
+                    <!-- User-spezifische App-Berechtigungen -->
+                    {% if is_superuser %}
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h5><i class="bi bi-people-fill"></i> Nutzer-spezifische App-Berechtigungen</h5>
+                            <small class="text-muted">Individuelle Berechtigungen überschreiben die oben konfigurierten allgemeinen Einstellungen</small>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Benutzer</th>
+                                            <th>E-Mail</th>
+                                            <th>Status</th>
+                                            <th>Individuelle Berechtigungen</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for user in users %}
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    {% if user.profile_picture %}
+                                                        <img src="{{ user.profile_picture.url }}" alt="{{ user.username }}"
+                                                             class="rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover;">
+                                                    {% else %}
+                                                        <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center me-2" 
+                                                             style="width: 32px; height: 32px;">
+                                                            <i class="bi bi-person text-white" style="font-size: 16px;"></i>
+                                                        </div>
+                                                    {% endif %}
+                                                    <div>
+                                                        <strong>{{ user.username }}</strong>
+                                                        {% if user.first_name or user.last_name %}
+                                                            <br><small class="text-muted">{{ user.first_name }} {{ user.last_name }}</small>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>{{ user.email }}</td>
+                                            <td>
+                                                {% if user.is_active %}
+                                                    <span class="badge bg-success">Aktiv</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Inaktiv</span>
+                                                {% endif %}
+                                                {% if user.is_superuser %}
+                                                    <span class="badge bg-warning">Superuser</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                        onclick="openIndividualPermissionsModal({{ user.id }}, '{{ user.username|escapejs }}')"
+                                                        title="Individuelle App-Berechtigungen verwalten">
+                                                    <i class="fas fa-user-cog"></i> Apps verwalten
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
                 {% endif %}
                 {% endif %}
             </div>
             
+            <!-- Modal für individuelle App-Berechtigungen -->
+            <div class="modal fade" id="individualPermissionsModal" tabindex="-1" aria-labelledby="individualPermissionsModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="individualPermissionsModalLabel">
+                                <i class="fas fa-user-cog"></i> Individuelle App-Berechtigungen für <span id="individualPermissionsModalUserName"></span>
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i>
+                                <strong>Hinweis:</strong> Diese individuellen Berechtigungen haben Priorität vor den allgemeinen Firmen-Freigaben.
+                                Wählen Sie "Explizit erlauben" um einem Nutzer Zugriff zu gewähren, auch wenn die App global gesperrt ist.
+                                Wählen Sie "Explizit verweigern" um einem Nutzer den Zugriff zu entziehen, auch wenn die App global freigegeben ist.
+                            </div>
+                            
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>App/Funktion</th>
+                                            <th>Globale Berechtigung</th>
+                                            <th>Individuelle Überschreibung</th>
+                                            <th>Aktion</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="individualPermissionsTableBody">
+                                        <!-- Wird via JavaScript gefüllt -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                            <button type="button" class="btn btn-primary" onclick="saveAllIndividualPermissions()">Alle Änderungen speichern</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- User Selection Modal -->
             <div class="modal fade" id="userSelectionModal" tabindex="-1" aria-labelledby="userSelectionModalLabel" aria-hidden="true">
                 <div class="modal-dialog modal-lg">
@@ -1892,6 +2001,167 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Form ID für Bulk-Aktionen ist bereits im HTML gesetzt
+
+// JavaScript für individuelle App-Berechtigungen
+let currentPermissionUserId = null;
+let currentPermissionUserName = null;
+let individualPermissions = {}; // Store permission changes
+
+function openIndividualPermissionsModal(userId, userName) {
+    currentPermissionUserId = userId;
+    currentPermissionUserName = userName;
+    
+    document.getElementById('individualPermissionsModalUserName').textContent = userName;
+    
+    // Lade aktuelle Berechtigungen
+    loadIndividualPermissions(userId);
+    
+    // Zeige Modal
+    const modal = new bootstrap.Modal(document.getElementById('individualPermissionsModal'));
+    modal.show();
+}
+
+function loadIndividualPermissions(userId) {
+    const tbody = document.getElementById('individualPermissionsTableBody');
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center"><div class="spinner-border spinner-border-sm" role="status"></div> Lade Berechtigungen...</td></tr>';
+    
+    fetch(`/accounts/individual-permissions/${userId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayIndividualPermissions(data.permissions);
+            } else {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center"><div class="alert alert-danger">Fehler beim Laden der Berechtigungen</div></td></tr>';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center"><div class="alert alert-danger">Netzwerkfehler beim Laden der Berechtigungen</div></td></tr>';
+        });
+}
+
+function displayIndividualPermissions(permissions) {
+    const tbody = document.getElementById('individualPermissionsTableBody');
+    tbody.innerHTML = '';
+    
+    permissions.forEach(perm => {
+        const row = document.createElement('tr');
+        
+        // Globale Berechtigung Badge
+        let globalBadge = '';
+        switch(perm.global_access) {
+            case 'blocked':
+                globalBadge = '<span class="badge bg-danger">Gesperrt</span>';
+                break;
+            case 'anonymous':
+                globalBadge = '<span class="badge bg-info">Öffentlich</span>';
+                break;
+            case 'authenticated':
+                globalBadge = '<span class="badge bg-success">Angemeldete Nutzer</span>';
+                break;
+            case 'selected':
+                globalBadge = '<span class="badge bg-warning">Ausgewählte Nutzer</span>';
+                break;
+            case 'in_development':
+                globalBadge = '<span class="badge bg-secondary">In Entwicklung</span>';
+                break;
+        }
+        
+        // Individual permission status
+        let individualStatus = 'Keine Überschreibung';
+        let individualBadge = '<span class="badge bg-light text-dark">Standard</span>';
+        
+        if (perm.individual_permission) {
+            if (perm.individual_permission === 'allow') {
+                individualStatus = 'Explizit erlaubt';
+                individualBadge = '<span class="badge bg-success">Explizit erlaubt</span>';
+            } else if (perm.individual_permission === 'deny') {
+                individualStatus = 'Explizit verweigert';
+                individualBadge = '<span class="badge bg-danger">Explizit verweigert</span>';
+            }
+        }
+        
+        row.innerHTML = `
+            <td>
+                <strong>${perm.app_display_name}</strong>
+                <br><small class="text-muted">${perm.app_name}</small>
+            </td>
+            <td>${globalBadge}</td>
+            <td id="individual-status-${perm.app_name}">${individualBadge}</td>
+            <td>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-sm btn-outline-success" 
+                            onclick="setIndividualPermission('${perm.app_name}', 'allow', '${perm.app_display_name}')">
+                        <i class="fas fa-check"></i> Erlauben
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" 
+                            onclick="setIndividualPermission('${perm.app_name}', 'deny', '${perm.app_display_name}')">
+                        <i class="fas fa-times"></i> Verweigern
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" 
+                            onclick="removeIndividualPermission('${perm.app_name}', '${perm.app_display_name}')">
+                        <i class="fas fa-undo"></i> Standard
+                    </button>
+                </div>
+            </td>
+        `;
+        
+        tbody.appendChild(row);
+    });
+}
+
+function setIndividualPermission(appName, permissionType, appDisplayName) {
+    individualPermissions[appName] = permissionType;
+    
+    // Update UI
+    const statusCell = document.getElementById(`individual-status-${appName}`);
+    if (permissionType === 'allow') {
+        statusCell.innerHTML = '<span class="badge bg-success">Explizit erlaubt</span>';
+    } else if (permissionType === 'deny') {
+        statusCell.innerHTML = '<span class="badge bg-danger">Explizit verweigert</span>';
+    }
+}
+
+function removeIndividualPermission(appName, appDisplayName) {
+    individualPermissions[appName] = 'remove';
+    
+    // Update UI
+    const statusCell = document.getElementById(`individual-status-${appName}`);
+    statusCell.innerHTML = '<span class="badge bg-light text-dark">Standard</span>';
+}
+
+function saveAllIndividualPermissions() {
+    if (Object.keys(individualPermissions).length === 0) {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('individualPermissionsModal'));
+        modal.hide();
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('user_id', currentPermissionUserId);
+    formData.append('permissions', JSON.stringify(individualPermissions));
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    fetch('/accounts/save-individual-permissions/', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Individuelle Berechtigungen erfolgreich gespeichert!');
+            individualPermissions = {}; // Clear changes
+            const modal = bootstrap.Modal.getInstance(document.getElementById('individualPermissionsModal'));
+            modal.hide();
+        } else {
+            alert('Fehler beim Speichern: ' + (data.error || 'Unbekannter Fehler'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Netzwerkfehler beim Speichern der Berechtigungen');
+    });
+}
 </script>
 
 {% endblock %}

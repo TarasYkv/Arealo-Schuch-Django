@@ -1,0 +1,494 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .code-editor {
+        font-family: 'Courier New', monospace;
+        font-size: 14px;
+        min-height: 400px;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+    }
+    
+    .preview-frame {
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        min-height: 400px;
+        background: #fff;
+    }
+    
+    .variable-tag {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        margin: 0.25rem;
+        background-color: #e9ecef;
+        border-radius: 0.25rem;
+        font-family: monospace;
+        font-size: 0.875rem;
+        cursor: pointer;
+    }
+    
+    .variable-tag:hover {
+        background-color: #dee2e6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3">
+                    <i class="fas fa-file-alt me-2"></i>
+                    {{ title }}
+                </h1>
+                <a href="{% url 'email_templates:template_list' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Zurück zur Liste
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" id="template-form" novalidate>
+        {% csrf_token %}
+        
+        <div class="row">
+            <!-- Left Column: Form Fields -->
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Grundinformationen
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.name.id_for_label }}" class="form-label">
+                                        {{ form.name.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.name }}
+                                    {% if form.name.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.name.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.slug.id_for_label }}" class="form-label">
+                                        {{ form.slug.label }}
+                                    </label>
+                                    {{ form.slug }}
+                                    {% if form.slug.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.slug.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        Wird automatisch generiert, wenn leer gelassen
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.template_type.id_for_label }}" class="form-label">
+                                        {{ form.template_type.label }} <span class="text-danger">*</span>
+                                    </label>
+                                    {{ form.template_type }}
+                                    {% if form.template_type.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.template_type.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.category.id_for_label }}" class="form-label">
+                                        {{ form.category.label }}
+                                    </label>
+                                    {{ form.category }}
+                                    {% if form.category.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.category.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.description.id_for_label }}" class="form-label">
+                                {{ form.description.label }}
+                            </label>
+                            {{ form.description }}
+                            {% if form.description.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.description.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check mb-3">
+                                    {{ form.is_active }}
+                                    <label for="{{ form.is_active.id_for_label }}" class="form-check-label">
+                                        {{ form.is_active.label }}
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check mb-3">
+                                    {{ form.is_default }}
+                                    <label for="{{ form.is_default.id_for_label }}" class="form-check-label">
+                                        {{ form.is_default.label }}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            {{ form.use_base_template }}
+                            <label for="{{ form.use_base_template.id_for_label }}" class="form-check-label">
+                                {{ form.use_base_template.label }}
+                            </label>
+                            <small class="form-text text-muted d-block">
+                                Wenn aktiviert, wird die E-Mail in ein Standard-Layout eingebettet
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-envelope me-2"></i>
+                            E-Mail-Inhalt
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="{{ form.subject.id_for_label }}" class="form-label">
+                                {{ form.subject.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.subject }}
+                            {% if form.subject.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.subject.errors.0 }}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted">
+                                Sie können Template-Variablen verwenden, z.B. {% verbatim %}{{ kunde_name }}{% endverbatim %}
+                            </small>
+                        </div>
+                        
+                        <ul class="nav nav-tabs mb-3" id="contentTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="html-tab" data-bs-toggle="tab" 
+                                        data-bs-target="#html-content" type="button" role="tab">
+                                    <i class="fas fa-code me-2"></i>HTML-Inhalt
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="text-tab" data-bs-toggle="tab" 
+                                        data-bs-target="#text-content" type="button" role="tab">
+                                    <i class="fas fa-align-left me-2"></i>Text-Inhalt
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="css-tab" data-bs-toggle="tab" 
+                                        data-bs-target="#css-content" type="button" role="tab">
+                                    <i class="fas fa-paint-brush me-2"></i>Custom CSS
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="preview-tab" data-bs-toggle="tab" 
+                                        data-bs-target="#preview-content" type="button" role="tab">
+                                    <i class="fas fa-eye me-2"></i>Vorschau
+                                </button>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content" id="contentTabsContent">
+                            <div class="tab-pane fade show active" id="html-content" role="tabpanel">
+                                <div class="mb-3">
+                                    {{ form.html_content }}
+                                    {% if form.html_content.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.html_content.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="tab-pane fade" id="text-content" role="tabpanel">
+                                <div class="mb-3">
+                                    {{ form.text_content }}
+                                    {% if form.text_content.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.text_content.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        Optional: Nur-Text-Version für E-Mail-Clients ohne HTML-Unterstützung
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <div class="tab-pane fade" id="css-content" role="tabpanel">
+                                <div class="mb-3">
+                                    {{ form.custom_css }}
+                                    {% if form.custom_css.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.custom_css.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        Optional: Zusätzliche CSS-Stile für diese Vorlage
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <div class="tab-pane fade" id="preview-content" role="tabpanel">
+                                <div class="preview-frame p-3">
+                                    <div id="preview-area">
+                                        <p class="text-muted text-center">
+                                            <i class="fas fa-eye-slash fa-3x mb-3"></i><br>
+                                            Klicken Sie auf "Vorschau aktualisieren" um eine Vorschau zu sehen
+                                        </p>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="updatePreview()">
+                                    <i class="fas fa-sync me-2"></i>Vorschau aktualisieren
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Column: Variables and Help -->
+            <div class="col-lg-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-code me-2"></i>
+                            Template-Variablen
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="small text-muted mb-3">
+                            Klicken Sie auf eine Variable, um sie zu kopieren:
+                        </p>
+                        
+                        <div id="common-variables">
+                            <h6 class="small text-muted">Häufig verwendet:</h6>
+                            <div class="mb-3">
+                                <span class="variable-tag" onclick="copyVariable('kunde_name')">{% verbatim %}{{ kunde_name }}{% endverbatim %}</span>
+                                <span class="variable-tag" onclick="copyVariable('kunde_email')">{% verbatim %}{{ kunde_email }}{% endverbatim %}</span>
+                                <span class="variable-tag" onclick="copyVariable('bestellnummer')">{% verbatim %}{{ bestellnummer }}{% endverbatim %}</span>
+                                <span class="variable-tag" onclick="copyVariable('datum')">{% verbatim %}{{ datum }}{% endverbatim %}</span>
+                                <span class="variable-tag" onclick="copyVariable('betrag')">{% verbatim %}{{ betrag }}{% endverbatim %}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.available_variables.id_for_label }}" class="form-label small">
+                                Verfügbare Variablen (JSON):
+                            </label>
+                            {{ form.available_variables }}
+                            {% if form.available_variables.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.available_variables.errors.0 }}
+                                </div>
+                            {% endif %}
+                            <small class="form-text text-muted">
+                                Definieren Sie verfügbare Variablen als JSON-Objekt
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-question-circle me-2"></i>
+                            Hilfe
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <h6 class="small">Template-Syntax:</h6>
+                        <ul class="small">
+                            <li>Variablen: <code>{% verbatim %}{{ variable }}{% endverbatim %}</code></li>
+                            <li>Bedingungen: <code>{% verbatim %}{% if condition %}...{% endif %}{% endverbatim %}</code></li>
+                            <li>Schleifen: <code>{% verbatim %}{% for item in list %}...{% endfor %}{% endverbatim %}</code></li>
+                        </ul>
+                        
+                        <h6 class="small mt-3">Best Practices:</h6>
+                        <ul class="small">
+                            <li>Verwenden Sie Inline-CSS für bessere E-Mail-Client-Kompatibilität</li>
+                            <li>Testen Sie Vorlagen in verschiedenen E-Mail-Clients</li>
+                            <li>Fügen Sie immer eine Text-Version hinzu</li>
+                            <li>Halten Sie die Breite unter 600px</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-body">
+                        <button type="submit" class="btn btn-primary w-100 mb-2">
+                            <i class="fas fa-save me-2"></i>
+                            {% if template %}Änderungen speichern{% else %}Vorlage erstellen{% endif %}
+                        </button>
+                        <a href="{% url 'email_templates:template_list' %}" class="btn btn-secondary w-100">
+                            <i class="fas fa-times me-2"></i>Abbrechen
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+function copyVariable(varName) {
+    const variable = '{{ ' + varName + ' }}';
+    navigator.clipboard.writeText(variable).then(function() {
+        // Show temporary success message
+        const tag = event.target;
+        const originalText = tag.textContent;
+        tag.textContent = '✓ Kopiert!';
+        tag.style.backgroundColor = '#28a745';
+        tag.style.color = '#fff';
+        
+        setTimeout(function() {
+            tag.textContent = originalText;
+            tag.style.backgroundColor = '';
+            tag.style.color = '';
+        }, 1000);
+    });
+}
+
+function updatePreview() {
+    const subject = document.getElementById('{{ form.subject.id_for_label }}').value;
+    const htmlContent = document.getElementById('{{ form.html_content.id_for_label }}').value;
+    const customCSS = document.getElementById('{{ form.custom_css.id_for_label }}').value;
+    
+    const previewArea = document.getElementById('preview-area');
+    
+    // Create preview HTML
+    let previewHTML = '<div style="border: 1px solid #ddd; padding: 20px; background: #f8f9fa;">';
+    previewHTML += '<h4 style="margin-bottom: 20px;">Betreff: ' + (subject || '[Kein Betreff]') + '</h4>';
+    previewHTML += '</div>';
+    previewHTML += '<div style="padding: 20px;">';
+    
+    if (customCSS) {
+        previewHTML += '<style>' + customCSS + '</style>';
+    }
+    
+    previewHTML += htmlContent || '<p class="text-muted">Kein HTML-Inhalt vorhanden</p>';
+    previewHTML += '</div>';
+    
+    previewArea.innerHTML = previewHTML;
+}
+
+// Handle form submission to check required fields in hidden tabs
+$('#template-form').on('submit', function(e) {
+    let isValid = true;
+    let firstInvalidTab = null;
+    
+    // Check all required fields
+    $(this).find('[required]').each(function() {
+        if (!this.value) {
+            isValid = false;
+            
+            // Find which tab contains this field
+            const tabPane = $(this).closest('.tab-pane');
+            if (tabPane.length && !tabPane.hasClass('active')) {
+                if (!firstInvalidTab) {
+                    firstInvalidTab = tabPane.attr('id');
+                }
+            }
+            
+            // Add Bootstrap validation classes
+            $(this).addClass('is-invalid');
+        } else {
+            $(this).removeClass('is-invalid');
+        }
+    });
+    
+    if (!isValid) {
+        e.preventDefault();
+        
+        // Switch to the tab with the first invalid field
+        if (firstInvalidTab) {
+            const tabTrigger = $(`[data-bs-target="#${firstInvalidTab}"]`);
+            if (tabTrigger.length) {
+                tabTrigger.tab('show');
+            }
+        }
+        
+        // Show error message
+        alert('Bitte füllen Sie alle Pflichtfelder aus.');
+        return false;
+    }
+});
+
+// Initialize form enhancements
+$(document).ready(function() {
+    // Initialize CodeMirror for better code editing (if available)
+    if (typeof CodeMirror !== 'undefined') {
+        const htmlEditor = CodeMirror.fromTextArea(document.getElementById('{{ form.html_content.id_for_label }}'), {
+            mode: 'htmlmixed',
+            lineNumbers: true,
+            theme: 'default',
+            lineWrapping: true
+        });
+        
+        const cssEditor = CodeMirror.fromTextArea(document.getElementById('{{ form.custom_css.id_for_label }}'), {
+            mode: 'css',
+            lineNumbers: true,
+            theme: 'default',
+            lineWrapping: true
+        });
+        
+        // Update preview when editors change
+        htmlEditor.on('change', function() {
+            document.getElementById('{{ form.html_content.id_for_label }}').value = htmlEditor.getValue();
+        });
+        
+        cssEditor.on('change', function() {
+            document.getElementById('{{ form.custom_css.id_for_label }}').value = cssEditor.getValue();
+        });
+    }
+    
+    // Auto-format JSON in available variables field
+    $('#{{ form.available_variables.id_for_label }}').on('blur', function() {
+        const value = $(this).val();
+        if (value) {
+            try {
+                const json = JSON.parse(value);
+                $(this).val(JSON.stringify(json, null, 2));
+            } catch (e) {
+                // Invalid JSON, leave as is
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

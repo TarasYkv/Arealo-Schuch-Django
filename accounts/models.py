@@ -49,6 +49,11 @@ class CustomUser(AbstractUser):
     # Design-Einstellungen
     dark_mode = models.BooleanField(default=False, verbose_name="Dunkles Design aktivieren")
     
+    # E-Mail-Verifikation
+    email_verified = models.BooleanField(default=False, verbose_name="E-Mail verifiziert")
+    email_verification_token = models.CharField(max_length=100, blank=True, null=True, verbose_name="E-Mail Verifikationstoken")
+    email_verification_sent_at = models.DateTimeField(blank=True, null=True, verbose_name="Verifikations-E-Mail gesendet am")
+    
     # KI-Model-Einstellungen
     preferred_openai_model = models.CharField(max_length=50, default='gpt-4o-mini', verbose_name="Bevorzugtes OpenAI Modell",
                                              choices=[
@@ -176,6 +181,7 @@ class AppPermission(models.Model):
         ('editor', 'Editor'),
         ('videos', 'Videos'),
         ('mail', 'Email'),
+        ('email_templates', 'Email-Vorlagen'),
         ('somi_plan', 'SoMi-Plan'),
         
         # Schuch Tools
@@ -279,6 +285,82 @@ class AppPermission(models.Model):
         return cls.user_has_access(app_name, user, check_frontend_visibility=True)
 
 
+class UserAppPermission(models.Model):
+    """Individuelle App-Berechtigungen pro Nutzer (überschreibt globale AppPermission-Einstellungen)"""
+    
+    OVERRIDE_CHOICES = [
+        ('allow', 'Explizit erlauben'),
+        ('deny', 'Explizit verweigern'),
+    ]
+    
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='individual_app_permissions',
+                           verbose_name="Benutzer")
+    app_name = models.CharField(max_length=50, choices=AppPermission.APP_CHOICES, verbose_name="App/Funktion")
+    override_type = models.CharField(max_length=10, choices=OVERRIDE_CHOICES, verbose_name="Überschreibung")
+    is_active = models.BooleanField(default=True, verbose_name="Aktiv")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True,
+                                 related_name='created_user_permissions', verbose_name="Erstellt von")
+    
+    class Meta:
+        verbose_name = "Individuelle App-Berechtigung"
+        verbose_name_plural = "Individuelle App-Berechtigungen"
+        unique_together = ['user', 'app_name']
+        ordering = ['user__username', 'app_name']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.get_app_name_display()} - {self.get_override_type_display()}"
+    
+    @classmethod
+    def user_has_individual_permission(cls, app_name, user):
+        """Prüft ob für einen Nutzer eine individuelle Berechtigung für eine App existiert"""
+        if not user or not user.is_authenticated:
+            return None
+        
+        try:
+            permission = cls.objects.get(user=user, app_name=app_name, is_active=True)
+            return permission.override_type == 'allow'
+        except cls.DoesNotExist:
+            return None  # Keine individuelle Berechtigung vorhanden
+    
+    @classmethod
+    def get_user_app_access(cls, app_name, user):
+        """
+        Hauptfunktion um zu prüfen ob ein Nutzer Zugriff auf eine App hat.
+        Priorität: Individuelle Berechtigung > Globale Berechtigung
+        """
+        # 1. Prüfe individuelle Berechtigung (höchste Priorität)
+        individual_permission = cls.user_has_individual_permission(app_name, user)
+        if individual_permission is not None:
+            return individual_permission
+        
+        # 2. Fallback auf globale AppPermission
+        return AppPermission.user_has_access(app_name, user)
+    
+    @classmethod
+    def user_can_see_app_in_frontend(cls, app_name, user):
+        """
+        Prüft ob ein Nutzer eine App im Frontend sehen kann.
+        Berücksichtigt individuelle Berechtigungen und hide_in_frontend Flag.
+        """
+        # 1. Prüfe individuelle Berechtigung (höchste Priorität)
+        individual_permission = cls.user_has_individual_permission(app_name, user)
+        if individual_permission is not None:
+            # Bei expliziter Verweigerung wird die App nicht angezeigt
+            if individual_permission == False:
+                return False
+            # Bei expliziter Erlaubnis prüfe trotzdem hide_in_frontend
+            try:
+                app_permission = AppPermission.objects.get(app_name=app_name)
+                return not app_permission.hide_in_frontend
+            except AppPermission.DoesNotExist:
+                return True  # Wenn keine globale Permission existiert, zeige die App
+        
+        # 2. Fallback auf globale AppPermission mit Frontend-Sichtbarkeit
+        return AppPermission.user_can_see_in_frontend(app_name, user)
+
+
 class CustomPage(models.Model):
     """Model für benutzerdefinierte Seiten"""
     
@@ -314,9 +396,12 @@ class CustomPage(models.Model):
     @classmethod
     def get_all_page_choices(cls, user):
         """Gibt alle verfügbaren Seiten für einen User zurück"""
-        # Standard Seiten
+        # Core/Standard Seiten
         choices = [
-            ('startseite', 'Startseite'),
+            ('startseite', '🏠 Startseite'),
+            ('impressum', '📄 Impressum'),
+            ('agb', '📄 AGB'),
+            ('datenschutz', '🔒 Datenschutz'),
         ]
         
         # Globale Bereiche
@@ -325,10 +410,63 @@ class CustomPage(models.Model):
             ('footer', '🔹 Footer (global)'),
         ])
         
+        # App-Dashboard Seiten (nur wenn User Zugriff hat)
+        if user and user.is_authenticated:
+            app_pages = [
+                ('accounts_dashboard', '👤 Account Dashboard'),
+                ('mail_dashboard', '📧 Mail Dashboard'),
+                ('shopify_dashboard', '🛒 Shopify Dashboard'),
+                ('image_editor_dashboard', '🖼️ Bild-Editor Dashboard'),
+                ('organization_dashboard', '📅 Organisation Dashboard'),
+                ('naturmacher_dashboard', '🌱 Schulungen Dashboard'),
+                ('videos_dashboard', '🎥 Videos Dashboard'),
+                ('chat_dashboard', '💬 Chat Dashboard'),
+                ('somi_plan_dashboard', '📊 SOMI Plan Dashboard'),
+                ('email_templates_dashboard', '📨 E-Mail Templates Dashboard'),
+            ]
+            
+            # Prüfe App-Berechtigungen (falls implementiert)
+            for page_key, page_name in app_pages:
+                choices.append((page_key, page_name))
+        
+        # Landing Pages & Marketing
+        choices.extend([
+            ('landing_about', '🌟 Über uns'),
+            ('landing_services', '🔧 Services'),
+            ('landing_pricing', '💰 Preise'),
+            ('landing_contact', '📞 Kontakt'),
+            ('landing_features', '⚡ Features'),
+            ('landing_testimonials', '💬 Kundenstimmen'),
+            ('landing_blog', '📝 Blog'),
+            ('landing_faq', '❓ FAQ'),
+        ])
+        
+        # E-Commerce Seiten
+        choices.extend([
+            ('shop_products', '🛍️ Produkte'),
+            ('shop_categories', '📂 Kategorien'),
+            ('shop_cart', '🛒 Warenkorb'),
+            ('shop_checkout', '💳 Checkout'),
+            ('shop_account', '👤 Kundenkonto'),
+            ('shop_orders', '📦 Bestellungen'),
+        ])
+        
+        # Funktionale Seiten
+        choices.extend([
+            ('search_results', '🔍 Suchergebnisse'),
+            ('error_404', '❌ 404 Fehlerseite'),
+            ('error_500', '⚠️ 500 Fehlerseite'),
+            ('maintenance', '🔧 Wartungsseite'),
+            ('coming_soon', '🚀 Bald verfügbar'),
+        ])
+        
         # Benutzerdefinierte Seiten hinzufügen
-        custom_pages = cls.objects.filter(user=user, is_active=True)
-        for page in custom_pages:
-            choices.append((page.page_name, page.display_name))
+        if user:
+            custom_pages = cls.objects.filter(user=user, is_active=True)
+            if custom_pages.exists():
+                choices.append(('', '--- Benutzerdefinierte Seiten ---'))
+                for page in custom_pages:
+                    choices.append((page.page_name, f'📝 {page.display_name}'))
         
         return choices
 
@@ -370,6 +508,8 @@ class EditableContent(models.Model):
                                     verbose_name="Bild Inhalt")
     image_alt_text = models.CharField(max_length=255, blank=True, verbose_name="Bild Alt-Text")
     link_url = models.URLField(blank=True, verbose_name="Link URL")
+    section = models.CharField(max_length=50, blank=True, verbose_name="Bereich", 
+                              help_text="Kategorisierung des Inhalts (z.B. hero, features, pricing)")
     sort_order = models.PositiveIntegerField(default=0, verbose_name="Sortierreihenfolge")
     is_active = models.BooleanField(default=True, verbose_name="Aktiv")
     created_at = models.DateTimeField(auto_now_add=True)

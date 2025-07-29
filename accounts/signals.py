@@ -1,7 +1,11 @@
 from django.contrib.auth.signals import user_logged_in, user_logged_out
+from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
+from django.contrib.auth import get_user_model
 from .models import UserLoginHistory
+
+User = get_user_model()
 
 
 @receiver(user_logged_in)
@@ -59,6 +63,52 @@ def log_user_logout(sender, request, user, **kwargs):
         # Aktualisiere User Online-Status
         user.is_online = False
         user.save(update_fields=['is_online'])
+
+
+@receiver(post_save, sender=User)
+def send_welcome_email(sender, instance, created, **kwargs):
+    """
+    Sendet eine Willkommens-E-Mail an neue Benutzer
+    """
+    if created:  # Nur bei neuen Benutzern
+        try:
+            # Import hier um zirkuläre Imports zu vermeiden
+            from email_templates.services import EmailNotificationService
+            from django.urls import reverse
+            from django.conf import settings
+            import logging
+            
+            logger = logging.getLogger(__name__)
+            
+            # Bereite Benutzerdaten für die E-Mail vor
+            user_data = {
+                'user_name': instance.get_full_name() or instance.username,
+                'username': instance.username,
+                'email': instance.email,
+                'registration_date': instance.date_joined.strftime('%d.%m.%Y %H:%M'),
+                'dashboard_url': f"{getattr(settings, 'SITE_URL', 'http://127.0.0.1:8000')}{reverse('accounts:dashboard')}",
+                'current_year': timezone.now().year,
+                'privacy_url': f"{getattr(settings, 'SITE_URL', 'http://127.0.0.1:8000')}{reverse('core:datenschutz')}",
+                'terms_url': f"{getattr(settings, 'SITE_URL', 'http://127.0.0.1:8000')}{reverse('core:agb')}"
+            }
+            
+            # Sende Willkommens-E-Mail
+            success = EmailNotificationService.send_welcome_email(
+                user_data=user_data,
+                recipient_email=instance.email,
+                recipient_name=instance.get_full_name() or instance.username
+            )
+            
+            if success:
+                logger.info(f"Welcome email sent successfully to {instance.email}")
+            else:
+                logger.warning(f"Failed to send welcome email to {instance.email}")
+                
+        except Exception as e:
+            # Fehler beim E-Mail-Versand sollen die Registrierung nicht blockieren
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error sending welcome email to {instance.email}: {str(e)}")
 
 
 def get_client_ip(request):

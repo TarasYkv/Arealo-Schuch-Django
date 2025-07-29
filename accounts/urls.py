@@ -6,6 +6,9 @@ app_name = 'accounts'
 urlpatterns = [
     path('login/', views.CustomLoginView.as_view(), name='login'),
     path('signup/', views.SignUpView.as_view(), name='signup'),
+    path('signup/success/', views.signup_success, name='signup_success'),
+    path('verify-email/<str:token>/', views.verify_email, name='verify_email'),
+    path('resend-verification/', views.resend_verification, name='resend_verification'),
     path('logout/', views.logout_view, name='logout'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('toggle-dark-mode/', views.toggle_dark_mode, name='toggle_dark_mode'),
@@ -36,6 +39,8 @@ urlpatterns = [
     path('nutzerrechte/', views.user_permissions, name='user_permissions'),
     path('api/user-online-times/<int:user_id>/', views.user_online_times, name='user_online_times'),
     path('api/user-app-usage/<int:user_id>/', views.user_app_usage_statistics, name='user_app_usage_statistics'),
+    path('individual-permissions/<int:user_id>/', views.get_individual_permissions, name='get_individual_permissions'),
+    path('save-individual-permissions/', views.save_individual_permissions, name='save_individual_permissions'),
     
     # Subscription management
     path('abo/<str:app_name>/', views.manage_subscription, name='manage_subscription'),

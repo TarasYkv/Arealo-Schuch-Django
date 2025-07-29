@@ -1,0 +1,253 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}E-Mail-Vorlagen Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="h3 mb-4">
+                <i class="fas fa-envelope me-2"></i>
+                E-Mail-Vorlagen Dashboard
+            </h1>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">Vorlagen</h5>
+                            <h2 class="mb-0">{{ total_templates }}</h2>
+                            <small>{{ active_templates }} aktiv</small>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-file-alt fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">Verbindungen</h5>
+                            <h2 class="mb-0">{{ total_connections }}</h2>
+                            <small>{{ active_connections }} konfiguriert</small>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-server fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">Heute gesendet</h5>
+                            <h2 class="mb-0">{{ recent_logs|length }}</h2>
+                            <small>E-Mails</small>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-paper-plane fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h5 class="card-title">Test E-Mail</h5>
+                            <h2 class="mb-0"><i class="fas fa-vial"></i></h2>
+                            <small>Senden</small>
+                        </div>
+                        <div class="align-self-center">
+                            <a href="{% url 'email_templates:send_test_email' %}" class="btn btn-light btn-sm">
+                                <i class="fas fa-play"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Schnellzugriff</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <a href="{% url 'email_templates:template_create' %}" class="btn btn-primary btn-lg w-100 mb-2">
+                                <i class="fas fa-plus me-2"></i>
+                                Neue Vorlage
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="dropdown">
+                                <button class="btn btn-success btn-lg w-100 mb-2 dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                    <i class="fas fa-server me-2"></i>
+                                    Neue Verbindung
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="{% url 'email_templates:connection_create' %}">
+                                        <i class="fas fa-plus me-2"></i>Verbindung einrichten
+                                    </a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="https://accounts.zoho.eu/developerconsole" target="_blank">
+                                        <i class="fas fa-external-link-alt me-2"></i>Zoho Console (EU)
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="https://accounts.zoho.com/developerconsole" target="_blank">
+                                        <i class="fas fa-external-link-alt me-2"></i>Zoho Console (US)
+                                    </a></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'email_templates:template_list' %}" class="btn btn-info btn-lg w-100 mb-2">
+                                <i class="fas fa-list me-2"></i>
+                                Alle Vorlagen
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'email_templates:connection_list' %}" class="btn btn-warning btn-lg w-100 mb-2">
+                                <i class="fas fa-cogs me-2"></i>
+                                Verbindungen
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Email Logs -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Letzte E-Mail-Sendungen</h5>
+                    <small class="text-muted">Letzten 10 Sendungen</small>
+                </div>
+                <div class="card-body">
+                    {% if recent_logs %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Status</th>
+                                        <th>Empfänger</th>
+                                        <th>Betreff</th>
+                                        <th>Vorlage</th>
+                                        <th>Verbindung</th>
+                                        <th>Gesendet</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for log in recent_logs %}
+                                    <tr>
+                                        <td>
+                                            {% if log.is_sent %}
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-check"></i> Gesendet
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-danger">
+                                                    <i class="fas fa-times"></i> Fehler
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <strong>{{ log.recipient_email }}</strong>
+                                            {% if log.recipient_name %}
+                                                <br><small class="text-muted">{{ log.recipient_name }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ log.subject|truncatechars:50 }}</td>
+                                        <td>
+                                            {% if log.template %}
+                                                <a href="{% url 'email_templates:template_detail' log.template.pk %}">
+                                                    {{ log.template.name }}
+                                                </a>
+                                            {% else %}
+                                                <span class="text-muted">Gelöscht</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if log.connection %}
+                                                {{ log.connection.name }}
+                                            {% else %}
+                                                <span class="text-muted">Gelöscht</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">
+                                                {{ log.created_at|timesince }} ago
+                                            </small>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">Noch keine E-Mails gesendet.</p>
+                            <a href="{% url 'email_templates:send_test_email' %}" class="btn btn-primary">
+                                Test-E-Mail senden
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+.btn-lg {
+    padding: 0.75rem 1.25rem;
+    font-size: 1.1rem;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+}
+
+.badge {
+    font-size: 0.75em;
+}
+</style>
+{% endblock %}

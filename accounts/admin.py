@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
-from .models import CustomUser, AmpelCategory, CategoryKeyword, AppPermission, FeatureAccess, AppInfo
+from .models import CustomUser, AmpelCategory, CategoryKeyword, AppPermission, UserAppPermission, FeatureAccess, AppInfo
 
 
 @admin.register(CustomUser)
@@ -77,6 +77,38 @@ class AppPermissionAdmin(admin.ModelAdmin):
         return obj.get_app_name_display()
     get_app_display.short_description = 'App/Funktion'
     get_app_display.admin_order_field = 'app_name'
+
+
+@admin.register(UserAppPermission)
+class UserAppPermissionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'get_app_display', 'override_type', 'is_active', 'created_by', 'updated_at')
+    list_filter = ('override_type', 'is_active', 'app_name', 'created_at')
+    search_fields = ('user__username', 'user__email', 'app_name')
+    readonly_fields = ('created_at', 'updated_at')
+    raw_id_fields = ('user', 'created_by')
+    
+    fieldsets = (
+        (None, {
+            'fields': ('user', 'app_name', 'override_type', 'is_active')
+        }),
+        ('Verwaltung', {
+            'fields': ('created_by',),
+            'description': 'Wer diese individuelle Berechtigung erstellt hat'
+        }),
+        ('Zeitstempel', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_app_display(self, obj):
+        return obj.get_app_name_display()
+    get_app_display.short_description = 'App/Funktion'
+    get_app_display.admin_order_field = 'app_name'
+    
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related('user', 'created_by')
 
 
 @admin.register(FeatureAccess)

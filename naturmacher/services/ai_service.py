@@ -8,12 +8,9 @@ def generate_html_content(user, prompt):
     Generiert HTML/CSS Content basierend auf einem Text-Prompt
     """
     try:
-        # Prüfe ob User einen API-Key hat
+        # Prüfe ob User einen API-Key hat - fallback zu Demo-Content
         if not user.openai_api_key and not user.anthropic_api_key:
-            return {
-                'success': False,
-                'error': 'Kein API-Key für KI-Service gefunden. Bitte fügen Sie einen OpenAI oder Anthropic API-Key in Ihren Einstellungen hinzu.'
-            }
+            return generate_demo_content(prompt)
         
         # Erstelle System-Prompt für HTML/CSS Generierung
         system_prompt = """Du bist ein Experte für moderne Web-Entwicklung. Erstelle HTML und CSS Code basierend auf der Beschreibung des Users.
@@ -41,28 +38,169 @@ ANTWORT FORMAT (JSON):
 
 Der Code soll modern, responsiv und ansprechend sein. Verwende Bootstrap 5 Klassen und erstelle schöne, professionelle Designs."""
 
+        errors = []
+        
         # Versuche OpenAI zuerst
         if user.openai_api_key:
             result = call_openai_api(user.openai_api_key, system_prompt, user_prompt)
             if result['success']:
                 return result
+            else:
+                errors.append(f"OpenAI: {result.get('error', 'Unbekannter Fehler')}")
         
         # Fallback zu Anthropic
         if user.anthropic_api_key:
             result = call_anthropic_api(user.anthropic_api_key, system_prompt, user_prompt)
             if result['success']:
                 return result
+            else:
+                errors.append(f"Anthropic: {result.get('error', 'Unbekannter Fehler')}")
         
-        return {
-            'success': False,
-            'error': 'Alle KI-Services fehlgeschlagen'
-        }
+        if errors:
+            error_details = " | ".join(errors)
+            return {
+                'success': False,
+                'error': f'Alle KI-Services fehlgeschlagen: {error_details}'
+            }
+        else:
+            return {
+                'success': False,
+                'error': 'Keine API-Keys konfiguriert'
+            }
         
     except Exception as e:
         return {
             'success': False,
             'error': f'Fehler bei der KI-Generierung: {str(e)}'
         }
+
+
+def generate_demo_content(prompt):
+    """
+    Generiert Demo-Content für Nutzer ohne API-Keys
+    """
+    import random
+    
+    # Demo-Inhalt basierend auf häufigen Prompt-Typen
+    demo_templates = {
+        'hero': {
+            'html': '''<div class="hero-section text-center py-5 bg-primary text-white">
+                <div class="container">
+                    <h1 class="display-4 fw-bold mb-4">Willkommen bei unserem Service</h1>
+                    <p class="lead mb-4">Entdecken Sie die Zukunft mit unseren innovativen Lösungen</p>
+                    <button class="btn btn-light btn-lg">Jetzt starten</button>
+                </div>
+            </div>''',
+            'css': '''.hero-section {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 60vh;
+                display: flex;
+                align-items: center;
+            }'''
+        },
+        'feature': {
+            'html': '''<div class="features-section py-5">
+                <div class="container">
+                    <div class="row">
+                        <div class="col-md-4 text-center mb-4">
+                            <div class="feature-icon mb-3">
+                                <i class="fas fa-rocket fa-3x text-primary"></i>
+                            </div>
+                            <h4>Schnell</h4>
+                            <p class="text-muted">Blitzschnelle Performance für optimale Nutzererfahrung</p>
+                        </div>
+                        <div class="col-md-4 text-center mb-4">
+                            <div class="feature-icon mb-3">
+                                <i class="fas fa-shield-alt fa-3x text-success"></i>
+                            </div>
+                            <h4>Sicher</h4>
+                            <p class="text-muted">Höchste Sicherheitsstandards zum Schutz Ihrer Daten</p>
+                        </div>
+                        <div class="col-md-4 text-center mb-4">
+                            <div class="feature-icon mb-3">
+                                <i class="fas fa-heart fa-3x text-danger"></i>
+                            </div>
+                            <h4>Benutzerfreundlich</h4>
+                            <p class="text-muted">Intuitive Bedienung für alle Nutzergruppen</p>
+                        </div>
+                    </div>
+                </div>
+            </div>''',
+            'css': '''.feature-icon {
+                transition: transform 0.3s ease;
+            }
+            .feature-icon:hover {
+                transform: translateY(-10px);
+            }'''
+        },
+        'testimonial': {
+            'html': '''<div class="testimonial-section py-5 bg-light">
+                <div class="container">
+                    <div class="row justify-content-center">
+                        <div class="col-lg-8 text-center">
+                            <blockquote class="blockquote">
+                                <p class="fs-4 mb-4">"Ein fantastischer Service, der unser Business transformiert hat!"</p>
+                                <footer class="blockquote-footer">
+                                    <cite title="Source Title">Maria Schmidt, CEO</cite>
+                                </footer>
+                            </blockquote>
+                        </div>
+                    </div>
+                </div>
+            </div>''',
+            'css': '''.testimonial-section blockquote {
+                border-left: 4px solid #667eea;
+                padding-left: 1.5rem;
+            }'''
+        },
+        'default': {
+            'html': '''<div class="content-section py-4">
+                <div class="container">
+                    <div class="row">
+                        <div class="col-lg-8 mx-auto">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-body p-4">
+                                    <h3 class="card-title text-primary mb-3">Demo Content</h3>
+                                    <p class="card-text">Dies ist ein Demo-Inhalt, da kein API-Key konfiguriert ist. Fügen Sie einen OpenAI oder Anthropic API-Key in Ihren Einstellungen hinzu, um echte KI-Generierung zu nutzen.</p>
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        <strong>Hinweis:</strong> Mit einem API-Key können Sie beliebige Inhalte per KI generieren lassen.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>''',
+            'css': '''.content-section .card {
+                transition: transform 0.2s ease;
+            }
+            .content-section .card:hover {
+                transform: translateY(-2px);
+            }'''
+        }
+    }
+    
+    # Bestimme Template basierend auf Prompt-Keywords
+    template_type = 'default'
+    prompt_lower = prompt.lower()
+    
+    if any(word in prompt_lower for word in ['hero', 'header', 'titel', 'willkommen']):
+        template_type = 'hero'
+    elif any(word in prompt_lower for word in ['feature', 'eigenschaft', 'funktion', 'vorteil']):
+        template_type = 'feature'
+    elif any(word in prompt_lower for word in ['testimonial', 'bewertung', 'kundenstimme', 'referenz']):
+        template_type = 'testimonial'
+    
+    selected_template = demo_templates[template_type]
+    
+    return {
+        'success': True,
+        'html': selected_template['html'],
+        'css': selected_template['css'],
+        'description': f'Demo-Inhalt generiert (Typ: {template_type}). Für echte KI-Generierung fügen Sie einen API-Key hinzu.',
+        'is_demo': True
+    }
 
 
 def call_openai_api(api_key, system_prompt, user_prompt):
@@ -107,9 +245,10 @@ def call_openai_api(api_key, system_prompt, user_prompt):
                 # Fallback: Extract HTML and CSS from text response
                 return extract_html_css_from_text(content)
         else:
+            error_text = response.text if response.text else 'Keine Antwort erhalten'
             return {
                 'success': False,
-                'error': f'OpenAI API Fehler: {response.status_code}'
+                'error': f'HTTP {response.status_code}: {error_text}'
             }
             
     except Exception as e:
@@ -161,9 +300,10 @@ def call_anthropic_api(api_key, system_prompt, user_prompt):
                 # Fallback: Extract HTML and CSS from text response
                 return extract_html_css_from_text(content)
         else:
+            error_text = response.text if response.text else 'Keine Antwort erhalten'
             return {
                 'success': False,
-                'error': f'Anthropic API Fehler: {response.status_code}'
+                'error': f'HTTP {response.status_code}: {error_text}'
             }
             
     except Exception as e:

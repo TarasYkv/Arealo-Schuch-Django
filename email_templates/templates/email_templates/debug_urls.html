@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Debug - OAuth URLs{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="h3 mb-4">
+                <i class="fas fa-bug me-2"></i>
+                OAuth URL Debug Information
+            </h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Aktuelle URLs
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-4">Request Scheme:</dt>
+                        <dd class="col-sm-8"><code>{{ request.scheme }}</code></dd>
+                        
+                        <dt class="col-sm-4">Request Host:</dt>
+                        <dd class="col-sm-8"><code>{{ request.get_host }}</code></dd>
+                        
+                        <dt class="col-sm-4">Full URL:</dt>
+                        <dd class="col-sm-8"><code>{{ request.build_absolute_uri }}</code></dd>
+                        
+                        <dt class="col-sm-4">OAuth Callback:</dt>
+                        <dd class="col-sm-8"><code>{% url 'email_templates:oauth_callback' %}</code></dd>
+                        
+                        <dt class="col-sm-4">Kombiniert:</dt>
+                        <dd class="col-sm-8">
+                            <code>{{ request.scheme }}://{{ request.get_host }}{% url 'email_templates:oauth_callback' %}</code>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Für Zoho Console
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-3">Fügen Sie <strong>BEIDE</strong> URLs in die Zoho Developer Console ein:</p>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>1. 127.0.0.1 Version:</strong></label>
+                        <div class="input-group">
+                            <input type="text" class="form-control font-monospace" 
+                                   value="http://127.0.0.1:8000{% url 'email_templates:oauth_callback' %}" 
+                                   readonly id="url1">
+                            <button class="btn btn-outline-secondary" onclick="copyInput('url1')">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>2. localhost Version:</strong></label>
+                        <div class="input-group">
+                            <input type="text" class="form-control font-monospace" 
+                                   value="http://localhost:8000{% url 'email_templates:oauth_callback' %}" 
+                                   readonly id="url2">
+                            <button class="btn btn-outline-secondary" onclick="copyInput('url2')">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Tipp:</strong> Zoho unterscheidet zwischen <code>127.0.0.1</code> und <code>localhost</code>. 
+                        Fügen Sie beide URLs hinzu, um sicherzugehen.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clipboard-check me-2"></i>
+                        Zoho Console Setup-Checkliste
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>1. App erstellen:</h6>
+                            <ul class="small">
+                                <li>✅ "Add Client" klicken</li>
+                                <li>✅ "Server-based Applications" wählen</li>
+                                <li>✅ Client Name: "Email Templates App"</li>
+                                <li>✅ Homepage URL: <code>{{ request.scheme }}://{{ request.get_host }}</code></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>2. URLs konfigurieren:</h6>
+                            <ul class="small">
+                                <li>✅ Beide Redirect URIs hinzufügen</li>
+                                <li>✅ Scopes: <code>ZohoMail.messages.CREATE</code></li>
+                                <li>✅ Scopes: <code>ZohoMail.folders.READ</code></li>
+                                <li>✅ Client ID und Secret kopieren</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyInput(inputId) {
+    const input = document.getElementById(inputId);
+    input.select();
+    input.setSelectionRange(0, 99999); // For mobile devices
+    
+    try {
+        navigator.clipboard.writeText(input.value).then(function() {
+            showToast('URL erfolgreich kopiert!', 'success');
+        }).catch(function() {
+            // Fallback
+            document.execCommand('copy');
+            showToast('URL erfolgreich kopiert!', 'success');
+        });
+    } catch (err) {
+        console.error('Copy failed:', err);
+        showToast('Kopieren fehlgeschlagen!', 'error');
+    }
+}
+
+function showToast(message, type) {
+    const bgClass = type === 'success' ? 'bg-success' : 'bg-danger';
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white ${bgClass} border-0 position-fixed`;
+    toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999;';
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="fas fa-${type === 'success' ? 'check' : 'times'} me-2"></i>
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    const bsToast = new bootstrap.Toast(toast, { delay: 3000 });
+    bsToast.show();
+    
+    toast.addEventListener('hidden.bs.toast', function() {
+        document.body.removeChild(toast);
+    });
+}
+</script>
+{% endblock %}

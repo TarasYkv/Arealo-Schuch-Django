@@ -2,7 +2,7 @@ from functools import wraps
 from django.shortcuts import redirect
 from django.contrib import messages
 from django.http import HttpResponseForbidden
-from .models import AppPermission
+from .models import AppPermission, UserAppPermission
 
 
 def require_app_permission(app_name, redirect_to='accounts:dashboard'):
@@ -23,8 +23,8 @@ def require_app_permission(app_name, redirect_to='accounts:dashboard'):
                 messages.info(request, 'Bitte melden Sie sich an, um auf diese Funktion zuzugreifen.')
                 return redirect('accounts:login')
             
-            # Prüfe Zugriff über das AppPermission Model
-            has_access = AppPermission.user_has_access(app_name, user)
+            # Prüfe Zugriff mit Priorität auf individuelle Berechtigungen
+            has_access = UserAppPermission.get_user_app_access(app_name, user)
             
             if not has_access:
                 messages.error(request, f'Sie haben keinen Zugriff auf diese Funktion. Kontaktieren Sie einen Administrator.')
@@ -49,7 +49,7 @@ def check_app_permission(app_name, user=None, check_frontend_visibility=False):
     """
     if check_frontend_visibility:
         return AppPermission.user_can_see_in_frontend(app_name, user)
-    return AppPermission.user_has_access(app_name, user)
+    return UserAppPermission.get_user_app_access(app_name, user)
 
 
 class AppPermissionMixin:
@@ -75,8 +75,8 @@ class AppPermissionMixin:
             messages.info(request, 'Bitte melden Sie sich an, um auf diese Funktion zuzugreifen.')
             return redirect('accounts:login')
         
-        # Prüfe App-Berechtigung
-        has_access = AppPermission.user_has_access(self.app_name, user)
+        # Prüfe App-Berechtigung mit Priorität auf individuelle Berechtigungen
+        has_access = UserAppPermission.get_user_app_access(self.app_name, user)
         
         if not has_access:
             messages.error(request, f'Sie haben keinen Zugriff auf diese Funktion. Kontaktieren Sie einen Administrator.')
