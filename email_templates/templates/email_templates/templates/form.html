@@ -18,6 +18,39 @@
         border-radius: 0.375rem;
         min-height: 400px;
         background: #fff;
+        overflow-x: auto;
+        padding: 20px !important;
+    }
+    
+    /* Override email template max-width in preview */
+    .preview-frame > #preview-area {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    .preview-frame > #preview-area > div {
+        margin: 0 auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    /* Target email templates with inline max-width */
+    .preview-frame div[style*="max-width: 600px"],
+    .preview-frame div[style*="max-width:600px"],
+    .preview-frame div[style*="max-width"] {
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+    
+    /* Ensure tab content uses full width */
+    #preview-content {
+        width: 100%;
+    }
+    
+    /* Override any email template container styles */
+    #preview-area > div > div {
+        max-width: 100% !important;
+        width: 100% !important;
     }
     
     .variable-tag {
@@ -101,7 +134,7 @@
                         </div>
                         
                         <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="{{ form.template_type.id_for_label }}" class="form-label">
                                         {{ form.template_type.label }} <span class="text-danger">*</span>
@@ -115,7 +148,7 @@
                                 </div>
                             </div>
                             
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="{{ form.category.id_for_label }}" class="form-label">
                                         {{ form.category.label }}
@@ -126,6 +159,23 @@
                                             {{ form.category.errors.0 }}
                                         </div>
                                     {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="{{ form.trigger.id_for_label }}" class="form-label">
+                                        <i class="fas fa-bell me-1"></i>{{ form.trigger.label }}
+                                    </label>
+                                    {{ form.trigger }}
+                                    {% if form.trigger.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ form.trigger.errors.0 }}
+                                        </div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        Wählen Sie einen Trigger für automatischen Versand
+                                    </small>
                                 </div>
                             </div>
                         </div>
@@ -170,6 +220,156 @@
                             <small class="form-text text-muted d-block">
                                 Wenn aktiviert, wird die E-Mail in ein Standard-Layout eingebettet
                             </small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Content Generation -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-robot me-2"></i>
+                            KI-gestützte E-Mail-Generierung
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-magic me-2"></i>
+                            <strong>Beschreiben Sie Ihre E-Mail</strong> und lassen Sie die KI den Inhalt generieren!
+                        </div>
+                        
+                        <form id="ai-generation-form">
+                            <div class="row">
+                                <div class="col-md-12 mb-3">
+                                    <label for="ai-description" class="form-label">E-Mail-Beschreibung *</label>
+                                    <textarea id="ai-description" class="form-control" rows="3" 
+                                              placeholder="Beschreiben Sie, was die E-Mail enthalten soll. Z.B.: 'Eine Willkommens-E-Mail für neue Kunden mit Informationen über unser Unternehmen und einen Gutscheincode für den ersten Einkauf.'"
+                                              required></textarea>
+                                    <small class="form-text text-muted">
+                                        Je detaillierter die Beschreibung, desto besser das Ergebnis.
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="ai-email-type" class="form-label">E-Mail-Typ</label>
+                                    <select id="ai-email-type" class="form-select">
+                                        <option value="welcome">Willkommens-E-Mail</option>
+                                        <option value="notification">Benachrichtigung</option>
+                                        <option value="marketing">Marketing</option>
+                                        <option value="transactional">Transaktions-E-Mail</option>
+                                        <option value="reminder">Erinnerung</option>
+                                        <option value="newsletter">Newsletter</option>
+                                        <option value="confirmation">Bestätigung</option>
+                                        <option value="invitation">Einladung</option>
+                                        <option value="feedback">Feedback</option>
+                                        <option value="support">Support</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="col-md-4 mb-3">
+                                    <label for="ai-tone" class="form-label">Tonfall</label>
+                                    <select id="ai-tone" class="form-select">
+                                        <option value="professional">Professionell</option>
+                                        <option value="friendly">Freundlich</option>
+                                        <option value="formal">Formal</option>
+                                        <option value="casual">Locker</option>
+                                        <option value="enthusiastic">Begeistert</option>
+                                        <option value="empathetic">Einfühlsam</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="col-md-4 mb-3">
+                                    <label for="ai-model" class="form-label">KI-Modell</label>
+                                    <select id="ai-model" class="form-select">
+                                        {% for model_key, model_info in available_ai_models.items %}
+                                            <option value="{{ model_key }}" 
+                                                    {% if model_key == default_ai_model %}selected{% endif %}
+                                                    data-cost="{{ model_info.cost }}" 
+                                                    data-speed="{{ model_info.speed }}"
+                                                    data-provider="{{ model_info.provider }}">
+                                                {{ model_info.name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="mt-2 p-2 bg-light rounded" id="model-info">
+                                        <small class="text-muted d-flex align-items-center">
+                                            <i class="fas fa-info-circle me-2"></i>
+                                            <span id="model-cost"></span> • <span id="model-speed"></span>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-12 mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="ai-include-variables" checked>
+                                        <label class="form-check-label" for="ai-include-variables">
+                                            Template-Variablen einschließen
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center">
+                                <button type="button" id="generate-ai-content" class="btn btn-success">
+                                    <i class="fas fa-magic me-2"></i>
+                                    <span id="generate-btn-text">E-Mail generieren</span>
+                                    <span id="generate-spinner" class="spinner-border spinner-border-sm ms-2 d-none"></span>
+                                </button>
+                                
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Die Generierung kann 10-30 Sekunden dauern
+                                </small>
+                            </div>
+                        </form>
+                        
+                        <!-- AI Generation Result -->
+                        <div id="ai-result" class="mt-4 d-none">
+                            <div class="alert alert-success">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fas fa-check-circle me-2 text-success"></i>
+                                    <strong>E-Mail erfolgreich generiert!</strong>
+                                </div>
+                                <p class="mb-2">Die Inhalte wurden automatisch in die Formularfelder übernommen.</p>
+                                <div class="d-flex align-items-center mt-3 p-2 bg-light rounded">
+                                    <i class="fas fa-robot me-2 text-primary"></i>
+                                    <div>
+                                        <small class="text-muted d-block">Generiert mit:</small>
+                                        <strong id="used-ai-model" class="text-primary"></strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" id="apply-ai-content" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-download me-1"></i>Inhalte übernehmen
+                                </button>
+                                <button type="button" id="regenerate-content" class="btn btn-outline-secondary btn-sm">
+                                    <i class="fas fa-redo me-1"></i>Neu generieren
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- AI Error -->
+                        <div id="ai-error" class="mt-4 d-none">
+                            <div class="alert alert-warning">
+                                <div class="d-flex align-items-center mb-2">
+                                    <i class="fas fa-exclamation-triangle me-2 text-warning"></i>
+                                    <strong>KI-Generierung fehlgeschlagen</strong>
+                                </div>
+                                <p class="mb-2" id="ai-error-message"></p>
+                                <div class="d-flex align-items-center mt-3 p-2 bg-light rounded">
+                                    <i class="fas fa-info-circle me-2 text-info"></i>
+                                    <small class="text-muted">
+                                        Tipp: Überprüfen Sie Ihre API-Schlüssel unter 
+                                        <a href="/accounts/neue-api-einstellungen/" target="_blank">Account-Einstellungen</a>
+                                        oder verwenden Sie das Template-System.
+                                    </small>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -273,9 +473,15 @@
                                         </p>
                                     </div>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-secondary mt-2" onclick="updatePreview()">
-                                    <i class="fas fa-sync me-2"></i>Vorschau aktualisieren
-                                </button>
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <button type="button" class="btn btn-sm btn-secondary" onclick="updatePreview()">
+                                        <i class="fas fa-sync me-2"></i>Vorschau aktualisieren
+                                    </button>
+                                    <div id="generation-info" class="text-muted small d-none">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        <span id="generation-source-text"></span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -366,6 +572,305 @@
 </div>
 
 <script>
+// AI Content Generation
+let generatedContent = null;
+let generationInfo = null;
+
+document.getElementById('generate-ai-content').addEventListener('click', function() {
+    generateAIContent();
+});
+
+document.getElementById('regenerate-content').addEventListener('click', function() {
+    generateAIContent();
+});
+
+document.getElementById('apply-ai-content').addEventListener('click', function() {
+    if (generatedContent) {
+        applyGeneratedContent(generatedContent);
+    }
+});
+
+function generateAIContent() {
+    const description = document.getElementById('ai-description').value.trim();
+    if (!description) {
+        alert('Bitte geben Sie eine E-Mail-Beschreibung ein.');
+        return;
+    }
+    
+    const generateBtn = document.getElementById('generate-ai-content');
+    const generateText = document.getElementById('generate-btn-text');
+    const generateSpinner = document.getElementById('generate-spinner');
+    const resultDiv = document.getElementById('ai-result');
+    const errorDiv = document.getElementById('ai-error');
+    
+    // Show loading state
+    generateBtn.disabled = true;
+    generateText.textContent = 'Generiere...';
+    generateSpinner.classList.remove('d-none');
+    resultDiv.classList.add('d-none');
+    errorDiv.classList.add('d-none');
+    
+    // Collect form data
+    const data = {
+        description: description,
+        email_type: document.getElementById('ai-email-type').value,
+        tone: document.getElementById('ai-tone').value,
+        include_variables: document.getElementById('ai-include-variables').checked,
+        model: document.getElementById('ai-model').value
+    };
+    
+    // Make API call
+    fetch('{% url "email_templates:generate_ai_content" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        // Reset button state
+        generateBtn.disabled = false;
+        generateText.textContent = 'E-Mail generieren';
+        generateSpinner.classList.add('d-none');
+        
+        if (result.success) {
+            generatedContent = result.content;
+            
+            // Store generation info for display next to preview button
+            generationInfo = {
+                model_info: result.model_info,
+                model_used: result.model_used,
+                is_fallback: result.is_fallback,
+                fallback_reason: result.fallback_reason
+            };
+            
+            resultDiv.classList.remove('d-none');
+            
+            // Display which model was used
+            const usedModelSpan = document.getElementById('used-ai-model');
+            if (usedModelSpan) {
+                let modelText = '';
+                let modelClass = 'text-primary';
+                
+                if (result.model_info && result.model_info.name) {
+                    modelText = result.model_info.name;
+                    
+                    // Add provider badge
+                    const provider = result.model_info.provider;
+                    let providerBadge = '';
+                    if (provider === 'openai') {
+                        providerBadge = ' <span class="badge bg-success ms-1">OpenAI</span>';
+                    } else if (provider === 'anthropic') {
+                        providerBadge = ' <span class="badge bg-primary ms-1">Anthropic</span>';
+                    } else if (provider === 'google') {
+                        providerBadge = ' <span class="badge bg-warning ms-1">Google</span>';
+                    } else if (provider === 'fallback') {
+                        providerBadge = ' <span class="badge bg-secondary ms-1">Template</span>';
+                        modelClass = 'text-secondary';
+                    }
+                    
+                    modelText += providerBadge;
+                } else {
+                    modelText = result.model_used || 'Unbekannt';
+                }
+                
+                // Add fallback information if applicable
+                if (result.is_fallback || result.fallback_reason) {
+                    modelClass = 'text-warning';
+                    if (result.fallback_reason) {
+                        modelText += '<br><small class="text-muted">Grund: ' + result.fallback_reason + '</small>';
+                    } else {
+                        modelText += '<br><small class="text-muted">Template-basierte Generierung</small>';
+                    }
+                }
+                
+                usedModelSpan.className = modelClass;
+                usedModelSpan.innerHTML = modelText;
+            }
+            
+            // Auto-apply content
+            applyGeneratedContent(generatedContent);
+        } else {
+            document.getElementById('ai-error-message').textContent = result.error || 'Unbekannter Fehler bei der Generierung.';
+            errorDiv.classList.remove('d-none');
+        }
+    })
+    .catch(error => {
+        console.error('AI Generation Error:', error);
+        
+        // Reset button state
+        generateBtn.disabled = false;
+        generateText.textContent = 'E-Mail generieren';
+        generateSpinner.classList.add('d-none');
+        
+        document.getElementById('ai-error-message').textContent = 'Netzwerkfehler: ' + error.message;
+        errorDiv.classList.remove('d-none');
+    });
+}
+
+function findField(selectors) {
+    for (const selector of selectors) {
+        let element = null;
+        try {
+            if (selector.startsWith('[') || selector.startsWith('#') || selector.startsWith('.')) {
+                element = document.querySelector(selector);
+            } else {
+                element = document.getElementById(selector);
+            }
+            if (element) {
+                return element;
+            }
+        } catch (e) {
+            console.log('Selector failed:', selector, e);
+        }
+    }
+    return null;
+}
+
+function applyGeneratedContent(content) {
+    console.log('Applying generated content:', content);
+    
+    // Debug: List all form fields
+    console.log('Available form fields:');
+    const allInputs = document.querySelectorAll('input, textarea, select');
+    allInputs.forEach(input => {
+        console.log(`- ${input.tagName} id="${input.id}" name="${input.name}" type="${input.type}"`);
+    });
+    
+    // Try multiple methods to find and set form fields
+    const fieldSelectors = {
+        subject: ['id_subject', '[name="subject"]', 'input[name="subject"]'],
+        html_content: ['id_html_content', '[name="html_content"]', 'textarea[name="html_content"]'],
+        text_content: ['id_text_content', '[name="text_content"]', 'textarea[name="text_content"]'],
+        available_variables: ['id_available_variables', '[name="available_variables"]', 'textarea[name="available_variables"]']
+    };
+    
+    // Apply subject
+    if (content.subject) {
+        const subjectField = findField(fieldSelectors.subject);
+        console.log('Subject field found:', subjectField);
+        if (subjectField) {
+            subjectField.value = content.subject;
+            console.log('Subject applied:', content.subject);
+        }
+    }
+    
+    // Apply HTML content
+    if (content.html_content) {
+        const htmlField = findField(fieldSelectors.html_content);
+        console.log('HTML field found:', htmlField);
+        if (htmlField) {
+            htmlField.value = content.html_content;
+            console.log('HTML content applied (first 100 chars):', content.html_content.substring(0, 100));
+        }
+    }
+    
+    // Apply text content
+    if (content.text_content) {
+        const textField = findField(fieldSelectors.text_content);
+        console.log('Text field found:', textField);
+        if (textField) {
+            textField.value = content.text_content;
+            console.log('Text content applied (first 100 chars):', content.text_content.substring(0, 100));
+        }
+    }
+    
+    // Apply suggested variables
+    if (content.suggested_variables && Object.keys(content.suggested_variables).length > 0) {
+        const variablesField = findField(fieldSelectors.available_variables);
+        console.log('Variables field found:', variablesField);
+        if (variablesField) {
+            try {
+                const currentVariables = variablesField.value ? JSON.parse(variablesField.value || '{}') : {};
+                const mergedVariables = { ...currentVariables, ...content.suggested_variables };
+                variablesField.value = JSON.stringify(mergedVariables, null, 2);
+                console.log('Variables applied:', mergedVariables);
+            } catch (e) {
+                console.error('Error applying variables:', e);
+                variablesField.value = JSON.stringify(content.suggested_variables, null, 2);
+            }
+        }
+    }
+    
+    // Show success message
+    const successAlert = document.createElement('div');
+    successAlert.className = 'alert alert-success alert-dismissible fade show mt-3';
+    successAlert.innerHTML = `
+        <i class="fas fa-check me-2"></i>
+        KI-generierte Inhalte wurden erfolgreich übernommen!
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const emailContentCard = document.querySelector('.card:has(#id_subject)');
+    if (emailContentCard) {
+        emailContentCard.insertBefore(successAlert, emailContentCard.firstChild);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (successAlert.parentNode) {
+                successAlert.remove();
+            }
+        }, 5000);
+    }
+    
+    // Update generation info display
+    updateGenerationInfoDisplay();
+    
+    // Update preview if available and if preview tab is active
+    if (typeof updatePreview === 'function') {
+        // Check if preview tab is currently active
+        const previewTab = document.querySelector('#preview-tab');
+        if (previewTab && previewTab.classList.contains('active')) {
+            updatePreview();
+        }
+    }
+}
+
+function updateGenerationInfoDisplay() {
+    const generationInfoDiv = document.getElementById('generation-info');
+    const generationSourceText = document.getElementById('generation-source-text');
+    
+    if (!generationInfoDiv || !generationSourceText) return;
+    
+    if (generationInfo) {
+        let sourceText = 'Inhalt generiert mit: ';
+        
+        if (generationInfo.model_info && generationInfo.model_info.name) {
+            sourceText += generationInfo.model_info.name;
+            
+            // Add provider info
+            const provider = generationInfo.model_info.provider;
+            if (provider === 'openai') {
+                sourceText += ' (OpenAI)';
+            } else if (provider === 'anthropic') {
+                sourceText += ' (Anthropic)';
+            } else if (provider === 'google') {
+                sourceText += ' (Google)';
+            } else if (provider === 'fallback') {
+                sourceText = 'Inhalt generiert mit: Template-System';
+            }
+        } else if (generationInfo.model_used) {
+            sourceText += generationInfo.model_used;
+        } else {
+            sourceText += 'Unbekannt';
+        }
+        
+        // Add fallback information if applicable
+        if (generationInfo.is_fallback && generationInfo.fallback_reason) {
+            sourceText += ' (Fallback: ' + generationInfo.fallback_reason + ')';
+        } else if (generationInfo.is_fallback) {
+            sourceText += ' (Fallback verwendet)';
+        }
+        
+        generationSourceText.textContent = sourceText;
+        generationInfoDiv.classList.remove('d-none');
+    } else {
+        generationInfoDiv.classList.add('d-none');
+    }
+}
+
 function copyVariable(varName) {
     const variable = '{{ ' + varName + ' }}';
     navigator.clipboard.writeText(variable).then(function() {
@@ -385,50 +890,68 @@ function copyVariable(varName) {
 }
 
 function updatePreview() {
-    const subject = document.getElementById('{{ form.subject.id_for_label }}').value;
-    const htmlContent = document.getElementById('{{ form.html_content.id_for_label }}').value;
-    const customCSS = document.getElementById('{{ form.custom_css.id_for_label }}').value;
+    const subject = document.getElementById('id_subject').value;
+    const htmlContent = document.getElementById('id_html_content').value;
+    const customCSS = document.getElementById('id_custom_css').value;
     
     const previewArea = document.getElementById('preview-area');
     
     // Create preview HTML
-    let previewHTML = '<div style="border: 1px solid #ddd; padding: 20px; background: #f8f9fa;">';
+    let previewHTML = '<div style="border: 1px solid #ddd; padding: 20px; background: #f8f9fa; width: 100%;">';
     previewHTML += '<h4 style="margin-bottom: 20px;">Betreff: ' + (subject || '[Kein Betreff]') + '</h4>';
     previewHTML += '</div>';
-    previewHTML += '<div style="padding: 20px;">';
+    previewHTML += '<div style="padding: 20px; width: 100%;">';
     
     if (customCSS) {
         previewHTML += '<style>' + customCSS + '</style>';
     }
     
+    // Add style override for preview
+    previewHTML += '<style>';
+    previewHTML += '.preview-frame div[style*="max-width: 600px"] { max-width: 100% !important; width: 100% !important; }';
+    previewHTML += '.preview-frame div[style*="max-width:600px"] { max-width: 100% !important; width: 100% !important; }';
+    previewHTML += '</style>';
+    
     previewHTML += htmlContent || '<p class="text-muted">Kein HTML-Inhalt vorhanden</p>';
     previewHTML += '</div>';
     
     previewArea.innerHTML = previewHTML;
+    
+    // Force override max-width on all divs with inline styles after rendering
+    setTimeout(() => {
+        const emailContainers = previewArea.querySelectorAll('div[style*="max-width"]');
+        emailContainers.forEach(container => {
+            if (container.style.maxWidth === '600px') {
+                container.style.maxWidth = '100%';
+                container.style.width = '100%';
+            }
+        });
+    }, 10);
 }
 
 // Handle form submission to check required fields in hidden tabs
-$('#template-form').on('submit', function(e) {
+document.getElementById('template-form').addEventListener('submit', function(e) {
     let isValid = true;
     let firstInvalidTab = null;
     
     // Check all required fields
-    $(this).find('[required]').each(function() {
-        if (!this.value) {
+    const requiredFields = this.querySelectorAll('[required]');
+    requiredFields.forEach(function(field) {
+        if (!field.value) {
             isValid = false;
             
             // Find which tab contains this field
-            const tabPane = $(this).closest('.tab-pane');
-            if (tabPane.length && !tabPane.hasClass('active')) {
+            const tabPane = field.closest('.tab-pane');
+            if (tabPane && !tabPane.classList.contains('active')) {
                 if (!firstInvalidTab) {
-                    firstInvalidTab = tabPane.attr('id');
+                    firstInvalidTab = tabPane.id;
                 }
             }
             
             // Add Bootstrap validation classes
-            $(this).addClass('is-invalid');
+            field.classList.add('is-invalid');
         } else {
-            $(this).removeClass('is-invalid');
+            field.classList.remove('is-invalid');
         }
     });
     
@@ -437,9 +960,10 @@ $('#template-form').on('submit', function(e) {
         
         // Switch to the tab with the first invalid field
         if (firstInvalidTab) {
-            const tabTrigger = $(`[data-bs-target="#${firstInvalidTab}"]`);
-            if (tabTrigger.length) {
-                tabTrigger.tab('show');
+            const tabTrigger = document.querySelector(`[data-bs-target="#${firstInvalidTab}"]`);
+            if (tabTrigger) {
+                const tab = new bootstrap.Tab(tabTrigger);
+                tab.show();
             }
         }
         
@@ -449,46 +973,102 @@ $('#template-form').on('submit', function(e) {
     }
 });
 
+// Update model info when selection changes
+document.getElementById('ai-model').addEventListener('change', function() {
+    updateModelInfo();
+});
+
+function updateModelInfo() {
+    const select = document.getElementById('ai-model');
+    if (!select) return;
+    
+    const selectedOption = select.options[select.selectedIndex];
+    const modelInfoDiv = document.getElementById('model-info');
+    
+    if (selectedOption && modelInfoDiv) {
+        const cost = selectedOption.getAttribute('data-cost');
+        const speed = selectedOption.getAttribute('data-speed');
+        const provider = selectedOption.getAttribute('data-provider');
+        
+        // Add provider badge
+        const providerBadge = provider === 'openai' ? 
+            '<span class="badge bg-success ms-1">OpenAI</span>' :
+            provider === 'anthropic' ?
+            '<span class="badge bg-primary ms-1">Anthropic</span>' :
+            provider === 'google' ?
+            '<span class="badge bg-warning ms-1">Google</span>' :
+            provider === 'fallback' ?
+            '<span class="badge bg-secondary ms-1">Template</span>' : '';
+        
+        modelInfoDiv.innerHTML = `
+            <small class="text-muted d-flex align-items-center">
+                <i class="fas fa-info-circle me-2"></i>
+                <span id="model-cost">Kosten: ${cost}</span> • <span id="model-speed">Geschwindigkeit: ${speed}</span>
+                ${providerBadge}
+            </small>
+        `;
+    }
+}
+
 // Initialize form enhancements
-$(document).ready(function() {
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize model info display
+    if (typeof updateModelInfo === 'function') {
+        updateModelInfo();
+    }
     // Initialize CodeMirror for better code editing (if available)
     if (typeof CodeMirror !== 'undefined') {
-        const htmlEditor = CodeMirror.fromTextArea(document.getElementById('{{ form.html_content.id_for_label }}'), {
-            mode: 'htmlmixed',
-            lineNumbers: true,
-            theme: 'default',
-            lineWrapping: true
-        });
+        const htmlField = document.getElementById('id_html_content');
+        const cssField = document.getElementById('id_custom_css');
         
-        const cssEditor = CodeMirror.fromTextArea(document.getElementById('{{ form.custom_css.id_for_label }}'), {
-            mode: 'css',
-            lineNumbers: true,
-            theme: 'default',
-            lineWrapping: true
-        });
+        if (htmlField) {
+            const htmlEditor = CodeMirror.fromTextArea(htmlField, {
+                mode: 'htmlmixed',
+                lineNumbers: true,
+                theme: 'default',
+                lineWrapping: true
+            });
+            
+            // Update preview when editors change
+            htmlEditor.on('change', function() {
+                htmlField.value = htmlEditor.getValue();
+            });
+        }
         
-        // Update preview when editors change
-        htmlEditor.on('change', function() {
-            document.getElementById('{{ form.html_content.id_for_label }}').value = htmlEditor.getValue();
-        });
-        
-        cssEditor.on('change', function() {
-            document.getElementById('{{ form.custom_css.id_for_label }}').value = cssEditor.getValue();
-        });
+        if (cssField) {
+            const cssEditor = CodeMirror.fromTextArea(cssField, {
+                mode: 'css',
+                lineNumbers: true,
+                theme: 'default',
+                lineWrapping: true
+            });
+            
+            cssEditor.on('change', function() {
+                cssField.value = cssEditor.getValue();
+            });
+        }
     }
     
     // Auto-format JSON in available variables field
-    $('#{{ form.available_variables.id_for_label }}').on('blur', function() {
-        const value = $(this).val();
-        if (value) {
-            try {
-                const json = JSON.parse(value);
-                $(this).val(JSON.stringify(json, null, 2));
-            } catch (e) {
-                // Invalid JSON, leave as is
+    const variablesField = document.getElementById('id_available_variables');
+    if (variablesField) {
+        variablesField.addEventListener('blur', function() {
+            const value = this.value;
+            if (value) {
+                try {
+                    const json = JSON.parse(value);
+                    this.value = JSON.stringify(json, null, 2);
+                } catch (e) {
+                    // Invalid JSON, leave as is
+                }
             }
-        }
-    });
+        });
+    }
+    
+    // Initialize model info display (fallback if not already called)
+    if (typeof updateModelInfo === 'function') {
+        updateModelInfo();
+    }
 });
 </script>
 {% endblock %}

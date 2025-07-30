@@ -141,16 +141,98 @@ class EmailTemplate(models.Model):
     Email templates that can be designed by superusers
     """
     TEMPLATE_TYPE_CHOICES = [
+        # Authentication & User Management
+        ('user_registration', 'Benutzer-Registrierung'),
+        ('account_activation', 'Account-Aktivierung'),
+        ('welcome', 'Willkommens-E-Mail'),
+        ('password_reset', 'Passwort zurücksetzen'),
+        ('password_changed', 'Passwort geändert'),
+        ('login_notification', 'Login-Benachrichtigung'),
+        
+        # Storage & Resource Management
+        ('storage_warning', 'Speicherplatz-Warnung'),
+        ('storage_grace_period_start', 'Speicher-Kulanzzeit gestartet'),
+        ('storage_grace_period_warning', 'Speicher-Kulanzzeit Warnung'),
+        ('storage_grace_period_end', 'Speicher-Kulanzzeit beendet'),
+        ('videos_archived', 'Videos archiviert'),
+        ('files_archived', 'Dateien archiviert'),
+        ('backup_notification', 'Backup-Benachrichtigung'),
+        
+        # Payment & Subscription
+        ('subscription_created', 'Abonnement erstellt'),
+        ('subscription_renewed', 'Abonnement verlängert'),
+        ('subscription_cancelled', 'Abonnement gekündigt'),
+        ('subscription_expired', 'Abonnement abgelaufen'),
+        ('payment_successful', 'Zahlung erfolgreich'),
+        ('payment_failed', 'Zahlung fehlgeschlagen'),
+        ('invoice', 'Rechnung'),
+        ('payment_reminder', 'Zahlungserinnerung'),
+        ('trial_ending', 'Testphase endet bald'),
+        ('trial_expired', 'Testphase abgelaufen'),
+        
+        # E-Commerce & Orders
         ('order_confirmation', 'Bestellbestätigung'),
         ('order_shipped', 'Versandbestätigung'),
         ('order_delivered', 'Lieferbestätigung'),
         ('order_cancelled', 'Stornierungsbestätigung'),
-        ('invoice', 'Rechnung'),
-        ('reminder', 'Erinnerung'),
+        ('cart_abandoned', 'Warenkorb verlassen'),
+        ('product_review_request', 'Produktbewertung anfragen'),
+        ('return_request', 'Rücksendung-Anfrage'),
+        ('refund_processed', 'Erstattung verarbeitet'),
+        
+        # Communication & Support
+        ('support_ticket_created', 'Support-Ticket erstellt'),
+        ('support_ticket_updated', 'Support-Ticket aktualisiert'),
+        ('support_ticket_resolved', 'Support-Ticket gelöst'),
+        ('feedback_request', 'Feedback-Anfrage'),
+        ('survey_invitation', 'Umfrage-Einladung'),
+        ('bug_report_submitted', 'Bug-Report eingereicht'),
+        ('bug_report_response', 'Bug-Report Antwort'),
+        
+        # System & Maintenance
+        ('maintenance_notification', 'Wartungsankündigung'),
+        ('system_update', 'System-Update'),
+        ('security_alert', 'Sicherheitswarnung'),
+        ('feature_announcement', 'Feature-Ankündigung'),
+        ('service_disruption', 'Service-Unterbrechung'),
+        ('data_breach_notification', 'Datenschutzverletzung'),
+        
+        # Organization & Tasks
+        ('event_invitation', 'Event-Einladung'),
+        ('event_reminder', 'Terminerinnerung'),
+        ('event_cancelled', 'Termin abgesagt'),
+        ('event_rescheduled', 'Termin verschoben'),
+        ('task_assigned', 'Aufgabe zugewiesen'),
+        ('task_reminder', 'Aufgaben-Erinnerung'),
+        ('task_completed', 'Aufgabe abgeschlossen'),
+        ('task_overdue', 'Aufgabe überfällig'),
+        ('deadline_reminder', 'Deadline-Erinnerung'),
+        
+        # Marketing & Engagement
         ('newsletter', 'Newsletter'),
-        ('welcome', 'Willkommens-E-Mail'),
-        ('password_reset', 'Passwort zurücksetzen'),
-        ('account_activation', 'Account-Aktivierung'),
+        ('marketing_campaign', 'Marketing-Kampagne'),
+        ('promotional_offer', 'Werbe-Angebot'),
+        ('announcement', 'Ankündigung'),
+        ('seasonal_greeting', 'Saisonale Grüße'),
+        ('birthday_wish', 'Geburtstagsgruß'),
+        ('anniversary', 'Jubiläum'),
+        ('loyalty_reward', 'Treuebonus'),
+        ('referral_invitation', 'Empfehlungs-Einladung'),
+        
+        # User Activity & Engagement
+        ('activity_summary', 'Aktivitäts-Zusammenfassung'),
+        ('achievement_unlocked', 'Erfolg freigeschaltet'),
+        ('milestone_reached', 'Meilenstein erreicht'),
+        ('inactivity_reminder', 'Inaktivitäts-Erinnerung'),
+        ('re_engagement', 'Wiederbindungs-Kampagne'),
+        
+        # Generic Types
+        ('notification', 'Allgemeine Benachrichtigung'),
+        ('transactional', 'Transaktions-E-Mail'),
+        ('reminder', 'Erinnerung'),
+        ('confirmation', 'Bestätigung'),
+        ('alert', 'Warnung'),
+        ('info', 'Information'),
         ('custom', 'Benutzerdefiniert'),
     ]
     

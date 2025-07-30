@@ -1,60 +1,154 @@
-{% extends 'base.html' %}
-{% load static %}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ template.name }} - E-Mail-Vorlage - Workloom</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        
+        .navbar {
+            background-color: #343a40 !important;
+            padding: 0.5rem 1rem;
+        }
+        
+        .navbar-brand {
+            color: #fff !important;
+            font-weight: bold;
+        }
+        
+        .main-content {
+            padding: 2rem;
+            max-width: none;
+            width: 100%;
+        }
+        
+        .preview-frame {
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            min-height: 400px;
+            background: #fff;
+            padding: 20px;
+            width: 100%;
+            overflow-x: auto;
+        }
+        
+        .code-block {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            overflow-x: auto;
+            width: 100%;
+        }
+        
+        .variable-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            margin: 0.125rem;
+            background-color: #e9ecef;
+            border-radius: 0.25rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+        
+        .log-entry {
+            border-bottom: 1px solid #dee2e6;
+            padding: 0.75rem 0;
+        }
+        
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        
+        .card {
+            margin-bottom: 1.5rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
+        
+        .btn-group .btn {
+            white-space: nowrap;
+        }
+        
+        /* Make sure content uses full width */
+        .container-fluid {
+            padding-left: 0;
+            padding-right: 0;
+        }
+        
+        .row {
+            margin-left: 0;
+            margin-right: 0;
+        }
+        
+        .col-lg-8, .col-lg-4 {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+        
+        /* Responsive improvements */
+        @media (max-width: 768px) {
+            .btn-group {
+                flex-direction: column;
+                width: 100%;
+            }
+            
+            .btn-group .btn {
+                margin-bottom: 0.5rem;
+            }
+            
+            .d-flex.justify-content-between {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .main-content {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Simple Navigation -->
+    <nav class="navbar navbar-dark">
+        <a class="navbar-brand" href="{% url 'email_templates:dashboard' %}">
+            <i class="fas fa-envelope me-2"></i>
+            Workloom E-Mail Templates
+        </a>
+        <div class="navbar-nav ms-auto">
+            <a class="nav-link text-white" href="{% url 'email_templates:template_list' %}">
+                <i class="fas fa-arrow-left me-1"></i>Zurück zur Liste
+            </a>
+        </div>
+    </nav>
 
-{% block title %}{{ template.name }} - E-Mail-Vorlage{% endblock %}
-
-{% block extra_css %}
-<style>
-    .preview-frame {
-        border: 1px solid #dee2e6;
-        border-radius: 0.375rem;
-        min-height: 400px;
-        background: #fff;
-        padding: 20px;
-    }
-    
-    .code-block {
-        background-color: #f8f9fa;
-        border: 1px solid #dee2e6;
-        border-radius: 0.375rem;
-        padding: 1rem;
-        font-family: 'Courier New', monospace;
-        font-size: 0.875rem;
-        overflow-x: auto;
-    }
-    
-    .variable-badge {
-        display: inline-block;
-        padding: 0.25rem 0.5rem;
-        margin: 0.125rem;
-        background-color: #e9ecef;
-        border-radius: 0.25rem;
-        font-family: monospace;
-        font-size: 0.875rem;
-    }
-    
-    .log-entry {
-        border-bottom: 1px solid #dee2e6;
-        padding: 0.75rem 0;
-    }
-    
-    .log-entry:last-child {
-        border-bottom: none;
-    }
-</style>
-{% endblock %}
-
-{% block content %}
-<div class="container-fluid mt-4">
-    <div class="row">
-        <div class="col-12">
+    <div class="main-content">
+        <div class="container-fluid">
+            <!-- Header -->
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <div>
-                    <h1 class="h3">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'email_templates:dashboard' %}">Dashboard</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'email_templates:template_list' %}">Templates</a></li>
+                            <li class="breadcrumb-item active">{{ template.name }}</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-0">
                         <i class="fas fa-file-alt me-2"></i>
                         {{ template.name }}
                     </h1>
-                    <p class="text-muted mb-0">
+                    <p class="text-muted mb-0 mt-2">
                         <span class="badge bg-secondary">{{ template.get_template_type_display }}</span>
                         {% if template.category %}
                             <span class="badge bg-info">{{ template.category.name }}</span>
@@ -65,9 +159,14 @@
                         {% if not template.is_active %}
                             <span class="badge bg-danger">Inaktiv</span>
                         {% endif %}
+                        {% if template.trigger %}
+                            <span class="badge bg-success">
+                                <i class="fas fa-bolt me-1"></i>{{ template.trigger.name }}
+                            </span>
+                        {% endif %}
                     </p>
                 </div>
-                <div>
+                <div class="btn-group" role="group">
                     <a href="{% url 'email_templates:template_edit' template.pk %}" class="btn btn-primary">
                         <i class="fas fa-edit me-2"></i>Bearbeiten
                     </a>
@@ -77,303 +176,334 @@
                     <a href="{% url 'email_templates:send_test_email' %}?template={{ template.pk }}" class="btn btn-info">
                         <i class="fas fa-paper-plane me-2"></i>Test senden
                     </a>
-                    <a href="{% url 'email_templates:template_list' %}" class="btn btn-outline-secondary">
-                        <i class="fas fa-arrow-left me-2"></i>Zurück
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Left Column: Template Details -->
+                <div class="col-lg-8">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Details
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <dl class="row">
+                                <dt class="col-sm-3">Name:</dt>
+                                <dd class="col-sm-9">{{ template.name }}</dd>
+                                
+                                {% if template.slug %}
+                                <dt class="col-sm-3">Slug:</dt>
+                                <dd class="col-sm-9"><code>{{ template.slug }}</code></dd>
+                                {% endif %}
+                                
+                                {% if template.description %}
+                                <dt class="col-sm-3">Beschreibung:</dt>
+                                <dd class="col-sm-9">{{ template.description }}</dd>
+                                {% endif %}
+                                
+                                <dt class="col-sm-3">Betreff:</dt>
+                                <dd class="col-sm-9"><strong>{{ template.subject }}</strong></dd>
+                                
+                                <dt class="col-sm-3">Basis-Template:</dt>
+                                <dd class="col-sm-9">
+                                    {% if template.use_base_template %}
+                                        <span class="text-success"><i class="fas fa-check"></i> Verwendet Basis-Template</span>
+                                    {% else %}
+                                        <span class="text-muted"><i class="fas fa-times"></i> Kein Basis-Template</span>
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-3">Erstellt:</dt>
+                                <dd class="col-sm-9">
+                                    {{ template.created_at|date:"d.m.Y H:i" }}
+                                    {% if template.created_by %}
+                                        von {{ template.created_by.get_full_name|default:template.created_by.username }}
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-3">Zuletzt geändert:</dt>
+                                <dd class="col-sm-9">
+                                    {{ template.updated_at|date:"d.m.Y H:i" }}
+                                    {% if template.last_modified_by %}
+                                        von {{ template.last_modified_by.get_full_name|default:template.last_modified_by.username }}
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-3">Verwendungen:</dt>
+                                <dd class="col-sm-9">
+                                    <span class="badge bg-primary">{{ template.usage_count }} mal</span>
+                                    {% if template.last_used_at %}
+                                        <small class="text-muted">
+                                            (zuletzt {{ template.last_used_at|timesince }} ago)
+                                        </small>
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                                <li class="nav-item">
+                                    <a class="nav-link active" data-bs-toggle="tab" href="#preview-tab" role="tab">
+                                        <i class="fas fa-eye me-2"></i>Vorschau
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" data-bs-toggle="tab" href="#html-tab" role="tab">
+                                        <i class="fas fa-code me-2"></i>HTML-Code
+                                    </a>
+                                </li>
+                                {% if template.text_content %}
+                                <li class="nav-item">
+                                    <a class="nav-link" data-bs-toggle="tab" href="#text-tab" role="tab">
+                                        <i class="fas fa-align-left me-2"></i>Text-Version
+                                    </a>
+                                </li>
+                                {% endif %}
+                                {% if template.custom_css %}
+                                <li class="nav-item">
+                                    <a class="nav-link" data-bs-toggle="tab" href="#css-tab" role="tab">
+                                        <i class="fas fa-paint-brush me-2"></i>Custom CSS
+                                    </a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                        <div class="card-body">
+                            <div class="tab-content">
+                                <div class="tab-pane fade show active" id="preview-tab" role="tabpanel">
+                                    <div class="preview-frame">
+                                        <h4>{{ template.subject }}</h4>
+                                        <hr>
+                                        <div>
+                                            {% if template.custom_css %}
+                                                <style>{{ template.custom_css }}</style>
+                                            {% endif %}
+                                            {{ template.html_content|safe }}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="tab-pane fade" id="html-tab" role="tabpanel">
+                                    <div class="code-block">
+                                        <pre><code>{{ template.html_content }}</code></pre>
+                                    </div>
+                                </div>
+                                
+                                {% if template.text_content %}
+                                <div class="tab-pane fade" id="text-tab" role="tabpanel">
+                                    <div class="code-block">
+                                        <pre>{{ template.text_content }}</pre>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                {% if template.custom_css %}
+                                <div class="tab-pane fade" id="css-tab" role="tabpanel">
+                                    <div class="code-block">
+                                        <pre><code>{{ template.custom_css }}</code></pre>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Variables and Logs -->
+                <div class="col-lg-4">
+                    <!-- Trigger Assignment -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="fas fa-bolt me-2"></i>
+                                Trigger-Zuordnung
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% if template.trigger %}
+                                <div class="alert alert-success">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>{{ template.trigger.name }}</strong>
+                                            <br><small class="text-muted">{{ template.trigger.get_category_display }}</small>
+                                        </div>
+                                        <a href="{% url 'email_templates:trigger_detail' template.trigger.pk %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                                
+                                <!-- Auto-Send Settings -->
+                                {% if template.is_auto_send %}
+                                <div class="alert alert-info">
+                                    <i class="fas fa-robot me-2"></i>
+                                    <strong>Automatischer Versand aktiv</strong>
+                                    {% if template.send_delay_minutes %}
+                                        <br><small>Verzögerung: {{ template.send_delay_minutes }} Minuten</small>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Remove Trigger -->
+                                <form method="post" action="{% url 'email_templates:assign_template_trigger' template.pk %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                                        <i class="fas fa-unlink me-2"></i>Trigger entfernen
+                                    </button>
+                                </form>
+                            {% else %}
+                                <p class="text-muted mb-3">Kein Trigger zugeordnet</p>
+                                
+                                <!-- Assign Trigger -->
+                                <form method="post" action="{% url 'email_templates:assign_template_trigger' template.pk %}">
+                                    {% csrf_token %}
+                                    <div class="mb-3">
+                                        <label class="form-label">Trigger auswählen:</label>
+                                        <select name="trigger_id" class="form-select" required>
+                                            <option value="">Trigger wählen...</option>
+                                            {% for trigger in available_triggers %}
+                                            <option value="{{ trigger.pk }}">
+                                                {{ trigger.name }} ({{ trigger.get_category_display }})
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <button type="submit" class="btn btn-success w-100">
+                                        <i class="fas fa-link me-2"></i>Trigger zuordnen
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if template.available_variables %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="fas fa-code me-2"></i>
+                                Verfügbare Variablen
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% for var_name, var_desc in template.available_variables.items %}
+                                <div class="mb-2">
+                                    <span class="variable-badge">{% verbatim %}{{ {% endverbatim %}{{ var_name }}{% verbatim %} }}{% endverbatim %}</span>
+                                    {% if var_desc %}
+                                        <small class="text-muted d-block">{{ var_desc }}</small>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="card mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">
+                                <i class="fas fa-history me-2"></i>
+                                Letzte Versendungen
+                            </h6>
+                            <span class="badge bg-secondary">{{ recent_logs.count }}</span>
+                        </div>
+                        <div class="card-body">
+                            {% if recent_logs %}
+                                {% for log in recent_logs %}
+                                <div class="log-entry">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-truncate" style="max-width: 200px;">
+                                            {{ log.recipient_email }}
+                                        </span>
+                                        {% if log.is_sent %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check"></i>
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-times"></i>
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                    <small class="text-muted">
+                                        {{ log.created_at|timesince }} ago
+                                        {% if log.sent_by %}
+                                            von {{ log.sent_by.username }}
+                                        {% endif %}
+                                    </small>
+                                    {% if log.error_message %}
+                                        <div class="text-danger small mt-1">
+                                            <i class="fas fa-exclamation-triangle"></i> {{ log.error_message|truncatechars:50 }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted text-center mb-0">
+                                    <i class="fas fa-inbox fa-2x mb-2"></i><br>
+                                    Noch keine E-Mails versendet
+                                </p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-body">
+                            <button type="button" class="btn btn-danger w-100" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                                <i class="fas fa-trash me-2"></i>Vorlage löschen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Modal -->
+    <div class="modal fade" id="deleteModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                        Vorlage löschen
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Sind Sie sicher, dass Sie die E-Mail-Vorlage <strong>"{{ template.name }}"</strong> löschen möchten?</p>
+                    
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Achtung:</strong> Diese Aktion kann nicht rückgängig gemacht werden. 
+                        Die Versionshistorie und Versandlogs bleiben jedoch erhalten.
+                    </div>
+                    
+                    {% if template.is_default %}
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Dies ist eine <strong>Standard-Vorlage</strong>. Stellen Sie sicher, dass eine andere 
+                        Vorlage als Standard gesetzt ist, bevor Sie diese löschen.
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Abbrechen
+                    </button>
+                    <a href="{% url 'email_templates:template_delete' template.pk %}" class="btn btn-danger">
+                        <i class="fas fa-trash me-2"></i>Löschen
                     </a>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row">
-        <!-- Left Column: Template Details -->
-        <div class="col-lg-8">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Details
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <dl class="row">
-                        <dt class="col-sm-3">Name:</dt>
-                        <dd class="col-sm-9">{{ template.name }}</dd>
-                        
-                        {% if template.slug %}
-                        <dt class="col-sm-3">Slug:</dt>
-                        <dd class="col-sm-9"><code>{{ template.slug }}</code></dd>
-                        {% endif %}
-                        
-                        {% if template.description %}
-                        <dt class="col-sm-3">Beschreibung:</dt>
-                        <dd class="col-sm-9">{{ template.description }}</dd>
-                        {% endif %}
-                        
-                        <dt class="col-sm-3">Betreff:</dt>
-                        <dd class="col-sm-9"><strong>{{ template.subject }}</strong></dd>
-                        
-                        <dt class="col-sm-3">Basis-Template:</dt>
-                        <dd class="col-sm-9">
-                            {% if template.use_base_template %}
-                                <span class="text-success"><i class="fas fa-check"></i> Verwendet Basis-Template</span>
-                            {% else %}
-                                <span class="text-muted"><i class="fas fa-times"></i> Kein Basis-Template</span>
-                            {% endif %}
-                        </dd>
-                        
-                        <dt class="col-sm-3">Erstellt:</dt>
-                        <dd class="col-sm-9">
-                            {{ template.created_at|date:"d.m.Y H:i" }}
-                            {% if template.created_by %}
-                                von {{ template.created_by.get_full_name|default:template.created_by.username }}
-                            {% endif %}
-                        </dd>
-                        
-                        <dt class="col-sm-3">Zuletzt geändert:</dt>
-                        <dd class="col-sm-9">
-                            {{ template.updated_at|date:"d.m.Y H:i" }}
-                            {% if template.last_modified_by %}
-                                von {{ template.last_modified_by.get_full_name|default:template.last_modified_by.username }}
-                            {% endif %}
-                        </dd>
-                        
-                        <dt class="col-sm-3">Verwendungen:</dt>
-                        <dd class="col-sm-9">
-                            <span class="badge bg-primary">{{ template.usage_count }} mal</span>
-                            {% if template.last_used_at %}
-                                <small class="text-muted">
-                                    (zuletzt {{ template.last_used_at|timesince }} ago)
-                                </small>
-                            {% endif %}
-                        </dd>
-                    </dl>
-                </div>
-            </div>
-
-            <div class="card mb-4">
-                <div class="card-header">
-                    <ul class="nav nav-tabs card-header-tabs" role="tablist">
-                        <li class="nav-item">
-                            <a class="nav-link active" data-bs-toggle="tab" href="#preview-tab" role="tab">
-                                <i class="fas fa-eye me-2"></i>Vorschau
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" data-bs-toggle="tab" href="#html-tab" role="tab">
-                                <i class="fas fa-code me-2"></i>HTML-Code
-                            </a>
-                        </li>
-                        {% if template.text_content %}
-                        <li class="nav-item">
-                            <a class="nav-link" data-bs-toggle="tab" href="#text-tab" role="tab">
-                                <i class="fas fa-align-left me-2"></i>Text-Version
-                            </a>
-                        </li>
-                        {% endif %}
-                        {% if template.custom_css %}
-                        <li class="nav-item">
-                            <a class="nav-link" data-bs-toggle="tab" href="#css-tab" role="tab">
-                                <i class="fas fa-paint-brush me-2"></i>Custom CSS
-                            </a>
-                        </li>
-                        {% endif %}
-                    </ul>
-                </div>
-                <div class="card-body">
-                    <div class="tab-content">
-                        <div class="tab-pane fade show active" id="preview-tab" role="tabpanel">
-                            <div class="preview-frame">
-                                <h4>{{ template.subject }}</h4>
-                                <hr>
-                                <div>
-                                    {% if template.custom_css %}
-                                        <style>{{ template.custom_css }}</style>
-                                    {% endif %}
-                                    {{ template.html_content|safe }}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="tab-pane fade" id="html-tab" role="tabpanel">
-                            <div class="code-block">
-                                <pre><code>{{ template.html_content }}</code></pre>
-                            </div>
-                        </div>
-                        
-                        {% if template.text_content %}
-                        <div class="tab-pane fade" id="text-tab" role="tabpanel">
-                            <div class="code-block">
-                                <pre>{{ template.text_content }}</pre>
-                            </div>
-                        </div>
-                        {% endif %}
-                        
-                        {% if template.custom_css %}
-                        <div class="tab-pane fade" id="css-tab" role="tabpanel">
-                            <div class="code-block">
-                                <pre><code>{{ template.custom_css }}</code></pre>
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Right Column: Variables and Logs -->
-        <div class="col-lg-4">
-            {% if template.available_variables %}
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h6 class="mb-0">
-                        <i class="fas fa-code me-2"></i>
-                        Verfügbare Variablen
-                    </h6>
-                </div>
-                <div class="card-body">
-                    {% for var_name, var_desc in template.available_variables.items %}
-                        <div class="mb-2">
-                            <span class="variable-badge">{% verbatim %}{{ {% endverbatim %}{{ var_name }}{% verbatim %} }}{% endverbatim %}</span>
-                            {% if var_desc %}
-                                <small class="text-muted d-block">{{ var_desc }}</small>
-                            {% endif %}
-                        </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-
-            <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0">
-                        <i class="fas fa-history me-2"></i>
-                        Letzte Versendungen
-                    </h6>
-                    <span class="badge bg-secondary">{{ recent_logs.count }}</span>
-                </div>
-                <div class="card-body">
-                    {% if recent_logs %}
-                        {% for log in recent_logs %}
-                        <div class="log-entry">
-                            <div class="d-flex justify-content-between">
-                                <span class="text-truncate" style="max-width: 200px;">
-                                    {{ log.recipient_email }}
-                                </span>
-                                {% if log.is_sent %}
-                                    <span class="badge bg-success">
-                                        <i class="fas fa-check"></i>
-                                    </span>
-                                {% else %}
-                                    <span class="badge bg-danger">
-                                        <i class="fas fa-times"></i>
-                                    </span>
-                                {% endif %}
-                            </div>
-                            <small class="text-muted">
-                                {{ log.created_at|timesince }} ago
-                                {% if log.sent_by %}
-                                    von {{ log.sent_by.username }}
-                                {% endif %}
-                            </small>
-                            {% if log.error_message %}
-                                <div class="text-danger small mt-1">
-                                    <i class="fas fa-exclamation-triangle"></i> {{ log.error_message|truncatechars:50 }}
-                                </div>
-                            {% endif %}
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <p class="text-muted text-center mb-0">
-                            <i class="fas fa-inbox fa-2x mb-2"></i><br>
-                            Noch keine E-Mails versendet
-                        </p>
-                    {% endif %}
-                </div>
-            </div>
-
-            <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0">
-                        <i class="fas fa-code-branch me-2"></i>
-                        Versionen
-                    </h6>
-                    <span class="badge bg-secondary">{{ versions.count }}</span>
-                </div>
-                <div class="card-body">
-                    {% if versions %}
-                        {% for version in versions %}
-                        <div class="log-entry">
-                            <div class="d-flex justify-content-between">
-                                <span>Version {{ version.version_number }}</span>
-                                <small class="text-muted">
-                                    {{ version.created_at|date:"d.m.Y H:i" }}
-                                </small>
-                            </div>
-                            {% if version.change_description %}
-                                <small class="text-muted">{{ version.change_description }}</small>
-                            {% endif %}
-                            <small class="text-muted d-block">
-                                von {{ version.created_by.username }}
-                            </small>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <p class="text-muted text-center mb-0">
-                            Keine Versionshistorie vorhanden
-                        </p>
-                    {% endif %}
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-body">
-                    <button type="button" class="btn btn-danger w-100" data-bs-toggle="modal" data-bs-target="#deleteModal">
-                        <i class="fas fa-trash me-2"></i>Vorlage löschen
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Delete Modal -->
-<div class="modal fade" id="deleteModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
-                    Vorlage löschen
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>Sind Sie sicher, dass Sie die E-Mail-Vorlage <strong>"{{ template.name }}"</strong> löschen möchten?</p>
-                
-                <div class="alert alert-warning">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    <strong>Achtung:</strong> Diese Aktion kann nicht rückgängig gemacht werden. 
-                    Die Versionshistorie und Versandlogs bleiben jedoch erhalten.
-                </div>
-                
-                {% if template.is_default %}
-                <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-circle me-2"></i>
-                    Dies ist eine <strong>Standard-Vorlage</strong>. Stellen Sie sicher, dass eine andere 
-                    Vorlage als Standard gesetzt ist, bevor Sie diese löschen.
-                </div>
-                {% endif %}
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="fas fa-times me-2"></i>Abbrechen
-                </button>
-                <a href="{% url 'email_templates:template_delete' template.pk %}" class="btn btn-danger">
-                    <i class="fas fa-trash me-2"></i>Löschen
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,191 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}E-Mail-Trigger - Workloom{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">E-Mail-Trigger</h1>
+            <p class="text-muted mb-0">Verwalten Sie automatische E-Mail-Auslöser</p>
+        </div>
+        <div>
+            <form method="post" action="{% url 'email_templates:sync_triggers' %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-primary me-2">
+                    <i class="fas fa-sync"></i> Trigger synchronisieren
+                </button>
+            </form>
+            <a href="{% url 'email_templates:trigger_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Neuer Trigger
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Suche</label>
+                    <input type="text" name="search" class="form-control" 
+                           value="{{ search }}" placeholder="Name, Schlüssel oder Beschreibung...">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Kategorie</label>
+                    <select name="category" class="form-select">
+                        <option value="">Alle Kategorien</option>
+                        {% for category_key, category_name in categories %}
+                        <option value="{{ category_key }}" {% if category_key == selected_category %}selected{% endif %}>
+                            {{ category_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    <select name="is_active" class="form-select">
+                        <option value="">Alle</option>
+                        <option value="true" {% if selected_is_active == 'true' %}selected{% endif %}>Aktiv</option>
+                        <option value="false" {% if selected_is_active == 'false' %}selected{% endif %}>Inaktiv</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-outline-primary w-100">
+                        <i class="fas fa-search"></i> Filtern
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Triggers Grid -->
+    <div class="row">
+        {% for trigger in triggers %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">{{ trigger.name }}</h6>
+                        <small class="text-muted">{{ trigger.trigger_key }}</small>
+                    </div>
+                    <div>
+                        {% if trigger.is_active %}
+                        <span class="badge bg-success">Aktiv</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Inaktiv</span>
+                        {% endif %}
+                        {% if trigger.is_system_trigger %}
+                        <span class="badge bg-info">System</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="card-text text-muted small">{{ trigger.description|truncatechars:120 }}</p>
+                    
+                    <div class="mb-3">
+                        <span class="badge bg-light text-dark">{{ trigger.get_category_display }}</span>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">
+                            <i class="fas fa-envelope"></i> 
+                            {{ trigger.templates.count }} Template{{ trigger.templates.count|pluralize }}
+                        </small>
+                        <small class="text-muted">
+                            <i class="fas fa-code"></i> 
+                            {{ trigger.available_variables|length }} Variable{{ trigger.available_variables|length|pluralize:"n" }}
+                        </small>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'email_templates:trigger_detail' trigger.pk %}" 
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye"></i> Details
+                        </a>
+                        <div>
+                            {% if not trigger.is_system_trigger %}
+                            <a href="{% url 'email_templates:trigger_edit' trigger.pk %}" 
+                               class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            {% endif %}
+                            <form method="post" action="{% url 'email_templates:trigger_test' trigger.pk %}" 
+                                  class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-success"
+                                        title="Trigger testen">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="fas fa-bolt fa-3x text-muted mb-3"></i>
+                <h4>Keine Trigger gefunden</h4>
+                <p class="text-muted">Es wurden keine Trigger gefunden, die Ihren Kriterien entsprechen.</p>
+                {% if not search and not selected_category %}
+                <a href="{% url 'email_templates:trigger_create' %}" class="btn btn-primary">
+                    Ersten Trigger erstellen
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if triggers.has_other_pages %}
+    <nav aria-label="Trigger Pagination">
+        <ul class="pagination justify-content-center">
+            {% if triggers.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ triggers.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if selected_is_active %}&is_active={{ selected_is_active }}{% endif %}">
+                    Vorherige
+                </a>
+            </li>
+            {% endif %}
+
+            {% for num in triggers.paginator.page_range %}
+            {% if triggers.number == num %}
+            <li class="page-item active">
+                <span class="page-link">{{ num }}</span>
+            </li>
+            {% elif num > triggers.number|add:'-3' and num < triggers.number|add:'3' %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if selected_is_active %}&is_active={{ selected_is_active }}{% endif %}">
+                    {{ num }}
+                </a>
+            </li>
+            {% endif %}
+            {% endfor %}
+
+            {% if triggers.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ triggers.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}{% if selected_is_active %}&is_active={{ selected_is_active }}{% endif %}">
+                    Nächste
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<style>
+.card {
+    transition: transform 0.2s;
+}
+.card:hover {
+    transform: translateY(-2px);
+}
+</style>
+{% endblock %}

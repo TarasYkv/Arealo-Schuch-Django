@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ trigger.name }} löschen - E-Mail-Trigger - Workloom{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'email_templates:dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'email_templates:trigger_list' %}">Trigger</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'email_templates:trigger_detail' trigger.pk %}">{{ trigger.name }}</a></li>
+                    <li class="breadcrumb-item active">Löschen</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0 text-danger">Trigger löschen</h1>
+        </div>
+        <div>
+            <a href="{% url 'email_templates:trigger_detail' trigger.pk %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Zurück
+            </a>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                        <div>
+                            <h5 class="mb-0">Achtung: Trigger wird gelöscht</h5>
+                            <p class="mb-0 small">Diese Aktion kann nicht rückgängig gemacht werden.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h6>Trigger-Details:</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>Name:</strong></td>
+                                    <td>{{ trigger.name }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Trigger-Schlüssel:</strong></td>
+                                    <td><code>{{ trigger.trigger_key }}</code></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Kategorie:</strong></td>
+                                    <td>{{ trigger.get_category_display }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Status:</strong></td>
+                                    <td>
+                                        {% if trigger.is_active %}
+                                        <span class="badge bg-success">Aktiv</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inaktiv</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Verknüpfte Templates:</strong></td>
+                                    <td>{{ trigger.templates.count }} Template{{ trigger.templates.count|pluralize }}</td>
+                                </tr>
+                            </table>
+                            
+                            <div class="mb-3">
+                                <strong>Beschreibung:</strong>
+                                <p class="text-muted">{{ trigger.description }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="bg-light p-3 rounded">
+                                <h6 class="text-danger">Was passiert beim Löschen?</h6>
+                                <ul class="small text-muted mb-0">
+                                    <li>Der Trigger wird permanent gelöscht</li>
+                                    <li>Verknüpfte Templates verlieren die Trigger-Zuordnung</li>
+                                    <li>Automatische E-Mail-Versendungen werden gestoppt</li>
+                                    <li>Trigger-spezifische Variablen sind nicht mehr verfügbar</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Associated Templates Warning -->
+                    {% if trigger.templates.count > 0 %}
+                    <div class="alert alert-warning mt-4">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-exclamation-triangle me-2 mt-1"></i>
+                            <div>
+                                <strong>Warnung:</strong> Dieser Trigger ist mit {{ trigger.templates.count }} Template{{ trigger.templates.count|pluralize }} verknüpft:
+                                <ul class="mb-0 mt-2">
+                                    {% for template in trigger.templates.all %}
+                                    <li>
+                                        <a href="{% url 'email_templates:template_detail' template.pk %}" class="text-decoration-none">
+                                            {{ template.name }}
+                                        </a>
+                                        {% if template.is_auto_send %}
+                                        <span class="badge bg-warning text-dark">Auto-Send</span>
+                                        {% endif %}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                                <p class="mt-2 mb-0 small text-muted">
+                                    Diese Templates werden ihre automatische Trigger-Funktionalität verlieren.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Confirmation Form -->
+                    <div class="mt-4 pt-4 border-top">
+                        <form method="post">
+                            {% csrf_token %}
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="confirm_delete" required>
+                                        <label class="form-check-label text-muted" for="confirm_delete">
+                                            Ich verstehe, dass diese Aktion nicht rückgängig gemacht werden kann
+                                        </label>
+                                    </div>
+                                </div>
+                                <div>
+                                    <a href="{% url 'email_templates:trigger_detail' trigger.pk %}" class="btn btn-outline-secondary me-2">
+                                        Abbrechen
+                                    </a>
+                                    <button type="submit" class="btn btn-danger" id="delete_btn" disabled>
+                                        <i class="fas fa-trash"></i> Trigger löschen
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const confirmCheckbox = document.getElementById('confirm_delete');
+    const deleteBtn = document.getElementById('delete_btn');
+    
+    confirmCheckbox.addEventListener('change', function() {
+        deleteBtn.disabled = !this.checked;
+    });
+});
+</script>
+{% endblock %}
