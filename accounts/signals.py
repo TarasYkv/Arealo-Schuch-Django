@@ -68,12 +68,12 @@ def log_user_logout(sender, request, user, **kwargs):
 @receiver(post_save, sender=User)
 def send_welcome_email(sender, instance, created, **kwargs):
     """
-    Sendet eine Willkommens-E-Mail an neue Benutzer
+    Sendet eine Willkommens-E-Mail an neue Benutzer über das Trigger-System
     """
-    if created:  # Nur bei neuen Benutzern
+    if created and instance.email_verified:  # Nur bei neuen, verifizierten Benutzern
         try:
             # Import hier um zirkuläre Imports zu vermeiden
-            from email_templates.services import EmailNotificationService
+            from email_templates.trigger_manager import trigger_manager
             from django.urls import reverse
             from django.conf import settings
             import logging
@@ -81,28 +81,36 @@ def send_welcome_email(sender, instance, created, **kwargs):
             logger = logging.getLogger(__name__)
             
             # Bereite Benutzerdaten für die E-Mail vor
-            user_data = {
+            context_data = {
                 'user_name': instance.get_full_name() or instance.username,
                 'username': instance.username,
                 'email': instance.email,
                 'registration_date': instance.date_joined.strftime('%d.%m.%Y %H:%M'),
                 'dashboard_url': f"{getattr(settings, 'SITE_URL', 'http://127.0.0.1:8000')}{reverse('accounts:dashboard')}",
                 'current_year': timezone.now().year,
-                'privacy_url': f"{getattr(settings, 'SITE_URL', 'http://127.0.0.1:8000')}{reverse('core:datenschutz')}",
-                'terms_url': f"{getattr(settings, 'SITE_URL', 'http://127.0.0.1:8000')}{reverse('core:agb')}"
+                'domain': 'workloom.de',
+                'features': [
+                    'Chat-System für direkte Kommunikation',
+                    'Shopify-Integration für E-Commerce',
+                    'PDF-Suche und KI-Zusammenfassungen',
+                    'Video-Hosting für Ihre Projekte',
+                    'Organisationstools: Notizen, Boards, Termine'
+                ]
             }
             
-            # Sende Willkommens-E-Mail
-            success = EmailNotificationService.send_welcome_email(
-                user_data=user_data,
+            # Verwende das neue Trigger-System
+            results = trigger_manager.fire_trigger(
+                trigger_key='welcome_email',
+                context_data=context_data,
                 recipient_email=instance.email,
                 recipient_name=instance.get_full_name() or instance.username
             )
             
-            if success:
-                logger.info(f"Welcome email sent successfully to {instance.email}")
+            # Prüfe Ergebnis
+            if results and any(result['success'] for result in results):
+                logger.info(f"Welcome email sent successfully via trigger system to {instance.email}")
             else:
-                logger.warning(f"Failed to send welcome email to {instance.email}")
+                logger.warning(f"Welcome email trigger failed for {instance.email}")
                 
         except Exception as e:
             # Fehler beim E-Mail-Versand sollen die Registrierung nicht blockieren

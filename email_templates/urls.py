@@ -35,6 +35,21 @@ urlpatterns = [
     path('categories/<int:pk>/edit/', views.category_edit, name='category_edit'),
     path('categories/<int:pk>/delete/', views.category_delete, name='category_delete'),
     
+    # Email Triggers
+    path('triggers/', views.trigger_list, name='trigger_list'),
+    path('triggers/create/', views.trigger_create, name='trigger_create'),
+    path('triggers/<int:pk>/', views.trigger_detail, name='trigger_detail'),
+    path('triggers/<int:pk>/edit/', views.trigger_edit, name='trigger_edit'),
+    path('triggers/<int:pk>/delete/', views.trigger_delete, name='trigger_delete'),
+    path('triggers/<int:pk>/test/', views.trigger_test, name='trigger_test'),
+    path('triggers/sync/', views.sync_triggers, name='sync_triggers'),
+    
+    # Template-Trigger Assignment
+    path('templates/<int:template_pk>/assign-trigger/', views.assign_template_trigger, name='assign_template_trigger'),
+    
+    # AI Content Generation
+    path('ai/generate-content/', views.generate_ai_content, name='generate_ai_content'),
+    
     # API Endpoints
     path('api/templates/<int:pk>/variables/', views.api_template_variables, name='api_template_variables'),
     path('api/templates/<int:pk>/render/', views.api_render_preview, name='api_render_preview'),

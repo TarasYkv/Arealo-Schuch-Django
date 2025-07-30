@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - E-Mail-Trigger - Workloom{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'email_templates:dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'email_templates:trigger_list' %}">Trigger</a></li>
+                    <li class="breadcrumb-item active">
+                        {% if trigger %}{{ trigger.name }}{% else %}Neuer Trigger{% endif %}
+                    </li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">{{ title }}</h1>
+        </div>
+        <div>
+            <a href="{% if trigger %}{% url 'email_templates:trigger_detail' trigger.pk %}{% else %}{% url 'email_templates:trigger_list' %}{% endif %}" 
+               class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Zurück
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="name" class="form-label">Name *</label>
+                                    <input type="text" class="form-control" id="name" name="name" 
+                                           value="{% if trigger %}{{ trigger.name }}{% endif %}" required>
+                                    <div class="form-text">Benutzerfreundlicher Name für den Trigger</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="trigger_key" class="form-label">Trigger-Schlüssel *</label>
+                                    <input type="text" class="form-control" id="trigger_key" name="trigger_key" 
+                                           value="{% if trigger %}{{ trigger.trigger_key }}{% endif %}" 
+                                           {% if trigger %}readonly{% endif %} required>
+                                    <div class="form-text">
+                                        Eindeutiger Schlüssel (z.B. "my_custom_trigger")
+                                        {% if trigger %}<br><small class="text-warning">Kann nach Erstellung nicht geändert werden</small>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Beschreibung *</label>
+                            <textarea class="form-control" id="description" name="description" rows="3" required>{% if trigger %}{{ trigger.description }}{% endif %}</textarea>
+                            <div class="form-text">Beschreibung wann dieser Trigger ausgelöst wird</div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="category" class="form-label">Kategorie *</label>
+                                    <select class="form-select" id="category" name="category" required>
+                                        <option value="">Kategorie wählen...</option>
+                                        {% for category_key, category_name in categories %}
+                                        <option value="{{ category_key }}" 
+                                                {% if trigger and trigger.category == category_key %}selected{% endif %}>
+                                            {{ category_name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <div class="form-check form-switch mt-4">
+                                        <input class="form-check-input" type="checkbox" id="is_active" name="is_active"
+                                               {% if not trigger or trigger.is_active %}checked{% endif %}>
+                                        <label class="form-check-label" for="is_active">
+                                            Trigger ist aktiv
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="available_variables" class="form-label">Verfügbare Variablen (JSON)</label>
+                            <textarea class="form-control font-monospace" id="available_variables" name="available_variables" 
+                                      rows="8" placeholder='{"variable_name": "Beschreibung", "user_name": "Name des Benutzers"}'>{% if variables_json %}{{ variables_json }}{% else %}{}{% endif %}</textarea>
+                            <div class="form-text">
+                                JSON-Definition der Variablen, die in Templates verwendet werden können.
+                                <br><strong>Beispiel:</strong> <code>{"user_name": "Name des Benutzers", "email": "E-Mail-Adresse"}</code>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% if trigger %}{% url 'email_templates:trigger_detail' trigger.pk %}{% else %}{% url 'email_templates:trigger_list' %}{% endif %}" 
+                               class="btn btn-outline-secondary">
+                                Abbrechen
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> 
+                                {% if trigger %}Aktualisieren{% else %}Erstellen{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Hilfe</h6>
+                </div>
+                <div class="card-body">
+                    <h6>Trigger-Schlüssel</h6>
+                    <p class="small text-muted">
+                        Der Trigger-Schlüssel wird im Code verwendet, um den Trigger auszulösen.
+                        Verwenden Sie nur Kleinbuchstaben, Zahlen und Unterstriche.
+                    </p>
+
+                    <h6>Verfügbare Variablen</h6>
+                    <p class="small text-muted">
+                        Definieren Sie hier alle Variablen, die beim Auslösen des Triggers 
+                        verfügbar sind. Diese können dann in E-Mail-Templates verwendet werden.
+                    </p>
+
+                    <h6>Beispiel-JSON:</h6>
+                    <pre class="small bg-light p-2 rounded"><code>{
+  "user_name": "Name des Benutzers",
+  "email": "E-Mail-Adresse",
+  "verification_url": "Bestätigungslink",
+  "domain": "Website-Domain"
+}</code></pre>
+
+                    <div class="mt-4">
+                        <h6>Trigger-Kategorien</h6>
+                        <ul class="small text-muted">
+                            <li><strong>Authentifizierung:</strong> Login, Registrierung, etc.</li>
+                            <li><strong>Speicher-Management:</strong> Speicher-Warnungen</li>
+                            <li><strong>Zahlungen:</strong> Abonnements, Rechnungen</li>
+                            <li><strong>E-Commerce:</strong> Bestellungen, Versand</li>
+                            <li><strong>System:</strong> Wartung, Benachrichtigungen</li>
+                            <li><strong>Organisation:</strong> Termine, Aufgaben</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-generate trigger key from name
+    const nameInput = document.getElementById('name');
+    const keyInput = document.getElementById('trigger_key');
+    
+    if (nameInput && keyInput && !keyInput.value) {
+        nameInput.addEventListener('input', function() {
+            const name = this.value.toLowerCase()
+                .replace(/[^a-z0-9\s]/g, '')
+                .replace(/\s+/g, '_')
+                .substring(0, 50);
+            keyInput.value = name;
+        });
+    }
+    
+    // JSON validation
+    const jsonInput = document.getElementById('available_variables');
+    jsonInput.addEventListener('blur', function() {
+        try {
+            if (this.value.trim()) {
+                JSON.parse(this.value);
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            }
+        } catch (e) {
+            this.classList.remove('is-valid');
+            this.classList.add('is-invalid');
+        }
+    });
+});
+</script>
+{% endblock %}

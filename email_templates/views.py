@@ -15,7 +15,8 @@ from .models import (
     ZohoMailServerConnection, 
     EmailTemplateCategory, 
     EmailTemplate, 
-    EmailSendLog
+    EmailSendLog,
+    EmailTrigger
 )
 from .forms import (
     ZohoMailServerConnectionForm,
@@ -43,16 +44,38 @@ def dashboard(request):
     total_connections = ZohoMailServerConnection.objects.count()
     active_connections = ZohoMailServerConnection.objects.filter(is_active=True, is_configured=True).count()
     
+    # NEW: Trigger statistics
+    total_triggers = EmailTrigger.objects.count()
+    active_triggers = EmailTrigger.objects.filter(is_active=True).count()
+    templates_with_triggers = EmailTemplate.objects.filter(trigger__isnull=False, is_active=True).count()
+    templates_without_triggers = EmailTemplate.objects.filter(trigger__isnull=True, is_active=True).count()
+    
     # Recent email logs
     recent_logs = EmailSendLog.objects.select_related(
         'template', 'connection'
     ).order_by('-created_at')[:10]
+    
+    # Trigger categories with counts
+    trigger_categories = []
+    for category_key, category_name in EmailTrigger.CATEGORY_CHOICES:
+        trigger_count = EmailTrigger.objects.filter(category=category_key, is_active=True).count()
+        if trigger_count > 0:
+            trigger_categories.append({
+                'key': category_key,
+                'name': category_name,
+                'count': trigger_count
+            })
     
     context = {
         'total_templates': total_templates,
         'active_templates': active_templates,
         'total_connections': total_connections,
         'active_connections': active_connections,
+        'total_triggers': total_triggers,
+        'active_triggers': active_triggers,
+        'templates_with_triggers': templates_with_triggers,
+        'templates_without_triggers': templates_without_triggers,
+        'trigger_categories': trigger_categories,
         'recent_logs': recent_logs,
     }
     
@@ -256,10 +279,13 @@ def connection_test(request, pk):
 @user_passes_test(is_superuser)
 def template_list(request):
     """List all email templates"""
-    templates = EmailTemplate.objects.select_related('category', 'created_by').all()
+    templates = EmailTemplate.objects.select_related('category', 'created_by', 'trigger').all()
     
     # Handle search and filters
     form = EmailTemplateSearchForm(request.GET)
+    trigger_filter = request.GET.get('trigger')
+    has_trigger = request.GET.get('has_trigger')
+    
     if form.is_valid():
         search = form.cleaned_data.get('search')
         category = form.cleaned_data.get('category')
@@ -271,7 +297,8 @@ def template_list(request):
             templates = templates.filter(
                 Q(name__icontains=search) |
                 Q(subject__icontains=search) |
-                Q(html_content__icontains=search)
+                Q(html_content__icontains=search) |
+                Q(trigger__name__icontains=search)
             )
         
         if category:
@@ -286,6 +313,15 @@ def template_list(request):
         if is_default:
             templates = templates.filter(is_default=is_default == 'true')
     
+    # NEW: Trigger filters
+    if trigger_filter:
+        templates = templates.filter(trigger_id=trigger_filter)
+    
+    if has_trigger == 'true':
+        templates = templates.filter(trigger__isnull=False)
+    elif has_trigger == 'false':
+        templates = templates.filter(trigger__isnull=True)
+    
     templates = templates.order_by('-is_default', 'category__order', 'name')
     
     # Pagination
@@ -293,9 +329,15 @@ def template_list(request):
     page_number = request.GET.get('page')
     templates = paginator.get_page(page_number)
     
+    # Get all triggers for filter dropdown
+    all_triggers = EmailTrigger.objects.filter(is_active=True).order_by('name')
+    
     return render(request, 'email_templates/templates/list.html', {
         'templates': templates,
-        'search_form': form
+        'search_form': form,
+        'all_triggers': all_triggers,
+        'selected_trigger': trigger_filter,
+        'selected_has_trigger': has_trigger,
     })
 
 
@@ -321,9 +363,15 @@ def template_create(request):
     else:
         form = EmailTemplateForm()
     
+    # Get available AI models for the current user
+    from .ai_service import EmailAIService
+    ai_service = EmailAIService(user=request.user)
+    
     return render(request, 'email_templates/templates/form.html', {
         'form': form,
-        'title': 'Neue E-Mail-Vorlage'
+        'title': 'Neue E-Mail-Vorlage',
+        'available_ai_models': ai_service.get_available_models(),
+        'default_ai_model': ai_service.get_default_model()
     })
 
 
@@ -332,7 +380,7 @@ def template_create(request):
 def template_detail(request, pk):
     """View template details"""
     template = get_object_or_404(
-        EmailTemplate.objects.select_related('category', 'created_by', 'last_modified_by'),
+        EmailTemplate.objects.select_related('category', 'created_by', 'last_modified_by', 'trigger'),
         pk=pk
     )
     
@@ -342,10 +390,14 @@ def template_detail(request, pk):
     # Get versions
     versions = template.versions.select_related('created_by').order_by('-version_number')[:5]
     
+    # Get available triggers for assignment
+    available_triggers = EmailTrigger.objects.filter(is_active=True).order_by('category', 'name')
+    
     return render(request, 'email_templates/templates/detail.html', {
         'template': template,
         'recent_logs': recent_logs,
-        'versions': versions
+        'versions': versions,
+        'available_triggers': available_triggers,
     })
 
 
@@ -372,10 +424,16 @@ def template_edit(request, pk):
     else:
         form = EmailTemplateForm(instance=template)
     
+    # Get available AI models for the current user
+    from .ai_service import EmailAIService
+    ai_service = EmailAIService(user=request.user)
+    
     return render(request, 'email_templates/templates/form.html', {
         'form': form,
         'template': template,
-        'title': f'Vorlage bearbeiten: {template.name}'
+        'title': f'Vorlage bearbeiten: {template.name}',
+        'available_ai_models': ai_service.get_available_models(),
+        'default_ai_model': ai_service.get_default_model()
     })
 
 
@@ -590,3 +648,340 @@ def api_render_preview(request, pk):
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+# =============================================================================
+# Email Trigger Views
+# =============================================================================
+
+@login_required
+@user_passes_test(is_superuser)
+def trigger_list(request):
+    """List all email triggers"""
+    triggers = EmailTrigger.objects.all()
+    
+    # Handle search and filters
+    search = request.GET.get('search')
+    category = request.GET.get('category')
+    is_active = request.GET.get('is_active')
+    
+    if search:
+        triggers = triggers.filter(
+            Q(name__icontains=search) |
+            Q(trigger_key__icontains=search) |
+            Q(description__icontains=search)
+        )
+    
+    if category:
+        triggers = triggers.filter(category=category)
+    
+    if is_active:
+        triggers = triggers.filter(is_active=is_active == 'true')
+    
+    triggers = triggers.order_by('category', 'name')
+    
+    # Pagination
+    paginator = Paginator(triggers, 15)
+    page_number = request.GET.get('page')
+    triggers = paginator.get_page(page_number)
+    
+    # Categories for filter
+    categories = EmailTrigger.CATEGORY_CHOICES
+    
+    context = {
+        'triggers': triggers,
+        'categories': categories,
+        'search': search,
+        'selected_category': category,
+        'selected_is_active': is_active,
+    }
+    
+    return render(request, 'email_templates/triggers/list.html', context)
+
+
+@login_required
+@user_passes_test(is_superuser)
+def trigger_detail(request, pk):
+    """View trigger details"""
+    trigger = get_object_or_404(EmailTrigger, pk=pk)
+    
+    # Get associated templates
+    templates = trigger.templates.all().order_by('-is_active', 'name')
+    
+    # Get recent logs for this trigger's templates
+    recent_logs = EmailSendLog.objects.filter(
+        template__trigger=trigger
+    ).select_related('template', 'connection', 'sent_by').order_by('-created_at')[:10]
+    
+    context = {
+        'trigger': trigger,
+        'templates': templates,
+        'recent_logs': recent_logs,
+    }
+    
+    return render(request, 'email_templates/triggers/detail.html', context)
+
+
+@login_required
+@user_passes_test(is_superuser)
+def trigger_create(request):
+    """Create new email trigger"""
+    if request.method == 'POST':
+        try:
+            name = request.POST.get('name')
+            trigger_key = request.POST.get('trigger_key')
+            description = request.POST.get('description')
+            category = request.POST.get('category')
+            is_active = request.POST.get('is_active') == 'on'
+            
+            # Parse available variables
+            variables_json = request.POST.get('available_variables', '{}')
+            try:
+                available_variables = json.loads(variables_json)
+            except json.JSONDecodeError:
+                available_variables = {}
+            
+            trigger = EmailTrigger.objects.create(
+                name=name,
+                trigger_key=trigger_key,
+                description=description,
+                category=category,
+                is_active=is_active,
+                available_variables=available_variables,
+                is_system_trigger=False  # User-created triggers are not system triggers
+            )
+            
+            messages.success(request, f'Trigger "{trigger.name}" wurde erstellt.')
+            return redirect('email_templates:trigger_detail', pk=trigger.pk)
+            
+        except Exception as e:
+            messages.error(request, f'Fehler beim Erstellen des Triggers: {str(e)}')
+    
+    context = {
+        'categories': EmailTrigger.CATEGORY_CHOICES,
+        'title': 'Neuen Trigger erstellen'
+    }
+    
+    return render(request, 'email_templates/triggers/form.html', context)
+
+
+@login_required
+@user_passes_test(is_superuser)
+def trigger_edit(request, pk):
+    """Edit email trigger"""
+    trigger = get_object_or_404(EmailTrigger, pk=pk)
+    
+    # Prevent editing system triggers
+    if trigger.is_system_trigger:
+        messages.warning(request, 'System-Trigger können nicht bearbeitet werden.')
+        return redirect('email_templates:trigger_detail', pk=pk)
+    
+    if request.method == 'POST':
+        try:
+            trigger.name = request.POST.get('name')
+            trigger.description = request.POST.get('description')
+            trigger.category = request.POST.get('category')
+            trigger.is_active = request.POST.get('is_active') == 'on'
+            
+            # Parse available variables
+            variables_json = request.POST.get('available_variables', '{}')
+            try:
+                trigger.available_variables = json.loads(variables_json)
+            except json.JSONDecodeError:
+                trigger.available_variables = {}
+            
+            trigger.save()
+            
+            messages.success(request, f'Trigger "{trigger.name}" wurde aktualisiert.')
+            return redirect('email_templates:trigger_detail', pk=trigger.pk)
+            
+        except Exception as e:
+            messages.error(request, f'Fehler beim Aktualisieren des Triggers: {str(e)}')
+    
+    context = {
+        'trigger': trigger,
+        'categories': EmailTrigger.CATEGORY_CHOICES,
+        'title': f'Trigger bearbeiten: {trigger.name}',
+        'variables_json': json.dumps(trigger.available_variables, indent=2)
+    }
+    
+    return render(request, 'email_templates/triggers/form.html', context)
+
+
+@login_required
+@user_passes_test(is_superuser)
+def trigger_delete(request, pk):
+    """Delete email trigger"""
+    trigger = get_object_or_404(EmailTrigger, pk=pk)
+    
+    # Prevent deleting system triggers
+    if trigger.is_system_trigger:
+        messages.error(request, 'System-Trigger können nicht gelöscht werden.')
+        return redirect('email_templates:trigger_detail', pk=pk)
+    
+    if request.method == 'POST':
+        name = trigger.name
+        trigger.delete()
+        messages.success(request, f'Trigger "{name}" wurde gelöscht.')
+        return redirect('email_templates:trigger_list')
+    
+    context = {
+        'trigger': trigger
+    }
+    
+    return render(request, 'email_templates/triggers/delete.html', context)
+
+
+@login_required
+@user_passes_test(is_superuser)
+@require_http_methods(["POST"])
+def trigger_test(request, pk):
+    """Test email trigger by firing it with sample data"""
+    trigger = get_object_or_404(EmailTrigger, pk=pk)
+    
+    try:
+        from .trigger_manager import trigger_manager
+        
+        # Get test data from request
+        test_email = request.POST.get('test_email', request.user.email)
+        test_name = request.POST.get('test_name', request.user.get_full_name() or request.user.username)
+        
+        # Create sample context data based on available variables
+        context_data = {}
+        for var_key, var_description in trigger.available_variables.items():
+            if var_key in ['user_name', 'customer_name', 'recipient_name']:
+                context_data[var_key] = test_name
+            elif var_key in ['email', 'recipient_email']:
+                context_data[var_key] = test_email
+            elif var_key == 'domain':
+                context_data[var_key] = request.get_host()
+            elif var_key == 'site_name':
+                context_data[var_key] = 'Workloom'
+            elif 'url' in var_key:
+                context_data[var_key] = f"http://{request.get_host()}/test-link/"
+            elif 'date' in var_key:
+                from django.utils import timezone
+                context_data[var_key] = timezone.now().strftime('%d.%m.%Y')
+            elif 'amount' in var_key or 'price' in var_key:
+                context_data[var_key] = '€ 29.90'
+            else:
+                context_data[var_key] = f'[Test {var_description}]'
+        
+        # Fire the trigger
+        results = trigger_manager.fire_trigger(
+            trigger_key=trigger.trigger_key,
+            context_data=context_data,
+            recipient_email=test_email,
+            recipient_name=test_name
+        )
+        
+        if results and any(result['success'] for result in results):
+            successful_templates = [r['template'] for r in results if r['success']]
+            messages.success(
+                request, 
+                f'Trigger "{trigger.name}" erfolgreich getestet. '
+                f'E-Mails gesendet via Templates: {", ".join(successful_templates)}'
+            )
+        elif results:
+            failed_templates = [r['template'] for r in results if not r['success']]
+            messages.error(
+                request,
+                f'Trigger-Test fehlgeschlagen. Fehlerhafte Templates: {", ".join(failed_templates)}'
+            )
+        else:
+            messages.warning(request, f'Keine aktiven Templates für Trigger "{trigger.name}" gefunden.')
+    
+    except Exception as e:
+        messages.error(request, f'Fehler beim Testen des Triggers: {str(e)}')
+    
+    return redirect('email_templates:trigger_detail', pk=pk)
+
+
+@login_required
+@user_passes_test(is_superuser)
+@require_http_methods(["POST"])
+def sync_triggers(request):
+    """Sync triggers from trigger manager to database"""
+    try:
+        from .trigger_manager import trigger_manager
+        
+        synced_count = trigger_manager.sync_triggers_to_database()
+        messages.success(request, f'{synced_count} Trigger wurden synchronisiert.')
+        
+    except Exception as e:
+        messages.error(request, f'Fehler beim Synchronisieren der Trigger: {str(e)}')
+    
+    return redirect('email_templates:trigger_list')
+
+
+@login_required
+@user_passes_test(is_superuser)
+@require_http_methods(["POST"])
+def assign_template_trigger(request, template_pk):
+    """Assign a trigger to a template"""
+    template = get_object_or_404(EmailTemplate, pk=template_pk)
+    
+    trigger_id = request.POST.get('trigger_id')
+    if trigger_id:
+        try:
+            trigger = EmailTrigger.objects.get(pk=trigger_id)
+            template.trigger = trigger
+            template.save()
+            messages.success(request, f'Template "{template.name}" wurde dem Trigger "{trigger.name}" zugeordnet.')
+        except EmailTrigger.DoesNotExist:
+            messages.error(request, 'Trigger nicht gefunden.')
+    else:
+        # Remove trigger assignment
+        template.trigger = None
+        template.save()
+        messages.success(request, f'Trigger-Zuordnung für Template "{template.name}" wurde entfernt.')
+    
+    return redirect('email_templates:template_detail', pk=template_pk)
+
+
+@login_required
+@user_passes_test(is_superuser)
+@require_http_methods(["POST"])
+def generate_ai_content(request):
+    """Generate email content using AI."""
+    try:
+        from .ai_service import EmailAIService
+        
+        # Parse request data
+        data = json.loads(request.body)
+        description = data.get('description', '').strip()
+        email_type = data.get('email_type', 'general')
+        tone = data.get('tone', 'professional')
+        include_variables = data.get('include_variables', True)
+        model = data.get('model', None)  # NEW: Get selected model
+        
+        if not description:
+            return JsonResponse({
+                'success': False,
+                'error': 'E-Mail-Beschreibung ist erforderlich.'
+            })
+        
+        # Create user-specific AI service instance
+        ai_service = EmailAIService(user=request.user)
+        
+        # Generate content using AI service
+        result = ai_service.generate_email_content(
+            description=description,
+            email_type=email_type,
+            tone=tone,
+            include_variables=include_variables,
+            model=model
+        )
+        
+        return JsonResponse(result)
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Ungültige JSON-Daten erhalten.'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Unerwarteter Fehler: {str(e)}'
+        })

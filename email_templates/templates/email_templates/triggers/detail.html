@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ trigger.name }} - E-Mail-Trigger - Workloom{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'email_templates:dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'email_templates:trigger_list' %}">Trigger</a></li>
+                    <li class="breadcrumb-item active">{{ trigger.name }}</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">{{ trigger.name }}</h1>
+            <p class="text-muted mb-0">{{ trigger.get_category_display }}</p>
+        </div>
+        <div>
+            {% if not trigger.is_system_trigger %}
+            <a href="{% url 'email_templates:trigger_edit' trigger.pk %}" class="btn btn-outline-primary me-2">
+                <i class="fas fa-edit"></i> Bearbeiten
+            </a>
+            {% endif %}
+            <form method="post" action="{% url 'email_templates:trigger_test' trigger.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-play"></i> Test senden
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Trigger Details -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Trigger-Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Name</label>
+                                <p class="mb-0">{{ trigger.name }}</p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Trigger-Schlüssel</label>
+                                <p class="mb-0">
+                                    <code>{{ trigger.trigger_key }}</code>
+                                </p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Kategorie</label>
+                                <p class="mb-0">
+                                    <span class="badge bg-light text-dark">{{ trigger.get_category_display }}</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Status</label>
+                                <p class="mb-0">
+                                    {% if trigger.is_active %}
+                                    <span class="badge bg-success">Aktiv</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Inaktiv</span>
+                                    {% endif %}
+                                    {% if trigger.is_system_trigger %}
+                                    <span class="badge bg-info">System-Trigger</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Erstellt</label>
+                                <p class="mb-0">{{ trigger.created_at|date:"d.m.Y H:i" }}</p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Zuletzt aktualisiert</label>
+                                <p class="mb-0">{{ trigger.updated_at|date:"d.m.Y H:i" }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Beschreibung</label>
+                        <p class="mb-0">{{ trigger.description }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Available Variables -->
+            {% if trigger.available_variables %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Verfügbare Variablen</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Variable</th>
+                                    <th>Beschreibung</th>
+                                    <th>Verwendung</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for var_key, var_description in trigger.available_variables.items %}
+                                <tr>
+                                    <td><code>{{ var_key }}</code></td>
+                                    <td>{{ var_description }}</td>
+                                    <td><code>{% templatetag openvariable %} {{ var_key }} {% templatetag closevariable %}</code></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Associated Templates -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Verknüpfte Templates ({{ templates.count }})</h5>
+                    <a href="{% url 'email_templates:template_list' %}?trigger={{ trigger.pk }}" class="btn btn-sm btn-outline-primary">
+                        Alle anzeigen
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if templates %}
+                    <div class="row">
+                        {% for template in templates %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h6 class="card-title mb-0">{{ template.name }}</h6>
+                                        <div>
+                                            {% if template.is_active %}
+                                            <span class="badge bg-success">Aktiv</span>
+                                            {% else %}
+                                            <span class="badge bg-secondary">Inaktiv</span>
+                                            {% endif %}
+                                            {% if template.is_auto_send %}
+                                            <span class="badge bg-primary">Auto</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <p class="card-text small text-muted">{{ template.subject|truncatechars:60 }}</p>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-muted">{{ template.get_template_type_display }}</small>
+                                        <a href="{% url 'email_templates:template_detail' template.pk %}" class="btn btn-sm btn-outline-primary">
+                                            Details
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-envelope fa-2x text-muted mb-3"></i>
+                        <p class="text-muted">Keine Templates mit diesem Trigger verknüpft.</p>
+                        <a href="{% url 'email_templates:template_list' %}?has_trigger=false" class="btn btn-outline-primary">
+                            Template zuordnen
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Test Trigger -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">Trigger testen</h6>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'email_templates:trigger_test' trigger.pk %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">Test-E-Mail-Adresse</label>
+                            <input type="email" name="test_email" class="form-control" 
+                                   placeholder="test@example.com" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Test-Name</label>
+                            <input type="text" name="test_name" class="form-control" 
+                                   placeholder="Max Mustermann">
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="fas fa-play"></i> Test-E-Mail senden
+                        </button>
+                    </form>
+                    <small class="text-muted mt-2 d-block">
+                        Sendet eine Test-E-Mail mit Beispieldaten an die angegebene Adresse.
+                    </small>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            {% if recent_logs %}
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Letzte E-Mails</h6>
+                </div>
+                <div class="card-body">
+                    {% for log in recent_logs %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <div class="fw-bold small">{{ log.template.name }}</div>
+                            <div class="text-muted small">{{ log.recipient_email }}</div>
+                        </div>
+                        <div class="text-end">
+                            {% if log.is_sent %}
+                            <span class="badge bg-success">✓</span>
+                            {% else %}
+                            <span class="badge bg-danger">✗</span>
+                            {% endif %}
+                            <div class="text-muted small">{{ log.created_at|date:"d.m. H:i" }}</div>
+                        </div>
+                    </div>
+                    {% if not forloop.last %}<hr class="my-2">{% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

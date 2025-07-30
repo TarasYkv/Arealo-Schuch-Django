@@ -5,7 +5,8 @@ from .models import (
     ZohoMailServerConnection, 
     EmailTemplateCategory, 
     EmailTemplate, 
-    EmailSendLog
+    EmailSendLog,
+    EmailTrigger
 )
 
 
@@ -132,7 +133,7 @@ class EmailTemplateForm(forms.ModelForm):
     class Meta:
         model = EmailTemplate
         fields = [
-            'name', 'slug', 'category', 'template_type',
+            'name', 'slug', 'category', 'template_type', 'trigger',
             'subject', 'html_content', 'text_content',
             'use_base_template', 'custom_css',
             'available_variables', 'is_active', 'is_default'
@@ -150,6 +151,9 @@ class EmailTemplateForm(forms.ModelForm):
                 'class': 'form-control'
             }),
             'template_type': forms.Select(attrs={
+                'class': 'form-control'
+            }),
+            'trigger': forms.Select(attrs={
                 'class': 'form-control'
             }),
             'subject': forms.TextInput(attrs={
@@ -194,6 +198,11 @@ class EmailTemplateForm(forms.ModelForm):
             'data-editor': 'html',
             'data-theme': 'default'
         })
+        
+        # Set up trigger field
+        self.fields['trigger'].queryset = EmailTrigger.objects.filter(is_active=True).order_by('category', 'name')
+        self.fields['trigger'].empty_label = "Kein Trigger (manueller Versand)"
+        self.fields['trigger'].required = False
 
     def clean_slug(self):
         slug = self.cleaned_data['slug']
