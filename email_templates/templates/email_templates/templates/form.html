@@ -53,6 +53,32 @@
         width: 100% !important;
     }
     
+    /* Aggressive width overrides for AI-generated content */
+    .preview-frame * {
+        max-width: 100% !important;
+    }
+    
+    .preview-frame div[style*="max-width: 600px"] {
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+    
+    .preview-frame div[style*="max-width:600px"] {
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+    
+    .preview-frame div[style*="max-width: 500px"] {
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+    
+    /* Force full width for any table-based layouts */
+    .preview-frame table {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    
     .variable-tag {
         display: inline-block;
         padding: 0.25rem 0.5rem;
@@ -208,6 +234,9 @@
                                     <label for="{{ form.is_default.id_for_label }}" class="form-check-label">
                                         {{ form.is_default.label }}
                                     </label>
+                                    <small class="form-text text-muted d-block">
+                                        Diese Vorlage wird automatisch verwendet, wenn für diesen Vorlagentyp keine spezifische Vorlage ausgewählt wurde. Pro Vorlagentyp kann nur eine Standard-Vorlage existieren.
+                                    </small>
                                 </div>
                             </div>
                         </div>
@@ -818,6 +847,9 @@ function applyGeneratedContent(content) {
     // Update generation info display
     updateGenerationInfoDisplay();
     
+    // Force immediate width fix after AI generation
+    forceFullWidthPreview();
+    
     // Update preview if available and if preview tab is active
     if (typeof updatePreview === 'function') {
         // Check if preview tab is currently active
@@ -825,6 +857,69 @@ function applyGeneratedContent(content) {
         if (previewTab && previewTab.classList.contains('active')) {
             updatePreview();
         }
+    }
+    
+    // Additional width fix after a delay to catch any dynamic content
+    setTimeout(() => {
+        forceFullWidthPreview();
+    }, 100);
+}
+
+function forceFullWidthPreview() {
+    console.log('Forcing full width preview after AI generation...');
+    
+    // Target all potential containers that might have width restrictions
+    const selectors = [
+        '.preview-frame',
+        '.preview-frame *',
+        '#preview-area',
+        '#preview-area *',
+        '.preview-frame div[style*="max-width"]',
+        '.preview-frame div[style*="width"]',
+        '.tab-pane#preview-content *'
+    ];
+    
+    selectors.forEach(selector => {
+        try {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(element => {
+                // Remove any inline max-width restrictions
+                if (element.style.maxWidth) {
+                    element.style.maxWidth = '100%';
+                    console.log('Fixed max-width for:', element);
+                }
+                
+                // Ensure width is full
+                if (element.style.width && element.style.width !== '100%') {
+                    element.style.width = '100%';
+                    console.log('Fixed width for:', element);
+                }
+                
+                // Special handling for elements with specific max-width values
+                if (element.style.maxWidth === '600px' || element.style.maxWidth === '500px') {
+                    element.style.maxWidth = '100%';
+                    element.style.width = '100%';
+                    console.log('Fixed specific max-width restriction for:', element);
+                }
+            });
+        } catch (e) {
+            console.log('Selector failed:', selector, e);
+        }
+    });
+    
+    // Also fix any Bootstrap column restrictions
+    const previewContent = document.getElementById('preview-content');
+    if (previewContent) {
+        previewContent.style.width = '100%';
+        previewContent.style.maxWidth = '100%';
+    }
+    
+    // Force layout recalculation
+    const previewFrame = document.querySelector('.preview-frame');
+    if (previewFrame) {
+        previewFrame.style.display = 'none';
+        previewFrame.offsetHeight; // Trigger reflow
+        previewFrame.style.display = '';
     }
 }
 
@@ -890,43 +985,119 @@ function copyVariable(varName) {
 }
 
 function updatePreview() {
+    console.log('=== Starting updatePreview ===');
     const subject = document.getElementById('id_subject').value;
     const htmlContent = document.getElementById('id_html_content').value;
     const customCSS = document.getElementById('id_custom_css').value;
     
     const previewArea = document.getElementById('preview-area');
     
+    // Pre-process HTML content to remove width restrictions
+    let processedHtmlContent = htmlContent;
+    if (processedHtmlContent) {
+        // Remove or modify inline max-width styles in the HTML content itself
+        processedHtmlContent = processedHtmlContent.replace(/max-width:\s*600px/gi, 'max-width: 100%');
+        processedHtmlContent = processedHtmlContent.replace(/max-width:\s*500px/gi, 'max-width: 100%');
+        processedHtmlContent = processedHtmlContent.replace(/max-width:\s*580px/gi, 'max-width: 100%');
+        processedHtmlContent = processedHtmlContent.replace(/max-width:\s*550px/gi, 'max-width: 100%');
+        processedHtmlContent = processedHtmlContent.replace(/width:\s*600px/gi, 'width: 100%');
+        processedHtmlContent = processedHtmlContent.replace(/width:\s*500px/gi, 'width: 100%');
+        console.log('HTML content processed for width restrictions');
+    }
+    
     // Create preview HTML
-    let previewHTML = '<div style="border: 1px solid #ddd; padding: 20px; background: #f8f9fa; width: 100%;">';
+    let previewHTML = '<div style="border: 1px solid #ddd; padding: 20px; background: #f8f9fa; width: 100%; max-width: 100%;">';
     previewHTML += '<h4 style="margin-bottom: 20px;">Betreff: ' + (subject || '[Kein Betreff]') + '</h4>';
     previewHTML += '</div>';
-    previewHTML += '<div style="padding: 20px; width: 100%;">';
+    previewHTML += '<div style="padding: 20px; width: 100%; max-width: 100%;">';
     
     if (customCSS) {
         previewHTML += '<style>' + customCSS + '</style>';
     }
     
-    // Add style override for preview
+    // Add multiple aggressive style overrides
     previewHTML += '<style>';
-    previewHTML += '.preview-frame div[style*="max-width: 600px"] { max-width: 100% !important; width: 100% !important; }';
-    previewHTML += '.preview-frame div[style*="max-width:600px"] { max-width: 100% !important; width: 100% !important; }';
+    previewHTML += '.preview-frame * { max-width: 100% !important; }';
+    previewHTML += '.preview-frame div[style*="max-width"] { max-width: 100% !important; width: 100% !important; }';
+    previewHTML += '.preview-frame table[style*="max-width"] { max-width: 100% !important; width: 100% !important; }';
+    previewHTML += '.preview-frame td[style*="max-width"] { max-width: 100% !important; width: 100% !important; }';
+    previewHTML += '.preview-frame [style*="600px"] { max-width: 100% !important; width: 100% !important; }';
+    previewHTML += '.preview-frame [style*="500px"] { max-width: 100% !important; width: 100% !important; }';
     previewHTML += '</style>';
     
-    previewHTML += htmlContent || '<p class="text-muted">Kein HTML-Inhalt vorhanden</p>';
+    previewHTML += processedHtmlContent || '<p class="text-muted">Kein HTML-Inhalt vorhanden</p>';
     previewHTML += '</div>';
     
     previewArea.innerHTML = previewHTML;
+    console.log('Preview HTML inserted');
     
-    // Force override max-width on all divs with inline styles after rendering
-    setTimeout(() => {
-        const emailContainers = previewArea.querySelectorAll('div[style*="max-width"]');
-        emailContainers.forEach(container => {
-            if (container.style.maxWidth === '600px') {
-                container.style.maxWidth = '100%';
-                container.style.width = '100%';
+    // Multiple waves of width fixing with increasing delays
+    const fixWidthsAggressively = () => {
+        console.log('=== Aggressive width fixing ===');
+        
+        // Fix all elements with inline styles
+        const allElements = previewArea.querySelectorAll('*[style]');
+        allElements.forEach((element, index) => {
+            const style = element.getAttribute('style');
+            if (style) {
+                // Remove any max-width restrictions
+                let newStyle = style.replace(/max-width:\s*\d+px/gi, 'max-width: 100%');
+                newStyle = newStyle.replace(/width:\s*[5-6]\d\dpx/gi, 'width: 100%'); // 500-699px
+                
+                if (newStyle !== style) {
+                    element.setAttribute('style', newStyle);
+                    console.log(`Fixed element ${index}:`, element.tagName, 'old:', style, 'new:', newStyle);
+                }
+            }
+            
+            // Also set via JavaScript style property
+            if (element.style.maxWidth && element.style.maxWidth !== '100%') {
+                console.log(`JS style fix for ${element.tagName}:`, element.style.maxWidth, '-> 100%');
+                element.style.maxWidth = '100%';
+                element.style.width = '100%';
             }
         });
-    }, 10);
+        
+        // Additional force for specific selectors
+        const specificSelectors = [
+            'div[style*="max-width"]',
+            'table[style*="max-width"]', 
+            'td[style*="max-width"]',
+            '[style*="600px"]',
+            '[style*="500px"]'
+        ];
+        
+        specificSelectors.forEach(selector => {
+            const elements = previewArea.querySelectorAll(selector);
+            elements.forEach(el => {
+                el.style.maxWidth = '100%';
+                el.style.width = '100%';
+                console.log(`Forced width for ${selector}:`, el);
+            });
+        });
+    };
+    
+    // Execute width fixes multiple times with different delays
+    setTimeout(fixWidthsAggressively, 10);
+    setTimeout(fixWidthsAggressively, 50);
+    setTimeout(fixWidthsAggressively, 100);
+    setTimeout(fixWidthsAggressively, 200);
+    
+    // Final force with layout recalculation
+    setTimeout(() => {
+        fixWidthsAggressively();
+        
+        // Force layout recalculation
+        const previewFrame = document.querySelector('.preview-frame');
+        if (previewFrame) {
+            previewFrame.style.display = 'none';
+            previewFrame.offsetHeight; // Trigger reflow
+            previewFrame.style.display = '';
+            console.log('Forced layout recalculation');
+        }
+        
+        console.log('=== Preview update complete ===');
+    }, 300);
 }
 
 // Handle form submission to check required fields in hidden tabs
