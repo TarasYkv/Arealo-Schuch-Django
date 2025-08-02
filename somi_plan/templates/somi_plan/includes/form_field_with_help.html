@@ -1,0 +1,102 @@
+<!-- Enhanced Form Field with Contextual Help -->
+{% load static %}
+
+<div class="form-field mb-3">
+    <label for="{{ field.id_for_label }}" class="form-label">
+        {% if icon %}<i class="{{ icon }} me-2"></i>{% endif %}
+        {{ field.label }}
+        {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
+        
+        {% if help_text %}
+        <span class="tooltip-trigger ms-2" data-tooltip="{{ help_text }}">
+            <i class="fas fa-question-circle text-muted"></i>
+            <div class="tooltip-content">{{ help_text }}</div>
+        </span>
+        {% endif %}
+    </label>
+    
+    <!-- Field with enhanced styling -->
+    {% if field.field.widget.input_type == 'textarea' %}
+        {{ field|add_class:"form-control" }}
+        {% if character_limit %}
+            <div class="character-counter" data-field="{{ field.id_for_label }}" data-limit="{{ character_limit }}">
+                0/{{ character_limit }} Zeichen
+            </div>
+        {% endif %}
+    {% elif field.field.widget.input_type == 'select' %}
+        {{ field|add_class:"form-select" }}
+    {% else %}
+        {{ field|add_class:"form-control" }}
+    {% endif %}
+    
+    <!-- Form validation feedback -->
+    <div class="form-validation" style="display: none;"></div>
+    
+    <!-- Field help text -->
+    {% if field.help_text and not help_text %}
+        <div class="form-text">{{ field.help_text }}</div>
+    {% endif %}
+    
+    <!-- Field errors -->
+    {% if field.errors %}
+        <div class="form-validation error show">
+            {% for error in field.errors %}
+                <i class="fas fa-exclamation-triangle me-1"></i>{{ error }}
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const field = document.getElementById('{{ field.id_for_label }}');
+    const counter = document.querySelector('[data-field="{{ field.id_for_label }}"]');
+    
+    if (field && counter) {
+        const limit = parseInt(counter.dataset.limit);
+        
+        field.addEventListener('input', function() {
+            const count = this.value.length;
+            const percentage = (count / limit) * 100;
+            
+            counter.textContent = `${count}/${limit} Zeichen`;
+            counter.className = 'character-counter';
+            
+            if (percentage > 100) {
+                counter.classList.add('danger');
+            } else if (percentage > 80) {
+                counter.classList.add('warning');
+            }
+        });
+        
+        // Initial count
+        field.dispatchEvent(new Event('input'));
+    }
+    
+    // Real-time validation
+    if (field) {
+        field.addEventListener('blur', function() {
+            const validation = this.parentElement.querySelector('.form-validation');
+            
+            if (this.hasAttribute('required') && !this.value.trim()) {
+                validation.className = 'form-validation error show';
+                validation.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Dieses Feld ist erforderlich';
+                this.classList.add('is-invalid');
+            } else {
+                validation.className = 'form-validation';
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            }
+        });
+        
+        field.addEventListener('input', function() {
+            if (this.classList.contains('is-invalid') && this.value.trim()) {
+                const validation = this.parentElement.querySelector('.form-validation');
+                validation.className = 'form-validation';
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            }
+        });
+    }
+});
+</script>

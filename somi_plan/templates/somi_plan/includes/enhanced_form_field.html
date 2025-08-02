@@ -1,0 +1,418 @@
+<!-- Enhanced Form Field Template -->
+{% load form_extras %}
+
+<div class="form-field mb-3" data-field-name="{{ field.name }}">
+    <!-- Label with icon and tooltip -->
+    <label for="{{ field.id_for_label }}" class="form-label d-flex align-items-center">
+        {% if icon %}
+            <i class="{{ icon }} me-2"></i>
+        {% endif %}
+        
+        <span class="field-label">{{ field.label }}</span>
+        
+        {% if required %}
+            <span class="text-danger ms-1" title="Pflichtfeld">*</span>
+        {% endif %}
+        
+        {% if tooltip %}
+            <span class="tooltip-trigger ms-2" data-tooltip="{{ tooltip }}">
+                <i class="fas fa-question-circle text-muted"></i>
+                <div class="tooltip-content">{{ tooltip }}</div>
+            </span>
+        {% elif help_text %}
+            <span class="tooltip-trigger ms-2" data-tooltip="{{ help_text }}">
+                <i class="fas fa-info-circle text-muted"></i>
+                <div class="tooltip-content">{{ help_text }}</div>
+            </span>
+        {% endif %}
+    </label>
+    
+    <!-- Field wrapper with validation states -->
+    <div class="field-wrapper position-relative">
+        {% if field.field.widget.input_type == 'textarea' %}
+            <!-- Textarea with character counter -->
+            {% if character_limit %}
+                {{ field|add_attrs:"class:form-control,data-max-length:"|add:character_limit }}
+                <div class="character-counter mt-1" 
+                     data-field="{{ field.id_for_label }}" 
+                     data-limit="{{ character_limit }}">
+                    <span class="current-count">0</span>/<span class="max-count">{{ character_limit }}</span> Zeichen
+                    <div class="progress progress-sm mt-1">
+                        <div class="progress-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+            {% else %}
+                {{ field|add_class:"form-control" }}
+            {% endif %}
+            
+        {% elif field.field.widget.input_type == 'select' %}
+            <!-- Select field -->
+            {{ field|add_class:"form-select" }}
+            
+        {% elif field.field.widget.input_type == 'checkbox' %}
+            <!-- Checkbox field -->
+            <div class="form-check">
+                {{ field|add_class:"form-check-input" }}
+                <label class="form-check-label" for="{{ field.id_for_label }}">
+                    {{ field.label }}
+                </label>
+            </div>
+            
+        {% elif field.field.widget.input_type == 'radio' %}
+            <!-- Radio button field -->
+            <div class="form-check">
+                {{ field|add_class:"form-check-input" }}
+                <label class="form-check-label" for="{{ field.id_for_label }}">
+                    {{ field.label }}
+                </label>
+            </div>
+            
+        {% else %}
+            <!-- Regular input field -->
+            {{ field|add_class:"form-control" }}
+        {% endif %}
+        
+        <!-- Loading indicator for async validation -->
+        <div class="field-loading position-absolute top-50 end-0 translate-middle-y me-3" style="display: none;">
+            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                <span class="visually-hidden">Validiere...</span>
+            </div>
+        </div>
+        
+        <!-- Validation icons -->
+        <div class="validation-icon position-absolute top-50 end-0 translate-middle-y me-3" style="display: none;">
+            <i class="fas fa-check-circle text-success valid-icon"></i>
+            <i class="fas fa-exclamation-circle text-danger invalid-icon"></i>
+        </div>
+    </div>
+    
+    <!-- Validation feedback -->
+    <div class="form-validation mt-1" style="display: none;">
+        <div class="success-feedback">
+            <i class="fas fa-check-circle me-1"></i>
+            <span class="feedback-text">Gültig</span>
+        </div>
+        <div class="error-feedback">
+            <i class="fas fa-exclamation-triangle me-1"></i>
+            <span class="feedback-text">Fehler</span>
+        </div>
+        <div class="loading-feedback">
+            <i class="fas fa-spinner fa-spin me-1"></i>
+            <span class="feedback-text">Wird validiert...</span>
+        </div>
+    </div>
+    
+    <!-- Help text (if no tooltip) -->
+    {% if field.help_text and not tooltip and not help_text %}
+        <div class="form-text mt-1">
+            <i class="fas fa-info me-1"></i>
+            {{ field.help_text }}
+        </div>
+    {% endif %}
+    
+    <!-- Field errors -->
+    {% if field.errors %}
+        <div class="form-validation error show mt-1">
+            <div class="error-feedback">
+                {% for error in field.errors %}
+                    <div class="error-item">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        <span class="feedback-text">{{ error }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fieldId = '{{ field.id_for_label }}';
+    const field = document.getElementById(fieldId);
+    const fieldWrapper = field?.closest('.form-field');
+    
+    if (!field || !fieldWrapper) return;
+    
+    const counter = fieldWrapper.querySelector('.character-counter');
+    const validation = fieldWrapper.querySelector('.form-validation');
+    const loadingIcon = fieldWrapper.querySelector('.field-loading');
+    const validationIcon = fieldWrapper.querySelector('.validation-icon');
+    
+    // Character counter functionality
+    if (counter) {
+        const limit = parseInt(counter.dataset.limit);
+        const currentCountEl = counter.querySelector('.current-count');
+        const progressBar = counter.querySelector('.progress-bar');
+        
+        function updateCounter() {
+            const count = field.value.length;
+            const percentage = (count / limit) * 100;
+            
+            currentCountEl.textContent = count;
+            progressBar.style.width = `${Math.min(percentage, 100)}%`;
+            
+            // Update counter styling
+            counter.className = 'character-counter mt-1';
+            progressBar.className = 'progress-bar';
+            
+            if (percentage > 100) {
+                counter.classList.add('danger');
+                progressBar.classList.add('bg-danger');
+            } else if (percentage > 80) {
+                counter.classList.add('warning');
+                progressBar.classList.add('bg-warning');
+            } else {
+                progressBar.classList.add('bg-primary');
+            }
+        }
+        
+        field.addEventListener('input', updateCounter);
+        updateCounter(); // Initial call
+    }
+    
+    // Real-time validation
+    let validationTimeout;
+    
+    function showValidationState(state, message = '') {
+        if (!validation) return;
+        
+        const feedbacks = validation.querySelectorAll('.success-feedback, .error-feedback, .loading-feedback');
+        feedbacks.forEach(f => f.style.display = 'none');
+        
+        validation.className = 'form-validation mt-1 show';
+        
+        switch (state) {
+            case 'loading':
+                validation.classList.add('loading');
+                validation.querySelector('.loading-feedback').style.display = 'block';
+                if (loadingIcon) loadingIcon.style.display = 'block';
+                if (validationIcon) validationIcon.style.display = 'none';
+                break;
+                
+            case 'success':
+                validation.classList.add('success');
+                validation.querySelector('.success-feedback').style.display = 'block';
+                if (message) validation.querySelector('.success-feedback .feedback-text').textContent = message;
+                field.classList.remove('is-invalid');
+                field.classList.add('is-valid');
+                if (loadingIcon) loadingIcon.style.display = 'none';
+                if (validationIcon) {
+                    validationIcon.style.display = 'block';
+                    validationIcon.querySelector('.valid-icon').style.display = 'inline';
+                    validationIcon.querySelector('.invalid-icon').style.display = 'none';
+                }
+                break;
+                
+            case 'error':
+                validation.classList.add('error');
+                validation.querySelector('.error-feedback').style.display = 'block';
+                if (message) validation.querySelector('.error-feedback .feedback-text').textContent = message;
+                field.classList.remove('is-valid');
+                field.classList.add('is-invalid');
+                if (loadingIcon) loadingIcon.style.display = 'none';
+                if (validationIcon) {
+                    validationIcon.style.display = 'block';
+                    validationIcon.querySelector('.valid-icon').style.display = 'none';
+                    validationIcon.querySelector('.invalid-icon').style.display = 'inline';
+                }
+                break;
+                
+            default:
+                validation.classList.remove('show');
+                field.classList.remove('is-valid', 'is-invalid');
+                if (loadingIcon) loadingIcon.style.display = 'none';
+                if (validationIcon) validationIcon.style.display = 'none';
+        }
+    }
+    
+    function validateField() {
+        const value = field.value.trim();
+        const isRequired = field.hasAttribute('required');
+        
+        // Clear previous timeout
+        clearTimeout(validationTimeout);
+        
+        if (isRequired && !value) {
+            showValidationState('error', 'Dieses Feld ist erforderlich');
+            return false;
+        }
+        
+        // Email validation
+        if (field.type === 'email' && value) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(value)) {
+                showValidationState('error', 'Bitte gib eine gültige E-Mail-Adresse ein');
+                return false;
+            }
+        }
+        
+        // URL validation
+        if (field.type === 'url' && value) {
+            try {
+                new URL(value);
+            } catch {
+                showValidationState('error', 'Bitte gib eine gültige URL ein');
+                return false;
+            }
+        }
+        
+        // Character limit validation
+        if (counter) {
+            const limit = parseInt(counter.dataset.limit);
+            if (value.length > limit) {
+                showValidationState('error', `Text ist zu lang (${value.length}/${limit} Zeichen)`);
+                return false;
+            }
+        }
+        
+        // If all validations pass
+        if (value || !isRequired) {
+            showValidationState('success', 'Gültig');
+            return true;
+        }
+        
+        // Clear validation state for empty non-required fields
+        showValidationState('');
+        return true;
+    }
+    
+    // Debounced validation on input
+    field.addEventListener('input', function() {
+        clearTimeout(validationTimeout);
+        
+        if (this.value.trim()) {
+            showValidationState('loading');
+            validationTimeout = setTimeout(validateField, 500);
+        } else {
+            showValidationState('');
+        }
+    });
+    
+    // Immediate validation on blur
+    field.addEventListener('blur', function() {
+        clearTimeout(validationTimeout);
+        validateField();
+    });
+    
+    // Clear invalid state when user starts typing
+    field.addEventListener('focus', function() {
+        if (this.classList.contains('is-invalid')) {
+            showValidationState('');
+        }
+    });
+    
+    // Expose validation function globally for form submission
+    window[`validate_${fieldId}`] = validateField;
+});
+</script>
+
+<style>
+.form-field {
+    position: relative;
+}
+
+.field-wrapper {
+    position: relative;
+}
+
+.character-counter {
+    font-size: 0.85rem;
+    color: #6c757d;
+    transition: color 0.3s ease;
+}
+
+.character-counter.warning {
+    color: #fd7e14;
+}
+
+.character-counter.danger {
+    color: #dc3545;
+}
+
+.character-counter .progress {
+    height: 2px;
+    background-color: #e9ecef;
+}
+
+.form-validation {
+    font-size: 0.85rem;
+    transition: all 0.3s ease;
+}
+
+.form-validation.success {
+    color: #198754;
+}
+
+.form-validation.error {
+    color: #dc3545;
+}
+
+.form-validation.loading {
+    color: #6c757d;
+}
+
+.validation-icon {
+    pointer-events: none;
+    z-index: 10;
+}
+
+.valid-icon {
+    color: #198754;
+}
+
+.invalid-icon {
+    color: #dc3545;
+}
+
+.error-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.25rem;
+}
+
+.error-item:last-child {
+    margin-bottom: 0;
+}
+
+/* Tooltip styles (if not already defined) */
+.tooltip-trigger {
+    position: relative;
+    cursor: help;
+}
+
+.tooltip-content {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #2d3748;
+    color: white;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    width: 200px;
+    text-align: left;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    margin-bottom: 8px;
+}
+
+.tooltip-content::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #2d3748;
+}
+
+.tooltip-trigger:hover .tooltip-content {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(-5px);
+}
+</style>
