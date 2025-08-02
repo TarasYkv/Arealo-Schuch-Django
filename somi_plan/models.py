@@ -48,6 +48,18 @@ class PostingPlan(models.Model):
     goals = models.TextField(help_text="Zielsetzung der Social Media Strategie")
     vision = models.TextField(help_text="Wunschvorstellung/Vision")
     
+    # Story-Modus Felder
+    story_mode = models.CharField(
+        max_length=20, 
+        choices=[('individual', 'Einzelne Posts'), ('story', 'Story-Serie')],
+        default='individual',
+        help_text="Art der Posts: einzeln oder als zusammenhängende Story"
+    )
+    story_post_count = models.IntegerField(
+        default=5,
+        help_text="Anzahl Posts für Story-Serie (2-10)"
+    )
+    
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -128,6 +140,13 @@ class PostContent(models.Model):
     post_type = models.CharField(max_length=50, blank=True, help_text="z.B. Tipp, Story, Werbung")
     priority = models.IntegerField(default=3, help_text="1=Hoch, 2=Mittel, 3=Niedrig")
     
+    # Story-Serie Felder
+    story_position = models.IntegerField(
+        null=True, 
+        blank=True,
+        help_text="Position in der Story-Serie (1, 2, 3, ...)"
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -176,7 +195,6 @@ class PostSchedule(models.Model):
     
     class Meta:
         ordering = ['scheduled_date', 'scheduled_time']
-        unique_together = ['post_content']
         verbose_name = "Post Schedule"
         verbose_name_plural = "Post Schedules"
     

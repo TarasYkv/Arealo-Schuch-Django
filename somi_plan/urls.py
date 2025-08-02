@@ -40,6 +40,13 @@ urlpatterns = [
     path('ajax/post/<int:pk>/update-position/', views.ajax_update_position, name='ajax_update_position'),
     path('ajax/calendar-data/<int:year>/<int:month>/', views.ajax_calendar_data, name='ajax_calendar_data'),
     
+    # API Endpoints for Responsive Calendar
+    path('api/posts/calendar/', views.api_calendar_posts, name='api_calendar_posts'),
+    path('api/posts/<int:post_id>/move/', views.api_move_post, name='api_move_post'),
+    
+    # Company Info Import
+    path('ajax/import-company-info/', views.ajax_import_company_info, name='ajax_import_company_info'),
+    
     # Template System
     path('templates/', views.template_list, name='template_list'),
     path('templates/category/<int:category_id>/', views.template_category, name='template_category'),

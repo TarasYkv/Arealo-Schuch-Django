@@ -217,15 +217,29 @@
         <div class="row">
             {% for post in posts %}
             <div class="col-md-6 col-lg-4 mb-3">
-                <div class="card h-100 post-card" onclick="showPostModal({{ post.id }})">
+                <div class="card h-100 post-card {% if post.post_type == 'story' %}story{% else %}individual{% endif %}" onclick="showPostModal({{ post.id }})">
+                    {% if post.story_position %}
+                    <div class="story-order-badge">
+                        <span class="badge bg-success">
+                            <i class="fas fa-list-ol me-1"></i>{{ post.story_position }}
+                        </span>
+                    </div>
+                    {% endif %}
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <h6 class="card-title mb-0">{{ post.title|truncatechars:40 }}</h6>
-                            {% if post.ai_generated %}
-                            <span class="badge bg-gradient-primary">
-                                <i class="fas fa-robot"></i>
-                            </span>
-                            {% endif %}
+                            <div class="post-badges">
+                                {% if post.post_type == 'story' %}
+                                <span class="badge bg-gradient-success me-1" title="Story-Serie">
+                                    <i class="fas fa-stream"></i>
+                                </span>
+                                {% endif %}
+                                {% if post.ai_generated %}
+                                <span class="badge bg-gradient-primary">
+                                    <i class="fas fa-robot"></i>
+                                </span>
+                                {% endif %}
+                            </div>
                         </div>
                         
                         <p class="card-text small text-muted">{{ post.content|truncatechars:80|linebreaks }}</p>
@@ -249,16 +263,48 @@
                                 </span>
                             </small>
                             
-                            <div>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-secondary" 
+                                        onclick="event.stopPropagation(); quickCopy({{ post.id }})" 
+                                        title="Post kopieren">
+                                    <i class="fas fa-copy"></i>
+                                </button>
                                 {% if post.schedule %}
-                                <span class="badge bg-success">
+                                <button class="btn btn-success" disabled>
                                     <i class="fas fa-calendar me-1"></i>{{ post.schedule.scheduled_date|date:"d.m." }}
-                                </span>
+                                </button>
                                 {% else %}
-                                <button class="btn btn-outline-primary btn-sm" onclick="event.stopPropagation(); schedulePost({{ post.id }})">
+                                <button class="btn btn-outline-primary" onclick="event.stopPropagation(); schedulePost({{ post.id }})">
                                     <i class="fas fa-calendar me-1"></i>Planen
                                 </button>
                                 {% endif %}
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-no-caret" 
+                                            type="button" 
+                                            data-bs-toggle="dropdown" 
+                                            onclick="event.stopPropagation();"
+                                            title="Weitere Aktionen">
+                                        <i class="fas fa-ellipsis-v"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                        <li>
+                                            <a class="dropdown-item" href="#" onclick="event.stopPropagation(); editPost({{ post.id }})">
+                                                <i class="fas fa-edit me-2 text-primary"></i>Bearbeiten
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="#" onclick="event.stopPropagation(); duplicatePost({{ post.id }})">
+                                                <i class="fas fa-copy me-2 text-info"></i>Duplizieren
+                                            </a>
+                                        </li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <a class="dropdown-item text-danger" href="#" onclick="event.stopPropagation(); deletePost({{ post.id }}, '{{ post.title|escapejs }}')">
+                                                <i class="fas fa-trash me-2"></i>Löschen
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -344,14 +390,19 @@ window.showPostModal = function(postId) {
     const formatContent = (text) => {
         if (!text) return '';
         return text
-            .replace(/\n\n/g, '</p><p>')  // Double line breaks become paragraph breaks
-            .replace(/\n/g, '<br>')       // Single line breaks become <br>
-            .replace(/^/, '<p>')          // Start with paragraph
-            .replace(/$/, '</p>')         // End with paragraph
-            .replace(/<p><\/p>/g, '')     // Remove empty paragraphs
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // Bold text **text**
-            .replace(/\*(.*?)\*/g, '<em>$1</em>')              // Italic text *text*
-            .replace(/#(\w+)/g, '<span class="text-primary fw-bold">#$1</span>'); // Hashtags
+            .replace(/\n\n/g, '</p><p>')        // Double line breaks become paragraph breaks
+            .replace(/\n/g, '<br>')             // Single line breaks become <br>
+            .replace(/^/, '<p>')                // Start with paragraph
+            .replace(/$/, '</p>')               // End with paragraph
+            .replace(/<p><\/p>/g, '')           // Remove empty paragraphs
+            .replace(/\*\*(.*?)\*\*/g, '<strong class="fw-bold text-dark">$1</strong>')  // Bold text **text**
+            .replace(/\*(.*?)\*/g, '<em class="fst-italic text-secondary">$1</em>')      // Italic text *text*
+            .replace(/#(\w+)/g, '<span class="text-primary fw-bold">#$1</span>')         // Hashtags
+            .replace(/(@\w+)/g, '<span class="text-info fw-bold">$1</span>')             // Mentions
+            .replace(/(\b(?:https?|ftp):\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="text-decoration-none text-primary">$1</a>') // URLs
+            .replace(/(\d+\.)/g, '<span class="text-primary fw-bold me-1">$1</span>')    // Numbered lists
+            .replace(/(-\s)/g, '<span class="text-primary fw-bold me-1">•</span> ')      // Bullet points
+            .replace(/(👉|➡️|🔥|💡|⭐|✨)/g, '<span class="fs-5 me-1">$1</span>');      // Emojis with spacing
     };
     
     const formatScript = (text) => {
@@ -362,15 +413,24 @@ window.showPostModal = function(postId) {
             .replace(/^/, '<p>')
             .replace(/$/, '</p>')
             .replace(/<p><\/p>/g, '')
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            .replace(/(\d+\.|\-|\•)/g, '<span class="text-primary fw-bold">$1</span>') // Numbers and bullets
-            .replace(/(Schritt \d+|Phase \d+|Teil \d+)/gi, '<span class="badge bg-info me-1">$1</span>'); // Steps/phases
+            .replace(/\*\*(.*?)\*\*/g, '<strong class="fw-bold text-dark">$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em class="fst-italic">$1</em>')
+            .replace(/(\d+\.|\-|\•)/g, '<span class="text-primary fw-bold me-2">$1</span>') // Numbers and bullets
+            .replace(/(Schritt \d+|Phase \d+|Teil \d+|Aktion \d+)/gi, '<span class="badge bg-info text-dark me-1 mb-1">$1</span>') // Steps/phases
+            .replace(/(Wichtig:|Hinweis:|Tipp:|Achtung:|Beachte:|Info:)/gi, '<span class="badge bg-warning text-dark me-1 mb-1">$1</span>') // Important notes
+            .replace(/(\[.*?\])/g, '<span class="text-success fw-bold">$1</span>') // Brackets for actions
+            .replace(/(".*?")/g, '<span class="text-muted fst-italic">$1</span>') // Quoted text
+            .replace(/(TODO:|DONE:|NEXT:)/gi, '<span class="badge bg-secondary me-1 mb-1">$1</span>'); // Task markers
     };
 
     document.getElementById('postModalBody').innerHTML = `
         <div class="mb-3">
-            <h6><i class="fas fa-file-alt me-2"></i>Content</h6>
+            <h6 class="d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-file-alt me-2"></i>Content</span>
+                <button class="btn btn-sm btn-outline-primary" onclick="copyToClipboard('${post.content.replace(/'/g, "\\'")}', 'content')">
+                    <i class="fas fa-copy me-1"></i>Kopieren
+                </button>
+            </h6>
             <div class="bg-light p-3 rounded border">
                 <div class="content-formatted" style="line-height: 1.6; font-size: 0.95rem;">
                     ${formatContent(post.content)}
@@ -384,7 +444,12 @@ window.showPostModal = function(postId) {
         
         ${post.script ? `
         <div class="mb-3">
-            <h6><i class="fas fa-script me-2"></i>Umsetzungs-Skript</h6>
+            <h6 class="d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-script me-2"></i>Umsetzungs-Skript</span>
+                <button class="btn btn-sm btn-outline-info" onclick="copyToClipboard('${post.script.replace(/'/g, "\\'")}', 'script')">
+                    <i class="fas fa-copy me-1"></i>Kopieren
+                </button>
+            </h6>
             <div class="bg-info bg-opacity-10 p-3 rounded border border-info">
                 <div class="script-formatted" style="line-height: 1.5; font-size: 0.9rem;">
                     ${formatScript(post.script)}
@@ -395,7 +460,12 @@ window.showPostModal = function(postId) {
         
         ${post.hashtags ? `
         <div class="mb-3">
-            <h6><i class="fas fa-hashtag me-2"></i>Hashtags</h6>
+            <h6 class="d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-hashtag me-2"></i>Hashtags</span>
+                <button class="btn btn-sm btn-outline-secondary" onclick="copyToClipboard('${post.hashtags}', 'hashtags')">
+                    <i class="fas fa-copy me-1"></i>Kopieren
+                </button>
+            </h6>
             <div>
                 ${post.hashtags.split(' ').filter(tag => tag).map(tag => 
                     `<span class="badge bg-primary me-1">${tag}</span>`
@@ -406,12 +476,41 @@ window.showPostModal = function(postId) {
         
         ${post.call_to_action ? `
         <div class="mb-3">
-            <h6><i class="fas fa-bullhorn me-2"></i>Call-to-Action</h6>
+            <h6 class="d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-bullhorn me-2"></i>Call-to-Action</span>
+                <button class="btn btn-sm btn-outline-warning" onclick="copyToClipboard('${post.call_to_action.replace(/'/g, "\\'")}', 'cta')">
+                    <i class="fas fa-copy me-1"></i>Kopieren
+                </button>
+            </h6>
             <div class="bg-warning bg-opacity-10 p-2 rounded">
                 <strong>${post.call_to_action}</strong>
             </div>
         </div>
         ` : ''}
+        
+        <!-- Quick Copy Section -->
+        <div class="mt-4 p-3 bg-light rounded">
+            <h6 class="mb-3"><i class="fas fa-magic me-2"></i>Schnell-Kopiervorlagen für {{ plan.platform.name }}</h6>
+            <div class="row g-2">
+                <div class="col-12">
+                    <button class="btn btn-sm btn-outline-dark w-100" onclick="copyCompletePost(${postId})">
+                        <i class="fas fa-copy me-1"></i>Kompletter Post (Content + Hashtags + CTA)
+                    </button>
+                </div>
+                ${post.hashtags || post.call_to_action ? `
+                <div class="col-md-6">
+                    <button class="btn btn-sm btn-outline-secondary w-100" onclick="copyContentWithHashtags(${postId})">
+                        <i class="fas fa-copy me-1"></i>Content + Hashtags
+                    </button>
+                </div>
+                <div class="col-md-6">
+                    <button class="btn btn-sm btn-outline-secondary w-100" onclick="copyContentWithCTA(${postId})">
+                        <i class="fas fa-copy me-1"></i>Content + Call-to-Action
+                    </button>
+                </div>
+                ` : ''}
+            </div>
+        </div>
     `;
     
     // Set button actions
@@ -434,53 +533,159 @@ window.showPostModal = function(postId) {
 };
 
 window.generateMorePosts = async function() {
-    if (confirm('Neue Post-Ideen mit KI generieren? Dies fügt weitere kreative Vorschläge zu deinem Plan hinzu.')) {
-        const btn = event.target;
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generiere...';
+    // Show beautiful confirmation modal instead of ugly confirm()
+    showGenerateIdeasModal();
+}
+
+function showGenerateIdeasModal() {
+    const modalHTML = `
+        <div class="modal fade" id="generateIdeasModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header border-0 bg-gradient-primary text-white">
+                        <h5 class="modal-title d-flex align-items-center">
+                            <i class="fas fa-magic me-2"></i>
+                            Neue Post-Ideen generieren
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <div class="text-center mb-3">
+                            <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                                <i class="fas fa-lightbulb fa-2x text-primary"></i>
+                            </div>
+                        </div>
+                        <h6 class="text-center mb-3">KI-gestützte Content-Erstellung</h6>
+                        <p class="text-muted text-center mb-4">
+                            Möchtest du weitere kreative Post-Ideen für deinen Plan generieren lassen? 
+                            Die KI wird basierend auf deiner aktuellen Strategie neue, passende Inhalte vorschlagen.
+                        </p>
+                        <div class="bg-light p-3 rounded mb-3">
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <i class="fas fa-robot text-primary mb-1"></i>
+                                    <small class="d-block text-muted">KI-generiert</small>
+                                </div>
+                                <div class="col-4">
+                                    <i class="fas fa-target text-success mb-1"></i>
+                                    <small class="d-block text-muted">Zielgruppen-optimiert</small>
+                                </div>
+                                <div class="col-4">
+                                    <i class="fas fa-heart text-danger mb-1"></i>
+                                    <small class="d-block text-muted">Engagement-fokussiert</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 px-4 pb-4">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i>Abbrechen
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="executeGenerateIdeas()" id="confirmGenerateBtn">
+                            <i class="fas fa-magic me-1"></i>Ideen generieren
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if present
+    const existingModal = document.getElementById('generateIdeasModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('generateIdeasModal'));
+    modal.show();
+    
+    // Clean up after modal is hidden
+    document.getElementById('generateIdeasModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+}
+
+async function executeGenerateIdeas() {
+    const btn = document.getElementById('confirmGenerateBtn');
+    const originalBtnContent = btn.innerHTML;
+    
+    // Update button to show loading
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generiere Ideen...';
+    
+    try {
+        const response = await fetch(`{% url 'somi_plan:generate_more_ideas' plan.id %}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            }
+        });
         
-        try {
-            const response = await fetch(`{% url 'somi_plan:generate_more_ideas' plan.id %}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-                }
-            });
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            // Update modal to show success
+            btn.innerHTML = '<i class="fas fa-check me-1"></i>Erfolgreich generiert!';
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-success');
             
-            const result = await response.json();
-            
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-magic me-1"></i>Mehr Ideen';
-            
-            if (result.status === 'success') {
-                // Show success message
-                const alert = document.createElement('div');
-                alert.className = 'alert alert-success alert-dismissible fade show';
-                alert.innerHTML = `
-                    <i class="fas fa-magic me-2"></i>
-                    ${result.message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                `;
+            // Hide modal after short delay
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('generateIdeasModal')).hide();
                 
-                // Insert alert at top of page
-                const mainContent = document.querySelector('.col-lg-8, .col-12');
-                mainContent.insertBefore(alert, mainContent.firstChild);
+                // Show success message
+                showSuccessAlert(result.message);
                 
                 // Reload to show new posts
                 setTimeout(() => {
                     location.reload();
-                }, 1500);
-            } else {
-                alert(`Fehler: ${result.message}`);
-            }
+                }, 2000);
+            }, 1000);
             
-        } catch (error) {
+        } else {
+            // Show error in modal
             btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-magic me-1"></i>Mehr Ideen';
-            console.error('Error generating posts:', error);
-            alert('Netzwerkfehler beim Generieren neuer Posts. Bitte versuche es später erneut.');
+            btn.innerHTML = originalBtnContent;
+            showErrorInModal(`Fehler: ${result.message}`);
         }
+        
+    } catch (error) {
+        btn.disabled = false;
+        btn.innerHTML = originalBtnContent;
+        console.error('Error generating posts:', error);
+        showErrorInModal('Netzwerkfehler beim Generieren neuer Posts. Bitte versuche es später erneut.');
+    }
+}
+
+function showErrorInModal(message) {
+    const modalBody = document.querySelector('#generateIdeasModal .modal-body');
+    const errorAlert = `
+        <div class="alert alert-danger d-flex align-items-center" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            ${message}
+        </div>
+    `;
+    modalBody.insertAdjacentHTML('beforeend', errorAlert);
+}
+
+function showSuccessAlert(message) {
+    const alert = document.createElement('div');
+    alert.className = 'alert alert-success alert-dismissible fade show';
+    alert.innerHTML = `
+        <i class="fas fa-magic me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    // Insert alert at top of page
+    const mainContent = document.querySelector('.col-lg-8, .col-12');
+    if (mainContent) {
+        mainContent.insertBefore(alert, mainContent.firstChild);
     }
 }
 
@@ -503,13 +708,312 @@ window.exportPlan = function() {
     alert('Export-Funktion wird in Phase 5 implementiert');
 };
 
+// Copy to clipboard functionality
+window.copyToClipboard = function(text, type) {
+    // Clean text for proper copying
+    const cleanText = text
+        .replace(/\\n/g, '\n')
+        .replace(/\\'/g, "'")
+        .replace(/\\"/g, '"');
+    
+    navigator.clipboard.writeText(cleanText).then(() => {
+        showCopyNotification(type);
+    }).catch(err => {
+        console.error('Copy failed:', err);
+        // Fallback for older browsers
+        const textArea = document.createElement("textarea");
+        textArea.value = cleanText;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            showCopyNotification(type);
+        } catch (err) {
+            alert('Kopieren fehlgeschlagen. Bitte manuell kopieren.');
+        }
+        document.body.removeChild(textArea);
+    });
+};
+
+window.showCopyNotification = function(type) {
+    const messages = {
+        content: 'Content kopiert!',
+        script: 'Skript kopiert!',
+        hashtags: 'Hashtags kopiert!',
+        cta: 'Call-to-Action kopiert!',
+        complete: 'Kompletter Post kopiert!',
+        contentHashtags: 'Content + Hashtags kopiert!',
+        contentCTA: 'Content + Call-to-Action kopiert!'
+    };
+    
+    // Create toast notification
+    const toast = document.createElement('div');
+    toast.className = 'position-fixed bottom-0 end-0 p-3';
+    toast.style.zIndex = '11';
+    toast.innerHTML = `
+        <div class="toast show" role="alert">
+            <div class="toast-header bg-success text-white">
+                <i class="fas fa-check-circle me-2"></i>
+                <strong class="me-auto">${messages[type] || 'Kopiert!'}</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body">
+                Der Text wurde in die Zwischenablage kopiert.
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+};
+
+// Get post data helper
+window.getPostData = function(postId) {
+    const posts = {
+        {% for post in posts %}
+        {{ post.id }}: {
+            title: `{{ post.title|escapejs }}`,
+            content: `{{ post.content|escapejs }}`,
+            script: `{{ post.script|escapejs }}`,
+            hashtags: `{{ post.hashtags|escapejs }}`,
+            call_to_action: `{{ post.call_to_action|escapejs }}`,
+            character_count: {{ post.character_count }},
+            character_limit: {{ post.posting_plan.platform.character_limit }}
+        },
+        {% endfor %}
+    };
+    return posts[postId];
+};
+
+window.copyCompletePost = function(postId) {
+    const post = getPostData(postId);
+    let completeText = post.content;
+    
+    if (post.call_to_action) {
+        completeText += '\n\n' + post.call_to_action;
+    }
+    
+    if (post.hashtags) {
+        completeText += '\n\n' + post.hashtags;
+    }
+    
+    copyToClipboard(completeText, 'complete');
+};
+
+window.copyContentWithHashtags = function(postId) {
+    const post = getPostData(postId);
+    let text = post.content;
+    
+    if (post.hashtags) {
+        text += '\n\n' + post.hashtags;
+    }
+    
+    copyToClipboard(text, 'contentHashtags');
+};
+
+window.copyContentWithCTA = function(postId) {
+    const post = getPostData(postId);
+    let text = post.content;
+    
+    if (post.call_to_action) {
+        text += '\n\n' + post.call_to_action;
+    }
+    
+    copyToClipboard(text, 'contentCTA');
+};
+
+window.quickCopy = function(postId) {
+    const post = getPostData(postId);
+    let text = post.content;
+    
+    // Add CTA if exists
+    if (post.call_to_action) {
+        text += '\n\n' + post.call_to_action;
+    }
+    
+    // Add hashtags if exists
+    if (post.hashtags) {
+        text += '\n\n' + post.hashtags;
+    }
+    
+    copyToClipboard(text, 'complete');
+};
+
+// Delete Post Function
+window.deletePost = function(postId, postTitle) {
+    showDeleteConfirmationModal(postId, postTitle);
+};
+
+function showDeleteConfirmationModal(postId, postTitle) {
+    const modalHTML = `
+        <div class="modal fade" id="deletePostModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header border-0 bg-danger text-white">
+                        <h5 class="modal-title d-flex align-items-center">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Post löschen
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <div class="text-center mb-3">
+                            <div class="bg-danger bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                                <i class="fas fa-trash fa-2x text-danger"></i>
+                            </div>
+                        </div>
+                        <h6 class="text-center mb-3">Post endgültig löschen?</h6>
+                        <p class="text-muted text-center mb-4">
+                            Möchtest du den Post <strong>"${postTitle}"</strong> wirklich löschen? 
+                            Diese Aktion kann nicht rückgängig gemacht werden.
+                        </p>
+                        <div class="bg-light p-3 rounded mb-3">
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <i class="fas fa-file-alt text-danger mb-1"></i>
+                                    <small class="d-block text-muted">Content verloren</small>
+                                </div>
+                                <div class="col-4">
+                                    <i class="fas fa-calendar text-warning mb-1"></i>
+                                    <small class="d-block text-muted">Termine entfernt</small>
+                                </div>
+                                <div class="col-4">
+                                    <i class="fas fa-undo text-muted mb-1"></i>
+                                    <small class="d-block text-muted">Nicht wiederherstellbar</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 px-4 pb-4">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i>Abbrechen
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="executeDeletePost(${postId})" id="confirmDeleteBtn">
+                            <i class="fas fa-trash me-1"></i>Endgültig löschen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if present
+    const existingModal = document.getElementById('deletePostModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('deletePostModal'));
+    modal.show();
+    
+    // Clean up after modal is hidden
+    document.getElementById('deletePostModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+}
+
+async function executeDeletePost(postId) {
+    const btn = document.getElementById('confirmDeleteBtn');
+    const originalBtnContent = btn.innerHTML;
+    
+    // Update button to show loading
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Lösche...';
+    
+    try {
+        const response = await fetch(`/somi-plan/post/${postId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            // Update modal to show success
+            btn.innerHTML = '<i class="fas fa-check me-1"></i>Gelöscht!';
+            btn.classList.remove('btn-danger');
+            btn.classList.add('btn-success');
+            
+            // Hide modal after short delay
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('deletePostModal')).hide();
+                
+                // Remove post card from DOM
+                const postCard = document.querySelector(\`[onclick*="showPostModal(\${postId})"]\`);
+                if (postCard) {
+                    const cardContainer = postCard.closest('.col-md-6');
+                    if (cardContainer) {
+                        cardContainer.style.transition = 'all 0.3s ease';
+                        cardContainer.style.opacity = '0';
+                        cardContainer.style.transform = 'scale(0.9)';
+                        setTimeout(() => {
+                            cardContainer.remove();
+                            // Check if no posts left
+                            const remainingPosts = document.querySelectorAll('.post-card').length;
+                            if (remainingPosts === 0) {
+                                location.reload(); // Reload to show empty state
+                            }
+                        }, 300);
+                    }
+                }
+                
+                // Show success message
+                showSuccessAlert(result.message || 'Post wurde erfolgreich gelöscht.');
+            }, 1000);
+            
+        } else {
+            // Show error in modal
+            btn.disabled = false;
+            btn.innerHTML = originalBtnContent;
+            showErrorInModal(\`Fehler: \${result.message}\`);
+        }
+        
+    } catch (error) {
+        btn.disabled = false;
+        btn.innerHTML = originalBtnContent;
+        console.error('Error deleting post:', error);
+        showErrorInModal('Netzwerkfehler beim Löschen des Posts. Bitte versuche es später erneut.');
+    }
+}
+
+function showErrorInModal(message) {
+    const modalBody = document.querySelector('#deletePostModal .modal-body');
+    const errorAlert = \`
+        <div class="alert alert-danger d-flex align-items-center mt-3" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            \${message}
+        </div>
+    \`;
+    modalBody.insertAdjacentHTML('beforeend', errorAlert);
+}
+
+window.duplicatePost = function(postId) {
+    // TODO: Implement post duplication
+    alert('Duplizierung wird in einer späteren Version implementiert');
+};
+
 // Verify functions are available
 console.log('Functions registered:', {
     showPostModal: typeof window.showPostModal,
     editPost: typeof window.editPost,
     schedulePost: typeof window.schedulePost,
     generateMorePosts: typeof window.generateMorePosts,
-    exportPlan: typeof window.exportPlan
+    exportPlan: typeof window.exportPlan,
+    copyToClipboard: typeof window.copyToClipboard,
+    quickCopy: typeof window.quickCopy
 });
 </script>
 {% endblock %}
@@ -669,6 +1173,162 @@ console.log('Functions registered:', {
     /* Better line height for formatted content */
     .linebreaks {
         line-height: 1.5;
+    }
+    
+    /* Story Post Styling */
+    .post-card.story {
+        border-left: 4px solid #28a745;
+        position: relative;
+    }
+    
+    .story-order-badge {
+        position: absolute;
+        top: -8px;
+        left: 15px;
+        z-index: 10;
+    }
+    
+    .story-order-badge .badge {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.6rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .post-badges {
+        display: flex;
+        gap: 0.25rem;
+        align-items: center;
+    }
+    
+    .post-badges .badge {
+        font-size: 0.7rem;
+    }
+    
+    /* Story cards get special styling */
+    .post-card.story:hover {
+        border-left-color: #20c997;
+        transform: translateY(-3px);
+    }
+    
+    /* Enhanced text formatting */
+    .content-formatted p {
+        margin-bottom: 0.75rem;
+        line-height: 1.6;
+    }
+    
+    .content-formatted p:last-child {
+        margin-bottom: 0;
+    }
+    
+    .content-formatted strong {
+        font-weight: 600;
+        color: #212529;
+    }
+    
+    .content-formatted em {
+        font-style: italic;
+        color: #6c757d;
+    }
+    
+    .content-formatted a {
+        text-decoration: underline;
+        word-break: break-word;
+    }
+    
+    .content-formatted a:hover {
+        text-decoration: none;
+    }
+    
+    /* Post Action Dropdown */
+    .post-card .dropdown {
+        position: relative;
+    }
+    
+    .post-card .dropdown-menu {
+        position: absolute !important;
+        top: 100% !important;
+        right: 0 !important;
+        left: auto !important;
+        z-index: 1050;
+        min-width: 160px;
+        margin-top: 0.25rem;
+        border: 1px solid rgba(0,0,0,.125);
+        border-radius: 8px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.15) !important;
+        background-color: white;
+    }
+    
+    .dropdown-toggle-no-caret::after {
+        display: none;
+    }
+    
+    .dropdown-item {
+        padding: 0.5rem 0.75rem;
+        transition: all 0.2s ease;
+    }
+    
+    .dropdown-item:hover {
+        background-color: #f8f9fa;
+        transform: translateX(2px);
+    }
+    
+    .dropdown-item i {
+        width: 16px;
+        text-align: center;
+    }
+    
+    /* Generate Ideas Modal Styling */
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    }
+    
+    #generateIdeasModal .modal-content {
+        border-radius: 15px;
+        overflow: hidden;
+    }
+    
+    #generateIdeasModal .modal-header {
+        padding: 1.5rem;
+    }
+    
+    #generateIdeasModal .modal-body {
+        padding: 2rem;
+    }
+    
+    #generateIdeasModal .modal-footer {
+        padding: 1.5rem 2rem 2rem 2rem;
+    }
+    
+    #generateIdeasModal .rounded-circle {
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+    }
+    
+    #generateIdeasModal .btn {
+        border-radius: 8px;
+        font-weight: 500;
+        padding: 0.75rem 1.5rem;
+    }
+    
+    #generateIdeasModal .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+    
+    #generateIdeasModal .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    #generateIdeasModal .btn-light {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+    }
+    
+    #generateIdeasModal .btn-light:hover {
+        background: #e9ecef;
+        transform: translateY(-1px);
     }
 </style>
 {% endblock %}

@@ -6,15 +6,16 @@
 
 {% block main_content %}
 <div class="row">
-    <div class="col-lg-8 mx-auto">
+    <div class="col-lg-8">
         <div class="card">
             <div class="card-header">
                 <h5 class="card-title mb-0">
                     <i class="fas fa-edit me-2"></i>Plan bearbeiten
                 </h5>
+                <p class="text-muted mb-0 mt-1">{{ plan.platform.name }} · Erstellt am {{ plan.created_at|date:"d.m.Y" }}</p>
             </div>
             <div class="card-body">
-                <form method="post">
+                <form method="post" class="needs-validation" novalidate>
                     {% csrf_token %}
                     
                     <div class="mb-3">
@@ -33,15 +34,67 @@
                         {% endif %}
                     </div>
                     
-                    <div class="mb-3">
-                        <label for="{{ form.status.id_for_label }}" class="form-label">{{ form.status.label }}</label>
-                        {{ form.status }}
-                        {% if form.status.errors %}
-                            <div class="invalid-feedback d-block">{{ form.status.errors.0 }}</div>
-                        {% endif %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="{{ form.status.id_for_label }}" class="form-label">{{ form.status.label }}</label>
+                                {{ form.status }}
+                                {% if form.status.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.status.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
                     
-                    <div class="d-flex justify-content-between">
+                    <!-- Erweiterte Felder in Accordion -->
+                    <div class="accordion mt-4" id="advancedFields">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingAdvanced">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                        data-bs-target="#collapseAdvanced" aria-expanded="false" aria-controls="collapseAdvanced">
+                                    <i class="fas fa-cogs me-2"></i>Erweiterte Einstellungen
+                                </button>
+                            </h2>
+                            <div id="collapseAdvanced" class="accordion-collapse collapse" 
+                                 aria-labelledby="headingAdvanced" data-bs-parent="#advancedFields">
+                                <div class="accordion-body">
+                                    <div class="mb-3">
+                                        <label for="{{ form.user_profile.id_for_label }}" class="form-label">{{ form.user_profile.label }}</label>
+                                        {{ form.user_profile }}
+                                        {% if form.user_profile.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.user_profile.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="{{ form.target_audience.id_for_label }}" class="form-label">{{ form.target_audience.label }}</label>
+                                        {{ form.target_audience }}
+                                        {% if form.target_audience.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.target_audience.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="{{ form.goals.id_for_label }}" class="form-label">{{ form.goals.label }}</label>
+                                        {{ form.goals }}
+                                        {% if form.goals.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.goals.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="{{ form.vision.id_for_label }}" class="form-label">{{ form.vision.label }}</label>
+                                        {{ form.vision }}
+                                        {% if form.vision.errors %}
+                                            <div class="invalid-feedback d-block">{{ form.vision.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mt-4">
                         <a href="{% url 'somi_plan:plan_detail' plan.pk %}" class="btn btn-secondary">
                             <i class="fas fa-times me-2"></i>Abbrechen
                         </a>
@@ -69,5 +122,158 @@
             </div>
         </div>
     </div>
+    
+    <!-- Sidebar mit Statistiken -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>Plan-Übersicht
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-4">
+                        <div class="mb-2">
+                            <div class="h4 mb-0 text-primary">{{ post_count }}</div>
+                            <small class="text-muted">Posts</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="mb-2">
+                            <div class="h4 mb-0 text-info">{{ scheduled_count }}</div>
+                            <small class="text-muted">Terminiert</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="mb-2">
+                            <div class="h4 mb-0 text-success">{{ completed_count }}</div>
+                            <small class="text-muted">Erledigt</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="d-grid gap-2">
+                    <a href="{% url 'somi_plan:plan_detail' plan.pk %}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-eye me-2"></i>Plan anzeigen
+                    </a>
+                    <a href="{% url 'somi_plan:post_create' plan.pk %}" class="btn btn-outline-success btn-sm">
+                        <i class="fas fa-plus me-2"></i>Neuen Post erstellen
+                    </a>
+                    <a href="{% url 'somi_plan:calendar' %}" class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-calendar me-2"></i>Kalender anzeigen
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Platform Info -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="{{ plan.platform.icon }} me-2"></i>{{ plan.platform.name }}
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="small text-muted mb-2">Zeichen-Limit</div>
+                <div class="progress mb-3" style="height: 8px;">
+                    <div class="progress-bar" role="progressbar" style="width: 75%"></div>
+                </div>
+                
+                <div class="small text-muted mb-2">Empfohlene Posting-Zeiten</div>
+                <div class="d-flex flex-wrap gap-1">
+                    <span class="badge bg-light text-dark">9:00</span>
+                    <span class="badge bg-light text-dark">12:00</span>
+                    <span class="badge bg-light text-dark">18:00</span>
+                    <span class="badge bg-light text-dark">21:00</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick Actions -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-bolt me-2"></i>Aktionen
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary btn-sm" onclick="duplicatePlan()">
+                        <i class="fas fa-copy me-2"></i>Plan duplizieren
+                    </button>
+                    <button class="btn btn-outline-warning btn-sm" onclick="exportPlan()">
+                        <i class="fas fa-download me-2"></i>Als CSV exportieren
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="archivePlan()">
+                        <i class="fas fa-archive me-2"></i>Archivieren
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+// Form validation
+(function() {
+    'use strict';
+    window.addEventListener('load', function() {
+        var forms = document.getElementsByClassName('needs-validation');
+        var validation = Array.prototype.filter.call(forms, function(form) {
+            form.addEventListener('submit', function(event) {
+                if (form.checkValidity() === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    }, false);
+})();
+
+// Quick actions
+function duplicatePlan() {
+    if (confirm('Möchtest du diesen Plan wirklich duplizieren?')) {
+        // Implementation für Plan-Duplikation
+        alert('Plan-Duplikation wird implementiert...');
+    }
+}
+
+function exportPlan() {
+    // Implementation für CSV-Export
+    alert('CSV-Export wird implementiert...');
+}
+
+function archivePlan() {
+    if (confirm('Möchtest du diesen Plan archivieren?')) {
+        // Implementation für Archivierung
+        alert('Archivierung wird implementiert...');
+    }
+}
+
+// Character counting für textareas
+document.querySelectorAll('textarea').forEach(textarea => {
+    const maxLength = textarea.getAttribute('maxlength');
+    if (maxLength) {
+        const counter = document.createElement('div');
+        counter.className = 'small text-muted mt-1';
+        counter.style.textAlign = 'right';
+        textarea.parentNode.appendChild(counter);
+        
+        function updateCounter() {
+            const remaining = maxLength - textarea.value.length;
+            counter.textContent = `${textarea.value.length}/${maxLength} Zeichen`;
+            counter.className = remaining < 50 ? 'small text-warning mt-1' : 'small text-muted mt-1';
+        }
+        
+        textarea.addEventListener('input', updateCounter);
+        updateCounter();
+    }
+});
+</script>
 {% endblock %}

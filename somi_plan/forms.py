@@ -75,6 +75,24 @@ class Step1Form(forms.ModelForm):
 class Step2StrategyForm(forms.Form):
     """Schritt 2: Strategie-Anpassung Formular"""
     
+    # Story-Modus Felder (neu in Schritt 2)
+    story_mode = forms.ChoiceField(
+        label='Content-Modus',
+        choices=[('individual', 'Einzelne Posts'), ('story', 'Story-Serie')],
+        initial='individual',
+        widget=forms.HiddenInput(),
+        help_text='Wähle ob du einzelne Posts oder eine zusammenhängende Story erstellen möchtest'
+    )
+    
+    story_post_count = forms.IntegerField(
+        label='Anzahl Posts',
+        initial=5,
+        min_value=2,
+        max_value=10,
+        widget=forms.HiddenInput(),
+        help_text='Anzahl der Posts (2-10 für Story-Serie, bei einzelnen Posts empfohlen: 5)'
+    )
+    
     use_ai_strategy = forms.BooleanField(
         label='KI-Strategie verwenden',
         initial=True,
@@ -251,6 +269,72 @@ class PlanFilterForm(forms.Form):
             'placeholder': 'Suche nach Titel oder Beschreibung...'
         })
     )
+
+
+class PlanEditForm(forms.ModelForm):
+    """Formular für Plan-Bearbeitung"""
+    
+    class Meta:
+        model = PostingPlan
+        fields = ['title', 'description', 'status', 'user_profile', 'target_audience', 'goals', 'vision']
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Widget-Styling
+        self.fields['title'].widget = forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Plan-Titel eingeben...'
+        })
+        
+        self.fields['description'].widget = forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'Kurze Beschreibung des Plans...'
+        })
+        
+        self.fields['status'].widget = forms.Select(attrs={
+            'class': 'form-control'
+        })
+        
+        self.fields['user_profile'].widget = forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 4,
+            'placeholder': 'Über dich/dein Unternehmen...'
+        })
+        
+        self.fields['target_audience'].widget = forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'Beschreibung der Zielgruppe...'
+        })
+        
+        self.fields['goals'].widget = forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'Deine Ziele mit diesem Plan...'
+        })
+        
+        self.fields['vision'].widget = forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 3,
+            'placeholder': 'Deine Vision...'
+        })
+        
+        # Labels anpassen
+        self.fields['title'].label = 'Plan-Titel'
+        self.fields['description'].label = 'Beschreibung'
+        self.fields['status'].label = 'Status'
+        self.fields['user_profile'].label = 'Über dich/dein Unternehmen'
+        self.fields['target_audience'].label = 'Zielgruppe'
+        self.fields['goals'].label = 'Ziele'
+        self.fields['vision'].label = 'Vision'
+        
+    def clean_title(self):
+        title = self.cleaned_data['title']
+        if len(title) < 3:
+            raise ValidationError('Der Titel muss mindestens 3 Zeichen lang sein.')
+        return title
 
 
 class BulkPostActionForm(forms.Form):
