@@ -112,20 +112,20 @@
                     </a>
                     
                     <div class="dropdown">
-                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="true">
                             <i class="fas fa-ellipsis-v"></i>
                         </button>
-                        <ul class="dropdown-menu">
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm">
                             <li><a class="dropdown-item" href="{% url 'somi_plan:plan_edit' plan.pk %}">
-                                <i class="fas fa-edit me-2"></i>Bearbeiten
+                                <i class="fas fa-edit me-2 text-primary"></i>Bearbeiten
                             </a></li>
                             {% if plan.status == 'draft' %}
                             <li><a class="dropdown-item" href="{% url 'somi_plan:create_plan_step2' plan.id %}">
-                                <i class="fas fa-play me-2"></i>Weiter bearbeiten
+                                <i class="fas fa-play me-2 text-success"></i>Weiter bearbeiten
                             </a></li>
                             {% endif %}
                             <li><a class="dropdown-item" href="#" onclick="duplicatePlan({{ plan.id }})">
-                                <i class="fas fa-copy me-2"></i>Duplizieren
+                                <i class="fas fa-copy me-2 text-info"></i>Duplizieren
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item text-danger" href="{% url 'somi_plan:plan_delete' plan.pk %}">
@@ -221,6 +221,101 @@
 </div>
 {% endblock %}
 
+{% block page_css %}
+<style>
+/* Card positioning - ensure proper stacking context */
+.card {
+    position: relative;
+    overflow: visible;
+    z-index: 1;
+}
+
+.card.dropdown-open {
+    z-index: 1050;
+}
+
+/* Dropdown positioning - stays within card boundaries */
+.dropdown {
+    position: relative;
+}
+
+.dropdown-menu {
+    position: absolute !important;
+    top: 100% !important;
+    right: 0 !important;
+    left: auto !important;
+    z-index: 1051;
+    min-width: 180px;
+    max-width: 200px;
+    margin-top: 0.25rem;
+    border: 1px solid rgba(0,0,0,.125);
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15) !important;
+    background-color: white;
+    transform: none !important;
+}
+
+/* Ensure dropdown stays within card bounds */
+.card-footer {
+    position: relative;
+    overflow: visible;
+}
+
+.card-footer .dropdown {
+    position: static;
+}
+
+.card-footer .dropdown-menu {
+    position: absolute !important;
+    top: auto !important;
+    bottom: 100% !important;
+    right: 0 !important;
+    margin-bottom: 0.25rem;
+    margin-top: 0;
+}
+
+/* Improved dropdown items */
+.dropdown-item {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.dropdown-item:hover {
+    background-color: #f8f9fa;
+    color: #495057;
+}
+
+.dropdown-item i {
+    width: 16px;
+    text-align: center;
+    margin-right: 0.5rem;
+}
+
+/* Prevent card overflow issues */
+.row {
+    overflow: visible;
+}
+
+.col-md-6 {
+    overflow: visible;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+    .dropdown-menu {
+        min-width: 160px;
+        font-size: 0.8rem;
+    }
+    
+    .dropdown-item {
+        padding: 0.4rem 0.6rem;
+    }
+}
+</style>
+{% endblock %}
+
 {% block page_js %}
 <script>
 function duplicatePlan(planId) {
@@ -230,11 +325,55 @@ function duplicatePlan(planId) {
     }
 }
 
-// Initialize tooltips
+// Initialize tooltips and dropdown positioning
 document.addEventListener('DOMContentLoaded', function() {
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Handle dropdown positioning within card bounds
+    const dropdownToggles = document.querySelectorAll('[data-bs-toggle="dropdown"]');
+    
+    dropdownToggles.forEach(toggle => {
+        const card = toggle.closest('.card');
+        const dropdown = toggle.closest('.dropdown');
+        
+        toggle.addEventListener('show.bs.dropdown', function() {
+            // Add class to card to increase z-index
+            if (card) {
+                card.classList.add('dropdown-open');
+            }
+            
+            // Position dropdown to stay within card bounds
+            setTimeout(() => {
+                const dropdownMenu = dropdown.querySelector('.dropdown-menu');
+                if (dropdownMenu) {
+                    const cardRect = card.getBoundingClientRect();
+                    const toggleRect = toggle.getBoundingClientRect();
+                    const menuRect = dropdownMenu.getBoundingClientRect();
+                    
+                    // Check if dropdown would go outside card boundaries
+                    const cardBottom = cardRect.bottom;
+                    const menuBottom = toggleRect.bottom + menuRect.height;
+                    
+                    // If dropdown would extend below card, position it above the button
+                    if (menuBottom > cardBottom + 10) {
+                        dropdownMenu.style.top = 'auto';
+                        dropdownMenu.style.bottom = '100%';
+                        dropdownMenu.style.marginBottom = '0.25rem';
+                        dropdownMenu.style.marginTop = '0';
+                    }
+                }
+            }, 10);
+        });
+        
+        toggle.addEventListener('hide.bs.dropdown', function() {
+            // Remove class from card
+            if (card) {
+                card.classList.remove('dropdown-open');
+            }
+        });
     });
     
     // Restore filter values from URL

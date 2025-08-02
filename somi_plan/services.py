@@ -17,19 +17,7 @@ class SomiPlanAIService:
         self.anthropic_api_key = user.anthropic_api_key if hasattr(user, 'anthropic_api_key') and user.anthropic_api_key else None
         self.google_api_key = user.google_api_key if hasattr(user, 'google_api_key') and user.google_api_key else None
         
-        # Debug: API-Keys überprüfen
-        print(f"DEBUG - User: {user.username}")
-        print(f"DEBUG - OpenAI Key: {'Ja (' + str(len(self.openai_api_key)) + ' Zeichen)' if self.openai_api_key else 'Nein'}")
-        print(f"DEBUG - Anthropic Key: {'Ja (' + str(len(self.anthropic_api_key)) + ' Zeichen)' if self.anthropic_api_key else 'Nein'}")
-        print(f"DEBUG - Google Key: {'Ja (' + str(len(self.google_api_key)) + ' Zeichen)' if self.google_api_key else 'Nein'}")
-        
-        # Test: Prüfe ob Keys valide aussehen
-        if self.openai_api_key:
-            print(f"DEBUG - OpenAI Key start: {self.openai_api_key[:8]}...")
-        if self.anthropic_api_key:
-            print(f"DEBUG - Anthropic Key start: {self.anthropic_api_key[:8]}...")
-        if self.google_api_key:
-            print(f"DEBUG - Google Key start: {self.google_api_key[:8]}...")
+        # API-Keys sind vorhanden (ohne Debug-Ausgabe für Sicherheit)
     
     def generate_strategy(self, posting_plan):
         """
@@ -158,6 +146,144 @@ Erstelle eine optimale Posting-Strategie für diesen Benutzer. Berücksichtige d
             return {
                 'success': False,
                 'error': f'Post-Generierung fehlgeschlagen: {str(e)}'
+            }
+    
+    def generate_story_posts(self, posting_plan, count=5):
+        """
+        Generiert zusammenhängende Story-Posts als Serie
+        """
+        try:
+            system_prompt = f"""Du bist ein kreativer Social Media Storytelling-Experte für {posting_plan.platform.name}.
+
+AUFGABE: Erstelle eine zusammenhängende STORY-SERIE mit {count} Posts die eine komplette Geschichte erzählen.
+
+PLATTFORM: {posting_plan.platform.name} ({posting_plan.platform.character_limit} Zeichen pro Post)
+
+WICHTIGE REGELN:
+1. Alle Posts müssen zusammenhängen und eine kohärente Geschichte erzählen
+2. Jeder Post muss auch einzeln verständlich sein
+3. Verwende Cliffhanger und Verbindungen zwischen den Posts
+4. Baue eine narrative Spannung auf
+5. Jeder Post soll neugierig auf den nächsten machen
+6. Verwende durchgehende Themen/Charaktere/Situationen
+
+STORY-STRUKTUR:
+- Post 1: Einführung/Setup der Geschichte
+- Post 2-{count-1}: Entwicklung und Höhepunkte
+- Post {count}: Abschluss/Auflösung
+
+ANTWORT FORMAT (JSON):
+{{
+  "story_theme": "Übergeordnetes Thema der Story-Serie",
+  "story_description": "Kurze Beschreibung der Gesamtgeschichte",
+  "posts": [
+    {{
+      "position": 1,
+      "title": "Post 1 Titel",
+      "content": "Vollständiger Post-Content für {posting_plan.platform.name}",
+      "script": "Detaillierte Anweisungen zur Umsetzung",
+      "hashtags": "#story #teil1 #weitere #hashtags",
+      "call_to_action": "Neugierig auf Teil 2? Folge mir!",
+      "story_connection": "Wie dieser Post zur Gesamtstory gehört",
+      "cliffhanger": "Was macht neugierig auf den nächsten Post?"
+    }}
+  ]
+}}"""
+
+            user_prompt = f"""USER-KONTEXT:
+Profil: {posting_plan.user_profile}
+Zielgruppe: {posting_plan.target_audience}  
+Ziele: {posting_plan.goals}
+Vision: {posting_plan.vision}
+
+STRATEGIE:
+{json.dumps(posting_plan.strategy_data, indent=2) if posting_plan.strategy_data else 'Keine spezifische Strategie'}
+
+Erstelle eine fesselnde Story-Serie mit {count} zusammenhängenden Posts. Die Geschichte soll authentisch zu meinem Profil passen und meine Zielgruppe begeistern!"""
+
+            result = self._call_ai_api(system_prompt, user_prompt)
+            
+            if result['success']:
+                try:
+                    clean_content = self._clean_json_response(result['content'])
+                    response_data = json.loads(clean_content)
+                    story_posts = []
+                    
+                    for post_data in response_data.get('posts', []):
+                        post = PostContent.objects.create(
+                            posting_plan=posting_plan,
+                            title=post_data['title'],
+                            content=post_data['content'],
+                            script=post_data['script'],
+                            hashtags=post_data.get('hashtags', ''),
+                            call_to_action=post_data.get('call_to_action', ''),
+                            post_type='story',
+                            priority=1,  # Story-Posts haben hohe Priorität
+                            story_position=post_data.get('position', len(story_posts) + 1),
+                            ai_generated=True,
+                            ai_model_used=result.get('model_used', 'Unknown'),
+                            ai_prompt_used=user_prompt
+                        )
+                        story_posts.append(post)
+                    
+                    return {
+                        'success': True,
+                        'posts': story_posts,
+                        'count': len(story_posts),
+                        'story_theme': response_data.get('story_theme', ''),
+                        'story_description': response_data.get('story_description', '')
+                    }
+                    
+                except json.JSONDecodeError as e:
+                    # Fallback für Story-Posts
+                    return self._create_fallback_story_posts(posting_plan, count, result['content'])
+                    
+            else:
+                return {
+                    'success': False,
+                    'error': f'Story-Generierung fehlgeschlagen: {result.get("error", "Unbekannter Fehler")}'
+                }
+                
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Story-Generierung fehlgeschlagen: {str(e)}'
+            }
+    
+    def _create_fallback_story_posts(self, posting_plan, count, ai_response):
+        """Fallback-Methode für Story-Posts wenn JSON-Parsing fehlschlägt"""
+        try:
+            story_posts = []
+            base_title = f"Story-Serie: {posting_plan.title}"
+            
+            for i in range(count):
+                post = PostContent.objects.create(
+                    posting_plan=posting_plan,
+                    title=f"{base_title} - Teil {i+1}",
+                    content=f"Dies ist Teil {i+1} einer zusammenhängenden Story-Serie basierend auf: {posting_plan.user_profile[:100]}...",
+                    script=f"Veröffentliche Teil {i+1} der Story-Serie. Verweise auf vorherige/folgende Teile.",
+                    hashtags="#story #serie #content",
+                    call_to_action=f"Folge für Teil {i+2}!" if i < count-1 else "Das war unsere Story-Serie!",
+                    post_type='story',
+                    priority=1,
+                    story_position=i+1,
+                    ai_generated=True,
+                    ai_model_used='Fallback',
+                    ai_prompt_used="Fallback Story Generation"
+                )
+                story_posts.append(post)
+            
+            return {
+                'success': True,
+                'posts': story_posts,
+                'count': len(story_posts),
+                'fallback_used': True
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Fallback Story-Generierung fehlgeschlagen: {str(e)}'
             }
     
     def generate_more_ideas(self, posting_plan, existing_posts_count=0):

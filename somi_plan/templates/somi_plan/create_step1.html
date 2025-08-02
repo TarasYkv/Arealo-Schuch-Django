@@ -103,10 +103,16 @@
             
             <!-- User Profile -->
             <div class="card mb-4">
-                <div class="card-header">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="card-title mb-0">
                         <i class="fas fa-user me-2"></i>Dein Profil / Unternehmen
                     </h5>
+                    <button type="button" class="btn btn-outline-primary btn-sm" 
+                            id="import-company-info-btn" 
+                            onclick="handleImportClick()"
+                            title="Firmeninfos aus deinem Profil importieren">
+                        <i class="fas fa-download me-1"></i>Aus Profil importieren
+                    </button>
                 </div>
                 <div class="card-body">
                     <div class="mb-3">
@@ -122,6 +128,9 @@
                             Beispiele: "Personal Trainer mit 10 Jahren Erfahrung", "Nachhaltige Mode-Boutique", "Tech-Startup für KI-Lösungen"
                         </div>
                     </div>
+                    
+                    <!-- Import Status Messages -->
+                    <div id="import-messages"></div>
                 </div>
             </div>
             
@@ -275,6 +284,170 @@ function selectPlatform(platformId) {
         }, 200);
     }
 }
+
+// Global import function - defined early so onclick can find it
+function handleImportClick() {
+    console.log('handleImportClick() called via onclick');
+    
+    const importBtn = document.getElementById('import-company-info-btn');
+    const messagesDiv = document.getElementById('import-messages');
+    
+    // Simple test first
+    if (!importBtn) {
+        alert('Import-Button nicht gefunden!');
+        return;
+    }
+    
+    if (!messagesDiv) {
+        alert('Messages-Div nicht gefunden!');
+        return;
+    }
+    
+    // Check if there's existing content and ask for confirmation
+    const userProfileField = document.getElementById('id_user_profile');
+    const goalsField = document.getElementById('id_goals');
+    
+    let hasExistingContent = false;
+    if (userProfileField && userProfileField.value.trim()) {
+        hasExistingContent = true;
+    }
+    if (goalsField && goalsField.value.trim()) {
+        hasExistingContent = true;
+    }
+    
+    if (hasExistingContent) {
+        if (!confirm('Es sind bereits Inhalte in den Feldern vorhanden. Möchtest du diese überschreiben?')) {
+            return;
+        }
+    }
+    
+    // Start import
+    importCompanyInfoDirect();
+}
+
+// Direct import function
+async function importCompanyInfoDirect() {
+    console.log('importCompanyInfoDirect() called');
+    
+    const importBtn = document.getElementById('import-company-info-btn');
+    const messagesDiv = document.getElementById('import-messages');
+    
+    try {
+        // Show loading state
+        importBtn.disabled = true;
+        importBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Importiere...';
+        
+        // Clear previous messages
+        messagesDiv.innerHTML = '';
+        
+        console.log('Making AJAX request...');
+        
+        // Get CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        const token = csrfToken ? csrfToken.value : '';
+        
+        // Make AJAX request
+        const response = await fetch('/somi-plan/ajax/import-company-info/', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': token
+            }
+        });
+        
+        console.log('Response:', response);
+        const data = await response.json();
+        console.log('Data:', data);
+        
+        if (data.success) {
+            // Fill fields
+            const userProfileField = document.getElementById('id_user_profile');
+            const goalsField = document.getElementById('id_goals');
+            
+            if (userProfileField && data.data.user_profile) {
+                userProfileField.value = data.data.user_profile;
+                highlightField(userProfileField);
+            }
+            
+            if (goalsField && data.data.goals) {
+                goalsField.value = data.data.goals;
+                highlightField(goalsField);
+            }
+            
+            // Show success message
+            showImportMessage('success', data.message);
+            
+            // Scroll to first filled field
+            if (userProfileField) {
+                userProfileField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            
+        } else {
+            // Show error message
+            showImportMessage('error', data.message);
+            
+            // If no company info, offer to redirect
+            if (data.redirect_url) {
+                const errorDiv = messagesDiv.querySelector('.alert-danger');
+                if (errorDiv) {
+                    errorDiv.innerHTML += `
+                        <hr class="my-2">
+                        <a href="${data.redirect_url}" class="btn btn-outline-danger btn-sm">
+                            <i class="fas fa-plus me-1"></i>Firmeninfos jetzt eingeben
+                        </a>
+                    `;
+                }
+            }
+        }
+        
+    } catch (error) {
+        console.error('Import error:', error);
+        showImportMessage('error', 'Fehler beim Laden der Firmeninfos. Bitte versuche es erneut.');
+    } finally {
+        // Reset button
+        importBtn.disabled = false;
+        importBtn.innerHTML = '<i class="fas fa-download me-1"></i>Aus Profil importieren';
+    }
+}
+
+function showImportMessage(type, message) {
+    const messagesDiv = document.getElementById('import-messages');
+    const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+    const icon = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-triangle';
+    
+    messagesDiv.innerHTML = `
+        <div class="alert ${alertClass} alert-dismissible fade show mt-3" role="alert">
+            <i class="${icon} me-2"></i>${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    // Auto-hide success messages after 5 seconds
+    if (type === 'success') {
+        setTimeout(() => {
+            const alert = messagesDiv.querySelector('.alert');
+            if (alert) {
+                alert.classList.remove('show');
+                setTimeout(() => alert.remove(), 150);
+            }
+        }, 5000);
+    }
+}
+
+function highlightField(field) {
+    field.classList.add('field-imported');
+    field.style.transition = 'all 0.3s ease';
+    field.style.backgroundColor = '#e8f5e8';
+    field.style.borderColor = '#28a745';
+    
+    // Remove highlight after animation
+    setTimeout(() => {
+        field.style.backgroundColor = '';
+        field.style.borderColor = '';
+        field.classList.remove('field-imported');
+    }, 2000);
+}
+
 </script>
 {% endblock %}
 
@@ -486,6 +659,59 @@ function selectPlatform(platformId) {
         color: #0f5132;
     }
     
+    /* Import Button Styling */
+    #import-company-info-btn {
+        transition: all 0.3s ease;
+        white-space: nowrap;
+    }
+    
+    #import-company-info-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(13, 110, 253, 0.2);
+    }
+    
+    #import-company-info-btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.7;
+    }
+    
+    /* Field Import Animation */
+    .field-imported {
+        animation: importHighlight 0.6s ease-in-out;
+    }
+    
+    @keyframes importHighlight {
+        0% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7);
+        }
+        50% {
+            transform: scale(1.02);
+            box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
+        }
+        100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
+        }
+    }
+    
+    /* Import Messages Styling */
+    #import-messages .alert {
+        border-radius: 8px;
+        border: none;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    #import-messages .alert-success {
+        background: linear-gradient(135deg, #d1e7dd 0%, #a3cfbb 100%);
+        color: #0f5132;
+    }
+    
+    #import-messages .alert-danger {
+        background: linear-gradient(135deg, #f8d7da 0%, #f1aeb5 100%);
+        color: #721c24;
+    }
+    
     /* Mobile responsiveness improvements */
     @media (max-width: 768px) {
         .platform-card {
@@ -504,12 +730,29 @@ function selectPlatform(platformId) {
             font-size: 0.875rem;
             padding: 0.75rem;
         }
+        
+        /* Mobile Import Button */
+        .card-header {
+            flex-direction: column;
+            gap: 0.75rem;
+            align-items: stretch !important;
+        }
+        
+        .card-header .card-title {
+            text-align: center;
+        }
+        
+        #import-company-info-btn {
+            width: 100%;
+            justify-content: center;
+        }
     }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('SoMi-Plan Step 1 loaded');
     
@@ -522,7 +765,7 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Platform input:', platformInput);
     console.log('Platform cards:', document.querySelectorAll('.platform-card').length);
     
-    // Add click event listeners as fallback
+    // Add click event listeners as fallback for platform cards
     document.querySelectorAll('.platform-card').forEach(card => {
         card.addEventListener('click', function(e) {
             e.stopPropagation();

@@ -5,23 +5,24 @@
 {% block page_description %}Strategie-Entwicklung: KI-gestützte Posting-Strategie{% endblock %}
 
 {% block main_content %}
-<!-- Progress Steps -->
-<div class="progress-steps mb-4">
+<!-- Enhanced Progress Steps -->
+<div class="step-indicator">
     <div class="step completed">
-        <div class="step-number">
-            <i class="fas fa-check"></i>
-        </div>
-        <span>Basis-Setup</span>
+        <span class="step-number">✓</span>
+        <span class="step-text">Basis-Setup</span>
     </div>
     <div class="step active">
-        <div class="step-number">2</div>
-        <span>Strategie</span>
+        <span class="step-number">📈</span>
+        <span class="step-text">Strategie entwickeln</span>
     </div>
-    <div class="step">
-        <div class="step-number">3</div>
-        <span>Content</span>
+    <div class="step pending">
+        <span class="step-number">📝</span>
+        <span class="step-text">Content erstellen</span>
     </div>
 </div>
+
+<!-- AI Progress Container (initially hidden) -->
+<div id="ai-progress-container" style="display: none;"></div>
 
 <div class="row">
     <div class="col-lg-10 mx-auto">
@@ -180,9 +181,88 @@
             </div>
         </div>
 
+        <!-- Story Mode Selection -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-book me-2"></i>Content-Typ auswählen
+                </h5>
+                <small class="text-muted">Wähle aus, ob du einzelne Posts oder eine zusammenhängende Geschichte erstellen möchtest</small>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="story-mode-card active" data-mode="individual" onclick="selectStoryMode('individual')">
+                            <div class="story-mode-icon">
+                                <i class="fas fa-th-large text-primary"></i>
+                            </div>
+                            <h6 class="story-mode-title">Einzelne Posts</h6>
+                            <p class="story-mode-description">Erstelle unabhängige Posts zu verschiedenen Themen</p>
+                            <div class="story-mode-features">
+                                <span class="badge bg-primary">Flexibel</span>
+                                <span class="badge bg-info">Vielfältig</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="story-mode-card" data-mode="story" onclick="selectStoryMode('story')">
+                            <div class="story-mode-icon">
+                                <i class="fas fa-stream text-success"></i>
+                            </div>
+                            <h6 class="story-mode-title">Story-Serie</h6>
+                            <p class="story-mode-description">Erstelle eine zusammenhängende Geschichte über mehrere Posts</p>
+                            <div class="story-mode-features">
+                                <span class="badge bg-success">Zusammenhängend</span>
+                                <span class="badge bg-warning">Spannend</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Story Configuration (initially hidden) -->
+                <div id="story-config" style="display: none;">
+                    <hr class="my-4">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="story_posts_count" class="form-label">
+                                <i class="fas fa-hashtag me-1"></i>Anzahl Posts für die Story
+                            </label>
+                            <select class="form-select" id="story_posts_count" name="story_posts_count">
+                                <option value="2">2 Posts</option>
+                                <option value="3" selected>3 Posts</option>
+                                <option value="4">4 Posts</option>
+                                <option value="5">5 Posts</option>
+                                <option value="6">6 Posts</option>
+                                <option value="7">7 Posts</option>
+                                <option value="8">8 Posts</option>
+                                <option value="9">9 Posts</option>
+                                <option value="10">10 Posts</option>
+                            </select>
+                            <small class="form-text text-muted">Wähle aus, wie viele Posts deine Story umfassen soll</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="story_theme" class="form-label">
+                                <i class="fas fa-lightbulb me-1"></i>Story-Thema (optional)
+                            </label>
+                            <input type="text" class="form-control" id="story_theme" name="story_theme" 
+                                   placeholder="z.B. Produktentwicklung, Kundenreise, Tutorial-Serie">
+                            <small class="form-text text-muted">Gib ein Thema vor oder lass die KI entscheiden</small>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+
         <!-- Strategy Form -->
         <form method="post" id="strategy-form">
             {% csrf_token %}
+            
+            <!-- Include story mode fields from form -->
+            <div style="display: none;">
+                {{ form.story_mode }}
+                {{ form.story_post_count }}
+            </div>
             
             <div class="card mb-4">
                 <div class="card-header">
@@ -505,10 +585,117 @@ window.selectAIModel = function(modelId) {
         }
     }
 };
+
+// Story Mode Selection
+let selectedStoryMode = 'individual';
+
+window.selectStoryMode = function(mode) {
+    selectedStoryMode = mode;
+    
+    // Update Django form field
+    const djangoStoryModeField = document.getElementById('id_story_mode');
+    if (djangoStoryModeField) {
+        djangoStoryModeField.value = mode;
+        console.log('Story mode set to:', mode);
+    } else {
+        console.error('Story mode field not found!');
+    }
+    
+    // Update visual selection
+    document.querySelectorAll('.story-mode-card').forEach(card => {
+        card.classList.remove('active');
+    });
+    document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
+    
+    // Show/hide story configuration
+    const storyConfig = document.getElementById('story-config');
+    if (mode === 'story') {
+        storyConfig.style.display = 'block';
+        // Add smooth slide down animation
+        storyConfig.style.opacity = '0';
+        storyConfig.style.transform = 'translateY(-10px)';
+        setTimeout(() => {
+            storyConfig.style.transition = 'all 0.3s ease';
+            storyConfig.style.opacity = '1';
+            storyConfig.style.transform = 'translateY(0)';
+        }, 10);
+        
+        // Update story post count from dropdown
+        const storyPostsCountSelect = document.getElementById('story_posts_count');
+        if (storyPostsCountSelect) {
+            const countValue = storyPostsCountSelect.value;
+            
+            // Update Django form field
+            const djangoCountField = document.getElementById('id_story_post_count');
+            if (djangoCountField) {
+                djangoCountField.value = countValue;
+                console.log('Story post count set to:', countValue);
+            } else {
+                console.error('Story post count field not found!');
+            }
+        }
+    } else {
+        storyConfig.style.display = 'none';
+        
+        // Set default count for individual posts
+        const defaultCount = '5';
+        
+        // Update Django form field
+        const djangoCountField = document.getElementById('id_story_post_count');
+        if (djangoCountField) {
+            djangoCountField.value = defaultCount;
+            console.log('Story post count set to default:', defaultCount);
+        } else {
+            console.error('Story post count field not found!');
+        }
+    }
+};
+
 document.addEventListener('DOMContentLoaded', function() {
-    const useAICheckbox = document.querySelector('#{{ form.use_ai_strategy.id_for_label }}');
+    const useAICheckbox = document.querySelector('#id_use_ai_strategy');
     const aiResultsDiv = document.getElementById('ai-strategy-results');
     const manualOptionsDiv = document.getElementById('manual-strategy-options');
+    
+    // Initialize Story Mode
+    const djangoStoryModeField = document.getElementById('id_story_mode');
+    const djangoCountField = document.getElementById('id_story_post_count');
+    
+    console.log('DOM loaded - checking form fields:');
+    console.log('Story mode field:', djangoStoryModeField);
+    console.log('Story count field:', djangoCountField);
+    console.log('Use AI checkbox:', useAICheckbox);
+    
+    // Get initial values from Django form or set defaults
+    const storyModeValue = djangoStoryModeField ? djangoStoryModeField.value || 'individual' : 'individual';
+    const storyCountValue = djangoCountField ? djangoCountField.value || '5' : '5';
+    
+    // Set default values if not set
+    if (djangoStoryModeField && !djangoStoryModeField.value) {
+        djangoStoryModeField.value = storyModeValue;
+    }
+    if (djangoCountField && !djangoCountField.value) {
+        djangoCountField.value = storyCountValue;
+    }
+    
+    selectStoryMode(storyModeValue);
+    
+    // Story Post Count Event Listener
+    const storyPostsCountSelect = document.getElementById('story_posts_count');
+    if (storyPostsCountSelect) {
+        // Set initial value from Django form field
+        storyPostsCountSelect.value = storyCountValue;
+        
+        // Add change listener
+        storyPostsCountSelect.addEventListener('change', function() {
+            // Update Django form field
+            if (djangoCountField) {
+                djangoCountField.value = this.value;
+                console.log('Story post count changed to:', this.value);
+            } else {
+                console.error('Django count field not found in change listener!');
+            }
+        });
+    }
     
     // Store initial state
     let isAIEnabled = localStorage.getItem('somi_ai_strategy_enabled');
@@ -772,7 +959,7 @@ window.regenerateStrategy = async function() {
 
 function fallbackToManual() {
     // Switch to manual mode and store state
-    const checkbox = document.querySelector('#{{ form.use_ai_strategy.id_for_label }}');
+    const checkbox = document.querySelector('#id_use_ai_strategy');
     checkbox.checked = false;
     localStorage.setItem('somi_ai_strategy_enabled', 'false');
     
@@ -793,13 +980,46 @@ function showError(message) {
 
 // Form submission handling
 document.getElementById('strategy-form').addEventListener('submit', function(e) {
-    e.preventDefault();
+    console.log('Form submission started');
+    
+    // Log all form data for debugging
+    const formData = new FormData(this);
+    console.log('Form data:');
+    for (let [key, value] of formData.entries()) {
+        console.log(`${key}: ${value}`);
+    }
+    
+    // Check if required fields are filled
+    const storyModeField = document.getElementById('id_story_mode');
+    const storyCountField = document.getElementById('id_story_post_count');
+    
+    if (!storyModeField || !storyModeField.value) {
+        console.error('Story mode field missing or empty:', storyModeField);
+        e.preventDefault();
+        alert('Story mode ist nicht gesetzt!');
+        return false;
+    }
+    
+    if (!storyCountField || !storyCountField.value) {
+        console.error('Story count field missing or empty:', storyCountField);
+        e.preventDefault();
+        alert('Story post count ist nicht gesetzt!');
+        return false;
+    }
+    
+    console.log('Story mode:', storyModeField.value);
+    console.log('Story count:', storyCountField.value);
     
     const submitBtn = document.getElementById('strategy-submit-btn');
-    SomiPlan.setLoading(submitBtn);
+    if (typeof SomiPlan !== 'undefined' && SomiPlan.setLoading) {
+        SomiPlan.setLoading(submitBtn);
+    } else {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Wird verarbeitet...';
+    }
     
-    // Submit the form normally
-    this.submit();
+    // Allow normal form submission
+    console.log('Form submission proceeding...');
 });
 </script>
 {% endblock %}
@@ -919,6 +1139,63 @@ document.getElementById('strategy-form').addEventListener('submit', function(e) 
         border-width: 3px;
         background: rgba(13, 110, 253, 0.05);
         transform: scale(1.02);
+    }
+    
+    /* Story Mode Cards */
+    .story-mode-card {
+        background: #ffffff;
+        border: 2px solid #dee2e6;
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    
+    .story-mode-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        border-color: #28a745;
+    }
+    
+    .story-mode-card.active {
+        border-color: #28a745;
+        border-width: 3px;
+        background: rgba(40, 167, 69, 0.05);
+        transform: scale(1.02);
+    }
+    
+    .story-mode-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .story-mode-title {
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+        color: #2d3748;
+    }
+    
+    .story-mode-description {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+        line-height: 1.4;
+    }
+    
+    .story-mode-features {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .story-mode-features .badge {
+        font-size: 0.75rem;
     }
     
     .ai-model-icon {

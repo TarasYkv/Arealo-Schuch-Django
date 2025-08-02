@@ -8,6 +8,7 @@ from django.core.paginator import Paginator
 from .models import PostingPlan, PostContent, Platform, PlanningSession, PostSchedule
 from .services import SomiPlanAIService
 import json
+import re
 
 
 @login_required
@@ -216,10 +217,19 @@ def create_plan_step2(request, plan_id):
         if form.is_valid():
             use_ai = form.cleaned_data.get('use_ai_strategy', True)
             
+            # Update Story-Modus Felder im Plan
+            plan.story_mode = form.cleaned_data.get('story_mode', 'individual')
+            plan.story_post_count = form.cleaned_data.get('story_post_count', 5)
+            plan.save()
+            
             if use_ai:
                 # Use AI to generate strategy
-                ai_service = SomiPlanAIService(request.user)
-                result = ai_service.generate_strategy(plan)
+                try:
+                    ai_service = SomiPlanAIService(request.user)
+                    result = ai_service.generate_strategy(plan)
+                except Exception as e:
+                    messages.error(request, f'Fehler beim AI-Service: {str(e)}')
+                    result = {'success': False, 'error': str(e)}
                 
                 if result['success']:
                     strategy_data = result['strategy_data']
@@ -270,7 +280,12 @@ def create_plan_step2(request, plan_id):
             messages.success(request, '✅ Strategie wurde gespeichert! Jetzt werden die Content-Posts erstellt.')
             return redirect('somi_plan:create_plan_step3', plan_id=plan.id)
     else:
-        form = Step2StrategyForm()
+        # Pre-fill form with existing data
+        initial_data = {
+            'story_mode': plan.story_mode,
+            'story_post_count': plan.story_post_count,
+        }
+        form = Step2StrategyForm(initial=initial_data)
     
     context = {
         'plan': plan, 
@@ -290,13 +305,61 @@ def create_plan_step3(request, plan_id):
     # Generate initial posts if none exist
     if not posts.exists() and plan.strategy_data:
         ai_service = SomiPlanAIService(request.user)
-        result = ai_service.generate_posts(plan, count=5)
+        
+        # Bestimme Anzahl Posts basierend auf Story-Modus
+        post_count = plan.story_post_count if plan.story_mode == 'story' else 5
+        
+        if plan.story_mode == 'story':
+            # Generiere zusammenhängende Story-Posts
+            result = ai_service.generate_story_posts(plan, count=post_count)
+        else:
+            # Generiere einzelne Posts
+            result = ai_service.generate_posts(plan, count=post_count)
         
         if result['success']:
             posts = result['posts']
-            messages.success(request, f'🤖 KI hat {result["count"]} Content-Posts für dich erstellt!')
+            if plan.story_mode == 'story':
+                messages.success(request, f'🤖 KI hat eine zusammenhängende Story mit {result["count"]} Posts für dich erstellt!')
+            else:
+                messages.success(request, f'🤖 KI hat {result["count"]} individuelle Content-Posts für dich erstellt!')
         else:
-            messages.warning(request, f'⚠️ Content-Generierung fehlgeschlagen: {result.get("error", "Unbekannter Fehler")}. Du kannst Posts manuell hinzufügen.')
+            # Fallback: Erstelle Template-Posts wenn AI fehlschlägt
+            messages.warning(request, f'⚠️ Content-Generierung fehlgeschlagen: {result.get("error", "Unbekannter Fehler")}.')
+            
+            # Erstelle Basis-Posts als Template
+            from .models import PostContent
+            fallback_posts = []
+            for i in range(post_count):
+                if plan.story_mode == 'story':
+                    post = PostContent.objects.create(
+                        posting_plan=plan,
+                        title=f'Story Teil {i+1} - {plan.title[:30]}',
+                        content=f'Dies ist Teil {i+1} der Story. Hier kannst du deinen Content bearbeiten und anpassen.',
+                        script=f'Detaillierte Anweisungen für Teil {i+1} der Story.',
+                        hashtags='#story #social #media',
+                        call_to_action='Folge für den nächsten Teil!' if i < post_count-1 else 'Was denkst du über diese Story?',
+                        post_type='story',
+                        story_position=i+1,
+                        ai_generated=False
+                    )
+                else:
+                    post_types = ['tip', 'behind_scenes', 'educational', 'motivational', 'product']
+                    post_type = post_types[i % len(post_types)]
+                    
+                    post = PostContent.objects.create(
+                        posting_plan=plan,
+                        title=f'{post_type.title()} Post {i+1}',
+                        content=f'Hier ist dein {post_type} Post. Du kannst diesen Inhalt bearbeiten und personalisieren.',
+                        script=f'Detaillierte Anweisungen für deinen {post_type} Post.',
+                        hashtags='#tip #social #media' if post_type == 'tip' else f'#{post_type} #social #media',
+                        call_to_action='Was denkst du darüber?',
+                        post_type=post_type,
+                        ai_generated=False
+                    )
+                fallback_posts.append(post)
+            
+            posts = fallback_posts
+            messages.info(request, f'📝 {len(fallback_posts)} Template-Posts wurden als Startpunkt erstellt. Du kannst sie nach deinen Wünschen bearbeiten.')
     
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -319,9 +382,15 @@ def create_plan_step3(request, plan_id):
             messages.success(request, f'✅ Plan "{plan.title}" wurde als Entwurf gespeichert.')
             return redirect('somi_plan:dashboard')
     
+    # Sortiere Posts je nach Story-Modus für Anzeige
+    if plan.story_mode == 'story':
+        posts_ordered = posts.order_by('story_position', 'created_at')
+    else:
+        posts_ordered = posts.order_by('-created_at')
+    
     context = {
         'plan': plan, 
-        'posts': posts,
+        'posts': posts_ordered,
         'session': session
     }
     return render(request, 'somi_plan/create_step3.html', context)
@@ -331,7 +400,12 @@ def create_plan_step3(request, plan_id):
 def plan_detail(request, pk):
     """Plan Detail-Ansicht"""
     plan = get_object_or_404(PostingPlan, pk=pk, user=request.user)
-    posts = plan.posts.all()
+    
+    # Sortiere Posts je nach Story-Modus
+    if plan.story_mode == 'story':
+        posts = plan.posts.order_by('story_position', 'created_at')
+    else:
+        posts = plan.posts.order_by('-created_at')
     
     context = {'plan': plan, 'posts': posts}
     return render(request, 'somi_plan/plan_detail.html', context)
@@ -340,9 +414,35 @@ def plan_detail(request, pk):
 @login_required
 def plan_edit(request, pk):
     """Plan bearbeiten"""
+    from .forms import PlanEditForm
+    
     plan = get_object_or_404(PostingPlan, pk=pk, user=request.user)
-    # Placeholder
-    return render(request, 'somi_plan/plan_edit.html', {'plan': plan})
+    
+    if request.method == 'POST':
+        form = PlanEditForm(request.POST, instance=plan)
+        if form.is_valid():
+            updated_plan = form.save()
+            messages.success(request, f'✅ Plan "{updated_plan.title}" wurde erfolgreich aktualisiert.')
+            return redirect('somi_plan:plan_detail', pk=updated_plan.pk)
+        else:
+            messages.error(request, '❌ Bitte korrigiere die markierten Fehler.')
+    else:
+        form = PlanEditForm(instance=plan)
+    
+    # Zusätzliche Statistiken für bessere UX
+    post_count = plan.posts.count()
+    scheduled_count = plan.posts.filter(schedule__isnull=False).count()
+    completed_count = plan.posts.filter(schedule__status='completed').count()
+    
+    context = {
+        'plan': plan,
+        'form': form,
+        'post_count': post_count,
+        'scheduled_count': scheduled_count,
+        'completed_count': completed_count,
+    }
+    
+    return render(request, 'somi_plan/plan_edit.html', context)
 
 
 @login_required
@@ -379,11 +479,16 @@ def post_create(request, plan_id):
             if not topic:
                 return JsonResponse({
                     'success': False,
-                    'error': 'Bitte gib ein Thema oder eine Richtung an.'
+                    'error': 'Bitte gib ein Thema oder eine Richtung an.',
+                    'error_type': 'validation',
+                    'suggestions': [
+                        'Versuche spezifische Themen wie "Social Media Marketing Tipps"',
+                        'Nutze branchenspezifische Keywords für bessere Ergebnisse'
+                    ]
                 })
             
             # Analyze existing posts to avoid repetition
-            existing_posts = plan.postcontent_set.all()
+            existing_posts = plan.posts.all()
             existing_content = []
             for post in existing_posts:
                 existing_content.append({
@@ -449,12 +554,43 @@ Der Content soll {creativity_level} sein und sich klar von den bestehenden Posts
             # Generate content using selected AI model
             system_prompt = f"Du bist ein kreativer Social Media Content-Experte für {plan.platform.name}. Erstelle einzigartige, ansprechende Posts die perfekt zur Plattform passen."
             
-            if ai_provider == 'openai':
-                result = ai_service._call_openai_api(system_prompt, prompt, model=ai_model)
-            elif ai_provider == 'anthropic':
-                result = ai_service._call_anthropic_api(system_prompt, prompt, model=ai_model)
-            else:  # gemini
-                result = ai_service._call_gemini_api(system_prompt, prompt)
+            try:
+                if ai_provider == 'openai':
+                    result = ai_service._call_openai_api(system_prompt, prompt, model=ai_model)
+                elif ai_provider == 'anthropic':
+                    result = ai_service._call_anthropic_api(system_prompt, prompt, model=ai_model)
+                else:  # gemini
+                    result = ai_service._call_gemini_api(system_prompt, prompt)
+            except Exception as e:
+                error_message = str(e)
+                fallback_options = []
+                
+                if 'API key' in error_message.lower():
+                    fallback_options = [
+                        'Überprüfe deine API-Schlüssel in den Einstellungen',
+                        'Verwende einen anderen AI-Provider',
+                        'Erstelle den Post manuell'
+                    ]
+                elif 'rate limit' in error_message.lower():
+                    fallback_options = [
+                        'Warte einen Moment und versuche es erneut',
+                        'Verwende einen anderen AI-Provider',
+                        'Reduziere die Anzahl gleichzeitiger Anfragen'
+                    ]
+                else:
+                    fallback_options = [
+                        'Überprüfe deine Internetverbindung',
+                        'Versuche es mit einem anderen AI-Modell',
+                        'Erstelle den Post manuell'
+                    ]
+                
+                return JsonResponse({
+                    'success': False,
+                    'error': f'KI-Service temporär nicht verfügbar: {error_message}',
+                    'error_type': 'ai_service',
+                    'fallback_options': fallback_options,
+                    'retry_possible': True
+                })
             
             if not result.get('success'):
                 return JsonResponse({
@@ -466,7 +602,6 @@ Der Content soll {creativity_level} sein und sich klar von den bestehenden Posts
             ai_content = result.get('content', '')
             try:
                 # Try to extract JSON from AI response
-                import re
                 json_match = re.search(r'\{.*\}', ai_content, re.DOTALL)
                 if json_match:
                     content_data = json.loads(json_match.group())
@@ -507,7 +642,26 @@ Der Content soll {creativity_level} sein und sich klar von den bestehenden Posts
             return JsonResponse({
                 'success': True,
                 'redirect_url': f'/somi-plan/post/{new_post.pk}/edit/',
-                'message': 'Post wurde erfolgreich erstellt!'
+                'message': 'Post wurde erfolgreich erstellt!',
+                'success_type': 'post_created',
+                'post_id': new_post.pk,
+                'next_steps': [
+                    'Du kannst den Post jetzt bearbeiten oder terminieren',
+                    'Erstelle weitere Posts für deinen Content-Plan',
+                    'Plane deine Posts im Kalender'
+                ],
+                'actions': [
+                    {
+                        'text': 'Post bearbeiten',
+                        'url': f'/somi-plan/post/{new_post.pk}/edit/',
+                        'type': 'primary'
+                    },
+                    {
+                        'text': 'Kalender öffnen', 
+                        'url': '/somi-plan/calendar/',
+                        'type': 'secondary'
+                    }
+                ]
             })
             
         except Exception as e:
@@ -611,6 +765,7 @@ def calendar_view(request):
             'id': post_schedule.post_content.id,
             'title': post_schedule.post_content.title,
             'content': post_schedule.post_content.content,
+            'script': post_schedule.post_content.script,
             'hashtags': post_schedule.post_content.hashtags,
             'call_to_action': post_schedule.post_content.call_to_action,
             'date': post_schedule.scheduled_date.strftime('%Y-%m-%d'),
@@ -974,4 +1129,169 @@ def ajax_calendar_data(request, year, month):
         return JsonResponse({
             'status': 'error',
             'message': f'Fehler beim Laden der Kalender-Daten: {str(e)}'
+        })
+
+
+@login_required
+def api_calendar_posts(request):
+    """API endpoint für responsive calendar - lädt alle Posts"""
+    from datetime import datetime, timedelta
+    from django.utils import timezone
+    
+    try:
+        # Zeitraum bestimmen (aktueller Monat +/- 1 Monat für bessere UX)
+        today = timezone.now().date()
+        start_date = today.replace(day=1) - timedelta(days=31)
+        end_date = today.replace(day=28) + timedelta(days=35)
+        
+        # Posts laden
+        scheduled_posts = PostSchedule.objects.filter(
+            post_content__posting_plan__user=request.user,
+            scheduled_date__range=[start_date, end_date]
+        ).select_related(
+            'post_content', 
+            'post_content__posting_plan', 
+            'post_content__posting_plan__platform'
+        )
+        
+        # Posts für JavaScript vorbereiten
+        posts_data = []
+        for post_schedule in scheduled_posts:
+            post_data = {
+                'id': post_schedule.post_content.id,
+                'schedule_id': post_schedule.id,
+                'title': post_schedule.post_content.title,
+                'content': post_schedule.post_content.content,
+                'hashtags': post_schedule.post_content.hashtags,
+                'call_to_action': post_schedule.post_content.call_to_action,
+                'scheduled_date': post_schedule.scheduled_date.strftime('%Y-%m-%d'),
+                'created_date': post_schedule.post_content.created_at.strftime('%Y-%m-%d'),
+                'time': post_schedule.scheduled_time.strftime('%H:%M') if post_schedule.scheduled_time else '12:00',
+                'platform': post_schedule.post_content.posting_plan.platform.name,
+                'platform_icon': post_schedule.post_content.posting_plan.platform.icon,
+                'platform_color': post_schedule.post_content.posting_plan.platform.color,
+                'status': post_schedule.status,
+                'plan_title': post_schedule.post_content.posting_plan.title
+            }
+            posts_data.append(post_data)
+        
+        return JsonResponse({
+            'status': 'success',
+            'posts': posts_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': f'Fehler beim Laden der Posts: {str(e)}'
+        })
+
+
+@login_required
+@require_POST
+def api_move_post(request, post_id):
+    """API endpoint für responsive calendar - verschiebt Post-Termin"""
+    import json
+    
+    try:
+        # Post validieren
+        post_content = get_object_or_404(
+            PostContent, 
+            id=post_id, 
+            posting_plan__user=request.user
+        )
+        
+        # Request-Daten parsen
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Ungültige JSON-Daten'
+            })
+        
+        new_date_str = data.get('scheduled_date')
+        if not new_date_str:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Neues Datum erforderlich'
+            })
+        
+        # Datum validieren und konvertieren
+        try:
+            from datetime import datetime
+            new_date = datetime.strptime(new_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Ungültiges Datumsformat'
+            })
+        
+        # Schedule suchen oder erstellen
+        try:
+            schedule = PostSchedule.objects.get(post_content=post_content)
+            schedule.scheduled_date = new_date
+            schedule.save()
+        except PostSchedule.DoesNotExist:
+            # Neuen Schedule erstellen falls noch keiner existiert
+            from datetime import time
+            schedule = PostSchedule.objects.create(
+                post_content=post_content,
+                scheduled_date=new_date,
+                scheduled_time=time(12, 0),  # Standard: 12:00
+                status='scheduled'
+            )
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': f'Post wurde zu {new_date.strftime("%d.%m.%Y")} verschoben',
+            'new_date': new_date_str,
+            'schedule_id': schedule.id
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': f'Fehler beim Verschieben: {str(e)}'
+        })
+
+
+@login_required
+def ajax_import_company_info(request):
+    """AJAX endpoint für Firmeninfo-Import in Plan-Erstellung"""
+    try:
+        user = request.user
+        
+        # Prüfe ob Firmeninfos vorhanden sind
+        if not user.company_info:
+            return JsonResponse({
+                'success': False,
+                'message': 'Keine Firmeninformationen im Profil gefunden.',
+                'redirect_url': '/accounts/firmeninfo/?tab=company'
+            })
+        
+        # Basis-Daten sammeln
+        imported_data = {
+            'success': True,
+            'message': 'Firmeninfos erfolgreich importiert!',
+            'data': {
+                'user_profile': user.company_info.strip(),
+                'goals': user.learning_goals.strip() if user.learning_goals else '',
+            }
+        }
+        
+        # Zusätzliche Informationen für UI
+        imported_data['import_info'] = {
+            'company_info_length': len(user.company_info) if user.company_info else 0,
+            'learning_goals_length': len(user.learning_goals) if user.learning_goals else 0,
+            'has_company_info': bool(user.company_info),
+            'has_learning_goals': bool(user.learning_goals),
+        }
+        
+        return JsonResponse(imported_data)
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Fehler beim Import: {str(e)}'
         })
