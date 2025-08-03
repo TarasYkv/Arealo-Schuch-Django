@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     'mail_app',
     'email_templates',
     'somi_plan',
+    'makeads',
 ]
 
 
@@ -84,6 +85,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'chat.middleware.RateLimitMiddleware',
     'chat.middleware.ChatRateLimitMiddleware',
+    'makeads.middleware.APIKeyCacheMiddleware',  # MakeAds API-Key Cache Management
 ]
 
 ROOT_URLCONF = 'Schuch.urls'

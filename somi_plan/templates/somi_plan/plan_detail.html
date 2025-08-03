@@ -360,6 +360,9 @@
 {% block page_js %}
 {{ block.super }}
 
+<!-- CSRF Token for AJAX calls -->
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+
 <!-- Plan Detail JavaScript -->
 <!-- Data for JavaScript -->
 <script id="posts-data" type="application/json">
@@ -389,8 +392,25 @@
 </script>
 
 <script>
-// Add functions to global scope - ensure they're available
-window.showPostModal = function(postId) {
+// Ensure functions are available immediately when DOM loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing SoMi-Plan functions...');
+    
+    // Check if Bootstrap is available
+    if (typeof bootstrap === 'undefined') {
+        console.error('Bootstrap is not loaded!');
+        // Fallback behavior
+        window.showPostModal = function(postId) {
+            alert('Post-Details für Post #' + postId + ' - Bootstrap Modal nicht verfügbar');
+            // Redirect to edit page as fallback
+            const urlsData = JSON.parse(document.getElementById('urls-data').textContent);
+            window.location.href = urlsData.post_edit.replace('0', postId);
+        };
+        return;
+    }
+    
+    // Add functions to global scope - ensure they're available
+    window.showPostModal = function(postId) {
     console.log('showPostModal called with postId:', postId);
     
     // Load post data from JSON
@@ -1033,16 +1053,29 @@ window.duplicatePost = function(postId) {
     alert('Duplizierung wird in einer späteren Version implementiert');
 };
 
-// Verify functions are available
-console.log('Functions registered:', {
-    showPostModal: typeof window.showPostModal,
-    editPost: typeof window.editPost,
-    schedulePost: typeof window.schedulePost,
-    generateMorePosts: typeof window.generateMorePosts,
-    exportPlan: typeof window.exportPlan,
-    copyToClipboard: typeof window.copyToClipboard,
-    quickCopy: typeof window.quickCopy
+    // Verify functions are available
+    console.log('Functions registered:', {
+        showPostModal: typeof window.showPostModal,
+        editPost: typeof window.editPost,
+        schedulePost: typeof window.schedulePost,
+        generateMorePosts: typeof window.generateMorePosts,
+        exportPlan: typeof window.exportPlan,
+        copyToClipboard: typeof window.copyToClipboard,
+        quickCopy: typeof window.quickCopy
+    });
+    
+    console.log('✅ SoMi-Plan JavaScript successfully initialized!');
 });
+
+// Also register functions immediately (in case DOM is already loaded)
+if (document.readyState === 'loading') {
+    // DOM hasn't finished loading yet
+    console.log('⏳ Waiting for DOM to load...');
+} else {
+    // DOM has already loaded
+    console.log('🚀 DOM already loaded, triggering initialization...');
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+}
 </script>
 {% endblock %}
 

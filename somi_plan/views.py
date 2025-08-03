@@ -326,39 +326,143 @@ def create_plan_step3(request, plan_id):
             # Fallback: Erstelle Template-Posts wenn AI fehlschlägt
             messages.warning(request, f'⚠️ Content-Generierung fehlgeschlagen: {result.get("error", "Unbekannter Fehler")}.')
             
-            # Erstelle Basis-Posts als Template
+            # Erstelle sinnvolle Template-Posts basierend auf Plan-Informationen
             from .models import PostContent
             fallback_posts = []
+            
+            # Extrahiere nützliche Informationen aus dem Plan
+            # Intelligente Firmenname-Extraktion
+            if plan.user_profile:
+                profile = plan.user_profile.lower()
+                # Suche nach häufigen Firmen-Indikatoren
+                if 'fitnessstudio' in profile:
+                    business_name = "das Fitnessstudio"
+                elif 'restaurant' in profile:
+                    business_name = "das Restaurant"
+                elif 'unternehmen' in profile:
+                    business_name = "unser Unternehmen"
+                elif 'shop' in profile or 'laden' in profile:
+                    business_name = "unser Shop"
+                elif 'praxis' in profile:
+                    business_name = "die Praxis"
+                elif 'agentur' in profile:
+                    business_name = "die Agentur"
+                elif 'startup' in profile:
+                    business_name = "unser Startup"
+                else:
+                    # Fallback: Verwende Plan-Titel oder allgemein
+                    plan_title_words = plan.title.split()[:2]
+                    if len(plan_title_words) >= 2:
+                        business_name = ' '.join(plan_title_words)
+                    else:
+                        business_name = "unser Unternehmen"
+            else:
+                business_name = "unser Unternehmen"
+            
+            platform_name = plan.platform.name
+            audience = plan.target_audience[:100] if plan.target_audience else "deine Zielgruppe"
+            
             for i in range(post_count):
                 if plan.story_mode == 'story':
+                    # Story-spezifische Templates mit narrativer Struktur
+                    story_templates = [
+                        {
+                            'title': f'🎬 Story Intro: Wie alles begann',
+                            'content': f'Hey {audience}! 👋\n\nLasst mich euch eine Geschichte erzählen über {business_name}...\n\nEs war einmal... (hier deine Story starten)\n\n🧵 Thread 1/{post_count}',
+                            'script': f'Einführung in die Story. Erzähle den Ursprung, das Problem oder die Herausforderung, die zu deiner Story führt.',
+                            'cta': f'Folge für Teil 2! 👉'
+                        },
+                        {
+                            'title': f'⚡ Die Herausforderung', 
+                            'content': f'Aber dann kam die große Herausforderung... 😰\n\n[Beschreibe das Problem/die Schwierigkeit]\n\nKennt ihr das Gefühl? 🤔\n\n🧵 Teil {i+1}/{post_count}',
+                            'script': f'Beschreibe die Herausforderung oder das Problem. Schaffe emotionale Verbindung.',
+                            'cta': 'Wie geht es weiter? 🤔'
+                        },
+                        {
+                            'title': f'💡 Der Wendepunkt',
+                            'content': f'Dann kam der Moment, der alles veränderte... ✨\n\n[Dein Wendepunkt/Lösung]\n\nPlötzlich war alles anders! 🌟\n\n🧵 Teil {i+1}/{post_count}',
+                            'script': f'Der entscheidende Moment. Die Lösung, Erkenntnis oder der Durchbruch.',
+                            'cta': 'Gespannt auf das Ende? 😍'
+                        },
+                        {
+                            'title': f'🏆 Das Ergebnis',
+                            'content': f'Und so endete unsere Geschichte... 🎉\n\n[Dein Ergebnis/Erfolg]\n\nWas können wir daraus lernen? 💭\n\n🧵 Ende ({i+1}/{post_count})',
+                            'script': f'Das Ergebnis und die Lektion. Was können andere daraus lernen?',
+                            'cta': 'Was denkst du? Teile deine Meinung! 💬'
+                        },
+                        {
+                            'title': f'🌟 Die Moral der Geschichte',
+                            'content': f'Die wichtigste Lektion aus dieser Geschichte:\n\n💎 [Deine wichtigste Erkenntnis]\n\nWelche Erfahrungen habt ihr gemacht?\n\n🧵 Finale ({i+1}/{post_count})',
+                            'script': f'Fasse die wichtigste Botschaft zusammen. Fordere zur Interaktion auf.',
+                            'cta': 'Erzählt eure Geschichte! 📖'
+                        }
+                    ]
+                    
+                    template = story_templates[min(i, len(story_templates)-1)]
                     post = PostContent.objects.create(
                         posting_plan=plan,
-                        title=f'Story Teil {i+1} - {plan.title[:30]}',
-                        content=f'Dies ist Teil {i+1} der Story. Hier kannst du deinen Content bearbeiten und anpassen.',
-                        script=f'Detaillierte Anweisungen für Teil {i+1} der Story.',
-                        hashtags='#story #social #media',
-                        call_to_action='Folge für den nächsten Teil!' if i < post_count-1 else 'Was denkst du über diese Story?',
+                        title=template['title'],
+                        content=template['content'],
+                        script=template['script'],
+                        hashtags=f'#story #{business_name.lower().replace(" ", "")} #{platform_name.lower()}',
+                        call_to_action=template['cta'],
                         post_type='story',
                         story_position=i+1,
                         ai_generated=False
                     )
                 else:
-                    post_types = ['tip', 'behind_scenes', 'educational', 'motivational', 'product']
-                    post_type = post_types[i % len(post_types)]
+                    # Einzelne Posts mit vielfältigen, nützlichen Templates
+                    individual_templates = [
+                        {
+                            'type': 'tip',
+                            'title': f'💡 Profi-Tipp für {audience}',
+                            'content': f'Hier ist ein Geheimtipp, der {business_name} geholfen hat:\n\n✨ [Dein bester Tipp hier einfügen]\n\nProbiert es aus und lasst mich wissen, wie es läuft! 👇',
+                            'script': 'Teile einen konkreten, umsetzbaren Tipp. Erkläre warum er funktioniert.',
+                            'hashtags': f'#tipp #{business_name.lower().replace(" ", "")} #{platform_name.lower()}'
+                        },
+                        {
+                            'type': 'behind_scenes',
+                            'title': f'🎬 Behind the Scenes bei {business_name}',
+                            'content': f'Einen Blick hinter die Kulissen gewünscht? 👀\n\nSo sieht ein typischer Tag bei uns aus:\n\n[Beschreibe deinen Arbeitsalltag]\n\nWas würdet ihr gerne noch sehen? 🤔',
+                            'script': 'Zeige den menschlichen Aspekt. Authentizität schafft Verbindung.',
+                            'hashtags': f'#behindthescenes #{business_name.lower().replace(" ", "")} #authentisch'
+                        },
+                        {
+                            'type': 'educational',
+                            'title': f'📚 Wusstet ihr schon...?',
+                            'content': f'Bildung des Tages! 🧠\n\nHier ist etwas, was viele nicht wissen:\n\n💡 [Interessanter Fakt oder Erklärung]\n\nKanntet ihr das schon? Kommentiert! 👇',
+                            'script': 'Teile Wissen, das deine Expertise zeigt. Mache es verständlich und relevant.',
+                            'hashtags': f'#wissen #lernen #{platform_name.lower()}'
+                        },
+                        {
+                            'type': 'motivational',
+                            'title': f'🌟 Motivation für euren Tag',
+                            'content': f'Braucht ihr heute etwas Motivation? 💪\n\n"{plan.vision[:100] if plan.vision else "Euer Erfolg beginnt mit dem ersten Schritt!"}"\n\nWas motiviert euch heute? 🔥',
+                            'script': 'Verbinde deine Vision mit motivierenden Worten. Ermutige zur Aktion.',
+                            'hashtags': f'#motivation #inspiration #{platform_name.lower()}'
+                        },
+                        {
+                            'type': 'question',
+                            'title': f'❓ Eure Meinung ist gefragt',
+                            'content': f'Ich brauche eure Hilfe! 🤝\n\nFrage an {audience}:\n\n🤔 [Deine Frage hier - z.B. zu Präferenzen, Erfahrungen, Wünschen]\n\nAb in die Kommentare! 👇',
+                            'script': 'Stelle eine echte Frage, die dich interessiert. Engagement fördern.',
+                            'hashtags': f'#frage #community #{platform_name.lower()}'
+                        }
+                    ]
                     
+                    template = individual_templates[i % len(individual_templates)]
                     post = PostContent.objects.create(
                         posting_plan=plan,
-                        title=f'{post_type.title()} Post {i+1}',
-                        content=f'Hier ist dein {post_type} Post. Du kannst diesen Inhalt bearbeiten und personalisieren.',
-                        script=f'Detaillierte Anweisungen für deinen {post_type} Post.',
-                        hashtags='#tip #social #media' if post_type == 'tip' else f'#{post_type} #social #media',
-                        call_to_action='Was denkst du darüber?',
-                        post_type=post_type,
+                        title=template['title'],
+                        content=template['content'],
+                        script=template['script'],
+                        hashtags=template['hashtags'],
+                        call_to_action='Was denkst du? Lass es mich wissen! 💬',
+                        post_type=template['type'],
                         ai_generated=False
                     )
                 fallback_posts.append(post)
             
-            posts = fallback_posts
             messages.info(request, f'📝 {len(fallback_posts)} Template-Posts wurden als Startpunkt erstellt. Du kannst sie nach deinen Wünschen bearbeiten.')
     
     if request.method == 'POST':
@@ -381,6 +485,9 @@ def create_plan_step3(request, plan_id):
             
             messages.success(request, f'✅ Plan "{plan.title}" wurde als Entwurf gespeichert.')
             return redirect('somi_plan:dashboard')
+    
+    # Aktualisiere posts QuerySet nach möglicher Fallback-Erstellung
+    posts = plan.posts.all()
     
     # Sortiere Posts je nach Story-Modus für Anzeige
     if plan.story_mode == 'story':

@@ -345,7 +345,7 @@ def manage_api_keys(request):
         if form.is_valid():
             form.save()
             messages.success(request, 'API Keys erfolgreich gespeichert.')
-            return redirect('accounts:manage_api_keys')
+            return redirect('accounts:neue_api_einstellungen')
     else:
         form = ApiKeyForm(instance=request.user)
     
@@ -601,7 +601,7 @@ def keyword_delete(request, keyword_pk):
 @login_required
 def api_settings_view(request):
     """Zeigt die API-Einstellungsseite an"""
-    return redirect('accounts:manage_api_keys')
+    return redirect('accounts:neue_api_einstellungen')
 
 
 @login_required

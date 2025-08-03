@@ -994,7 +994,17 @@ const advancedFeaturesCSS = `
 }
 `;
 
-// Inject CSS
-const style = document.createElement('style');
-style.textContent = advancedFeaturesCSS;
-document.head.appendChild(style);
+// Inject CSS (prevent duplicate loading)
+if (!document.getElementById('advanced-features-css')) {
+    const style = document.createElement('style');
+    style.id = 'advanced-features-css';
+    style.textContent = advancedFeaturesCSS;
+    document.head.appendChild(style);
+}
+
+// Initialize advanced features (prevent duplicate initialization)
+if (typeof window.advancedFeatures === 'undefined') {
+    document.addEventListener('DOMContentLoaded', function() {
+        window.advancedFeatures = new AdvancedSomiPlanFeatures();
+    });
+}
