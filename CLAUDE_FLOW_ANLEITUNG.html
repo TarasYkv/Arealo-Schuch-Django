@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📚 Vollständige Claude Flow Anleitung</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        h2 {
+            color: #34495e;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin: 30px 0 20px 0;
+            font-size: 1.8em;
+        }
+        
+        h3 {
+            color: #2c3e50;
+            margin: 25px 0 15px 0;
+            font-size: 1.4em;
+        }
+        
+        h4 {
+            color: #34495e;
+            margin: 20px 0 10px 0;
+            font-size: 1.2em;
+        }
+        
+        p, li {
+            margin-bottom: 10px;
+            text-align: justify;
+        }
+        
+        .intro {
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .intro h2 {
+            border: none;
+            color: white;
+            margin-bottom: 15px;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 25px 0;
+        }
+        
+        .feature-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 5px solid #3498db;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .feature-card h4 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        pre {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        code {
+            background: #ecf0f1;
+            color: #2c3e50;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        pre code {
+            background: transparent;
+            color: #ecf0f1;
+            padding: 0;
+        }
+        
+        ul, ol {
+            padding-left: 25px;
+            margin-bottom: 15px;
+        }
+        
+        li {
+            margin-bottom: 8px;
+        }
+        
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-left: 5px solid #fdcb6e;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-left: 5px solid #17a2b8;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-left: 5px solid #28a745;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        
+        .toc {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+        
+        .toc h3 {
+            color: #495057;
+            margin-bottom: 15px;
+        }
+        
+        .toc ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .toc li {
+            padding: 5px 0;
+        }
+        
+        .toc a {
+            color: #007bff;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        
+        .toc a:hover {
+            color: #0056b3;
+            text-decoration: underline;
+        }
+        
+        .command-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin: 25px 0;
+        }
+        
+        .command-card {
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .command-card h4 {
+            color: white;
+            margin-bottom: 15px;
+        }
+        
+        .command-card pre {
+            background: rgba(0, 0, 0, 0.3);
+            margin: 10px 0;
+        }
+        
+        .example-section {
+            background: #f1f3f4;
+            padding: 25px;
+            border-radius: 10px;
+            margin: 25px 0;
+            border-left: 5px solid #4CAF50;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px;
+            background: #2c3e50;
+            color: white;
+            border-radius: 10px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: #007bff;
+            color: white;
+            border-radius: 4px;
+            font-size: 0.8em;
+            margin: 2px;
+        }
+        
+        .badge.new {
+            background: #28a745;
+        }
+        
+        .badge.alpha {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        hr {
+            border: none;
+            height: 2px;
+            background: linear-gradient(90deg, #3498db, #2ecc71);
+            margin: 30px 0;
+            border-radius: 1px;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                padding: 15px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            .features {
+                grid-template-columns: 1fr;
+            }
+            
+            .command-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📚 Vollständige Claude Flow Anleitung</h1>
+        
+        <div class="intro">
+            <h2>🎯 Was ist Claude Flow?</h2>
+            <p><strong>Claude Flow v2.0.0-alpha.83</strong> ist eine Enterprise-Grade AI Agent Orchestration Platform, die Multi-Agent Koordination, intelligente Schwarm-Systeme und systematische Entwicklungsmethoden kombiniert.</p>
+        </div>
+
+        <div class="features">
+            <div class="feature-card">
+                <h4>🐝 Hive Mind System</h4>
+                <p>Intelligente Schwarm-Koordination mit Queen-Worker Architektur</p>
+            </div>
+            <div class="feature-card">
+                <h4>🏗️ SPARC Methodology</h4>
+                <p>16 spezialisierte Entwicklungsmodi für systematisches TDD</p>
+            </div>
+            <div class="feature-card">
+                <h4>🐙 GitHub Integration</h4>
+                <p>6 Modi für vollständige Repository-Automatisierung</p>
+            </div>
+            <div class="feature-card">
+                <h4>🧠 Neural Networking</h4>
+                <p>Persistentes Memory mit Cross-Session Learning</p>
+            </div>
+            <div class="feature-card">
+                <h4>⚡ MCP Integration</h4>
+                <p>90+ Tools für Claude Code Integration</p>
+            </div>
+            <div class="feature-card">
+                <h4>📊 Real-time Analytics</h4>
+                <p>Performance-Monitoring und Bottleneck-Analyse</p>
+            </div>
+        </div>
+
+        <div class="toc">
+            <h3>📋 Inhaltsverzeichnis</h3>
+            <ul>
+                <li><a href="#grundlagen">🚀 Grundlagen: Installation und Setup</a></li>
+                <li><a href="#hive-mind">🐝 Hive Mind System</a></li>
+                <li><a href="#sparc">🏗️ SPARC Development Modi</a></li>
+                <li><a href="#github">🐙 GitHub Integration</a></li>
+                <li><a href="#coordination">🤖 Coordination & Swarm Management</a></li>
+                <li><a href="#memory">💾 Memory & Persistence System</a></li>
+                <li><a href="#monitoring">📊 Monitoring & Analytics</a></li>
+                <li><a href="#automation">🛠️ Automation & Optimization</a></li>
+                <li><a href="#training">🧠 Training & Neural Features</a></li>
+                <li><a href="#beispiele">🎯 Praktische Anwendungsbeispiele</a></li>
+                <li><a href="#troubleshooting">❓ Troubleshooting & FAQ</a></li>
+                <li><a href="#reference">📋 Command Reference</a></li>
+            </ul>
+        </div>
+
+        <hr>
+
+        <section id="grundlagen">
+            <h2>🚀 Grundlagen: Installation und Setup</h2>
+            
+            <h3>Quick Start</h3>
+            <pre><code># Erste Installation
+npx claude-flow@alpha init --sparc
+
+# Hive Mind Setup (Empfohlen für Einsteiger)
+npx claude-flow@alpha hive-mind wizard
+
+# Starten mit UI
+npx claude-flow@alpha start --ui --swarm</code></pre>
+
+            <h3>System-Anforderungen</h3>
+            <ul>
+                <li>Node.js 16+</li>
+                <li>Claude Code 1.0.51+</li>
+                <li>Optional: GitHub CLI für Repository-Features</li>
+            </ul>
+
+            <h3>Konfiguration prüfen</h3>
+            <pre><code># System-Status anzeigen
+npx claude-flow@alpha status
+
+# Verfügbare Features detectieren
+npx claude-flow@alpha mcp detect
+
+# Hilfe anzeigen
+npx claude-flow@alpha --help</code></pre>
+        </section>
+
+        <hr>
+
+        <section id="hive-mind">
+            <h2>🐝 Hive Mind System <span class="badge new">Das Herzstück</span></h2>
+            
+            <p>Das <strong>Hive Mind System</strong> ist Claude Flows fortschrittlichste Feature für intelligente Multi-Agent Koordination.</p>
+
+            <h3>Grundkonzepte</h3>
+            <ul>
+                <li><strong>Queen Coordinator</strong>: Strategische Führung und Task-Verteilung</li>
+                <li><strong>Worker Agents</strong>: Spezialisierte Ausführung von Teilaufgaben</li>
+                <li><strong>Collective Memory</strong>: Geteiltes Wissen zwischen allen Agenten</li>
+                <li><strong>Consensus Building</strong>: Demokratische Entscheidungsfindung</li>
+            </ul>
+
+            <div class="command-grid">
+                <div class="command-card">
+                    <h4>🎯 Interactive Wizard</h4>
+                    <p>Empfohlen für Einsteiger</p>
+                    <pre><code>npx claude-flow@alpha hive-mind wizard</code></pre>
+                    <p>Führt dich durch die komplette Einrichtung mit geführten Fragen.</p>
+                </div>
+
+                <div class="command-card">
+                    <h4>🐝 Swarm Spawning</h4>
+                    <p>Intelligente Schwarm-Erstellung</p>
+                    <pre><code># Quick Spawn mit Aufgabe
+npx claude-flow@alpha hive-mind spawn "Build REST API with authentication"
+
+# Mit spezifischen Parametern
+npx claude-flow@alpha hive-mind spawn "Analyze codebase" \
+  --queen-type strategic \
+  --max-workers 8 \
+  --auto-scale \
+  --monitor</code></pre>
+                </div>
+            </div>
+
+            <h3>Hive Mind Parameter</h3>
+            <ul>
+                <li><code>--queen-type</code>: strategic | tactical | adaptive</li>
+                <li><code>--max-workers</code>: Anzahl Worker-Agenten (default: 8)</li>
+                <li><code>--consensus</code>: majority | weighted | byzantine</li>
+                <li><code>--memory-size</code>: Collective Memory in MB (default: 100)</li>
+                <li><code>--auto-scale</code>: Automatische Agent-Skalierung</li>
+                <li><code>--encryption</code>: Verschlüsselte Agent-Kommunikation</li>
+                <li><code>--monitor</code>: Echtzeit-Dashboard</li>
+            </ul>
+        </section>
+
+        <hr>
+
+        <section id="sparc">
+            <h2>🏗️ SPARC Development Modi <span class="badge">16 verfügbare Modi</span></h2>
+            
+            <p>SPARC (Specification, Pseudocode, Architecture, Refinement, Completion) ist eine systematische Entwicklungsmethodik.</p>
+
+            <h3>Core Development Modi</h3>
+            
+            <div class="command-grid">
+                <div class="command-card">
+                    <h4>🏗️ Architecture Mode</h4>
+                    <pre><code>npx claude-flow@alpha sparc architect "Design microservices architecture for e-commerce"</code></pre>
+                    <ul>
+                        <li>System-Design und Architektur-Patterns</li>
+                        <li>Component-Diagramme und API-Spezifikationen</li>
+                        <li>Technology-Stack Empfehlungen</li>
+                    </ul>
+                </div>
+
+                <div class="command-card">
+                    <h4>🧠 Auto-Coder Mode</h4>
+                    <pre><code>npx claude-flow@alpha sparc code "Implement JWT authentication system"</code></pre>
+                    <ul>
+                        <li>Vollständige Code-Implementierung</li>
+                        <li>Best-Practice Patterns</li>
+                        <li>Automatische Code-Optimierung</li>
+                    </ul>
+                </div>
+
+                <div class="command-card">
+                    <h4>🧪 TDD Mode</h4>
+                    <pre><code>npx claude-flow@alpha sparc tdd "Payment processing module"</code></pre>
+                    <ul>
+                        <li>Test-First Entwicklung</li>
+                        <li>Comprehensive Test-Suites</li>
+                        <li>Red-Green-Refactor Zyklus</li>
+                    </ul>
+                </div>
+
+                <div class="command-card">
+                    <h4>🛡️ Security Review</h4>
+                    <pre><code>npx claude-flow@alpha sparc security-review "Review authentication system"</code></pre>
+                    <ul>
+                        <li>Security-Audit und Vulnerability-Scanning</li>
+                        <li>OWASP-Compliance Checks</li>
+                        <li>Penetration-Testing Simulation</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3>Alle 16 Modi im Überblick</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 20px 0;">
+                <div class="badge">architect - System-Design</div>
+                <div class="badge">code - Auto-Coding</div>
+                <div class="badge">tdd - Test-Driven Development</div>
+                <div class="badge">debug - Bug-Fixing</div>
+                <div class="badge">security-review - Security-Audit</div>
+                <div class="badge">docs-writer - Dokumentation</div>
+                <div class="badge">integration - System-Integration</div>
+                <div class="badge">devops - Infrastructure</div>
+                <div class="badge">tutorial - Learning-Mode</div>
+                <div class="badge">supabase-admin - Database-Management</div>
+                <div class="badge">spec-pseudocode - Requirements</div>
+                <div class="badge">mcp - MCP-Integration</div>
+            </div>
+        </section>
+
+        <hr>
+
+        <section id="github">
+            <h2>🐙 GitHub Integration <span class="badge">6 Automation Modi</span></h2>
+            
+            <p>Claude Flow bietet umfassende GitHub-Automatisierung für Repository-Management.</p>
+
+            <div class="command-grid">
+                <div class="command-card">
+                    <h4>🔄 PR Manager</h4>
+                    <pre><code>npx claude-flow@alpha github pr-manager "Create feature PR with comprehensive tests"</code></pre>
+                    <ul>
+                        <li>Automatische PR-Erstellung</li>
+                        <li>Code-Review Integration</li>
+                        <li>Test-Suite Validation</li>
+                        <li>Merge-Konflikt Resolution</li>
+                    </ul>
+                </div>
+
+                <div class="command-card">
+                    <h4>⚙️ GitHub Coordinator</h4>
+                    <pre><code>npx claude-flow@alpha github gh-coordinator "Setup GitHub Actions pipeline" --auto-approve</code></pre>
+                    <ul>
+                        <li>Workflow-Automatisierung</li>
+                        <li>CI/CD Pipeline Setup</li>
+                        <li>Action-Integration</li>
+                        <li>Deployment-Orchestrierung</li>
+                    </ul>
+                </div>
+
+                <div class="command-card">
+                    <h4>🚀 Release Manager</h4>
+                    <pre><code>npx claude-flow@alpha github release-manager "Prepare v2.0.0 release"</code></pre>
+                    <ul>
+                        <li>Automated Release-Notes</li>
+                        <li>Version-Bumping</li>
+                        <li>Multi-Platform Builds</li>
+                        <li>Deployment-Coordination</li>
+                    </ul>
+                </div>
+
+                <div class="command-card">
+                    <h4>🏗️ Repository Architect</h4>
+                    <pre><code>npx claude-flow@alpha github repo-architect "Optimize monorepo structure"</code></pre>
+                    <ul>
+                        <li>Repository-Struktur Optimierung</li>
+                        <li>Dependency-Management</li>
+                        <li>Code-Organization</li>
+                        <li>Documentation-Structure</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <hr>
+
+        <section id="coordination">
+            <h2>🤖 Coordination & Swarm Management</h2>
+            
+            <p>Das Coordination-System orchestriert Multi-Agent Workflows für komplexe Aufgaben.</p>
+
+            <h3>Swarm Initialisierung</h3>
+            <pre><code>npx claude-flow@alpha coordination swarm-init \
+  --topology hierarchical \
+  --max-agents 8 \
+  --strategy balanced</code></pre>
+
+            <h3>Verfügbare Topologien</h3>
+            <ul>
+                <li><strong>hierarchical</strong>: Queen-Worker Struktur für komplexe Tasks</li>
+                <li><strong>mesh</strong>: Peer-to-Peer für gleichwertige Agenten</li>
+                <li><strong>ring</strong>: Sequential Processing für Pipeline-Tasks</li>
+                <li><strong>star</strong>: Central Coordinator für einfache Verteilung</li>
+                <li><strong>hybrid</strong>: Adaptive Mischung basierend auf Task-Type</li>
+            </ul>
+
+            <h3>Agent-Typen</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin: 20px 0;">
+                <div class="feature-card">
+                    <h4>coordinator</h4>
+                    <p>Task-Verteilung und Monitoring</p>
+                </div>
+                <div class="feature-card">
+                    <h4>coder</h4>
+                    <p>Code-Implementierung und Refactoring</p>
+                </div>
+                <div class="feature-card">
+                    <h4>developer</h4>
+                    <p>Full-Stack Development</p>
+                </div>
+                <div class="feature-card">
+                    <h4>researcher</h4>
+                    <p>Information-Gathering und Analysis</p>
+                </div>
+                <div class="feature-card">
+                    <h4>tester</h4>
+                    <p>Test-Creation und Quality-Assurance</p>
+                </div>
+                <div class="feature-card">
+                    <h4>architect</h4>
+                    <p>System-Design und Architecture</p>
+                </div>
+            </div>
+        </section>
+
+        <hr>
+
+        <section id="memory">
+            <h2>💾 Memory & Persistence System</h2>
+            
+            <p>Das Memory-System bietet persistente Cross-Session Speicherung für Agenten und Projekte.</p>
+
+            <div class="command-grid">
+                <div class="command-card">
+                    <h4>📝 Daten Speichern</h4>
+                    <pre><code># Einfache Key-Value Speicherung
+npx claude-flow@alpha memory store "api_design" "REST endpoints with JWT auth"
+
+# Mit Namespace und TTL
+npx claude-flow@alpha memory store "user_requirements" "E-commerce platform specs" \
+  --namespace project-alpha \
+  --ttl 86400</code></pre>
+                </div>
+
+                <div class="command-card">
+                    <h4>🔍 Memory Durchsuchen</h4>
+                    <pre><code># Pattern-basierte Suche
+npx claude-flow@alpha memory query "authentication"
+
+# Namespace-spezifische Suche
+npx claude-flow@alpha memory query "api" --namespace project-alpha</code></pre>
+                </div>
+
+                <div class="command-card">
+                    <h4>📋 Memory Verwalten</h4>
+                    <pre><code># Alle Namespaces auflisten
+npx claude-flow@alpha memory list
+
+# Memory exportieren
+npx claude-flow@alpha memory export backup.json --format json
+
+# Memory importieren
+npx claude-flow@alpha memory import backup.json</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <hr>
+
+        <section id="monitoring">
+            <h2>📊 Monitoring & Analytics</h2>
+            
+            <p>Comprehensive Performance-Monitoring und Real-time Analytics für optimale Swarm-Performance.</p>
+
+            <div class="command-grid">
+                <div class="command-card">
+                    <h4>📈 Real-time Monitoring</h4>
+                    <pre><code># Swarm-Status Live-Monitoring
+npx claude-flow@alpha monitoring swarm-monitor --interval 5
+
+# Agent-Performance Metrics
+npx claude-flow@alpha monitoring agent-metrics --detailed
+
+# Real-time Dashboard
+npx claude-flow@alpha monitoring real-time-view --dashboard</code></pre>
+                </div>
+
+                <div class="command-card">
+                    <h4>🔍 Performance Analytics</h4>
+                    <pre><code># Detaillierter Performance-Report
+npx claude-flow@alpha analysis performance-report --timeframe 24h
+
+# Token-Usage Analyse
+npx claude-flow@alpha analysis token-usage --breakdown
+
+# Bottleneck-Detection
+npx claude-flow@alpha analysis bottleneck-detect --component swarm</code></pre>
+                </div>
+            </div>
+        </section>
+
+        <hr>
+
+        <section id="beispiele">
+            <h2>🎯 Praktische Anwendungsbeispiele</h2>
+            
+            <div class="example-section">
+                <h3>Example 1: Complete API Development</h3>
+                <pre><code># 1. Hive Mind für API-Development initialisieren
+npx claude-flow@alpha hive-mind spawn "Build REST API with authentication and testing" \
+  --queen-type strategic \
+  --max-workers 6 \
+  --auto-scale
+
+# 2. Memory für Projekt-Kontext setup
+npx claude-flow@alpha memory store "project_type" "REST API with JWT auth" --namespace api-project
+npx claude-flow@alpha memory store "tech_stack" "Node.js, Express, PostgreSQL, Jest" --namespace api-project
+
+# 3. SPARC TDD Workflow
+npx claude-flow@alpha sparc tdd "User authentication endpoints" --verbose
+npx claude-flow@alpha sparc architect "Database schema design" --format json
+npx claude-flow@alpha sparc code "Implement JWT middleware" --auto-commit
+
+# 4. GitHub Integration
+npx claude-flow@alpha github pr-manager "Add authentication system with tests" --auto-approve
+
+# 5. Performance Monitoring
+npx claude-flow@alpha analysis performance-report --export api-dev-metrics.json</code></pre>
+            </div>
+
+            <div class="example-section">
+                <h3>Example 2: Repository Health Analysis</h3>
+                <pre><code># 1. GitHub Repository Analysis
+npx claude-flow@alpha github repo-architect "Comprehensive repository health check" --dry-run
+
+# 2. Code Quality Review mit Swarm
+npx claude-flow@alpha coordination swarm-init --topology mesh --max-agents 4
+npx claude-flow@alpha coordination agent-spawn --type reviewer --name "security-reviewer"
+npx claude-flow@alpha coordination agent-spawn --type reviewer --name "performance-reviewer"
+npx claude-flow@alpha coordination agent-spawn --type analyst --name "dependency-analyst"
+npx claude-flow@alpha coordination task-orchestrate --task "Complete code quality audit" --strategy parallel
+
+# 3. Results Memory Storage
+npx claude-flow@alpha memory store "audit_results" "$(cat audit-report.json)" --namespace repo-health</code></pre>
+            </div>
+        </section>
+
+        <hr>
+
+        <section id="troubleshooting">
+            <h2>❓ Troubleshooting & FAQ</h2>
+            
+            <h3>Häufige Probleme</h3>
+            
+            <div class="warning">
+                <h4>🚨 "Swarm initialization failed"</h4>
+                <pre><code># 1. System-Status prüfen
+npx claude-flow@alpha status --health-check
+
+# 2. Memory clear und neu initialisieren
+npx claude-flow@alpha memory clear --namespace default
+npx claude-flow@alpha coordination swarm-init --topology hierarchical
+
+# 3. MCP Server restart
+npx claude-flow@alpha mcp restart</code></pre>
+            </div>
+
+            <div class="info">
+                <h4>Performance-Optimierung Tips</h4>
+                <ol>
+                    <li><strong>Swarm-Size</strong>: Starte mit 3-4 Agenten, skaliere bei Bedarf</li>
+                    <li><strong>Topology-Wahl</strong>: 
+                        <ul>
+                            <li><code>hierarchical</code> für komplexe, strukturierte Tasks</li>
+                            <li><code>mesh</code> für gleichwertige, parallele Tasks</li>
+                            <li><code>star</code> für einfache Task-Verteilung</li>
+                        </ul>
+                    </li>
+                    <li><strong>Memory-Management</strong>: Nutze Namespaces und TTL für automatische Cleanup</li>
+                    <li><strong>Monitoring</strong>: Aktiviere Real-time Monitoring für Performance-Insights</li>
+                </ol>
+            </div>
+        </section>
+
+        <hr>
+
+        <section id="reference">
+            <h2>📋 Command Reference (Schnellübersicht)</h2>
+            
+            <div class="command-grid">
+                <div class="command-card">
+                    <h4>Core Commands</h4>
+                    <ul>
+                        <li><code>npx claude-flow@alpha init --sparc</code> - System initialisieren</li>
+                        <li><code>npx claude-flow@alpha status</code> - System-Status</li>
+                        <li><code>npx claude-flow@alpha --help</code> - Hilfe anzeigen</li>
+                    </ul>
+                </div>
+
+                <div class="command-card">
+                    <h4>Hive Mind</h4>
+                    <ul>
+                        <li><code>npx claude-flow@alpha hive-mind wizard</code> - Interactive Setup</li>
+                        <li><code>npx claude-flow@alpha hive-mind spawn "task"</code> - Swarm erstellen</li>
+                        <li><code>npx claude-flow@alpha hive-mind status</code> - Status anzeigen</li>
+                    </ul>
+                </div>
+
+                <div class="command-card">
+                    <h4>SPARC Development</h4>
+                    <ul>
+                        <li><code>npx claude-flow@alpha sparc modes</code> - Alle Modi auflisten</li>
+                        <li><code>npx claude-flow@alpha sparc architect "task"</code> - System-Design</li>
+                        <li><code>npx claude-flow@alpha sparc tdd "feature"</code> - Test-Driven Development</li>
+                    </ul>
+                </div>
+
+                <div class="command-card">
+                    <h4>GitHub Integration</h4>
+                    <ul>
+                        <li><code>npx claude-flow@alpha github pr-manager "description"</code> - PR-Management</li>
+                        <li><code>npx claude-flow@alpha github gh-coordinator "task"</code> - CI/CD Setup</li>
+                        <li><code>npx claude-flow@alpha github repo-architect "task"</code> - Repository-Optimierung</li>
+                    </ul>
+                </div>
+
+                <div class="command-card">
+                    <h4>Memory</h4>
+                    <ul>
+                        <li><code>npx claude-flow@alpha memory store "key" "value"</code> - Speichern</li>
+                        <li><code>npx claude-flow@alpha memory query "pattern"</code> - Suchen</li>
+                        <li><code>npx claude-flow@alpha memory list</code> - Übersicht</li>
+                    </ul>
+                </div>
+
+                <div class="command-card">
+                    <h4>Monitoring</h4>
+                    <ul>
+                        <li><code>npx claude-flow@alpha monitoring swarm-monitor</code> - Live-Monitoring</li>
+                        <li><code>npx claude-flow@alpha analysis performance-report</code> - Performance-Report</li>
+                        <li><code>npx claude-flow@alpha analysis token-usage</code> - Token-Analyse</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <hr>
+
+        <section>
+            <h2>🔗 Ressourcen & Links</h2>
+            <ul>
+                <li><strong>Offizielle Dokumentation</strong>: <a href="https://github.com/ruvnet/claude-flow" target="_blank">https://github.com/ruvnet/claude-flow</a></li>
+                <li><strong>Hive Mind Guide</strong>: <a href="https://github.com/ruvnet/claude-flow/tree/main/docs/hive-mind" target="_blank">https://github.com/ruvnet/claude-flow/tree/main/docs/hive-mind</a></li>
+                <li><strong>ruv-swarm Integration</strong>: <a href="https://github.com/ruvnet/ruv-FANN/tree/main/ruv-swarm" target="_blank">https://github.com/ruvnet/ruv-FANN/tree/main/ruv-swarm</a></li>
+                <li><strong>SPARC Methodology</strong>: <a href="https://github.com/ruvnet/claude-code-flow/docs/sparc.md" target="_blank">https://github.com/ruvnet/claude-code-flow/docs/sparc.md</a></li>
+                <li><strong>Claude Code Integration</strong>: <a href="https://docs.anthropic.com/en/docs/claude-code" target="_blank">https://docs.anthropic.com/en/docs/claude-code</a></li>
+            </ul>
+        </section>
+
+        <div class="footer">
+            <p><strong>Version</strong>: Claude Flow v2.0.0-alpha.83</p>
+            <p><strong>Letzte Aktualisierung</strong>: 2025-01-02</p>
+            <p><strong>Kompatibilität</strong>: Claude Code 1.0.51+</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Creative Details - {{ creative.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'makeads:dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'makeads:campaign_detail' creative.campaign.id %}">{{ creative.campaign.name }}</a></li>
+                    <li class="breadcrumb-item active">{{ creative.title }}</li>
+                </ol>
+            </nav>
+
+            <div class="row">
+                <!-- Creative Details -->
+                <div class="col-md-8">
+                    <div class="card">
+                        {% if creative.get_image_url %}
+                        <img src="{{ creative.get_image_url }}" class="card-img-top" alt="{{ creative.title }}" style="max-height: 400px; object-fit: contain;">
+                        {% else %}
+                        <div class="card-img-top d-flex align-items-center justify-content-center bg-light" style="height: 200px;">
+                            <i class="fas fa-image fa-3x text-muted"></i>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <h1 class="card-title">{{ creative.title }}</h1>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleFavorite({{ creative.id }})">
+                                        <i class="fas fa-star {% if creative.is_favorite %}text-warning{% endif %}" id="favorite-icon-{{ creative.id }}"></i>
+                                        <span id="favorite-text-{{ creative.id }}">
+                                            {% if creative.is_favorite %}Favorit{% else %}Als Favorit markieren{% endif %}
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {% if creative.description %}
+                            <div class="mb-3">
+                                <h5>Beschreibung</h5>
+                                <p class="text-muted">{{ creative.description }}</p>
+                            </div>
+                            {% endif %}
+
+                            {% if creative.text_content %}
+                            <div class="mb-3">
+                                <h5>Creative Text</h5>
+                                <div class="border p-3 bg-light rounded">
+                                    <p class="mb-0">{{ creative.text_content|linebreaks }}</p>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <!-- Creative Info -->
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <small class="text-muted">
+                                        <strong>Status:</strong> 
+                                        <span class="badge {% if creative.generation_status == 'completed' %}bg-success{% elif creative.generation_status == 'processing' %}bg-warning{% else %}bg-secondary{% endif %}">
+                                            {{ creative.get_generation_status_display|default:creative.generation_status }}
+                                        </span>
+                                    </small>
+                                </div>
+                                <div class="col-md-6">
+                                    <small class="text-muted">
+                                        <strong>Batch:</strong> {{ creative.generation_batch|default:"N/A" }}
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <small class="text-muted">
+                                        <strong>Erstellt:</strong> {{ creative.created_at|date:"d.m.Y H:i" }}
+                                    </small>
+                                </div>
+                                <div class="col-md-6">
+                                    <small class="text-muted">
+                                        <strong>Aktualisiert:</strong> {{ creative.updated_at|date:"d.m.Y H:i" }}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions Sidebar -->
+                <div class="col-md-4">
+                    <!-- Revision Form -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Creative überarbeiten</h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" action="{% url 'makeads:creative_revise' creative.id %}">
+                                {% csrf_token %}
+                                {{ revision_form.as_p }}
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-magic me-2"></i>Überarbeiten
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Feedback Form -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Bewertung</h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" action="{% url 'makeads:creative_detail' creative.id %}">
+                                {% csrf_token %}
+                                {{ feedback_form.as_p }}
+                                <button type="submit" class="btn btn-secondary">
+                                    <i class="fas fa-save me-2"></i>Speichern
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Aktionen</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                {% if creative.get_image_url %}
+                                <a href="{{ creative.get_image_url }}" target="_blank" class="btn btn-outline-primary">
+                                    <i class="fas fa-external-link-alt me-2"></i>Bild in neuem Tab öffnen
+                                </a>
+                                {% endif %}
+                                
+                                <button class="btn btn-outline-secondary" onclick="copyToClipboard('{{ creative.text_content|escapejs }}')">
+                                    <i class="fas fa-copy me-2"></i>Text kopieren
+                                </button>
+                                
+                                <button class="btn btn-outline-info" onclick="downloadCreative()">
+                                    <i class="fas fa-download me-2"></i>Als Datei exportieren
+                                </button>
+                                
+                                <a href="{% url 'makeads:campaign_detail' creative.campaign.id %}" class="btn btn-outline-dark">
+                                    <i class="fas fa-arrow-left me-2"></i>Zurück zur Kampagne
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Similar Creatives -->
+            {% if similar_creatives %}
+            <div class="row mt-4">
+                <div class="col-md-12">
+                    <h3>Ähnliche Creatives</h3>
+                    <div class="row">
+                        {% for similar in similar_creatives %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card">
+                                {% if similar.get_image_url %}
+                                <img src="{{ similar.get_image_url }}" class="card-img-top" alt="{{ similar.title }}" style="height: 200px; object-fit: cover;">
+                                {% endif %}
+                                <div class="card-body">
+                                    <h6 class="card-title">{{ similar.title }}</h6>
+                                    <p class="card-text">{{ similar.text_content|truncatewords:10 }}</p>
+                                    <a href="{% url 'makeads:creative_detail' similar.id %}" class="btn btn-sm btn-outline-primary">
+                                        Details anzeigen
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+function toggleFavorite(creativeId) {
+    fetch(`/makeads/creative/${creativeId}/toggle-favorite/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const icon = document.getElementById(`favorite-icon-${creativeId}`);
+            const text = document.getElementById(`favorite-text-${creativeId}`);
+            
+            if (data.is_favorite) {
+                icon.classList.add('text-warning');
+                text.textContent = 'Favorit';
+            } else {
+                icon.classList.remove('text-warning');
+                text.textContent = 'Als Favorit markieren';
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Fehler beim Aktualisieren des Favoriten-Status');
+    });
+}
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        // Feedback anzeigen
+        const button = event.target.closest('button');
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-check me-2"></i>Kopiert!';
+        button.classList.remove('btn-outline-secondary');
+        button.classList.add('btn-success');
+        
+        setTimeout(() => {
+            button.innerHTML = originalText;
+            button.classList.remove('btn-success');
+            button.classList.add('btn-outline-secondary');
+        }, 2000);
+    }).catch(function(err) {
+        console.error('Could not copy text: ', err);
+        alert('Fehler beim Kopieren des Textes');
+    });
+}
+
+function downloadCreative() {
+    const title = "{{ creative.title|escapejs }}";
+    const text = "{{ creative.text_content|escapejs }}";
+    const description = "{{ creative.description|escapejs }}";
+    
+    const content = `Titel: ${title}\n\nBeschreibung: ${description}\n\nText:\n${text}`;
+    
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title.replace(/[^a-z0-9]/gi, '_')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,369 @@
+{% extends 'base.html' %}
+
+{% block title %}Schritt 3: Creative-Generierung - MakeAds{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Wizard Steps -->
+    <div class="wizard-steps">
+        <div class="wizard-step completed">
+            <i class="fas fa-check me-2"></i>
+            Schritt 1: Ideeneingabe
+        </div>
+        <div class="wizard-step completed">
+            <i class="fas fa-check me-2"></i>
+            Schritt 2: Referenzmaterial
+        </div>
+        <div class="wizard-step active">
+            <i class="fas fa-magic me-2"></i>
+            Schritt 3: Generierung
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-info text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-magic me-2"></i>{{ step_title }}
+                    </h4>
+                    <p class="mb-0 mt-2 opacity-75">Konfigurieren Sie die KI-Generierung und erstellen Sie Ihre Creatives.</p>
+                </div>
+                
+                <div class="card-body p-4">
+                    <!-- Progress Bar Integration -->
+                    {% include 'makeads/includes/progress_bar.html' %}
+                    
+                    <!-- Kampagnen-Zusammenfassung -->
+                    <div class="alert alert-primary mb-4" role="alert">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-info-circle me-2"></i>Kampagnen-Zusammenfassung: {{ campaign.name }}
+                        </h6>
+                        <p class="mb-2"><strong>Grundidee:</strong> {{ campaign.basic_idea }}</p>
+                        {% if campaign.detailed_description %}
+                        <p class="mb-2"><strong>Details:</strong> {{ campaign.detailed_description|truncatechars:200 }}</p>
+                        {% endif %}
+                        <p class="mb-0">
+                            <small class="text-muted">
+                                <i class="fas fa-images me-1"></i>{{ campaign.reference_images.count }} Referenzbild(er) hochgeladen
+                            </small>
+                        </p>
+                    </div>
+
+                    <form method="post" class="needs-validation" 
+                          data-progress-tracking="true"
+                          action="{% url 'makeads:start_generation_ajax' %}"
+                          novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Hidden Campaign ID für AJAX -->
+                        <input type="hidden" name="campaign_id" value="{{ campaign.id }}">
+                        
+                        <div class="row">
+                            <!-- Generierungsoptionen -->
+                            <div class="col-md-6">
+                                <h5 class="mb-3">
+                                    <i class="fas fa-cogs text-primary me-2"></i>Generierungsoptionen
+                                </h5>
+                                
+                                <!-- Anzahl Creatives -->
+                                <div class="mb-3">
+                                    <label for="{{ form.generation_count.id_for_label }}" class="form-label fw-bold">
+                                        {{ form.generation_count.label }}
+                                    </label>
+                                    {{ form.generation_count }}
+                                    <div class="form-text">
+                                        Wie viele Creatives sollen initial generiert werden?
+                                    </div>
+                                </div>
+
+                                <!-- KI-Service -->
+                                <div class="mb-3">
+                                    <label for="{{ form.ai_service.id_for_label }}" class="form-label fw-bold">
+                                        {{ form.ai_service.label }}
+                                    </label>
+                                    {{ form.ai_service }}
+                                    <div class="form-text">
+                                        Wählen Sie den KI-Service für die Generierung.
+                                    </div>
+                                </div>
+
+                                <!-- Stil-Präferenz -->
+                                <div class="mb-3">
+                                    <label for="{{ form.style_preference.id_for_label }}" class="form-label fw-bold">
+                                        {{ form.style_preference.label }}
+                                    </label>
+                                    {{ form.style_preference }}
+                                    <div class="form-text">
+                                        Welcher Stil passt am besten zu Ihrer Marke?
+                                    </div>
+                                </div>
+
+                                <!-- Farbschema -->
+                                <div class="mb-3">
+                                    <label for="{{ form.color_scheme.id_for_label }}" class="form-label fw-bold">
+                                        {{ form.color_scheme.label }}
+                                    </label>
+                                    {{ form.color_scheme }}
+                                    <div class="form-text">
+                                        Bevorzugtes Farbschema für die Creatives.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Zielgruppe und Details -->
+                            <div class="col-md-6">
+                                <h5 class="mb-3">
+                                    <i class="fas fa-users text-success me-2"></i>Zielgruppe & Anpassungen
+                                </h5>
+                                
+                                <!-- Zielgruppe -->
+                                <div class="mb-3">
+                                    <label for="{{ form.target_audience.id_for_label }}" class="form-label fw-bold">
+                                        {{ form.target_audience.label }}
+                                    </label>
+                                    {{ form.target_audience }}
+                                    <div class="form-text">
+                                        Beschreiben Sie Ihre Zielgruppe für passendere Creatives.
+                                        <br><strong>Beispiel:</strong> "Junge Familien, 25-35 Jahre, technikaffin"
+                                    </div>
+                                </div>
+
+                                <!-- Spezielle Anweisungen -->
+                                <div class="mb-3">
+                                    <label for="{{ form.custom_instructions.id_for_label }}" class="form-label fw-bold">
+                                        {{ form.custom_instructions.label }}
+                                    </label>
+                                    {{ form.custom_instructions }}
+                                    <div class="form-text">
+                                        Zusätzliche Anweisungen für die KI-Generierung.
+                                        <br><strong>Beispiel:</strong> "Verwende unbedingt unser Firmenlogo", "Vermeide rote Farben"
+                                    </div>
+                                </div>
+
+                                <!-- Vorschau der Einstellungen -->
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6 class="card-title">
+                                            <i class="fas fa-eye me-2"></i>Ihre Einstellungen
+                                        </h6>
+                                        <div id="settings-preview">
+                                            <small class="text-muted">
+                                                Die Vorschau wird aktualisiert, wenn Sie Ihre Auswahl treffen.
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Geschätzte Generierungszeit -->
+                        <div class="alert alert-info mt-4" role="alert">
+                            <div class="row align-items-center">
+                                <div class="col-md-8">
+                                    <h6 class="alert-heading mb-1">
+                                        <i class="fas fa-clock me-2"></i>Geschätzte Generierungszeit
+                                    </h6>
+                                    <p class="mb-0">
+                                        Die Generierung von <span id="creative-count">10</span> Creatives dauert etwa 
+                                        <strong><span id="estimated-time">2-3 Minuten</span></strong>.
+                                    </p>
+                                </div>
+                                <div class="col-md-4 text-center">
+                                    <div class="spinner-border text-info d-none" id="generation-spinner" role="status">
+                                        <span class="visually-hidden">Generiert...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Service-Hinweise -->
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <h6>
+                                    <i class="fas fa-info-circle text-info me-2"></i>Service-Informationen
+                                </h6>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="card border-primary h-100">
+                                            <div class="card-body text-center">
+                                                <i class="fas fa-robot fa-2x text-primary mb-2"></i>
+                                                <h6>OpenAI GPT + DALL-E</h6>
+                                                <small class="text-muted">
+                                                    Vielseitig und kreativ. Beste Allround-Lösung für die meisten Projekte.
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card border-success h-100">
+                                            <div class="card-body text-center">
+                                                <i class="fas fa-brain fa-2x text-success mb-2"></i>
+                                                <h6>Anthropic Claude</h6>
+                                                <small class="text-muted">
+                                                    Besonders gut für nuancierte Texte und komplexe Anweisungen.
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card border-info h-100">
+                                            <div class="card-body text-center">
+                                                <i class="fas fa-search fa-2x text-info mb-2"></i>
+                                                <h6>Google AI</h6>
+                                                <small class="text-muted">
+                                                    Excellent für datenbasierte und faktische Inhalte.
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Aktionsbuttons -->
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'makeads:campaign_create_step2' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Zurück zu Schritt 2
+                            </a>
+                            <button type="submit" class="btn btn-success btn-lg" id="generate-btn">
+                                <i class="fas fa-magic me-2"></i>Creatives generieren
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tipps für bessere Ergebnisse -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <h5 class="text-center mb-4">
+                <i class="fas fa-lightbulb text-warning me-2"></i>Tipps für bessere Ergebnisse
+            </h5>
+            <div class="row">
+                <div class="col-md-3 mb-3">
+                    <div class="card border-0 bg-light h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-target fa-2x text-primary mb-3"></i>
+                            <h6>Präzise Zielgruppe</h6>
+                            <p class="card-text small">
+                                "25-35 Jahre, technikaffin, arbeitet im Homeoffice"
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3 mb-3">
+                    <div class="card border-0 bg-light h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-palette fa-2x text-success mb-3"></i>
+                            <h6>Konsistente Farben</h6>
+                            <p class="card-text small">
+                                Wählen Sie ein Farbschema, das zu Ihrer Marke passt.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3 mb-3">
+                    <div class="card border-0 bg-light h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-comment-dots fa-2x text-info mb-3"></i>
+                            <h6>Klare Anweisungen</h6>
+                            <p class="card-text small">
+                                Spezifische Wünsche in den benutzerdefinierten Anweisungen angeben.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3 mb-3">
+                    <div class="card border-0 bg-light h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-sync fa-2x text-warning mb-3"></i>
+                            <h6>Iterativ verbessern</h6>
+                            <p class="card-text small">
+                                Nach der Generierung können Sie einzelne Creatives überarbeiten.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{% load static %}
+<script src="{% static 'makeads/js/progress-tracker.js' %}"></script>
+<script>
+// Update settings preview
+function updatePreview() {
+    const count = document.querySelector('[name="generation_count"]').value;
+    const service = document.querySelector('[name="ai_service"]').selectedOptions[0].text;
+    const style = document.querySelector('[name="style_preference"]').selectedOptions[0].text;
+    const colors = document.querySelector('[name="color_scheme"]').selectedOptions[0].text;
+    const audience = document.querySelector('[name="target_audience"]').value;
+    
+    const preview = document.getElementById('settings-preview');
+    preview.innerHTML = `
+        <div class="row">
+            <div class="col-6">
+                <small><strong>Anzahl:</strong> ${count}</small><br>
+                <small><strong>Service:</strong> ${service}</small><br>
+                <small><strong>Stil:</strong> ${style}</small>
+            </div>
+            <div class="col-6">
+                <small><strong>Farben:</strong> ${colors}</small><br>
+                <small><strong>Zielgruppe:</strong> ${audience || 'Nicht angegeben'}</small>
+            </div>
+        </div>
+    `;
+    
+    // Update time estimation
+    const timeEstimate = Math.ceil(parseInt(count) * 0.2); // 0.2 minutes per creative
+    document.getElementById('creative-count').textContent = count;
+    document.getElementById('estimated-time').textContent = `${timeEstimate}-${timeEstimate + 1} Minuten`;
+}
+
+// Add event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    const inputs = document.querySelectorAll('select, input[type="text"]');
+    inputs.forEach(input => {
+        input.addEventListener('change', updatePreview);
+        input.addEventListener('input', updatePreview);
+    });
+    
+    // Initial preview
+    updatePreview();
+});
+
+// Form submission wird jetzt von progress-tracker.js gehandhabt
+// Das Formular hat data-progress-tracking="true" und wird automatisch abgefangen
+
+// Form validation
+(function() {
+    'use strict';
+    
+    var forms = document.querySelectorAll('.needs-validation');
+    
+    Array.prototype.slice.call(forms).forEach(function(form) {
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+                
+                // Re-enable button if validation fails
+                const btn = document.getElementById('generate-btn');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-magic me-2"></i>Creatives generieren';
+            }
+            form.classList.add('was-validated');
+        }, false);
+    });
+})();
+</script>
+{% endblock %}

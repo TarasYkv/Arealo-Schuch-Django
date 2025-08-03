@@ -1,0 +1,52 @@
+{% load static %}
+
+<!-- API Key Warning für MakeAds -->
+{% if not api_key_status.openai %}
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+    <div class="d-flex align-items-center">
+        <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+        <div class="flex-grow-1">
+            <h6 class="alert-heading mb-1">
+                <strong>Keine echte Bildgenerierung verfügbar</strong>
+            </h6>
+            <p class="mb-2">
+                MakeAds verwendet derzeit Mock-Bilder, da kein OpenAI API-Key konfiguriert ist. 
+                Für echte DALL-E generierte Werbebilder benötigen Sie einen gültigen OpenAI API-Key.
+            </p>
+            <div class="d-flex gap-2">
+                <a href="{{ api_settings_url }}" class="btn btn-warning btn-sm">
+                    <i class="fas fa-key me-1"></i>OpenAI API-Key hinzufügen
+                </a>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#apiKeyHelp">
+                    <i class="fas fa-question-circle me-1"></i>Hilfe
+                </button>
+            </div>
+            
+            <!-- Hilfe-Bereich -->
+            <div class="collapse mt-3" id="apiKeyHelp">
+                <div class="card card-body bg-light">
+                    <h6>So erhalten Sie einen OpenAI API-Key:</h6>
+                    <ol class="mb-0">
+                        <li>Besuchen Sie <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">OpenAI Platform</a></li>
+                        <li>Erstellen Sie ein Konto oder melden Sie sich an</li>
+                        <li>Erstellen Sie einen neuen API-Key</li>
+                        <li>Kopieren Sie den Key und fügen Sie ihn in den <a href="{{ api_settings_url }}">API-Einstellungen</a> ein</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% elif api_key_status.openai %}
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+    <div class="d-flex align-items-center">
+        <i class="fas fa-check-circle fa-lg me-2"></i>
+        <div>
+            <strong>OpenAI API-Key konfiguriert!</strong> 
+            MakeAds kann jetzt echte DALL-E Bilder generieren.
+        </div>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}

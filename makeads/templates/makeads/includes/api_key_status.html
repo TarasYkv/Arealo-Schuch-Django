@@ -1,0 +1,57 @@
+{% load static %}
+
+{% if api_key_status %}
+<div class="api-key-status mb-3">
+    <div class="card">
+        <div class="card-body">
+            <h6 class="card-title">API-Key Status</h6>
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="d-flex align-items-center">
+                        {% if api_key_status.openai %}
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                        {% else %}
+                            <i class="fas fa-times-circle text-danger me-2"></i>
+                        {% endif %}
+                        <span>OpenAI</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-flex align-items-center">
+                        {% if api_key_status.anthropic %}
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                        {% else %}
+                            <i class="fas fa-times-circle text-danger me-2"></i>
+                        {% endif %}
+                        <span>Anthropic</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-flex align-items-center">
+                        {% if api_key_status.google %}
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                        {% else %}
+                            <i class="fas fa-times-circle text-danger me-2"></i>
+                        {% endif %}
+                        <span>Google AI</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <a href="{{ api_settings_url }}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-cog me-1"></i>
+                        API-Keys verwalten
+                    </a>
+                </div>
+            </div>
+            
+            {% if not api_key_status.openai and not api_key_status.anthropic and not api_key_status.google %}
+            <div class="alert alert-warning mt-3 mb-0">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Keine API-Keys konfiguriert. 
+                <a href="{{ api_settings_url }}" class="alert-link">Jetzt konfigurieren</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
