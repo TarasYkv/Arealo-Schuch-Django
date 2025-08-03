@@ -353,28 +353,55 @@
         </div>
     </div>
 </div>
+
+
 {% endblock %}
 
 {% block page_js %}
+{{ block.super }}
+
+<!-- Plan Detail JavaScript -->
+<!-- Data for JavaScript -->
+<script id="posts-data" type="application/json">
+[
+{% for post in posts %}
+{
+    "id": {{ post.id }},
+    "title": "{{ post.title|escapejs }}",
+    "content": "{{ post.content|escapejs }}",
+    "script": "{{ post.script|default:'N/A'|escapejs }}",
+    "hashtags": "{{ post.hashtags|default:'N/A'|escapejs }}",
+    "call_to_action": "{{ post.call_to_action|default:'N/A'|escapejs }}",
+    "character_count": {{ post.character_count }},
+    "character_limit": {{ post.posting_plan.platform.character_limit }}
+}{% if not forloop.last %},{% endif %}
+{% endfor %}
+]
+</script>
+
+<script id="urls-data" type="application/json">
+{
+    "generate_more_ideas": "{% url 'somi_plan:generate_more_ideas' plan.id %}",
+    "post_edit": "{% url 'somi_plan:post_edit' 0 %}",
+    "schedule_post": "{% url 'somi_plan:schedule_post' 0 %}",
+    "platform_name": "{{ plan.platform.name|escapejs }}"
+}
+</script>
+
 <script>
 // Add functions to global scope - ensure they're available
 window.showPostModal = function(postId) {
     console.log('showPostModal called with postId:', postId);
     
-    // Mock post data - in real implementation, this would fetch from API
-    const posts = {
-        {% for post in posts %}
-        {{ post.id }}: {
-            title: `{{ post.title|escapejs }}`,
-            content: `{{ post.content|escapejs }}`,
-            script: `{{ post.script|escapejs }}`,
-            hashtags: `{{ post.hashtags|escapejs }}`,
-            call_to_action: `{{ post.call_to_action|escapejs }}`,
-            character_count: {{ post.character_count }},
-            character_limit: {{ post.posting_plan.platform.character_limit }}
-        },
-        {% endfor %}
-    };
+    // Load post data from JSON
+    const postsDataElement = document.getElementById('posts-data');
+    const postsArray = JSON.parse(postsDataElement.textContent);
+    
+    // Convert array to object with post ID as key
+    const posts = {};
+    postsArray.forEach(post => {
+        posts[post.id] = post;
+    });
     
     const post = posts[postId];
     if (!post) return;
@@ -618,7 +645,10 @@ async function executeGenerateIdeas() {
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generiere Ideen...';
     
     try {
-        const response = await fetch(`{% url 'somi_plan:generate_more_ideas' plan.id %}`, {
+        // Load URLs from JSON data
+        const urlsData = JSON.parse(document.getElementById('urls-data').textContent);
+        
+        const response = await fetch(urlsData.generate_more_ideas, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -692,7 +722,8 @@ function showSuccessAlert(message) {
 window.editPost = function(postId) {
     // Close modal and redirect to edit page
     bootstrap.Modal.getInstance(document.getElementById('postModal')).hide();
-    window.location.href = "{% url 'somi_plan:post_edit' 0 %}".replace('0', postId);
+    const urlsData = JSON.parse(document.getElementById('urls-data').textContent);
+    window.location.href = urlsData.post_edit.replace('0', postId);
 }
 
 window.schedulePost = function(postId) {
@@ -700,8 +731,9 @@ window.schedulePost = function(postId) {
     const modal = bootstrap.Modal.getInstance(document.getElementById('postModal'));
     if (modal) modal.hide();
     
-    // Redirect to scheduling page using Django URL
-    window.location.href = "{% url 'somi_plan:schedule_post' 0 %}".replace('0', postId);
+    // Redirect to scheduling page using URL from JSON data
+    const urlsData = JSON.parse(document.getElementById('urls-data').textContent);
+    window.location.href = urlsData.schedule_post.replace('0', postId);
 };
 
 window.exportPlan = function() {
@@ -775,19 +807,15 @@ window.showCopyNotification = function(type) {
 
 // Get post data helper
 window.getPostData = function(postId) {
-    const posts = {
-        {% for post in posts %}
-        {{ post.id }}: {
-            title: `{{ post.title|escapejs }}`,
-            content: `{{ post.content|escapejs }}`,
-            script: `{{ post.script|escapejs }}`,
-            hashtags: `{{ post.hashtags|escapejs }}`,
-            call_to_action: `{{ post.call_to_action|escapejs }}`,
-            character_count: {{ post.character_count }},
-            character_limit: {{ post.posting_plan.platform.character_limit }}
-        },
-        {% endfor %}
-    };
+    const postsDataElement = document.getElementById('posts-data');
+    const postsArray = JSON.parse(postsDataElement.textContent);
+    
+    // Convert array to object with post ID as key
+    const posts = {};
+    postsArray.forEach(post => {
+        posts[post.id] = post;
+    });
+    
     return posts[postId];
 };
 
@@ -1018,7 +1046,7 @@ console.log('Functions registered:', {
 </script>
 {% endblock %}
 
-{% block page_css %}
+{% block child_css %}
 <style>
     /* Post Cards */
     .post-card {
