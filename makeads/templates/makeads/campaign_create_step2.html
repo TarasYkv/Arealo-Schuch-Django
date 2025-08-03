@@ -1,0 +1,296 @@
+{% extends 'base.html' %}
+
+{% block title %}Schritt 2: Referenzmaterial - MakeAds{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Wizard Steps -->
+    <div class="wizard-steps">
+        <div class="wizard-step completed">
+            <i class="fas fa-check me-2"></i>
+            Schritt 1: Ideeneingabe
+        </div>
+        <div class="wizard-step active">
+            <i class="fas fa-images me-2"></i>
+            Schritt 2: Referenzmaterial
+        </div>
+        <div class="wizard-step">
+            <i class="fas fa-magic me-2"></i>
+            Schritt 3: Generierung
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-images me-2"></i>{{ step_title }}
+                    </h4>
+                    <p class="mb-0 mt-2 opacity-75">Fügen Sie Referenzbilder und zusätzliche Informationen hinzu (optional).</p>
+                </div>
+                
+                <div class="card-body p-4">
+                    <!-- Kampagnen-Übersicht -->
+                    <div class="alert alert-primary mb-4" role="alert">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-info-circle me-2"></i>Ihre Kampagne: {{ campaign.name }}
+                        </h6>
+                        <p class="mb-0">{{ campaign.basic_idea }}</p>
+                    </div>
+
+                    <form method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Referenzbilder Upload -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-upload text-primary me-2"></i>Referenzbilder hochladen
+                            </label>
+                            
+                            <div class="upload-area border-2 border-dashed rounded p-4 text-center mb-3" style="border-color: #dee2e6; cursor: pointer;" onclick="document.getElementById('reference_images').click();">
+                                <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                                <h6>Bilder hier ablegen oder klicken zum Auswählen</h6>
+                                <p class="text-muted mb-0">Unterstützte Formate: JPG, PNG, GIF (max. 10MB pro Bild)</p>
+                                <input type="file" id="reference_images" name="reference_images" multiple accept="image/*" class="d-none">
+                            </div>
+                            
+                            <div id="image-preview" class="row"></div>
+                            
+                            <div class="form-text">
+                                Laden Sie Bilder hoch, die den gewünschten Stil, die Farben oder das Layout zeigen, das Sie sich vorstellen.
+                            </div>
+                        </div>
+
+                        <!-- Bereits hochgeladene Bilder -->
+                        {% if reference_images %}
+                        <div class="mb-4">
+                            <h6 class="fw-bold">
+                                <i class="fas fa-check-circle text-success me-2"></i>Bereits hochgeladene Referenzbilder
+                            </h6>
+                            <div class="row">
+                                {% for ref_image in reference_images %}
+                                <div class="col-md-3 mb-3">
+                                    <div class="card">
+                                        <img src="{{ ref_image.image.url }}" class="card-img-top" style="height: 150px; object-fit: cover;" alt="Referenzbild">
+                                        <div class="card-body p-2">
+                                            <small class="text-muted">{{ ref_image.description|default:"Referenzbild" }}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Web-Links -->
+                        <div class="mb-4">
+                            <label for="{{ form.web_links.id_for_label }}" class="form-label fw-bold">
+                                <i class="fas fa-link text-info me-2"></i>{{ form.web_links.label }}
+                            </label>
+                            {{ form.web_links }}
+                            {% if form.web_links.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in form.web_links.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                Fügen Sie Links zu Websites, Designs oder anderen Referenzen hinzu, die als Inspiration dienen sollen.
+                                <br><strong>Beispiel:</strong> https://example.com/great-design
+                            </div>
+                        </div>
+
+                        <!-- Zusätzliche Informationen -->
+                        <div class="mb-4">
+                            <label for="{{ form.additional_info.id_for_label }}" class="form-label fw-bold">
+                                <i class="fas fa-plus-circle text-warning me-2"></i>{{ form.additional_info.label }}
+                            </label>
+                            {{ form.additional_info }}
+                            {% if form.additional_info.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in form.additional_info.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                Weitere wichtige Details, Markenrichtlinien, spezielle Anforderungen oder Einschränkungen.
+                            </div>
+                        </div>
+
+                        <!-- Tipps -->
+                        <div class="alert alert-info" role="alert">
+                            <h6 class="alert-heading">
+                                <i class="fas fa-lightbulb me-2"></i>Tipps für bessere Referenzen:
+                            </h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <ul class="mb-0">
+                                        <li><strong>Stilrichtung:</strong> Laden Sie Bilder hoch, die den gewünschten visuellen Stil zeigen</li>
+                                        <li><strong>Farbpalette:</strong> Zeigen Sie bevorzugte Farben und Farbkombinationen</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <ul class="mb-0">
+                                        <li><strong>Layout:</strong> Referenzen für Anordnung und Komposition</li>
+                                        <li><strong>Markenelemente:</strong> Logos, Schriften oder andere Markenelemente</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Aktionsbuttons -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'makeads:campaign_create_step1' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Zurück zu Schritt 1
+                            </a>
+                            <div>
+                                <button type="button" class="btn btn-outline-primary me-2" onclick="skipStep()">
+                                    <i class="fas fa-forward me-2"></i>Überspringen
+                                </button>
+                                <button type="submit" class="btn btn-success btn-lg">
+                                    Weiter zu Schritt 3 <i class="fas fa-arrow-right ms-2"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Referenz-Beispiele -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <h5 class="text-center mb-4">
+                <i class="fas fa-star text-warning me-2"></i>Beispiele für gute Referenzen
+            </h5>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body text-center">
+                            <i class="fas fa-palette fa-3x text-primary mb-3"></i>
+                            <h6 class="card-title">Farbinspiration</h6>
+                            <p class="card-text small">
+                                Screenshots von Designs mit Ihrer gewünschten Farbpalette
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4 mb-3">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body text-center">
+                            <i class="fas fa-text-height fa-3x text-success mb-3"></i>
+                            <h6 class="card-title">Typografie</h6>
+                            <p class="card-text small">
+                                Beispiele für Schriftarten und Textlayouts, die Ihnen gefallen
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4 mb-3">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body text-center">
+                            <i class="fas fa-th-large fa-3x text-info mb-3"></i>
+                            <h6 class="card-title">Layout & Komposition</h6>
+                            <p class="card-text small">
+                                Anordnung von Elementen und Gesamtkomposition als Referenz
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+// Image upload preview
+document.getElementById('reference_images').addEventListener('change', function(e) {
+    const preview = document.getElementById('image-preview');
+    preview.innerHTML = '';
+    
+    Array.from(e.target.files).forEach((file, index) => {
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const col = document.createElement('div');
+                col.className = 'col-md-3 mb-3';
+                col.innerHTML = `
+                    <div class="card">
+                        <img src="${e.target.result}" class="card-img-top" style="height: 150px; object-fit: cover;" alt="Vorschau">
+                        <div class="card-body p-2">
+                            <small class="text-success">
+                                <i class="fas fa-check-circle me-1"></i>${file.name}
+                            </small>
+                        </div>
+                    </div>
+                `;
+                preview.appendChild(col);
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+});
+
+// Drag and drop functionality
+const uploadArea = document.querySelector('.upload-area');
+
+uploadArea.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    uploadArea.style.backgroundColor = '#f8f9fa';
+    uploadArea.style.borderColor = '#007bff';
+});
+
+uploadArea.addEventListener('dragleave', function(e) {
+    e.preventDefault();
+    uploadArea.style.backgroundColor = '';
+    uploadArea.style.borderColor = '#dee2e6';
+});
+
+uploadArea.addEventListener('drop', function(e) {
+    e.preventDefault();
+    uploadArea.style.backgroundColor = '';
+    uploadArea.style.borderColor = '#dee2e6';
+    
+    const files = e.dataTransfer.files;
+    document.getElementById('reference_images').files = files;
+    
+    // Trigger change event for preview
+    const event = new Event('change');
+    document.getElementById('reference_images').dispatchEvent(event);
+});
+
+// Skip step function
+function skipStep() {
+    if (confirm('Möchten Sie diesen Schritt wirklich überspringen? Sie können später keine Referenzmaterialien mehr hinzufügen.')) {
+        // Submit form without files
+        const form = document.querySelector('form');
+        form.submit();
+    }
+}
+
+// Form validation
+(function() {
+    'use strict';
+    
+    var forms = document.querySelectorAll('.needs-validation');
+    
+    Array.prototype.slice.call(forms).forEach(function(form) {
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        }, false);
+    });
+})();
+</script>
+{% endblock %}

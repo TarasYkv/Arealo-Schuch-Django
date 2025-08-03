@@ -1,0 +1,218 @@
+{% extends 'base.html' %}
+
+{% block title %}Schritt 1: Ideeneingabe - MakeAds{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Wizard Steps -->
+    <div class="wizard-steps">
+        <div class="wizard-step active">
+            <i class="fas fa-lightbulb me-2"></i>
+            Schritt 1: Ideeneingabe
+        </div>
+        <div class="wizard-step">
+            <i class="fas fa-images me-2"></i>
+            Schritt 2: Referenzmaterial
+        </div>
+        <div class="wizard-step">
+            <i class="fas fa-magic me-2"></i>
+            Schritt 3: Generierung
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>{{ step_title }}
+                    </h4>
+                    <p class="mb-0 mt-2 opacity-75">Beschreiben Sie Ihre Creative-Idee so detailliert wie möglich.</p>
+                </div>
+                
+                <div class="card-body p-4">
+                    <form method="post" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Kampagnenname -->
+                        <div class="mb-4">
+                            <label for="{{ form.name.id_for_label }}" class="form-label fw-bold">
+                                <i class="fas fa-tag text-primary me-2"></i>{{ form.name.label }}
+                            </label>
+                            {{ form.name }}
+                            {% if form.name.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in form.name.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                Geben Sie Ihrer Kampagne einen aussagekräftigen Namen.
+                            </div>
+                        </div>
+
+                        <!-- Grundlegende Creative-Idee -->
+                        <div class="mb-4">
+                            <label for="{{ form.basic_idea.id_for_label }}" class="form-label fw-bold">
+                                <i class="fas fa-lightbulb text-warning me-2"></i>{{ form.basic_idea.label }}
+                            </label>
+                            {{ form.basic_idea }}
+                            {% if form.basic_idea.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in form.basic_idea.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                Beschreiben Sie kurz und prägnant, was Ihr Creative vermitteln soll.
+                                <br><strong>Beispiel:</strong> "Moderne App für Fitness-Tracking, die junge Erwachsene motiviert"
+                            </div>
+                        </div>
+
+                        <!-- Detaillierte Beschreibung -->
+                        <div class="mb-4">
+                            <label for="{{ form.detailed_description.id_for_label }}" class="form-label fw-bold">
+                                <i class="fas fa-align-left text-info me-2"></i>{{ form.detailed_description.label }}
+                            </label>
+                            {{ form.detailed_description }}
+                            {% if form.detailed_description.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in form.detailed_description.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                    </div>
+                            {% endif %}
+                            <div class="form-text">
+                                Gehen Sie hier ins Detail. Je mehr Informationen Sie bereitstellen, desto bessere Creatives kann die KI generieren.
+                                <br><strong>Tipp:</strong> Beschreiben Sie Ihre Zielgruppe, das Problem, das Sie lösen, und den gewünschten Ton.
+                            </div>
+                        </div>
+
+                        <!-- Hilfe-Box -->
+                        <div class="alert alert-info" role="alert">
+                            <h6 class="alert-heading">
+                                <i class="fas fa-info-circle me-2"></i>Tipps für bessere Ergebnisse:
+                            </h6>
+                            <ul class="mb-0">
+                                <li><strong>Zielgruppe definieren:</strong> "Für junge Familien mit Kindern unter 10 Jahren"</li>
+                                <li><strong>Problem beschreiben:</strong> "Löst das Problem der zeitaufwändigen Mahlzeitenplanung"</li>
+                                <li><strong>Ton angeben:</strong> "Freundlich, vertrauenswürdig und modern"</li>
+                                <li><strong>Alleinstellungsmerkmal:</strong> "Einzige App mit KI-gestützter Ernährungsberatung"</li>
+                            </ul>
+                        </div>
+
+                        <!-- Aktionsbuttons -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'makeads:dashboard' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Zurück zum Dashboard
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                Weiter zu Schritt 2 <i class="fas fa-arrow-right ms-2"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Beispiel-Kampagnen -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <h5 class="text-center mb-4">
+                <i class="fas fa-star text-warning me-2"></i>Beispiel-Kampagnen für Inspiration
+            </h5>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body">
+                            <h6 class="card-title text-primary">Fitness-App Kampagne</h6>
+                            <p class="card-text small">
+                                <strong>Idee:</strong> "Moderne Fitness-App mit Personal Trainer KI"<br>
+                                <strong>Zielgruppe:</strong> Berufstätige 25-40 Jahre<br>
+                                <strong>Stil:</strong> Motivierend, energiegeladen
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4 mb-3">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body">
+                            <h6 class="card-title text-success">E-Commerce Shop</h6>
+                            <p class="card-text small">
+                                <strong>Idee:</strong> "Nachhaltiger Online-Shop für Haushaltswaren"<br>
+                                <strong>Zielgruppe:</strong> Umweltbewusste Familien<br>
+                                <strong>Stil:</strong> Vertrauenswürdig, natürlich
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4 mb-3">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body">
+                            <h6 class="card-title text-info">B2B Software</h6>
+                            <p class="card-text small">
+                                <strong>Idee:</strong> "CRM-Software für kleine Unternehmen"<br>
+                                <strong>Zielgruppe:</strong> Geschäftsführer, Vertriebsleiter<br>
+                                <strong>Stil:</strong> Professionell, effizient
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+// Form validation
+(function() {
+    'use strict';
+    
+    var forms = document.querySelectorAll('.needs-validation');
+    
+    Array.prototype.slice.call(forms).forEach(function(form) {
+        form.addEventListener('submit', function(event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        }, false);
+    });
+})();
+
+// Character counter for textareas
+document.addEventListener('DOMContentLoaded', function() {
+    const textareas = document.querySelectorAll('textarea');
+    textareas.forEach(function(textarea) {
+        const maxLength = textarea.getAttribute('maxlength');
+        if (maxLength) {
+            const counter = document.createElement('div');
+            counter.className = 'text-muted small mt-1';
+            counter.style.textAlign = 'right';
+            textarea.parentNode.appendChild(counter);
+            
+            function updateCounter() {
+                const remaining = maxLength - textarea.value.length;
+                counter.textContent = `${textarea.value.length}/${maxLength} Zeichen`;
+                if (remaining < 50) {
+                    counter.className = 'text-warning small mt-1';
+                } else {
+                    counter.className = 'text-muted small mt-1';
+                }
+            }
+            
+            textarea.addEventListener('input', updateCounter);
+            updateCounter();
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,301 @@
+{% extends 'base.html' %}
+
+{% block title %}MakeAds Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <!-- Header -->
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="display-5 fw-bold">
+                        <i class="fas fa-magic text-primary me-3"></i>
+                        MakeAds Dashboard
+                    </h1>
+                    <p class="lead text-muted">Willkommen zurück! Erstellen Sie beeindruckende Ad Creatives mit KI.</p>
+                </div>
+                <div>
+                    <a href="{% url 'makeads:campaign_create_step1' %}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-plus me-2"></i>Neue Kampagne erstellen
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Statistiken -->
+        <div class="col-md-3 mb-4">
+            <div class="stat-card text-center">
+                <div class="stat-number">{{ total_campaigns }}</div>
+                <div class="stat-label">
+                    <i class="fas fa-bullhorn me-2"></i>Kampagnen
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="stat-card text-center">
+                <div class="stat-number">{{ total_creatives }}</div>
+                <div class="stat-label">
+                    <i class="fas fa-palette me-2"></i>Creatives
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="stat-card text-center">
+                <div class="stat-number">{{ active_jobs }}</div>
+                <div class="stat-label">
+                    <i class="fas fa-cogs me-2"></i>Aktive Jobs
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="stat-card text-center">
+                <div class="stat-number">100%</div>
+                <div class="stat-label">
+                    <i class="fas fa-robot me-2"></i>KI-Power
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h3 class="mb-3">
+                <i class="fas fa-bolt text-warning me-2"></i>Schnellaktionen
+            </h3>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 text-center">
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <i class="fas fa-magic fa-3x text-primary"></i>
+                            </div>
+                            <h5 class="card-title">Creative-Wizard starten</h5>
+                            <p class="card-text">Erstellen Sie in 3 einfachen Schritten professionelle Ad Creatives.</p>
+                            <a href="{% url 'makeads:campaign_create_step1' %}" class="btn btn-primary">
+                                <i class="fas fa-play me-2"></i>Jetzt starten
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 text-center">
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <i class="fas fa-list-alt fa-3x text-success"></i>
+                            </div>
+                            <h5 class="card-title">Kampagnen verwalten</h5>
+                            <p class="card-text">Verwalten Sie alle Ihre Kampagnen und Creatives an einem Ort.</p>
+                            <a href="{% url 'makeads:campaign_list' %}" class="btn btn-success">
+                                <i class="fas fa-eye me-2"></i>Ansehen
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 text-center">
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <i class="fas fa-cog fa-3x text-info"></i>
+                            </div>
+                            <h5 class="card-title">API-Einstellungen</h5>
+                            <p class="card-text">Konfigurieren Sie Ihre KI-Services für optimale Ergebnisse.</p>
+                            <a href="{% url 'accounts:api_settings' %}" class="btn btn-info">
+                                <i class="fas fa-tools me-2"></i>Konfigurieren
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Neueste Kampagnen -->
+    {% if campaigns %}
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3>
+                    <i class="fas fa-clock text-muted me-2"></i>Neueste Kampagnen
+                </h3>
+                <a href="{% url 'makeads:campaign_list' %}" class="btn btn-outline-primary">
+                    Alle anzeigen <i class="fas fa-arrow-right ms-2"></i>
+                </a>
+            </div>
+            
+            <div class="creative-gallery">
+                {% for campaign in campaigns %}
+                <div class="card creative-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="fas fa-bullhorn text-primary me-2"></i>{{ campaign.name }}
+                        </h6>
+                        <small class="text-muted">
+                            {{ campaign.created_at|date:"d.m.Y" }}
+                        </small>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">{{ campaign.basic_idea|truncatechars:100 }}</p>
+                        
+                        <div class="row text-center mb-3">
+                            <div class="col-6">
+                                <div class="fw-bold text-primary">{{ campaign.creatives.count }}</div>
+                                <small class="text-muted">Creatives</small>
+                            </div>
+                            <div class="col-6">
+                                <div class="fw-bold text-success">{{ campaign.favorite_count }}</div>
+                                <small class="text-muted">Favoriten</small>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <a href="{% url 'makeads:campaign_detail' campaign.id %}" class="btn btn-primary">
+                                <i class="fas fa-eye me-2"></i>Ansehen
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Leer-Zustand -->
+    <div class="row">
+        <div class="col-12">
+            <div class="text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-magic fa-5x text-muted"></i>
+                </div>
+                <h3 class="text-muted mb-3">Willkommen bei MakeAds!</h3>
+                <p class="lead text-muted mb-4">
+                    Sie haben noch keine Kampagnen erstellt. Starten Sie jetzt und lassen Sie die KI 
+                    beeindruckende Ad Creatives für Sie generieren.
+                </p>
+                <div class="d-flex justify-content-center gap-3">
+                    <a href="{% url 'makeads:campaign_create_step1' %}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-play me-2"></i>Erste Kampagne erstellen
+                    </a>
+                    <a href="#" class="btn btn-outline-secondary btn-lg" data-bs-toggle="modal" data-bs-target="#tutorialModal">
+                        <i class="fas fa-question-circle me-2"></i>Tutorial ansehen
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tipps und Tricks -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <h3 class="mb-3">
+                <i class="fas fa-lightbulb text-warning me-2"></i>Tipps für bessere Creatives
+            </h3>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body">
+                            <h6 class="card-title">
+                                <i class="fas fa-target text-primary me-2"></i>Zielgruppe definieren
+                            </h6>
+                            <p class="card-text small">
+                                Je spezifischer Sie Ihre Zielgruppe beschreiben, desto passender werden die generierten Creatives.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body">
+                            <h6 class="card-title">
+                                <i class="fas fa-images text-success me-2"></i>Referenzbilder nutzen
+                            </h6>
+                            <p class="card-text small">
+                                Laden Sie Referenzbilder hoch, um der KI zu zeigen, welchen Stil Sie bevorzugen.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body">
+                            <h6 class="card-title">
+                                <i class="fas fa-sync text-info me-2"></i>Iterativ verbessern
+                            </h6>
+                            <p class="card-text small">
+                                Nutzen Sie die Überarbeitungsfunktion, um Creatives schrittweise zu verfeinern.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tutorial Modal -->
+<div class="modal fade" id="tutorialModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-graduation-cap me-2"></i>MakeAds Tutorial
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-4 text-center mb-3">
+                        <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                            <span class="fw-bold">1</span>
+                        </div>
+                        <h6 class="mt-2">Idee eingeben</h6>
+                        <p class="small text-muted">Beschreiben Sie Ihre Creative-Idee und Zielgruppe.</p>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <div class="bg-success text-white rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                            <span class="fw-bold">2</span>
+                        </div>
+                        <h6 class="mt-2">Referenzen hinzufügen</h6>
+                        <p class="small text-muted">Laden Sie Bilder hoch oder fügen Sie Links hinzu.</p>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <div class="bg-info text-white rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                            <span class="fw-bold">3</span>
+                        </div>
+                        <h6 class="mt-2">KI generiert</h6>
+                        <p class="small text-muted">Erhalten Sie 10 professionelle Creatives in Sekunden.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                <a href="{% url 'makeads:campaign_create_step1' %}" class="btn btn-primary">
+                    <i class="fas fa-play me-2"></i>Jetzt starten
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+// Auto-refresh für aktive Jobs
+{% if active_jobs > 0 %}
+setTimeout(() => {
+    location.reload();
+}, 30000); // Alle 30 Sekunden aktualisieren
+{% endif %}
+</script>
+{% endblock %}

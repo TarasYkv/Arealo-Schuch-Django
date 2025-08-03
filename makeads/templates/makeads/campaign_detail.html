@@ -1,0 +1,448 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ campaign.name }} - MakeAds{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Campaign Header -->
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-start mb-4">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'makeads:dashboard' %}">Dashboard</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'makeads:campaign_list' %}">Kampagnen</a></li>
+                            <li class="breadcrumb-item active">{{ campaign.name }}</li>
+                        </ol>
+                    </nav>
+                    <h1 class="display-6 fw-bold">
+                        <i class="fas fa-bullhorn text-primary me-3"></i>{{ campaign.name }}
+                    </h1>
+                    <p class="lead text-muted">{{ campaign.basic_idea }}</p>
+                </div>
+                <div class="text-end">
+                    <div class="btn-group" role="group">
+                        <form method="post" action="{% url 'makeads:generate_more_creatives' campaign.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-plus me-2"></i>5 weitere Creatives
+                            </button>
+                        </form>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                <i class="fas fa-cog me-2"></i>Aktionen
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#" onclick="exportCreatives()">
+                                    <i class="fas fa-download me-2"></i>Exportieren
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'makeads:campaign_delete' campaign.id %}">
+                                    <i class="fas fa-trash text-danger me-2"></i>Kampagne löschen
+                                </a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats and Filters -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="stat-card text-center">
+                        <div class="stat-number">{{ total_creatives }}</div>
+                        <div class="stat-label">
+                            <i class="fas fa-palette me-1"></i>Gesamt
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card text-center">
+                        <div class="stat-number">{{ favorite_count }}</div>
+                        <div class="stat-label">
+                            <i class="fas fa-heart me-1"></i>Favoriten
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card text-center">
+                        <div class="stat-number">{{ batch_numbers|length }}</div>
+                        <div class="stat-label">
+                            <i class="fas fa-layer-group me-1"></i>Batches
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card text-center">
+                        <div class="stat-number">{{ active_jobs.count }}</div>
+                        <div class="stat-label">
+                            <i class="fas fa-cogs me-1"></i>Jobs
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <!-- Filter -->
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="fas fa-filter me-2"></i>Filter
+                    </h6>
+                    <form method="get" class="row g-2">
+                        <div class="col-6">
+                            <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                                <option value="">Alle Status</option>
+                                <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Abgeschlossen</option>
+                                <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Ausstehend</option>
+                                <option value="failed" {% if status_filter == 'failed' %}selected{% endif %}>Fehlgeschlagen</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <select name="batch" class="form-select form-select-sm" onchange="this.form.submit()">
+                                <option value="">Alle Batches</option>
+                                {% for batch in batch_numbers %}
+                                <option value="{{ batch }}" {% if batch_filter == batch|stringformat:"s" %}selected{% endif %}>
+                                    Batch {{ batch }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="favorite" value="true" 
+                                       {% if favorite_filter == 'true' %}checked{% endif %} onchange="this.form.submit()">
+                                <label class="form-check-label">
+                                    <i class="fas fa-heart text-danger me-1"></i>Nur Favoriten
+                                </label>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Jobs -->
+    {% if active_jobs %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-info" role="alert">
+                <h6 class="alert-heading">
+                    <i class="fas fa-cogs me-2"></i>Aktive Generierung
+                </h6>
+                {% for job in active_jobs %}
+                <div class="generation-progress">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>{{ job.get_job_type_display }}</span>
+                        <span class="text-muted">{{ job.generated_count }}/{{ job.target_count }}</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" 
+                             style="width: {% widthratio job.generated_count job.target_count 100 %}%">
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                <small class="text-muted">
+                    <i class="fas fa-info-circle me-1"></i>Die Seite wird automatisch aktualisiert, wenn neue Creatives verfügbar sind.
+                </small>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Creative Gallery -->
+    <div class="row">
+        <div class="col-12">
+            {% if page_obj %}
+            <!-- Bulk Actions -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="selectAll()">
+                        <i class="fas fa-check-double me-1"></i>Alle auswählen
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="deselectAll()">
+                        <i class="fas fa-times me-1"></i>Auswahl aufheben
+                    </button>
+                </div>
+                <div id="bulk-actions" style="display: none;">
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="bulkFavorite()">
+                            <i class="fas fa-heart me-1"></i>Favorisieren
+                        </button>
+                        <button type="button" class="btn btn-outline-warning btn-sm" onclick="bulkExport()">
+                            <i class="fas fa-download me-1"></i>Exportieren
+                        </button>
+                        <button type="button" class="btn btn-outline-danger btn-sm" onclick="bulkDelete()">
+                            <i class="fas fa-trash me-1"></i>Löschen
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Creative Grid -->
+            <div class="creative-gallery">
+                {% for creative in page_obj %}
+                <div class="card creative-card" data-creative-id="{{ creative.id }}">
+                    <div class="position-relative">
+                        <!-- Selection Checkbox -->
+                        <input type="checkbox" class="creative-checkbox position-absolute" 
+                               style="top: 10px; left: 10px; z-index: 10;" 
+                               value="{{ creative.id }}" onchange="updateBulkActions()">
+                        
+                        <!-- Favorite Button -->
+                        <button class="favorite-btn" onclick="toggleFavorite('{{ creative.id }}')">
+                            <i class="fas fa-heart {% if creative.is_favorite %}text-danger{% else %}text-muted{% endif %}"></i>
+                        </button>
+                        
+                        <!-- Creative Image -->
+                        {% if creative.get_image_url %}
+                        <img src="{{ creative.get_image_url }}" class="card-img-top creative-image" alt="{{ creative.title }}">
+                        {% else %}
+                        <div class="card-img-top creative-image d-flex align-items-center justify-content-center">
+                            <i class="fas fa-image fa-3x text-muted"></i>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Status Badge -->
+                        <div class="position-absolute top-0 end-0 m-2">
+                            {% if creative.generation_status == 'completed' %}
+                            <span class="badge bg-success">Fertig</span>
+                            {% elif creative.generation_status == 'pending' %}
+                            <span class="badge bg-warning">Ausstehend</span>
+                            {% elif creative.generation_status == 'failed' %}
+                            <span class="badge bg-danger">Fehler</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="card-body">
+                        <h6 class="card-title">{{ creative.title }}</h6>
+                        <p class="card-text small text-muted">{{ creative.text_content|truncatechars:100 }}</p>
+                        
+                        <div class="row text-center mb-2">
+                            <div class="col-6">
+                                <small class="text-muted">Batch {{ creative.generation_batch }}</small>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">{{ creative.created_at|date:"d.m H:i" }}</small>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <a href="{% url 'makeads:creative_detail' creative.id %}" class="btn btn-primary btn-sm">
+                                <i class="fas fa-eye me-1"></i>Ansehen & Bearbeiten
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            {% if page_obj.has_other_pages %}
+            <div class="d-flex justify-content-center mt-4">
+                <nav aria-label="Creative pagination">
+                    <ul class="pagination">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if batch_filter %}&batch={{ batch_filter }}{% endif %}{% if favorite_filter %}&favorite={{ favorite_filter }}{% endif %}">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if batch_filter %}&batch={{ batch_filter }}{% endif %}{% if favorite_filter %}&favorite={{ favorite_filter }}{% endif %}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                        {% endfor %}
+                        
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if batch_filter %}&batch={{ batch_filter }}{% endif %}{% if favorite_filter %}&favorite={{ favorite_filter }}{% endif %}">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+            
+            {% else %}
+            <!-- Empty State -->
+            <div class="text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-palette fa-5x text-muted"></i>
+                </div>
+                <h3 class="text-muted mb-3">Noch keine Creatives vorhanden</h3>
+                <p class="lead text-muted mb-4">
+                    {% if total_creatives == 0 %}
+                    Starten Sie die Creative-Generierung, um hier Ihre ersten Ergebnisse zu sehen.
+                    {% else %}
+                    Keine Creatives entsprechen den aktuellen Filterkriterien.
+                    {% endif %}
+                </p>
+                {% if total_creatives == 0 %}
+                <form method="post" action="{% url 'makeads:generate_more_creatives' campaign.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="fas fa-magic me-2"></i>10 Creatives generieren
+                    </button>
+                </form>
+                {% else %}
+                <a href="?{{ request.GET.urlencode }}" onclick="clearFilters()" class="btn btn-outline-secondary">
+                    <i class="fas fa-times me-2"></i>Filter zurücksetzen
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+// Auto-refresh for active jobs
+{% if active_jobs %}
+setTimeout(() => {
+    location.reload();
+}, 15000); // Refresh every 15 seconds
+{% endif %}
+
+// Toggle favorite
+function toggleFavorite(creativeId) {
+    fetch(`/makeads/creative/${creativeId}/toggle-favorite/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const btn = event.target.closest('.favorite-btn');
+            const icon = btn.querySelector('i');
+            if (data.is_favorite) {
+                icon.classList.remove('text-muted');
+                icon.classList.add('text-danger');
+            } else {
+                icon.classList.remove('text-danger');
+                icon.classList.add('text-muted');
+            }
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+// Bulk selection functions
+function selectAll() {
+    document.querySelectorAll('.creative-checkbox').forEach(cb => {
+        cb.checked = true;
+    });
+    updateBulkActions();
+}
+
+function deselectAll() {
+    document.querySelectorAll('.creative-checkbox').forEach(cb => {
+        cb.checked = false;
+    });
+    updateBulkActions();
+}
+
+function updateBulkActions() {
+    const selected = document.querySelectorAll('.creative-checkbox:checked');
+    const bulkActions = document.getElementById('bulk-actions');
+    
+    if (selected.length > 0) {
+        bulkActions.style.display = 'block';
+    } else {
+        bulkActions.style.display = 'none';
+    }
+}
+
+function getSelectedIds() {
+    return Array.from(document.querySelectorAll('.creative-checkbox:checked'))
+                .map(cb => cb.value);
+}
+
+function bulkFavorite() {
+    const selectedIds = getSelectedIds();
+    if (selectedIds.length === 0) return;
+    
+    // Submit bulk action form
+    submitBulkAction('favorite', selectedIds);
+}
+
+function bulkExport() {
+    const selectedIds = getSelectedIds();
+    if (selectedIds.length === 0) return;
+    
+    submitBulkAction('export', selectedIds);
+}
+
+function bulkDelete() {
+    const selectedIds = getSelectedIds();
+    if (selectedIds.length === 0) return;
+    
+    if (confirm(`Möchten Sie wirklich ${selectedIds.length} Creative(s) löschen?`)) {
+        submitBulkAction('delete', selectedIds);
+    }
+}
+
+function submitBulkAction(action, selectedIds) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{% url "makeads:bulk_actions" %}';
+    
+    // CSRF Token
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    form.appendChild(csrfInput);
+    
+    // Action
+    const actionInput = document.createElement('input');
+    actionInput.type = 'hidden';
+    actionInput.name = 'action';
+    actionInput.value = action;
+    form.appendChild(actionInput);
+    
+    // Selected IDs
+    const idsInput = document.createElement('input');
+    idsInput.type = 'hidden';
+    idsInput.name = 'selected_creatives';
+    idsInput.value = selectedIds.join(',');
+    form.appendChild(idsInput);
+    
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function exportCreatives() {
+    // Placeholder for export functionality
+    alert('Export-Funktionalität wird bald verfügbar sein.');
+}
+
+function clearFilters() {
+    window.location.href = window.location.pathname;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Alle Kampagnen - MakeAds{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>Alle Kampagnen</h1>
+                <a href="{% url 'makeads:campaign_create_step1' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Neue Kampagne
+                </a>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <form method="get" class="d-flex">
+                        <input type="text" 
+                               name="search" 
+                               class="form-control me-2" 
+                               placeholder="Kampagnen durchsuchen..." 
+                               value="{{ search_query }}">
+                        <button type="submit" class="btn btn-outline-secondary">
+                            <i class="fas fa-search"></i>
+                        </button>
+                        {% if search_query %}
+                        <a href="{% url 'makeads:campaign_list' %}" class="btn btn-outline-danger ms-2">
+                            <i class="fas fa-times"></i>
+                        </a>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+
+            <!-- Campaigns Grid -->
+            {% if page_obj %}
+                <div class="row">
+                    {% for campaign in page_obj %}
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ campaign.name }}</h5>
+                                    <p class="card-text">{{ campaign.basic_idea|truncatewords:15 }}</p>
+                                    
+                                    <div class="mb-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-images me-1"></i>{{ campaign.creatives.count }} Creatives
+                                            {% if campaign.favorite_count > 0 %}
+                                                | <i class="fas fa-star text-warning me-1"></i>{{ campaign.favorite_count }}
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                    
+                                    <div class="mb-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-calendar me-1"></i>{{ campaign.created_at|date:"d.m.Y" }}
+                                        </small>
+                                    </div>
+                                </div>
+                                
+                                <div class="card-footer bg-transparent">
+                                    <div class="d-flex justify-content-between">
+                                        <a href="{% url 'makeads:campaign_detail' campaign.id %}" class="btn btn-primary btn-sm">
+                                            <i class="fas fa-eye me-1"></i>Details
+                                        </a>
+                                        <div class="btn-group">
+                                            <a href="{% url 'makeads:generate_more_creatives' campaign.id %}" 
+                                               class="btn btn-outline-success btn-sm"
+                                               onclick="return confirm('5 weitere Creatives generieren?')">
+                                                <i class="fas fa-plus me-1"></i>+5
+                                            </a>
+                                            <a href="{% url 'makeads:campaign_delete' campaign.id %}" 
+                                               class="btn btn-outline-danger btn-sm">
+                                                <i class="fas fa-trash me-1"></i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Pagination -->
+                {% if page_obj.has_other_pages %}
+                <nav aria-label="Kampagnen Navigation">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}">Erste</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">Vorherige</a>
+                        </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">Nächste</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}">Letzte</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+
+            {% else %}
+                <div class="text-center py-5">
+                    {% if search_query %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-search me-2"></i>
+                            Keine Kampagnen gefunden für "{{ search_query }}".
+                        </div>
+                        <a href="{% url 'makeads:campaign_list' %}" class="btn btn-secondary">Alle Kampagnen anzeigen</a>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Sie haben noch keine Kampagnen erstellt.
+                        </div>
+                        <a href="{% url 'makeads:campaign_create_step1' %}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Erste Kampagne erstellen
+                        </a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+// Auto-submit search after typing pause
+let searchTimeout;
+document.querySelector('input[name="search"]').addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    const form = this.closest('form');
+    searchTimeout = setTimeout(() => {
+        if (this.value.length >= 3 || this.value.length === 0) {
+            form.submit();
+        }
+    }, 1000);
+});
+</script>
+{% endblock %}
