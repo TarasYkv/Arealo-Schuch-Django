@@ -1844,7 +1844,7 @@ def estimate_training_cost(request):
 @login_required
 def api_settings_view(request):
     """Zeigt die API-Einstellungsseite an"""
-    return redirect('accounts:manage_api_keys')
+    return redirect('accounts:neue_api_einstellungen')
 
 
 @login_required

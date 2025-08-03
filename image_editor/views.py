@@ -1192,7 +1192,7 @@ def canva_import_view(request):
         
         if not canva_settings.has_access_token():
             messages.error(request, 'Bitte verbinden Sie zuerst Ihr Canva-Konto in den API-Einstellungen.')
-            return redirect('accounts:manage_api_keys')
+            return redirect('accounts:neue_api_einstellungen')
         
         canva_service = CanvaAPIService(request.user)
         designs = []
@@ -1215,7 +1215,7 @@ def canva_import_view(request):
         
     except CanvaAPISettings.DoesNotExist:
         messages.error(request, 'Bitte konfigurieren Sie zuerst Ihre Canva-Einstellungen.')
-        return redirect('accounts:manage_api_keys')
+        return redirect('accounts:neue_api_einstellungen')
 
 
 @require_http_methods(["POST"])
