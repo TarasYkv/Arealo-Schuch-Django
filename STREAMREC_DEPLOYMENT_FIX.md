@@ -146,6 +146,6 @@ Das System ist jetzt **robust** und funktioniert sowohl:
 
 ---
 
-**🛠️ Entwickelt mit Claude Code & SPARC Methodology**
+**🛠️ Entwickelt mit moderner Python/Django-Toolchain**
 **📅 Fix implementiert: 2025-08-20**
 **🔄 Cache-Buster Version: 20250820**
