@@ -35,6 +35,7 @@ urlpatterns = [
     path('email-templates/', include('email_templates.urls')),
     path('somi-plan/', include('somi_plan.urls')),
     path('makeads/', include('makeads.urls')),
+    path('streamrec/', include('streamrec.urls')),
     path('page/<str:page_name>/', core_views.dynamic_page_view, name='dynamic_page'),
     path('admin/', admin.site.urls),
 ]

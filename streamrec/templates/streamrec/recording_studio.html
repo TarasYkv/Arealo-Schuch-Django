@@ -1,0 +1,522 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}StreamRec - Aufnahme Studio{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="display-6 fw-bold text-gradient mb-1">
+                        <i class="fas fa-video text-primary me-2"></i>
+                        Aufnahme Studio
+                    </h2>
+                    <p class="text-muted">Phase 1: Multi-Stream Erfassung mit WebRTC</p>
+                </div>
+                <div>
+                    <a href="{% url 'streamrec:dashboard' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Control Panel (Links) -->
+        <div class="col-12 col-lg-4">
+            <!-- Stream Controls -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-sliders-h me-2"></i>
+                        Stream Kontrolle
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <!-- Camera Section -->
+                    <div class="mb-4">
+                        <h6 class="text-muted mb-3">
+                            <i class="fas fa-camera me-2"></i>Kamera
+                        </h6>
+                        <div class="d-grid gap-2">
+                            <button id="startCameraBtn" class="btn btn-outline-success">
+                                <i class="fas fa-play me-2"></i>Kamera starten
+                            </button>
+                            <button id="stopCameraBtn" class="btn btn-outline-danger" disabled>
+                                <i class="fas fa-stop me-2"></i>Kamera stoppen
+                            </button>
+                        </div>
+                        <small id="cameraStatus" class="text-muted">Status: Nicht aktiv</small>
+                    </div>
+
+                    <!-- Screen Section -->
+                    <div class="mb-4">
+                        <h6 class="text-muted mb-3">
+                            <i class="fas fa-desktop me-2"></i>Bildschirm
+                        </h6>
+                        <div class="d-grid gap-2">
+                            <button id="startScreenBtn" class="btn btn-outline-info">
+                                <i class="fas fa-desktop me-2"></i>Bildschirm teilen
+                            </button>
+                            <button id="stopScreenBtn" class="btn btn-outline-danger" disabled>
+                                <i class="fas fa-stop me-2"></i>Bildschirm stoppen
+                            </button>
+                        </div>
+                        <small id="screenStatus" class="text-muted">Status: Nicht aktiv</small>
+                    </div>
+
+                    <!-- Composition Controls -->
+                    <div class="mb-4">
+                        <h6 class="text-muted mb-3">
+                            <i class="fas fa-palette me-2"></i>Komposition
+                        </h6>
+                        <div class="d-grid gap-2">
+                            <button id="startCompositionBtn" class="btn btn-outline-warning" disabled>
+                                <i class="fas fa-layer-group me-2"></i>Komposition starten
+                            </button>
+                            <button id="stopCompositionBtn" class="btn btn-outline-danger" disabled>
+                                <i class="fas fa-stop me-2"></i>Komposition stoppen
+                            </button>
+                        </div>
+                        <small id="compositionStatus" class="text-muted">Status: Nicht aktiv</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Info -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        System Information
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <small class="text-muted">Browser:</small>
+                            <div id="browserInfo" class="fw-bold">-</div>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">WebRTC:</small>
+                            <div id="webrtcSupport" class="fw-bold">-</div>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-6">
+                            <small class="text-muted">Canvas:</small>
+                            <div id="canvasSupport" class="fw-bold">-</div>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">MediaRecorder:</small>
+                            <div id="mediaRecorderSupport" class="fw-bold">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preview Area (Rechts) -->
+        <div class="col-12 col-lg-8">
+            <div class="card border-0 shadow-lg">
+                <div class="card-header bg-dark text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-eye me-2"></i>
+                        Live Vorschau ({{ canvas_aspect_ratio }})
+                    </h6>
+                </div>
+                <div class="card-body bg-dark p-0 text-center">
+                    <!-- Canvas for composition -->
+                    <div id="previewContainer" class="position-relative bg-black d-flex align-items-center justify-content-center" 
+                         style="height: 600px;">
+                        <canvas id="compositionCanvas" 
+                                width="360" 
+                                height="640" 
+                                class="border border-secondary"
+                                style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                        </canvas>
+                        
+                        <!-- Overlay for no content -->
+                        <div id="noContentOverlay" class="position-absolute top-50 start-50 translate-middle text-center text-white">
+                            <i class="fas fa-video fa-3x mb-3 opacity-25"></i>
+                            <h5>Keine Streams aktiv</h5>
+                            <p class="text-muted">Starten Sie Kamera oder Bildschirm-Sharing</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Stream Preview Thumbnails -->
+                <div class="card-footer bg-light">
+                    <h6 class="mb-3">Aktive Streams:</h6>
+                    <div id="streamThumbnails" class="d-flex gap-2">
+                        <!-- Dynamic thumbnails will be added here -->
+                        <div id="noStreamsMessage" class="text-muted">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Noch keine Streams erfasst
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for WebRTC Functionality -->
+<script>
+/**
+ * StreamRec Phase 1: WebRTC Stream Capture
+ * Browser-native multi-stream video recording implementation
+ */
+class StreamRecorder {
+    constructor() {
+        this.streams = new Map();
+        this.canvas = document.getElementById('compositionCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.isComposing = false;
+        this.animationFrame = null;
+        
+        this.init();
+    }
+
+    async init() {
+        this.checkBrowserSupport();
+        this.setupEventListeners();
+        this.clearCanvas();
+    }
+
+    checkBrowserSupport() {
+        // Browser Detection
+        const browserInfo = this.getBrowserInfo();
+        document.getElementById('browserInfo').textContent = browserInfo;
+
+        // WebRTC Support
+        const webrtcSupport = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+        document.getElementById('webrtcSupport').innerHTML = webrtcSupport 
+            ? '<span class="text-success">✓ Unterstützt</span>' 
+            : '<span class="text-danger">✗ Nicht unterstützt</span>';
+
+        // Canvas Support
+        const canvasSupport = !!(this.canvas && this.canvas.getContext);
+        document.getElementById('canvasSupport').innerHTML = canvasSupport 
+            ? '<span class="text-success">✓ Unterstützt</span>' 
+            : '<span class="text-danger">✗ Nicht unterstützt</span>';
+
+        // MediaRecorder Support (for future phases)
+        const mediaRecorderSupport = !!(window.MediaRecorder);
+        document.getElementById('mediaRecorderSupport').innerHTML = mediaRecorderSupport 
+            ? '<span class="text-success">✓ Unterstützt</span>' 
+            : '<span class="text-danger">✗ Nicht unterstützt</span>';
+    }
+
+    getBrowserInfo() {
+        const userAgent = navigator.userAgent;
+        if (userAgent.includes('Chrome')) return 'Chrome';
+        if (userAgent.includes('Firefox')) return 'Firefox';
+        if (userAgent.includes('Safari')) return 'Safari';
+        if (userAgent.includes('Edge')) return 'Edge';
+        return 'Unbekannt';
+    }
+
+    setupEventListeners() {
+        // Camera controls
+        document.getElementById('startCameraBtn').addEventListener('click', () => this.startCamera());
+        document.getElementById('stopCameraBtn').addEventListener('click', () => this.stopCamera());
+
+        // Screen controls  
+        document.getElementById('startScreenBtn').addEventListener('click', () => this.startScreen());
+        document.getElementById('stopScreenBtn').addEventListener('click', () => this.stopScreen());
+
+        // Composition controls
+        document.getElementById('startCompositionBtn').addEventListener('click', () => this.startComposition());
+        document.getElementById('stopCompositionBtn').addEventListener('click', () => this.stopComposition());
+    }
+
+    async startCamera() {
+        try {
+            this.updateStatus('camera', 'Kamera wird gestartet...', 'info');
+            
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { 
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 },
+                    frameRate: { ideal: 30 }
+                },
+                audio: true
+            });
+
+            this.streams.set('camera', stream);
+            this.updateStatus('camera', 'Aktiv', 'success');
+            this.updateButtons('camera', true);
+            this.addStreamThumbnail('camera', stream);
+            this.checkCompositionReady();
+
+            console.log('✅ Kamera-Stream erfolgreich gestartet:', stream);
+        } catch (error) {
+            console.error('❌ Kamera-Zugriff fehlgeschlagen:', error);
+            this.updateStatus('camera', `Fehler: ${error.message}`, 'danger');
+            this.showErrorAlert('Kamera-Zugriff verweigert', 'Bitte erlauben Sie den Zugriff auf die Kamera.');
+        }
+    }
+
+    stopCamera() {
+        const stream = this.streams.get('camera');
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            this.streams.delete('camera');
+            this.updateStatus('camera', 'Nicht aktiv', 'muted');
+            this.updateButtons('camera', false);
+            this.removeStreamThumbnail('camera');
+            this.checkCompositionReady();
+            console.log('🛑 Kamera-Stream gestoppt');
+        }
+    }
+
+    async startScreen() {
+        try {
+            this.updateStatus('screen', 'Bildschirm-Sharing wird gestartet...', 'info');
+            
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+                video: {
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 },
+                    frameRate: { ideal: 30 },
+                    cursor: 'always'
+                },
+                audio: true
+            });
+
+            this.streams.set('screen', stream);
+            this.updateStatus('screen', 'Aktiv', 'success');
+            this.updateButtons('screen', true);
+            this.addStreamThumbnail('screen', stream);
+            this.checkCompositionReady();
+
+            // Handle screen sharing end event
+            stream.getVideoTracks()[0].addEventListener('ended', () => {
+                this.stopScreen();
+            });
+
+            console.log('✅ Bildschirm-Stream erfolgreich gestartet:', stream);
+        } catch (error) {
+            console.error('❌ Bildschirm-Capture fehlgeschlagen:', error);
+            this.updateStatus('screen', `Fehler: ${error.message}`, 'danger');
+            this.showErrorAlert('Bildschirm-Capture fehlgeschlagen', 'Der Bildschirm-Zugriff wurde verweigert oder ist nicht verfügbar.');
+        }
+    }
+
+    stopScreen() {
+        const stream = this.streams.get('screen');
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            this.streams.delete('screen');
+            this.updateStatus('screen', 'Nicht aktiv', 'muted');
+            this.updateButtons('screen', false);
+            this.removeStreamThumbnail('screen');
+            this.checkCompositionReady();
+            console.log('🛑 Bildschirm-Stream gestoppt');
+        }
+    }
+
+    checkCompositionReady() {
+        const hasStreams = this.streams.size > 0;
+        const compositionBtn = document.getElementById('startCompositionBtn');
+        compositionBtn.disabled = !hasStreams;
+        
+        if (!hasStreams && this.isComposing) {
+            this.stopComposition();
+        }
+    }
+
+    startComposition() {
+        if (this.streams.size === 0) return;
+
+        this.isComposing = true;
+        this.updateStatus('composition', 'Aktiv - Live Composition', 'success');
+        this.updateButtons('composition', true);
+        
+        // Hide no content overlay
+        document.getElementById('noContentOverlay').style.display = 'none';
+        
+        this.renderComposition();
+        console.log('🎬 Live Composition gestartet');
+    }
+
+    stopComposition() {
+        this.isComposing = false;
+        this.updateStatus('composition', 'Nicht aktiv', 'muted');
+        this.updateButtons('composition', false);
+        
+        if (this.animationFrame) {
+            cancelAnimationFrame(this.animationFrame);
+        }
+        
+        this.clearCanvas();
+        console.log('🛑 Live Composition gestoppt');
+    }
+
+    renderComposition() {
+        if (!this.isComposing) return;
+
+        this.clearCanvas();
+
+        // Simple layout: Screen as background, camera as overlay
+        const streams = Array.from(this.streams.entries());
+        
+        streams.forEach(([type, stream], index) => {
+            const video = this.getVideoElement(type, stream);
+            
+            if (video && video.readyState >= 2) {
+                if (type === 'screen') {
+                    // Full background
+                    this.ctx.drawImage(video, 0, 0, this.canvas.width, this.canvas.height);
+                } else if (type === 'camera') {
+                    // Small overlay in top-right corner
+                    const overlayWidth = 120;
+                    const overlayHeight = 90;
+                    const x = this.canvas.width - overlayWidth - 20;
+                    const y = 20;
+                    
+                    // Draw camera overlay with border
+                    this.ctx.strokeStyle = '#fff';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.strokeRect(x - 2, y - 2, overlayWidth + 4, overlayHeight + 4);
+                    this.ctx.drawImage(video, x, y, overlayWidth, overlayHeight);
+                }
+            }
+        });
+
+        this.animationFrame = requestAnimationFrame(() => this.renderComposition());
+    }
+
+    getVideoElement(type, stream) {
+        let video = document.getElementById(`video-${type}`);
+        if (!video) {
+            video = document.createElement('video');
+            video.id = `video-${type}`;
+            video.srcObject = stream;
+            video.autoplay = true;
+            video.muted = true;
+            video.playsInline = true;
+            video.style.display = 'none';
+            document.body.appendChild(video);
+        }
+        return video;
+    }
+
+    clearCanvas() {
+        this.ctx.fillStyle = '#000000';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Show no content overlay if no streams
+        const hasStreams = this.streams.size > 0;
+        document.getElementById('noContentOverlay').style.display = hasStreams ? 'none' : 'block';
+    }
+
+    updateStatus(type, message, variant) {
+        const statusElement = document.getElementById(`${type}Status`);
+        statusElement.textContent = `Status: ${message}`;
+        statusElement.className = `text-${variant}`;
+    }
+
+    updateButtons(type, active) {
+        const startBtn = document.getElementById(`start${type.charAt(0).toUpperCase() + type.slice(1)}Btn`);
+        const stopBtn = document.getElementById(`stop${type.charAt(0).toUpperCase() + type.slice(1)}Btn`);
+        
+        startBtn.disabled = active;
+        stopBtn.disabled = !active;
+        
+        if (type === 'composition') {
+            const compositionStartBtn = document.getElementById('startCompositionBtn');
+            const compositionStopBtn = document.getElementById('stopCompositionBtn');
+            compositionStartBtn.disabled = active;
+            compositionStopBtn.disabled = !active;
+        }
+    }
+
+    addStreamThumbnail(type, stream) {
+        const container = document.getElementById('streamThumbnails');
+        const noStreamsMsg = document.getElementById('noStreamsMessage');
+        noStreamsMsg.style.display = 'none';
+
+        const thumbnailDiv = document.createElement('div');
+        thumbnailDiv.id = `thumbnail-${type}`;
+        thumbnailDiv.className = 'stream-thumbnail position-relative';
+        
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.autoplay = true;
+        video.muted = true;
+        video.playsInline = true;
+        video.style.width = '80px';
+        video.style.height = '60px';
+        video.style.objectFit = 'cover';
+        video.className = 'rounded border';
+        
+        const label = document.createElement('small');
+        label.className = 'position-absolute bottom-0 start-0 bg-primary text-white px-1 rounded-end';
+        label.textContent = type === 'camera' ? 'Kamera' : 'Bildschirm';
+        
+        thumbnailDiv.appendChild(video);
+        thumbnailDiv.appendChild(label);
+        container.appendChild(thumbnailDiv);
+    }
+
+    removeStreamThumbnail(type) {
+        const thumbnail = document.getElementById(`thumbnail-${type}`);
+        if (thumbnail) {
+            thumbnail.remove();
+        }
+        
+        const container = document.getElementById('streamThumbnails');
+        const noStreamsMsg = document.getElementById('noStreamsMessage');
+        
+        if (container.children.length === 1) { // Only the "no streams" message remains
+            noStreamsMsg.style.display = 'block';
+        }
+    }
+
+    showErrorAlert(title, message) {
+        // Simple alert for now - can be enhanced with Bootstrap modal in future phases
+        alert(`${title}\n\n${message}`);
+    }
+}
+
+// Initialize StreamRec when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('🚀 StreamRec Phase 1 wird geladen...');
+    window.streamRecorder = new StreamRecorder();
+});
+</script>
+
+<style>
+.text-gradient {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.stream-thumbnail {
+    flex-shrink: 0;
+}
+
+#compositionCanvas {
+    background: #000;
+    border-radius: 8px;
+}
+
+#previewContainer {
+    background: linear-gradient(45deg, #2c3e50 25%, transparent 25%), 
+                linear-gradient(-45deg, #2c3e50 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #2c3e50 75%), 
+                linear-gradient(-45deg, transparent 75%, #2c3e50 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+}
+</style>
+{% endblock %}
