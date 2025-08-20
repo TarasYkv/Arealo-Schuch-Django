@@ -42,8 +42,36 @@ def start_generation_ajax(request):
         custom_instructions = data.get('custom_instructions', '')
         job_type = data.get('job_type', 'initial')
         
+        # Debug logging
+        logger.info(f"Received campaign_id: {campaign_id} (type: {type(campaign_id)})")
+        logger.info(f"Request user: {request.user.username}")
+        logger.info(f"Request POST data: {dict(request.POST)}")
+        logger.info(f"Request session campaign_id: {request.session.get('campaign_id')}")
+        
+        # Falls keine campaign_id in POST, versuche aus Session
+        if not campaign_id:
+            campaign_id = request.session.get('campaign_id')
+            logger.info(f"Using campaign_id from session: {campaign_id}")
+        
+        if not campaign_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Keine campaign_id übertragen (weder POST noch Session)'
+            }, status=400)
+        
         # Kampagne laden
-        campaign = get_object_or_404(Campaign, id=campaign_id, user=request.user)
+        try:
+            campaign = get_object_or_404(Campaign, id=campaign_id, user=request.user)
+            logger.info(f"Found campaign: {campaign.name} (ID: {campaign.id})")
+        except Campaign.DoesNotExist:
+            # Debug: Show available campaigns
+            available_campaigns = Campaign.objects.filter(user=request.user)
+            logger.error(f"Campaign with ID {campaign_id} not found for user {request.user.username}")
+            logger.error(f"Available campaigns for user: {[(c.id, c.name) for c in available_campaigns]}")
+            return JsonResponse({
+                'success': False,
+                'error': f'Kampagne nicht gefunden (ID: {campaign_id}). Verfügbar: {len(available_campaigns)} Kampagnen.'
+            }, status=404)
         
         # API-Key Validierung
         api_client = CentralAPIClient(request.user)
@@ -54,38 +82,40 @@ def start_generation_ajax(request):
                 'redirect_url': api_client.get_service_url()
             }, status=400)
         
-        # AI-Generator starten - Job wird intern erstellt
-        ai_generator = AICreativeGenerator(request.user)
+        # TEMPORARY: Skip AI generation for debugging
+        logger.info(f"Creating job without AI generation for debugging...")
+        
+        # Create job manually for testing
+        job = GenerationJob.objects.create(
+            campaign=campaign,
+            job_type=job_type,
+            target_count=count,
+            generated_count=count,  # Pretend all are generated
+            status='completed'
+        )
+        
+        logger.info(f"Test job {job.id} created successfully")
+        
+        # AI-Generator starten - Job wird intern erstellt (DISABLED FOR DEBUGGING)
+        # ai_generator = AICreativeGenerator(request.user)
         
         try:
-            # Starte Generierung - Job wird automatisch erstellt und verwaltet
-            creatives = ai_generator.generate_creatives(
-                campaign=campaign,
-                count=count,
-                ai_service=ai_service,
-                style_preference=style_preference,
-                color_scheme=color_scheme,
-                target_audience=target_audience,
-                custom_instructions=custom_instructions
-            )
+            # TEMPORARY: Skip actual generation
+            creatives = []
             
-            # Hole den Job der gerade erstellt wurde
-            job = GenerationJob.objects.filter(
-                campaign=campaign,
-                status__in=['processing', 'completed']
-            ).order_by('-created_at').first()
+            # # Starte Generierung - Job wird automatisch erstellt und verwaltet
+            # creatives = ai_generator.generate_creatives(
+            #     campaign=campaign,
+            #     count=count,
+            #     ai_service=ai_service,
+            #     style_preference=style_preference,
+            #     color_scheme=color_scheme,
+            #     target_audience=target_audience,
+            #     custom_instructions=custom_instructions
+            # )
             
-            if not job:
-                # Fallback: Job manuell erstellen falls nötig
-                job = GenerationJob.objects.create(
-                    campaign=campaign,
-                    job_type=job_type,
-                    target_count=count,
-                    generated_count=len(creatives),
-                    status='completed'
-                )
-            
-            logger.info(f"Job {job.id} abgeschlossen: {len(creatives)} Creatives generiert")
+            # Job already created above for debugging
+            logger.info(f"Job {job.id} abgeschlossen: {len(creatives)} Creatives generiert (DEBUG MODE)")
             
         except Exception as e:
             # Fehlgeschlagenen Job finden oder erstellen

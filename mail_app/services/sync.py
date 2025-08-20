@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Tuple
 from django.utils import timezone
 from django.db import transaction
 from .api import ZohoMailAPIService
-from .exceptions import EmailSyncError, ZohoAPIError
+from .exceptions import EmailSyncError, ZohoAPIError, ReAuthorizationRequiredError
 from ..models import EmailAccount, Email, Folder, EmailAttachment, EmailThread, SyncLog
 from ..constants import DEFAULT_EMAIL_LIMIT, MAX_EMAILS_PER_SYNC, FOLDER_TYPES
 
@@ -66,6 +66,9 @@ class EmailSyncService:
             logger.info(f"Synced {synced_count} folders for {self.account.email_address}")
             return synced_count
             
+        except ReAuthorizationRequiredError:
+            # Re-raise re-authorization errors without wrapping
+            raise
         except Exception as e:
             logger.error(f"Error syncing folders for {self.account.email_address}: {e}")
             raise EmailSyncError(f"Folder sync failed: {e}")

@@ -67,14 +67,69 @@
                         <div class="mb-4">
                             <h6 class="fw-bold">
                                 <i class="fas fa-check-circle text-success me-2"></i>Bereits hochgeladene Referenzbilder
+                                <span class="badge bg-primary ms-2">{{ reference_images|length }}</span>
                             </h6>
                             <div class="row">
                                 {% for ref_image in reference_images %}
-                                <div class="col-md-3 mb-3">
-                                    <div class="card">
-                                        <img src="{{ ref_image.image.url }}" class="card-img-top" style="height: 150px; object-fit: cover;" alt="Referenzbild">
-                                        <div class="card-body p-2">
-                                            <small class="text-muted">{{ ref_image.description|default:"Referenzbild" }}</small>
+                                <div class="col-lg-4 col-md-6 mb-3">
+                                    <div class="card h-100 {% if 'KI-analysiert' in ref_image.description %}border-success{% elif 'Auto-downloaded' in ref_image.description %}border-info{% endif %}">
+                                        <div class="position-relative">
+                                            <img src="{{ ref_image.image.url }}" class="card-img-top" style="height: 180px; object-fit: cover;" alt="Referenzbild">
+                                            
+                                            <!-- Analysis Status Badge -->
+                                            {% if 'KI-analysiert' in ref_image.description %}
+                                                <span class="position-absolute top-0 end-0 badge bg-success m-2">
+                                                    <i class="fas fa-robot me-1"></i>KI-analysiert
+                                                </span>
+                                            {% elif 'Auto-downloaded' in ref_image.description %}
+                                                <span class="position-absolute top-0 end-0 badge bg-info m-2">
+                                                    <i class="fas fa-download me-1"></i>Auto-Download
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="card-body p-3">
+                                            {% if ref_image.description %}
+                                                {% if 'KI-analysiert:' in ref_image.description %}
+                                                    <!-- AI analyzed image -->
+                                                    <div class="bg-light p-2 rounded">
+                                                        <small class="text-success">
+                                                            <i class="fas fa-brain me-1"></i>
+                                                            <strong>KI-Analyse:</strong><br>
+                                                            {{ ref_image.description|truncatechars:120 }}
+                                                        </small>
+                                                    </div>
+                                                {% elif 'Auto-downloaded from:' in ref_image.description %}
+                                                    <!-- URL-downloaded image -->
+                                                    <div class="mb-2">
+                                                        <small class="text-primary">
+                                                            <i class="fas fa-link me-1"></i>
+                                                            {{ ref_image.description|truncatechars:80 }}
+                                                        </small>
+                                                    </div>
+                                                {% elif 'von https://' in ref_image.description %}
+                                                    <!-- Alternative URL format -->
+                                                    <div class="mb-2">
+                                                        <small class="text-primary">
+                                                            <i class="fas fa-download me-1"></i>
+                                                            {{ ref_image.description|truncatechars:80 }}
+                                                        </small>
+                                                    </div>
+                                                {% else %}
+                                                    <!-- Regular description -->
+                                                    <small class="text-muted">{{ ref_image.description|truncatechars:80 }}</small>
+                                                {% endif %}
+                                            {% else %}
+                                                <small class="text-muted">Referenzbild</small>
+                                            {% endif %}
+                                            
+                                            <!-- Upload date -->
+                                            <div class="mt-2 pt-2 border-top">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-clock me-1"></i>
+                                                    {{ ref_image.uploaded_at|date:"d.m.Y H:i" }}
+                                                </small>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -82,11 +137,50 @@
                             </div>
                         </div>
                         {% endif %}
+                        
+                        <!-- URL Processing Results (if any) -->
+                        {% if url_processing_results %}
+                        <div class="mb-4">
+                            <h6 class="fw-bold text-info">
+                                <i class="fas fa-robot me-2"></i>URL-Verarbeitung Ergebnisse
+                            </h6>
+                            <div class="row">
+                                {% for result in url_processing_results %}
+                                <div class="col-md-12 mb-2">
+                                    {% if result.processed %}
+                                        <div class="alert alert-success py-2">
+                                            <i class="fas fa-check-circle me-2"></i>
+                                            <strong>Erfolgreich:</strong> {{ result.url|truncatechars:60 }}
+                                            {% if result.analysis.description %}
+                                                <br><small class="text-muted">{{ result.analysis.description }}</small>
+                                            {% endif %}
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-warning py-2">
+                                            <i class="fas fa-exclamation-triangle me-2"></i>
+                                            <strong>Fehler:</strong> {{ result.url|truncatechars:60 }}
+                                            <br><small class="text-muted">{{ result.error|default:"Konnte nicht verarbeitet werden" }}</small>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
 
-                        <!-- Web-Links -->
+                        <!-- Web-Links with URL-to-Image Detection -->
                         <div class="mb-4">
                             <label for="{{ form.web_links.id_for_label }}" class="form-label fw-bold">
                                 <i class="fas fa-link text-info me-2"></i>{{ form.web_links.label }}
+                                {% if api_keys.openai %}
+                                    <span class="badge bg-success ms-2">
+                                        <i class="fas fa-magic me-1"></i>Auto-Bildanalyse aktiviert
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-warning ms-2">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>Keine Auto-Analyse
+                                    </span>
+                                {% endif %}
                             </label>
                             {{ form.web_links }}
                             {% if form.web_links.errors %}
@@ -96,9 +190,38 @@
                                     {% endfor %}
                                 </div>
                             {% endif %}
+                            
+                            <!-- Detected Image URLs Preview -->
+                            {% if existing_image_urls %}
+                                <div class="alert alert-info mt-2">
+                                    <i class="fas fa-images me-2"></i>
+                                    <strong>{{ existing_image_urls|length }} Bild-URL(s) erkannt:</strong>
+                                    <ul class="mb-0 mt-2">
+                                        {% for url in existing_image_urls %}
+                                            <li><code>{{ url|truncatechars:60 }}</code></li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% if not api_keys.openai %}
+                                        <small class="d-block mt-2 text-muted">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            <a href="{{ api_config_url }}" class="alert-link">OpenAI API-Key konfigurieren</a> 
+                                            für automatisches Herunterladen und Analyse.
+                                        </small>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                            
                             <div class="form-text">
-                                Fügen Sie Links zu Websites, Designs oder anderen Referenzen hinzu, die als Inspiration dienen sollen.
-                                <br><strong>Beispiel:</strong> https://example.com/great-design
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <strong>✨ NEU:</strong> Bild-URLs werden automatisch erkannt und heruntergeladen!
+                                        <br><strong>Beispiel:</strong> https://example.com/design.png
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>Weitere Links:</strong> Websites, Designs oder andere Referenzen als Inspiration.
+                                        <br><strong>Beispiel:</strong> https://example.com/great-design
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -120,23 +243,52 @@
                             </div>
                         </div>
 
-                        <!-- Tipps -->
+                        <!-- Enhanced Tips with AI Features -->
                         <div class="alert alert-info" role="alert">
                             <h6 class="alert-heading">
-                                <i class="fas fa-lightbulb me-2"></i>Tipps für bessere Referenzen:
+                                <i class="fas fa-lightbulb me-2"></i>✨ Neue KI-gestützte Referenz-Features:
                             </h6>
                             <div class="row">
                                 <div class="col-md-6">
-                                    <ul class="mb-0">
-                                        <li><strong>Stilrichtung:</strong> Laden Sie Bilder hoch, die den gewünschten visuellen Stil zeigen</li>
-                                        <li><strong>Farbpalette:</strong> Zeigen Sie bevorzugte Farben und Farbkombinationen</li>
+                                    <h6 class="text-primary">
+                                        <i class="fas fa-robot me-1"></i>Automatische Bild-Analyse
+                                    </h6>
+                                    <ul class="small mb-3">
+                                        <li>KI analysiert Stil, Farben und Layout Ihrer Referenzen</li>
+                                        <li>Automatische Beschreibung und Kategorisierung</li>
+                                        <li>Erkenntnisse fließen in Creative-Generierung ein</li>
+                                    </ul>
+                                    
+                                    <h6 class="text-success">
+                                        <i class="fas fa-download me-1"></i>URL-zu-Bild Konvertierung
+                                    </h6>
+                                    <ul class="small mb-0">
+                                        <li>Fügen Sie Bild-URLs in Web-Links ein</li>
+                                        <li>Bilder werden automatisch heruntergeladen</li>
+                                        <li>Unterstützt: JPG, PNG, GIF, WebP</li>
                                     </ul>
                                 </div>
                                 <div class="col-md-6">
-                                    <ul class="mb-0">
-                                        <li><strong>Layout:</strong> Referenzen für Anordnung und Komposition</li>
-                                        <li><strong>Markenelemente:</strong> Logos, Schriften oder andere Markenelemente</li>
+                                    <h6 class="text-info">
+                                        <i class="fas fa-palette me-1"></i>Optimierte Referenz-Tipps
+                                    </h6>
+                                    <ul class="small mb-3">
+                                        <li><strong>Stilrichtung:</strong> Bilder mit gewünschtem visuellen Stil</li>
+                                        <li><strong>Farbpalette:</strong> Bevorzugte Farben und Kombinationen</li>
+                                        <li><strong>Layout:</strong> Anordnung und Komposition als Referenz</li>
+                                        <li><strong>Markenelemente:</strong> Logos, Schriften, Corporate Design</li>
                                     </ul>
+                                    
+                                    {% if not api_keys.openai %}
+                                        <div class="bg-light p-2 rounded">
+                                            <small>
+                                                <i class="fas fa-key text-warning me-1"></i>
+                                                <strong>Tipp:</strong> 
+                                                <a href="{{ api_config_url }}" class="text-decoration-none">OpenAI API-Key konfigurieren</a> 
+                                                für automatische Bild-Analyse und URL-Download.
+                                            </small>
+                                        </div>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>

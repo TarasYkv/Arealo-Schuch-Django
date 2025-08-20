@@ -479,7 +479,12 @@
                 syncButton.disabled = false;
                 syncButton.innerHTML = originalButtonText;
             } else {
-                statusElement.innerHTML = `❌ Sync fehlgeschlagen: ${result.error}`;
+                // Check if it's a re-authorization error
+                if (result.reauth_required || (result.error && result.error.includes('Re-authorization required'))) {
+                    statusElement.innerHTML = `⚠️ Berechtigung abgelaufen: <a href="/mail/auth/authorize/" class="text-decoration-none">Email-Account neu verbinden</a>`;
+                } else {
+                    statusElement.innerHTML = `❌ Sync fehlgeschlagen: ${result.error}`;
+                }
                 hideProgressAfterDelay(progressContainer);
                 // Restore button
                 syncButton.disabled = false;
@@ -487,7 +492,12 @@
             }
         } catch (error) {
             console.error('Error syncing emails:', error);
-            statusElement.innerHTML = '❌ Sync fehlgeschlagen: ' + (error.message || 'Unbekannter Fehler');
+            // Check for authentication errors (401)
+            if (error.message && error.message.includes('401')) {
+                statusElement.innerHTML = `⚠️ Berechtigung abgelaufen: <a href="/mail/auth/authorize/" class="text-decoration-none">Email-Account neu verbinden</a>`;
+            } else {
+                statusElement.innerHTML = '❌ Sync fehlgeschlagen: ' + (error.message || 'Unbekannter Fehler');
+            }
             updateProgress(0, 0, selectedLimit, progressBar, progressText, statusElement);
             hideProgressAfterDelay(progressContainer);
         } finally {
@@ -547,7 +557,12 @@
                     }
                     return;
                 } else if (result.status === 'failed') {
-                    statusElement.innerHTML = `❌ Sync fehlgeschlagen: ${result.error || 'Unbekannter Fehler'}`;
+                    // Check if it's a re-authorization error
+                    if (result.reauth_required || (result.error && result.error.includes('Re-authorization required'))) {
+                        statusElement.innerHTML = `⚠️ Berechtigung abgelaufen: <a href="/mail/auth/authorize/" class="text-decoration-none">Email-Account neu verbinden</a>`;
+                    } else {
+                        statusElement.innerHTML = `❌ Sync fehlgeschlagen: ${result.error || 'Unbekannter Fehler'}`;
+                    }
                     hideProgressAfterDelay(document.getElementById(`sync-progress-${accountId}`));
                     // Restore button
                     if (syncButton) {

@@ -194,6 +194,295 @@ class AIService(models.Model):
         return f"{self.name} ({self.service_type})"
 
 
+class TextOverlay(models.Model):
+    """
+    Text-Overlays für Creative-Bilder
+    """
+    FONT_FAMILY_CHOICES = [
+        ('arial', 'Arial'),
+        ('helvetica', 'Helvetica'),
+        ('times', 'Times New Roman'),
+        ('georgia', 'Georgia'),
+        ('courier', 'Courier New'),
+        ('verdana', 'Verdana'),
+        ('tahoma', 'Tahoma'),
+        ('impact', 'Impact'),
+        ('comic-sans', 'Comic Sans MS'),
+        ('trebuchet', 'Trebuchet MS'),
+    ]
+    
+    FONT_WEIGHT_CHOICES = [
+        ('normal', 'Normal'),
+        ('bold', 'Bold'),
+        ('light', 'Light'),
+        ('black', 'Black'),
+    ]
+    
+    TEXT_ALIGN_CHOICES = [
+        ('left', 'Links'),
+        ('center', 'Zentriert'),
+        ('right', 'Rechts'),
+        ('justify', 'Blocksatz'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    creative = models.ForeignKey(Creative, on_delete=models.CASCADE, related_name='text_overlays')
+    text_content = models.TextField(verbose_name='Overlay-Text')
+    
+    # Position (percentage-based for responsive design)
+    x_position = models.FloatField(verbose_name='X-Position (%)', default=10.0)
+    y_position = models.FloatField(verbose_name='Y-Position (%)', default=10.0)
+    
+    # Design properties
+    font_family = models.CharField(
+        max_length=20,
+        choices=FONT_FAMILY_CHOICES,
+        default='arial',
+        verbose_name='Schriftart'
+    )
+    font_size = models.PositiveIntegerField(default=24, verbose_name='Schriftgröße (px)')
+    font_weight = models.CharField(
+        max_length=10,
+        choices=FONT_WEIGHT_CHOICES,
+        default='normal',
+        verbose_name='Schriftgewicht'
+    )
+    text_color = models.CharField(
+        max_length=7, 
+        default='#FFFFFF',
+        verbose_name='Textfarbe (Hex)'
+    )
+    background_color = models.CharField(
+        max_length=7,
+        default='#000000',
+        verbose_name='Hintergrundfarbe (Hex)',
+        blank=True,
+        null=True
+    )
+    background_opacity = models.FloatField(
+        default=0.0,
+        verbose_name='Hintergrund-Transparenz (0-1)'
+    )
+    text_align = models.CharField(
+        max_length=10,
+        choices=TEXT_ALIGN_CHOICES,
+        default='left',
+        verbose_name='Textausrichtung'
+    )
+    
+    # Shadow and effects
+    has_shadow = models.BooleanField(default=True, verbose_name='Text-Schatten')
+    shadow_color = models.CharField(
+        max_length=7,
+        default='#000000',
+        verbose_name='Schatten-Farbe (Hex)'
+    )
+    shadow_blur = models.PositiveIntegerField(default=4, verbose_name='Schatten-Weichzeichnung')
+    
+    # Border/Stroke
+    has_border = models.BooleanField(default=False, verbose_name='Text-Rahmen')
+    border_color = models.CharField(
+        max_length=7,
+        default='#000000',
+        verbose_name='Rahmen-Farbe (Hex)'
+    )
+    border_width = models.PositiveIntegerField(default=1, verbose_name='Rahmen-Breite (px)')
+    
+    # Dimensions and rotation
+    width = models.PositiveIntegerField(
+        default=200,
+        verbose_name='Breite (px)',
+        help_text='Maximale Breite des Text-Containers'
+    )
+    line_height = models.FloatField(
+        default=1.2,
+        verbose_name='Zeilenhöhe'
+    )
+    letter_spacing = models.FloatField(
+        default=0.0,
+        verbose_name='Buchstabenabstand (px)'
+    )
+    rotation = models.FloatField(
+        default=0.0,
+        verbose_name='Rotation (Grad)'
+    )
+    
+    # AI-generated metadata
+    ai_generated = models.BooleanField(default=False, verbose_name='KI-generiert')
+    ai_prompt_used = models.TextField(
+        verbose_name='Verwendeter AI-Prompt',
+        blank=True,
+        null=True
+    )
+    
+    # Advanced text effects
+    has_gradient = models.BooleanField(default=False, verbose_name='Farbverlauf')
+    gradient_start_color = models.CharField(
+        max_length=7,
+        default='#FF0000',
+        verbose_name='Verlauf Startfarbe (Hex)',
+        blank=True,
+        null=True
+    )
+    gradient_end_color = models.CharField(
+        max_length=7,
+        default='#0000FF',
+        verbose_name='Verlauf Endfarbe (Hex)',
+        blank=True,
+        null=True
+    )
+    gradient_direction = models.CharField(
+        max_length=20,
+        choices=[
+            ('to right', 'Horizontal →'),
+            ('to left', 'Horizontal ←'),
+            ('to bottom', 'Vertikal ↓'),
+            ('to top', 'Vertikal ↑'),
+            ('45deg', 'Diagonal ↗'),
+            ('135deg', 'Diagonal ↘'),
+            ('radial', 'Radial')
+        ],
+        default='to right',
+        verbose_name='Verlauf-Richtung'
+    )
+    
+    # Glow effect
+    has_glow = models.BooleanField(default=False, verbose_name='Leuchteffekt')
+    glow_color = models.CharField(
+        max_length=7,
+        default='#00FFFF',
+        verbose_name='Leuchtfarbe (Hex)',
+        blank=True,
+        null=True
+    )
+    glow_intensity = models.PositiveIntegerField(default=10, verbose_name='Leuchtintensität (px)')
+    
+    # Outline/Stroke effect
+    has_outline = models.BooleanField(default=False, verbose_name='Textumriss')
+    outline_color = models.CharField(
+        max_length=7,
+        default='#000000',
+        verbose_name='Umriss-Farbe (Hex)',
+        blank=True,
+        null=True
+    )
+    outline_width = models.FloatField(default=1.0, verbose_name='Umriss-Breite (px)')
+    
+    # 3D effect
+    has_3d_effect = models.BooleanField(default=False, verbose_name='3D-Effekt')
+    effect_depth = models.PositiveIntegerField(default=3, verbose_name='3D-Tiefe (px)')
+    effect_color = models.CharField(
+        max_length=7,
+        default='#333333',
+        verbose_name='3D-Effekt-Farbe (Hex)',
+        blank=True,
+        null=True
+    )
+    
+    # Visibility
+    is_active = models.BooleanField(default=True, verbose_name='Sichtbar')
+    z_index = models.PositiveIntegerField(default=1, verbose_name='Ebene (Z-Index)')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Text-Overlay'
+        verbose_name_plural = 'Text-Overlays'
+        ordering = ['z_index', '-created_at']
+    
+    def __str__(self):
+        text_preview = (self.text_content[:30] + '...') if len(self.text_content) > 30 else self.text_content
+        return f"{text_preview} - {self.creative.title}"
+    
+    def get_css_styles(self):
+        """Generate CSS styles for frontend rendering"""
+        styles = {
+            'position': 'absolute',
+            'left': f'{self.x_position}%',
+            'top': f'{self.y_position}%',
+            'font-family': self.font_family,
+            'font-size': f'{self.font_size}px',
+            'font-weight': self.font_weight,
+            'color': self.text_color,
+            'text-align': self.text_align,
+            'max-width': f'{self.width}px',
+            'line-height': str(self.line_height),
+            'letter-spacing': f'{self.letter_spacing}px',
+            'z-index': str(self.z_index),
+            'transform': f'rotate({self.rotation}deg)',
+            'cursor': 'move',
+            'user-select': 'none',
+            'white-space': 'pre-wrap',
+            'word-wrap': 'break-word',
+        }
+        
+        if self.background_color and self.background_opacity > 0:
+            # Convert hex to rgba
+            bg_color = self.background_color.lstrip('#')
+            rgb = tuple(int(bg_color[i:i+2], 16) for i in (0, 2, 4))
+            styles['background-color'] = f'rgba({rgb[0]}, {rgb[1]}, {rgb[2]}, {self.background_opacity})'
+            styles['padding'] = '8px 12px'
+            styles['border-radius'] = '4px'
+        
+        if self.has_shadow:
+            shadow_color = self.shadow_color.lstrip('#')
+            rgb = tuple(int(shadow_color[i:i+2], 16) for i in (0, 2, 4))
+            styles['text-shadow'] = f'2px 2px {self.shadow_blur}px rgba({rgb[0]}, {rgb[1]}, {rgb[2]}, 0.8)'
+        
+        if self.has_border:
+            styles['text-stroke'] = f'{self.border_width}px {self.border_color}'
+            styles['-webkit-text-stroke'] = f'{self.border_width}px {self.border_color}'
+        
+        # Gradient text effect
+        if self.has_gradient and self.gradient_start_color and self.gradient_end_color:
+            if self.gradient_direction == 'radial':
+                gradient = f'radial-gradient(circle, {self.gradient_start_color}, {self.gradient_end_color})'
+            else:
+                gradient = f'linear-gradient({self.gradient_direction}, {self.gradient_start_color}, {self.gradient_end_color})'
+            
+            styles['background'] = gradient
+            styles['-webkit-background-clip'] = 'text'
+            styles['background-clip'] = 'text'
+            styles['-webkit-text-fill-color'] = 'transparent'
+            styles['color'] = 'transparent'
+        
+        # Glow effect
+        if self.has_glow and self.glow_color:
+            glow_color = self.glow_color.lstrip('#')
+            rgb = tuple(int(glow_color[i:i+2], 16) for i in (0, 2, 4))
+            glow_shadow = f'0 0 {self.glow_intensity}px rgba({rgb[0]}, {rgb[1]}, {rgb[2]}, 0.8)'
+            
+            if 'text-shadow' in styles:
+                styles['text-shadow'] += f', {glow_shadow}'
+            else:
+                styles['text-shadow'] = glow_shadow
+        
+        # Text outline effect
+        if self.has_outline and self.outline_color:
+            styles['-webkit-text-stroke'] = f'{self.outline_width}px {self.outline_color}'
+            styles['text-stroke'] = f'{self.outline_width}px {self.outline_color}'
+        
+        # 3D effect
+        if self.has_3d_effect and self.effect_color:
+            effect_shadows = []
+            for i in range(1, self.effect_depth + 1):
+                effect_shadows.append(f'{i}px {i}px 0 {self.effect_color}')
+            
+            effect_shadow_string = ', '.join(effect_shadows)
+            if 'text-shadow' in styles:
+                styles['text-shadow'] += f', {effect_shadow_string}'
+            else:
+                styles['text-shadow'] = effect_shadow_string
+        
+        return styles
+    
+    def get_style_string(self):
+        """Get CSS styles as a string for inline styling"""
+        styles = self.get_css_styles()
+        return '; '.join([f'{key}: {value}' for key, value in styles.items()])
+
+
 class GenerationJob(models.Model):
     """
     Jobs für asynchrone Creative-Generierung

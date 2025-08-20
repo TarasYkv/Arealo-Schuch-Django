@@ -7,9 +7,14 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.urls import reverse
+from django.utils import timezone
+from datetime import timedelta
 import json
+import logging
 
-from .models import Campaign, ReferenceImage, Creative, GenerationJob
+logger = logging.getLogger(__name__)
+
+from .models import Campaign, ReferenceImage, Creative, GenerationJob, TextOverlay
 from .forms import (
     CampaignStep1Form, CampaignStep2Form, ReferenceImageForm,
     CreativeGenerationForm, CreativeRevisionForm, CreativeFeedbackForm,
@@ -122,7 +127,7 @@ def campaign_create_step1(request):
 @login_required
 def campaign_create_step2(request):
     """
-    Schritt 2: Referenzmaterial hinzufügen
+    Schritt 2: Referenzmaterial hinzufügen (mit URL-zu-Bild Verarbeitung)
     """
     campaign_id = request.session.get('campaign_id')
     if not campaign_id:
@@ -131,28 +136,138 @@ def campaign_create_step2(request):
     
     campaign = get_object_or_404(Campaign, id=campaign_id, user=request.user)
     
+    # Initialize processing results for template
+    url_processing_results = []
+    analysis_results = []
+    
     if request.method == 'POST':
         form = CampaignStep2Form(request.POST, instance=campaign)
         
         if form.is_valid():
-            form.save()
+            # Save form data first
+            campaign = form.save()
             
-            # Referenzbilder verarbeiten
+            # Process uploaded files
             uploaded_files = request.FILES.getlist('reference_images')
-            for uploaded_file in uploaded_files:
-                ReferenceImage.objects.create(
-                    campaign=campaign,
-                    image=uploaded_file,
-                    description=f"Referenzbild für {campaign.name}"
-                )
+            uploaded_count = 0
             
-            messages.success(request, 'Schritt 2 abgeschlossen! Konfigurieren Sie nun die Creative-Generierung.')
+            # Get API key for image analysis
+            api_client = CentralAPIClient(request.user)
+            api_keys = api_client.get_api_keys()
+            openai_api_key = api_keys.get('openai')
+            
+            # Initialize ReferenceManager
+            from .image_processor import ReferenceManager
+            reference_manager = ReferenceManager(openai_api_key)
+            
+            # Process uploaded reference images
+            for uploaded_file in uploaded_files:
+                try:
+                    # Create ReferenceImage
+                    reference_image = ReferenceImage.objects.create(
+                        campaign=campaign,
+                        image=uploaded_file,
+                        description=f"Referenzbild für {campaign.name}"
+                    )
+                    
+                    # Analyze uploaded image if API key available
+                    if openai_api_key:
+                        try:
+                            analysis = reference_manager.image_analyzer.analyze_image(
+                                reference_image.image, 
+                                uploaded_file.name
+                            )
+                            
+                            if analysis.get('success') and analysis.get('description'):
+                                reference_image.description = f"{analysis['description']} | KI-analysiert: {analysis.get('style_elements', {}).get('overall_style', 'unbekannt')}"
+                                reference_image.save()
+                                
+                            analysis_results.append({
+                                'reference_image': reference_image,
+                                'analysis': analysis,
+                                'type': 'upload'
+                            })
+                            
+                        except Exception as e:
+                            logger.warning(f"Could not analyze uploaded image: {str(e)}")
+                    
+                    uploaded_count += 1
+                    
+                except Exception as e:
+                    logger.error(f"Error processing uploaded file {uploaded_file.name}: {str(e)}")
+                    messages.warning(request, f'Fehler beim Hochladen von "{uploaded_file.name}": {str(e)}')
+            
+            # Process web links for image URLs
+            web_links = form.cleaned_data.get('web_links', '')
+            if web_links and openai_api_key:
+                try:
+                    url_processing_results = reference_manager.process_web_links(web_links, campaign)
+                    
+                    processed_count = sum(1 for result in url_processing_results if result.get('processed'))
+                    failed_count = len(url_processing_results) - processed_count
+                    
+                    if processed_count > 0:
+                        messages.success(
+                            request, 
+                            f'✅ {processed_count} Bild(er) automatisch aus URLs heruntergeladen und analysiert!'
+                        )
+                        
+                    if failed_count > 0:
+                        messages.warning(
+                            request,
+                            f'⚠️ {failed_count} URL(s) konnten nicht als Bilder verarbeitet werden.'
+                        )
+                        
+                except Exception as e:
+                    logger.error(f"Error processing web links: {str(e)}")
+                    messages.warning(request, f'Fehler bei URL-Verarbeitung: {str(e)}')
+            
+            elif web_links and not openai_api_key:
+                # Check if there are potential image URLs but no API key
+                from .image_processor import ImageURLProcessor
+                url_processor = ImageURLProcessor()
+                potential_images = url_processor.extract_image_urls(web_links)
+                
+                if potential_images:
+                    api_config_url = api_client.get_service_url()
+                    messages.info(
+                        request,
+                        f'📷 {len(potential_images)} Bild-URL(s) erkannt! '
+                        f'<a href="{api_config_url}" class="alert-link">OpenAI API-Key konfigurieren</a> '
+                        'für automatisches Herunterladen und Analyse.'
+                    )
+            
+            # Success message
+            total_images = campaign.reference_images.count()
+            if uploaded_count > 0 or url_processing_results:
+                if total_images > 0:
+                    messages.success(
+                        request, 
+                        f'🎨 Schritt 2 abgeschlossen! {total_images} Referenzbild(er) hochgeladen. '
+                        'Konfigurieren Sie nun die Creative-Generierung.'
+                    )
+                else:
+                    messages.success(request, 'Schritt 2 abgeschlossen! Konfigurieren Sie nun die Creative-Generierung.')
+            else:
+                messages.success(request, 'Schritt 2 abgeschlossen! Konfigurieren Sie nun die Creative-Generierung.')
+                
             return redirect('makeads:campaign_create_step3')
     else:
         form = CampaignStep2Form(instance=campaign)
     
-    # Bereits hochgeladene Referenzbilder
-    reference_images = campaign.reference_images.all()
+    # Get existing reference images
+    reference_images = campaign.reference_images.all().order_by('-uploaded_at')
+    
+    # Check for potential image URLs in existing web_links
+    existing_image_urls = []
+    if campaign.web_links:
+        from .image_processor import ImageURLProcessor
+        url_processor = ImageURLProcessor()
+        existing_image_urls = url_processor.extract_image_urls(campaign.web_links)
+    
+    # API key status for template
+    api_client = CentralAPIClient(request.user)
+    api_keys = api_client.validate_api_keys()
     
     context = {
         'form': form,
@@ -160,6 +275,11 @@ def campaign_create_step2(request):
         'reference_images': reference_images,
         'step': 2,
         'step_title': 'Referenzmaterial',
+        'url_processing_results': url_processing_results,
+        'analysis_results': analysis_results,
+        'existing_image_urls': existing_image_urls,
+        'api_keys': api_keys,
+        'api_config_url': api_client.get_service_url(),
     }
     
     return render(request, 'makeads/campaign_create_step2.html', context)
@@ -282,9 +402,17 @@ def campaign_detail(request, campaign_id):
         'generation_batch', flat=True
     ).distinct().order_by('generation_batch')
     
-    # Aktive Jobs
+    # Stale/hängende Jobs automatisch bereinigen (z.B. Browser geschlossen, Prozess abgebrochen)
+    cleanup_cutoff = timezone.now() - timedelta(minutes=30)
+    campaign.generation_jobs.filter(
+        status__in=['queued', 'processing'],
+        created_at__lt=cleanup_cutoff
+    ).update(status='failed', error_message='Automatisch als inaktiv markiert')
+
+    # Aktive Jobs innerhalb des Zeitfensters anzeigen
     active_jobs = campaign.generation_jobs.filter(
-        status__in=['queued', 'processing']
+        status__in=['queued', 'processing'],
+        created_at__gte=cleanup_cutoff
     )
     
     context = {
@@ -356,11 +484,29 @@ def creative_detail(request, creative_id):
         generation_batch=creative.generation_batch
     ).exclude(id=creative.id)[:6]
     
+    # API-Key Status für Template
+    api_client = CentralAPIClient(request.user)
+    api_keys = api_client.validate_api_keys()
+    
+    # Billing-Status prüfen wenn OpenAI verfügbar ist
+    billing_status = {'status': 'unknown', 'message': 'Nicht geprüft'}
+    if api_keys.get('openai', False):
+        try:
+            ai_generator = AICreativeGenerator(request.user)
+            # Kurzer Test um Billing-Status zu prüfen
+            test_result = ai_generator._generate_image("test", "openai")
+            billing_status = ai_generator.get_billing_status()
+        except Exception as e:
+            logger.warning(f"Billing check in template failed: {str(e)}")
+    
     context = {
         'creative': creative,
         'revision_form': revision_form,
         'feedback_form': feedback_form,
         'similar_creatives': similar_creatives,
+        'api_keys': api_keys,
+        'billing_status': billing_status,
+        'api_config_url': api_client.get_service_url(),
     }
     
     return render(request, 'makeads/creative_detail.html', context)
@@ -381,6 +527,18 @@ def creative_revise(request, creative_id):
     if request.method == 'POST':
         form = CreativeRevisionForm(request.POST)
         if form.is_valid():
+            # Prüfe API-Key Status vor der Generierung
+            api_client = CentralAPIClient(request.user)
+            api_keys = api_client.validate_api_keys()
+            
+            if not api_keys.get('openai', False):
+                messages.error(
+                    request, 
+                    f'OpenAI API-Key ist erforderlich für Creative-Überarbeitung. '
+                    f'<a href="{api_client.get_service_url()}" class="text-primary">API-Key konfigurieren</a>'
+                )
+                return redirect('makeads:creative_detail', creative_id=creative.id)
+            
             ai_generator = AICreativeGenerator(request.user)
             
             # Revision-Anweisungen zusammenstellen
@@ -397,7 +555,14 @@ def creative_revise(request, creative_id):
             
             revision_text = " | ".join(revision_instructions)
             
+            if not revision_text.strip():
+                messages.error(request, 'Bitte geben Sie mindestens eine Änderungsanweisung ein.')
+                return redirect('makeads:creative_detail', creative_id=creative.id)
+            
             try:
+                logger.info(f"Starting creative revision for {creative.id} by user {request.user.username}")
+                logger.info(f"Revision instructions: {revision_text}")
+                
                 revised_creative = ai_generator.revise_creative(
                     creative,
                     revision_text,
@@ -406,14 +571,472 @@ def creative_revise(request, creative_id):
                 
                 if revised_creative:
                     messages.success(request, 'Creative wurde erfolgreich überarbeitet!')
+                    logger.info(f"Creative revision successful: {revised_creative.id}")
                     return redirect('makeads:creative_detail', creative_id=revised_creative.id)
                 else:
-                    messages.error(request, 'Fehler bei der Überarbeitung.')
+                    messages.error(request, 'Fehler bei der Überarbeitung. Bitte versuchen Sie es erneut.')
+                    logger.error(f"Creative revision failed for {creative.id}")
                     
             except Exception as e:
+                logger.error(f'Creative revision error for {creative.id}: {str(e)}', exc_info=True)
                 messages.error(request, f'Fehler bei der Überarbeitung: {str(e)}')
     
     return redirect('makeads:creative_detail', creative_id=creative.id)
+
+
+@login_required
+@require_http_methods(["POST"])
+def creative_update_title(request, creative_id):
+    """
+    AJAX endpoint to update creative title
+    """
+    creative = get_object_or_404(
+        Creative, 
+        id=creative_id, 
+        campaign__user=request.user
+    )
+    
+    try:
+        data = json.loads(request.body)
+        new_title = data.get('title', '').strip()
+        
+        if not new_title:
+            return JsonResponse({
+                'success': False, 
+                'error': 'Titel darf nicht leer sein.'
+            }, status=400)
+        
+        if len(new_title) > 200:  # Assuming max length constraint
+            return JsonResponse({
+                'success': False, 
+                'error': 'Titel ist zu lang (max. 200 Zeichen).'
+            }, status=400)
+        
+        # Update title
+        creative.title = new_title
+        creative.save(update_fields=['title', 'updated_at'])
+        
+        return JsonResponse({
+            'success': True, 
+            'title': creative.title
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False, 
+            'error': 'Ungültiger JSON-Request.'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False, 
+            'error': f'Fehler beim Speichern: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def add_text_overlay(request, creative_id):
+    """
+    Add text overlay to creative
+    """
+    creative = get_object_or_404(
+        Creative, 
+        id=creative_id, 
+        campaign__user=request.user
+    )
+    
+    try:
+        data = json.loads(request.body)
+        
+        # Validate required fields
+        text_content = data.get('text_content', '').strip()
+        if not text_content:
+            return JsonResponse({
+                'success': False,
+                'error': 'Text-Inhalt ist erforderlich.'
+            }, status=400)
+        
+        # Create overlay with provided data
+        overlay = TextOverlay.objects.create(
+            creative=creative,
+            text_content=text_content,
+            x_position=data.get('x_position', 10.0),
+            y_position=data.get('y_position', 10.0),
+            font_family=data.get('font_family', 'arial'),
+            font_size=data.get('font_size', 24),
+            font_weight=data.get('font_weight', 'normal'),
+            text_color=data.get('text_color', '#ffffff'),
+            background_color=data.get('background_color'),
+            background_opacity=data.get('background_opacity', 0.0),
+            text_align=data.get('text_align', 'left'),
+            has_shadow=data.get('has_shadow', True),
+            shadow_color=data.get('shadow_color', '#000000'),
+            shadow_blur=data.get('shadow_blur', 4),
+            has_border=data.get('has_border', False),
+            border_color=data.get('border_color', '#000000'),
+            border_width=data.get('border_width', 1),
+            width=data.get('width', 200),
+            rotation=data.get('rotation', 0.0),
+            ai_generated=data.get('ai_generated', False),
+            ai_prompt_used=data.get('ai_prompt_used', ''),
+            z_index=data.get('z_index', 1)
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'overlay_id': str(overlay.id),
+            'styles': overlay.get_css_styles(),
+            'style_string': overlay.get_style_string()
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Ungültiger JSON-Request.'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Erstellen des Overlays: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def generate_overlay_text(request, creative_id):
+    """
+    Generate text overlay using AI
+    """
+    creative = get_object_or_404(
+        Creative, 
+        id=creative_id, 
+        campaign__user=request.user
+    )
+    
+    try:
+        data = json.loads(request.body)
+        prompt = data.get('prompt', '').strip()
+        
+        if not prompt:
+            return JsonResponse({
+                'success': False,
+                'error': 'Prompt ist erforderlich.'
+            }, status=400)
+        
+        # Use AI service to generate overlay text
+        ai_generator = AICreativeGenerator(request.user)
+        
+        # Create a context-aware prompt for overlay text
+        context_prompt = f"""
+        Erstelle einen kurzen, prägnanten Text-Overlay für ein Werbecreative.
+        
+        Creative-Kontext:
+        - Titel: {creative.title}
+        - Beschreibung: {creative.description}
+        - Kampagne: {creative.campaign.name}
+        
+        Benutzer-Anfrage: {prompt}
+        
+        Generiere NUR den Text für das Overlay, ohne zusätzliche Formatierung oder Erklärungen.
+        Der Text sollte maximal 2-3 Zeilen und sehr prägnant sein.
+        """
+        
+        # Generate text using the existing AI service method
+        try:
+            text_result = ai_generator._generate_text(context_prompt, 'openai')
+            logger.info(f"AI text generation result: {text_result}")
+            
+            # Handle different response formats
+            generated_text = ''
+            if isinstance(text_result, str):
+                # Try to parse as JSON first
+                try:
+                    json_data = json.loads(text_result)
+                    if 'content' in json_data:
+                        generated_text = json_data['content'].strip()
+                    elif 'text' in json_data:
+                        generated_text = json_data['text'].strip()
+                    else:
+                        generated_text = text_result.strip()
+                except json.JSONDecodeError:
+                    generated_text = text_result.strip()
+            elif isinstance(text_result, dict):
+                if 'text_content' in text_result:
+                    generated_text = text_result.get('text_content', '').strip()
+                elif 'content' in text_result:
+                    generated_text = text_result.get('content', '').strip()
+                elif 'text' in text_result:
+                    generated_text = text_result.get('text', '').strip()
+            
+            if generated_text:
+                return JsonResponse({
+                    'success': True,
+                    'generated_text': generated_text,
+                    'ai_prompt_used': context_prompt
+                })
+            else:
+                logger.warning(f"No text generated from result: {text_result}")
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Keine Text-Generierung möglich. Versuchen Sie einen anderen Prompt.'
+                }, status=500)
+        except Exception as gen_error:
+            logger.error(f"AI text generation error: {str(gen_error)}")
+            return JsonResponse({
+                'success': False,
+                'error': f'Fehler bei der KI-Text-Generierung: {str(gen_error)}'
+            }, status=500)
+            
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Ungültiger JSON-Request.'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler bei der Text-Generierung: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def generate_text_design(request, creative_id):
+    """
+    Generate elegant text design styling using AI
+    """
+    creative = get_object_or_404(
+        Creative, 
+        id=creative_id, 
+        campaign__user=request.user
+    )
+    
+    try:
+        data = json.loads(request.body)
+        design_style = data.get('design_style', 'elegant')
+        
+        # Define elegant design presets
+        design_presets = {
+            'elegant': {
+                'font_family': 'georgia',
+                'font_weight': 'light',
+                'font_size': 28,
+                'text_color': '#2C3E50',
+                'background_color': '#FFFFFF',
+                'background_opacity': 0.85,
+                'has_shadow': True,
+                'shadow_color': '#00000020',
+                'letter_spacing': 1.5,
+                'line_height': 1.4,
+                'text_align': 'center',
+                'width': 300
+            },
+            'modern': {
+                'font_family': 'helvetica',
+                'font_weight': 'normal',
+                'font_size': 24,
+                'text_color': '#1A1A1A',
+                'background_color': None,
+                'background_opacity': 0.0,
+                'has_shadow': False,
+                'letter_spacing': 0.5,
+                'line_height': 1.3,
+                'text_align': 'left',
+                'width': 250
+            },
+            'bold': {
+                'font_family': 'impact',
+                'font_weight': 'black',
+                'font_size': 36,
+                'text_color': '#FF6B35',
+                'background_color': '#000000',
+                'background_opacity': 0.8,
+                'has_shadow': True,
+                'shadow_color': '#FFFFFF',
+                'letter_spacing': 2.0,
+                'line_height': 1.2,
+                'text_align': 'center',
+                'width': 350
+            },
+            'luxury': {
+                'font_family': 'times',
+                'font_weight': 'normal',
+                'font_size': 32,
+                'text_color': '#D4AF37',
+                'background_color': '#000000',
+                'background_opacity': 0.9,
+                'has_shadow': True,
+                'shadow_color': '#D4AF37',
+                'letter_spacing': 3.0,
+                'line_height': 1.5,
+                'text_align': 'center',
+                'width': 400
+            },
+            'playful': {
+                'font_family': 'comic-sans',
+                'font_weight': 'bold',
+                'font_size': 26,
+                'text_color': '#FF69B4',
+                'background_color': '#FFFF00',
+                'background_opacity': 0.7,
+                'has_shadow': True,
+                'shadow_color': '#FF1493',
+                'letter_spacing': 0.0,
+                'line_height': 1.3,
+                'text_align': 'center',
+                'width': 280
+            },
+            'corporate': {
+                'font_family': 'arial',
+                'font_weight': 'normal',
+                'font_size': 22,
+                'text_color': '#2E3B4E',
+                'background_color': '#F8F9FA',
+                'background_opacity': 0.95,
+                'has_shadow': False,
+                'letter_spacing': 0.2,
+                'line_height': 1.4,
+                'text_align': 'left',
+                'width': 320
+            }
+        }
+        
+        design = design_presets.get(design_style, design_presets['elegant'])
+        
+        return JsonResponse({
+            'success': True,
+            'design': design,
+            'style_name': design_style
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Ungültiger JSON-Request.'
+        }, status=400)
+    except Exception as e:
+        logger.error(f"Design generation error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler bei der Design-Generierung: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def get_text_overlay(request, overlay_id):
+    """
+    Get text overlay data for form population
+    """
+    overlay = get_object_or_404(
+        TextOverlay,
+        id=overlay_id,
+        creative__campaign__user=request.user
+    )
+    
+    overlay_data = {
+        'text_content': overlay.text_content,
+        'font_family': overlay.font_family,
+        'font_size': overlay.font_size,
+        'font_weight': overlay.font_weight,
+        'text_color': overlay.text_color,
+        'text_align': overlay.text_align,
+        'width': overlay.width,
+        'line_height': overlay.line_height,
+        'letter_spacing': overlay.letter_spacing,
+        'background_color': overlay.background_color,
+        'background_opacity': overlay.background_opacity,
+        'has_shadow': overlay.has_shadow,
+        'has_gradient': overlay.has_gradient,
+        'gradient_start_color': overlay.gradient_start_color,
+        'gradient_end_color': overlay.gradient_end_color,
+        'gradient_direction': overlay.gradient_direction,
+        'has_glow': overlay.has_glow,
+        'glow_color': overlay.glow_color,
+        'glow_intensity': overlay.glow_intensity,
+        'has_outline': overlay.has_outline,
+        'outline_color': overlay.outline_color,
+        'outline_width': overlay.outline_width,
+        'has_3d_effect': overlay.has_3d_effect,
+        'effect_color': overlay.effect_color,
+        'effect_depth': overlay.effect_depth,
+        'x_position': overlay.x_position,
+        'y_position': overlay.y_position,
+        'z_index': overlay.z_index,
+        'rotation': overlay.rotation
+    }
+    
+    return JsonResponse({
+        'success': True,
+        'overlay': overlay_data
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def update_text_overlay(request, overlay_id):
+    """
+    Update text overlay properties
+    """
+    overlay = get_object_or_404(
+        TextOverlay,
+        id=overlay_id,
+        creative__campaign__user=request.user
+    )
+    
+    try:
+        data = json.loads(request.body)
+        
+        # Update fields if provided
+        for field, value in data.items():
+            if hasattr(overlay, field) and field not in ['id', 'creative', 'created_at', 'updated_at']:
+                setattr(overlay, field, value)
+        
+        overlay.save()
+        
+        return JsonResponse({
+            'success': True,
+            'styles': overlay.get_css_styles(),
+            'style_string': overlay.get_style_string()
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Ungültiger JSON-Request.'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Aktualisieren des Overlays: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def delete_text_overlay(request, overlay_id):
+    """
+    Delete text overlay
+    """
+    overlay = get_object_or_404(
+        TextOverlay,
+        id=overlay_id,
+        creative__campaign__user=request.user
+    )
+    
+    try:
+        overlay.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Overlay wurde gelöscht.'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Löschen des Overlays: {str(e)}'
+        }, status=500)
 
 
 @login_required
@@ -514,6 +1137,11 @@ def job_status(request, job_id):
     elif job.status == 'failed':
         current_step = 'Fehler aufgetreten'
     
+    # Timestamps that actually exist on the model
+    created_at = job.created_at.isoformat() if job.created_at else None
+    started_at = job.started_at.isoformat() if job.started_at else None
+    completed_at = job.completed_at.isoformat() if job.completed_at else None
+
     return JsonResponse({
         'job_id': str(job.id),
         'status': job.status,
@@ -523,11 +1151,50 @@ def job_status(request, job_id):
         'error_message': job.error_message,
         'eta_seconds': eta_seconds,
         'current_step': current_step,
-        'created_at': job.created_at.isoformat(),
-        'updated_at': job.updated_at.isoformat(),
+        'created_at': created_at,
+        'started_at': started_at,
+        'completed_at': completed_at,
         'campaign_id': str(job.campaign.id),
         'job_type': job.get_job_type_display(),
     })
+
+
+@login_required
+@require_http_methods(["GET"])
+def check_api_keys(request):
+    """
+    AJAX endpoint to check API key status and billing
+    """
+    try:
+        api_client = CentralAPIClient(request.user)
+        api_keys = api_client.validate_api_keys()
+        
+        # Zusätzlich Billing-Status prüfen wenn OpenAI verfügbar ist
+        billing_status = {'status': 'unknown', 'message': 'Nicht geprüft'}
+        if api_keys.get('openai', False):
+            try:
+                ai_generator = AICreativeGenerator(request.user)
+                # Test-Bildgenerierung um Billing-Status zu prüfen
+                test_result = ai_generator._generate_image("test", "openai")
+                billing_status = ai_generator.get_billing_status()
+            except Exception as e:
+                logger.warning(f"Billing check failed: {str(e)}")
+        
+        return JsonResponse({
+            'openai': api_keys.get('openai', False),
+            'anthropic': api_keys.get('anthropic', False),
+            'google': api_keys.get('google', False),
+            'config_url': api_client.get_service_url(),
+            'billing_status': billing_status
+        })
+    except Exception as e:
+        logger.error(f"Error checking API keys: {str(e)}")
+        return JsonResponse({
+            'openai': False,
+            'anthropic': False,
+            'google': False,
+            'error': str(e)
+        }, status=500)
 
 
 @login_required

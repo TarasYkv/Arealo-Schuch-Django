@@ -3,6 +3,387 @@
 
 {% block title %}Creative Details - {{ creative.title }}{% endblock %}
 
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.min.js"></script>
+<style>
+#revision-loading {
+    background: rgba(248, 249, 250, 0.95);
+    border-radius: 0.375rem;
+    border: 1px solid #dee2e6;
+}
+
+#revision-loading .spinner-border {
+    width: 2rem;
+    height: 2rem;
+}
+
+#revision-loading p {
+    font-weight: 500;
+    color: #495057;
+}
+
+.card-body {
+    position: relative;
+}
+
+/* Animation for smooth transition */
+#revision-form, #revision-loading {
+    transition: opacity 0.3s ease-in-out;
+}
+
+/* Overlay Button Styles */
+.image-overlay-buttons {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.image-overlay-buttons:hover,
+.position-relative:hover .image-overlay-buttons {
+    opacity: 1;
+}
+
+.text-overlay-button {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.position-relative:hover .text-overlay-button {
+    opacity: 1;
+}
+
+/* Floating Back Button */
+.floating-back-button {
+    position: fixed;
+    bottom: 30px;
+    left: 30px;
+    z-index: 1000;
+}
+
+.floating-back-button .btn {
+    border-radius: 25px;
+    padding: 8px 16px;
+    font-weight: 500;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+    .image-overlay-buttons,
+    .text-overlay-button {
+        opacity: 1; /* Always visible on mobile */
+    }
+    
+    .floating-back-button {
+        bottom: 20px;
+        left: 20px;
+    }
+    
+    .floating-back-button .btn {
+        padding: 6px 12px;
+        font-size: 0.9rem;
+    }
+}
+
+/* Hover effects for overlay buttons */
+.image-overlay-buttons .btn,
+.text-overlay-button .btn {
+    backdrop-filter: blur(10px);
+    background-color: rgba(255, 255, 255, 0.9) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.image-overlay-buttons .btn:hover,
+.text-overlay-button .btn:hover {
+    background-color: rgba(255, 255, 255, 1) !important;
+    transform: scale(1.05);
+}
+
+/* Editable Title Styles */
+.editable-title-container {
+    position: relative;
+}
+
+.editable-title {
+    cursor: pointer;
+    border-radius: 0.375rem;
+    padding: 8px;
+    margin: -8px;
+    transition: background-color 0.2s ease;
+}
+
+.editable-title:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.edit-icon {
+    font-size: 0.8rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.editable-title:hover .edit-icon {
+    opacity: 1;
+}
+
+.title-input {
+    font-size: 2rem;
+    font-weight: bold;
+    border: 2px solid #007bff;
+    border-radius: 0.375rem;
+}
+
+.title-input:focus {
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Title editing loading state */
+.editable-title.saving {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.editable-title.saving .edit-icon {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Text Overlay Styles */
+.text-overlay-element {
+    position: absolute;
+    cursor: move;
+    user-select: none;
+    min-width: 50px;
+    min-height: 20px;
+    border: 2px dashed rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    padding: 4px 8px;
+}
+
+.text-overlay-element:hover {
+    border: 2px dashed rgba(0, 123, 255, 0.7);
+    background-color: rgba(0, 123, 255, 0.05);
+    transform: scale(1.02);
+}
+
+.text-overlay-element.selected {
+    border: 2px solid #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+.text-overlay-element.dragging {
+    z-index: 1000;
+    transform-origin: center;
+    border: 2px solid #ffc107;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Drag handles */
+.text-overlay-element::before {
+    content: '⋮⋮';
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #007bff;
+    color: white;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    font-size: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    cursor: move;
+}
+
+.text-overlay-element:hover::before,
+.text-overlay-element.selected::before {
+    opacity: 1;
+}
+
+.text-overlay-element.dragging::before {
+    background: #ffc107;
+}
+
+/* Resize handles */
+.text-overlay-element::after {
+    content: '⤡';
+    position: absolute;
+    bottom: -8px;
+    right: -8px;
+    background: #28a745;
+    color: white;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    cursor: nw-resize;
+}
+
+.text-overlay-element:hover::after,
+.text-overlay-element.selected::after {
+    opacity: 1;
+}
+
+.text-overlay-element.resizing::after {
+    background: #ffc107;
+}
+
+.text-overlay-element.resizing {
+    border: 2px solid #28a745;
+    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
+}
+
+/* Overlay Editor Styles */
+.overlay-editor-card {
+    border: 2px solid #007bff;
+}
+
+.form-range::-webkit-slider-thumb {
+    background: #007bff;
+}
+
+.form-range::-moz-range-thumb {
+    background: #007bff;
+    border: none;
+}
+
+/* Overlay List Items */
+.overlay-list-item {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    padding: 8px 12px;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    margin-bottom: 8px;
+    background: #f8f9fa;
+}
+
+.overlay-list-item:hover {
+    background: #e9ecef;
+}
+
+.overlay-preview-text {
+    flex-grow: 1;
+    font-size: 0.9rem;
+    color: #495057;
+    margin-right: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Animation Effects */
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(var(--intensity, 1.2)); }
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(calc(-20px * var(--intensity, 1))); }
+    60% { transform: translateY(calc(-10px * var(--intensity, 1))); }
+}
+
+@keyframes fadeInOut {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+}
+
+@keyframes slideInOut {
+    0%, 100% { transform: translateX(calc(-20px * var(--intensity, 1))); opacity: 0.5; }
+    50% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes rotateAnimation {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(calc(360deg * var(--intensity, 1))); }
+}
+
+@keyframes scaleAnimation {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(var(--intensity, 1.5)); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(calc(5px * var(--intensity, 1))); }
+    75% { transform: translateX(calc(-5px * var(--intensity, 1))); }
+}
+
+@keyframes glowPulse {
+    0%, 100% { 
+        text-shadow: 0 0 5px currentColor;
+        filter: brightness(1);
+    }
+    50% { 
+        text-shadow: 0 0 calc(20px * var(--intensity, 1)) currentColor,
+                     0 0 calc(30px * var(--intensity, 1)) currentColor;
+        filter: brightness(1.5);
+    }
+}
+
+@keyframes typewriter {
+    from { width: 0; }
+    to { width: 100%; }
+}
+
+@keyframes neonFlicker {
+    0%, 100% { 
+        text-shadow: 0 0 5px currentColor;
+        opacity: 1;
+    }
+    2%, 8%, 10%, 15%, 20%, 25%, 30% { 
+        text-shadow: none;
+        opacity: 0.7;
+    }
+    5%, 12%, 22% {
+        text-shadow: 0 0 calc(15px * var(--intensity, 1)) currentColor,
+                     0 0 calc(25px * var(--intensity, 1)) currentColor;
+        opacity: 1;
+    }
+}
+
+.text-overlay-animated {
+    animation-fill-mode: both;
+}
+
+.text-overlay-typewriter {
+    overflow: hidden;
+    white-space: nowrap;
+    border-right: 2px solid currentColor;
+    animation: typewriter var(--speed, 2s) steps(40) infinite;
+}
+
+/* Responsive overlay editing */
+@media (max-width: 768px) {
+    .text-overlay-element {
+        min-width: 30px;
+        min-height: 15px;
+        font-size: 0.8em;
+    }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
     <div class="row">
@@ -21,16 +402,60 @@
                 <div class="col-md-8">
                     <div class="card">
                         {% if creative.get_image_url %}
-                        <img src="{{ creative.get_image_url }}" class="card-img-top" alt="{{ creative.title }}" style="max-height: 400px; object-fit: contain;">
+                        <div class="position-relative">
+                            <img src="{{ creative.get_image_url }}" class="card-img-top" alt="{{ creative.title }}" style="max-height: 400px; object-fit: contain;">
+                            <!-- Image Overlay Buttons -->
+                            <div class="image-overlay-buttons">
+                                <div class="btn-group" role="group">
+                                    <a href="{{ creative.get_image_url }}" target="_blank" class="btn btn-light btn-sm shadow-sm" title="Bild in neuem Tab öffnen">
+                                        <i class="fas fa-external-link-alt"></i>
+                                    </a>
+                                    <a href="#" onclick="downloadImage('{{ creative.get_image_url }}', 'creative-{{ creative.id }}')" class="btn btn-light btn-sm shadow-sm" title="Bild herunterladen">
+                                        <i class="fas fa-image"></i>
+                                    </a>
+                                    <button class="btn btn-light btn-sm shadow-sm" onclick="toggleTextOverlayEditor()" title="Text-Overlay hinzufügen">
+                                        <i class="fas fa-font"></i>
+                                    </button>
+                                    <button class="btn btn-light btn-sm shadow-sm" onclick="downloadCreative()" title="Als Datei exportieren">
+                                        <i class="fas fa-file-export"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Text Overlays Container -->
+                            <div id="text-overlays-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;">
+                                {% for overlay in creative.text_overlays.all %}
+                                    {% if overlay.is_active %}
+                                    <div class="text-overlay-element" 
+                                         data-overlay-id="{{ overlay.id }}" 
+                                         style="{{ overlay.get_style_string }}; pointer-events: auto; position: absolute;">
+                                        {{ overlay.text_content }}
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
                         {% else %}
-                        <div class="card-img-top d-flex align-items-center justify-content-center bg-light" style="height: 200px;">
+                        <div class="card-img-top d-flex align-items-center justify-content-center bg-light position-relative" style="height: 200px;">
                             <i class="fas fa-image fa-3x text-muted"></i>
+                            <!-- No Image Overlay Buttons -->
+                            <div class="image-overlay-buttons">
+                                <button class="btn btn-light btn-sm shadow-sm" onclick="downloadCreative()" title="Als Datei exportieren">
+                                    <i class="fas fa-file-export"></i>
+                                </button>
+                            </div>
                         </div>
                         {% endif %}
                         
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-start mb-3">
-                                <h1 class="card-title">{{ creative.title }}</h1>
+                                <div class="editable-title-container flex-grow-1 me-3">
+                                    <h1 class="card-title editable-title" id="creative-title" data-creative-id="{{ creative.id }}">
+                                        {{ creative.title }}
+                                        <i class="fas fa-edit edit-icon ms-2 text-muted" title="Titel bearbeiten"></i>
+                                    </h1>
+                                    <input type="text" class="form-control title-input d-none" id="title-input" value="{{ creative.title }}" maxlength="200">
+                                </div>
                                 <div class="btn-group">
                                     <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleFavorite({{ creative.id }})">
                                         <i class="fas fa-star {% if creative.is_favorite %}text-warning{% endif %}" id="favorite-icon-{{ creative.id }}"></i>
@@ -39,6 +464,13 @@
                                         </span>
                                     </button>
                                 </div>
+                            </div>
+                            
+                            <!-- Floating Back Button -->
+                            <div class="floating-back-button">
+                                <a href="{% url 'makeads:campaign_detail' creative.campaign.id %}" class="btn btn-primary shadow" title="Zurück zur Kampagne">
+                                    <i class="fas fa-arrow-left me-2"></i>Zurück
+                                </a>
                             </div>
 
                             {% if creative.description %}
@@ -49,10 +481,22 @@
                             {% endif %}
 
                             {% if creative.text_content %}
-                            <div class="mb-3">
+                            <div class="mb-3 position-relative">
                                 <h5>Creative Text</h5>
                                 <div class="border p-3 bg-light rounded">
                                     <p class="mb-0">{{ creative.text_content|linebreaks }}</p>
+                                    <!-- Text Overlay Button -->
+                                    <div class="text-overlay-button position-relative">
+                                        <button class="btn btn-light btn-sm shadow-sm" onclick="copyToClipboard('{{ creative.text_content|escapejs }}')" title="Text kopieren">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                        <!-- Copy Success Toast -->
+                                        <div id="copy-success-toast" class="position-absolute top-0 start-100 ms-2 translate-middle-y" style="display: none; z-index: 1050;">
+                                            <div class="alert alert-success alert-sm mb-0 py-1 px-2 shadow-sm border-0">
+                                                <i class="fas fa-check me-1"></i><small><strong>Kopiert!</strong></small>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             {% endif %}
@@ -92,65 +536,415 @@
 
                 <!-- Actions Sidebar -->
                 <div class="col-md-4">
-                    <!-- Revision Form -->
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5 class="mb-0">Creative überarbeiten</h5>
+                    <!-- Text Overlay Editor -->
+                    <div class="card mb-4" id="overlay-editor-card" style="display: none;">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-font me-2"></i>Text-Overlay
+                            </h5>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="closeTextOverlayEditor()">
+                                <i class="fas fa-times"></i>
+                            </button>
                         </div>
                         <div class="card-body">
-                            <form method="post" action="{% url 'makeads:creative_revise' creative.id %}">
-                                {% csrf_token %}
-                                {{ revision_form.as_p }}
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-magic me-2"></i>Überarbeiten
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-
-                    <!-- Feedback Form -->
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5 class="mb-0">Bewertung</h5>
-                        </div>
-                        <div class="card-body">
-                            <form method="post" action="{% url 'makeads:creative_detail' creative.id %}">
-                                {% csrf_token %}
-                                {{ feedback_form.as_p }}
-                                <button type="submit" class="btn btn-secondary">
-                                    <i class="fas fa-save me-2"></i>Speichern
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-
-                    <!-- Actions -->
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">Aktionen</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="d-grid gap-2">
-                                {% if creative.get_image_url %}
-                                <a href="{{ creative.get_image_url }}" target="_blank" class="btn btn-outline-primary">
-                                    <i class="fas fa-external-link-alt me-2"></i>Bild in neuem Tab öffnen
-                                </a>
-                                {% endif %}
+                            <!-- AI Generation -->
+                            <div class="mb-3">
+                                <div class="input-group mb-2">
+                                    <input type="text" class="form-control form-control-sm" id="ai-text-prompt" placeholder="KI-Prompt für Text...">
+                                    <button class="btn btn-outline-primary btn-sm" type="button" onclick="generateOverlayText()">
+                                        <i class="fas fa-magic"></i>
+                                    </button>
+                                </div>
+                                <select class="form-select form-select-sm mb-2" id="design-style">
+                                    <option value="">🎨 Design-Stil wählen</option>
+                                    <option value="elegant">✨ Elegant</option>
+                                    <option value="modern">🔲 Modern</option>
+                                    <option value="bold">💪 Bold</option>
+                                    <option value="luxury">👑 Luxury</option>
+                                    <option value="playful">🎨 Playful</option>
+                                    <option value="corporate">🏢 Corporate</option>
+                                    <option value="neon">⚡ Neon</option>
+                                    <option value="retro">📺 Retro</option>
+                                    <option value="hologram">🔮 Hologram</option>
+                                    <option value="glass">🔍 Glass</option>
+                                    <option value="cyber">🤖 Cyber</option>
+                                    <option value="vintage">📜 Vintage</option>
+                                </select>
+                                <textarea class="form-control form-control-sm" id="overlay-text" rows="2" placeholder="Text eingeben..."></textarea>
+                            </div>
+                            
+                            <!-- Compact Controls with Tabs -->
+                            <div class="mb-3">
+                                <ul class="nav nav-pills nav-fill mb-2" id="control-tabs" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active small" id="basic-tab" data-bs-toggle="pill" data-bs-target="#basic-controls" type="button">📝 Basic</button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link small" id="effects-tab" data-bs-toggle="pill" data-bs-target="#effects-controls" type="button">✨ Effekte</button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link small" id="animation-tab" data-bs-toggle="pill" data-bs-target="#animation-controls" type="button">🎬 Animation</button>
+                                    </li>
+                                </ul>
                                 
-                                <button class="btn btn-outline-secondary" onclick="copyToClipboard('{{ creative.text_content|escapejs }}')">
-                                    <i class="fas fa-copy me-2"></i>Text kopieren
-                                </button>
-                                
-                                <button class="btn btn-outline-info" onclick="downloadCreative()">
-                                    <i class="fas fa-download me-2"></i>Als Datei exportieren
-                                </button>
-                                
-                                <a href="{% url 'makeads:campaign_detail' creative.campaign.id %}" class="btn btn-outline-dark">
-                                    <i class="fas fa-arrow-left me-2"></i>Zurück zur Kampagne
-                                </a>
+                                <div class="tab-content">
+                                    <!-- Basic Controls Tab -->
+                                    <div class="tab-pane fade show active" id="basic-controls">
+                                        <div class="row g-2 mb-2">
+                                            <div class="col-6">
+                                                <select class="form-select form-select-sm" id="font-family">
+                                                    <option value="arial">Arial</option>
+                                                    <option value="helvetica">Helvetica</option>
+                                                    <option value="georgia">Georgia</option>
+                                                    <option value="impact">Impact</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-6">
+                                                <select class="form-select form-select-sm" id="font-weight">
+                                                    <option value="normal">Normal</option>
+                                                    <option value="bold">Bold</option>
+                                                    <option value="light">Light</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row g-2 mb-2">
+                                            <div class="col-4">
+                                                <label class="form-label small">Größe</label>
+                                                <input type="range" class="form-range" id="font-size" min="12" max="72" value="24">
+                                                <small><span id="font-size-value">24</span>px</small>
+                                            </div>
+                                            <div class="col-4">
+                                                <label class="form-label small">Breite</label>
+                                                <input type="range" class="form-range" id="text-width" min="100" max="600" value="200">
+                                                <small><span id="text-width-value">200</span>px</small>
+                                            </div>
+                                            <div class="col-4">
+                                                <label class="form-label small">Farbe</label>
+                                                <input type="color" class="form-control form-control-color" id="text-color" value="#ffffff">
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row g-2 mb-2">
+                                            <div class="col-4">
+                                                <label class="form-label small">Zeilen</label>
+                                                <input type="range" class="form-range" id="line-height" min="1" max="3" step="0.1" value="1.2">
+                                                <small><span id="line-height-value">1.2</span></small>
+                                            </div>
+                                            <div class="col-4">
+                                                <label class="form-label small">Abstand</label>
+                                                <input type="range" class="form-range" id="letter-spacing" min="-2" max="10" step="0.5" value="0">
+                                                <small><span id="letter-spacing-value">0</span>px</small>
+                                            </div>
+                                            <div class="col-4">
+                                                <label class="form-label small">Ausrichtung</label>
+                                                <select class="form-select form-select-sm" id="text-align">
+                                                    <option value="left">←</option>
+                                                    <option value="center">⊷</option>
+                                                    <option value="right">→</option>
+                                                    <option value="justify">⊞</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Background -->
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" id="has-background">
+                                            <label class="form-check-label small" for="has-background">📦 Hintergrund</label>
+                                        </div>
+                                        <div class="row g-2" id="background-controls" style="display: none;">
+                                            <div class="col-4">
+                                                <input type="color" class="form-control form-control-color" id="background-color" value="#000000">
+                                            </div>
+                                            <div class="col-4">
+                                                <input type="range" class="form-range" id="background-opacity" min="0" max="1" step="0.1" value="0.7">
+                                                <small><span id="opacity-value">70</span>%</small>
+                                            </div>
+                                            <div class="col-4">
+                                                <label class="form-label small">Rund</label>
+                                                <input type="range" class="form-range" id="background-radius" min="0" max="50" value="4">
+                                                <small><span id="radius-value">4</span>px</small>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="has-shadow" checked>
+                                            <label class="form-check-label small" for="has-shadow">🌑 Schatten</label>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Effects Controls Tab -->
+                                    <div class="tab-pane fade" id="effects-controls">
+                                        <!-- Gradient -->
+                                        <div class="mb-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="has-gradient">
+                                                <label class="form-check-label small" for="has-gradient">🌈 Farbverlauf</label>
+                                            </div>
+                                            <div class="row g-1 mt-1" id="gradient-controls" style="display: none;">
+                                                <div class="col-3">
+                                                    <input type="color" class="form-control form-control-color" id="gradient-start" value="#FF0000">
+                                                </div>
+                                                <div class="col-3">
+                                                    <input type="color" class="form-control form-control-color" id="gradient-end" value="#0000FF">
+                                                </div>
+                                                <div class="col-6">
+                                                    <select class="form-select form-select-sm" id="gradient-direction">
+                                                        <option value="to right">→</option>
+                                                        <option value="to bottom">↓</option>
+                                                        <option value="45deg">↗</option>
+                                                        <option value="radial">⊙</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Glow -->
+                                        <div class="mb-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="has-glow">
+                                                <label class="form-check-label small" for="has-glow">✨ Leuchteffekt</label>
+                                            </div>
+                                            <div class="row g-1 mt-1" id="glow-controls" style="display: none;">
+                                                <div class="col-6">
+                                                    <input type="color" class="form-control form-control-color" id="glow-color" value="#00FFFF">
+                                                </div>
+                                                <div class="col-6">
+                                                    <input type="range" class="form-range" id="glow-intensity" min="5" max="30" value="10">
+                                                    <small><span id="glow-intensity-value">10</span>px</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Outline -->
+                                        <div class="mb-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="has-outline">
+                                                <label class="form-check-label small" for="has-outline">⭕ Umriss</label>
+                                            </div>
+                                            <div class="row g-1 mt-1" id="outline-controls" style="display: none;">
+                                                <div class="col-6">
+                                                    <input type="color" class="form-control form-control-color" id="outline-color" value="#000000">
+                                                </div>
+                                                <div class="col-6">
+                                                    <input type="range" class="form-range" id="outline-width" min="0.5" max="5" step="0.5" value="1">
+                                                    <small><span id="outline-width-value">1</span>px</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- 3D Effect -->
+                                        <div class="mb-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="has-3d">
+                                                <label class="form-check-label small" for="has-3d">🎲 3D-Effekt</label>
+                                            </div>
+                                            <div class="row g-1 mt-1" id="3d-controls" style="display: none;">
+                                                <div class="col-6">
+                                                    <input type="color" class="form-control form-control-color" id="3d-color" value="#333333">
+                                                </div>
+                                                <div class="col-6">
+                                                    <input type="range" class="form-range" id="3d-depth" min="1" max="8" value="3">
+                                                    <small><span id="3d-depth-value">3</span>px</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Animation Controls Tab -->
+                                    <div class="tab-pane fade" id="animation-controls">
+                                        <!-- Animation Type -->
+                                        <div class="mb-2">
+                                            <label class="form-label small">🎬 Animation</label>
+                                            <select class="form-select form-select-sm" id="animation-type">
+                                                <option value="none">Keine Animation</option>
+                                                <option value="pulse">💗 Pulse</option>
+                                                <option value="bounce">🏀 Bounce</option>
+                                                <option value="fade">👻 Fade In/Out</option>
+                                                <option value="slide">➡️ Slide</option>
+                                                <option value="rotate">🌀 Rotate</option>
+                                                <option value="scale">🔍 Scale</option>
+                                                <option value="shake">🤝 Shake</option>
+                                                <option value="glow-pulse">✨ Glow Pulse</option>
+                                                <option value="typewriter">⌨️ Typewriter</option>
+                                                <option value="neon-flicker">⚡ Neon Flicker</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <!-- Animation Settings -->
+                                        <div id="animation-settings" style="display: none;">
+                                            <div class="row g-2 mb-2">
+                                                <div class="col-6">
+                                                    <label class="form-label small">Geschwindigkeit</label>
+                                                    <input type="range" class="form-range" id="animation-speed" min="0.5" max="5" step="0.1" value="1">
+                                                    <small><span id="speed-value">1.0</span>s</small>
+                                                </div>
+                                                <div class="col-6">
+                                                    <label class="form-label small">Intensität</label>
+                                                    <input type="range" class="form-range" id="animation-intensity" min="0.1" max="2" step="0.1" value="1">
+                                                    <small><span id="intensity-value">1.0</span>x</small>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="row g-2 mb-2">
+                                                <div class="col-6">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="animation-infinite" checked>
+                                                        <label class="form-check-label small" for="animation-infinite">🔄 Endlos</label>
+                                                    </div>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="animation-reverse">
+                                                        <label class="form-check-label small" for="animation-reverse">↩️ Umkehren</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- GIF Export -->
+                                        <div class="mb-2">
+                                            <button type="button" class="btn btn-success btn-sm w-100" onclick="exportAsGIF()">
+                                                <i class="fas fa-download me-1"></i>Als GIF exportieren
+                                            </button>
+                                            <small class="text-muted d-block mt-1">Erstellt ein animiertes GIF (3 Sekunden)</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Action Button -->
+                            <button type="button" class="btn btn-primary btn-sm w-100" onclick="addTextOverlay()">
+                                <i class="fas fa-plus me-1"></i>Overlay hinzufügen
+                            </button>
+                            
+                            <!-- Existing Overlays List -->
+                            <div class="mt-4" id="existing-overlays">
+                                <h6>Vorhandene Overlays:</h6>
+                                <div id="overlays-list">
+                                    <!-- Populated by JavaScript -->
+                                </div>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Revision Form -->
+                    <div class="card mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Creative überarbeiten</h5>
+                            <small class="text-muted">
+                                <i class="fas fa-key me-1"></i>
+                                {% if api_keys.openai %}
+                                    {% if billing_status.status == 'error' %}
+                                        <span id="api-status" class="text-warning">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>OpenAI Billing-Problem
+                                        </span>
+                                    {% elif billing_status.status == 'warning' %}
+                                        <span id="api-status" class="text-warning">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>OpenAI Guthaben-Warnung
+                                        </span>
+                                    {% else %}
+                                        <span id="api-status" class="text-success">
+                                            <i class="fas fa-check me-1"></i>OpenAI verfügbar
+                                        </span>
+                                    {% endif %}
+                                {% else %}
+                                    <span id="api-status" class="text-danger">
+                                        <i class="fas fa-times me-1"></i>OpenAI nicht konfiguriert
+                                    </span>
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div class="card-body">
+                            <!-- API Key Status -->
+                            {% if api_keys.openai %}
+                                <div id="api-success" class="alert alert-success">
+                                    <i class="fas fa-check-circle me-2"></i>
+                                    <strong>API-Keys konfiguriert:</strong> 
+                                    Creative-Überarbeitung ist verfügbar!
+                                </div>
+                            {% else %}
+                                <div id="api-warning" class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <strong>OpenAI API-Key erforderlich:</strong> 
+                                    Für die Creative-Überarbeitung wird ein OpenAI API-Key benötigt.
+                                <a href="{{ api_config_url }}" id="api-config-link" class="alert-link">Jetzt konfigurieren</a>
+                                </div>
+                            {% endif %}
+                            
+                            <!-- Billing Status Alerts (Server-side) -->
+                            {% if api_keys.openai and billing_status.status == 'error' %}
+                                <div id="billing-error" class="alert alert-danger">
+                                    <i class="fas fa-credit-card me-2"></i>
+                                    <strong>Billing-Problem erkannt:</strong> 
+                                    {{ billing_status.message }}
+                                    <small class="d-block mt-2">
+                                        {{ billing_status.detail }}
+                                        Es wird ein Platzhalter-Bild generiert.
+                                    </small>
+                                </div>
+                            {% elif api_keys.openai and billing_status.status == 'warning' %}
+                                <div id="billing-warning" class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <strong>Guthaben-Warnung:</strong> 
+                                    {{ billing_status.message }}
+                                    <small class="d-block mt-2">
+                                        {{ billing_status.detail }}
+                                        Es wird ein Platzhalter-Bild generiert.
+                                    </small>
+                                </div>
+                            {% else %}
+                                <!-- Hidden placeholders for JavaScript fallback -->
+                                <div id="billing-error" class="alert alert-danger" style="display: none;">
+                                    <i class="fas fa-credit-card me-2"></i>
+                                    <strong>Billing-Problem erkannt:</strong> 
+                                    <span id="billing-message"></span>
+                                    <small class="d-block mt-2">
+                                        <span id="billing-detail"></span>
+                                        Es wird ein Platzhalter-Bild generiert.
+                                    </small>
+                                </div>
+                                
+                                <div id="billing-warning" class="alert alert-warning" style="display: none;">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <strong>Guthaben-Warnung:</strong> 
+                                    <span id="billing-warning-message"></span>
+                                    <small class="d-block mt-2">
+                                        <span id="billing-warning-detail"></span>
+                                        Es wird ein Platzhalter-Bild generiert.
+                                    </small>
+                                </div>
+                            {% endif %}
+                            
+                            <!-- Loading Indicator -->
+                            <div id="revision-loading" class="text-center py-4" style="display: none;">
+                                <div class="spinner-border text-primary mb-3" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <h6 class="mb-2">🎨 Creative wird überarbeitet...</h6>
+                                <p class="text-muted mb-0">
+                                    <small>KI analysiert Ihre Änderungswünsche und erstellt ein neues Creative</small>
+                                </p>
+                                <div class="progress mt-3" style="height: 6px;">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- Revision Form -->
+                            <form id="revision-form" method="post" action="{% url 'makeads:creative_revise' creative.id %}">
+                                {% csrf_token %}
+                                {{ revision_form.as_p }}
+                                <button type="submit" class="btn btn-primary" id="revision-submit-btn"{% if not api_keys.openai %} disabled{% endif %}>
+                                    <i class="fas fa-magic me-2"></i>Überarbeiten
+                                </button>
+                                <small class="text-muted d-block mt-2">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Bitte geben Sie mindestens eine Änderungsanweisung ein.
+                                </small>
+                            </form>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
@@ -187,6 +981,2007 @@
 
 {% block page_js %}
 <script>
+// Loading indicator for revision form and inline title editing
+document.addEventListener('DOMContentLoaded', function() {
+    const revisionForm = document.getElementById('revision-form');
+    const loadingIndicator = document.getElementById('revision-loading');
+    const submitButton = document.getElementById('revision-submit-btn');
+    
+    // API status is now provided server-side, no need for AJAX call
+    // Server-side status prevents "Verbindungsfehler" authentication issues
+    
+    // Revision form handling
+    if (revisionForm) {
+        revisionForm.addEventListener('submit', function(e) {
+            // Validate form has content
+            const formData = new FormData(revisionForm);
+            let hasContent = false;
+            
+            // Check if any revision fields have content
+            for (let [key, value] of formData.entries()) {
+                if (key !== 'csrfmiddlewaretoken' && value.trim()) {
+                    hasContent = true;
+                    break;
+                }
+            }
+            
+            if (!hasContent) {
+                e.preventDefault();
+                alert('Bitte geben Sie mindestens eine Änderung an.');
+                return;
+            }
+            
+            // Show loading indicator
+            revisionForm.style.display = 'none';
+            loadingIndicator.style.display = 'block';
+            
+            // Disable submit button to prevent double submission
+            submitButton.disabled = true;
+            
+            // Optional: Add a timeout to hide loading if something goes wrong
+            setTimeout(function() {
+                if (loadingIndicator.style.display !== 'none') {
+                    revisionForm.style.display = 'block';
+                    loadingIndicator.style.display = 'none';
+                    submitButton.disabled = false;
+                    alert('Die Überarbeitung dauert länger als erwartet. Bitte versuchen Sie es erneut.');
+                }
+            }, 60000); // 60 seconds timeout
+        });
+    }
+    
+    // Inline title editing functionality
+    const editableTitle = document.getElementById('creative-title');
+    const titleInput = document.getElementById('title-input');
+    let isEditing = false;
+    
+    if (editableTitle && titleInput) {
+        // Start editing on click
+        editableTitle.addEventListener('click', function() {
+            if (!isEditing) {
+                startTitleEditing();
+            }
+        });
+        
+        // Handle input events
+        titleInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                saveTitleEdit();
+            } else if (e.key === 'Escape') {
+                cancelTitleEditing();
+            }
+        });
+        
+        titleInput.addEventListener('blur', function() {
+            // Small delay to allow clicking save buttons if any
+            setTimeout(() => {
+                if (isEditing) {
+                    saveTitleEdit();
+                }
+            }, 150);
+        });
+    }
+    
+    function startTitleEditing() {
+        isEditing = true;
+        editableTitle.classList.add('d-none');
+        titleInput.classList.remove('d-none');
+        titleInput.value = editableTitle.textContent.trim().replace(/\s+/g, ' '); // Clean whitespace
+        titleInput.focus();
+        titleInput.select();
+    }
+    
+    function cancelTitleEditing() {
+        isEditing = false;
+        titleInput.classList.add('d-none');
+        editableTitle.classList.remove('d-none');
+        titleInput.value = editableTitle.textContent.trim();
+    }
+    
+    function saveTitleEdit() {
+        if (!isEditing) return;
+        
+        const newTitle = titleInput.value.trim();
+        const originalTitle = editableTitle.textContent.trim();
+        
+        // Check if title changed
+        if (newTitle === originalTitle) {
+            cancelTitleEditing();
+            return;
+        }
+        
+        // Validate title
+        if (!newTitle) {
+            alert('Titel darf nicht leer sein.');
+            titleInput.focus();
+            return;
+        }
+        
+        if (newTitle.length > 200) {
+            alert('Titel ist zu lang (max. 200 Zeichen).');
+            titleInput.focus();
+            return;
+        }
+        
+        // Show loading state
+        editableTitle.classList.add('saving');
+        const creativeId = editableTitle.getAttribute('data-creative-id');
+        
+        // Send AJAX request
+        fetch(`/makeads/creative/${creativeId}/update-title/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                title: newTitle
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            editableTitle.classList.remove('saving');
+            
+            if (data.success) {
+                // Update title display
+                const titleTextNode = editableTitle.childNodes[0]; // Get text node
+                if (titleTextNode) {
+                    titleTextNode.textContent = data.title + ' ';
+                } else {
+                    editableTitle.innerHTML = data.title + ' <i class="fas fa-edit edit-icon ms-2 text-muted" title="Titel bearbeiten"></i>';
+                }
+                
+                // Exit editing mode
+                isEditing = false;
+                titleInput.classList.add('d-none');
+                editableTitle.classList.remove('d-none');
+                
+                // Show success feedback
+                showTitleUpdateFeedback('success');
+                
+            } else {
+                alert(data.error || 'Fehler beim Speichern des Titels.');
+                titleInput.focus();
+            }
+        })
+        .catch(error => {
+            editableTitle.classList.remove('saving');
+            console.error('Error:', error);
+            alert('Netzwerkfehler beim Speichern des Titels.');
+            titleInput.focus();
+        });
+    }
+    
+    function showTitleUpdateFeedback(type) {
+        // Create temporary feedback element
+        const feedback = document.createElement('div');
+        feedback.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+        feedback.style.cssText = 'top: 20px; right: 20px; z-index: 1050; max-width: 300px;';
+        feedback.innerHTML = `
+            <i class="fas fa-check-circle me-2"></i>Titel erfolgreich aktualisiert!
+            <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+        `;
+        
+        document.body.appendChild(feedback);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            if (feedback.parentElement) {
+                feedback.remove();
+            }
+        }, 3000);
+    }
+    
+    // Initialize text overlay system
+    initializeTextOverlaySystem();
+});
+
+// Text Overlay Management System
+let selectedOverlay = null;
+let isDragging = false;
+let isResizing = false;
+let dragStartX = 0;
+let dragStartY = 0;
+let overlayStartX = 0;
+let overlayStartY = 0;
+let initialWidth = 0;
+let initialFontSize = 0;
+
+function initializeTextOverlaySystem() {
+    console.log('Initializing text overlay system...');
+    
+    // Initialize existing overlays with drag functionality
+    const existingOverlays = document.querySelectorAll('.text-overlay-element');
+    console.log('Found existing overlays:', existingOverlays.length);
+    
+    existingOverlays.forEach(overlay => {
+        console.log('Initializing overlay:', overlay.getAttribute('data-overlay-id'));
+        makeOverlayDraggable(overlay);
+        
+        // Ensure proper positioning
+        if (!overlay.style.position) {
+            overlay.style.position = 'absolute';
+        }
+    });
+    
+    // Initialize form controls
+    initializeOverlayFormControls();
+    
+    // Load existing overlays list
+    updateOverlaysList();
+    
+    console.log('Text overlay system initialized');
+}
+
+function initializeOverlayFormControls() {
+    // Font size slider
+    const fontSizeSlider = document.getElementById('font-size');
+    const fontSizeValue = document.getElementById('font-size-value');
+    if (fontSizeSlider && fontSizeValue) {
+        fontSizeSlider.addEventListener('input', function() {
+            fontSizeValue.textContent = this.value;
+            if (selectedOverlay) {
+                updateSelectedOverlayLive();
+            }
+        });
+    }
+    
+    // Text width slider
+    const textWidthSlider = document.getElementById('text-width');
+    const textWidthValue = document.getElementById('text-width-value');
+    if (textWidthSlider && textWidthValue) {
+        textWidthSlider.addEventListener('input', function() {
+            textWidthValue.textContent = this.value;
+            if (selectedOverlay) {
+                updateSelectedOverlayLive();
+            }
+        });
+    }
+    
+    // Line height slider
+    const lineHeightSlider = document.getElementById('line-height');
+    const lineHeightValue = document.getElementById('line-height-value');
+    if (lineHeightSlider && lineHeightValue) {
+        lineHeightSlider.addEventListener('input', function() {
+            lineHeightValue.textContent = parseFloat(this.value).toFixed(1);
+            if (selectedOverlay) {
+                updateSelectedOverlayLive();
+            }
+        });
+    }
+    
+    // Letter spacing slider
+    const letterSpacingSlider = document.getElementById('letter-spacing');
+    const letterSpacingValue = document.getElementById('letter-spacing-value');
+    if (letterSpacingSlider && letterSpacingValue) {
+        letterSpacingSlider.addEventListener('input', function() {
+            letterSpacingValue.textContent = this.value;
+            if (selectedOverlay) {
+                updateSelectedOverlayLive();
+            }
+        });
+    }
+    
+    // Background checkbox
+    const hasBackgroundCheck = document.getElementById('has-background');
+    const backgroundControls = document.getElementById('background-controls');
+    if (hasBackgroundCheck && backgroundControls) {
+        hasBackgroundCheck.addEventListener('change', function() {
+            backgroundControls.style.display = this.checked ? 'block' : 'none';
+            if (selectedOverlay) {
+                updateSelectedOverlayLive();
+            }
+        });
+    }
+    
+    // Background opacity slider
+    const opacitySlider = document.getElementById('background-opacity');
+    const opacityValue = document.getElementById('opacity-value');
+    if (opacitySlider && opacityValue) {
+        opacitySlider.addEventListener('input', function() {
+            opacityValue.textContent = Math.round(this.value * 100);
+            if (selectedOverlay) {
+                updateSelectedOverlayLive();
+            }
+        });
+    }
+    
+    // Background radius slider
+    const radiusSlider = document.getElementById('background-radius');
+    const radiusValue = document.getElementById('radius-value');
+    if (radiusSlider && radiusValue) {
+        radiusSlider.addEventListener('input', function() {
+            radiusValue.textContent = this.value;
+            if (selectedOverlay) {
+                updateSelectedOverlayLive();
+            }
+        });
+    }
+    
+    // Gradient controls
+    const hasGradientCheck = document.getElementById('has-gradient');
+    const gradientControls = document.getElementById('gradient-controls');
+    if (hasGradientCheck && gradientControls) {
+        hasGradientCheck.addEventListener('change', function() {
+            gradientControls.style.display = this.checked ? 'block' : 'none';
+            if (selectedOverlay) {
+                updateSelectedOverlayLive();
+            }
+        });
+    }
+    
+    // Glow controls
+    const hasGlowCheck = document.getElementById('has-glow');
+    const glowControls = document.getElementById('glow-controls');
+    if (hasGlowCheck && glowControls) {
+        hasGlowCheck.addEventListener('change', function() {
+            glowControls.style.display = this.checked ? 'block' : 'none';
+            if (selectedOverlay) {
+                updateSelectedOverlayLive();
+            }
+        });
+    }
+    
+    // Glow intensity slider
+    const glowIntensitySlider = document.getElementById('glow-intensity');
+    const glowIntensityValue = document.getElementById('glow-intensity-value');
+    if (glowIntensitySlider && glowIntensityValue) {
+        glowIntensitySlider.addEventListener('input', function() {
+            glowIntensityValue.textContent = this.value;
+            if (selectedOverlay) {
+                updateSelectedOverlayLive();
+            }
+        });
+    }
+    
+    // Outline controls
+    const hasOutlineCheck = document.getElementById('has-outline');
+    const outlineControls = document.getElementById('outline-controls');
+    if (hasOutlineCheck && outlineControls) {
+        hasOutlineCheck.addEventListener('change', function() {
+            outlineControls.style.display = this.checked ? 'block' : 'none';
+            if (selectedOverlay) {
+                updateSelectedOverlayLive();
+            }
+        });
+    }
+    
+    // Outline width slider
+    const outlineWidthSlider = document.getElementById('outline-width');
+    const outlineWidthValue = document.getElementById('outline-width-value');
+    if (outlineWidthSlider && outlineWidthValue) {
+        outlineWidthSlider.addEventListener('input', function() {
+            outlineWidthValue.textContent = this.value;
+            if (selectedOverlay) {
+                updateSelectedOverlayLive();
+            }
+        });
+    }
+    
+    // 3D controls
+    const has3dCheck = document.getElementById('has-3d');
+    const threeDControls = document.getElementById('3d-controls');
+    if (has3dCheck && threeDControls) {
+        has3dCheck.addEventListener('change', function() {
+            threeDControls.style.display = this.checked ? 'block' : 'none';
+            if (selectedOverlay) {
+                updateSelectedOverlayLive();
+            }
+        });
+    }
+    
+    // 3D depth slider
+    const threeDDepthSlider = document.getElementById('3d-depth');
+    const threeDDepthValue = document.getElementById('3d-depth-value');
+    if (threeDDepthSlider && threeDDepthValue) {
+        threeDDepthSlider.addEventListener('input', function() {
+            threeDDepthValue.textContent = this.value;
+            if (selectedOverlay) {
+                updateSelectedOverlayLive();
+            }
+        });
+    }
+    
+    // Design style dropdown with auto-apply
+    const designStyleSelect = document.getElementById('design-style');
+    if (designStyleSelect) {
+        designStyleSelect.addEventListener('change', function() {
+            if (this.value) {
+                applyDesignStyle(this.value);
+            }
+        });
+    }
+    
+    // Animation controls
+    const animationTypeSelect = document.getElementById('animation-type');
+    const animationSettings = document.getElementById('animation-settings');
+    const animationSpeedSlider = document.getElementById('animation-speed');
+    const animationIntensitySlider = document.getElementById('animation-intensity');
+    const speedValue = document.getElementById('speed-value');
+    const intensityValue = document.getElementById('intensity-value');
+    
+    if (animationTypeSelect && animationSettings) {
+        animationTypeSelect.addEventListener('change', function() {
+            animationSettings.style.display = this.value !== 'none' ? 'block' : 'none';
+            if (selectedOverlay) {
+                applyAnimation();
+            }
+        });
+    }
+    
+    if (animationSpeedSlider && speedValue) {
+        animationSpeedSlider.addEventListener('input', function() {
+            speedValue.textContent = parseFloat(this.value).toFixed(1);
+            if (selectedOverlay) {
+                applyAnimation();
+            }
+        });
+    }
+    
+    if (animationIntensitySlider && intensityValue) {
+        animationIntensitySlider.addEventListener('input', function() {
+            intensityValue.textContent = parseFloat(this.value).toFixed(1);
+            if (selectedOverlay) {
+                applyAnimation();
+            }
+        });
+    }
+    
+    // Animation checkboxes
+    ['animation-infinite', 'animation-reverse'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('change', function() {
+                if (selectedOverlay) {
+                    applyAnimation();
+                }
+            });
+        }
+    });
+    
+    // Other form controls with live updates (including all effect controls)
+    ['font-family', 'font-weight', 'text-color', 'background-color', 'background-radius', 'has-shadow', 'text-align', 
+     'gradient-start', 'gradient-end', 'gradient-direction', 'glow-color', 'outline-color', '3d-color'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('change', function() {
+                if (selectedOverlay) {
+                    updateSelectedOverlayLive();
+                }
+            });
+            
+            // Also add input event for real-time updates on sliders and color pickers
+            element.addEventListener('input', function() {
+                if (selectedOverlay) {
+                    updateSelectedOverlayLive();
+                }
+            });
+        }
+    });
+    
+    // Text content live update
+    const overlayTextArea = document.getElementById('overlay-text');
+    if (overlayTextArea) {
+        overlayTextArea.addEventListener('input', function() {
+            if (selectedOverlay) {
+                selectedOverlay.textContent = this.value;
+                updateSelectedOverlayLive();
+            }
+        });
+    }
+}
+
+function toggleTextOverlayEditor() {
+    const editorCard = document.getElementById('overlay-editor-card');
+    const isVisible = editorCard.style.display !== 'none';
+    
+    if (isVisible) {
+        closeTextOverlayEditor();
+    } else {
+        editorCard.style.display = 'block';
+        editorCard.scrollIntoView({ behavior: 'smooth' });
+    }
+}
+
+function closeTextOverlayEditor() {
+    document.getElementById('overlay-editor-card').style.display = 'none';
+    if (selectedOverlay) {
+        selectedOverlay.classList.remove('selected');
+        selectedOverlay = null;
+    }
+}
+
+function generateOverlayText() {
+    const promptInput = document.getElementById('ai-text-prompt');
+    const prompt = promptInput.value.trim();
+    
+    if (!prompt) {
+        alert('Bitte geben Sie einen Prompt für die Text-Generierung ein.');
+        return;
+    }
+    
+    const generateBtn = document.querySelector('[onclick="generateOverlayText()"]');
+    const originalText = generateBtn.innerHTML;
+    generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Generiere...';
+    generateBtn.disabled = true;
+    
+    fetch(`/makeads/creative/{{ creative.id }}/overlay/generate/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            prompt: prompt
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        generateBtn.innerHTML = originalText;
+        generateBtn.disabled = false;
+        
+        if (data.success) {
+            document.getElementById('overlay-text').value = data.generated_text;
+            showNotification('Text erfolgreich generiert!', 'success');
+        } else {
+            alert(data.error || 'Fehler bei der Text-Generierung.');
+        }
+    })
+    .catch(error => {
+        generateBtn.innerHTML = originalText;
+        generateBtn.disabled = false;
+        console.error('Error:', error);
+        alert('Netzwerkfehler bei der Text-Generierung.');
+    });
+}
+
+function applyDesignStyle(designStyle) {
+    // Define design presets locally for instant application
+    const designPresets = {
+        'elegant': {
+            'font_family': 'georgia',
+            'font_weight': 'light',
+            'font_size': 28,
+            'text_color': '#2C3E50',
+            'background_color': '#FFFFFF',
+            'background_opacity': 0.85,
+            'has_shadow': true,
+            'letter_spacing': 1.5,
+            'line_height': 1.4,
+            'text_align': 'center',
+            'width': 300,
+            'has_background': true
+        },
+        'modern': {
+            'font_family': 'helvetica',
+            'font_weight': 'normal',
+            'font_size': 24,
+            'text_color': '#1A1A1A',
+            'background_color': null,
+            'background_opacity': 0.0,
+            'has_shadow': false,
+            'letter_spacing': 0.5,
+            'line_height': 1.3,
+            'text_align': 'left',
+            'width': 250,
+            'has_background': false
+        },
+        'bold': {
+            'font_family': 'impact',
+            'font_weight': 'black',
+            'font_size': 36,
+            'text_color': '#FF6B35',
+            'background_color': '#000000',
+            'background_opacity': 0.8,
+            'has_shadow': true,
+            'letter_spacing': 2.0,
+            'line_height': 1.2,
+            'text_align': 'center',
+            'width': 350,
+            'has_background': true
+        },
+        'luxury': {
+            'font_family': 'times',
+            'font_weight': 'normal',
+            'font_size': 32,
+            'text_color': '#D4AF37',
+            'background_color': '#000000',
+            'background_opacity': 0.9,
+            'has_shadow': true,
+            'letter_spacing': 3.0,
+            'line_height': 1.5,
+            'text_align': 'center',
+            'width': 400,
+            'has_background': true
+        },
+        'playful': {
+            'font_family': 'comic-sans',
+            'font_weight': 'bold',
+            'font_size': 26,
+            'text_color': '#FF69B4',
+            'background_color': '#FFFF00',
+            'background_opacity': 0.7,
+            'has_shadow': true,
+            'letter_spacing': 0.0,
+            'line_height': 1.3,
+            'text_align': 'center',
+            'width': 280,
+            'has_background': true
+        },
+        'corporate': {
+            'font_family': 'arial',
+            'font_weight': 'normal',
+            'font_size': 22,
+            'text_color': '#2E3B4E',
+            'background_color': '#F8F9FA',
+            'background_opacity': 0.95,
+            'has_shadow': false,
+            'letter_spacing': 0.2,
+            'line_height': 1.4,
+            'text_align': 'left',
+            'width': 320,
+            'has_background': true
+        },
+        'neon': {
+            'font_family': 'impact',
+            'font_weight': 'bold',
+            'font_size': 32,
+            'text_color': '#00FFFF',
+            'background_color': '#000000',
+            'background_opacity': 0.8,
+            'has_shadow': false,
+            'has_glow': true,
+            'glow_color': '#00FFFF',
+            'glow_intensity': 20,
+            'has_outline': true,
+            'outline_color': '#FF00FF',
+            'outline_width': 2,
+            'letter_spacing': 2.0,
+            'line_height': 1.2,
+            'text_align': 'center',
+            'width': 300,
+            'has_background': true
+        },
+        'retro': {
+            'font_family': 'courier',
+            'font_weight': 'bold',
+            'font_size': 24,
+            'text_color': '#FF6B35',
+            'background_color': '#2C3E50',
+            'background_opacity': 0.9,
+            'has_shadow': true,
+            'has_3d_effect': true,
+            'effect_color': '#34495E',
+            'effect_depth': 4,
+            'letter_spacing': 1.0,
+            'line_height': 1.3,
+            'text_align': 'center',
+            'width': 280,
+            'has_background': true
+        },
+        'hologram': {
+            'font_family': 'helvetica',
+            'font_weight': 'light',
+            'font_size': 28,
+            'text_color': '#FFFFFF',
+            'background_color': null,
+            'background_opacity': 0.0,
+            'has_shadow': false,
+            'has_gradient': true,
+            'gradient_start_color': '#00FFFF',
+            'gradient_end_color': '#FF00FF',
+            'gradient_direction': '45deg',
+            'has_glow': true,
+            'glow_color': '#FFFFFF',
+            'glow_intensity': 15,
+            'letter_spacing': 3.0,
+            'line_height': 1.4,
+            'text_align': 'center',
+            'width': 350,
+            'has_background': false
+        },
+        'glass': {
+            'font_family': 'georgia',
+            'font_weight': 'normal',
+            'font_size': 26,
+            'text_color': '#FFFFFF',
+            'background_color': '#FFFFFF',
+            'background_opacity': 0.2,
+            'has_shadow': true,
+            'has_outline': true,
+            'outline_color': '#FFFFFF',
+            'outline_width': 1,
+            'letter_spacing': 1.0,
+            'line_height': 1.3,
+            'text_align': 'center',
+            'width': 320,
+            'has_background': true
+        },
+        'cyber': {
+            'font_family': 'courier',
+            'font_weight': 'bold',
+            'font_size': 30,
+            'text_color': '#00FF41',
+            'background_color': '#000000',
+            'background_opacity': 0.9,
+            'has_shadow': false,
+            'has_glow': true,
+            'glow_color': '#00FF41',
+            'glow_intensity': 25,
+            'has_3d_effect': true,
+            'effect_color': '#003311',
+            'effect_depth': 2,
+            'letter_spacing': 2.5,
+            'line_height': 1.1,
+            'text_align': 'left',
+            'width': 400,
+            'has_background': true
+        },
+        'vintage': {
+            'font_family': 'times',
+            'font_weight': 'normal',
+            'font_size': 28,
+            'text_color': '#8B4513',
+            'background_color': '#F5DEB3',
+            'background_opacity': 0.8,
+            'has_shadow': true,
+            'has_outline': true,
+            'outline_color': '#654321',
+            'outline_width': 1.5,
+            'letter_spacing': 1.5,
+            'line_height': 1.5,
+            'text_align': 'center',
+            'width': 300,
+            'has_background': true
+        }
+    };
+    
+    const design = designPresets[designStyle];
+    if (!design) return;
+    
+    // Apply design to form controls instantly
+    document.getElementById('font-family').value = design.font_family;
+    document.getElementById('font-weight').value = design.font_weight;
+    document.getElementById('font-size').value = design.font_size;
+    document.getElementById('font-size-value').textContent = design.font_size;
+    document.getElementById('text-color').value = design.text_color;
+    document.getElementById('text-align').value = design.text_align;
+    
+    // Handle text width
+    document.getElementById('text-width').value = design.width;
+    document.getElementById('text-width-value').textContent = design.width;
+    
+    // Handle line height
+    document.getElementById('line-height').value = design.line_height;
+    document.getElementById('line-height-value').textContent = parseFloat(design.line_height).toFixed(1);
+    
+    // Handle letter spacing
+    document.getElementById('letter-spacing').value = design.letter_spacing;
+    document.getElementById('letter-spacing-value').textContent = design.letter_spacing;
+    
+    // Handle background
+    document.getElementById('has-background').checked = design.has_background;
+    if (design.has_background && design.background_color) {
+        document.getElementById('background-color').value = design.background_color;
+        document.getElementById('background-opacity').value = design.background_opacity;
+        document.getElementById('opacity-value').textContent = Math.round(design.background_opacity * 100);
+        document.getElementById('background-controls').style.display = 'block';
+    } else {
+        document.getElementById('background-controls').style.display = 'none';
+    }
+    
+    // Handle shadow
+    document.getElementById('has-shadow').checked = design.has_shadow;
+    
+    // Handle advanced effects
+    if (design.has_gradient !== undefined) {
+        document.getElementById('has-gradient').checked = design.has_gradient;
+        if (design.has_gradient) {
+            if (design.gradient_start_color) document.getElementById('gradient-start').value = design.gradient_start_color;
+            if (design.gradient_end_color) document.getElementById('gradient-end').value = design.gradient_end_color;
+            if (design.gradient_direction) document.getElementById('gradient-direction').value = design.gradient_direction;
+            document.getElementById('gradient-controls').style.display = 'block';
+        } else {
+            document.getElementById('gradient-controls').style.display = 'none';
+        }
+    }
+    
+    if (design.has_glow !== undefined) {
+        document.getElementById('has-glow').checked = design.has_glow;
+        if (design.has_glow) {
+            if (design.glow_color) document.getElementById('glow-color').value = design.glow_color;
+            if (design.glow_intensity) {
+                document.getElementById('glow-intensity').value = design.glow_intensity;
+                document.getElementById('glow-intensity-value').textContent = design.glow_intensity;
+            }
+            document.getElementById('glow-controls').style.display = 'block';
+        } else {
+            document.getElementById('glow-controls').style.display = 'none';
+        }
+    }
+    
+    if (design.has_outline !== undefined) {
+        document.getElementById('has-outline').checked = design.has_outline;
+        if (design.has_outline) {
+            if (design.outline_color) document.getElementById('outline-color').value = design.outline_color;
+            if (design.outline_width) {
+                document.getElementById('outline-width').value = design.outline_width;
+                document.getElementById('outline-width-value').textContent = design.outline_width;
+            }
+            document.getElementById('outline-controls').style.display = 'block';
+        } else {
+            document.getElementById('outline-controls').style.display = 'none';
+        }
+    }
+    
+    if (design.has_3d_effect !== undefined) {
+        document.getElementById('has-3d').checked = design.has_3d_effect;
+        if (design.has_3d_effect) {
+            if (design.effect_color) document.getElementById('3d-color').value = design.effect_color;
+            if (design.effect_depth) {
+                document.getElementById('3d-depth').value = design.effect_depth;
+                document.getElementById('3d-depth-value').textContent = design.effect_depth;
+            }
+            document.getElementById('3d-controls').style.display = 'block';
+        } else {
+            document.getElementById('3d-controls').style.display = 'none';
+        }
+    }
+    
+    // Show notification
+    showNotification(`${designStyle.charAt(0).toUpperCase() + designStyle.slice(1)} Design angewendet!`, 'success');
+    
+    // Apply to selected overlay immediately
+    if (selectedOverlay) {
+        updateSelectedOverlayLive();
+    }
+    
+    // Reset dropdown to default state
+    setTimeout(() => {
+        document.getElementById('design-style').value = '';
+    }, 1000);
+}
+
+// Removed previewOverlay() function - now using live editing
+
+function addTextOverlay() {
+    const text = document.getElementById('overlay-text').value.trim();
+    if (!text) {
+        alert('Bitte geben Sie einen Text ein.');
+        return;
+    }
+    
+    const addBtn = document.querySelector('[onclick="addTextOverlay()"]');
+    const originalText = addBtn.innerHTML;
+    addBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Hinzufügen...';
+    addBtn.disabled = true;
+    
+    const overlayData = {
+        text_content: text,
+        x_position: 10,
+        y_position: 10,
+        font_family: document.getElementById('font-family').value,
+        font_size: parseInt(document.getElementById('font-size').value),
+        font_weight: document.getElementById('font-weight').value,
+        text_color: document.getElementById('text-color').value,
+        background_color: document.getElementById('has-background').checked ? document.getElementById('background-color').value : null,
+        background_opacity: document.getElementById('has-background').checked ? parseFloat(document.getElementById('background-opacity').value) : 0.0,
+        text_align: document.getElementById('text-align').value,
+        has_shadow: document.getElementById('has-shadow').checked,
+        shadow_color: '#000000',
+        shadow_blur: 4,
+        has_border: false,
+        border_color: '#000000',
+        border_width: 1,
+        width: parseInt(document.getElementById('text-width').value),
+        line_height: parseFloat(document.getElementById('line-height').value),
+        letter_spacing: parseFloat(document.getElementById('letter-spacing').value),
+        rotation: 0.0,
+        ai_generated: false,
+        ai_prompt_used: '',
+        z_index: 1,
+        
+        // Advanced effects
+        has_gradient: document.getElementById('has-gradient').checked,
+        gradient_start_color: document.getElementById('gradient-start').value,
+        gradient_end_color: document.getElementById('gradient-end').value,
+        gradient_direction: document.getElementById('gradient-direction').value,
+        has_glow: document.getElementById('has-glow').checked,
+        glow_color: document.getElementById('glow-color').value,
+        glow_intensity: parseInt(document.getElementById('glow-intensity').value),
+        has_outline: document.getElementById('has-outline').checked,
+        outline_color: document.getElementById('outline-color').value,
+        outline_width: parseFloat(document.getElementById('outline-width').value),
+        has_3d_effect: document.getElementById('has-3d').checked,
+        effect_color: document.getElementById('3d-color').value,
+        effect_depth: parseInt(document.getElementById('3d-depth').value)
+    };
+    
+    fetch(`/makeads/creative/{{ creative.id }}/overlay/add/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(overlayData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        addBtn.innerHTML = originalText;
+        addBtn.disabled = false;
+        
+        if (data.success) {
+            // Create and add the new overlay element
+            const overlayElement = createOverlayElement({
+                id: data.overlay_id,
+                text_content: text,
+                ...overlayData
+            });
+            
+            const container = document.getElementById('text-overlays-container');
+            container.appendChild(overlayElement);
+            
+            // CRITICAL: Make draggable and select immediately  
+            console.log('Creating new overlay with ID:', data.overlay_id);
+            makeOverlayDraggable(overlayElement);
+            
+            // Wait a moment for DOM to settle, then select
+            setTimeout(() => {
+                selectOverlay(overlayElement);
+                console.log('New overlay selected and ready for dragging');
+            }, 100);
+            
+            // Clear form
+            document.getElementById('overlay-text').value = '';
+            document.getElementById('ai-text-prompt').value = '';
+            
+            // Update overlays list
+            updateOverlaysList();
+            
+            showNotification('Overlay erfolgreich hinzugefügt! Sie können es jetzt verschieben.', 'success');
+            
+        } else {
+            alert(data.error || 'Fehler beim Hinzufügen des Overlays.');
+        }
+    })
+    .catch(error => {
+        addBtn.innerHTML = originalText;
+        addBtn.disabled = false;
+        console.error('Error:', error);
+        alert('Netzwerkfehler beim Hinzufügen des Overlays.');
+    });
+}
+
+function createOverlayElement(data) {
+    console.log('Creating overlay element with data:', data);
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'text-overlay-element';
+    overlay.setAttribute('data-overlay-id', data.id);
+    overlay.textContent = data.text_content;
+    
+    // Ensure the overlay is properly positioned and draggable
+    overlay.style.position = 'absolute';
+    overlay.style.pointerEvents = 'auto';
+    overlay.style.cursor = 'move';
+    overlay.style.userSelect = 'none';
+    
+    // Apply styles
+    const styles = {
+        position: 'absolute',
+        left: data.x_position + '%',
+        top: data.y_position + '%',
+        fontFamily: data.font_family,
+        fontSize: data.font_size + 'px',
+        fontWeight: data.font_weight,
+        color: data.text_color,
+        textAlign: data.text_align || 'left',
+        maxWidth: (data.width || 200) + 'px',
+        lineHeight: data.line_height || 1.2,
+        letterSpacing: (data.letter_spacing || 0) + 'px',
+        zIndex: data.z_index || 1,
+        transform: `rotate(${data.rotation || 0}deg)`,
+        cursor: 'move',
+        userSelect: 'none',
+        whiteSpace: 'pre-wrap',
+        wordWrap: 'break-word'
+    };
+    
+    if (data.background_color && data.background_opacity > 0) {
+        const bgColor = data.background_color.replace('#', '');
+        const rgb = [
+            parseInt(bgColor.substr(0,2), 16),
+            parseInt(bgColor.substr(2,2), 16),
+            parseInt(bgColor.substr(4,2), 16)
+        ];
+        styles.backgroundColor = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${data.background_opacity})`;
+        styles.padding = '8px 12px';
+        styles.borderRadius = '4px';
+    }
+    
+    // Handle advanced effects
+    let textShadows = [];
+    
+    // Regular shadow
+    if (data.has_shadow) {
+        textShadows.push('2px 2px 4px rgba(0, 0, 0, 0.8)');
+    }
+    
+    // Glow effect
+    if (data.has_glow && data.glow_color) {
+        const rgb = hexToRgb(data.glow_color);
+        textShadows.push(`0 0 ${data.glow_intensity || 10}px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.8)`);
+    }
+    
+    // 3D effect
+    if (data.has_3d_effect && data.effect_color) {
+        const depth = data.effect_depth || 3;
+        for (let i = 1; i <= depth; i++) {
+            textShadows.push(`${i}px ${i}px 0 ${data.effect_color}`);
+        }
+    }
+    
+    if (textShadows.length > 0) {
+        styles.textShadow = textShadows.join(', ');
+    }
+    
+    // Handle gradient
+    if (data.has_gradient && data.gradient_start_color && data.gradient_end_color) {
+        if (data.gradient_direction === 'radial') {
+            styles.background = `radial-gradient(circle, ${data.gradient_start_color}, ${data.gradient_end_color})`;
+        } else {
+            styles.background = `linear-gradient(${data.gradient_direction || 'to right'}, ${data.gradient_start_color}, ${data.gradient_end_color})`;
+        }
+        styles.webkitBackgroundClip = 'text';
+        styles.backgroundClip = 'text';
+        styles.webkitTextFillColor = 'transparent';
+        styles.color = 'transparent';
+    }
+    
+    // Handle outline
+    if (data.has_outline && data.outline_color) {
+        styles.webkitTextStroke = `${data.outline_width || 1}px ${data.outline_color}`;
+        styles.textStroke = `${data.outline_width || 1}px ${data.outline_color}`;
+    }
+    
+    Object.assign(overlay.style, styles);
+    
+    return overlay;
+}
+
+function makeOverlayDraggable(overlay) {
+    // Remove any existing event listeners to prevent duplicates
+    overlay.removeEventListener('mousedown', handleOverlayMouseDown);
+    overlay.removeEventListener('click', selectOverlayHandler);
+    
+    // Add fresh event listeners
+    overlay.addEventListener('mousedown', handleOverlayMouseDown);
+    overlay.addEventListener('click', selectOverlayHandler);
+    
+    // Ensure overlay has proper draggable styling
+    overlay.style.cursor = 'move';
+    overlay.style.userSelect = 'none';
+    overlay.style.pointerEvents = 'auto';
+    
+    console.log('Made overlay draggable and resizable:', overlay.getAttribute('data-overlay-id'));
+}
+
+function selectOverlayHandler(e) {
+    e.stopPropagation();
+    selectOverlay(this);
+}
+
+function selectOverlay(overlay) {
+    // Deselect previous overlay
+    if (selectedOverlay) {
+        selectedOverlay.classList.remove('selected');
+    }
+    
+    // Select new overlay
+    selectedOverlay = overlay;
+    overlay.classList.add('selected');
+    
+    // Show editor if hidden
+    const editorCard = document.getElementById('overlay-editor-card');
+    if (editorCard.style.display === 'none') {
+        toggleTextOverlayEditor();
+    }
+    
+    // Populate form fields with current overlay properties
+    populateFormFromOverlay(overlay);
+}
+
+function populateFormFromOverlay(overlay) {
+    const overlayId = overlay.getAttribute('data-overlay-id');
+    
+    // First, populate with basic values from DOM
+    document.getElementById('overlay-text').value = overlay.textContent || '';
+    
+    // Try to get overlay data from server to populate form accurately
+    fetch(`/makeads/overlay/${overlayId}/get/`, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            const overlay = data.overlay;
+            
+            // Populate basic text properties
+            document.getElementById('overlay-text').value = overlay.text_content || '';
+            document.getElementById('font-family').value = overlay.font_family || 'arial';
+            document.getElementById('font-weight').value = overlay.font_weight || 'normal';
+            document.getElementById('font-size').value = overlay.font_size || 24;
+            document.getElementById('font-size-value').textContent = overlay.font_size || 24;
+            document.getElementById('text-color').value = overlay.text_color || '#ffffff';
+            document.getElementById('text-align').value = overlay.text_align || 'left';
+            
+            // Populate sizing controls
+            document.getElementById('text-width').value = overlay.width || 200;
+            document.getElementById('text-width-value').textContent = overlay.width || 200;
+            document.getElementById('line-height').value = overlay.line_height || 1.2;
+            document.getElementById('line-height-value').textContent = parseFloat(overlay.line_height || 1.2).toFixed(1);
+            document.getElementById('letter-spacing').value = overlay.letter_spacing || 0;
+            document.getElementById('letter-spacing-value').textContent = overlay.letter_spacing || 0;
+            
+            // Populate background controls
+            document.getElementById('has-background').checked = overlay.background_color && overlay.background_opacity > 0;
+            if (overlay.background_color) {
+                document.getElementById('background-color').value = overlay.background_color;
+                document.getElementById('background-opacity').value = overlay.background_opacity || 0;
+                document.getElementById('opacity-value').textContent = Math.round((overlay.background_opacity || 0) * 100);
+            }
+            document.getElementById('background-controls').style.display = 
+                document.getElementById('has-background').checked ? 'block' : 'none';
+            
+            // Populate shadow
+            document.getElementById('has-shadow').checked = overlay.has_shadow || false;
+            
+            // Populate gradient controls
+            document.getElementById('has-gradient').checked = overlay.has_gradient || false;
+            if (overlay.gradient_start_color) document.getElementById('gradient-start').value = overlay.gradient_start_color;
+            if (overlay.gradient_end_color) document.getElementById('gradient-end').value = overlay.gradient_end_color;
+            if (overlay.gradient_direction) document.getElementById('gradient-direction').value = overlay.gradient_direction;
+            document.getElementById('gradient-controls').style.display = 
+                document.getElementById('has-gradient').checked ? 'block' : 'none';
+            
+            // Populate glow controls
+            document.getElementById('has-glow').checked = overlay.has_glow || false;
+            if (overlay.glow_color) document.getElementById('glow-color').value = overlay.glow_color;
+            if (overlay.glow_intensity) {
+                document.getElementById('glow-intensity').value = overlay.glow_intensity;
+                document.getElementById('glow-intensity-value').textContent = overlay.glow_intensity;
+            }
+            document.getElementById('glow-controls').style.display = 
+                document.getElementById('has-glow').checked ? 'block' : 'none';
+            
+            // Populate outline controls
+            document.getElementById('has-outline').checked = overlay.has_outline || false;
+            if (overlay.outline_color) document.getElementById('outline-color').value = overlay.outline_color;
+            if (overlay.outline_width) {
+                document.getElementById('outline-width').value = overlay.outline_width;
+                document.getElementById('outline-width-value').textContent = overlay.outline_width;
+            }
+            document.getElementById('outline-controls').style.display = 
+                document.getElementById('has-outline').checked ? 'block' : 'none';
+            
+            // Populate 3D controls
+            document.getElementById('has-3d').checked = overlay.has_3d_effect || false;
+            if (overlay.effect_color) document.getElementById('3d-color').value = overlay.effect_color;
+            if (overlay.effect_depth) {
+                document.getElementById('3d-depth').value = overlay.effect_depth;
+                document.getElementById('3d-depth-value').textContent = overlay.effect_depth;
+            }
+            document.getElementById('3d-controls').style.display = 
+                document.getElementById('has-3d').checked ? 'block' : 'none';
+        }
+    })
+    .catch(error => {
+        console.error('Error loading overlay data:', error);
+        // Fallback: populate from DOM styles
+        document.getElementById('overlay-text').value = overlay.textContent;
+    });
+}
+
+function handleOverlayMouseDown(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const overlay = e.target;
+    const rect = overlay.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+    
+    // Check if click is on resize handle (bottom-right corner, 20x20 area)
+    if (clickX > rect.width - 20 && clickY > rect.height - 20) {
+        startResize(e, overlay);
+    } else {
+        startDrag(e, overlay);
+    }
+}
+
+function startDrag(e, overlay) {
+    isDragging = true;
+    overlay.classList.add('dragging');
+    
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    
+    // Get current position from style (remove % if present)
+    const currentLeft = overlay.style.left || '10%';
+    const currentTop = overlay.style.top || '10%';
+    overlayStartX = parseFloat(currentLeft.replace('%', '')) || 10;
+    overlayStartY = parseFloat(currentTop.replace('%', '')) || 10;
+    
+    // Store original z-index and set higher value during drag
+    overlay.setAttribute('data-original-z', overlay.style.zIndex || '1');
+    overlay.style.zIndex = '1000';
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    // Prevent text selection during drag
+    document.body.style.userSelect = 'none';
+}
+
+function startResize(e, overlay) {
+    isResizing = true;
+    overlay.classList.add('resizing');
+    
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    
+    // Store initial values
+    initialWidth = parseInt(overlay.style.maxWidth) || 200;
+    initialFontSize = parseInt(overlay.style.fontSize) || 24;
+    
+    // Store original z-index and set higher value during resize
+    overlay.setAttribute('data-original-z', overlay.style.zIndex || '1');
+    overlay.style.zIndex = '1000';
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    // Prevent text selection during resize
+    document.body.style.userSelect = 'none';
+}
+
+function handleMouseMove(e) {
+    if (isDragging) {
+        handleDrag(e);
+    } else if (isResizing) {
+        handleResize(e);
+    }
+}
+
+function handleDrag(e) {
+    const overlay = document.querySelector('.text-overlay-element.dragging');
+    if (!overlay) return;
+    
+    // Calculate mouse movement delta
+    const deltaX = e.clientX - dragStartX;
+    const deltaY = e.clientY - dragStartY;
+    
+    // Get container dimensions - use the image container
+    const container = document.getElementById('text-overlays-container');
+    const containerRect = container.getBoundingClientRect();
+    
+    // Convert pixel movement to percentage
+    const deltaXPercent = (deltaX / containerRect.width) * 100;
+    const deltaYPercent = (deltaY / containerRect.height) * 100;
+    
+    // Calculate new position
+    let newX = overlayStartX + deltaXPercent;
+    let newY = overlayStartY + deltaYPercent;
+    
+    // Constrain to container bounds (with some padding for text visibility)
+    newX = Math.max(0, Math.min(85, newX));
+    newY = Math.max(0, Math.min(85, newY));
+    
+    // Apply new position
+    overlay.style.left = newX + '%';
+    overlay.style.top = newY + '%';
+}
+
+function handleResize(e) {
+    const overlay = document.querySelector('.text-overlay-element.resizing');
+    if (!overlay) return;
+    
+    // Calculate mouse movement
+    const deltaX = e.clientX - dragStartX;
+    const deltaY = e.clientY - dragStartY;
+    
+    // Calculate new width (proportional to horizontal movement)
+    const newWidth = Math.max(50, Math.min(600, initialWidth + deltaX));
+    
+    // Calculate new font size (proportional to both movements)
+    const scaleFactor = Math.max(0.5, Math.min(3, 1 + (deltaX + deltaY) / 200));
+    const newFontSize = Math.max(8, Math.min(120, Math.round(initialFontSize * scaleFactor)));
+    
+    // Apply new dimensions
+    overlay.style.maxWidth = newWidth + 'px';
+    overlay.style.fontSize = newFontSize + 'px';
+    
+    // Update form controls if this overlay is selected
+    if (selectedOverlay === overlay) {
+        document.getElementById('text-width').value = newWidth;
+        document.getElementById('text-width-value').textContent = newWidth;
+        document.getElementById('font-size').value = newFontSize;
+        document.getElementById('font-size-value').textContent = newFontSize;
+    }
+}
+
+function handleMouseUp(e) {
+    const overlay = document.querySelector('.text-overlay-element.dragging, .text-overlay-element.resizing');
+    
+    if (isDragging) {
+        const draggingOverlay = document.querySelector('.text-overlay-element.dragging');
+        if (draggingOverlay) {
+            draggingOverlay.classList.remove('dragging');
+            
+            // Restore original z-index
+            draggingOverlay.style.zIndex = draggingOverlay.getAttribute('data-original-z') || '1';
+            
+            // Save new position to database
+            const overlayId = draggingOverlay.getAttribute('data-overlay-id');
+            const newX = parseFloat(draggingOverlay.style.left);
+            const newY = parseFloat(draggingOverlay.style.top);
+            
+            updateOverlayPosition(overlayId, newX, newY);
+        }
+        isDragging = false;
+    }
+    
+    if (isResizing) {
+        const resizingOverlay = document.querySelector('.text-overlay-element.resizing');
+        if (resizingOverlay) {
+            resizingOverlay.classList.remove('resizing');
+            
+            // Restore original z-index
+            resizingOverlay.style.zIndex = resizingOverlay.getAttribute('data-original-z') || '1';
+            
+            // Save new dimensions to database
+            const overlayId = resizingOverlay.getAttribute('data-overlay-id');
+            const newWidth = parseInt(resizingOverlay.style.maxWidth);
+            const newFontSize = parseInt(resizingOverlay.style.fontSize);
+            
+            updateOverlayDimensions(overlayId, newWidth, newFontSize);
+        }
+        isResizing = false;
+    }
+    
+    // Restore text selection
+    document.body.style.userSelect = '';
+    
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+}
+
+function updateOverlayPosition(overlayId, x, y) {
+    fetch(`/makeads/overlay/${overlayId}/update/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            x_position: x,
+            y_position: y
+        })
+    })
+    .catch(error => {
+        console.error('Error updating overlay position:', error);
+    });
+}
+
+function updateOverlayDimensions(overlayId, width, fontSize) {
+    fetch(`/makeads/overlay/${overlayId}/update/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            width: width,
+            font_size: fontSize
+        })
+    })
+    .catch(error => {
+        console.error('Error updating overlay dimensions:', error);
+    });
+}
+
+function updateOverlaysList() {
+    const overlaysList = document.getElementById('overlays-list');
+    if (!overlaysList) return;
+    
+    const overlays = document.querySelectorAll('.text-overlay-element:not(.preview-overlay)');
+    
+    overlaysList.innerHTML = '';
+    overlays.forEach(overlay => {
+        const overlayId = overlay.getAttribute('data-overlay-id');
+        const text = overlay.textContent;
+        
+        const listItem = document.createElement('div');
+        listItem.className = 'overlay-list-item';
+        listItem.innerHTML = `
+            <div class="overlay-preview-text">${text}</div>
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-primary" onclick="selectOverlayById('${overlayId}')" title="Auswählen">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-outline-danger" onclick="deleteOverlay('${overlayId}')" title="Löschen">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+        
+        overlaysList.appendChild(listItem);
+    });
+}
+
+function selectOverlayById(overlayId) {
+    const overlay = document.querySelector(`[data-overlay-id="${overlayId}"]`);
+    if (overlay) {
+        selectOverlay(overlay);
+    }
+}
+
+function deleteOverlay(overlayId) {
+    if (!confirm('Overlay wirklich löschen?')) {
+        return;
+    }
+    
+    fetch(`/makeads/overlay/${overlayId}/delete/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const overlay = document.querySelector(`[data-overlay-id="${overlayId}"]`);
+            if (overlay) {
+                overlay.remove();
+            }
+            updateOverlaysList();
+            showNotification('Overlay wurde gelöscht.', 'success');
+        } else {
+            alert(data.error || 'Fehler beim Löschen des Overlays.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Netzwerkfehler beim Löschen des Overlays.');
+    });
+}
+
+function updateSelectedOverlayLive() {
+    if (!selectedOverlay) return;
+    
+    // Get all current form values
+    const styles = {
+        fontFamily: document.getElementById('font-family').value,
+        fontSize: document.getElementById('font-size').value + 'px',
+        fontWeight: document.getElementById('font-weight').value,
+        textAlign: document.getElementById('text-align').value,
+        maxWidth: document.getElementById('text-width').value + 'px',
+        lineHeight: document.getElementById('line-height').value,
+        letterSpacing: document.getElementById('letter-spacing').value + 'px',
+        cursor: 'move',
+        userSelect: 'none',
+        whiteSpace: 'pre-wrap',
+        wordWrap: 'break-word'
+    };
+    
+    // Reset text color and background first
+    styles.color = document.getElementById('text-color').value;
+    styles.background = 'none';
+    styles.webkitBackgroundClip = 'unset';
+    styles.backgroundClip = 'unset';
+    styles.webkitTextFillColor = 'unset';
+    
+    // Handle gradient (this overrides text color if enabled)
+    if (document.getElementById('has-gradient').checked) {
+        const startColor = document.getElementById('gradient-start').value;
+        const endColor = document.getElementById('gradient-end').value;
+        const direction = document.getElementById('gradient-direction').value;
+        
+        if (direction === 'radial') {
+            styles.background = `radial-gradient(circle, ${startColor}, ${endColor})`;
+        } else {
+            styles.background = `linear-gradient(${direction}, ${startColor}, ${endColor})`;
+        }
+        styles.webkitBackgroundClip = 'text';
+        styles.backgroundClip = 'text';
+        styles.webkitTextFillColor = 'transparent';
+        styles.color = 'transparent';
+    }
+    
+    // Handle background
+    if (document.getElementById('has-background').checked) {
+        const bgColor = document.getElementById('background-color').value;
+        const bgOpacity = document.getElementById('background-opacity').value;
+        const bgRadius = document.getElementById('background-radius') ? document.getElementById('background-radius').value : 4;
+        const rgb = hexToRgb(bgColor);
+        styles.backgroundColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${bgOpacity})`;
+        styles.padding = '8px 12px';
+        styles.borderRadius = bgRadius + 'px';
+    } else {
+        // Keep visual border styling but no text background
+        styles.backgroundColor = 'transparent';
+        styles.padding = '4px 8px'; // Keep some padding for visual border
+        styles.borderRadius = '4px';
+    }
+    
+    // Handle shadows and effects
+    let textShadows = [];
+    
+    // Regular shadow
+    if (document.getElementById('has-shadow').checked) {
+        textShadows.push('2px 2px 4px rgba(0, 0, 0, 0.8)');
+    }
+    
+    // Glow effect
+    if (document.getElementById('has-glow').checked) {
+        const glowColor = document.getElementById('glow-color').value;
+        const glowIntensity = document.getElementById('glow-intensity').value;
+        const rgb = hexToRgb(glowColor);
+        textShadows.push(`0 0 ${glowIntensity}px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.8)`);
+    }
+    
+    // 3D effect
+    if (document.getElementById('has-3d').checked) {
+        const threeDColor = document.getElementById('3d-color').value;
+        const threeDDepth = parseInt(document.getElementById('3d-depth').value);
+        for (let i = 1; i <= threeDDepth; i++) {
+            textShadows.push(`${i}px ${i}px 0 ${threeDColor}`);
+        }
+    }
+    
+    // Apply text shadows
+    if (textShadows.length > 0) {
+        styles.textShadow = textShadows.join(', ');
+    } else {
+        styles.textShadow = 'none';
+    }
+    
+    // Handle outline (this should not interfere with gradient)
+    if (document.getElementById('has-outline').checked) {
+        const outlineColor = document.getElementById('outline-color').value;
+        const outlineWidth = document.getElementById('outline-width').value;
+        styles.webkitTextStroke = `${outlineWidth}px ${outlineColor}`;
+        styles.textStroke = `${outlineWidth}px ${outlineColor}`;
+    } else {
+        styles.webkitTextStroke = 'none';
+        styles.textStroke = 'none';
+    }
+    
+    // Apply styles to selected overlay
+    Object.assign(selectedOverlay.style, styles);
+    
+    // Save changes to database after a short delay
+    clearTimeout(window.updateTimeout);
+    window.updateTimeout = setTimeout(() => {
+        saveOverlayChanges();
+    }, 1000);
+}
+
+function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : { r: 0, g: 0, b: 0 };
+}
+
+// Animation Functions
+function applyAnimation() {
+    if (!selectedOverlay) return;
+    
+    const animationType = document.getElementById('animation-type').value;
+    const speed = document.getElementById('animation-speed') ? document.getElementById('animation-speed').value : 1;
+    const intensity = document.getElementById('animation-intensity') ? document.getElementById('animation-intensity').value : 1;
+    const infinite = document.getElementById('animation-infinite') ? document.getElementById('animation-infinite').checked : true;
+    const reverse = document.getElementById('animation-reverse') ? document.getElementById('animation-reverse').checked : false;
+    
+    // Remove existing animations
+    selectedOverlay.classList.remove('text-overlay-animated', 'text-overlay-typewriter');
+    selectedOverlay.style.animation = 'none';
+    selectedOverlay.style.setProperty('--speed', speed + 's');
+    selectedOverlay.style.setProperty('--intensity', intensity);
+    
+    if (animationType === 'none') {
+        return;
+    }
+    
+    let animationName = '';
+    let extraClasses = [];
+    
+    switch (animationType) {
+        case 'pulse':
+            animationName = 'pulse';
+            break;
+        case 'bounce':
+            animationName = 'bounce';
+            break;
+        case 'fade':
+            animationName = 'fadeInOut';
+            break;
+        case 'slide':
+            animationName = 'slideInOut';
+            break;
+        case 'rotate':
+            animationName = 'rotateAnimation';
+            break;
+        case 'scale':
+            animationName = 'scaleAnimation';
+            break;
+        case 'shake':
+            animationName = 'shake';
+            break;
+        case 'glow-pulse':
+            animationName = 'glowPulse';
+            break;
+        case 'typewriter':
+            animationName = 'typewriter';
+            extraClasses.push('text-overlay-typewriter');
+            break;
+        case 'neon-flicker':
+            animationName = 'neonFlicker';
+            break;
+    }
+    
+    if (animationName) {
+        selectedOverlay.classList.add('text-overlay-animated', ...extraClasses);
+        
+        const iterationCount = infinite ? 'infinite' : '1';
+        const direction = reverse ? 'alternate' : 'normal';
+        
+        selectedOverlay.style.animation = `${animationName} ${speed}s ease-in-out ${iterationCount} ${direction}`;
+    }
+}
+
+// API Status Check Function
+function checkAPIStatus() {
+    // Set initial status
+    const apiStatus = document.getElementById('api-status');
+    if (apiStatus) {
+        apiStatus.innerHTML = '<i class="fas fa-spinner fa-spin text-primary me-1"></i>Prüfe API-Status...';
+    }
+    
+    // Get CSRF token safely
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    const headers = {};
+    if (csrfToken) {
+        headers['X-CSRFToken'] = csrfToken.value;
+    }
+    
+    fetch('/makeads/api/check-api-keys/', {
+        method: 'GET',
+        headers: headers
+    })
+    .then(response => {
+        if (response.status === 302 || response.redirected) {
+            throw new Error('Authentifizierung erforderlich - bitte Seite neu laden');
+        }
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        const apiStatus = document.getElementById('api-status');
+        const apiWarning = document.getElementById('api-warning');
+        const apiConfigLink = document.getElementById('api-config-link');
+        const submitButton = document.getElementById('revision-submit-btn');
+        
+        const apiSuccess = document.getElementById('api-success');
+        
+        const billingError = document.getElementById('billing-error');
+        const billingWarning = document.getElementById('billing-warning');
+        const billingMessage = document.getElementById('billing-message');
+        const billingDetail = document.getElementById('billing-detail');
+        const billingWarningMessage = document.getElementById('billing-warning-message');
+        const billingWarningDetail = document.getElementById('billing-warning-detail');
+        
+        // Hide all billing alerts first
+        if (billingError) billingError.style.display = 'none';
+        if (billingWarning) billingWarning.style.display = 'none';
+        
+        if (data.openai) {
+            // Check billing status
+            if (data.billing_status && data.billing_status.status === 'error') {
+                apiStatus.innerHTML = '<i class="fas fa-exclamation-triangle text-warning me-1"></i>OpenAI Billing-Problem';
+                apiWarning.style.display = 'none';
+                apiSuccess.style.display = 'none';
+                billingError.style.display = 'block';
+                billingMessage.textContent = data.billing_status.message;
+                billingDetail.textContent = data.billing_status.detail + '. ';
+                if (submitButton) submitButton.disabled = false; // Allow submission for placeholder generation
+            } else if (data.billing_status && data.billing_status.status === 'warning') {
+                apiStatus.innerHTML = '<i class="fas fa-exclamation-triangle text-warning me-1"></i>OpenAI Guthaben-Warnung';
+                apiWarning.style.display = 'none';
+                apiSuccess.style.display = 'none';
+                billingWarning.style.display = 'block';
+                billingWarningMessage.textContent = data.billing_status.message;
+                billingWarningDetail.textContent = data.billing_status.detail + '. ';
+                if (submitButton) submitButton.disabled = false; // Allow submission for placeholder generation
+            } else {
+                apiStatus.innerHTML = '<i class="fas fa-check text-success me-1"></i>OpenAI verfügbar';
+                apiWarning.style.display = 'none';
+                apiSuccess.style.display = 'block';
+                if (submitButton) submitButton.disabled = false;
+            }
+        } else {
+            apiStatus.innerHTML = '<i class="fas fa-times text-danger me-1"></i>OpenAI nicht konfiguriert';
+            apiWarning.style.display = 'block';
+            apiSuccess.style.display = 'none';
+            if (submitButton) submitButton.disabled = true;
+            
+            // Set config link
+            if (apiConfigLink && data.config_url) {
+                apiConfigLink.href = data.config_url;
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error checking API status:', error);
+        const apiStatus = document.getElementById('api-status');
+        const apiWarning = document.getElementById('api-warning');
+        const apiSuccess = document.getElementById('api-success');
+        const submitButton = document.getElementById('revision-submit-btn');
+        
+        if (apiStatus) {
+            // Check if it's an authentication error
+            if (error.message.includes('Authentifizierung')) {
+                apiStatus.innerHTML = '<i class="fas fa-sign-in-alt text-info me-1"></i>Bitte Seite neu laden';
+            } else {
+                apiStatus.innerHTML = '<i class="fas fa-exclamation text-warning me-1"></i>Verbindungsfehler';
+            }
+        }
+        
+        // Log detailed error for debugging
+        console.error('API Status Check Details:', {
+            error: error.message,
+            url: '/makeads/api/check-api-keys/',
+            timestamp: new Date().toISOString()
+        });
+        
+        // For auth errors, assume user is logged in and enable functionality
+        if (error.message.includes('Authentifizierung')) {
+            // Show success message with note about reload
+            if (apiSuccess) {
+                apiSuccess.style.display = 'block';
+                apiSuccess.innerHTML = '<i class="fas fa-info-circle me-2"></i><strong>API-Status:</strong> Seite neu laden für aktuelle Prüfung. Creative-Überarbeitung ist verfügbar.';
+            }
+            if (apiWarning) apiWarning.style.display = 'none';
+            if (submitButton) submitButton.disabled = false;
+        } else {
+            // Show warning and disable button on real connection error
+            if (apiWarning) apiWarning.style.display = 'block';
+            if (apiSuccess) apiSuccess.style.display = 'none';
+            if (submitButton) submitButton.disabled = true;
+        }
+        
+        // Hide billing alerts
+        const billingError = document.getElementById('billing-error');
+        const billingWarning = document.getElementById('billing-warning');
+        if (billingError) billingError.style.display = 'none';
+        if (billingWarning) billingWarning.style.display = 'none';
+    });
+}
+
+// GIF Export Function  
+async function exportAsGIF() {
+    if (!selectedOverlay) {
+        alert('Bitte wählen Sie zuerst ein Text-Overlay aus.');
+        return;
+    }
+    
+    const button = document.querySelector('[onclick="exportAsGIF()"]');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Erstelle GIF...';
+    button.disabled = true;
+    
+    try {
+        // Import GIF library (we'll need to add this to the head)
+        if (!window.GIF) {
+            // Load gif.js dynamically
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.min.js';
+            document.head.appendChild(script);
+            
+            await new Promise((resolve) => {
+                script.onload = resolve;
+            });
+        }
+        
+        // Create canvas for the overlay area
+        const overlayContainer = document.getElementById('text-overlays-container');
+        const canvas = document.createElement('canvas');
+        const rect = overlayContainer.getBoundingClientRect();
+        canvas.width = 400;
+        canvas.height = 300;
+        const ctx = canvas.getContext('2d');
+        
+        // Create GIF
+        const gif = new GIF({
+            workers: 2,
+            quality: 10,
+            width: canvas.width,
+            height: canvas.height
+        });
+        
+        // Capture 30 frames (3 seconds at 10 FPS)
+        const frameCount = 30;
+        const frameDuration = 100;
+        
+        for (let i = 0; i < frameCount; i++) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw semi-transparent background
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Simulate animation frame
+            const progress = i / frameCount;
+            const animationType = document.getElementById('animation-type').value;
+            const intensity = parseFloat(document.getElementById('animation-intensity').value || 1);
+            
+            // Position text in center
+            let x = canvas.width / 2;
+            let y = canvas.height / 2;
+            
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = `${selectedOverlay.style.fontWeight || 'normal'} ${parseInt(selectedOverlay.style.fontSize) || 24}px ${selectedOverlay.style.fontFamily || 'Arial'}`;
+            ctx.fillStyle = selectedOverlay.style.color || '#ffffff';
+            
+            // Apply animation transformations
+            switch (animationType) {
+                case 'pulse':
+                    const pulseScale = 1 + (Math.sin(progress * Math.PI * 4) * 0.2 * intensity);
+                    ctx.scale(pulseScale, pulseScale);
+                    break;
+                case 'bounce':
+                    const bounceY = Math.abs(Math.sin(progress * Math.PI * 6)) * -30 * intensity;
+                    y += bounceY;
+                    break;
+                case 'fade':
+                    ctx.globalAlpha = 0.3 + (Math.sin(progress * Math.PI * 4) * 0.7);
+                    break;
+                case 'rotate':
+                    ctx.translate(x, y);
+                    ctx.rotate((progress * 2 * Math.PI) * intensity);
+                    x = 0;
+                    y = 0;
+                    break;
+                case 'shake':
+                    x += (Math.random() - 0.5) * 10 * intensity;
+                    y += (Math.random() - 0.5) * 10 * intensity;
+                    break;
+            }
+            
+            // Draw text
+            const text = selectedOverlay.textContent || 'Sample Text';
+            ctx.fillText(text, x, y);
+            
+            ctx.restore();
+            
+            // Add frame to GIF
+            gif.addFrame(canvas, {delay: frameDuration});
+        }
+        
+        // Render GIF
+        gif.on('finished', function(blob) {
+            // Download GIF
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `text-overlay-animation-${Date.now()}.gif`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showNotification('GIF erfolgreich erstellt und heruntergeladen! 🎬', 'success');
+        });
+        
+        gif.render();
+        
+    } catch (error) {
+        console.error('Error creating GIF:', error);
+        showNotification('Fehler beim Erstellen des GIFs: ' + error.message, 'danger');
+    } finally {
+        // Reset button
+        button.innerHTML = originalText;
+        button.disabled = false;
+    }
+}
+
+function saveOverlayChanges() {
+    if (!selectedOverlay) return;
+    
+    const overlayId = selectedOverlay.getAttribute('data-overlay-id');
+    const updateData = {
+        text_content: document.getElementById('overlay-text').value,
+        font_family: document.getElementById('font-family').value,
+        font_size: parseInt(document.getElementById('font-size').value),
+        font_weight: document.getElementById('font-weight').value,
+        text_color: document.getElementById('text-color').value,
+        text_align: document.getElementById('text-align').value,
+        width: parseInt(document.getElementById('text-width').value),
+        line_height: parseFloat(document.getElementById('line-height').value),
+        letter_spacing: parseFloat(document.getElementById('letter-spacing').value),
+        background_color: document.getElementById('has-background').checked ? document.getElementById('background-color').value : null,
+        background_opacity: document.getElementById('has-background').checked ? parseFloat(document.getElementById('background-opacity').value) : 0.0,
+        has_shadow: document.getElementById('has-shadow').checked,
+        
+        // Advanced effects
+        has_gradient: document.getElementById('has-gradient').checked,
+        gradient_start_color: document.getElementById('gradient-start').value,
+        gradient_end_color: document.getElementById('gradient-end').value,
+        gradient_direction: document.getElementById('gradient-direction').value,
+        has_glow: document.getElementById('has-glow').checked,
+        glow_color: document.getElementById('glow-color').value,
+        glow_intensity: parseInt(document.getElementById('glow-intensity').value),
+        has_outline: document.getElementById('has-outline').checked,
+        outline_color: document.getElementById('outline-color').value,
+        outline_width: parseFloat(document.getElementById('outline-width').value),
+        has_3d_effect: document.getElementById('has-3d').checked,
+        effect_color: document.getElementById('3d-color').value,
+        effect_depth: parseInt(document.getElementById('3d-depth').value)
+    };
+    
+    fetch(`/makeads/overlay/${overlayId}/update/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+    })
+    .catch(error => {
+        console.error('Error saving overlay changes:', error);
+    });
+}
+
+function updateOverlayPreview() {
+    // Legacy function - now handled by updateSelectedOverlayLive
+    updateSelectedOverlayLive();
+}
+
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 1060; max-width: 300px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 4000);
+}
+
 function toggleFavorite(creativeId) {
     fetch(`/makeads/creative/${creativeId}/toggle-favorite/`, {
         method: 'POST',
@@ -217,23 +3012,191 @@ function toggleFavorite(creativeId) {
 }
 
 function copyToClipboard(text) {
-    navigator.clipboard.writeText(text).then(function() {
-        // Feedback anzeigen
+    // Fallback function for older browsers or insecure contexts
+    function fallbackCopyTextToClipboard(text) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        
+        // Make the textarea out of viewport
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            const successful = document.execCommand('copy');
+            document.body.removeChild(textArea);
+            return successful;
+        } catch (err) {
+            console.error('Fallback: Oops, unable to copy', err);
+            document.body.removeChild(textArea);
+            return false;
+        }
+    }
+    
+    function showCopySuccess() {
         const button = event.target.closest('button');
         const originalText = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-check me-2"></i>Kopiert!';
-        button.classList.remove('btn-outline-secondary');
+        
+        // Button visuell ändern
+        button.innerHTML = '<i class="fas fa-check me-1"></i>Kopiert!';
+        button.classList.remove('btn-light');
         button.classList.add('btn-success');
         
+        // Toast-Nachricht anzeigen
+        const toast = document.getElementById('copy-success-toast');
+        if (toast) {
+            toast.style.display = 'block';
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(-50%) scale(0.8)';
+            
+            // Animation einblenden
+            setTimeout(() => {
+                toast.style.transition = 'all 0.3s ease-out';
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateY(-50%) scale(1)';
+            }, 50);
+            
+            // Toast nach 2 Sekunden ausblenden
+            setTimeout(() => {
+                toast.style.transition = 'all 0.3s ease-in';
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-50%) scale(0.8)';
+                setTimeout(() => {
+                    toast.style.display = 'none';
+                }, 300);
+            }, 2000);
+        }
+        
+        // Button nach 2.5 Sekunden zurücksetzen
         setTimeout(() => {
             button.innerHTML = originalText;
             button.classList.remove('btn-success');
-            button.classList.add('btn-outline-secondary');
-        }, 2000);
-    }).catch(function(err) {
-        console.error('Could not copy text: ', err);
-        alert('Fehler beim Kopieren des Textes');
-    });
+            button.classList.add('btn-light');
+        }, 2500);
+    }
+    
+    function showCopyError() {
+        console.error('All copy methods failed');
+        alert('Kopieren nicht möglich. Bitte Text manuell auswählen und kopieren.');
+    }
+    
+    // Try modern clipboard API first
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(function() {
+            showCopySuccess();
+        }).catch(function(err) {
+            console.error('Modern clipboard failed, trying fallback: ', err);
+            if (fallbackCopyTextToClipboard(text)) {
+                showCopySuccess();
+            } else {
+                showCopyError();
+            }
+        });
+    } else {
+        // Fallback for HTTP or older browsers
+        if (fallbackCopyTextToClipboard(text)) {
+            showCopySuccess();
+        } else {
+            showCopyError();
+        }
+    }
+}
+
+function downloadImage(imageUrl, filename) {
+    // Show download feedback
+    const button = event.target.closest('a');
+    const originalContent = button.innerHTML;
+    
+    // Handle base64 SVG images
+    if (imageUrl.startsWith('data:image/svg+xml;base64,')) {
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        button.classList.add('btn-primary');
+        
+        // Create a link element
+        const link = document.createElement('a');
+        link.href = imageUrl;
+        link.download = filename + '.svg';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Success feedback
+        setTimeout(() => {
+            button.innerHTML = '<i class="fas fa-check"></i>';
+            button.classList.remove('btn-primary');
+            button.classList.add('btn-success');
+            
+            setTimeout(() => {
+                button.innerHTML = originalContent;
+                button.classList.remove('btn-success');
+                button.classList.add('btn-light');
+            }, 1500);
+        }, 300);
+        return;
+    }
+    
+    // Handle regular image URLs
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    button.classList.add('btn-primary');
+    
+    fetch(imageUrl)
+        .then(response => response.blob())
+        .then(blob => {
+            // Create blob URL
+            const blobUrl = URL.createObjectURL(blob);
+            
+            // Create download link
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            
+            // Determine file extension from URL or use .png as default
+            const extension = imageUrl.split('.').pop().split('?')[0] || 'png';
+            link.download = filename + '.' + extension;
+            
+            document.body.appendChild(link);
+            link.click();
+            
+            // Clean up
+            document.body.removeChild(link);
+            URL.revokeObjectURL(blobUrl);
+            
+            // Success feedback
+            button.innerHTML = '<i class="fas fa-check"></i>';
+            button.classList.remove('btn-primary');
+            button.classList.add('btn-success');
+            
+            setTimeout(() => {
+                button.innerHTML = originalContent;
+                button.classList.remove('btn-success');
+                button.classList.add('btn-light');
+            }, 1500);
+        })
+        .catch(error => {
+            console.error('Download failed:', error);
+            
+            // Error feedback
+            button.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+            button.classList.remove('btn-primary');
+            button.classList.add('btn-danger');
+            
+            // Fallback: try direct download
+            const link = document.createElement('a');
+            link.href = imageUrl;
+            link.download = filename + '.png';
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            setTimeout(() => {
+                button.innerHTML = originalContent;
+                button.classList.remove('btn-danger');
+                button.classList.add('btn-light');
+            }, 2000);
+        });
 }
 
 function downloadCreative() {
