@@ -12,6 +12,9 @@ urlpatterns = [
     # Phase 1: Basic stream capture
     path('aufnahme/', views.recording_studio, name='recording_studio'),
     
+    # Self-Contained Version (for deployment debugging)
+    path('aufnahme-self-contained/', views.recording_studio_self_contained, name='recording_studio_self_contained'),
+    
     # API endpoints for stream management
     path('api/test-camera/', views.test_camera_access, name='test_camera_access'),
     path('api/test-screen/', views.test_screen_access, name='test_screen_access'),
