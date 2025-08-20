@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}StreamRec - Multi-Stream Video Aufnahme{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header Section -->
+            <div class="mb-4">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h2 class="display-6 fw-bold text-gradient mb-2">
+                            <i class="fas fa-video-camera text-primary me-2"></i>
+                            StreamRec Studio
+                        </h2>
+                        <p class="text-muted lead">Multi-Stream Video Aufnahme mit WebRTC Technologie</p>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-primary fs-6 px-3 py-2">Phase {{ phase }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Start Card -->
+            <div class="row mb-4">
+                <div class="col-12 col-lg-8">
+                    <div class="card border-0 shadow-lg">
+                        <div class="card-header bg-gradient-primary text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-rocket me-2"></i>
+                                Schnellstart - Aufnahme Studio
+                            </h5>
+                        </div>
+                        <div class="card-body p-4">
+                            <p class="card-text mb-4">
+                                Erstellen Sie professionelle Multi-Stream Videoaufnahmen direkt in Ihrem Browser. 
+                                Kombinieren Sie Kamera, Bildschirm und mehrere Monitore in einem 9:16 Format für Social Media.
+                            </p>
+                            
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+                                <a href="{% url 'streamrec:recording_studio' %}" 
+                                   class="btn btn-primary btn-lg px-4 py-3">
+                                    <i class="fas fa-play-circle me-2"></i>
+                                    Aufnahme starten
+                                </a>
+                                <button class="btn btn-outline-secondary btn-lg px-4 py-3" 
+                                        data-bs-toggle="modal" data-bs-target="#featuresModal">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Features ansehen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Features Overview -->
+                <div class="col-12 col-lg-4">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">
+                                <i class="fas fa-list-check me-2"></i>
+                                Verfügbare Features
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-group list-group-flush">
+                                {% for feature in features %}
+                                <li class="list-group-item border-0 ps-0">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    {{ feature }}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Technical Requirements -->
+            <div class="row">
+                <div class="col-12 col-md-6">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0">
+                                <i class="fas fa-cog me-2"></i>
+                                Systemanforderungen
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-6">
+                                    <h6 class="text-muted">Browser</h6>
+                                    <ul class="list-unstyled">
+                                        <li><i class="fab fa-chrome text-warning"></i> Chrome 90+</li>
+                                        <li><i class="fab fa-firefox text-orange"></i> Firefox 88+</li>
+                                        <li><i class="fab fa-safari text-primary"></i> Safari 14+</li>
+                                    </ul>
+                                </div>
+                                <div class="col-6">
+                                    <h6 class="text-muted">Features</h6>
+                                    <ul class="list-unstyled">
+                                        <li><i class="fas fa-camera text-success"></i> WebRTC</li>
+                                        <li><i class="fas fa-desktop text-info"></i> Screen Capture</li>
+                                        <li><i class="fas fa-microphone text-danger"></i> Audio Recording</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-md-6">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0">
+                                <i class="fas fa-clock me-2"></i>
+                                Aufnahme-Limits
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <div class="border-end">
+                                        <h4 class="text-primary mb-0">3</h4>
+                                        <small class="text-muted">Minuten<br>Max. Länge</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="border-end">
+                                        <h4 class="text-success mb-0">9:16</h4>
+                                        <small class="text-muted">Format<br>Portrait</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <h4 class="text-info mb-0">∞</h4>
+                                    <small class="text-muted">Streams<br>Unbegrenzt</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Features Modal -->
+<div class="modal fade" id="featuresModal" tabindex="-1" aria-labelledby="featuresModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="featuresModalLabel">
+                    <i class="fas fa-star me-2"></i>
+                    StreamRec Features & Roadmap
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-success">✅ Phase 1 (Aktuell)</h6>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item">Stream-Erfassung (Kamera + Bildschirm)</li>
+                            <li class="list-group-item">Live-Vorschau</li>
+                            <li class="list-group-item">Multi-Monitor Support</li>
+                            <li class="list-group-item">Canvas Composition</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-warning">🚧 Phase 2-4 (Geplant)</h6>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item">Drag & Drop Layout</li>
+                            <li class="list-group-item">MediaRecorder Integration</li>
+                            <li class="list-group-item">Video Export (MP4)</li>
+                            <li class="list-group-item">Erweiterte German UI</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                <a href="{% url 'streamrec:recording_studio' %}" class="btn btn-primary">
+                    <i class="fas fa-rocket me-1"></i>
+                    Jetzt ausprobieren
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.text-gradient {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+</style>
+{% endblock %}

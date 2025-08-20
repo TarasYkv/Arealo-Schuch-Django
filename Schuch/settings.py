@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     'email_templates',
     'somi_plan',
     'makeads',
+    'streamrec',
 ]
 
 

@@ -1,0 +1,1275 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}StreamRec - Professionelles Aufnahme Studio{% endblock %}
+
+{% block page_css %}
+<link rel="stylesheet" href="{% static 'streamrec/css/streamrec.css' %}">
+<style>
+/* Enhanced Studio Styles */
+.studio-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    min-height: 100vh;
+    padding: 2rem 0;
+}
+
+.studio-header {
+    background: var(--streamrec-primary);
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    border-radius: 0 0 2rem 2rem;
+    box-shadow: var(--streamrec-shadow);
+}
+
+.control-panel {
+    background: white;
+    border-radius: var(--streamrec-border-radius);
+    box-shadow: var(--streamrec-shadow);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    transition: var(--streamrec-transition);
+}
+
+.control-panel:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(102, 126, 234, 0.2);
+}
+
+.preview-area {
+    background: #1a1a1a;
+    border-radius: var(--streamrec-border-radius);
+    padding: 1rem;
+    box-shadow: var(--streamrec-shadow);
+}
+
+.phase-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 0.5rem 1rem;
+    border-radius: 2rem;
+    font-size: 0.875rem;
+}
+
+.phase-badge {
+    background: white;
+    color: var(--streamrec-primary);
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-weight: 600;
+    font-size: 0.75rem;
+}
+
+/* Fix: Lesbarkeit im Layout-Editor (weiß auf weiß vermeiden) */
+#layoutControls { color: #212529 !important; }
+#layoutControls .layout-preset-card,
+#layoutControls .stream-control { background-color: #ffffff !important; }
+#layoutControls *,
+#layoutControls .stream-control *,
+#layoutControls .layout-preset-card *,
+#layoutControls .layout-info strong,
+#layoutControls .layout-info small,
+#layoutControls .stream-label,
+#layoutControls .form-label,
+#layoutControls small { color: #212529 !important; }
+#layoutControls .form-select,
+#layoutControls .form-control,
+#layoutControls select,
+#layoutControls input,
+#layoutControls textarea { 
+    color: #212529 !important; 
+    background-color: #ffffff !important; 
+    border-color: #ced4da !important;
+}
+
+/* Dark-Mode Anpassung */
+body.bg-dark #layoutControls { color: #ffffff !important; }
+body.bg-dark #layoutControls .layout-preset-card,
+body.bg-dark #layoutControls .stream-control { 
+    background-color: #495057 !important; 
+    color: #ffffff !important; 
+    border-color: #6c757d !important; 
+}
+body.bg-dark #layoutControls *,
+body.bg-dark #layoutControls .stream-control *,
+body.bg-dark #layoutControls .layout-preset-card *,
+body.bg-dark #layoutControls .layout-info strong,
+body.bg-dark #layoutControls .layout-info small,
+body.bg-dark #layoutControls .stream-label,
+body.bg-dark #layoutControls .form-label,
+body.bg-dark #layoutControls small { color: #ffffff !important; }
+body.bg-dark #layoutControls .form-select,
+body.bg-dark #layoutControls .form-control,
+body.bg-dark #layoutControls select,
+body.bg-dark #layoutControls input,
+body.bg-dark #layoutControls textarea {
+    color: #ffffff !important;
+    background-color: #343a40 !important;
+    border-color: #6c757d !important;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="studio-container">
+    <!-- Enhanced Header -->
+    <div class="studio-header">
+        <div class="container-fluid">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="display-5 fw-bold mb-2">
+                        <i class="fas fa-video-camera me-3"></i>
+                        StreamRec Studio
+                    </h1>
+                    <p class="lead mb-0">Professionelle Multi-Stream Video Aufnahme</p>
+                    <div class="phase-indicator mt-3">
+                        <i class="fas fa-rocket"></i>
+                        <span>Vollversion</span>
+                        <div class="phase-badge">Phase 1-4 Aktiv</div>
+                    </div>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <div class="studio-stats">
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <div class="stat-value">3:00</div>
+                                <div class="stat-label">Max. Dauer</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="stat-value">9:16</div>
+                                <div class="stat-label">Format</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="stat-value" id="activeStreams">0</div>
+                                <div class="stat-label">Streams</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Enhanced Control Panel -->
+            <div class="col-12 col-xl-4">
+                <!-- Stream Controls -->
+                <div class="control-panel">
+                    <h5 class="text-gradient mb-4">
+                        <i class="fas fa-sliders-h me-2"></i>
+                        Stream Kontrolle
+                    </h5>
+                    
+                    <!-- Camera Section -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0">
+                                <i class="fas fa-camera text-success me-2"></i>Kamera
+                            </h6>
+                            <div class="status-indicator" id="cameraStatusBadge">
+                                <i class="fas fa-circle text-secondary"></i>
+                            </div>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button id="startCameraBtn" class="btn btn-outline-success streamrec-btn">
+                                <i class="fas fa-play me-2"></i>Kamera starten
+                            </button>
+                            <button id="stopCameraBtn" class="btn btn-outline-danger streamrec-btn" disabled>
+                                <i class="fas fa-stop me-2"></i>Kamera stoppen
+                            </button>
+                        </div>
+                        <small id="cameraStatus" class="text-muted d-block mt-2">Status: Nicht aktiv</small>
+                    </div>
+
+                    <!-- Screen Section -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0">
+                                <i class="fas fa-desktop text-info me-2"></i>Bildschirm
+                            </h6>
+                            <div class="status-indicator" id="screenStatusBadge">
+                                <i class="fas fa-circle text-secondary"></i>
+                            </div>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button id="startScreenBtn" class="btn btn-outline-info streamrec-btn">
+                                <i class="fas fa-desktop me-2"></i>Bildschirm teilen
+                            </button>
+                            <button id="stopScreenBtn" class="btn btn-outline-danger streamrec-btn" disabled>
+                                <i class="fas fa-stop me-2"></i>Bildschirm stoppen
+                            </button>
+                            <button id="addScreenBtn" class="btn btn-outline-info streamrec-btn">
+                                <i class="fas fa-window-restore me-2"></i>Weiteres Fenster/Monitor hinzufügen
+                            </button>
+                        </div>
+                        <small id="screenStatus" class="text-muted d-block mt-2">Status: Nicht aktiv</small>
+                    </div>
+
+                    <!-- Composition Controls -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0">
+                                <i class="fas fa-palette text-warning me-2"></i>Komposition
+                            </h6>
+                            <div class="status-indicator" id="compositionStatusBadge">
+                                <i class="fas fa-circle text-secondary"></i>
+                            </div>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button id="startCompositionBtn" class="btn btn-outline-warning streamrec-btn" disabled>
+                                <i class="fas fa-layer-group me-2"></i>Komposition starten
+                            </button>
+                            <button id="stopCompositionBtn" class="btn btn-outline-danger streamrec-btn" disabled>
+                                <i class="fas fa-stop me-2"></i>Komposition stoppen
+                            </button>
+                        </div>
+                        <small id="compositionStatus" class="text-muted d-block mt-2">Status: Nicht aktiv</small>
+                    </div>
+                </div>
+
+                <!-- Phase 2: Layout Manager -->
+                <div class="control-panel" id="layoutControls">
+                    <h5 class="text-gradient mb-4">
+                        <i class="fas fa-th-large me-2"></i>
+                        Layout Manager
+                        <span class="badge bg-primary ms-2">Phase 2</span>
+                    </h5>
+                    <!-- Layout controls will be dynamically generated here -->
+                </div>
+
+                <!-- System Information -->
+                <div class="control-panel">
+                    <h5 class="text-gradient mb-4">
+                        <i class="fas fa-info-circle me-2"></i>
+                        System Information
+                    </h5>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="system-info-item">
+                                <small class="text-muted">Browser:</small>
+                                <div id="browserInfo" class="fw-bold">-</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="system-info-item">
+                                <small class="text-muted">WebRTC:</small>
+                                <div id="webrtcSupport" class="fw-bold">-</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="system-info-item">
+                                <small class="text-muted">Canvas:</small>
+                                <div id="canvasSupport" class="fw-bold">-</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="system-info-item">
+                                <small class="text-muted">Recording:</small>
+                                <div id="mediaRecorderSupport" class="fw-bold">-</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="performanceMetrics" class="mt-3 text-center">
+                        <small class="text-muted">Performance wird überwacht...</small>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="control-panel">
+                    <h5 class="text-gradient mb-4">
+                        <i class="fas fa-bolt me-2"></i>
+                        Schnellaktionen
+                    </h5>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary streamrec-btn" onclick="window.location.reload()">
+                            <i class="fas fa-redo me-2"></i>Neu laden
+                        </button>
+                        <button class="btn btn-outline-secondary streamrec-btn" data-bs-toggle="modal" data-bs-target="#settingsModal">
+                            <i class="fas fa-cog me-2"></i>Einstellungen
+                        </button>
+                        <a href="{% url 'streamrec:dashboard' %}" class="btn btn-outline-info streamrec-btn">
+                            <i class="fas fa-arrow-left me-2"></i>Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Enhanced Preview Area -->
+            <div class="col-12 col-xl-8">
+                <div class="preview-area">
+                    <!-- Preview Header -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="text-white mb-0">
+                            <i class="fas fa-eye me-2"></i>
+                            Live Vorschau ({{ canvas_aspect_ratio }})
+                        </h5>
+                        <div class="preview-controls">
+                            <button class="btn btn-sm btn-outline-light me-2" id="fullscreenBtn">
+                                <i class="fas fa-expand"></i>
+                            </button>
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-sm btn-outline-light" id="gridToggle">
+                                    <i class="fas fa-th"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-light" id="zoomFit">
+                                    <i class="fas fa-compress-arrows-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Canvas Container -->
+                    <div id="previewContainer" class="position-relative d-flex align-items-center justify-content-center" 
+                         style="height: 600px; border-radius: var(--streamrec-border-radius); overflow: hidden;">
+                        
+                        <canvas id="compositionCanvas" 
+                                width="360" 
+                                height="640" 
+                                class="border border-secondary"
+                                style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                        </canvas>
+                        
+                        <!-- No Content Overlay -->
+                        <div id="noContentOverlay" class="position-absolute top-50 start-50 translate-middle text-center text-white">
+                            <div class="mb-4">
+                                <i class="fas fa-video fa-4x mb-3 opacity-25"></i>
+                                <h4>Keine Streams aktiv</h4>
+                                <p class="text-muted">Starten Sie Kamera oder Bildschirm-Sharing um zu beginnen</p>
+                            </div>
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                                <button class="btn btn-success" onclick="document.getElementById('startCameraBtn').click()">
+                                    <i class="fas fa-camera me-2"></i>Kamera starten
+                                </button>
+                                <button class="btn btn-info" onclick="document.getElementById('startScreenBtn').click()">
+                                    <i class="fas fa-desktop me-2"></i>Bildschirm teilen
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Recording Indicator -->
+                        <div id="recordingIndicator" class="position-absolute top-0 start-0 m-3" style="display: none;">
+                            <div class="d-flex align-items-center bg-danger text-white px-3 py-2 rounded-pill">
+                                <div class="recording-dot me-2"></div>
+                                <span class="fw-bold">REC</span>
+                                <span class="ms-2" id="recordingTime">00:00</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Stream Thumbnails -->
+                    <div class="mt-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="text-white mb-0">Aktive Streams:</h6>
+                            <div class="stream-controls-mini">
+                                <button class="btn btn-sm btn-outline-light" id="syncStreams" title="Streams synchronisieren">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="streamThumbnails" class="d-flex gap-3 flex-wrap">
+                            <div id="noStreamsMessage" class="text-muted text-center flex-grow-1 py-4">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Noch keine Streams erfasst
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Phase 3: Recording Controls (will be dynamically added) -->
+                <div id="recordingControlsContainer">
+                    <!-- Recording controls will be added here by RecordingEngine -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="settingsModalLabel">
+                    <i class="fas fa-cog me-2"></i>StreamRec Einstellungen
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Video-Einstellungen</h6>
+                        <div class="mb-3">
+                            <label class="form-label">Auflösung:</label>
+                            <select class="form-select" id="resolutionSetting">
+                                <option value="1080p">1080p (Full HD)</option>
+                                <option value="720p" selected>720p (HD)</option>
+                                <option value="480p">480p (SD)</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Framerate:</label>
+                            <select class="form-select" id="framerateSetting">
+                                <option value="30" selected>30 FPS</option>
+                                <option value="25">25 FPS</option>
+                                <option value="24">24 FPS</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Audio-Einstellungen</h6>
+                        <div class="mb-3">
+                            <label class="form-label">Mikrofon:</label>
+                            <select class="form-select" id="microphoneSetting">
+                                <option value="default">Standard-Mikrofon</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">System-Audio:</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="systemAudio" checked>
+                                <label class="form-check-label" for="systemAudio">
+                                    System-Audio mitaufnehmen
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="row">
+                    <div class="col-12">
+                        <h6>Erweiterte Einstellungen</h6>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="autoSave" checked>
+                            <label class="form-check-label" for="autoSave">
+                                Einstellungen automatisch speichern
+                            </label>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="showNotifications" checked>
+                            <label class="form-check-label" for="showNotifications">
+                                Benachrichtigungen anzeigen
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="darkMode">
+                            <label class="form-check-label" for="darkMode">
+                                Dunkler Modus (experimentell)
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="saveSettings">
+                    <i class="fas fa-save me-2"></i>Speichern
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script src="{% static 'streamrec/js/phase2-layout-manager.js' %}"></script>
+<script src="{% static 'streamrec/js/phase3-recording.js' %}"></script>
+<script src="{% static 'streamrec/js/phase4-german-ui.js' %}"></script>
+
+<script>
+/**
+ * Enhanced StreamRec - All Phases Integration
+ */
+class StreamRecorder {
+    constructor() {
+        this.streams = new Map();
+        this.canvas = null;
+        this.ctx = null;
+        this.isComposing = false;
+        this.animationFrame = null;
+        this.init();
+    }
+
+    init() {
+        this.canvas = document.getElementById('compositionCanvas');
+        if (!this.canvas) {
+            console.error('❌ Canvas nicht gefunden');
+            return;
+        }
+        
+        this.ctx = this.canvas.getContext('2d');
+        this.setupEventListeners();
+        this.checkBrowserSupport();
+        console.log('✅ StreamRecorder initialisiert');
+    }
+
+    setupEventListeners() {
+        // Camera controls
+        document.getElementById('startCameraBtn')?.addEventListener('click', () => this.startCamera());
+        document.getElementById('stopCameraBtn')?.addEventListener('click', () => this.stopCamera());
+        
+        // Screen controls
+        document.getElementById('startScreenBtn')?.addEventListener('click', () => this.startScreen());
+        document.getElementById('stopScreenBtn')?.addEventListener('click', () => this.stopScreen());
+        document.getElementById('addScreenBtn')?.addEventListener('click', () => this.startScreen());
+        
+        // Composition controls
+        document.getElementById('startCompositionBtn')?.addEventListener('click', () => this.startComposition());
+        document.getElementById('stopCompositionBtn')?.addEventListener('click', () => this.stopComposition());
+    }
+
+    startComposition() {
+        if (this.streams.size === 0) {
+            alert('Keine Streams verfügbar für Komposition');
+            return;
+        }
+        
+        this.isComposing = true;
+        this.updateStatus('composition', 'Aktiv', 'success');
+        this.updateButtons('composition', true);
+        this.renderComposition();
+        console.log('✅ Live Composition gestartet');
+    }
+
+    checkBrowserSupport() {
+        const support = {
+            getUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+            getDisplayMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia),
+            canvas: !!(this.canvas && this.ctx),
+            mediaRecorder: !!(window.MediaRecorder)
+        };
+
+        // Update UI
+        document.getElementById('browserInfo').textContent = this.getBrowserInfo();
+        document.getElementById('webrtcSupport').textContent = support.getUserMedia ? '✅' : '❌';
+        document.getElementById('canvasSupport').textContent = support.canvas ? '✅' : '❌';
+        document.getElementById('mediaRecorderSupport').textContent = support.mediaRecorder ? '✅' : '❌';
+        
+        console.log('🔍 Browser Support:', support);
+        return support;
+    }
+
+    getBrowserInfo() {
+        const ua = navigator.userAgent;
+        if (ua.includes('Chrome')) return 'Chrome';
+        if (ua.includes('Firefox')) return 'Firefox';
+        if (ua.includes('Safari')) return 'Safari';
+        return 'Unbekannt';
+    }
+
+    // Base camera methods that will be overridden by EnhancedStreamRecorder
+    async startCamera() {
+        console.log('Base startCamera method - should be overridden');
+    }
+
+    stopCamera() {
+        console.log('Base stopCamera method - should be overridden');
+    }
+
+    async startScreen() {
+        console.log('Base startScreen method - should be overridden');
+    }
+
+    stopScreen() {
+        console.log('Base stopScreen method - should be overridden');
+    }
+
+    stopComposition() {
+        console.log('Base stopComposition method - should be overridden');
+    }
+
+    // Base helper methods
+    updateStatus(type, message, variant) {
+        console.log(`Status update: ${type} - ${message}`);
+    }
+
+    updateButtons(type, active) {
+        console.log(`Button update: ${type} - ${active}`);
+    }
+
+    renderComposition() {
+        console.log('Base renderComposition method - should be overridden');
+    }
+}
+
+class EnhancedStreamRecorder extends StreamRecorder {
+    constructor() {
+        super();
+        this.layoutManager = null;
+        this.recordingEngine = null;
+        this.germanUI = null;
+        
+        // Initialize all phases
+        this.initializePhase2();
+        this.initializePhase3();
+        this.initializePhase4();
+        
+        this.setupEnhancedFeatures();
+    }
+
+    initializePhase2() {
+        // Initialize Layout Manager (Phase 2)
+        if (typeof LayoutManager !== 'undefined') {
+            this.layoutManager = new LayoutManager(this);
+            console.log('✅ Phase 2: Layout Manager initialisiert');
+            // Wähle ein sinnvolles Standard-Layout, damit der Nutzer sofort Wirkung sieht
+            if (this.layoutManager.applyLayout) {
+                this.layoutManager.applyLayout('pip-top-right');
+            }
+        }
+    }
+
+    initializePhase3() {
+        // Initialize Recording Engine (Phase 3)
+        if (typeof RecordingEngine !== 'undefined') {
+            this.recordingEngine = new RecordingEngine(this);
+            console.log('✅ Phase 3: Recording Engine initialisiert');
+        }
+    }
+
+    initializePhase4() {
+        // Initialize German UI (Phase 4)
+        if (typeof GermanUI !== 'undefined') {
+            this.germanUI = new GermanUI(this);
+            console.log('✅ Phase 4: German UI initialisiert');
+        }
+    }
+
+    setupEnhancedFeatures() {
+        // Enhanced stream management
+        this.setupStreamSynchronization();
+        
+        // Advanced canvas features
+        this.setupAdvancedCanvas();
+        
+        // Performance monitoring
+        this.startPerformanceMonitoring();
+        
+        // Auto-save settings
+        this.loadUserSettings();
+    }
+
+    // Hilfsfunktion: nächsten Screen-Key bestimmen (screen, screen2, ...)
+    getNextScreenKey() {
+        if (!this.streams.has('screen')) return 'screen';
+        let idx = 2;
+        while (this.streams.has(`screen${idx}`)) idx++;
+        return `screen${idx}`;
+    }
+
+    // Wird vom LayoutManager aufgerufen, um Live-Änderungen zu übernehmen
+    updateCompositionLayout(layout) {
+        // Keine komplexe Logik nötig: renderComposition nutzt immer den aktiven Layout-Manager
+        // Diese Methode existiert, um Fehler zu vermeiden und ggf. zukünftige Hooks zu ermöglichen
+        this.currentLayout = layout;
+        // Wenn bereits Komposition aktiv ist, erzwingen wir ein sofortiges Repaint
+        if (this.isComposing) {
+            this.clearCanvas();
+        }
+    }
+
+    // Override composition rendering to use layout manager
+    renderComposition() {
+        if (!this.isComposing) return;
+
+        this.clearCanvas();
+
+        if (this.layoutManager && this.layoutManager.getActiveLayout()) {
+            // Use layout manager for advanced composition
+            this.layoutManager.applyLayoutToComposition(this.ctx, this.canvas, this.streams);
+        } else {
+            // Fallback to simple composition - render streams directly
+            const streams = Array.from(this.streams.entries());
+            
+            streams.forEach(([type, stream], index) => {
+                const video = this.getVideoElement(type, stream);
+                
+                if (video && video.readyState >= 2) {
+                    // Seitenverhältnis beibehalten (cover)
+                    const drawCover = (dx, dy, dw, dh) => {
+                        const vw = video.videoWidth || 16;
+                        const vh = video.videoHeight || 9;
+                        const videoAspect = vw / vh;
+                        const targetAspect = dw / dh;
+                        let sx = 0, sy = 0, sw = vw, sh = vh;
+                        if (videoAspect > targetAspect) {
+                            // Video zu breit -> Seiten beschneiden
+                            sw = vh * targetAspect;
+                            sx = (vw - sw) / 2;
+                        } else {
+                            // Video zu hoch -> oben/unten beschneiden
+                            sh = vw / targetAspect;
+                            sy = (vh - sh) / 2;
+                        }
+                        this.ctx.drawImage(video, sx, sy, sw, sh, dx, dy, dw, dh);
+                    };
+
+                    if (type === 'screen') {
+                        // Bildschirm als Hintergrund, mit korrektem Fit
+                        drawCover(0, 0, this.canvas.width, this.canvas.height);
+                    } else if (type === 'camera') {
+                        // Kamera als kleines Overlay oben rechts
+                        const overlayWidth = Math.round(this.canvas.width * 0.33);
+                        const overlayHeight = Math.round(overlayWidth * (9/16));
+                        const x = this.canvas.width - overlayWidth - 20;
+                        const y = 20;
+                        // Border
+                        this.ctx.strokeStyle = '#fff';
+                        this.ctx.lineWidth = 2;
+                        this.ctx.strokeRect(x - 2, y - 2, overlayWidth + 4, overlayHeight + 4);
+                        drawCover(x, y, overlayWidth, overlayHeight);
+                    }
+                }
+            });
+        }
+
+        // Update recording indicator
+        this.updateRecordingIndicator();
+
+        this.animationFrame = requestAnimationFrame(() => this.renderComposition());
+    }
+
+    // Enhanced stream management
+    async startCamera() {
+        try {
+            this.updateStatus('camera', 'Kamera wird gestartet...', 'info');
+            
+            let stream;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        frameRate: { ideal: 30 }
+                    },
+                    audio: true
+                });
+            } catch (err) {
+                console.warn('Kamera mit Audio fehlgeschlagen, versuche ohne Audio...', err);
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        frameRate: { ideal: 30 }
+                    },
+                    audio: false
+                });
+                this.germanUI?.showNotification('warning', 'Ohne Audio', 'Kamera wurde ohne Mikrofon gestartet');
+            }
+
+            this.streams.set('camera', stream);
+            this.updateStatus('camera', 'Aktiv', 'success');
+            this.updateButtons('camera', true);
+            this.addStreamThumbnail('camera', stream);
+            this.checkCompositionReady();
+            // Refresh layout choices according to available streams
+            this.layoutManager?.refreshLayoutSelector?.();
+            
+            this.updateActiveStreamsCount();
+            this.germanUI?.showNotification('success', 'Kamera gestartet', 'Kamera-Stream ist nun aktiv');
+            this.updateStatusBadge('camera', 'success');
+
+            console.log('✅ Kamera-Stream erfolgreich gestartet:', stream);
+        } catch (error) {
+            console.error('❌ Kamera-Zugriff fehlgeschlagen:', error);
+            this.updateStatus('camera', `Fehler: ${error.message}`, 'danger');
+            this.germanUI?.showNotification('error', 'Kamera-Fehler', error.message);
+            this.updateStatusBadge('camera', 'danger');
+            this.showErrorAlert('Kamera-Zugriff verweigert', 'Bitte erlauben Sie den Zugriff auf die Kamera.');
+        }
+    }
+
+    async startScreen() {
+        try {
+            this.updateStatus('screen', 'Bildschirm-Sharing wird gestartet...', 'info');
+            
+            let stream;
+            try {
+                stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: {
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        frameRate: { ideal: 30 },
+                        cursor: 'always'
+                    },
+                    audio: true
+                });
+            } catch (err) {
+                console.warn('Bildschirm-Capture mit Audio fehlgeschlagen, versuche ohne Audio...', err);
+                stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: {
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        frameRate: { ideal: 30 },
+                        cursor: 'always'
+                    },
+                    audio: false
+                });
+                this.germanUI?.showNotification('warning', 'Ohne System-Audio', 'Bildschirm-Sharing ohne System-Audio gestartet');
+            }
+
+            const key = this.getNextScreenKey();
+            this.streams.set(key, stream);
+            this.updateStatus('screen', 'Aktiv', 'success');
+            this.updateButtons('screen', true);
+            this.addStreamThumbnail(key, stream);
+            this.checkCompositionReady();
+            this.layoutManager?.refreshLayoutSelector?.();
+
+            // Handle screen sharing end event
+            stream.getVideoTracks()[0].addEventListener('ended', () => {
+                this.stopScreen(key);
+            });
+            
+            this.updateActiveStreamsCount();
+            this.germanUI?.showNotification('success', 'Bildschirm geteilt', 'Bildschirm-Stream ist nun aktiv');
+            this.updateStatusBadge('screen', 'success');
+
+            console.log('✅ Bildschirm-Stream erfolgreich gestartet:', stream);
+        } catch (error) {
+            console.error('❌ Bildschirm-Capture fehlgeschlagen:', error);
+            this.updateStatus('screen', `Fehler: ${error.message}`, 'danger');
+            this.germanUI?.showNotification('error', 'Bildschirm-Fehler', error.message);
+            this.updateStatusBadge('screen', 'danger');
+            this.showErrorAlert('Bildschirm-Capture fehlgeschlagen', 'Der Bildschirm-Zugriff wurde verweigert oder ist nicht verfügbar.');
+        }
+    }
+
+    startComposition() {
+        super.startComposition();
+        this.updateStatusBadge('composition', 'warning');
+        
+        // Notify recording engine
+        document.dispatchEvent(new CustomEvent('compositionStateChanged', {
+            detail: { isComposing: true }
+        }));
+        
+        this.germanUI?.showNotification('info', 'Komposition aktiv', 'Live-Vorschau wird angezeigt');
+    }
+
+    stopComposition() {
+        super.stopComposition();
+        this.updateStatusBadge('composition', 'secondary');
+        
+        // Notify recording engine
+        document.dispatchEvent(new CustomEvent('compositionStateChanged', {
+            detail: { isComposing: false }
+        }));
+    }
+
+    updateActiveStreamsCount() {
+        const count = this.streams.size;
+        document.getElementById('activeStreams').textContent = count;
+        
+        // Update stream thumbnails display
+        const noStreamsMsg = document.getElementById('noStreamsMessage');
+        if (noStreamsMsg) {
+            noStreamsMsg.style.display = count > 0 ? 'none' : 'block';
+        }
+    }
+
+    updateStatusBadge(type, variant) {
+        const badge = document.getElementById(`${type}StatusBadge`);
+        if (badge) {
+            const icon = badge.querySelector('i');
+            icon.className = `fas fa-circle text-${variant}`;
+            
+            // Add pulse animation for active states
+            if (variant === 'success' || variant === 'warning') {
+                icon.classList.add('fa-pulse');
+            } else {
+                icon.classList.remove('fa-pulse');
+            }
+        }
+    }
+
+    updateRecordingIndicator() {
+        const indicator = document.getElementById('recordingIndicator');
+        const isRecording = this.recordingEngine?.isRecording;
+        
+        if (indicator) {
+            indicator.style.display = isRecording ? 'block' : 'none';
+            
+            if (isRecording) {
+                const duration = this.recordingEngine.getCurrentRecordingDuration();
+                document.getElementById('recordingTime').textContent = 
+                    this.recordingEngine.formatDuration(duration);
+            }
+        }
+    }
+
+    setupStreamSynchronization() {
+        document.getElementById('syncStreams')?.addEventListener('click', () => {
+            // Synchronize all streams
+            this.streams.forEach((stream, type) => {
+                const video = this.getVideoElement(type, stream);
+                if (video) {
+                    video.currentTime = 0;
+                }
+            });
+            
+            this.germanUI?.showNotification('info', 'Synchronisiert', 'Alle Streams wurden synchronisiert');
+        });
+    }
+
+    setupAdvancedCanvas() {
+        const canvas = this.canvas;
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        
+        fullscreenBtn?.addEventListener('click', () => {
+            if (canvas.requestFullscreen) {
+                canvas.requestFullscreen();
+            }
+        });
+        
+        // Grid toggle
+        document.getElementById('gridToggle')?.addEventListener('click', () => {
+            canvas.classList.toggle('show-grid');
+        });
+        
+        // Zoom fit
+        document.getElementById('zoomFit')?.addEventListener('click', () => {
+            canvas.style.objectFit = canvas.style.objectFit === 'contain' ? 'cover' : 'contain';
+        });
+    }
+
+    startPerformanceMonitoring() {
+        setInterval(() => {
+            const metrics = {
+                streams: this.streams.size,
+                composing: this.isComposing,
+                recording: this.recordingEngine?.isRecording || false,
+                memory: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : 0
+            };
+            
+            // Update performance display
+            this.germanUI?.updatePerformanceMetrics();
+            
+            // Log performance data
+            if (metrics.recording) {
+                console.log('📊 Performance:', metrics);
+            }
+        }, 5000);
+    }
+
+    loadUserSettings() {
+        // Load settings from localStorage
+        const settings = localStorage.getItem('streamrec-settings');
+        if (settings) {
+            try {
+                const parsed = JSON.parse(settings);
+                this.applyUserSettings(parsed);
+            } catch (e) {
+                console.warn('Fehler beim Laden der Benutzereinstellungen:', e);
+            }
+        }
+    }
+
+    applyUserSettings(settings) {
+        // Apply resolution setting
+        if (settings.resolution) {
+            // Would be applied to stream constraints
+        }
+        
+        // Apply theme setting
+        if (settings.darkMode) {
+            document.body.setAttribute('data-theme', 'dark');
+        }
+        
+        // Apply notification setting
+        if (settings.showNotifications !== undefined) {
+            this.germanUI.showNotifications = settings.showNotifications;
+        }
+    }
+
+    // Enhanced composition stream capture for recording
+    getCompositionStream(frameRate = 30) {
+        if (!this.isComposing || !this.canvas) return null;
+        
+        try {
+            return this.canvas.captureStream(frameRate);
+        } catch (error) {
+            console.error('❌ Kompositions-Stream konnte nicht erfasst werden:', error);
+            this.germanUI?.showNotification('error', 'Stream-Fehler', 
+                'Kompositions-Stream konnte nicht für Aufnahme erfasst werden');
+            return null;
+        }
+    }
+
+    // Helper methods from original StreamRecorder
+    getVideoElement(type, stream) {
+        let video = document.getElementById(`video-${type}`);
+        if (!video) {
+            video = document.createElement('video');
+            video.id = `video-${type}`;
+            video.srcObject = stream;
+            video.autoplay = true;
+            video.muted = true;
+            video.playsInline = true;
+            video.style.display = 'none';
+            document.body.appendChild(video);
+            // Sicherstellen, dass der Stream tatsächlich startet
+            const tryPlay = () => {
+                const p = video.play();
+                if (p && typeof p.catch === 'function') {
+                    p.catch(err => console.warn('Autoplay blockiert (verstecktes Video) – wird ignoriert:', err));
+                }
+            };
+            if (video.readyState >= 2) {
+                tryPlay();
+            } else {
+                video.onloadedmetadata = () => tryPlay();
+            }
+        }
+        return video;
+    }
+
+    clearCanvas() {
+        this.ctx.fillStyle = '#000000';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Show no content overlay if no streams
+        const hasStreams = this.streams.size > 0;
+        document.getElementById('noContentOverlay').style.display = hasStreams ? 'none' : 'block';
+    }
+
+    updateStatus(type, message, variant) {
+        const statusElement = document.getElementById(`${type}Status`);
+        if (statusElement) {
+            statusElement.textContent = `Status: ${message}`;
+            statusElement.className = `text-${variant}`;
+        }
+    }
+
+    updateButtons(type, active) {
+        const startBtn = document.getElementById(`start${type.charAt(0).toUpperCase() + type.slice(1)}Btn`);
+        const stopBtn = document.getElementById(`stop${type.charAt(0).toUpperCase() + type.slice(1)}Btn`);
+        
+        if (startBtn) startBtn.disabled = active;
+        if (stopBtn) stopBtn.disabled = !active;
+        
+        if (type === 'composition') {
+            const compositionStartBtn = document.getElementById('startCompositionBtn');
+            const compositionStopBtn = document.getElementById('stopCompositionBtn');
+            if (compositionStartBtn) compositionStartBtn.disabled = active;
+            if (compositionStopBtn) compositionStopBtn.disabled = !active;
+        }
+    }
+
+    addStreamThumbnail(type, stream) {
+        const container = document.getElementById('streamThumbnails');
+        const noStreamsMsg = document.getElementById('noStreamsMessage');
+        if (noStreamsMsg) noStreamsMsg.style.display = 'none';
+
+        const thumbnailDiv = document.createElement('div');
+        thumbnailDiv.id = `thumbnail-${type}`;
+        thumbnailDiv.className = 'stream-thumbnail position-relative';
+        
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.autoplay = true;
+        video.muted = true;
+        video.playsInline = true;
+        video.style.width = '80px';
+        video.style.height = '60px';
+        video.style.objectFit = 'cover';
+        video.className = 'rounded border';
+        // Explizit abspielen – Thumbnails sind sichtbar und dürfen autostarten (muted)
+        const playThumb = () => {
+            const p = video.play();
+            if (p && typeof p.catch === 'function') {
+                p.catch(err => console.warn('Autoplay blockiert (Thumbnail) – Benutzerinteraktion erforderlich:', err));
+            }
+        };
+        if (video.readyState >= 2) {
+            playThumb();
+        } else {
+            video.onloadedmetadata = () => playThumb();
+        }
+        
+        const label = document.createElement('small');
+        label.className = 'position-absolute bottom-0 start-0 bg-primary text-white px-1 rounded-end';
+        label.textContent = type === 'camera' ? 'Kamera' : 'Bildschirm';
+        
+        thumbnailDiv.appendChild(video);
+        thumbnailDiv.appendChild(label);
+        if (container) container.appendChild(thumbnailDiv);
+    }
+
+    removeStreamThumbnail(type) {
+        const thumbnail = document.getElementById(`thumbnail-${type}`);
+        if (thumbnail) {
+            thumbnail.remove();
+        }
+        
+        const container = document.getElementById('streamThumbnails');
+        const noStreamsMsg = document.getElementById('noStreamsMessage');
+        
+        if (container && noStreamsMsg && container.children.length === 1) {
+            noStreamsMsg.style.display = 'block';
+        }
+    }
+
+    showErrorAlert(title, message) {
+        // Use German UI notification system if available
+        if (this.germanUI) {
+            this.germanUI.showNotification('error', title, message);
+        } else {
+            alert(`${title}\n\n${message}`);
+        }
+    }
+
+    checkCompositionReady() {
+        const hasStreams = this.streams.size > 0;
+        const compositionBtn = document.getElementById('startCompositionBtn');
+        if (compositionBtn) {
+            compositionBtn.disabled = !hasStreams;
+        }
+        
+        if (!hasStreams && this.isComposing) {
+            this.stopComposition();
+        }
+    }
+
+    stopCamera() {
+        const stream = this.streams.get('camera');
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            this.streams.delete('camera');
+            this.updateStatus('camera', 'Nicht aktiv', 'muted');
+            this.updateButtons('camera', false);
+            this.removeStreamThumbnail('camera');
+            this.checkCompositionReady();
+            this.updateActiveStreamsCount();
+            this.updateStatusBadge('camera', 'secondary');
+            console.log('🛑 Kamera-Stream gestoppt');
+            // Refresh layout choices
+            this.layoutManager?.refreshLayoutSelector?.();
+        }
+    }
+
+    stopScreen(key = 'screen') {
+        const stream = this.streams.get(key);
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            this.streams.delete(key);
+            this.updateStatus('screen', 'Nicht aktiv', 'muted');
+            this.updateButtons('screen', false);
+            this.removeStreamThumbnail(key);
+            this.checkCompositionReady();
+            this.updateActiveStreamsCount();
+            this.updateStatusBadge('screen', 'secondary');
+            console.log('🛑 Bildschirm-Stream gestoppt');
+            this.layoutManager?.refreshLayoutSelector?.();
+        }
+    }
+
+    stopComposition() {
+        this.isComposing = false;
+        this.updateStatus('composition', 'Nicht aktiv', 'muted');
+        this.updateButtons('composition', false);
+        
+        if (this.animationFrame) {
+            cancelAnimationFrame(this.animationFrame);
+        }
+        
+        this.clearCanvas();
+        this.updateStatusBadge('composition', 'secondary');
+        
+        // Notify recording engine
+        document.dispatchEvent(new CustomEvent('compositionStateChanged', {
+            detail: { isComposing: false }
+        }));
+        
+        console.log('🛑 Live Composition gestoppt');
+    }
+}
+
+// Initialize Enhanced StreamRecorder when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('🚀 StreamRec Enhanced wird geladen...');
+    console.log('📋 Alle Phasen verfügbar:', {
+        'Phase 1': 'Stream Capture ✅',
+        'Phase 2': typeof LayoutManager !== 'undefined' ? 'Layout Manager ✅' : 'Layout Manager ❌',
+        'Phase 3': typeof RecordingEngine !== 'undefined' ? 'Recording Engine ✅' : 'Recording Engine ❌',
+        'Phase 4': typeof GermanUI !== 'undefined' ? 'German UI ✅' : 'German UI ❌'
+    });
+    
+    window.streamRecorder = new EnhancedStreamRecorder();
+    
+    // Setup settings modal
+    document.getElementById('saveSettings')?.addEventListener('click', () => {
+        const settings = {
+            resolution: document.getElementById('resolutionSetting').value,
+            framerate: document.getElementById('framerateSetting').value,
+            systemAudio: document.getElementById('systemAudio').checked,
+            autoSave: document.getElementById('autoSave').checked,
+            showNotifications: document.getElementById('showNotifications').checked,
+            darkMode: document.getElementById('darkMode').checked
+        };
+        
+        localStorage.setItem('streamrec-settings', JSON.stringify(settings));
+        window.streamRecorder.applyUserSettings(settings);
+        
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('settingsModal'));
+        modal.hide();
+        
+        window.streamRecorder.germanUI?.showNotification('success', 'Gespeichert', 'Einstellungen wurden gespeichert');
+    });
+});
+</script>
+
+<style>
+/* Recording dot animation */
+.recording-dot {
+    width: 8px;
+    height: 8px;
+    background: currentColor;
+    border-radius: 50%;
+    animation: recording-pulse 1s infinite;
+}
+
+@keyframes recording-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+/* Grid overlay for canvas */
+.show-grid::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+    pointer-events: none;
+}
+
+/* Stat styling */
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.9);
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.system-info-item {
+    margin-bottom: 1rem;
+}
+</style>
+{% endblock %}
