@@ -30,23 +30,17 @@ def dashboard(request):
 @login_required 
 def recording_studio(request):
     """
-    Main recording interface - All Phases: Complete multi-stream recording
-    Implements WebRTC getUserMedia and getDisplayMedia APIs with advanced features
+    Main recording interface - Server-Ready Version
+    Optimized for maximum compatibility on PythonAnywhere and other hosting services
     """
     context = {
-        'title': 'StreamRec - Professionelles Aufnahme Studio',
+        'title': 'StreamRec - Server Edition',
         'max_duration_minutes': 3,
-        'supported_formats': ['webm', 'mp4'],
-        'canvas_aspect_ratio': '9:16',
-        'phases_active': [1, 2, 3, 4],
-        'features': {
-            'phase1': ['WebRTC Stream Capture', 'Canvas Composition'],
-            'phase2': ['Layout Manager', 'Drag & Drop', 'Preset Layouts'],
-            'phase3': ['MediaRecorder API', 'Duration Limits', 'Quality Settings'],
-            'phase4': ['German Localization', 'Accessibility', 'Help System']
-        }
+        'supported_formats': ['webm'],
+        'canvas_aspect_ratio': '16:9',
+        'version': 'server-ready',
     }
-    return render(request, 'streamrec/recording_studio_enhanced.html', context)
+    return render(request, 'streamrec/recording_studio_server_ready.html', context)
 
 @login_required 
 def recording_studio_self_contained(request):
@@ -62,6 +56,21 @@ def recording_studio_self_contained(request):
         'version': 'self-contained',
     }
     return render(request, 'streamrec/recording_studio_self_contained.html', context)
+
+@login_required 
+def recording_studio_server_ready(request):
+    """
+    Server-Ready recording interface - Optimized for PythonAnywhere deployment
+    Complete standalone HTML with maximum compatibility
+    """
+    context = {
+        'title': 'StreamRec - Server Edition',
+        'max_duration_minutes': 3,
+        'supported_formats': ['webm'],
+        'canvas_aspect_ratio': '16:9',
+        'version': 'server-ready',
+    }
+    return render(request, 'streamrec/recording_studio_server_ready.html', context)
 
 @login_required
 @require_http_methods(["POST"])

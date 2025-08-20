@@ -15,6 +15,9 @@ urlpatterns = [
     # Self-Contained Version (for deployment debugging)
     path('aufnahme-self-contained/', views.recording_studio_self_contained, name='recording_studio_self_contained'),
     
+    # Server-Ready Version (optimized for PythonAnywhere)
+    path('aufnahme-server/', views.recording_studio_server_ready, name='recording_studio_server_ready'),
+    
     # API endpoints for stream management
     path('api/test-camera/', views.test_camera_access, name='test_camera_access'),
     path('api/test-screen/', views.test_screen_access, name='test_screen_access'),
