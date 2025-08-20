@@ -1719,3 +1719,577 @@ document.addEventListener('DOMContentLoaded', () => {
 }
 </style>
 {% endblock %}
+
+{% block page_js %}
+<!-- ENHANCED VERSION: Server-Ready JavaScript (inline) -->
+<script>
+console.log('🚀 StreamRec Enhanced Version (Server-Ready) wird geladen...');
+
+/**
+ * Enhanced StreamRec - All Features Inline (Server-Compatible)
+ */
+class StreamRecorder {
+    constructor() {
+        this.streams = new Map();
+        this.canvas = null;
+        this.ctx = null;
+        this.isComposing = false;
+        this.animationFrame = null;
+        this.currentLayout = 'pip';
+        this.mediaRecorder = null;
+        this.recordedChunks = [];
+        this.isRecording = false;
+        this.recordingStartTime = null;
+        this.recordingTimer = null;
+        this.maxDuration = 180000; // 3 minutes
+        
+        this.init();
+    }
+
+    init() {
+        this.canvas = document.getElementById('compositionCanvas');
+        if (!this.canvas) {
+            console.error('❌ Canvas nicht gefunden');
+            return;
+        }
+        
+        this.ctx = this.canvas.getContext('2d');
+        this.setupEventListeners();
+        this.checkBrowserSupport();
+        this.showNotification('success', 'StreamRec bereit', 'Enhanced Version (Server-Ready) geladen');
+        console.log('✅ StreamRec Enhanced initialisiert');
+    }
+
+    setupEventListeners() {
+        // Camera controls
+        document.getElementById('startCameraBtn')?.addEventListener('click', () => this.startCamera());
+        document.getElementById('stopCameraBtn')?.addEventListener('click', () => this.stopCamera());
+        
+        // Screen controls
+        document.getElementById('startScreenBtn')?.addEventListener('click', () => this.startScreen());
+        document.getElementById('stopScreenBtn')?.addEventListener('click', () => this.stopScreen());
+        
+        // Composition controls
+        document.getElementById('startCompositionBtn')?.addEventListener('click', () => this.startComposition());
+        document.getElementById('stopCompositionBtn')?.addEventListener('click', () => this.stopComposition());
+
+        // Fullscreen
+        document.getElementById('fullscreenBtn')?.addEventListener('click', () => {
+            if (this.canvas.requestFullscreen) {
+                this.canvas.requestFullscreen();
+            }
+        });
+    }
+
+    checkBrowserSupport() {
+        const support = {
+            getUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+            getDisplayMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia),
+            canvas: !!(this.canvas && this.ctx),
+            mediaRecorder: !!(window.MediaRecorder)
+        };
+
+        // Update UI
+        document.getElementById('browserInfo').textContent = this.getBrowserInfo();
+        document.getElementById('webrtcSupport').textContent = support.getUserMedia ? '✅' : '❌';
+        document.getElementById('canvasSupport').textContent = support.canvas ? '✅' : '❌';
+        document.getElementById('mediaRecorderSupport').textContent = support.mediaRecorder ? '✅' : '❌';
+        
+        console.log('🔍 Browser Support:', support);
+        return support;
+    }
+
+    getBrowserInfo() {
+        const ua = navigator.userAgent;
+        if (ua.includes('Chrome')) return 'Chrome';
+        if (ua.includes('Firefox')) return 'Firefox';
+        if (ua.includes('Safari')) return 'Safari';
+        return 'Unbekannt';
+    }
+
+    async startCamera() {
+        try {
+            this.updateStatus('camera', 'Kamera wird gestartet...', 'info');
+            
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { 
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 },
+                    frameRate: { ideal: 30 }
+                },
+                audio: true
+            });
+
+            this.streams.set('camera', stream);
+            this.updateStatus('camera', 'Aktiv', 'success');
+            this.updateButtons('camera', true);
+            this.addStreamThumbnail('camera', stream);
+            this.checkCompositionReady();
+            this.updateActiveStreamsCount();
+            this.updateStatusBadge('camera', 'success');
+            this.showNotification('success', 'Kamera gestartet', 'Kamera-Stream ist nun aktiv');
+
+            console.log('✅ Kamera-Stream erfolgreich gestartet');
+        } catch (error) {
+            console.error('❌ Kamera-Zugriff fehlgeschlagen:', error);
+            this.updateStatus('camera', `Fehler: ${error.message}`, 'danger');
+            this.updateStatusBadge('camera', 'danger');
+            this.showNotification('error', 'Kamera-Fehler', error.message);
+        }
+    }
+
+    async startScreen() {
+        try {
+            this.updateStatus('screen', 'Bildschirm-Sharing wird gestartet...', 'info');
+            
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+                video: {
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 },
+                    frameRate: { ideal: 30 },
+                    cursor: 'always'
+                },
+                audio: true
+            });
+
+            this.streams.set('screen', stream);
+            this.updateStatus('screen', 'Aktiv', 'success');
+            this.updateButtons('screen', true);
+            this.addStreamThumbnail('screen', stream);
+            this.checkCompositionReady();
+            this.updateActiveStreamsCount();
+            this.updateStatusBadge('screen', 'success');
+            this.showNotification('success', 'Bildschirm geteilt', 'Bildschirm-Stream ist nun aktiv');
+
+            // Handle screen sharing end event
+            stream.getVideoTracks()[0].addEventListener('ended', () => {
+                this.stopScreen();
+            });
+
+            console.log('✅ Bildschirm-Stream erfolgreich gestartet');
+        } catch (error) {
+            console.error('❌ Bildschirm-Capture fehlgeschlagen:', error);
+            this.updateStatus('screen', `Fehler: ${error.message}`, 'danger');
+            this.updateStatusBadge('screen', 'danger');
+            this.showNotification('error', 'Bildschirm-Fehler', error.message);
+        }
+    }
+
+    startComposition() {
+        if (this.streams.size === 0) {
+            this.showNotification('warning', 'Keine Streams', 'Bitte starten Sie zuerst Kamera oder Bildschirm-Sharing');
+            return;
+        }
+        
+        this.isComposing = true;
+        this.updateStatus('composition', 'Aktiv', 'success');
+        this.updateButtons('composition', true);
+        this.updateStatusBadge('composition', 'warning');
+        this.renderComposition();
+        this.showNotification('info', 'Komposition aktiv', 'Live-Vorschau wird angezeigt');
+        console.log('✅ Live Composition gestartet');
+    }
+
+    renderComposition() {
+        if (!this.isComposing) return;
+
+        this.clearCanvas();
+        this.renderCurrentLayout();
+        this.updateRecordingIndicator();
+        this.animationFrame = requestAnimationFrame(() => this.renderComposition());
+    }
+
+    renderCurrentLayout() {
+        const streams = Array.from(this.streams.entries());
+        
+        switch (this.currentLayout) {
+            case 'pip':
+                this.renderPictureInPicture(streams);
+                break;
+            case 'side':
+                this.renderSideBySide(streams);
+                break;
+            case 'stack':
+                this.renderStacked(streams);
+                break;
+            case 'fullscreen':
+                this.renderFullscreen(streams);
+                break;
+            default:
+                this.renderPictureInPicture(streams);
+        }
+    }
+
+    renderPictureInPicture(streams) {
+        streams.forEach(([type, stream]) => {
+            const video = this.getVideoElement(type, stream);
+            if (!video || video.readyState < 2) return;
+
+            if (type === 'screen') {
+                this.ctx.drawImage(video, 0, 0, this.canvas.width, this.canvas.height);
+            } else if (type === 'camera') {
+                const size = 120;
+                const x = this.canvas.width - size - 20;
+                const y = 20;
+                this.ctx.strokeStyle = '#fff';
+                this.ctx.lineWidth = 3;
+                this.ctx.strokeRect(x - 3, y - 3, size + 6, size + 6);
+                this.ctx.drawImage(video, x, y, size, size);
+            }
+        });
+    }
+
+    renderSideBySide(streams) {
+        const streamArray = Array.from(streams);
+        const halfWidth = this.canvas.width / 2;
+        
+        streamArray.forEach(([type, stream], index) => {
+            const video = this.getVideoElement(type, stream);
+            if (!video || video.readyState < 2) return;
+            
+            const x = index * halfWidth;
+            this.ctx.drawImage(video, x, 0, halfWidth, this.canvas.height);
+            
+            // Draw separator
+            if (index === 0) {
+                this.ctx.strokeStyle = '#fff';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(halfWidth, 0);
+                this.ctx.lineTo(halfWidth, this.canvas.height);
+                this.ctx.stroke();
+            }
+        });
+    }
+
+    renderStacked(streams) {
+        const streamArray = Array.from(streams);
+        const height = this.canvas.height / streamArray.length;
+        
+        streamArray.forEach(([type, stream], index) => {
+            const video = this.getVideoElement(type, stream);
+            if (!video || video.readyState < 2) return;
+            
+            const y = index * height;
+            this.ctx.drawImage(video, 0, y, this.canvas.width, height);
+            
+            // Draw separator
+            if (index > 0) {
+                this.ctx.strokeStyle = '#fff';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, y);
+                this.ctx.lineTo(this.canvas.width, y);
+                this.ctx.stroke();
+            }
+        });
+    }
+
+    renderFullscreen(streams) {
+        // Show first stream fullscreen
+        const firstStream = Array.from(streams)[0];
+        if (firstStream) {
+            const [type, stream] = firstStream;
+            const video = this.getVideoElement(type, stream);
+            if (video && video.readyState >= 2) {
+                this.ctx.drawImage(video, 0, 0, this.canvas.width, this.canvas.height);
+            }
+        }
+    }
+
+    applyLayout(layout) {
+        this.currentLayout = layout;
+        this.showNotification('info', 'Layout geändert', `${layout} Layout aktiviert`);
+        console.log(`📐 Layout angewendet: ${layout}`);
+    }
+
+    // Recording Methods
+    startRecording() {
+        if (!this.isComposing) {
+            this.showNotification('warning', 'Komposition erforderlich', 'Bitte starten Sie zuerst die Live-Komposition');
+            return;
+        }
+
+        try {
+            const stream = this.canvas.captureStream(30);
+            this.mediaRecorder = new MediaRecorder(stream);
+            this.recordedChunks = [];
+
+            this.mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    this.recordedChunks.push(event.data);
+                }
+            };
+
+            this.mediaRecorder.onstop = () => {
+                const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `streamrec-recording-${Date.now()}.webm`;
+                a.click();
+                this.showNotification('success', 'Download', 'Video wurde heruntergeladen');
+                this.resetRecordingUI();
+            };
+
+            this.mediaRecorder.start();
+            this.isRecording = true;
+            this.recordingStartTime = Date.now();
+            
+            document.getElementById('recordBtn').disabled = true;
+            document.getElementById('stopRecordBtn').disabled = false;
+            document.getElementById('recordingStatus').textContent = 'Status: Aufnahme läuft';
+            document.getElementById('recordingIndicator').style.display = 'block';
+            
+            this.startRecordingTimer();
+            this.showNotification('success', 'Aufnahme gestartet', 'Recording läuft');
+            console.log('📹 Recording gestartet');
+
+        } catch (error) {
+            console.error('❌ Recording Fehler:', error);
+            this.showNotification('error', 'Aufnahme-Fehler', error.message);
+        }
+    }
+
+    stopRecording() {
+        if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+            this.mediaRecorder.stop();
+            this.isRecording = false;
+            this.stopRecordingTimer();
+            console.log('📹 Recording gestoppt');
+        }
+    }
+
+    startRecordingTimer() {
+        this.recordingTimer = setInterval(() => {
+            const elapsed = Date.now() - this.recordingStartTime;
+            const minutes = Math.floor(elapsed / 60000);
+            const seconds = Math.floor((elapsed % 60000) / 1000);
+            
+            document.getElementById('recordingTime').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            // Update progress bar
+            const progress = (elapsed / this.maxDuration) * 100;
+            document.getElementById('recordingProgress').style.width = `${Math.min(progress, 100)}%`;
+            
+            // Auto-stop at max duration
+            if (elapsed >= this.maxDuration) {
+                this.stopRecording();
+                this.showNotification('info', 'Aufnahme beendet', 'Maximale Aufnahmedauer erreicht (3 Minuten)');
+            }
+        }, 1000);
+    }
+
+    stopRecordingTimer() {
+        if (this.recordingTimer) {
+            clearInterval(this.recordingTimer);
+            this.recordingTimer = null;
+        }
+    }
+
+    resetRecordingUI() {
+        document.getElementById('recordBtn').disabled = false;
+        document.getElementById('stopRecordBtn').disabled = true;
+        document.getElementById('recordingStatus').textContent = 'Status: Bereit für Aufnahme';
+        document.getElementById('recordingIndicator').style.display = 'none';
+        document.getElementById('recordingProgress').style.width = '0%';
+        document.getElementById('recordingTime').textContent = '00:00';
+    }
+
+    updateRecordingIndicator() {
+        const indicator = document.getElementById('recordingIndicator');
+        if (indicator) {
+            indicator.style.display = this.isRecording ? 'block' : 'none';
+        }
+    }
+
+    // Helper Methods
+    getVideoElement(type, stream) {
+        let video = document.getElementById(`video-${type}`);
+        if (!video) {
+            video = document.createElement('video');
+            video.id = `video-${type}`;
+            video.srcObject = stream;
+            video.autoplay = true;
+            video.muted = true;
+            video.playsInline = true;
+            video.style.display = 'none';
+            document.body.appendChild(video);
+        }
+        return video;
+    }
+
+    clearCanvas() {
+        this.ctx.fillStyle = '#000000';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Show no content overlay if no streams
+        const hasStreams = this.streams.size > 0;
+        document.getElementById('noContentOverlay').style.display = hasStreams ? 'none' : 'block';
+    }
+
+    updateStatus(type, message, variant) {
+        const statusElement = document.getElementById(`${type}Status`);
+        if (statusElement) {
+            statusElement.textContent = `Status: ${message}`;
+            statusElement.className = `text-${variant} d-block mt-2`;
+        }
+    }
+
+    updateButtons(type, active) {
+        const startBtn = document.getElementById(`start${type.charAt(0).toUpperCase() + type.slice(1)}Btn`);
+        const stopBtn = document.getElementById(`stop${type.charAt(0).toUpperCase() + type.slice(1)}Btn`);
+        
+        if (startBtn) startBtn.disabled = active;
+        if (stopBtn) stopBtn.disabled = !active;
+    }
+
+    updateStatusBadge(type, variant) {
+        const badge = document.getElementById(`${type}StatusBadge`);
+        if (badge) {
+            const icon = badge.querySelector('i');
+            icon.className = `fas fa-circle text-${variant}`;
+            
+            if (variant === 'success' || variant === 'warning') {
+                icon.classList.add('fa-pulse');
+            } else {
+                icon.classList.remove('fa-pulse');
+            }
+        }
+    }
+
+    addStreamThumbnail(type, stream) {
+        const container = document.getElementById('streamThumbnails');
+        const noStreamsMsg = document.getElementById('noStreamsMessage');
+        if (noStreamsMsg) noStreamsMsg.style.display = 'none';
+
+        const thumbnailDiv = document.createElement('div');
+        thumbnailDiv.id = `thumbnail-${type}`;
+        thumbnailDiv.className = 'stream-thumbnail position-relative';
+        
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.autoplay = true;
+        video.muted = true;
+        video.playsInline = true;
+        video.style.width = '80px';
+        video.style.height = '60px';
+        video.style.objectFit = 'cover';
+        video.className = 'rounded border';
+        
+        const label = document.createElement('small');
+        label.className = 'position-absolute bottom-0 start-0 bg-primary text-white px-1 rounded-end';
+        label.textContent = type === 'camera' ? 'Kamera' : 'Bildschirm';
+        
+        thumbnailDiv.appendChild(video);
+        thumbnailDiv.appendChild(label);
+        if (container) container.appendChild(thumbnailDiv);
+    }
+
+    removeStreamThumbnail(type) {
+        const thumbnail = document.getElementById(`thumbnail-${type}`);
+        if (thumbnail) {
+            thumbnail.remove();
+        }
+        
+        const container = document.getElementById('streamThumbnails');
+        const noStreamsMsg = document.getElementById('noStreamsMessage');
+        
+        if (container && noStreamsMsg && container.children.length === 1) {
+            noStreamsMsg.style.display = 'block';
+        }
+    }
+
+    updateActiveStreamsCount() {
+        const count = this.streams.size;
+        document.getElementById('activeStreams').textContent = count;
+        
+        // Update stream thumbnails display
+        const noStreamsMsg = document.getElementById('noStreamsMessage');
+        if (noStreamsMsg) {
+            noStreamsMsg.style.display = count > 0 ? 'none' : 'block';
+        }
+    }
+
+    checkCompositionReady() {
+        const hasStreams = this.streams.size > 0;
+        const compositionBtn = document.getElementById('startCompositionBtn');
+        if (compositionBtn) {
+            compositionBtn.disabled = !hasStreams;
+        }
+        
+        if (!hasStreams && this.isComposing) {
+            this.stopComposition();
+        }
+    }
+
+    stopCamera() {
+        const stream = this.streams.get('camera');
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            this.streams.delete('camera');
+            this.updateStatus('camera', 'Nicht aktiv', 'muted');
+            this.updateButtons('camera', false);
+            this.removeStreamThumbnail('camera');
+            this.checkCompositionReady();
+            this.updateActiveStreamsCount();
+            this.updateStatusBadge('camera', 'secondary');
+            console.log('🛑 Kamera-Stream gestoppt');
+        }
+    }
+
+    stopScreen() {
+        const stream = this.streams.get('screen');
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            this.streams.delete('screen');
+            this.updateStatus('screen', 'Nicht aktiv', 'muted');
+            this.updateButtons('screen', false);
+            this.removeStreamThumbnail('screen');
+            this.checkCompositionReady();
+            this.updateActiveStreamsCount();
+            this.updateStatusBadge('screen', 'secondary');
+            console.log('🛑 Bildschirm-Stream gestoppt');
+        }
+    }
+
+    stopComposition() {
+        this.isComposing = false;
+        this.updateStatus('composition', 'Nicht aktiv', 'muted');
+        this.updateButtons('composition', false);
+        this.updateStatusBadge('composition', 'secondary');
+        
+        if (this.animationFrame) {
+            cancelAnimationFrame(this.animationFrame);
+        }
+        
+        this.clearCanvas();
+        console.log('🛑 Live Composition gestoppt');
+    }
+
+    showNotification(type, title, message) {
+        console.log(`📢 ${type.toUpperCase()}: ${title} - ${message}`);
+        
+        // Create visual notification
+        const alertType = type === 'error' ? 'danger' : type;
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${alertType === 'success' ? 'success' : alertType === 'error' ? 'danger' : 'info'} alert-dismissible fade show position-fixed`;
+        alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 350px;';
+        alertDiv.innerHTML = `
+            <strong>${title}</strong> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(alertDiv);
+        setTimeout(() => alertDiv.remove(), 5000);
+    }
+}
+
+// Initialize StreamRecorder when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('🚀 StreamRec Enhanced (Server-Ready) wird geladen...');
+    window.streamRecorder = new StreamRecorder();
+    console.log('✅ StreamRec Enhanced erfolgreich geladen!');
+});
+</script>
+{% endblock %}
