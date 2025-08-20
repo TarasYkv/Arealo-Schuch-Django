@@ -1,11 +1,19 @@
+{% load static %}
+{% load app_permissions %}
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" {% if user.dark_mode %}data-theme="dark"{% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>StreamRec - Server Edition</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{% static 'images/favicon.ico' %}">
+    
     <!-- Bootstrap CSS von CDN für maximale Kompatibilität -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         /* INLINE CSS - Vollständig eingebettet für Server-Kompatibilität */
@@ -213,6 +221,179 @@
             }
         }
 
+        /* Modern Navigation Styles */
+        :root {
+            --nav-bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --nav-shadow: 0 4px 20px rgba(102, 126, 234, 0.15);
+            --nav-item-hover: rgba(255, 255, 255, 0.1);
+            --nav-item-active: rgba(255, 255, 255, 0.2);
+            --nav-border-radius: 12px;
+            --nav-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .navbar {
+            background: var(--nav-bg-gradient) !important;
+            box-shadow: var(--nav-shadow);
+            backdrop-filter: blur(10px);
+            border: none !important;
+            padding: 0.75rem 0 !important;
+            z-index: 1050 !important;
+        }
+
+        .navbar-brand {
+            font-weight: 700 !important;
+            font-size: 1.5rem !important;
+            color: #ffffff !important;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: var(--nav-transition);
+        }
+
+        .navbar-nav .nav-link {
+            color: rgba(255, 255, 255, 0.9) !important;
+            font-weight: 500;
+            padding: 0.75rem 1rem !important;
+            border-radius: var(--nav-border-radius);
+            margin: 0 0.25rem;
+            transition: var(--nav-transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .navbar-nav .nav-link:hover {
+            background: var(--nav-item-hover) !important;
+            color: #ffffff !important;
+            transform: translateY(-1px);
+        }
+
+        .navbar-nav .nav-link.active {
+            background: var(--nav-item-active) !important;
+            color: #ffffff !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .navbar-toggler {
+            border: 2px solid rgba(255, 255, 255, 0.2) !important;
+            border-radius: var(--nav-border-radius) !important;
+            padding: 0.5rem !important;
+        }
+
+        .navbar-toggler:focus {
+            box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25) !important;
+        }
+
+        .navbar-toggler-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.9%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
+        }
+
+        .dropdown-menu {
+            border: none !important;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+            border-radius: var(--nav-border-radius) !important;
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95) !important;
+        }
+
+        .dropdown-item {
+            padding: 0.75rem 1rem !important;
+            border-radius: 8px !important;
+            margin: 0.125rem 0.5rem !important;
+            transition: var(--nav-transition);
+        }
+
+        .dropdown-item:hover {
+            background: var(--nav-bg-gradient) !important;
+            color: #ffffff !important;
+            transform: translateX(5px);
+        }
+
+        /* Dark Mode Support */
+        [data-theme="dark"] {
+            --bg-color: #212529;
+            --text-color: #ffffff;
+            --card-bg: #343a40;
+            --border-color: #495057;
+        }
+
+        [data-theme="dark"] body {
+            background-color: var(--bg-color) !important;
+            color: var(--text-color) !important;
+        }
+
+        [data-theme="dark"] .control-panel {
+            background-color: var(--card-bg) !important;
+            color: var(--text-color) !important;
+            border-color: var(--border-color) !important;
+        }
+
+        [data-theme="dark"] .control-panel * {
+            color: var(--text-color) !important;
+        }
+
+        /* Layout Presets */
+        .layout-presets {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+
+        .layout-preset {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 60px;
+            height: 40px;
+            border: 2px solid #dee2e6;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: var(--transition);
+            background: #f8f9fa;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .layout-preset:hover {
+            border-color: var(--info-color);
+            background: rgba(23, 162, 184, 0.1);
+            transform: scale(1.05);
+        }
+
+        .layout-preset.active {
+            border-color: var(--info-color);
+            background: var(--info-color);
+            color: white;
+        }
+
+        /* Recording Controls */
+        .recording-state {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .recording-state.recording {
+            background: rgba(220, 53, 69, 0.1);
+            color: var(--danger-color);
+            border: 1px solid rgba(220, 53, 69, 0.2);
+        }
+
+        .recording-state.paused {
+            background: rgba(255, 193, 7, 0.1);
+            color: var(--warning-color);
+            border: 1px solid rgba(255, 193, 7, 0.2);
+        }
+
+        .recording-state.stopped {
+            background: rgba(108, 117, 125, 0.1);
+            color: #6c757d;
+            border: 1px solid rgba(108, 117, 125, 0.2);
+        }
+
         /* Utilities */
         .text-gradient {
             background: var(--primary-gradient);
@@ -228,9 +409,70 @@
             padding: 1rem !important;
             margin-bottom: 1rem !important;
         }
+
+        [data-theme="dark"] .system-info-card {
+            background: linear-gradient(135deg, #495057 0%, #6c757d 100%) !important;
+            color: var(--text-color) !important;
+        }
     </style>
 </head>
 <body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{% url 'startseite' %}">
+                <img src="{% static 'images/logo_white.png' %}" alt="Workloom" height="32" class="me-2">
+                Workloom
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    {% if user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'startseite' %}">
+                                <i class="bi bi-house me-1"></i> Dashboard
+                            </a>
+                        </li>
+                        {% if user|can_see_app_in_frontend:"streamrec" %}
+                        <li class="nav-item">
+                            <a class="nav-link active" href="{% url 'streamrec:recording_studio' %}">
+                                <i class="fas fa-video me-1"></i> StreamRec
+                            </a>
+                        </li>
+                        {% endif %}
+                    {% endif %}
+                </ul>
+                
+                <div class="navbar-nav">
+                    {% if user.is_authenticated %}
+                        <div class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-person-circle me-1"></i> {{ user.get_full_name|default:user.username }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="{% url 'accounts:profile' %}">
+                                    <i class="bi bi-person"></i> Mein Profil
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{% url 'accounts:logout' %}">
+                                    <i class="bi bi-box-arrow-right"></i> Abmelden
+                                </a></li>
+                            </ul>
+                        </div>
+                    {% else %}
+                        <a class="nav-link" href="{% url 'accounts:login' %}">
+                            <i class="bi bi-box-arrow-in-right"></i> Anmelden
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
     <!-- Header -->
     <div class="header-container">
         <div class="container-fluid">
@@ -244,6 +486,9 @@
                     <div class="mt-3">
                         <span class="badge bg-light text-dark">
                             <i class="fas fa-server me-2"></i>Server-Ready
+                        </span>
+                        <span class="badge bg-info text-dark ms-2" id="recordingStateDisplay">
+                            <i class="fas fa-stop me-2"></i>Gestoppt
                         </span>
                     </div>
                 </div>
@@ -329,6 +574,30 @@
                             </button>
                         </div>
                         <div id="compositionStatus" class="text-muted small mt-2">Status: Nicht aktiv</div>
+                    </div>
+
+                    <!-- Layout Presets -->
+                    <div class="mb-4" id="layoutSection" style="display: none;">
+                        <h6 class="mb-3">
+                            <i class="fas fa-th-large text-info me-2"></i>Layout-Vorlagen
+                        </h6>
+                        <div class="layout-presets">
+                            <div class="layout-preset active" data-layout="pip" title="Picture-in-Picture">
+                                PiP
+                            </div>
+                            <div class="layout-preset" data-layout="side" title="Nebeneinander">
+                                ||||
+                            </div>
+                            <div class="layout-preset" data-layout="stack" title="Gestapelt">
+                                ≡
+                            </div>
+                            <div class="layout-preset" data-layout="fullscreen" title="Vollbild">
+                                ◼
+                            </div>
+                        </div>
+                        <div class="small text-muted">
+                            Aktuelles Layout: <span id="currentLayoutDisplay">Picture-in-Picture</span>
+                        </div>
                     </div>
                 </div>
 
@@ -429,6 +698,12 @@
                                 <button id="recordBtn" class="btn btn-danger" disabled>
                                     <i class="fas fa-circle me-2"></i>Aufnahme starten
                                 </button>
+                                <button id="pauseRecordBtn" class="btn btn-warning" disabled>
+                                    <i class="fas fa-pause me-2"></i>Pausieren
+                                </button>
+                                <button id="resumeRecordBtn" class="btn btn-success" disabled style="display: none;">
+                                    <i class="fas fa-play me-2"></i>Fortsetzen
+                                </button>
                                 <button id="stopRecordBtn" class="btn btn-outline-danger" disabled>
                                     <i class="fas fa-stop me-2"></i>Aufnahme stoppen
                                 </button>
@@ -437,10 +712,18 @@
                         <div class="col-md-6">
                             <div class="text-center">
                                 <div id="recordingStatus" class="small mb-2">Status: Bereit für Aufnahme</div>
-                                <div class="progress" style="height: 5px;">
+                                <div class="progress" style="height: 8px;">
                                     <div id="recordingProgress" class="progress-bar bg-danger" style="width: 0%"></div>
                                 </div>
-                                <div class="small text-muted mt-1">Max. 3 Minuten</div>
+                                <div class="d-flex justify-content-between mt-1">
+                                    <span class="small text-muted">00:00</span>
+                                    <span class="small text-muted">03:00</span>
+                                </div>
+                                <div class="mt-2">
+                                    <span class="recording-state stopped" id="recordingStateIndicator">
+                                        <i class="fas fa-stop"></i> Gestoppt
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -467,9 +750,12 @@
                 this.mediaRecorder = null;
                 this.recordedChunks = [];
                 this.isRecording = false;
+                this.isPaused = false;
                 this.recordingStartTime = null;
+                this.pausedTime = 0;
                 this.recordingTimer = null;
                 this.maxDuration = 180000; // 3 minutes
+                this.recordingState = 'stopped'; // 'stopped', 'recording', 'paused'
                 
                 this.init();
             }
@@ -519,10 +805,22 @@
 
                     // Recording controls
                     const recordBtn = document.getElementById('recordBtn');
+                    const pauseRecordBtn = document.getElementById('pauseRecordBtn');
+                    const resumeRecordBtn = document.getElementById('resumeRecordBtn');
                     const stopRecordBtn = document.getElementById('stopRecordBtn');
                     
                     if (recordBtn) recordBtn.addEventListener('click', () => this.startRecording());
+                    if (pauseRecordBtn) pauseRecordBtn.addEventListener('click', () => this.pauseRecording());
+                    if (resumeRecordBtn) resumeRecordBtn.addEventListener('click', () => this.resumeRecording());
                     if (stopRecordBtn) stopRecordBtn.addEventListener('click', () => this.stopRecording());
+
+                    // Layout controls
+                    document.querySelectorAll('.layout-preset').forEach(preset => {
+                        preset.addEventListener('click', (e) => {
+                            const layout = e.target.dataset.layout;
+                            this.setLayout(layout);
+                        });
+                    });
 
                     // Fullscreen
                     const fullscreenBtn = document.getElementById('fullscreenBtn');
@@ -661,6 +959,7 @@
                     this.updateStatusBadge('composition', 'warning');
                     this.renderComposition();
                     this.showRecordingControls();
+                    this.showLayoutControls();
                     this.showNotification('info', 'Komposition aktiv', 'Live-Vorschau wird angezeigt');
                     console.log('✅ Live Composition gestartet');
                 } catch (error) {
@@ -687,26 +986,128 @@
                 try {
                     const streams = Array.from(this.streams.entries());
                     
-                    streams.forEach(([type, stream]) => {
-                        const video = this.getVideoElement(type, stream);
-                        if (!video || video.readyState < 2) return;
-
-                        if (type === 'screen') {
-                            // Screen als Hauptstream
-                            this.ctx.drawImage(video, 0, 0, this.canvas.width, this.canvas.height);
-                        } else if (type === 'camera') {
-                            // Camera als Picture-in-Picture
-                            const size = 120;
-                            const x = this.canvas.width - size - 20;
-                            const y = 20;
-                            this.ctx.strokeStyle = '#fff';
-                            this.ctx.lineWidth = 3;
-                            this.ctx.strokeRect(x - 3, y - 3, size + 6, size + 6);
-                            this.ctx.drawImage(video, x, y, size, size);
-                        }
-                    });
+                    switch (this.currentLayout) {
+                        case 'pip':
+                            this.renderPictureInPicture(streams);
+                            break;
+                        case 'side':
+                            this.renderSideBySide(streams);
+                            break;
+                        case 'stack':
+                            this.renderStacked(streams);
+                            break;
+                        case 'fullscreen':
+                            this.renderFullscreen(streams);
+                            break;
+                        default:
+                            this.renderPictureInPicture(streams);
+                    }
                 } catch (error) {
                     console.error('❌ Stream Rendering Fehler:', error);
+                }
+            }
+
+            renderPictureInPicture(streams) {
+                streams.forEach(([type, stream]) => {
+                    const video = this.getVideoElement(type, stream);
+                    if (!video || video.readyState < 2) return;
+
+                    if (type === 'screen') {
+                        // Screen als Hauptstream
+                        this.ctx.drawImage(video, 0, 0, this.canvas.width, this.canvas.height);
+                    } else if (type === 'camera') {
+                        // Camera als Picture-in-Picture
+                        const size = 120;
+                        const x = this.canvas.width - size - 20;
+                        const y = 20;
+                        this.ctx.strokeStyle = '#fff';
+                        this.ctx.lineWidth = 3;
+                        this.ctx.strokeRect(x - 3, y - 3, size + 6, size + 6);
+                        this.ctx.drawImage(video, x, y, size, size);
+                    }
+                });
+            }
+
+            renderSideBySide(streams) {
+                const streamArray = Array.from(streams);
+                const width = this.canvas.width / streamArray.length;
+                
+                streamArray.forEach(([type, stream], index) => {
+                    const video = this.getVideoElement(type, stream);
+                    if (!video || video.readyState < 2) return;
+                    
+                    const x = index * width;
+                    this.ctx.drawImage(video, x, 0, width, this.canvas.height);
+                    
+                    // Draw separator
+                    if (index > 0) {
+                        this.ctx.strokeStyle = '#fff';
+                        this.ctx.lineWidth = 2;
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(x, 0);
+                        this.ctx.lineTo(x, this.canvas.height);
+                        this.ctx.stroke();
+                    }
+                });
+            }
+
+            renderStacked(streams) {
+                const streamArray = Array.from(streams);
+                const height = this.canvas.height / streamArray.length;
+                
+                streamArray.forEach(([type, stream], index) => {
+                    const video = this.getVideoElement(type, stream);
+                    if (!video || video.readyState < 2) return;
+                    
+                    const y = index * height;
+                    this.ctx.drawImage(video, 0, y, this.canvas.width, height);
+                    
+                    // Draw separator
+                    if (index > 0) {
+                        this.ctx.strokeStyle = '#fff';
+                        this.ctx.lineWidth = 2;
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(0, y);
+                        this.ctx.lineTo(this.canvas.width, y);
+                        this.ctx.stroke();
+                    }
+                });
+            }
+
+            renderFullscreen(streams) {
+                // Show first stream fullscreen
+                const firstStream = Array.from(streams)[0];
+                if (firstStream) {
+                    const [type, stream] = firstStream;
+                    const video = this.getVideoElement(type, stream);
+                    if (video && video.readyState >= 2) {
+                        this.ctx.drawImage(video, 0, 0, this.canvas.width, this.canvas.height);
+                    }
+                }
+            }
+
+            setLayout(layout) {
+                try {
+                    this.currentLayout = layout;
+                    
+                    // Update UI
+                    document.querySelectorAll('.layout-preset').forEach(preset => {
+                        preset.classList.remove('active');
+                    });
+                    document.querySelector(`[data-layout="${layout}"]`).classList.add('active');
+                    
+                    const layoutNames = {
+                        'pip': 'Picture-in-Picture',
+                        'side': 'Nebeneinander',
+                        'stack': 'Gestapelt',
+                        'fullscreen': 'Vollbild'
+                    };
+                    
+                    this.safeUpdateElement('currentLayoutDisplay', layoutNames[layout] || layout);
+                    this.showNotification('info', 'Layout geändert', `${layoutNames[layout]} aktiviert`);
+                    console.log(`📐 Layout geändert: ${layout}`);
+                } catch (error) {
+                    console.error('❌ Layout Fehler:', error);
                 }
             }
 
@@ -750,13 +1151,11 @@
 
                     this.mediaRecorder.start();
                     this.isRecording = true;
+                    this.isPaused = false;
+                    this.recordingState = 'recording';
                     this.recordingStartTime = Date.now();
                     
-                    this.safeUpdateElement('recordBtn', null, true, 'disabled');
-                    this.safeUpdateElement('stopRecordBtn', null, false, 'disabled');
-                    this.safeUpdateElement('recordingStatus', 'Status: Aufnahme läuft');
-                    this.safeUpdateElement('recordingIndicator', null, null, 'style.display', 'block');
-                    
+                    this.updateRecordingUI('recording');
                     this.startRecordingTimer();
                     this.showNotification('success', 'Aufnahme gestartet', 'Recording läuft');
                     console.log('📹 Recording gestartet');
@@ -767,11 +1166,50 @@
                 }
             }
 
-            stopRecording() {
+            pauseRecording() {
                 try {
                     if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+                        this.mediaRecorder.pause();
+                        this.isPaused = true;
+                        this.recordingState = 'paused';
+                        this.pausedTime += Date.now() - this.recordingStartTime;
+                        this.stopRecordingTimer();
+                        
+                        this.updateRecordingUI('paused');
+                        this.showNotification('warning', 'Aufnahme pausiert', 'Klicken Sie Fortsetzen um weiterzumachen');
+                        console.log('⏸️ Recording pausiert');
+                    }
+                } catch (error) {
+                    console.error('❌ Recording Pause Fehler:', error);
+                }
+            }
+
+            resumeRecording() {
+                try {
+                    if (this.mediaRecorder && this.mediaRecorder.state === 'paused') {
+                        this.mediaRecorder.resume();
+                        this.isPaused = false;
+                        this.recordingState = 'recording';
+                        this.recordingStartTime = Date.now();
+                        
+                        this.updateRecordingUI('recording');
+                        this.startRecordingTimer();
+                        this.showNotification('success', 'Aufnahme fortgesetzt', 'Recording läuft wieder');
+                        console.log('▶️ Recording fortgesetzt');
+                    }
+                } catch (error) {
+                    console.error('❌ Recording Resume Fehler:', error);
+                }
+            }
+
+            stopRecording() {
+                try {
+                    if (this.mediaRecorder && (this.mediaRecorder.state === 'recording' || this.mediaRecorder.state === 'paused')) {
                         this.mediaRecorder.stop();
                         this.isRecording = false;
+                        this.isPaused = false;
+                        this.recordingState = 'stopped';
+                        this.pausedTime = 0;
                         this.stopRecordingTimer();
                         console.log('📹 Recording gestoppt');
                     }
@@ -780,10 +1218,85 @@
                 }
             }
 
+            updateRecordingUI(state) {
+                try {
+                    const recordBtn = document.getElementById('recordBtn');
+                    const pauseBtn = document.getElementById('pauseRecordBtn');
+                    const resumeBtn = document.getElementById('resumeRecordBtn');
+                    const stopBtn = document.getElementById('stopRecordBtn');
+                    const stateIndicator = document.getElementById('recordingStateIndicator');
+                    const stateDisplay = document.getElementById('recordingStateDisplay');
+                    
+                    switch (state) {
+                        case 'recording':
+                            if (recordBtn) recordBtn.disabled = true;
+                            if (pauseBtn) pauseBtn.disabled = false;
+                            if (resumeBtn) resumeBtn.style.display = 'none';
+                            if (stopBtn) stopBtn.disabled = false;
+                            
+                            this.safeUpdateElement('recordingStatus', 'Status: Aufnahme läuft');
+                            this.safeUpdateElement('recordingIndicator', null, null, 'style.display', 'block');
+                            
+                            if (stateIndicator) {
+                                stateIndicator.className = 'recording-state recording';
+                                stateIndicator.innerHTML = '<i class="fas fa-circle"></i> Aufnahme';
+                            }
+                            if (stateDisplay) {
+                                stateDisplay.className = 'badge bg-danger text-white ms-2';
+                                stateDisplay.innerHTML = '<i class="fas fa-circle me-2"></i>Aufnahme';
+                            }
+                            break;
+                            
+                        case 'paused':
+                            if (pauseBtn) pauseBtn.disabled = true;
+                            if (resumeBtn) {
+                                resumeBtn.disabled = false;
+                                resumeBtn.style.display = 'block';
+                            }
+                            
+                            this.safeUpdateElement('recordingStatus', 'Status: Aufnahme pausiert');
+                            
+                            if (stateIndicator) {
+                                stateIndicator.className = 'recording-state paused';
+                                stateIndicator.innerHTML = '<i class="fas fa-pause"></i> Pausiert';
+                            }
+                            if (stateDisplay) {
+                                stateDisplay.className = 'badge bg-warning text-dark ms-2';
+                                stateDisplay.innerHTML = '<i class="fas fa-pause me-2"></i>Pausiert';
+                            }
+                            break;
+                            
+                        case 'stopped':
+                            if (recordBtn) recordBtn.disabled = false;
+                            if (pauseBtn) pauseBtn.disabled = true;
+                            if (resumeBtn) {
+                                resumeBtn.disabled = true;
+                                resumeBtn.style.display = 'none';
+                            }
+                            if (stopBtn) stopBtn.disabled = true;
+                            
+                            this.safeUpdateElement('recordingStatus', 'Status: Bereit für Aufnahme');
+                            this.safeUpdateElement('recordingIndicator', null, null, 'style.display', 'none');
+                            
+                            if (stateIndicator) {
+                                stateIndicator.className = 'recording-state stopped';
+                                stateIndicator.innerHTML = '<i class="fas fa-stop"></i> Gestoppt';
+                            }
+                            if (stateDisplay) {
+                                stateDisplay.className = 'badge bg-info text-dark ms-2';
+                                stateDisplay.innerHTML = '<i class="fas fa-stop me-2"></i>Gestoppt';
+                            }
+                            break;
+                    }
+                } catch (error) {
+                    console.error('❌ Recording UI Update Fehler:', error);
+                }
+            }
+
             startRecordingTimer() {
                 this.recordingTimer = setInterval(() => {
                     try {
-                        const elapsed = Date.now() - this.recordingStartTime;
+                        const elapsed = this.pausedTime + (Date.now() - this.recordingStartTime);
                         const minutes = Math.floor(elapsed / 60000);
                         const seconds = Math.floor((elapsed % 60000) / 1000);
                         
@@ -816,10 +1329,7 @@
             }
 
             resetRecordingUI() {
-                this.safeUpdateElement('recordBtn', null, false, 'disabled');
-                this.safeUpdateElement('stopRecordBtn', null, true, 'disabled');
-                this.safeUpdateElement('recordingStatus', 'Status: Bereit für Aufnahme');
-                this.safeUpdateElement('recordingIndicator', null, null, 'style.display', 'none');
+                this.updateRecordingUI('stopped');
                 const progressBar = document.getElementById('recordingProgress');
                 if (progressBar) progressBar.style.width = '0%';
                 this.safeUpdateElement('recordingTime', '00:00');
@@ -964,6 +1474,13 @@
                 if (container) {
                     container.style.display = 'block';
                     this.checkCompositionReady();
+                }
+            }
+
+            showLayoutControls() {
+                const layoutSection = document.getElementById('layoutSection');
+                if (layoutSection) {
+                    layoutSection.style.display = 'block';
                 }
             }
 
