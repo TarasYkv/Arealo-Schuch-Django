@@ -275,7 +275,8 @@ class MakeAdsProgressTracker {
         if (!confirmed) return;
         
         try {
-            const response = await fetch(`/makeads/job/${this.jobId}/cancel/`, {
+            // Match Django URL: path('ajax/cancel-generation/<uuid:job_id>/')
+            const response = await fetch(`/makeads/ajax/cancel-generation/${this.jobId}/`, {
                 method: 'POST',
                 headers: {
                     'X-CSRFToken': this.getCSRFToken(),
@@ -296,25 +297,46 @@ class MakeAdsProgressTracker {
      * Behandelt Form-Submits mit Progress-Tracking
      */
     async handleFormSubmit(form) {
+        console.log('🚀 Form submission started');
         const formData = new FormData(form);
         
+        // Debug: Log form data
+        for (let pair of formData.entries()) {
+            console.log(`📋 Form data: ${pair[0]} = ${pair[1]}`);
+        }
+        
         try {
+            console.log(`📡 Sending AJAX to: ${form.action}`);
+            
+            // Add timeout to prevent hanging requests
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+            
             const response = await fetch(form.action, {
                 method: 'POST',
                 body: formData,
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRFToken': this.getCSRFToken(),
-                }
+                },
+                signal: controller.signal
             });
             
+            clearTimeout(timeoutId);
+            
+            console.log(`📊 Response status: ${response.status}`);
+            
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+                const errorText = await response.text();
+                console.error(`❌ Response error: ${errorText}`);
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
             const data = await response.json();
+            console.log('📦 Response data:', data);
             
             if (data.success && data.job_id) {
+                console.log(`✅ Job created: ${data.job_id}`);
                 // Progress-Tracking starten
                 this.startTracking(
                     data.job_id, 
@@ -327,7 +349,14 @@ class MakeAdsProgressTracker {
             
         } catch (error) {
             console.error('❌ Form-Submit Fehler:', error);
-            this.handleError(`Fehler beim Starten der Generierung: ${error.message}`);
+            
+            let errorMessage = `Fehler beim Starten der Generierung: ${error.message}`;
+            
+            if (error.name === 'AbortError') {
+                errorMessage = 'Request-Timeout: Die Anfrage dauerte zu lange (30s). Bitte versuchen Sie es erneut.';
+            }
+            
+            this.handleError(errorMessage);
         }
     }
     

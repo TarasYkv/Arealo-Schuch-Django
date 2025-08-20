@@ -103,9 +103,7 @@ class CreativeGenerationForm(forms.Form):
     ]
     
     AI_SERVICE_CHOICES = [
-        ('openai', 'OpenAI GPT + DALL-E'),
-        ('claude', 'Anthropic Claude'),
-        ('google', 'Google AI'),
+        ('openai', 'ChatGPT + DALL-E (OpenAI)'),
     ]
     
     STYLE_CHOICES = [

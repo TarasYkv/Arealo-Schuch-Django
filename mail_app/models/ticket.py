@@ -89,7 +89,7 @@ class Ticket(models.Model):
         return normalized
     
     @classmethod
-    def find_matching_ticket(cls, account, sender_email, subject, grouping_mode='subject', include_closed=False):
+    def find_matching_ticket(cls, account, sender_email, subject, grouping_mode='email', include_closed=False):
         """
         Find an existing ticket that matches the criteria.
         """
@@ -102,14 +102,14 @@ class Ticket(models.Model):
         if not include_closed:
             base_query = base_query.filter(status='open')
         
-        if grouping_mode == 'sender':
+        if grouping_mode == 'email':
             # Group only by email address
             return base_query.first()
-        elif grouping_mode == 'subject':
+        elif grouping_mode == 'email_subject':
             # Group by email address and normalized subject
             normalized_subject = cls.normalize_subject(subject)
             if not normalized_subject:
-                # If subject is empty, fall back to sender-only grouping
+                # If subject is empty, fall back to email-only grouping
                 return base_query.filter(normalized_subject='').first()
             
             # Try to find ticket with same normalized subject
@@ -119,11 +119,11 @@ class Ticket(models.Model):
         return None
     
     @classmethod
-    def create_from_email(cls, email, grouping_mode='subject'):
+    def create_from_email(cls, email, grouping_mode='email'):
         """
         Create a new ticket from an email.
         """
-        normalized_subject = cls.normalize_subject(email.subject) if grouping_mode == 'subject' else ''
+        normalized_subject = cls.normalize_subject(email.subject) if grouping_mode == 'email_subject' else ''
         
         ticket = cls.objects.create(
             account=email.account,
@@ -163,8 +163,8 @@ class Ticket(models.Model):
         self.closed_at = timezone.now()
         self.save(update_fields=['status', 'closed_at', 'updated_at'])
         
-        # Mark all emails as closed (not open)
-        self.emails.update(is_open=False)
+        # Mark all emails as closed (not open) and remove ticket association
+        self.emails.update(is_open=False, ticket=None)
     
     def reopen_ticket(self):
         """
@@ -202,3 +202,181 @@ class Ticket(models.Model):
         # Remove account email
         participants.discard(self.account.email_address)
         return list(participants)
+    
+    def update_ticket_stats(self):
+        """Update ticket statistics based on associated emails."""
+        open_emails = self.emails.filter(is_open=True)
+        
+        if open_emails.exists():
+            self.email_count = open_emails.count()
+            self.first_email_at = open_emails.order_by('sent_at').first().sent_at
+            self.last_email_at = open_emails.order_by('-sent_at').first().sent_at
+            
+            # Update subject prefix from most common subject
+            subjects = open_emails.values_list('subject', flat=True)
+            if subjects:
+                # Find common subject prefix
+                common_prefix = self._find_common_subject_prefix(subjects)
+                if common_prefix:
+                    self.subject_prefix = common_prefix
+                else:
+                    self.subject_prefix = subjects[0][:100]  # Fallback to first subject
+            
+            self.save()
+        else:
+            # No open emails left, close ticket
+            self.close_ticket()
+    
+    def _find_common_subject_prefix(self, subjects):
+        """Find common prefix in email subjects, removing Re: and Fwd: prefixes."""
+        if not subjects:
+            return ""
+        
+        # Clean subjects by removing Re:, Fwd:, etc.
+        cleaned_subjects = []
+        for subject in subjects:
+            cleaned = re.sub(r'^(Re|Fwd|Fw|Aw):\s*', '', subject, flags=re.IGNORECASE).strip()
+            if cleaned:
+                cleaned_subjects.append(cleaned)
+        
+        if not cleaned_subjects:
+            return ""
+        
+        # Find longest common prefix
+        common_prefix = cleaned_subjects[0]
+        for subject in cleaned_subjects[1:]:
+            # Find common prefix between current common and this subject
+            i = 0
+            while i < len(common_prefix) and i < len(subject) and common_prefix[i] == subject[i]:
+                i += 1
+            common_prefix = common_prefix[:i]
+        
+        return common_prefix.strip()[:100]  # Limit length
+
+    @classmethod
+    def create_or_update_for_email(cls, email, grouping_mode='email', auto_group_related=True):
+        """
+        Create or update a ticket for the given email and optionally group related emails.
+        
+        Args:
+            email: The email to create a ticket for
+            grouping_mode: 'email' or 'email_subject' 
+            auto_group_related: If True, automatically add related emails to the ticket
+        
+        Returns:
+            The ticket instance.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"create_or_update_for_email called for email {email.id}, is_open={email.is_open}, grouping_mode={grouping_mode}")
+        
+        if not email.is_open:
+            logger.warning(f"Email {email.id} is not open, returning None")
+            return None
+        
+        logger.info(f"Creating/updating ticket for {email.from_email} from account {email.account.email_address}")
+        
+        # Find existing matching ticket (both open and closed)
+        existing_ticket = cls.find_matching_ticket(
+            account=email.account,
+            sender_email=email.from_email,
+            subject=email.subject,
+            grouping_mode=grouping_mode
+        )
+        
+        # If no open ticket found, check for closed tickets that can be reopened
+        if not existing_ticket:
+            closed_ticket = cls.find_matching_ticket(
+                account=email.account,
+                sender_email=email.from_email,
+                subject=email.subject,
+                grouping_mode=grouping_mode,
+                include_closed=True
+            )
+            if closed_ticket:
+                existing_ticket = closed_ticket
+        
+        if existing_ticket:
+            logger.info(f"Found existing ticket {existing_ticket.id}")
+            ticket = existing_ticket
+            
+            # If ticket was closed, reopen it
+            if ticket.status == 'closed':
+                logger.info(f"Reopening closed ticket {ticket.id}")
+                ticket.status = 'open'
+                ticket.closed_at = None
+                ticket.save(update_fields=['status', 'closed_at'])
+        else:
+            # Create new ticket
+            normalized_subject = cls.normalize_subject(email.subject) if grouping_mode == 'email_subject' else ''
+            
+            ticket = cls.objects.create(
+                account=email.account,
+                sender_email=email.from_email,
+                sender_name=email.from_name,
+                subject_prefix=email.subject[:100] if email.subject else '(Kein Betreff)',
+                normalized_subject=normalized_subject,
+                grouping_mode=grouping_mode,
+                first_email_at=email.sent_at,
+                last_email_at=email.sent_at,
+                email_count=1,
+                status='open'
+            )
+            logger.info(f"Created new ticket {ticket.id}")
+        
+        # Associate email with ticket
+        email.ticket = ticket
+        email.save(update_fields=['ticket'])
+        
+        # Auto-group related emails if requested
+        if auto_group_related:
+            cls._auto_group_related_emails(ticket, email, grouping_mode)
+        
+        # Update ticket statistics
+        ticket.update_ticket_stats()
+        
+        return ticket
+    
+    @classmethod
+    def _auto_group_related_emails(cls, ticket, trigger_email, grouping_mode):
+        """
+        Automatically group related emails into the same ticket.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"Auto-grouping related emails for ticket {ticket.id} with mode {grouping_mode}")
+        
+        # Find related emails that should be in this ticket
+        related_emails_query = trigger_email.account.emails.filter(
+            from_email=ticket.sender_email
+        ).exclude(
+            id=trigger_email.id  # Exclude the trigger email itself
+        )
+        
+        if grouping_mode == 'email_subject' and ticket.normalized_subject:
+            # Also filter by normalized subject
+            related_emails = []
+            for email in related_emails_query:
+                if cls.normalize_subject(email.subject) == ticket.normalized_subject:
+                    related_emails.append(email)
+        else:
+            # Group all emails from this sender
+            related_emails = list(related_emails_query)
+        
+        # Mark related emails as open and associate with ticket
+        updated_count = 0
+        for email in related_emails:
+            if not email.is_open:
+                email.is_open = True
+                updated_count += 1
+            
+            if email.ticket != ticket:
+                email.ticket = ticket
+            
+            email.save(update_fields=['is_open', 'ticket'])
+        
+        logger.info(f"Auto-grouped {len(related_emails)} related emails, {updated_count} were newly marked as open")
+        
+        return len(related_emails)

@@ -58,19 +58,35 @@ class ZohoMailAPIService:
     def _get_headers(self) -> Dict[str, str]:
         """Get headers with valid access token."""
         try:
+            # First check EmailAccount for access token
+            access_token = self.account.access_token
+            token_expires_at = self.account.token_expires_at
+            
+            # If no token in EmailAccount, check ZohoAPISettings
+            if not access_token:
+                try:
+                    from accounts.models import ZohoAPISettings
+                    zoho_settings = ZohoAPISettings.objects.get(user=self.account.user, is_active=True)
+                    access_token = zoho_settings.access_token
+                    token_expires_at = zoho_settings.token_expires_at
+                    logger.info(f"Using access token from ZohoAPISettings for {self.account.email_address}")
+                except Exception as e:
+                    logger.warning(f"Could not get token from ZohoAPISettings: {e}")
+            
             # Check if we have an access token
-            if not self.account.access_token:
+            if not access_token:
                 logger.warning(f"No access token for {self.account.email_address}")
                 raise ReAuthorizationRequiredError("No access token available")
             
             # Check if token needs refresh
-            if (self.account.token_expires_at and 
-                self.account.token_expires_at <= timezone.now()):
+            if (token_expires_at and token_expires_at <= timezone.now()):
                 logger.info(f"Access token expired for {self.account.email_address}, refreshing...")
                 self._refresh_token()
+                # After refresh, get updated token
+                access_token = self.account.access_token or access_token
             
             return {
-                'Authorization': f'Bearer {self.account.access_token}',
+                'Authorization': f'Bearer {access_token}',
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             }
@@ -169,7 +185,7 @@ class ZohoMailAPIService:
         except requests.exceptions.RequestException as e:
             logger.error(f"Network error for {endpoint}: {e}")
             raise ZohoAPIError(f"Network error: {e}")
-        except (AuthenticationError, RateLimitExceededError):
+        except (AuthenticationError, RateLimitExceededError, ReAuthorizationRequiredError):
             # Re-raise specific exceptions
             raise
         except Exception as e:
@@ -320,6 +336,9 @@ class ZohoMailAPIService:
                 logger.info(f"Retrieved {len(folders)} folders")
                 return folders
                 
+            except ReAuthorizationRequiredError:
+                # Re-raise re-authorization errors without wrapping
+                raise
             except Exception as e:
                 logger.error(f"Error fetching folders: {e}")
                 raise ZohoAPIError(f"Failed to get folders: {e}")

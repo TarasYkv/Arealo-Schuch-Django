@@ -61,12 +61,13 @@ class ZohoOAuthService:
             logger.error(f"No Zoho configuration found in .env or user settings: {e}")
             raise InvalidConfigurationError("Zoho Mail configuration not found")
     
-    def get_authorization_url(self, state: Optional[str] = None) -> str:
+    def get_authorization_url(self, state: Optional[str] = None, force_refresh: bool = True) -> str:
         """
-        Generate the OAuth2 authorization URL for Zoho.
+        Generate the OAuth2 authorization URL for Zoho with enhanced parameters for longer code validity.
         
         Args:
             state: Optional state parameter for CSRF protection
+            force_refresh: Force refresh consent screen for longer code validity
             
         Returns:
             Authorization URL string
@@ -79,13 +80,24 @@ class ZohoOAuthService:
                 state=state
             )
             
+            # Enhanced parameters for longer authorization code validity
+            auth_params = {
+                'access_type': 'offline',
+                'approval_prompt': 'force',  # Force approval screen
+                'prompt': 'consent'  # Always show consent screen
+            }
+            
+            # Add additional parameters to potentially extend code lifetime
+            if force_refresh:
+                auth_params['response_mode'] = 'query'
+                auth_params['include_granted_scopes'] = 'true'
+            
             authorization_url, state = oauth.authorization_url(
                 self.auth_url,
-                access_type='offline',
-                prompt='consent'
+                **auth_params
             )
             
-            logger.info(f"Generated authorization URL for client_id: {self.client_id[:10]}...")
+            logger.info(f"Generated enhanced authorization URL for client_id: {self.client_id[:10]}... with extended validity parameters")
             return authorization_url
             
         except Exception as e:
@@ -128,10 +140,39 @@ class ZohoOAuthService:
             
             if response.status_code != 200:
                 logger.error(f"Token exchange failed with status {response.status_code}")
-                logger.error(f"Response content: {response.text[:500]}")
-                raise TokenRefreshError(f"Token exchange failed: {response.status_code} - {response.text}")
+                logger.error(f"Response headers: {dict(response.headers)}")
+                logger.error(f"Response content: {response.text[:1000]}")
+                
+                # Check if it's a JSON error response
+                try:
+                    error_data = response.json()
+                    if 'error' in error_data:
+                        error_msg = f"{error_data.get('error')}: {error_data.get('error_description', '')}"
+                        logger.error(f"Zoho OAuth error: {error_msg}")
+                        
+                        # Check for specific authorization code errors
+                        if 'invalid_grant' in error_msg.lower() or 'authorization code' in error_msg.lower():
+                            logger.error("Authorization code expired or invalid - OAuth flow must be completed quickly!")
+                            raise TokenRefreshError("Token exchange failed: Authorization code expired or invalid. Please try the OAuth flow again and complete it within 1-2 minutes.")
+                        else:
+                            raise TokenRefreshError(f"Token exchange failed: {error_msg}")
+                except ValueError:
+                    # Not JSON, probably HTML error page
+                    if '<title>' in response.text and 'Zoho' in response.text:
+                        logger.error("Received HTML error page instead of JSON - likely expired authorization code")
+                        if 'expired' in response.text.lower() or 'invalid' in response.text.lower():
+                            logger.error("Authorization code has expired - OAuth must be completed faster!")
+                            raise TokenRefreshError("Token exchange failed: Authorization code expired. The OAuth process must be completed within 1-2 minutes. Please try again immediately.")
+                        else:
+                            raise TokenRefreshError("Token exchange failed: Invalid request parameters or expired authorization code")
+                    else:
+                        raise TokenRefreshError(f"Token exchange failed: {response.status_code} - {response.text[:200]}")
             
-            token_data = response.json()
+            try:
+                token_data = response.json()
+            except ValueError as e:
+                logger.error(f"Invalid JSON response: {response.text[:500]}")
+                raise TokenRefreshError("Token exchange failed: Invalid response format")
             logger.info(f"Token exchange successful, received keys: {list(token_data.keys())}")
             
             if 'error' in token_data:

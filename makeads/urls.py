@@ -22,9 +22,21 @@ urlpatterns = [
     path('creative/<uuid:creative_id>/', views.creative_detail, name='creative_detail'),
     path('creative/<uuid:creative_id>/revise/', views.creative_revise, name='creative_revise'),
     path('creative/<uuid:creative_id>/toggle-favorite/', views.creative_toggle_favorite, name='creative_toggle_favorite'),
+    path('creative/<uuid:creative_id>/update-title/', views.creative_update_title, name='creative_update_title'),
+    
+    # Text Overlay Management
+    path('creative/<uuid:creative_id>/overlay/add/', views.add_text_overlay, name='add_text_overlay'),
+    path('creative/<uuid:creative_id>/overlay/generate/', views.generate_overlay_text, name='generate_overlay_text'),
+    path('creative/<uuid:creative_id>/overlay/generate-design/', views.generate_text_design, name='generate_text_design'),
+    path('overlay/<uuid:overlay_id>/get/', views.get_text_overlay, name='get_text_overlay'),
+    path('overlay/<uuid:overlay_id>/update/', views.update_text_overlay, name='update_text_overlay'),
+    path('overlay/<uuid:overlay_id>/delete/', views.delete_text_overlay, name='delete_text_overlay'),
     
     # Bulk Actions
     path('bulk-actions/', views.bulk_actions, name='bulk_actions'),
+    
+    # API Status Check
+    path('api/check-api-keys/', views.check_api_keys, name='check_api_keys'),
     
     # AJAX Endpoints
     path('job/<uuid:job_id>/status/', views.job_status, name='job_status'),

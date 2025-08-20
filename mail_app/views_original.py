@@ -181,6 +181,13 @@ def oauth_callback(request):
         # Exchange code for tokens
         oauth_service = ZohoOAuthService(user=request.user)
         token_data = oauth_service.exchange_code_for_tokens(authorization_code)
+        logger.info(f"Successfully exchanged authorization code for tokens")
+        
+        # Clear any existing email accounts for this user first to avoid conflicts
+        existing_accounts = EmailAccount.objects.filter(user=request.user)
+        if existing_accounts.exists():
+            logger.info(f"Clearing {existing_accounts.count()} existing email accounts")
+            existing_accounts.delete()
         
         # Update user's ZohoAPISettings with OAuth tokens
         try:
@@ -190,25 +197,31 @@ def oauth_callback(request):
             zoho_settings.refresh_token = token_data['refresh_token']
             zoho_settings.token_expires_at = token_data['expires_at']
             zoho_settings.is_active = True
+            zoho_settings.is_configured = True
             zoho_settings.save()
             logger.info(f"Updated ZohoAPISettings for user {request.user.username}")
         except Exception as e:
             logger.error(f"Failed to update ZohoAPISettings: {str(e)}")
+            raise
         
-        # Test the API connection to get user info
-        temp_account = EmailAccount(
-            user=request.user,
-            access_token=token_data['access_token'],
-            token_expires_at=token_data['expires_at']
-        )
-        
-        # Get account info to determine the actual email address
-        api_service = ZohoMailAPIService(temp_account)
-        account_info = api_service.get_account_info()
-        
-        # Extract email address from account info
+        # Test the API connection to get user info (optional - don't fail if this doesn't work)
         email_address = 'kontakt@workloom.de'  # Default fallback
         display_name = 'Zoho Mail Account'  # Default display name
+        
+        try:
+            temp_account = EmailAccount(
+                user=request.user,
+                access_token=token_data['access_token'],
+                token_expires_at=token_data['expires_at']
+            )
+            
+            # Get account info to determine the actual email address
+            api_service = ZohoMailAPIService(temp_account)
+            account_info = api_service.get_account_info()
+            logger.info(f"Retrieved account info: {bool(account_info)}")
+        except Exception as e:
+            logger.warning(f"Could not retrieve account info (using defaults): {str(e)}")
+            account_info = {}
         
         if account_info and 'data' in account_info:
             # Try to get the primary email address from the account data
@@ -237,63 +250,25 @@ def oauth_callback(request):
                 display_name = email_address
                 logger.info(f"Using Zoho account email: {email_address}")
         else:
-            logger.warning("Could not retrieve account info, using default email address")
-            # Test connection with the fallback
-            connection_ok = api_service.test_connection()
-            if not connection_ok:
-                logger.warning("API connection test failed with fallback settings")
+            logger.info("Using default email address (no account info available)")
         
-        # Look for existing email account for this user, or create new one
+        # Create new email account (we already cleared existing ones)
         try:
-            # First, try to find an account with the same email address for this user
-            existing_account = EmailAccount.objects.filter(
-                user=request.user, 
-                email_address=email_address
-            ).first()
-            
-            if existing_account:
-                # Update the existing account with the same email (reactivate if it was disconnected)
-                existing_account.display_name = display_name
-                existing_account.access_token = token_data['access_token']
-                existing_account.refresh_token = token_data['refresh_token']
-                existing_account.token_expires_at = token_data['expires_at']
-                existing_account.is_active = True
-                existing_account.is_default = True
-                existing_account.sync_enabled = True
-                existing_account.save()
-                email_account = existing_account
-                created = False
-                logger.info(f"Reactivated existing email account for {email_address}")
-            else:
-                # Check if there's any other account for this user - deactivate it first
-                other_accounts = EmailAccount.objects.filter(user=request.user)
-                if other_accounts.exists():
-                    # Deactivate all other accounts for this user
-                    other_accounts.update(is_active=False, is_default=False)
-                    logger.info(f"Deactivated {other_accounts.count()} other accounts for user")
-                
-                # Now try to create/update an account with this email address
-                email_account, created = EmailAccount.objects.update_or_create(
-                    email_address=email_address,
-                    defaults={
-                        'user': request.user,
-                        'display_name': display_name,
-                        'access_token': token_data['access_token'],
-                        'refresh_token': token_data['refresh_token'],
-                        'token_expires_at': token_data['expires_at'],
-                        'is_default': True,
-                        'sync_enabled': True,
-                        'is_active': True
-                    }
-                )
-                
-                if created:
-                    logger.info(f"Created new email account for {email_address}")
-                else:
-                    logger.info(f"Updated existing email account for {email_address}")
+            email_account = EmailAccount.objects.create(
+                user=request.user,
+                email_address=email_address,
+                display_name=display_name,
+                access_token=token_data['access_token'],
+                refresh_token=token_data['refresh_token'],
+                token_expires_at=token_data['expires_at'],
+                is_default=True,
+                sync_enabled=True,
+                is_active=True
+            )
+            logger.info(f"Created new email account for {email_address}")
                 
         except Exception as e:
-            logger.error(f"Error creating/updating email account: {str(e)}")
+            logger.error(f"Error creating email account: {str(e)}")
             raise
         
         # Initialize folders (try to sync, but don't fail if it doesn't work)
@@ -321,8 +296,25 @@ def oauth_callback(request):
         return redirect('mail_app:dashboard')
         
     except Exception as e:
-        logger.error(f"OAuth callback error for user {request.user.id}: {str(e)}")
-        messages.error(request, "Error setting up email account. Please try again.")
+        import traceback
+        error_details = traceback.format_exc()
+        logger.error(f"OAuth callback error for user {request.user.id}: {str(e)}\nFull traceback: {error_details}")
+        
+        # Provide more specific error messages
+        if "Invalid request parameters or expired authorization code" in str(e):
+            messages.error(request, "Authorization code expired or invalid. Please try connecting again.")
+        elif "Token exchange failed" in str(e):
+            if "error" in str(e).lower():
+                messages.error(request, "OAuth authorization failed. Please check your Zoho app configuration.")
+            else:
+                messages.error(request, "Failed to exchange authorization code for tokens. Please try again.")
+        elif "get_account_info" in str(e):
+            messages.error(request, "Could not retrieve account information. Authorization may have succeeded - check your email accounts.")
+        elif "IntegrityError" in str(e):
+            messages.error(request, "Email account already exists. Try disconnecting first.")
+        else:
+            messages.error(request, f"Error setting up email account: {str(e)}")
+        
         return redirect('mail_app:dashboard')
 
 
@@ -638,9 +630,12 @@ def api_sync_emails(request, account_id):
         logger.warning(f"Re-authorization required for account {account_id}: {str(e)}")
         return Response(
             {
+                'success': False,
                 'error': 'Re-authorization required',
                 'reauth_required': True,
-                'message': 'Your email authorization has expired. Please reconnect your email account.'
+                'message': 'Your email authorization has expired. Please reconnect your email account.',
+                'details': 'The access and refresh tokens have expired. Please reconnect your Zoho account.',
+                'reconnect_url': '/mail/auth/authorize/'
             }, 
             status=status.HTTP_401_UNAUTHORIZED
         )
