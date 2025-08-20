@@ -30,17 +30,22 @@ def dashboard(request):
 @login_required 
 def recording_studio(request):
     """
-    Main recording interface - Server-Ready Version
-    Optimized for maximum compatibility on PythonAnywhere and other hosting services
+    Haupt-Aufnahmestudio mit gemeinsamer Navbar (extends base.html)
     """
     context = {
-        'title': 'StreamRec - Server Edition',
+        'title': 'StreamRec - Professionelles Aufnahme Studio',
         'max_duration_minutes': 3,
-        'supported_formats': ['webm'],
-        'canvas_aspect_ratio': '16:9',
-        'version': 'server-ready',
+        'supported_formats': ['webm', 'mp4'],
+        'canvas_aspect_ratio': '9:16',
+        'phases_active': [1, 2, 3, 4],
+        'features': {
+            'phase1': ['WebRTC Stream Capture', 'Canvas Composition'],
+            'phase2': ['Layout Manager', 'Drag & Drop', 'Preset Layouts'],
+            'phase3': ['MediaRecorder API', 'Duration Limits', 'Quality Settings'],
+            'phase4': ['German Localization', 'Accessibility', 'Help System']
+        }
     }
-    return render(request, 'streamrec/recording_studio_server_ready.html', context)
+    return render(request, 'streamrec/recording_studio_enhanced.html', context)
 
 @login_required 
 def recording_studio_self_contained(request):
