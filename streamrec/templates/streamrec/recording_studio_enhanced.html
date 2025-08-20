@@ -4,7 +4,8 @@
 {% block title %}StreamRec - Professionelles Aufnahme Studio{% endblock %}
 
 {% block page_css %}
-<link rel="stylesheet" href="{% static 'streamrec/css/streamrec.css' %}?v={% now 'U' %}">
+<link rel="stylesheet" href="{% static 'streamrec/css/streamrec.css' %}?v={% now 'U' %}&cache_bust=20250820">
+<!-- DEBUG: CSS LOADED -->
 <style>
 /* Enhanced Studio Styles */
 .studio-container {
@@ -476,9 +477,12 @@ body.bg-dark #layoutControls textarea {
 {% endblock %}
 
 {% block page_js %}
-<script src="{% static 'streamrec/js/phase2-layout-manager.js' %}?v={% now 'U' %}"></script>
-<script src="{% static 'streamrec/js/phase3-recording.js' %}?v={% now 'U' %}"></script>
-<script src="{% static 'streamrec/js/phase4-german-ui.js' %}?v={% now 'U' %}"></script>
+<!-- DEBUG: Loading Phase 2-4 JavaScript Files -->
+<script src="{% static 'streamrec/js/phase2-layout-manager.js' %}?v={% now 'U' %}&cache_bust=20250820"></script>
+<script src="{% static 'streamrec/js/phase3-recording.js' %}?v={% now 'U' %}&cache_bust=20250820"></script>
+<script src="{% static 'streamrec/js/phase4-german-ui.js' %}?v={% now 'U' %}&cache_bust=20250820"></script>
+<!-- DEBUG: JavaScript Loading Status -->
+<script>console.log('🐛 DEBUG: JavaScript files loading...');</script>
 
 <script>
 /**
@@ -620,6 +624,9 @@ class EnhancedStreamRecorder extends StreamRecorder {
             if (this.layoutManager.applyLayout) {
                 this.layoutManager.applyLayout('pip-top-right');
             }
+        } else {
+            console.warn('⚠️ Phase 2: LayoutManager nicht verfügbar - erstelle Fallback');
+            this.createLayoutManagerFallback();
         }
     }
 
@@ -628,6 +635,9 @@ class EnhancedStreamRecorder extends StreamRecorder {
         if (typeof RecordingEngine !== 'undefined') {
             this.recordingEngine = new RecordingEngine(this);
             console.log('✅ Phase 3: Recording Engine initialisiert');
+        } else {
+            console.warn('⚠️ Phase 3: RecordingEngine nicht verfügbar - erstelle Fallback');
+            this.createRecordingEngineFallback();
         }
     }
 
@@ -636,6 +646,9 @@ class EnhancedStreamRecorder extends StreamRecorder {
         if (typeof GermanUI !== 'undefined') {
             this.germanUI = new GermanUI(this);
             console.log('✅ Phase 4: German UI initialisiert');
+        } else {
+            console.warn('⚠️ Phase 4: GermanUI nicht verfügbar - erstelle Fallback');
+            this.createGermanUIFallback();
         }
     }
 
@@ -651,6 +664,157 @@ class EnhancedStreamRecorder extends StreamRecorder {
         
         // Auto-save settings
         this.loadUserSettings();
+    }
+
+    // FALLBACK METHODS für fehlende externe JavaScript Files
+
+    createLayoutManagerFallback() {
+        const layoutContainer = document.getElementById('layoutControls');
+        if (layoutContainer) {
+            layoutContainer.innerHTML = `
+                <h6 class="text-muted mb-3">
+                    <i class="fas fa-th-large me-2"></i>Layout Manager
+                    <span class="badge bg-warning ms-2">Fallback</span>
+                </h6>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Layout Manager konnte nicht geladen werden. Basis-Funktionalität verfügbar.
+                </div>
+                <div class="layout-presets-fallback">
+                    <button class="btn btn-outline-primary btn-sm me-2 mb-2" onclick="streamRecorder.applySimpleLayout('pip')">
+                        📱 Picture-in-Picture
+                    </button>
+                    <button class="btn btn-outline-primary btn-sm me-2 mb-2" onclick="streamRecorder.applySimpleLayout('side')">
+                        ↔️ Nebeneinander
+                    </button>
+                    <button class="btn btn-outline-primary btn-sm me-2 mb-2" onclick="streamRecorder.applySimpleLayout('stack')">
+                        ⬇️ Gestapelt
+                    </button>
+                </div>
+            `;
+        }
+        console.log('📐 Layout Manager Fallback erstellt');
+    }
+
+    createRecordingEngineFallback() {
+        const container = document.getElementById('recordingControlsContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="control-panel mt-3">
+                    <h5 class="text-gradient mb-4">
+                        <i class="fas fa-record-vinyl me-2"></i>
+                        Aufnahme Kontrolle
+                        <span class="badge bg-warning ms-2">Fallback</span>
+                    </h5>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Recording Engine konnte nicht geladen werden. Basis-Aufnahme verfügbar.
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button id="fallbackRecordBtn" class="btn btn-danger streamrec-btn" onclick="streamRecorder.fallbackStartRecording()">
+                            <i class="fas fa-circle me-2"></i>Aufnahme starten (Fallback)
+                        </button>
+                        <button id="fallbackStopBtn" class="btn btn-secondary streamrec-btn" disabled onclick="streamRecorder.fallbackStopRecording()">
+                            <i class="fas fa-stop me-2"></i>Aufnahme stoppen
+                        </button>
+                    </div>
+                    <small class="text-muted d-block mt-2">
+                        Status: Fallback-Modus aktiv
+                    </small>
+                </div>
+            `;
+        }
+        console.log('📹 Recording Engine Fallback erstellt');
+    }
+
+    createGermanUIFallback() {
+        this.germanUI = {
+            showNotification: (type, title, message) => {
+                console.log(`📢 ${type.toUpperCase()}: ${title} - ${message}`);
+                // Simple browser notification fallback
+                const alertType = type === 'error' ? 'danger' : type;
+                const alertDiv = document.createElement('div');
+                alertDiv.className = `alert alert-${alertType === 'success' ? 'success' : alertType === 'error' ? 'danger' : 'info'} alert-dismissible fade show position-fixed`;
+                alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 350px;';
+                alertDiv.innerHTML = `
+                    <strong>${title}</strong> ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.body.appendChild(alertDiv);
+                setTimeout(() => alertDiv.remove(), 5000);
+            },
+            updatePerformanceMetrics: () => {
+                const metricsEl = document.getElementById('performanceMetrics');
+                if (metricsEl) {
+                    metricsEl.innerHTML = `
+                        <small class="text-muted">Performance: ${this.streams.size} Streams aktiv</small>
+                    `;
+                }
+            }
+        };
+        console.log('🇩🇪 German UI Fallback erstellt');
+    }
+
+    // SIMPLE LAYOUT METHODS für Fallback
+
+    applySimpleLayout(type) {
+        if (!this.isComposing) {
+            alert('Bitte starten Sie zuerst die Komposition');
+            return;
+        }
+        
+        this.currentSimpleLayout = type;
+        console.log(`📐 Einfaches Layout angewendet: ${type}`);
+        this.germanUI?.showNotification('info', 'Layout geändert', `${type} Layout aktiviert`);
+    }
+
+    fallbackStartRecording() {
+        if (!this.isComposing) {
+            alert('Bitte starten Sie zuerst die Live-Komposition');
+            return;
+        }
+
+        try {
+            const stream = this.canvas.captureStream(30);
+            this.fallbackMediaRecorder = new MediaRecorder(stream);
+            this.fallbackRecordedChunks = [];
+
+            this.fallbackMediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    this.fallbackRecordedChunks.push(event.data);
+                }
+            };
+
+            this.fallbackMediaRecorder.onstop = () => {
+                const blob = new Blob(this.fallbackRecordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `streamrec-recording-${Date.now()}.webm`;
+                a.click();
+                this.germanUI?.showNotification('success', 'Download', 'Video wurde heruntergeladen');
+            };
+
+            this.fallbackMediaRecorder.start();
+            document.getElementById('fallbackRecordBtn').disabled = true;
+            document.getElementById('fallbackStopBtn').disabled = false;
+            
+            this.germanUI?.showNotification('success', 'Aufnahme gestartet', 'Fallback-Recording läuft');
+            console.log('📹 Fallback Recording gestartet');
+
+        } catch (error) {
+            console.error('❌ Fallback Recording Fehler:', error);
+            alert('Aufnahme konnte nicht gestartet werden: ' + error.message);
+        }
+    }
+
+    fallbackStopRecording() {
+        if (this.fallbackMediaRecorder && this.fallbackMediaRecorder.state === 'recording') {
+            this.fallbackMediaRecorder.stop();
+            document.getElementById('fallbackRecordBtn').disabled = false;
+            document.getElementById('fallbackStopBtn').disabled = true;
+            console.log('📹 Fallback Recording gestoppt');
+        }
     }
 
     // Hilfsfunktion: nächsten Screen-Key bestimmen (screen, screen2, ...)
@@ -685,52 +849,148 @@ class EnhancedStreamRecorder extends StreamRecorder {
             // Fallback to simple composition - render streams directly
             const streams = Array.from(this.streams.entries());
             
-            streams.forEach(([type, stream], index) => {
-                const video = this.getVideoElement(type, stream);
-                
-                if (video && video.readyState >= 2) {
-                    // Seitenverhältnis beibehalten (cover)
-                    const drawCover = (dx, dy, dw, dh) => {
-                        const vw = video.videoWidth || 16;
-                        const vh = video.videoHeight || 9;
-                        const videoAspect = vw / vh;
-                        const targetAspect = dw / dh;
-                        let sx = 0, sy = 0, sw = vw, sh = vh;
-                        if (videoAspect > targetAspect) {
-                            // Video zu breit -> Seiten beschneiden
-                            sw = vh * targetAspect;
-                            sx = (vw - sw) / 2;
-                        } else {
-                            // Video zu hoch -> oben/unten beschneiden
-                            sh = vw / targetAspect;
-                            sy = (vh - sh) / 2;
-                        }
-                        this.ctx.drawImage(video, sx, sy, sw, sh, dx, dy, dw, dh);
-                    };
-
-                    if (type === 'screen') {
-                        // Bildschirm als Hintergrund, mit korrektem Fit
-                        drawCover(0, 0, this.canvas.width, this.canvas.height);
-                    } else if (type === 'camera') {
-                        // Kamera als kleines Overlay oben rechts
-                        const overlayWidth = Math.round(this.canvas.width * 0.33);
-                        const overlayHeight = Math.round(overlayWidth * (9/16));
-                        const x = this.canvas.width - overlayWidth - 20;
-                        const y = 20;
-                        // Border
-                        this.ctx.strokeStyle = '#fff';
-                        this.ctx.lineWidth = 2;
-                        this.ctx.strokeRect(x - 2, y - 2, overlayWidth + 4, overlayHeight + 4);
-                        drawCover(x, y, overlayWidth, overlayHeight);
-                    }
-                }
-            });
+            // Apply simple layout if set
+            if (this.currentSimpleLayout) {
+                this.renderSimpleLayout(streams);
+            } else {
+                // Default fallback layout
+                this.renderDefaultFallbackLayout(streams);
+            }
         }
 
         // Update recording indicator
         this.updateRecordingIndicator();
 
         this.animationFrame = requestAnimationFrame(() => this.renderComposition());
+    }
+
+    // LAYOUT RENDER METHODS für Fallback
+
+    renderSimpleLayout(streams) {
+        switch (this.currentSimpleLayout) {
+            case 'pip':
+                this.renderPictureInPicture(streams);
+                break;
+            case 'side':
+                this.renderSideBySide(streams);
+                break;
+            case 'stack':
+                this.renderStacked(streams);
+                break;
+            default:
+                this.renderDefaultFallbackLayout(streams);
+        }
+    }
+
+    renderDefaultFallbackLayout(streams) {
+        streams.forEach(([type, stream], index) => {
+            const video = this.getVideoElement(type, stream);
+            
+            if (video && video.readyState >= 2) {
+                // Seitenverhältnis beibehalten (cover)
+                const drawCover = (dx, dy, dw, dh) => {
+                    const vw = video.videoWidth || 16;
+                    const vh = video.videoHeight || 9;
+                    const videoAspect = vw / vh;
+                    const targetAspect = dw / dh;
+                    let sx = 0, sy = 0, sw = vw, sh = vh;
+                    if (videoAspect > targetAspect) {
+                        // Video zu breit -> Seiten beschneiden
+                        sw = vh * targetAspect;
+                        sx = (vw - sw) / 2;
+                    } else {
+                        // Video zu hoch -> oben/unten beschneiden
+                        sh = vw / targetAspect;
+                        sy = (vh - sh) / 2;
+                    }
+                    this.ctx.drawImage(video, sx, sy, sw, sh, dx, dy, dw, dh);
+                };
+
+                if (type === 'screen') {
+                    // Bildschirm als Hintergrund, mit korrektem Fit
+                    drawCover(0, 0, this.canvas.width, this.canvas.height);
+                } else if (type === 'camera') {
+                    // Kamera als kleines Overlay oben rechts
+                    const overlayWidth = Math.round(this.canvas.width * 0.33);
+                    const overlayHeight = Math.round(overlayWidth * (9/16));
+                    const x = this.canvas.width - overlayWidth - 20;
+                    const y = 20;
+                    // Border
+                    this.ctx.strokeStyle = '#fff';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.strokeRect(x - 2, y - 2, overlayWidth + 4, overlayHeight + 4);
+                    drawCover(x, y, overlayWidth, overlayHeight);
+                }
+            }
+        });
+    }
+
+    renderPictureInPicture(streams) {
+        // First screen as background, camera as overlay
+        streams.forEach(([type, stream]) => {
+            const video = this.getVideoElement(type, stream);
+            if (!video || video.readyState < 2) return;
+
+            if (type === 'screen') {
+                this.ctx.drawImage(video, 0, 0, this.canvas.width, this.canvas.height);
+            } else if (type === 'camera') {
+                const size = 100;
+                const x = this.canvas.width - size - 20;
+                const y = 20;
+                this.ctx.strokeStyle = '#fff';
+                this.ctx.lineWidth = 3;
+                this.ctx.strokeRect(x - 3, y - 3, size + 6, size + 6);
+                this.ctx.drawImage(video, x, y, size, size);
+            }
+        });
+    }
+
+    renderSideBySide(streams) {
+        // Split canvas in half
+        const streamArray = Array.from(streams);
+        const halfWidth = this.canvas.width / 2;
+        
+        streamArray.forEach(([type, stream], index) => {
+            const video = this.getVideoElement(type, stream);
+            if (!video || video.readyState < 2) return;
+            
+            const x = index * halfWidth;
+            this.ctx.drawImage(video, x, 0, halfWidth, this.canvas.height);
+            
+            // Draw separator
+            if (index === 0) {
+                this.ctx.strokeStyle = '#fff';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(halfWidth, 0);
+                this.ctx.lineTo(halfWidth, this.canvas.height);
+                this.ctx.stroke();
+            }
+        });
+    }
+
+    renderStacked(streams) {
+        // Stack vertically
+        const streamArray = Array.from(streams);
+        const height = this.canvas.height / streamArray.length;
+        
+        streamArray.forEach(([type, stream], index) => {
+            const video = this.getVideoElement(type, stream);
+            if (!video || video.readyState < 2) return;
+            
+            const y = index * height;
+            this.ctx.drawImage(video, 0, y, this.canvas.width, height);
+            
+            // Draw separator
+            if (index > 0) {
+                this.ctx.strokeStyle = '#fff';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, y);
+                this.ctx.lineTo(this.canvas.width, y);
+                this.ctx.stroke();
+            }
+        });
     }
 
     // Enhanced stream management
