@@ -48,6 +48,21 @@ def recording_studio(request):
     }
     return render(request, 'streamrec/recording_studio_enhanced.html', context)
 
+@login_required 
+def recording_studio_self_contained(request):
+    """
+    Self-Contained recording interface - All JavaScript inline (for deployment debugging)
+    No external JS dependencies - everything embedded in template
+    """
+    context = {
+        'title': 'StreamRec - Self-Contained Studio',
+        'max_duration_minutes': 3,
+        'supported_formats': ['webm'],
+        'canvas_aspect_ratio': '9:16',
+        'version': 'self-contained',
+    }
+    return render(request, 'streamrec/recording_studio_self_contained.html', context)
+
 @login_required
 @require_http_methods(["POST"])
 def test_camera_access(request):
