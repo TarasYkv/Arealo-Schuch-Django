@@ -30,22 +30,21 @@ def dashboard(request):
 @login_required 
 def recording_studio(request):
     """
-    Haupt-Aufnahmestudio mit gemeinsamer Navbar (extends base.html)
+    Performance Optimized Aufnahmestudio - Anti-Freeze Technology
     """
     context = {
-        'title': 'StreamRec - Professionelles Aufnahme Studio',
+        'title': 'StreamRec - Performance Optimized Studio',
         'max_duration_minutes': 3,
-        'supported_formats': ['webm', 'mp4'],
+        'supported_formats': ['webm'],
         'canvas_aspect_ratio': '9:16',
-        'phases_active': [1, 2, 3, 4],
+        'version': 'performance-optimized',
         'features': {
-            'phase1': ['WebRTC Stream Capture', 'Canvas Composition'],
-            'phase2': ['Layout Manager', 'Drag & Drop', 'Preset Layouts'],
-            'phase3': ['MediaRecorder API', 'Duration Limits', 'Quality Settings'],
-            'phase4': ['German Localization', 'Accessibility', 'Help System']
+            'anti_freeze': ['Frame Skip Logic', 'Video Element Pooling', 'Smart Rendering'],
+            'performance': ['Adaptive FPS', 'Memory Management', 'Error Recovery'],
+            'monitoring': ['Real-time FPS Counter', 'Dropped Frame Tracking', 'Render Time Analysis']
         }
     }
-    return render(request, 'streamrec/recording_studio_enhanced.html', context)
+    return render(request, 'streamrec/recording_studio_performance_optimized.html', context)
 
 @login_required 
 def recording_studio_self_contained(request):
