@@ -101,6 +101,9 @@
     border-radius: var(--streamrec-border-radius, 0.5rem);
     padding: 1rem;
     box-shadow: var(--streamrec-shadow, 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075));
+    min-height: calc(100vh - 180px);
+    position: sticky;
+    top: 1rem;
 }
 
 .phase-indicator {
@@ -141,7 +144,7 @@
 .performance-critical { border-left: 4px solid #dc3545; }
 
 /* CRITICAL FIX: Visibility */
-.control-panel, .control-panel *, #layoutControls, #layoutControls *, 
+.control-panel, .control-panel *, 
 #recordingControlsContainer, #recordingControlsContainer * {
     color: #212529 !important;
     background-color: transparent !important;
@@ -216,8 +219,8 @@
 
     <div class="container-fluid">
         <div class="row">
-            <!-- Control Panel -->
-            <div class="col-12 col-xl-4">
+            <!-- Left Column: All Controls -->
+            <div class="col-12 col-lg-4 col-xl-3">
                 <!-- Stream Controls -->
                 <div class="control-panel">
                     <h5 class="mb-4">
@@ -286,6 +289,124 @@
                             </button>
                         </div>
                         <small id="compositionStatus" class="text-muted d-block mt-2">Status: Nicht aktiv</small>
+
+                        <!-- Layout-Schnellwahl -->
+                        <div class="mt-3">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <h6 class="mb-0">Layout-Schnellwahl</h6>
+                                <small class="text-muted" id="layoutStreamCount">0 Streams</small>
+                            </div>
+                            <div id="layoutChips" class="d-flex flex-wrap gap-1"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Phase 2: Layout Manager -->
+                <div class="control-panel" id="layoutControls">
+                    <h5 class="mb-4">
+                        <i class="fas fa-th-large me-2"></i>
+                        Layout Manager
+                        <span class="badge bg-primary ms-2">Phase 2</span>
+                    </h5>
+                    <div id="layoutControlsContent">
+                        <div class="alert alert-info" id="layoutManagerPlaceholder">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Starten Sie Kamera oder Bildschirm-Sharing, um verfügbare Layouts zu sehen
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Information -->
+                <div class="control-panel">
+                    <h5 class="mb-4">
+                        <i class="fas fa-info-circle me-2"></i>
+                        System Information
+                    </h5>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="system-info-item">
+                                <small class="text-muted">Browser:</small>
+                                <div id="browserInfo" class="fw-bold">-</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="system-info-item">
+                                <small class="text-muted">WebRTC:</small>
+                                <div id="webrtcSupport" class="fw-bold">-</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="system-info-item">
+                                <small class="text-muted">Canvas:</small>
+                                <div id="canvasSupport" class="fw-bold">-</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="system-info-item">
+                                <small class="text-muted">Recording:</small>
+                                <div id="mediaRecorderSupport" class="fw-bold">-</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="performanceMetrics" class="mt-3 text-center">
+                        <small class="text-muted">Performance wird überwacht...</small>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="control-panel">
+                    <h5 class="mb-4">
+                        <i class="fas fa-bolt me-2"></i>
+                        Schnellaktionen
+                    </h5>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" onclick="window.location.reload()">
+                            <i class="fas fa-redo me-2"></i>Neu laden
+                        </button>
+                        <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#settingsModal">
+                            <i class="fas fa-cog me-2"></i>Einstellungen
+                        </button>
+                        <a href="{% url 'streamrec:dashboard' %}" class="btn btn-outline-info">
+                            <i class="fas fa-arrow-left me-2"></i>Dashboard
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Recording Controls -->
+                <div class="control-panel" id="recordingControlsContainer">
+                    <h5 class="mb-4">
+                        <i class="fas fa-record-vinyl me-2 text-danger"></i>
+                        Aufnahme Kontrolle
+                    </h5>
+                    
+                    <div class="d-grid gap-2 mb-3">
+                        <button id="recordBtn" class="btn btn-danger">
+                            <i class="fas fa-circle me-2"></i>Aufnahme starten
+                        </button>
+                        <div class="d-flex gap-2">
+                            <button id="pauseBtn" class="btn btn-warning flex-fill" disabled>
+                                <i class="fas fa-pause me-2"></i>Pausieren
+                            </button>
+                            <button id="stopRecordBtn" class="btn btn-outline-danger flex-fill" disabled>
+                                <i class="fas fa-stop me-2"></i>Stoppen
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center">
+                        <div id="recordingStatus" class="small mb-2">Status: Bereit für Aufnahme</div>
+                        <div class="progress mb-2" style="height: 8px;">
+                            <div id="recordingProgress" class="progress-bar bg-danger" style="width: 0%"></div>
+                        </div>
+                        <div class="d-flex justify-content-between small text-muted">
+                            <span id="recordingTime">00:00</span>
+                            <span>03:00</span>
+                        </div>
+                        <div class="mt-2">
+                            <span class="badge bg-secondary" id="recordingStateIndicator">
+                                <i class="fas fa-stop me-1"></i>Gestoppt
+                            </span>
+                        </div>
                     </div>
                 </div>
 
@@ -319,51 +440,10 @@
                         </label>
                     </div>
                 </div>
-
-                <!-- Recording Controls -->
-                <div class="control-panel" id="recordingControlsContainer">
-                    <h5 class="mb-4">
-                        <i class="fas fa-record-vinyl me-2 text-danger"></i>
-                        Aufnahme Kontrolle
-                    </h5>
-                    
-                    <div class="row align-items-center">
-                        <div class="col-md-12">
-                            <div class="d-grid gap-2 mb-3">
-                                <button id="recordBtn" class="btn btn-danger">
-                                    <i class="fas fa-circle me-2"></i>Aufnahme starten
-                                </button>
-                                <div class="d-flex gap-2">
-                                    <button id="pauseBtn" class="btn btn-warning flex-fill" disabled>
-                                        <i class="fas fa-pause me-2"></i>Pausieren
-                                    </button>
-                                    <button id="stopRecordBtn" class="btn btn-outline-danger flex-fill" disabled>
-                                        <i class="fas fa-stop me-2"></i>Stoppen
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="text-center">
-                                <div id="recordingStatus" class="small mb-2">Status: Bereit für Aufnahme</div>
-                                <div class="progress mb-2" style="height: 8px;">
-                                    <div id="recordingProgress" class="progress-bar bg-danger" style="width: 0%"></div>
-                                </div>
-                                <div class="d-flex justify-content-between small text-muted">
-                                    <span id="recordingTime">00:00</span>
-                                    <span>03:00</span>
-                                </div>
-                                <div class="mt-2">
-                                    <span class="badge bg-secondary" id="recordingStateIndicator">
-                                        <i class="fas fa-stop me-1"></i>Gestoppt
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
 
-            <!-- Preview Area -->
-            <div class="col-12 col-xl-8">
+            <!-- Right Column: Preview Area and Recording -->
+            <div class="col-12 col-lg-8 col-xl-9">
                 <div class="preview-area">
                     <!-- Preview Header -->
                     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -427,6 +507,27 @@
                         <div id="countdownOverlay" class="position-absolute top-50 start-50 translate-middle" style="display:none;">
                             <div class="bg-dark bg-opacity-75 text-white rounded px-5 py-4">
                                 <div id="countdownNumber" class="display-3 fw-bold text-center">3</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Stream Thumbnails -->
+                    <div class="mt-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="text-white mb-0">Aktive Streams:</h6>
+                            <div class="stream-controls-mini">
+                                <button class="btn btn-sm btn-outline-light" id="syncStreams" title="Streams synchronisieren">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#settingsModal" title="Einstellungen">
+                                    <i class="fas fa-cog"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="streamThumbnails" class="d-flex gap-3 flex-wrap">
+                            <div id="noStreamsMessage" class="text-muted text-center flex-grow-1 py-4">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Noch keine Streams erfasst
                             </div>
                         </div>
                     </div>
@@ -561,6 +662,7 @@ class StreamRecorderOptimized {
         this.checkBrowserSupport();
         this.initPerformanceMonitoring();
         this.loadSettings();
+        this.refreshLayoutChips();
         
         console.log('✅ StreamRec Performance Optimized initialisiert');
     }
@@ -606,6 +708,75 @@ class StreamRecorderOptimized {
                 this.canvas.requestFullscreen();
             }
         });
+
+        // Layout Controls (delegierte Events für beide Bereiche)
+        this.setupLayoutEventHandlers();
+    }
+
+    setupLayoutEventHandlers() {
+        // Event Handler für Layout-Chips (kleine Buttons)
+        document.getElementById('layoutChips')?.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-layout]');
+            if (!btn) return;
+            
+            const layout = btn.getAttribute('data-layout');
+            this.selectLayout(layout);
+        });
+
+        // Event Handler für Layout Manager (große Cards)
+        document.getElementById('layoutControlsContent')?.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-layout]');
+            if (!btn) return;
+            
+            const layout = btn.getAttribute('data-layout');
+            this.selectLayout(layout);
+        });
+    }
+
+    selectLayout(layout) {
+        console.log(`🎯 Layout ausgewählt: ${layout}`);
+        
+        // Layout anwenden
+        this.applyLayout(layout);
+        
+        // Komposition starten falls nicht aktiv
+        if (!this.isComposing) {
+            this.startComposition();
+        }
+        
+        // UI aktualisieren
+        this.updateLayoutUI(layout);
+    }
+
+    updateLayoutUI(layout) {
+        // Update Layout-Chips (kleine Buttons)
+        document.querySelectorAll('#layoutChips [data-layout]').forEach(el => {
+            if (el.getAttribute('data-layout') === layout) {
+                el.classList.remove('btn-outline-primary');
+                el.classList.add('btn-primary');
+            } else {
+                el.classList.remove('btn-primary');
+                el.classList.add('btn-outline-primary');
+            }
+        });
+
+        // Update Layout Manager (große Cards)
+        document.querySelectorAll('#layoutControlsContent [data-layout]').forEach(el => {
+            const card = el.closest('.layout-preset-card');
+            if (card) {
+                if (el.getAttribute('data-layout') === layout) {
+                    card.classList.add('border-primary', 'bg-primary', 'bg-opacity-10');
+                    el.textContent = 'Aktiv';
+                    el.classList.remove('btn-outline-primary');
+                    el.classList.add('btn-primary');
+                } else {
+                    card.classList.remove('border-primary', 'bg-primary', 'bg-opacity-10');
+                    el.textContent = 'Aktivieren';
+                    el.classList.remove('btn-primary');
+                    el.classList.add('btn-outline-primary');
+                }
+            }
+        });
     }
 
     checkBrowserSupport() {
@@ -618,6 +789,15 @@ class StreamRecorderOptimized {
         
         console.log('🔍 Browser Support:', support);
         return support;
+    }
+
+    getBrowserInfo() {
+        const ua = navigator.userAgent;
+        if (ua.includes('Chrome')) return 'Chrome';
+        if (ua.includes('Firefox')) return 'Firefox';
+        if (ua.includes('Safari')) return 'Safari';
+        if (ua.includes('Edge')) return 'Edge';
+        return 'Unbekannt';
     }
 
     async startCamera() {
@@ -637,8 +817,10 @@ class StreamRecorderOptimized {
             this.updateStatus('camera', 'Aktiv', 'success');
             this.updateButtons('camera', true);
             this.updateStatusBadge('camera', 'success');
+            this.addStreamThumbnail('camera', stream);
             this.checkCompositionReady();
             this.updateActiveStreamsCount();
+            this.refreshLayoutChips();
 
             console.log('✅ Kamera-Stream erfolgreich gestartet');
         } catch (error) {
@@ -666,8 +848,10 @@ class StreamRecorderOptimized {
             this.updateStatus('screen', 'Aktiv', 'success');
             this.updateButtons('screen', true);
             this.updateStatusBadge('screen', 'success');
+            this.addStreamThumbnail('screen', stream);
             this.checkCompositionReady();
             this.updateActiveStreamsCount();
+            this.refreshLayoutChips();
 
             // Handle screen sharing end event
             stream.getVideoTracks()[0].addEventListener('ended', () => {
@@ -691,7 +875,9 @@ class StreamRecorderOptimized {
             this.updateStatus('camera', 'Nicht aktiv', 'secondary');
             this.updateButtons('camera', false);
             this.updateStatusBadge('camera', 'secondary');
+            this.removeStreamThumbnail('camera');
             this.updateActiveStreamsCount();
+            this.refreshLayoutChips();
             this.checkCompositionReady();
         }
     }
@@ -705,7 +891,9 @@ class StreamRecorderOptimized {
             this.updateStatus('screen', 'Nicht aktiv', 'secondary');
             this.updateButtons('screen', false);
             this.updateStatusBadge('screen', 'secondary');
+            this.removeStreamThumbnail('screen');
             this.updateActiveStreamsCount();
+            this.refreshLayoutChips();
             this.checkCompositionReady();
         }
     }
@@ -792,14 +980,30 @@ class StreamRecorderOptimized {
         
         try {
             switch (this.currentLayout) {
+                case 'fullscreen':
+                    this.renderFullscreen(streams);
+                    break;
                 case 'pip':
                     this.renderPictureInPicture(streams);
                     break;
                 case 'side':
                     this.renderSideBySide(streams);
                     break;
+                case 'stack':
+                    this.renderStacked(streams);
+                    break;
+                case 'threeCols':
+                    this.renderThreeColumns(streams);
+                    break;
+                case 'leftBigRight2':
+                    this.renderLeftBigRightTwo(streams);
+                    break;
+                case 'grid2x2':
+                    this.renderGrid2x2(streams);
+                    break;
                 default:
-                    this.renderPictureInPicture(streams);
+                    // Default: Intelligente Auswahl basierend auf Stream-Anzahl
+                    this.renderSmartDefault(streams);
             }
             return true;
         } catch (error) {
@@ -840,7 +1044,7 @@ class StreamRecorderOptimized {
     }
 
     renderSideBySide(streams) {
-        const streamArray = Array.from(streams);
+        const streamArray = Array.from(streams).slice(0, 2); // Nur 2 Streams
         const halfWidth = this.canvas.width / 2;
         
         streamArray.forEach(([type, stream], index) => {
@@ -860,6 +1064,159 @@ class StreamRecorderOptimized {
                 this.ctx.stroke();
             }
         });
+    }
+
+    renderFullscreen(streams) {
+        // Vollbild: Ersten verfügbaren Stream verwenden
+        const streamArray = Array.from(streams);
+        if (streamArray.length === 0) return;
+        
+        const [type, stream] = streamArray[0];
+        const video = this.getVideoElementOptimized(type, stream);
+        if (video && video.readyState >= 2) {
+            this.drawVideoCover(video, 0, 0, this.canvas.width, this.canvas.height);
+        }
+    }
+
+    renderStacked(streams) {
+        // Gestapelt: Streams übereinander
+        const streamArray = Array.from(streams).slice(0, 2);
+        const halfHeight = this.canvas.height / 2;
+        
+        streamArray.forEach(([type, stream], index) => {
+            const video = this.getVideoElementOptimized(type, stream);
+            if (!video || video.readyState < 2) return;
+            
+            const y = index * halfHeight;
+            this.drawVideoContain(video, 0, y, this.canvas.width, halfHeight);
+            
+            // Draw separator
+            if (index === 0 && streamArray.length > 1) {
+                this.ctx.strokeStyle = '#fff';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, halfHeight);
+                this.ctx.lineTo(this.canvas.width, halfHeight);
+                this.ctx.stroke();
+            }
+        });
+    }
+
+    renderThreeColumns(streams) {
+        // 3 Spalten Layout
+        const streamArray = Array.from(streams).slice(0, 3);
+        const colWidth = this.canvas.width / 3;
+        
+        streamArray.forEach(([type, stream], index) => {
+            const video = this.getVideoElementOptimized(type, stream);
+            if (!video || video.readyState < 2) return;
+            
+            const x = index * colWidth;
+            this.drawVideoContain(video, x, 0, colWidth, this.canvas.height);
+            
+            // Draw separators
+            if (index < streamArray.length - 1) {
+                this.ctx.strokeStyle = '#fff';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(x + colWidth, 0);
+                this.ctx.lineTo(x + colWidth, this.canvas.height);
+                this.ctx.stroke();
+            }
+        });
+    }
+
+    renderLeftBigRightTwo(streams) {
+        // Links groß, rechts zwei kleine
+        const streamArray = Array.from(streams).slice(0, 3);
+        if (streamArray.length === 0) return;
+        
+        const leftWidth = this.canvas.width * 0.6;
+        const rightWidth = this.canvas.width * 0.4;
+        const rightHalfHeight = this.canvas.height / 2;
+        
+        // Linker großer Stream
+        const [mainType, mainStream] = streamArray[0];
+        const mainVideo = this.getVideoElementOptimized(mainType, mainStream);
+        if (mainVideo && mainVideo.readyState >= 2) {
+            this.drawVideoContain(mainVideo, 0, 0, leftWidth, this.canvas.height);
+        }
+        
+        // Rechte zwei kleinere Streams
+        streamArray.slice(1, 3).forEach(([type, stream], index) => {
+            const video = this.getVideoElementOptimized(type, stream);
+            if (!video || video.readyState < 2) return;
+            
+            const y = index * rightHalfHeight;
+            this.drawVideoContain(video, leftWidth, y, rightWidth, rightHalfHeight);
+        });
+        
+        // Separators
+        this.ctx.strokeStyle = '#fff';
+        this.ctx.lineWidth = 2;
+        // Vertical separator
+        this.ctx.beginPath();
+        this.ctx.moveTo(leftWidth, 0);
+        this.ctx.lineTo(leftWidth, this.canvas.height);
+        this.ctx.stroke();
+        // Horizontal separator (rechts)
+        if (streamArray.length > 2) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(leftWidth, rightHalfHeight);
+            this.ctx.lineTo(this.canvas.width, rightHalfHeight);
+            this.ctx.stroke();
+        }
+    }
+
+    renderGrid2x2(streams) {
+        // 2x2 Raster Layout
+        const streamArray = Array.from(streams).slice(0, 4);
+        const halfWidth = this.canvas.width / 2;
+        const halfHeight = this.canvas.height / 2;
+        
+        const positions = [
+            { x: 0, y: 0 },                    // Top-left
+            { x: halfWidth, y: 0 },             // Top-right
+            { x: 0, y: halfHeight },            // Bottom-left
+            { x: halfWidth, y: halfHeight }     // Bottom-right
+        ];
+        
+        streamArray.forEach(([type, stream], index) => {
+            const video = this.getVideoElementOptimized(type, stream);
+            if (!video || video.readyState < 2) return;
+            
+            const pos = positions[index];
+            this.drawVideoContain(video, pos.x, pos.y, halfWidth, halfHeight);
+        });
+        
+        // Draw grid separators
+        this.ctx.strokeStyle = '#fff';
+        this.ctx.lineWidth = 2;
+        // Vertical separator
+        this.ctx.beginPath();
+        this.ctx.moveTo(halfWidth, 0);
+        this.ctx.lineTo(halfWidth, this.canvas.height);
+        this.ctx.stroke();
+        // Horizontal separator
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, halfHeight);
+        this.ctx.lineTo(this.canvas.width, halfHeight);
+        this.ctx.stroke();
+    }
+
+    renderSmartDefault(streams) {
+        // Intelligente Standard-Auswahl basierend auf Stream-Anzahl
+        const count = streams.length;
+        
+        if (count === 1) {
+            this.renderFullscreen(streams);
+        } else if (count === 2) {
+            this.renderPictureInPicture(streams);
+        } else if (count === 3) {
+            this.renderLeftBigRightTwo(streams);
+        } else if (count >= 4) {
+            this.renderGrid2x2(streams);
+        }
     }
 
     // 🚀 OPTIMIZED: Video Element Pool Management
@@ -1464,6 +1821,348 @@ class StreamRecorderOptimized {
         } catch (e) {
             console.error('Settings save error:', e);
             alert('Speichern fehlgeschlagen: ' + e.message);
+        }
+    }
+
+    // 📐 LAYOUT MANAGEMENT METHODS
+    renderStacked(streams) {
+        const streamArray = Array.from(streams);
+        const height = this.canvas.height / streamArray.length;
+        
+        streamArray.forEach(([type, stream], index) => {
+            const video = this.getVideoElementOptimized(type, stream);
+            if (!video || video.readyState < 2) return;
+            
+            const y = index * height;
+            this.drawVideoContain(video, 0, y, this.canvas.width, height);
+            
+            // Draw separator
+            if (index > 0) {
+                this.ctx.strokeStyle = '#fff';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, y);
+                this.ctx.lineTo(this.canvas.width, y);
+                this.ctx.stroke();
+            }
+        });
+    }
+
+    renderGrid2x2(streams) {
+        const items = Array.from(streams).slice(0, 4);
+        const cols = 2, rows = 2;
+        const cellW = Math.floor(this.canvas.width / cols);
+        const cellH = Math.floor(this.canvas.height / rows);
+        
+        items.forEach(([type, stream], idx) => {
+            const video = this.getVideoElementOptimized(type, stream);
+            if (!video || video.readyState < 2) return;
+            
+            const col = idx % cols;
+            const row = Math.floor(idx / cols);
+            const dx = col * cellW;
+            const dy = row * cellH;
+            
+            this.drawVideoContain(video, dx, dy, cellW, cellH);
+            
+            // Draw grid lines
+            this.ctx.strokeStyle = '#fff';
+            this.ctx.lineWidth = 2;
+            if (col === 0) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(cellW, 0);
+                this.ctx.lineTo(cellW, this.canvas.height);
+                this.ctx.stroke();
+            }
+            if (row === 0) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, cellH);
+                this.ctx.lineTo(this.canvas.width, cellH);
+                this.ctx.stroke();
+            }
+        });
+    }
+
+    renderThreeColumns(streams) {
+        const items = Array.from(streams).slice(0, 3);
+        const colW = Math.floor(this.canvas.width / 3);
+        
+        items.forEach(([type, stream], idx) => {
+            const video = this.getVideoElementOptimized(type, stream);
+            if (!video || video.readyState < 2) return;
+            
+            const dx = idx * colW;
+            this.drawVideoContain(video, dx, 0, colW, this.canvas.height);
+            
+            // Draw separators
+            if (idx > 0) {
+                this.ctx.strokeStyle = '#fff';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(dx, 0);
+                this.ctx.lineTo(dx, this.canvas.height);
+                this.ctx.stroke();
+            }
+        });
+    }
+
+    renderLeftBigRightTwo(streams) {
+        const streamArray = Array.from(streams);
+        if (streamArray.length < 3) return this.renderStacked(streamArray);
+        
+        const left = streamArray[0];
+        const right = streamArray.slice(1, 3);
+        const leftW = Math.floor(this.canvas.width * 0.66);
+        const rightW = this.canvas.width - leftW;
+        const rightH = Math.floor(this.canvas.height / 2);
+        
+        // Left big
+        const [lt, ls] = left;
+        const lv = this.getVideoElementOptimized(lt, ls);
+        if (lv && lv.readyState >= 2) {
+            this.drawVideoContain(lv, 0, 0, leftW, this.canvas.height);
+        }
+        
+        // Right stacked two
+        right.forEach(([t, s], i) => {
+            const v = this.getVideoElementOptimized(t, s);
+            if (v && v.readyState >= 2) {
+                const dx = leftW;
+                const dy = i * rightH;
+                this.drawVideoContain(v, dx, dy, rightW, rightH);
+            }
+        });
+        
+        // Separators
+        this.ctx.strokeStyle = '#fff';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(leftW, 0);
+        this.ctx.lineTo(leftW, this.canvas.height);
+        this.ctx.moveTo(leftW, rightH);
+        this.ctx.lineTo(this.canvas.width, rightH);
+        this.ctx.stroke();
+    }
+
+    renderFullscreen(streams) {
+        // Show first stream fullscreen
+        const firstStream = Array.from(streams)[0];
+        if (firstStream) {
+            const [type, stream] = firstStream;
+            const video = this.getVideoElementOptimized(type, stream);
+            if (video && video.readyState >= 2) {
+                this.drawVideoCover(video, 0, 0, this.canvas.width, this.canvas.height);
+            }
+        }
+    }
+
+    applyLayout(layout) {
+        this.currentLayout = layout;
+        console.log(`📐 Layout angewendet: ${layout}`);
+        
+        // Sofortige Aktualisierung der Komposition wenn aktiv
+        if (this.isComposing) {
+            this.renderCurrentLayout();
+        }
+    }
+
+    // 🎯 LAYOUT MANAGEMENT
+    refreshLayoutChips() {
+        const container = document.getElementById('layoutChips');
+        const streamCountElement = document.getElementById('layoutStreamCount');
+        
+        if (!container) return;
+        
+        const count = this.streams.size;
+        const layouts = this.getAvailableLayouts(count);
+        
+        // Update stream count display
+        if (streamCountElement) {
+            streamCountElement.textContent = `${count} Stream${count !== 1 ? 's' : ''}`;
+        }
+        
+        if (layouts.length === 0) {
+            container.innerHTML = '<small class="text-muted">Starte Streams für Layouts</small>';
+            this.updateLayoutManager([]); // Clear layout manager too
+            return;
+        }
+        
+        // Create layout chips (small buttons)
+        container.innerHTML = layouts.map(l => 
+            `<button type="button" class="btn btn-sm ${this.currentLayout === l.id ? 'btn-primary' : 'btn-outline-primary'}" data-layout="${l.id}" title="${l.description}">${l.name}</button>`
+        ).join('');
+        
+        // Update Layout Manager (large cards)
+        this.updateLayoutManager(layouts);
+        
+        console.log(`📐 Layouts aktualisiert: ${count} Streams, ${layouts.length} Layouts verfügbar`);
+    }
+
+    getAvailableLayouts(streamCount) {
+        const layouts = [];
+        
+        if (streamCount >= 1) {
+            layouts.push({ 
+                id: 'fullscreen', 
+                name: 'Vollbild', 
+                description: 'Ein Stream im Vollbild',
+                icon: 'fas fa-expand-arrows-alt'
+            });
+        }
+        if (streamCount >= 2) {
+            layouts.push({ 
+                id: 'pip', 
+                name: 'PiP', 
+                description: 'Picture-in-Picture (Bildschirm + Kamera)',
+                icon: 'fas fa-square'
+            });
+            layouts.push({ 
+                id: 'side', 
+                name: 'Nebeneinander', 
+                description: 'Streams nebeneinander angeordnet',
+                icon: 'fas fa-columns'
+            });
+            layouts.push({ 
+                id: 'stack', 
+                name: 'Gestapelt', 
+                description: 'Streams übereinander angeordnet',
+                icon: 'fas fa-stream'
+            });
+        }
+        if (streamCount >= 3) {
+            layouts.push({ 
+                id: 'threeCols', 
+                name: '3 Spalten', 
+                description: 'Drei gleichmäßige Spalten',
+                icon: 'fas fa-grip-vertical'
+            });
+            layouts.push({ 
+                id: 'leftBigRight2', 
+                name: 'Links Groß', 
+                description: 'Links groß, rechts zwei kleine',
+                icon: 'fas fa-th-large'
+            });
+        }
+        if (streamCount >= 4) {
+            layouts.push({ 
+                id: 'grid2x2', 
+                name: '2x2 Grid', 
+                description: '2x2 Raster Layout für 4 Streams',
+                icon: 'fas fa-th'
+            });
+        }
+        
+        return layouts;
+    }
+
+    updateLayoutManager(layouts) {
+        const container = document.getElementById('layoutControlsContent');
+        const placeholder = document.getElementById('layoutManagerPlaceholder');
+        
+        if (!container) return;
+        
+        if (layouts.length === 0) {
+            // Show placeholder message
+            if (placeholder) {
+                placeholder.style.display = 'block';
+            } else {
+                container.innerHTML = `
+                    <div class="alert alert-info" id="layoutManagerPlaceholder">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Starten Sie Kamera oder Bildschirm-Sharing, um verfügbare Layouts zu sehen
+                    </div>`;
+            }
+            return;
+        }
+        
+        // Hide placeholder
+        if (placeholder) {
+            placeholder.style.display = 'none';
+        }
+        
+        // Create layout cards with new icons
+        const layoutCards = layouts.map(layout => `
+            <div class="col-md-6 mb-3">
+                <div class="layout-preset-card p-3 border rounded ${this.currentLayout === layout.id ? 'border-primary bg-primary bg-opacity-10' : 'border-light'}" style="cursor: pointer; transition: all 0.2s ease;" data-layout="${layout.id}">
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="layout-icon me-2" style="width: 30px; height: 30px; background: ${this.currentLayout === layout.id ? '#0d6efd' : '#6c757d'}; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+                            <i class="${layout.icon} text-white" style="font-size: 14px;"></i>
+                        </div>
+                        <h6 class="mb-0 flex-grow-1">${layout.name}</h6>
+                        ${this.currentLayout === layout.id ? '<span class="badge bg-success">Aktiv</span>' : ''}
+                    </div>
+                    <p class="small text-muted mb-3">${layout.description}</p>
+                    <button class="btn btn-sm w-100 ${this.currentLayout === layout.id ? 'btn-primary' : 'btn-outline-primary'}" data-layout="${layout.id}">
+                        <i class="fas fa-${this.currentLayout === layout.id ? 'check' : 'play'} me-1"></i>
+                        ${this.currentLayout === layout.id ? 'Aktiv' : 'Aktivieren'}
+                    </button>
+                </div>
+            </div>
+        `).join('');
+        
+        container.innerHTML = `<div class="row">${layoutCards}</div>`;
+        
+        console.log(`🎨 Layout Manager aktualisiert: ${layouts.length} Layouts`);
+    }
+
+    // Layout Icon Mapping (not needed anymore, using layout.icon directly)
+    getLayoutIcon(layoutId) {
+        // Legacy fallback, now using layout.icon from getAvailableLayouts
+        const icons = {
+            'fullscreen': 'expand-arrows-alt',
+            'pip': 'square',
+            'side': 'columns',
+            'stack': 'stream',
+            'threeCols': 'grip-vertical',
+            'leftBigRight2': 'th-large',
+            'grid2x2': 'th'
+        };
+        return icons[layoutId] || 'square';
+    }
+
+    // 🖼️ STREAM THUMBNAIL MANAGEMENT
+    addStreamThumbnail(type, stream) {
+        const container = document.getElementById('streamThumbnails');
+        if (!container) return;
+        
+        // Remove no streams message
+        const noStreamsMsg = document.getElementById('noStreamsMessage');
+        if (noStreamsMsg) noStreamsMsg.style.display = 'none';
+        
+        // Create thumbnail
+        const thumbnail = document.createElement('div');
+        thumbnail.id = `thumbnail-${type}`;
+        thumbnail.className = 'stream-thumbnail position-relative';
+        thumbnail.style.cssText = 'width: 120px; height: 90px; border-radius: 0.5rem; overflow: hidden; border: 2px solid #dee2e6;';
+        
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.autoplay = true;
+        video.muted = true;
+        video.playsInline = true;
+        video.style.cssText = 'width: 100%; height: 100%; object-fit: cover;';
+        
+        const label = document.createElement('div');
+        label.className = 'position-absolute bottom-0 start-0 end-0 bg-dark bg-opacity-75 text-white text-center py-1';
+        label.style.fontSize = '0.75rem';
+        label.textContent = type === 'camera' ? 'Kamera' : type === 'screen' ? 'Bildschirm' : type;
+        
+        thumbnail.appendChild(video);
+        thumbnail.appendChild(label);
+        container.appendChild(thumbnail);
+    }
+
+    removeStreamThumbnail(type) {
+        const thumbnail = document.getElementById(`thumbnail-${type}`);
+        if (thumbnail) {
+            thumbnail.remove();
+        }
+        
+        // Show no streams message if no thumbnails left
+        const container = document.getElementById('streamThumbnails');
+        if (container && container.children.length === 1) { // Only noStreamsMessage left
+            const noStreamsMsg = document.getElementById('noStreamsMessage');
+            if (noStreamsMsg) noStreamsMsg.style.display = 'block';
         }
     }
 }
