@@ -565,6 +565,13 @@ body.bg-dark #layoutControls .form-control {
                                 <span class="ms-2" id="recordingTime">00:00</span>
                             </div>
                         </div>
+
+                        <!-- Countdown Overlay -->
+                        <div id="countdownOverlay" class="position-absolute top-50 start-50 translate-middle" style="display:none;">
+                            <div class="bg-dark bg-opacity-75 text-white rounded px-5 py-4">
+                                <div id="countdownNumber" class="display-3 fw-bold text-center">3</div>
+                            </div>
+                        </div>
                     </div>
                     
                     <!-- Stream Thumbnails -->
@@ -574,6 +581,9 @@ body.bg-dark #layoutControls .form-control {
                             <div class="stream-controls-mini">
                                 <button class="btn btn-sm btn-outline-light" id="syncStreams" title="Streams synchronisieren">
                                     <i class="fas fa-sync-alt"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#settingsModal" title="Einstellungen">
+                                    <i class="fas fa-cog"></i>
                                 </button>
                             </div>
                         </div>
@@ -586,9 +596,47 @@ body.bg-dark #layoutControls .form-control {
                     </div>
                 </div>
 
-                <!-- Phase 3: Recording Controls (will be dynamically added) -->
-                <div id="recordingControlsContainer">
-                    <!-- Recording controls will be added here by RecordingEngine -->
+                <!-- Phase 3: Recording Controls -->
+                <div id="recordingControlsContainer" class="control-panel">
+                    <h5 class="text-gradient mb-4">
+                        <i class="fas fa-record-vinyl me-2 text-danger"></i>
+                        Aufnahme Kontrolle
+                    </h5>
+                    
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <div class="d-grid gap-2">
+                                <button id="recordBtn" class="btn btn-danger streamrec-btn">
+                                    <i class="fas fa-circle me-2"></i>Aufnahme starten
+                                </button>
+                                <div class="d-flex gap-2">
+                                    <button id="pauseBtn" class="btn btn-warning streamrec-btn flex-fill" disabled>
+                                        <i class="fas fa-pause me-2"></i>Pausieren
+                                    </button>
+                                    <button id="stopRecordBtn" class="btn btn-outline-danger streamrec-btn flex-fill" disabled>
+                                        <i class="fas fa-stop me-2"></i>Stoppen
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="text-center">
+                                <div id="recordingStatus" class="small mb-2">Status: Bereit für Aufnahme</div>
+                                <div class="progress mb-2" style="height: 8px;">
+                                    <div id="recordingProgress" class="progress-bar bg-danger" style="width: 0%"></div>
+                                </div>
+                                <div class="d-flex justify-content-between small text-muted">
+                                    <span id="recordingTime">00:00</span>
+                                    <span>03:00</span>
+                                </div>
+                                <div class="mt-2">
+                                    <span class="badge bg-secondary" id="recordingStateIndicator">
+                                        <i class="fas fa-stop me-1"></i>Gestoppt
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -720,6 +768,8 @@ class StreamRecorder {
         this.ctx = this.canvas.getContext('2d');
         this.setupEventListeners();
         this.checkBrowserSupport();
+        // Initiale Layoutchips rendern
+        this.refreshLayoutChips?.();
         this.showNotification('success', 'StreamRec bereit', 'Enhanced Version (Server-Ready) geladen');
         console.log('✅ StreamRec Enhanced initialisiert');
     }
@@ -757,6 +807,56 @@ class StreamRecorder {
             // Active State aktualisieren
             document.querySelectorAll('#layoutChips [data-layout]').forEach(el => el.classList.remove('active'));
             btn.classList.add('active');
+        });
+
+        // Recording buttons
+        document.getElementById('recordBtn')?.addEventListener('click', () => this.startRecordingWithCountdown());
+        document.getElementById('stopRecordBtn')?.addEventListener('click', () => this.stopRecording());
+        document.getElementById('pauseBtn')?.addEventListener('click', () => this.togglePauseRecording());
+        
+        // Settings button in nav (if exists)
+        document.querySelector('[data-bs-target="#settingsModal"]')?.addEventListener('click', () => this.loadSettings());
+
+        // Einstellungen speichern
+        document.getElementById('saveSettings')?.addEventListener('click', () => {
+            const settings = {
+                resolution: document.getElementById('resolutionSetting')?.value,
+                framerate: document.getElementById('framerateSetting')?.value,
+                microphone: document.getElementById('microphoneSetting')?.value,
+                systemAudio: document.getElementById('systemAudio')?.checked,
+                autoSave: document.getElementById('autoSave')?.checked,
+                showNotifications: document.getElementById('showNotifications')?.checked,
+                darkMode: document.getElementById('darkMode')?.checked
+            };
+            try {
+                localStorage.setItem('streamrec-settings', JSON.stringify(settings));
+                this.applyUserSettings(settings);
+                this.showNotification('success', 'Gespeichert', 'Einstellungen wurden erfolgreich gespeichert');
+                // Modal schließen
+                const modalEl = document.getElementById('settingsModal');
+                if (modalEl) {
+                    // Try Bootstrap 5 API first
+                    if (window.bootstrap && bootstrap.Modal) {
+                        const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                        modal.hide();
+                    } else {
+                        // Fallback: hide manually
+                        modalEl.style.display = 'none';
+                        modalEl.classList.remove('show');
+                        document.body.classList.remove('modal-open');
+                        const backdrop = document.querySelector('.modal-backdrop');
+                        if (backdrop) backdrop.remove();
+                    }
+                }
+            } catch (e) {
+                console.error('Settings save error:', e);
+                this.showNotification('error', 'Speichern fehlgeschlagen', e.message);
+            }
+        });
+        
+        // Settings modal öffnen button
+        document.querySelectorAll('[data-bs-toggle="modal"][data-bs-target="#settingsModal"]').forEach(btn => {
+            btn.addEventListener('click', () => this.loadSettings());
         });
     }
 
@@ -1127,6 +1227,28 @@ class StreamRecorder {
     }
 
     // Recording Methods
+    startRecordingWithCountdown() {
+        if (!this.isComposing) {
+            this.showNotification('warning', 'Komposition erforderlich', 'Bitte starten Sie zuerst die Live-Komposition');
+            return;
+        }
+        const overlay = document.getElementById('countdownOverlay');
+        const num = document.getElementById('countdownNumber');
+        if (!overlay || !num) return this.startRecording();
+        let n = 3;
+        num.textContent = n;
+        overlay.style.display = 'block';
+        const iv = setInterval(() => {
+            n -= 1;
+            if (n === 0) {
+                clearInterval(iv);
+                overlay.style.display = 'none';
+                this.startRecording();
+            } else {
+                num.textContent = n;
+            }
+        }, 700);
+    }
     startRecording() {
         if (!this.isComposing) {
             this.showNotification('warning', 'Komposition erforderlich', 'Bitte starten Sie zuerst die Live-Komposition');
@@ -1137,6 +1259,8 @@ class StreamRecorder {
             const stream = this.canvas.captureStream(30);
             this.mediaRecorder = new MediaRecorder(stream);
             this.recordedChunks = [];
+            this.pausedAccum = 0;
+            this.pauseStart = null;
 
             this.mediaRecorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
@@ -1147,11 +1271,8 @@ class StreamRecorder {
             this.mediaRecorder.onstop = () => {
                 const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
                 const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `streamrec-recording-${Date.now()}.webm`;
-                a.click();
-                this.showNotification('success', 'Download', 'Video wurde heruntergeladen');
+                // Vorschau anzeigen statt Direkt-Download
+                this.showPreviewModal(url);
                 this.resetRecordingUI();
             };
 
@@ -1161,6 +1282,7 @@ class StreamRecorder {
             
             document.getElementById('recordBtn').disabled = true;
             document.getElementById('stopRecordBtn').disabled = false;
+            document.getElementById('pauseBtn').disabled = false;
             document.getElementById('recordingStatus').textContent = 'Status: Aufnahme läuft';
             document.getElementById('recordingIndicator').style.display = 'block';
             
@@ -1183,9 +1305,30 @@ class StreamRecorder {
         }
     }
 
+    togglePauseRecording() {
+        if (!this.mediaRecorder) return;
+        const btn = document.getElementById('pauseBtn');
+        if (this.mediaRecorder.state === 'recording') {
+            this.mediaRecorder.pause();
+            this.pauseStart = Date.now();
+            this.stopRecordingTimer();
+            btn.innerHTML = '<i class="fas fa-play me-2"></i>Fortsetzen';
+            document.getElementById('recordingStatus').textContent = 'Status: Aufnahme pausiert';
+        } else if (this.mediaRecorder.state === 'paused') {
+            this.mediaRecorder.resume();
+            if (this.pauseStart) {
+                this.pausedAccum += Date.now() - this.pauseStart;
+                this.pauseStart = null;
+            }
+            this.startRecordingTimer();
+            btn.innerHTML = '<i class="fas fa-pause me-2"></i>Pausieren';
+            document.getElementById('recordingStatus').textContent = 'Status: Aufnahme läuft';
+        }
+    }
+
     startRecordingTimer() {
         this.recordingTimer = setInterval(() => {
-            const elapsed = Date.now() - this.recordingStartTime;
+            const elapsed = Date.now() - this.recordingStartTime - (this.pausedAccum || 0);
             const minutes = Math.floor(elapsed / 60000);
             const seconds = Math.floor((elapsed % 60000) / 1000);
             
@@ -1212,18 +1355,108 @@ class StreamRecorder {
     }
 
     resetRecordingUI() {
-        document.getElementById('recordBtn').disabled = false;
-        document.getElementById('stopRecordBtn').disabled = true;
-        document.getElementById('recordingStatus').textContent = 'Status: Bereit für Aufnahme';
-        document.getElementById('recordingIndicator').style.display = 'none';
-        document.getElementById('recordingProgress').style.width = '0%';
-        document.getElementById('recordingTime').textContent = '00:00';
+        const recordBtn = document.getElementById('recordBtn');
+        const stopBtn = document.getElementById('stopRecordBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const status = document.getElementById('recordingStatus');
+        const indicator = document.getElementById('recordingIndicator');
+        const progress = document.getElementById('recordingProgress');
+        const time = document.getElementById('recordingTime');
+        const stateIndicator = document.getElementById('recordingStateIndicator');
+        
+        if (recordBtn) recordBtn.disabled = false;
+        if (stopBtn) stopBtn.disabled = true;
+        if (pauseBtn) {
+            pauseBtn.disabled = true;
+            pauseBtn.innerHTML = '<i class="fas fa-pause me-2"></i>Pausieren';
+        }
+        if (status) status.textContent = 'Status: Bereit für Aufnahme';
+        if (indicator) indicator.style.display = 'none';
+        if (progress) progress.style.width = '0%';
+        if (time) time.textContent = '00:00';
+        if (stateIndicator) {
+            stateIndicator.className = 'badge bg-secondary';
+            stateIndicator.innerHTML = '<i class="fas fa-stop me-1"></i>Gestoppt';
+        }
+    }
+    
+    updateRecordingState(state) {
+        const stateIndicator = document.getElementById('recordingStateIndicator');
+        const recordBtn = document.getElementById('recordBtn');
+        const stopBtn = document.getElementById('stopRecordBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const status = document.getElementById('recordingStatus');
+        
+        switch (state) {
+            case 'recording':
+                if (recordBtn) recordBtn.disabled = true;
+                if (stopBtn) stopBtn.disabled = false;
+                if (pauseBtn) pauseBtn.disabled = false;
+                if (status) status.textContent = 'Status: Aufnahme läuft';
+                if (stateIndicator) {
+                    stateIndicator.className = 'badge bg-danger';
+                    stateIndicator.innerHTML = '<i class="fas fa-circle me-1"></i>Aufnahme';
+                }
+                break;
+            case 'paused':
+                if (pauseBtn) pauseBtn.innerHTML = '<i class="fas fa-play me-2"></i>Fortsetzen';
+                if (status) status.textContent = 'Status: Aufnahme pausiert';
+                if (stateIndicator) {
+                    stateIndicator.className = 'badge bg-warning';
+                    stateIndicator.innerHTML = '<i class="fas fa-pause me-1"></i>Pausiert';
+                }
+                break;
+            case 'stopped':
+            default:
+                this.resetRecordingUI();
+                break;
+        }
     }
 
     updateRecordingIndicator() {
         const indicator = document.getElementById('recordingIndicator');
         if (indicator) {
             indicator.style.display = this.isRecording ? 'block' : 'none';
+        }
+    }
+
+    // Zeigt Vorschau-Modal mit Download-Option
+    showPreviewModal(videoUrl) {
+        const existing = document.getElementById('recordPreviewModal');
+        if (existing) existing.remove();
+        const html = `
+            <div class="modal fade" id="recordPreviewModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title"><i class=\"fas fa-play me-2\"></i>Aufnahme Vorschau</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-center">
+                            <video id="previewVideo" controls style="max-width:100%;max-height:400px;">
+                                <source src="${videoUrl}" type="video/webm">
+                                Ihr Browser unterstützt das Video-Element nicht.
+                            </video>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                            <button type="button" class="btn btn-success" id="downloadFromPreview">
+                                <i class="fas fa-download me-2"></i>Herunterladen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        document.body.insertAdjacentHTML('beforeend', html);
+        document.getElementById('downloadFromPreview')?.addEventListener('click', () => {
+            const a = document.createElement('a');
+            a.href = videoUrl;
+            a.download = `streamrec-recording-${Date.now()}.webm`;
+            a.click();
+        });
+        if (window.bootstrap) {
+            const modal = new bootstrap.Modal(document.getElementById('recordPreviewModal'));
+            modal.show();
         }
     }
 
@@ -1451,6 +1684,36 @@ class StreamRecorder {
         console.log('🛑 Live Composition gestoppt');
     }
 
+    // Settings-Funktionen
+    loadSettings() {
+        try {
+            const stored = localStorage.getItem('streamrec-settings');
+            if (stored) {
+                const settings = JSON.parse(stored);
+                if (settings.resolution) document.getElementById('resolutionSetting').value = settings.resolution;
+                if (settings.framerate) document.getElementById('framerateSetting').value = settings.framerate;
+                if (settings.microphone) document.getElementById('microphoneSetting').value = settings.microphone;
+                document.getElementById('systemAudio').checked = settings.systemAudio ?? true;
+                document.getElementById('autoSave').checked = settings.autoSave ?? true;
+                document.getElementById('showNotifications').checked = settings.showNotifications ?? true;
+                document.getElementById('darkMode').checked = settings.darkMode ?? false;
+            }
+        } catch (e) {
+            console.warn('Settings load error:', e);
+        }
+    }
+    
+    applyUserSettings(settings) {
+        // Apply settings to the app
+        this.userSettings = settings;
+        if (settings.darkMode) {
+            document.body.setAttribute('data-theme', 'dark');
+        } else {
+            document.body.removeAttribute('data-theme');
+        }
+        console.log('Settings applied:', settings);
+    }
+
     showNotification(type, title, message) {
         console.log(`📢 ${type.toUpperCase()}: ${title} - ${message}`);
         
@@ -1464,7 +1727,11 @@ class StreamRecorder {
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;
         document.body.appendChild(alertDiv);
-        setTimeout(() => alertDiv.remove(), 5000);
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
     }
 }
 
