@@ -889,6 +889,7 @@ class LayoutManager {
                 ctx.strokeRect(dx, dy, dw, dh);
             });
         }
+        return drawn.size + (remaining ? remaining.length : 0);
     }
 }
 
