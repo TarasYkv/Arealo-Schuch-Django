@@ -50,6 +50,36 @@
     50% { opacity: 0.3; }
 }
 
+@keyframes slideInFromTop {
+    0% {
+        transform: translateX(-50%) translateY(-100%);
+        opacity: 0;
+    }
+    100% {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutToTop {
+    0% {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+    }
+    100% {
+        transform: translateX(-50%) translateY(-100%);
+        opacity: 0;
+    }
+}
+
+@keyframes notificationBounce {
+    0% { transform: translateX(-50%) scale(1); }
+    15% { transform: translateX(-50%) scale(1.05); }
+    30% { transform: translateX(-50%) scale(0.98); }
+    50% { transform: translateX(-50%) scale(1.02); }
+    100% { transform: translateX(-50%) scale(1); }
+}
+
 /* System Info Grid */
 .system-info-item {
     padding: 0.5rem;
@@ -291,12 +321,11 @@
 
                 </div>
 
-                <!-- Phase 2: Layout Manager -->
+                <!-- Layout Manager -->
                 <div class="control-panel" id="layoutControls">
                     <h5 class="mb-4">
                         <i class="fas fa-th-large me-2"></i>
                         Layout Manager
-                        <span class="badge bg-primary ms-2">Phase 2</span>
                     </h5>
                     <div id="layoutControlsContent">
                         <div class="alert alert-info" id="layoutManagerPlaceholder">
@@ -340,6 +369,35 @@
                     </div>
                     <div id="performanceMetrics" class="mt-3 text-center">
                         <small class="text-muted">Performance wird überwacht...</small>
+                    </div>
+                </div>
+
+                <!-- Video Storage Status -->
+                <div class="control-panel">
+                    <h5 class="mb-4">
+                        <i class="fas fa-cloud-upload-alt me-2"></i>
+                        Video Speicher
+                    </h5>
+                    <div id="storageStatus" class="text-center">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <small class="text-muted">Verwendet:</small>
+                            <small id="storageUsed" class="fw-bold">-</small>
+                        </div>
+                        <div class="progress mb-2" style="height: 8px;">
+                            <div id="storageProgress" class="progress-bar bg-info" role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <small class="text-muted">Tarif:</small>
+                            <small id="storageTier" class="fw-bold">-</small>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button id="refreshStorageBtn" class="btn btn-outline-info btn-sm">
+                                <i class="fas fa-sync me-1"></i>Aktualisieren
+                            </button>
+                            <a href="/videos/storage/" target="_blank" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-cog me-1"></i>Verwalten
+                            </a>
+                        </div>
                     </div>
                 </div>
 
@@ -528,6 +586,34 @@
                                 <option value="500000">0.5 Mbps (Minimum)</option>
                             </select>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label">
+                                <i class="fas fa-expand-alt me-1"></i>Seitenverhältnis:
+                            </label>
+                            <select class="form-select" id="aspectRatioSetting">
+                                <option value="9:16" selected>9:16 (Vertikal - Social Media)</option>
+                                <option value="16:9">16:9 (Horizontal - Standard)</option>
+                                <option value="4:3">4:3 (Klassisch - TV Format)</option>
+                                <option value="1:1">1:1 (Quadratisch - Instagram)</option>
+                                <option value="21:9">21:9 (Ultrawide - Kino)</option>
+                                <option value="3:2">3:2 (Foto-Format)</option>
+                            </select>
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Bestimmt das Format der Aufnahme und Canvas-Anzeige
+                            </div>
+                            <div class="mt-2" id="aspectRatioPreview">
+                                <small class="text-muted">Vorschau:</small>
+                                <div class="d-flex align-items-center justify-content-center mt-1" style="height: 60px;">
+                                    <div id="previewBox" class="border border-primary bg-light" 
+                                         style="width: 30px; height: 53px; transition: all 0.3s ease;">
+                                    </div>
+                                </div>
+                                <div class="text-center">
+                                    <small class="text-muted" id="previewDimensions">360 × 640px</small>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="col-md-6">
                         <h6>Performance-Einstellungen</h6>
@@ -594,6 +680,8 @@ class StreamRecorderOptimized {
         this.isDragging = false;
         this.isResizing = false;
         this.draggedStream = null;
+        this.aspectRatio = '9:16'; // Current aspect ratio
+        this.aspectRatioDimensions = { width: 360, height: 640 }; // Canvas dimensions
         this.resizeStream = null;
         this.dragOffset = { x: 0, y: 0 };
         this.resizeHandle = null;
@@ -634,7 +722,9 @@ class StreamRecorderOptimized {
         
         // Initialize status badges
         this.initializeStatusBadges();
+        this.checkMobileCompatibility(); // Check mobile device limitations
         this.initPerformanceMonitoring();
+        this.initStorageStatus(); // Initialize video storage status
         this.loadSettings();
         this.refreshLayoutChips();
         this.updateScreenButtons(); // Initialize button states
@@ -647,6 +737,147 @@ class StreamRecorderOptimized {
         this.updateStatusBadge('camera', 'secondary');
         this.updateStatusBadge('screen', 'secondary');
         console.log('🔧 Status-Badges initialisiert');
+    }
+
+    checkMobileCompatibility() {
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        if (isMobile) {
+            // Disable screen sharing buttons on mobile
+            const startScreenBtn = document.getElementById('startScreenBtn');
+            const addScreenBtn = document.getElementById('addScreenBtn');
+            
+            if (startScreenBtn) {
+                startScreenBtn.disabled = true;
+                startScreenBtn.title = 'Bildschirm-Sharing ist auf Mobilgeräten nicht verfügbar';
+                startScreenBtn.innerHTML = '<i class="fas fa-mobile-alt me-2"></i>Nicht verfügbar auf Mobilgeräten';
+            }
+            
+            if (addScreenBtn) {
+                addScreenBtn.disabled = true;
+                addScreenBtn.title = 'Bildschirm-Sharing ist auf Mobilgeräten nicht verfügbar';
+            }
+            
+            console.log('📱 Mobile Kompatibilitätsprüfung: Bildschirm-Sharing deaktiviert');
+        }
+    }
+
+    initStorageStatus() {
+        // Load storage status on initialization
+        this.updateStorageStatus();
+        
+        // Add refresh button event listener
+        const refreshBtn = document.getElementById('refreshStorageBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => this.updateStorageStatus());
+        }
+        
+        // Auto-refresh every 5 minutes
+        setInterval(() => {
+            this.updateStorageStatus();
+        }, 5 * 60 * 1000);
+    }
+
+    async updateStorageStatus() {
+        const usedElement = document.getElementById('storageUsed');
+        const tierElement = document.getElementById('storageTier');
+        const progressElement = document.getElementById('storageProgress');
+        const refreshBtn = document.getElementById('refreshStorageBtn');
+        
+        try {
+            if (refreshBtn) {
+                refreshBtn.disabled = true;
+                refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Lädt...';
+            }
+            
+            const response = await fetch('/videos/api/storage-status/', {
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': this.getCSRFToken(),
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error('Fehler beim Laden des Speicherstatus');
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                const storage = data.storage;
+                
+                // Update used storage display
+                if (usedElement) {
+                    usedElement.textContent = `${storage.used_mb.toFixed(1)} / ${storage.max_mb.toFixed(0)} MB`;
+                }
+                
+                // Update tier display
+                if (tierElement) {
+                    tierElement.textContent = `${storage.tier_name} (${storage.current_price}€/Monat)`;
+                }
+                
+                // Update progress bar
+                if (progressElement) {
+                    const percentage = storage.used_percentage;
+                    progressElement.style.width = `${Math.min(percentage, 100)}%`;
+                    
+                    // Color coding based on usage
+                    progressElement.className = 'progress-bar ' + 
+                        (percentage >= 95 ? 'bg-danger' : 
+                         percentage >= 80 ? 'bg-warning' : 
+                         'bg-info');
+                }
+                
+                // Show restriction warning if applicable
+                if (!storage.can_upload && storage.restriction_message) {
+                    this.showStorageWarning(storage.restriction_message);
+                }
+                
+            } else {
+                throw new Error(data.error || 'Unbekannter Fehler');
+            }
+            
+        } catch (error) {
+            console.error('❌ Storage Status Fehler:', error);
+            
+            if (usedElement) usedElement.textContent = 'Fehler';
+            if (tierElement) tierElement.textContent = 'Nicht verfügbar';
+            if (progressElement) progressElement.style.width = '0%';
+            
+        } finally {
+            if (refreshBtn) {
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = '<i class="fas fa-sync me-1"></i>Aktualisieren';
+            }
+        }
+    }
+
+    showStorageWarning(message) {
+        // Check if warning already exists
+        if (document.querySelector('.storage-warning')) {
+            return;
+        }
+        
+        const warningHtml = `
+            <div class="alert alert-warning alert-dismissible fade show storage-warning mb-3" role="alert">
+                <h6><i class="fas fa-exclamation-triangle me-2"></i>Speicherplatz-Warnung</h6>
+                <p class="mb-2">${message}</p>
+                <div class="btn-group btn-group-sm">
+                    <a href="/videos/storage/" target="_blank" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-cog me-1"></i>Speicher verwalten
+                    </a>
+                    <a href="/videos/" target="_blank" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-trash me-1"></i>Videos löschen
+                    </a>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        // Add warning after the storage status panel
+        const storagePanel = document.querySelector('#storageStatus').parentNode;
+        storagePanel.insertAdjacentHTML('afterend', warningHtml);
     }
 
     setupEventListeners() {
@@ -676,6 +907,11 @@ class StreamRecorderOptimized {
 
         document.getElementById('showPerformance')?.addEventListener('change', (e) => {
             this.togglePerformanceMonitor(e.target.checked);
+        });
+
+        document.getElementById('aspectRatioSetting')?.addEventListener('change', (e) => {
+            this.updateAspectRatio(e.target.value);
+            console.log(`🖼️ Aspect ratio live preview: ${e.target.value}`);
         });
 
         // Settings
@@ -889,6 +1125,24 @@ class StreamRecorderOptimized {
 
     async addScreen() {
         try {
+            // Check if we're on a mobile device
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            
+            if (isMobile) {
+                this.updateStatus('screen', 'Bildschirm-Sharing ist auf Mobilgeräten nicht verfügbar', 'danger');
+                this.updateStatusBadge('screen', 'danger');
+                console.log('📱 Bildschirm-Sharing auf Mobilgerät versucht');
+                return;
+            }
+
+            // Check if getDisplayMedia is available
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+                this.updateStatus('screen', 'Bildschirm-Sharing wird von diesem Browser nicht unterstützt', 'danger');
+                this.updateStatusBadge('screen', 'danger');
+                console.log('❌ getDisplayMedia nicht verfügbar');
+                return;
+            }
+
             const screenId = `screen${this.nextScreenId}`;
             this.updateStatus('screen', 'Bildschirm-Sharing wird gestartet...', 'info');
             
@@ -1698,14 +1952,38 @@ class StreamRecorderOptimized {
                             <h5 class="modal-title"><i class="fas fa-play me-2"></i>Aufnahme Vorschau</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
-                        <div class="modal-body text-center">
-                            <video id="previewVideo" controls style="max-width:100%;max-height:400px;">
-                                <source src="${videoUrl}" type="video/webm">
-                                Ihr Browser unterstützt das Video-Element nicht.
-                            </video>
+                        <div class="modal-body">
+                            <div class="text-center mb-4">
+                                <video id="previewVideo" controls style="max-width:100%;max-height:400px;">
+                                    <source src="${videoUrl}" type="video/webm">
+                                    Ihr Browser unterstützt das Video-Element nicht.
+                                </video>
+                            </div>
+                            
+                            <!-- Custom filename input -->
+                            <div class="mb-3" id="customFilenameSection" style="display: none;">
+                                <label for="customVideoTitle" class="form-label">
+                                    <i class="fas fa-tag me-2"></i>Video-Titel für Server-Speicherung:
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="customVideoTitle" 
+                                       placeholder="Geben Sie einen Namen für Ihr Video ein..."
+                                       maxlength="255"
+                                       onkeypress="if(event.key==='Enter') document.getElementById('saveToServerBtn').click()">
+                                <div class="form-text">
+                                    Optional: Leer lassen für automatischen Namen
+                                </div>
+                            </div>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                            <button type="button" class="btn btn-outline-secondary" id="cancelSaveBtn" style="display: none;">
+                                <i class="fas fa-times me-2"></i>Abbrechen
+                            </button>
+                            <button type="button" class="btn btn-primary" id="saveToServerBtn">
+                                <i class="fas fa-cloud-upload-alt me-2"></i>Auf Server speichern
+                            </button>
                             <button type="button" class="btn btn-success" id="downloadFromPreview">
                                 <i class="fas fa-download me-2"></i>Herunterladen
                             </button>
@@ -1722,10 +2000,322 @@ class StreamRecorderOptimized {
             a.download = `streamrec-optimized-${Date.now()}.webm`;
             a.click();
         });
+
+        document.getElementById('saveToServerBtn')?.addEventListener('click', () => {
+            const customFilenameSection = document.getElementById('customFilenameSection');
+            const saveBtn = document.getElementById('saveToServerBtn');
+            const cancelBtn = document.getElementById('cancelSaveBtn');
+            
+            // First click: Show filename input
+            if (customFilenameSection.style.display === 'none') {
+                customFilenameSection.style.display = 'block';
+                saveBtn.innerHTML = '<i class="fas fa-check me-2"></i>Jetzt speichern';
+                saveBtn.className = 'btn btn-success';
+                cancelBtn.style.display = 'inline-block';
+                
+                // Focus on input field
+                document.getElementById('customVideoTitle').focus();
+                
+                // Generate default name
+                const defaultTitle = `StreamRec Aufnahme ${new Date().toLocaleString('de-DE')}`;
+                document.getElementById('customVideoTitle').value = defaultTitle;
+                
+                return;
+            }
+            
+            // Second click: Actually save the video
+            this.saveVideoToServer(videoUrl);
+        });
+
+        document.getElementById('cancelSaveBtn')?.addEventListener('click', () => {
+            const customFilenameSection = document.getElementById('customFilenameSection');
+            const saveBtn = document.getElementById('saveToServerBtn');
+            const cancelBtn = document.getElementById('cancelSaveBtn');
+            
+            // Hide filename input and reset button
+            customFilenameSection.style.display = 'none';
+            saveBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>Auf Server speichern';
+            saveBtn.className = 'btn btn-primary';
+            cancelBtn.style.display = 'none';
+            
+            // Clear input
+            document.getElementById('customVideoTitle').value = '';
+        });
         
         if (window.bootstrap) {
             const modal = new bootstrap.Modal(document.getElementById('recordPreviewModal'));
             modal.show();
+        }
+    }
+
+    async saveVideoToServer(videoUrl) {
+        const saveBtn = document.getElementById('saveToServerBtn');
+        const originalBtnText = saveBtn.innerHTML;
+        
+        try {
+            // Show loading state
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Wird gespeichert...';
+            
+            // Check storage status first
+            const storageResponse = await fetch('/videos/api/storage-status/', {
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': this.getCSRFToken(),
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!storageResponse.ok) {
+                throw new Error('Fehler beim Abrufen des Speicherstatus');
+            }
+            
+            const storageData = await storageResponse.json();
+            
+            if (!storageData.storage.can_upload) {
+                throw new Error(storageData.storage.restriction_message || 'Upload nicht möglich');
+            }
+            
+            // Convert video blob URL to base64
+            const response = await fetch(videoUrl);
+            const blob = await response.blob();
+            
+            // Check file size against available storage
+            const fileSizeMB = (blob.size / (1024 * 1024)).toFixed(2);
+            if (blob.size > (storageData.storage.available_mb * 1024 * 1024)) {
+                throw new Error(`Video zu groß (${fileSizeMB} MB). Verfügbarer Speicherplatz: ${storageData.storage.available_mb.toFixed(2)} MB`);
+            }
+            
+            const reader = new FileReader();
+            reader.onload = async () => {
+                try {
+                    const base64Data = reader.result.split(',')[1]; // Remove data:video/webm;base64,
+                    
+                    // Get custom title from input field
+                    const customTitleInput = document.getElementById('customVideoTitle');
+                    const customTitle = customTitleInput ? customTitleInput.value.trim() : '';
+                    const finalTitle = customTitle || `StreamRec Aufnahme ${new Date().toLocaleString('de-DE')}`;
+                    
+                    // Prepare upload data
+                    const uploadData = {
+                        title: finalTitle,
+                        description: `Aufnahme erstellt mit StreamRec am ${new Date().toLocaleString('de-DE')}`,
+                        video_data: base64Data,
+                        format: 'webm'
+                    };
+                    
+                    // Upload to server
+                    const uploadResponse = await fetch('/videos/api/upload/', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': this.getCSRFToken(),
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(uploadData)
+                    });
+                    
+                    const result = await uploadResponse.json();
+                    
+                    if (result.success) {
+                        // Success feedback
+                        saveBtn.innerHTML = '<i class="fas fa-check me-2"></i>Gespeichert!';
+                        saveBtn.className = 'btn btn-success';
+                        
+                        // Show success message with links
+                        this.showSuccessMessage(result);
+                        
+                        // Close modal after delay
+                        setTimeout(() => {
+                            const modal = bootstrap.Modal.getInstance(document.getElementById('recordPreviewModal'));
+                            modal.hide();
+                        }, 2000);
+                        
+                    } else {
+                        throw new Error(result.error || 'Upload fehlgeschlagen');
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Server Upload Fehler:', error);
+                    throw error;
+                }
+            };
+            
+            reader.readAsDataURL(blob);
+            
+        } catch (error) {
+            console.error('❌ Save to Server Fehler:', error);
+            
+            // Error feedback
+            saveBtn.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Fehler';
+            saveBtn.className = 'btn btn-danger';
+            
+            // Show error message
+            this.showErrorMessage(error.message);
+            
+            // Reset button after delay
+            setTimeout(() => {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalBtnText;
+                saveBtn.className = 'btn btn-primary';
+            }, 3000);
+        }
+    }
+
+    showSuccessMessage(result) {
+        const message = `
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <h6><i class="fas fa-cloud-upload-alt me-2"></i>Video erfolgreich gespeichert!</h6>
+                <p class="mb-2">
+                    <strong>${result.video.title}</strong><br>
+                    Größe: ${result.video.file_size_mb} MB | 
+                    Speicher: ${result.storage.used_mb}/${result.storage.max_mb} MB (${result.storage.used_percentage}%)
+                </p>
+                <div class="btn-group btn-group-sm">
+                    <a href="${result.video.share_link}" target="_blank" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-eye me-1"></i>Video ansehen
+                    </a>
+                    <a href="/videos/" target="_blank" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-list me-1"></i>Alle Videos
+                    </a>
+                    <a href="/videos/storage/" target="_blank" class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-hdd me-1"></i>Speicher-Verwaltung
+                    </a>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        this.showNotification(message);
+    }
+
+    showErrorMessage(errorText) {
+        const message = `
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <h6><i class="fas fa-exclamation-triangle me-2"></i>Speichern fehlgeschlagen</h6>
+                <p class="mb-2">${errorText}</p>
+                <div class="btn-group btn-group-sm">
+                    <a href="/videos/storage/" target="_blank" class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-hdd me-1"></i>Speicher-Verwaltung
+                    </a>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        this.showNotification(message);
+    }
+
+    showNotification(html) {
+        // Remove existing notifications
+        document.querySelectorAll('.server-notification').forEach(el => el.remove());
+        
+        // Create notification container
+        const container = document.createElement('div');
+        container.className = 'server-notification';
+        container.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 400px;
+        `;
+        container.innerHTML = html;
+        
+        document.body.appendChild(container);
+        
+        // Auto-remove after 10 seconds
+        setTimeout(() => {
+            if (container.parentNode) {
+                container.remove();
+            }
+        }, 10000);
+    }
+
+    getCSRFToken() {
+        const cookie = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='));
+        return cookie ? cookie.split('=')[1] : '';
+    }
+
+    updateAspectRatio(ratio) {
+        this.aspectRatio = ratio;
+        
+        // Calculate dimensions based on aspect ratio (max height 640px)
+        const maxHeight = 640;
+        let width, height;
+        
+        switch (ratio) {
+            case '9:16': // Vertikal - Social Media
+                width = 360;
+                height = 640;
+                break;
+            case '16:9': // Horizontal - Standard
+                width = 640;
+                height = 360;
+                break;
+            case '4:3': // Klassisch - TV Format
+                width = 480;
+                height = 360;
+                break;
+            case '1:1': // Quadratisch - Instagram
+                width = 400;
+                height = 400;
+                break;
+            case '21:9': // Ultrawide - Kino
+                width = 640;
+                height = 274;
+                break;
+            case '3:2': // Foto-Format
+                width = 480;
+                height = 320;
+                break;
+            default:
+                width = 360;
+                height = 640;
+        }
+        
+        this.aspectRatioDimensions = { width, height };
+        
+        // Update canvas dimensions
+        if (this.canvas) {
+            this.canvas.width = width;
+            this.canvas.height = height;
+            this.canvas.style.aspectRatio = ratio.replace(':', '/');
+            
+            // Force re-render
+            this.clearCanvas();
+            if (this.isComposing) {
+                this.renderComposition();
+            }
+            
+            console.log(`🖼️ Aspect ratio changed to ${ratio} (${width}x${height})`);
+            
+            // Update preview in settings modal
+            this.updateAspectRatioPreview(ratio, width, height);
+        }
+    }
+
+    updateAspectRatioPreview(ratio, width, height) {
+        const previewBox = document.getElementById('previewBox');
+        const previewDimensions = document.getElementById('previewDimensions');
+        
+        if (previewBox && previewDimensions) {
+            // Calculate preview box dimensions (max 60px height)
+            const maxSize = 50;
+            let previewWidth, previewHeight;
+            
+            if (width >= height) {
+                // Landscape or square
+                previewWidth = Math.min(maxSize, width * maxSize / height);
+                previewHeight = maxSize;
+            } else {
+                // Portrait
+                previewWidth = maxSize;
+                previewHeight = Math.min(maxSize, height * maxSize / width);
+            }
+            
+            previewBox.style.width = `${previewWidth}px`;
+            previewBox.style.height = `${previewHeight}px`;
+            previewDimensions.textContent = `${width} × ${height}px (${ratio})`;
         }
     }
 
@@ -2026,6 +2616,10 @@ class StreamRecorderOptimized {
                     this.togglePerformanceMonitor(settings.showPerformance);
                     document.getElementById('enablePerformanceMonitor').checked = settings.showPerformance;
                 }
+                if (settings.aspectRatio) {
+                    this.updateAspectRatio(settings.aspectRatio);
+                    document.getElementById('aspectRatioSetting').value = settings.aspectRatio;
+                }
             }
         } catch (e) {
             console.warn('Settings load error:', e);
@@ -2034,13 +2628,16 @@ class StreamRecorderOptimized {
 
     saveSettings() {
         try {
+            const aspectRatio = document.getElementById('aspectRatioSetting')?.value ?? '9:16';
+            
             const settings = {
                 targetFPS: this.targetFPS,
                 enableFrameSkipping: document.getElementById('enableFrameSkipping')?.checked ?? true,
                 enableErrorRecovery: document.getElementById('enableErrorRecovery')?.checked ?? true,
                 showPerformance: document.getElementById('enablePerformanceMonitor')?.checked ?? false,
                 resolution: document.getElementById('resolutionSetting')?.value ?? '720p',
-                bitrate: document.getElementById('bitrateSetting')?.value ?? '2000000'
+                bitrate: document.getElementById('bitrateSetting')?.value ?? '2000000',
+                aspectRatio: aspectRatio
             };
             
             localStorage.setItem('streamrec-optimized-settings', JSON.stringify(settings));
@@ -2049,8 +2646,9 @@ class StreamRecorderOptimized {
             this.enableFrameSkipping = settings.enableFrameSkipping;
             this.enableErrorRecovery = settings.enableErrorRecovery;
             this.togglePerformanceMonitor(settings.showPerformance);
+            this.updateAspectRatio(settings.aspectRatio);
             
-            alert('Einstellungen gespeichert!');
+            this.showSettingsSavedNotification();
             
             // Close modal
             const modalEl = document.getElementById('settingsModal');
@@ -2060,8 +2658,86 @@ class StreamRecorderOptimized {
             }
         } catch (e) {
             console.error('Settings save error:', e);
-            alert('Speichern fehlgeschlagen: ' + e.message);
+            this.showSettingsErrorNotification(e.message);
         }
+    }
+
+    showSettingsSavedNotification() {
+        // Remove any existing notifications
+        document.querySelectorAll('.settings-notification').forEach(el => el.remove());
+        
+        const notification = document.createElement('div');
+        notification.className = 'settings-notification position-fixed top-0 start-50 translate-middle-x mt-4';
+        notification.style.cssText = `
+            z-index: 9999;
+            animation: slideInFromTop 0.4s ease-out forwards, notificationBounce 0.5s ease-out 0.4s;
+            pointer-events: auto;
+        `;
+        
+        notification.innerHTML = `
+            <div class="alert alert-success alert-dismissible d-flex align-items-center shadow-lg border-0" 
+                 style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; min-width: 320px;">
+                <i class="fas fa-check-circle fs-4 me-3"></i>
+                <div class="flex-grow-1">
+                    <h6 class="mb-1">Einstellungen gespeichert!</h6>
+                    <small class="opacity-75">Alle Änderungen wurden erfolgreich übernommen</small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" onclick="this.parentElement.parentElement.remove()"></button>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 4 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.style.animation = 'slideOutToTop 0.3s ease-in forwards';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.remove();
+                    }
+                }, 300);
+            }
+        }, 4000);
+    }
+
+    showSettingsErrorNotification(message) {
+        // Remove any existing notifications
+        document.querySelectorAll('.settings-notification').forEach(el => el.remove());
+        
+        const notification = document.createElement('div');
+        notification.className = 'settings-notification position-fixed top-0 start-50 translate-middle-x mt-4';
+        notification.style.cssText = `
+            z-index: 9999;
+            animation: slideInFromTop 0.4s ease-out forwards, notificationBounce 0.5s ease-out 0.4s;
+            pointer-events: auto;
+        `;
+        
+        notification.innerHTML = `
+            <div class="alert alert-danger alert-dismissible d-flex align-items-center shadow-lg border-0" 
+                 style="background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%); color: white; min-width: 320px;">
+                <i class="fas fa-exclamation-triangle fs-4 me-3"></i>
+                <div class="flex-grow-1">
+                    <h6 class="mb-1">Speichern fehlgeschlagen</h6>
+                    <small class="opacity-75">${message}</small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" onclick="this.parentElement.parentElement.remove()"></button>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 6 seconds (longer for error messages)
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.style.animation = 'slideOutToTop 0.3s ease-in forwards';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.remove();
+                    }
+                }, 300);
+            }
+        }, 6000);
     }
 
     // 📐 LAYOUT MANAGEMENT METHODS

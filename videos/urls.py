@@ -22,4 +22,8 @@ urlpatterns = [
     path('v/<uuid:unique_id>/', views.video_view, name='view'),
     path('embed/<uuid:unique_id>/', views.video_embed, name='embed'),
     path('stream/<uuid:unique_id>/', views.video_stream, name='stream'),
+    
+    # API endpoints for StreamRec integration
+    path('api/upload/', views.api_upload_video, name='api_upload'),
+    path('api/storage-status/', views.api_storage_status, name='api_storage_status'),
 ]

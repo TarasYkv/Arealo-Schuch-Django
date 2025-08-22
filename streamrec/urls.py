@@ -9,7 +9,7 @@ urlpatterns = [
     # Dashboard - main entry point
     path('', views.dashboard, name='dashboard'),
     
-    # Phase 1: Basic stream capture
+    # Multi-stream recording studio
     path('aufnahme/', views.recording_studio, name='recording_studio'),
     
     # Self-Contained Version (for deployment debugging)
@@ -22,8 +22,4 @@ urlpatterns = [
     path('api/test-camera/', views.test_camera_access, name='test_camera_access'),
     path('api/test-screen/', views.test_screen_access, name='test_screen_access'),
     path('api/get-devices/', views.get_media_devices, name='get_media_devices'),
-    
-    # Future phases
-    # path('layouts/', views.layout_manager, name='layout_manager'),  # Phase 2
-    # path('export/', views.export_video, name='export_video'),        # Phase 4
 ]
