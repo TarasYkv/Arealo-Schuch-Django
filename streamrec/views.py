@@ -39,7 +39,7 @@ def recording_studio(request):
         'title': 'StreamRec - Studio',
         'max_duration_minutes': 3,
         'supported_formats': ['webm'],
-        'canvas_aspect_ratio': '9:16',
+        'canvas_aspect_ratio': '16:9',  # Default format
         'version': 'performance-optimized',
         'features': {
             'anti_freeze': ['Frame Skip Logic', 'Video Element Pooling', 'Smart Rendering'],
@@ -59,7 +59,7 @@ def recording_studio_self_contained(request):
         'title': 'StreamRec - Self-Contained Studio',
         'max_duration_minutes': 3,
         'supported_formats': ['webm'],
-        'canvas_aspect_ratio': '9:16',
+        'canvas_aspect_ratio': '16:9',  # Default format
         'version': 'self-contained',
     }
     return render(request, 'streamrec/recording_studio_self_contained.html', context)
