@@ -590,6 +590,13 @@ class StreamRecorderOptimized {
         this.maxDuration = 180000; // 3 minutes
         this.nextScreenId = 1; // Screen counter for multiple screens
         this.streamDisplayModes = new Map(); // Individual display modes for streams
+        this.freeLayoutStreams = new Map(); // Free layout stream positions and sizes
+        this.isDragging = false;
+        this.isResizing = false;
+        this.draggedStream = null;
+        this.resizeStream = null;
+        this.dragOffset = { x: 0, y: 0 };
+        this.resizeHandle = null;
         
         // 🚀 PERFORMANCE OPTIMIZATIONS
         this.videoElements = new Map(); // Video Element Pool
@@ -622,6 +629,7 @@ class StreamRecorderOptimized {
         
         this.ctx = this.canvas.getContext('2d');
         this.setupEventListeners();
+        this.setupCanvasInteraction();
         this.checkBrowserSupport();
         this.initPerformanceMonitoring();
         this.loadSettings();
@@ -1100,6 +1108,9 @@ class StreamRecorderOptimized {
                     break;
                 case 'grid2x2':
                     this.renderGrid2x2(activeStreams);
+                    break;
+                case 'free':
+                    this.renderFreeLayout(activeStreams);
                     break;
                 default:
                     // Default: Intelligente Auswahl basierend auf Stream-Anzahl
@@ -2144,6 +2155,9 @@ class StreamRecorderOptimized {
         this.currentLayout = layout;
         console.log(`📐 Layout angewendet: ${layout}`);
         
+        // Update thumbnail appearances for the new layout
+        this.updateThumbnailsForLayoutChange();
+        
         // Sofortige Aktualisierung der Komposition wenn aktiv
         if (this.isComposing) {
             this.renderCurrentLayout();
@@ -2193,6 +2207,12 @@ class StreamRecorderOptimized {
                 name: 'Vollbild', 
                 description: 'Ein Stream im Vollbild',
                 icon: 'fas fa-expand-arrows-alt'
+            });
+            layouts.push({ 
+                id: 'free', 
+                name: 'Freies Layout', 
+                description: 'Streams frei positionieren und skalieren per Drag & Drop',
+                icon: 'fas fa-arrows-alt'
             });
         }
         if (streamCount >= 2) {
@@ -2338,8 +2358,8 @@ class StreamRecorderOptimized {
         thumbnail.style.cssText = 'width: 120px; height: 90px; border-radius: 0.5rem; overflow: hidden; border: 2px solid #28a745; cursor: pointer; transition: border-color 0.3s;';
         thumbnail.setAttribute('data-stream-id', type);
         
-        // Add click handler for toggle
-        thumbnail.addEventListener('click', () => this.toggleStream(type));
+        // Add click handler for toggle or add to free layout
+        thumbnail.addEventListener('click', () => this.handleThumbnailClick(type));
         
         const video = document.createElement('video');
         video.srcObject = stream;
@@ -2423,6 +2443,128 @@ class StreamRecorderOptimized {
         }
     }
 
+    setupCanvasInteraction() {
+        if (!this.canvas) return;
+
+        // Mouse events for drag and drop
+        this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+        this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+        this.canvas.addEventListener('mouseleave', (e) => this.handleMouseUp(e));
+
+        // Touch events for mobile
+        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+    }
+
+    getCanvasCoordinates(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        
+        return {
+            x: (e.clientX - rect.left) * scaleX,
+            y: (e.clientY - rect.top) * scaleY
+        };
+    }
+
+    handleMouseDown(e) {
+        if (this.currentLayout !== 'free' || this.isRecording) return;
+        
+        const coords = this.getCanvasCoordinates(e);
+        const hitTest = this.hitTestFreeLayout(coords.x, coords.y);
+        
+        if (hitTest) {
+            if (hitTest.type === 'resize') {
+                this.isResizing = true;
+                this.resizeStream = hitTest.streamId;
+                this.resizeHandle = hitTest.handle;
+            } else if (hitTest.type === 'drag') {
+                this.isDragging = true;
+                this.draggedStream = hitTest.streamId;
+                const streamData = this.freeLayoutStreams.get(hitTest.streamId);
+                this.dragOffset = {
+                    x: coords.x - streamData.x,
+                    y: coords.y - streamData.y
+                };
+            }
+            this.canvas.style.cursor = hitTest.cursor;
+        }
+    }
+
+    handleMouseMove(e) {
+        if (this.currentLayout !== 'free' || this.isRecording) return;
+        
+        const coords = this.getCanvasCoordinates(e);
+        
+        if (this.isDragging && this.draggedStream) {
+            const streamData = this.freeLayoutStreams.get(this.draggedStream);
+            streamData.x = Math.max(0, Math.min(this.canvas.width - streamData.width, coords.x - this.dragOffset.x));
+            streamData.y = Math.max(0, Math.min(this.canvas.height - streamData.height, coords.y - this.dragOffset.y));
+        } else if (this.isResizing && this.resizeStream) {
+            const streamData = this.freeLayoutStreams.get(this.resizeStream);
+            const minSize = 50;
+            
+            if (this.resizeHandle === 'se') {
+                streamData.width = Math.max(minSize, Math.min(this.canvas.width - streamData.x, coords.x - streamData.x));
+                streamData.height = Math.max(minSize, Math.min(this.canvas.height - streamData.y, coords.y - streamData.y));
+            }
+        } else {
+            // Update cursor based on hover
+            const hitTest = this.hitTestFreeLayout(coords.x, coords.y);
+            this.canvas.style.cursor = hitTest ? hitTest.cursor : 'default';
+        }
+    }
+
+    handleMouseUp(e) {
+        this.isDragging = false;
+        this.isResizing = false;
+        this.draggedStream = null;
+        this.resizeStream = null;
+        this.resizeHandle = null;
+        this.canvas.style.cursor = 'default';
+    }
+
+    handleTouchStart(e) {
+        e.preventDefault();
+        if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            this.handleMouseDown({ clientX: touch.clientX, clientY: touch.clientY });
+        }
+    }
+
+    handleTouchMove(e) {
+        e.preventDefault();
+        if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            this.handleMouseMove({ clientX: touch.clientX, clientY: touch.clientY });
+        }
+    }
+
+    handleTouchEnd(e) {
+        e.preventDefault();
+        this.handleMouseUp(e);
+    }
+
+    hitTestFreeLayout(x, y) {
+        for (const [streamId, data] of this.freeLayoutStreams.entries()) {
+            // Check resize handle (bottom-right corner)
+            const handleSize = 15;
+            if (x >= data.x + data.width - handleSize && x <= data.x + data.width &&
+                y >= data.y + data.height - handleSize && y <= data.y + data.height) {
+                return { type: 'resize', streamId, handle: 'se', cursor: 'se-resize' };
+            }
+            
+            // Check stream area for dragging
+            if (x >= data.x && x <= data.x + data.width &&
+                y >= data.y && y <= data.y + data.height) {
+                return { type: 'drag', streamId, cursor: 'move' };
+            }
+        }
+        return null;
+    }
+
     // Draw video with individual display mode
     drawVideoWithMode(video, streamId, x, y, width, height) {
         const mode = this.streamDisplayModes.get(streamId) || 'cover';
@@ -2485,6 +2627,161 @@ class StreamRecorderOptimized {
         }
         
         this.ctx.drawImage(video, sx, sy, sWidth, sHeight, x, y, width, height);
+    }
+
+    renderFreeLayout(streams) {
+        // Only render streams that are both active AND in free layout
+        const availableStreams = new Map(streams);
+        
+        // Remove streams from free layout that are no longer available
+        for (const streamId of this.freeLayoutStreams.keys()) {
+            if (!availableStreams.has(streamId)) {
+                this.freeLayoutStreams.delete(streamId);
+            }
+        }
+
+        // Render each stream that is in free layout
+        for (const streamId of this.freeLayoutStreams.keys()) {
+            const stream = availableStreams.get(streamId);
+            const streamData = this.freeLayoutStreams.get(streamId);
+            
+            if (!stream || !streamData) continue;
+
+            const video = this.getVideoElementOptimized(streamId, stream);
+            if (!video || video.readyState < 2) continue;
+
+            // Draw stream
+            this.drawVideoWithMode(video, streamId, streamData.x, streamData.y, streamData.width, streamData.height);
+
+            // Draw border (only when not recording)
+            if (!this.isRecording) {
+                this.ctx.strokeStyle = '#ffffff';
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(streamData.x, streamData.y, streamData.width, streamData.height);
+            }
+
+            // Draw resize handle (only when not recording)
+            if (!this.isRecording) {
+                const handleSize = 15;
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.fillRect(
+                    streamData.x + streamData.width - handleSize, 
+                    streamData.y + streamData.height - handleSize, 
+                    handleSize, 
+                    handleSize
+                );
+                
+                // Draw resize handle lines
+                this.ctx.strokeStyle = '#000000';
+                this.ctx.lineWidth = 1;
+                const hx = streamData.x + streamData.width - handleSize;
+                const hy = streamData.y + streamData.height - handleSize;
+                for (let i = 0; i < 3; i++) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(hx + i * 5 + 5, hy + handleSize);
+                    this.ctx.lineTo(hx + handleSize, hy + i * 5 + 5);
+                    this.ctx.stroke();
+                }
+            }
+
+            // Draw stream label (only when not recording)
+            if (!this.isRecording) {
+                this.ctx.fillStyle = '#000000';
+                this.ctx.fillRect(streamData.x, streamData.y, 100, 20);
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.font = '12px Arial';
+                const label = streamId === 'camera' ? 'Kamera' : streamId.startsWith('screen') ? `Bildschirm ${streamId.replace('screen', '')}` : streamId;
+                this.ctx.fillText(label, streamData.x + 5, streamData.y + 14);
+            }
+        }
+    }
+
+    initializeFreeLayoutStream(streamId) {
+        const existingCount = this.freeLayoutStreams.size;
+        const defaultWidth = 200;
+        const defaultHeight = 150;
+        const margin = 20;
+        
+        // Calculate position to avoid overlaps
+        const x = margin + (existingCount % 3) * (defaultWidth + margin);
+        const y = margin + Math.floor(existingCount / 3) * (defaultHeight + margin);
+        
+        this.freeLayoutStreams.set(streamId, {
+            x: Math.min(x, this.canvas.width - defaultWidth),
+            y: Math.min(y, this.canvas.height - defaultHeight),
+            width: defaultWidth,
+            height: defaultHeight
+        });
+        
+        console.log(`🎯 Stream ${streamId} für freies Layout initialisiert`);
+    }
+
+    handleThumbnailClick(streamId) {
+        if (this.currentLayout === 'free') {
+            // In free layout mode: add/remove stream from free layout (doesn't affect active status)
+            if (!this.freeLayoutStreams.has(streamId)) {
+                this.initializeFreeLayoutStream(streamId);
+                this.updateThumbnailForFreeLayout(streamId, true);
+                console.log(`➕ Stream ${streamId} zum freien Layout hinzugefügt`);
+            } else {
+                // Remove from free layout if already there
+                this.freeLayoutStreams.delete(streamId);
+                this.updateThumbnailForFreeLayout(streamId, false);
+                console.log(`➖ Stream ${streamId} aus freiem Layout entfernt`);
+            }
+        } else {
+            // In other layouts: toggle stream active/inactive
+            this.toggleStream(streamId);
+        }
+    }
+
+    updateThumbnailForFreeLayout(streamId, isInFreeLayout) {
+        const thumbnail = document.getElementById(`thumbnail-${streamId}`);
+        const statusIndicator = document.getElementById(`status-${streamId}`);
+        
+        if (thumbnail) {
+            if (isInFreeLayout) {
+                thumbnail.style.borderColor = '#007bff'; // Blue border for free layout
+                if (statusIndicator) {
+                    statusIndicator.innerHTML = '<i class="fas fa-circle text-primary" style="font-size: 8px;"></i>';
+                }
+            } else {
+                thumbnail.style.borderColor = '#6c757d'; // Gray border when not in free layout
+                if (statusIndicator) {
+                    statusIndicator.innerHTML = '<i class="fas fa-circle text-secondary" style="font-size: 8px;"></i>';
+                }
+            }
+        }
+    }
+
+    updateThumbnailsForLayoutChange() {
+        // Update all thumbnail appearances based on current layout
+        for (const streamId of this.streams.keys()) {
+            const thumbnail = document.getElementById(`thumbnail-${streamId}`);
+            const statusIndicator = document.getElementById(`status-${streamId}`);
+            
+            if (!thumbnail || !statusIndicator) continue;
+            
+            if (this.currentLayout === 'free') {
+                // In free layout: show blue if in free layout, gray if not
+                if (this.freeLayoutStreams.has(streamId)) {
+                    thumbnail.style.borderColor = '#007bff'; // Blue
+                    statusIndicator.innerHTML = '<i class="fas fa-circle text-primary" style="font-size: 8px;"></i>';
+                } else {
+                    thumbnail.style.borderColor = '#6c757d'; // Gray
+                    statusIndicator.innerHTML = '<i class="fas fa-circle text-secondary" style="font-size: 8px;"></i>';
+                }
+            } else {
+                // In other layouts: show green if active, yellow if inactive
+                if (this.activeStreams.has(streamId)) {
+                    thumbnail.style.borderColor = '#28a745'; // Green
+                    statusIndicator.innerHTML = '<i class="fas fa-circle text-success" style="font-size: 8px;"></i>';
+                } else {
+                    thumbnail.style.borderColor = '#ffc107'; // Yellow
+                    statusIndicator.innerHTML = '<i class="fas fa-circle text-warning" style="font-size: 8px;"></i>';
+                }
+            }
+        }
     }
 }
 
