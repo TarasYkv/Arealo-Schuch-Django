@@ -33,7 +33,7 @@ def recording_studio(request):
     Performance Optimized Aufnahmestudio - Anti-Freeze Technology
     """
     context = {
-        'title': 'StreamRec - Performance Optimized Studio',
+        'title': 'StreamRec - Studio',
         'max_duration_minutes': 3,
         'supported_formats': ['webm'],
         'canvas_aspect_ratio': '9:16',
