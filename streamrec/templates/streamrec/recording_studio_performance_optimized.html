@@ -631,11 +631,22 @@ class StreamRecorderOptimized {
         this.setupEventListeners();
         this.setupCanvasInteraction();
         this.checkBrowserSupport();
+        
+        // Initialize status badges
+        this.initializeStatusBadges();
         this.initPerformanceMonitoring();
         this.loadSettings();
         this.refreshLayoutChips();
+        this.updateScreenButtons(); // Initialize button states
         
         console.log('✅ StreamRec Performance Optimized initialisiert');
+    }
+
+    initializeStatusBadges() {
+        // Initialize both camera and screen status badges to secondary (gray) state
+        this.updateStatusBadge('camera', 'secondary');
+        this.updateStatusBadge('screen', 'secondary');
+        console.log('🔧 Status-Badges initialisiert');
     }
 
     setupEventListeners() {
@@ -968,8 +979,12 @@ class StreamRecorderOptimized {
 
     updateScreenButtons() {
         const screenCount = Array.from(this.streams.keys()).filter(k => k.startsWith('screen')).length;
+        const startBtn = document.getElementById('startScreenBtn');
         const addBtn = document.getElementById('addScreenBtn');
         const stopAllBtn = document.getElementById('stopAllScreensBtn');
+        
+        // Disable "Bildschirm teilen" button when any screen is active
+        if (startBtn) startBtn.disabled = screenCount > 0;
         
         if (addBtn) addBtn.disabled = false; // Always allow adding more screens
         if (stopAllBtn) stopAllBtn.disabled = screenCount === 0;
@@ -1193,23 +1208,27 @@ class StreamRecorderOptimized {
     }
 
     renderSideBySide(streams) {
-        const streamArray = Array.from(streams).slice(0, 2); // Nur 2 Streams
-        const halfWidth = this.canvas.width / 2;
+        const streamArray = Array.from(streams);
+        const streamCount = streamArray.length;
+        
+        if (streamCount === 0) return;
+        
+        const streamWidth = this.canvas.width / streamCount;
         
         streamArray.forEach(([type, stream], index) => {
             const video = this.getVideoElementOptimized(type, stream);
             if (!video || video.readyState < 2) return;
             
-            const x = index * halfWidth;
-            this.drawVideoWithMode(video, type, x, 0, halfWidth, this.canvas.height);
+            const x = index * streamWidth;
+            this.drawVideoWithMode(video, type, x, 0, streamWidth, this.canvas.height);
             
-            // Draw separator
-            if (index === 0 && streamArray.length > 1) {
+            // Draw separator (except for last stream)
+            if (index < streamCount - 1) {
                 this.ctx.strokeStyle = '#fff';
                 this.ctx.lineWidth = 2;
                 this.ctx.beginPath();
-                this.ctx.moveTo(halfWidth, 0);
-                this.ctx.lineTo(halfWidth, this.canvas.height);
+                this.ctx.moveTo(x + streamWidth, 0);
+                this.ctx.lineTo(x + streamWidth, this.canvas.height);
                 this.ctx.stroke();
             }
         });
@@ -1936,10 +1955,36 @@ class StreamRecorderOptimized {
     updateStatusBadge(type, variant) {
         const badge = document.getElementById(`${type}StatusBadge`);
         if (badge) {
-            const icon = badge.querySelector('i');
-            if (icon) {
-                icon.className = `fas fa-circle text-${variant}`;
-            }
+            // Replace FontAwesome icon with simple colored dot
+            const colorMap = {
+                'success': '#28a745',
+                'danger': '#dc3545',
+                'secondary': '#6c757d'
+            };
+            
+            badge.innerHTML = '';
+            badge.style.cssText = `
+                width: 16px;
+                height: 16px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+            
+            const dot = document.createElement('div');
+            dot.style.cssText = `
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                background-color: ${colorMap[variant] || '#6c757d'} !important;
+                border: 2px solid #ffffff;
+                display: block;
+                box-shadow: 0 0 3px rgba(0,0,0,0.3);
+            `;
+            badge.appendChild(dot);
+            console.log(`🔧 Status-Badge für ${type} auf ${variant} gesetzt (Farbe: ${colorMap[variant]})`);
+        } else {
+            console.error(`❌ Status-Badge für ${type} nicht gefunden!`);
         }
     }
 
@@ -2373,15 +2418,57 @@ class StreamRecorderOptimized {
         label.style.fontSize = '0.75rem';
         label.textContent = type === 'camera' ? 'Kamera' : type.startsWith('screen') ? (type === 'screen1' ? 'Bildschirm 1' : type.replace('screen', 'Bildschirm ')) : type;
         
-        // Add status indicator
+        // Add status indicator (simple colored dot)
         const statusIndicator = document.createElement('div');
-        statusIndicator.className = 'position-absolute top-0 end-0 m-1';
-        statusIndicator.innerHTML = '<i class="fas fa-circle text-success" style="font-size: 8px;"></i>';
+        statusIndicator.className = 'position-absolute';
+        statusIndicator.style.cssText = `
+            top: 4px;
+            right: 4px;
+            width: 10px; 
+            height: 10px; 
+            border-radius: 50%; 
+            border: 1px solid white;
+            z-index: 10;
+        `;
+        statusIndicator.style.backgroundColor = '#28a745'; // Green for active
         statusIndicator.id = `status-${type}`;
+        
+        // Add close button
+        const closeButton = document.createElement('div');
+        closeButton.className = 'position-absolute top-0 start-0';
+        closeButton.style.cssText = `
+            width: 20px; 
+            height: 20px; 
+            background: rgba(220, 53, 69, 0.9); 
+            border-radius: 50%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            cursor: pointer; 
+            margin: 2px;
+            transition: background-color 0.2s;
+        `;
+        closeButton.innerHTML = '<i class="fas fa-times text-white" style="font-size: 10px;"></i>';
+        closeButton.title = 'Stream entfernen';
+        
+        // Add hover effect
+        closeButton.addEventListener('mouseenter', () => {
+            closeButton.style.backgroundColor = 'rgba(220, 53, 69, 1)';
+        });
+        closeButton.addEventListener('mouseleave', () => {
+            closeButton.style.backgroundColor = 'rgba(220, 53, 69, 0.9)';
+        });
+        
+        // Add click handler to remove stream
+        closeButton.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent thumbnail click
+            this.removeStreamCompletely(type);
+        });
         
         thumbnail.appendChild(video);
         thumbnail.appendChild(label);
         thumbnail.appendChild(statusIndicator);
+        thumbnail.appendChild(closeButton);
         container.appendChild(thumbnail);
     }
 
@@ -2416,7 +2503,7 @@ class StreamRecorderOptimized {
             this.activeStreams.delete(streamId);
             thumbnail.style.borderColor = '#ffc107'; // Yellow border
             if (statusIndicator) {
-                statusIndicator.innerHTML = '<i class="fas fa-circle text-warning" style="font-size: 8px;"></i>';
+                statusIndicator.style.backgroundColor = '#ffc107'; // Yellow for inactive
             }
             console.log(`🟡 Stream ${streamId} deaktiviert`);
         } else {
@@ -2424,7 +2511,7 @@ class StreamRecorderOptimized {
             this.activeStreams.add(streamId);
             thumbnail.style.borderColor = '#28a745'; // Green border
             if (statusIndicator) {
-                statusIndicator.innerHTML = '<i class="fas fa-circle text-success" style="font-size: 8px;"></i>';
+                statusIndicator.style.backgroundColor = '#28a745'; // Green for active
             }
             console.log(`🟢 Stream ${streamId} aktiviert`);
         }
@@ -2743,12 +2830,12 @@ class StreamRecorderOptimized {
             if (isInFreeLayout) {
                 thumbnail.style.borderColor = '#007bff'; // Blue border for free layout
                 if (statusIndicator) {
-                    statusIndicator.innerHTML = '<i class="fas fa-circle text-primary" style="font-size: 8px;"></i>';
+                    statusIndicator.style.backgroundColor = '#007bff';
                 }
             } else {
                 thumbnail.style.borderColor = '#6c757d'; // Gray border when not in free layout
                 if (statusIndicator) {
-                    statusIndicator.innerHTML = '<i class="fas fa-circle text-secondary" style="font-size: 8px;"></i>';
+                    statusIndicator.style.backgroundColor = '#6c757d';
                 }
             }
         }
@@ -2766,21 +2853,33 @@ class StreamRecorderOptimized {
                 // In free layout: show blue if in free layout, gray if not
                 if (this.freeLayoutStreams.has(streamId)) {
                     thumbnail.style.borderColor = '#007bff'; // Blue
-                    statusIndicator.innerHTML = '<i class="fas fa-circle text-primary" style="font-size: 8px;"></i>';
+                    statusIndicator.style.backgroundColor = '#007bff';
                 } else {
                     thumbnail.style.borderColor = '#6c757d'; // Gray
-                    statusIndicator.innerHTML = '<i class="fas fa-circle text-secondary" style="font-size: 8px;"></i>';
+                    statusIndicator.style.backgroundColor = '#6c757d';
                 }
             } else {
                 // In other layouts: show green if active, yellow if inactive
                 if (this.activeStreams.has(streamId)) {
                     thumbnail.style.borderColor = '#28a745'; // Green
-                    statusIndicator.innerHTML = '<i class="fas fa-circle text-success" style="font-size: 8px;"></i>';
+                    statusIndicator.style.backgroundColor = '#28a745';
                 } else {
                     thumbnail.style.borderColor = '#ffc107'; // Yellow
-                    statusIndicator.innerHTML = '<i class="fas fa-circle text-warning" style="font-size: 8px;"></i>';
+                    statusIndicator.style.backgroundColor = '#ffc107';
                 }
             }
+        }
+    }
+
+    removeStreamCompletely(streamId) {
+        console.log(`🗑️ Stream ${streamId} wird komplett entfernt`);
+        
+        if (streamId === 'camera') {
+            // Remove camera stream
+            this.stopCamera();
+        } else if (streamId.startsWith('screen')) {
+            // Remove specific screen stream
+            this.removeScreen(streamId);
         }
     }
 }
