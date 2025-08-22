@@ -576,6 +576,7 @@ class StreamRecorderOptimized {
     constructor() {
         // Basic properties
         this.streams = new Map();
+        this.activeStreams = new Set(); // Tracks which streams are currently active for rendering
         this.canvas = null;
         this.ctx = null;
         this.isComposing = false;
@@ -588,6 +589,7 @@ class StreamRecorderOptimized {
         this.recordingTimer = null;
         this.maxDuration = 180000; // 3 minutes
         this.nextScreenId = 1; // Screen counter for multiple screens
+        this.streamDisplayModes = new Map(); // Individual display modes for streams
         
         // 🚀 PERFORMANCE OPTIMIZATIONS
         this.videoElements = new Map(); // Video Element Pool
@@ -843,6 +845,8 @@ class StreamRecorderOptimized {
             });
 
             this.streams.set('camera', stream);
+            this.activeStreams.add('camera');
+            this.streamDisplayModes.set('camera', 'cover'); // Default for camera
             this.updateStatus('camera', 'Aktiv', 'success');
             this.updateButtons('camera', true);
             this.updateStatusBadge('camera', 'success');
@@ -970,14 +974,29 @@ class StreamRecorderOptimized {
         
         if (screenIds.length > 0) {
             activeScreensDiv.style.display = 'block';
-            listDiv.innerHTML = screenIds.map(screenId => `
-                <div class="d-flex justify-content-between align-items-center small bg-light rounded p-2">
-                    <span><i class="fas fa-desktop me-1"></i>${screenId}</span>
+            listDiv.innerHTML = screenIds.map(screenId => {
+                const currentMode = this.streamDisplayModes.get(screenId) || 'cover';
+                return `
+                <div class="d-flex justify-content-between align-items-center small bg-light rounded p-2 mb-2">
+                    <div class="d-flex align-items-center flex-grow-1">
+                        <i class="fas fa-desktop me-2"></i>
+                        <span class="me-3">${screenId === 'screen1' ? 'Bildschirm 1' : screenId.replace('screen', 'Bildschirm ')}</span>
+                        
+                        <select class="form-select form-select-sm me-2" style="width: auto; min-width: 140px;" 
+                                onchange="streamrecApp.setStreamDisplayMode('${screenId}', this.value)">
+                            <option value="cover" ${currentMode === 'cover' ? 'selected' : ''}>Verzerrt (füllt komplett)</option>
+                            <option value="contain" ${currentMode === 'contain' ? 'selected' : ''}>Eingepasst (schwarze Balken)</option>
+                            <option value="fill" ${currentMode === 'fill' ? 'selected' : ''}>Zugeschnitten (keine Verzerrung)</option>
+                            <option value="crop" ${currentMode === 'crop' ? 'selected' : ''}>Zentriert zugeschnitten</option>
+                        </select>
+                    </div>
+                    
                     <button class="btn btn-sm btn-outline-danger" onclick="streamrecApp.removeScreen('${screenId}')">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
-            `).join('');
+                `;
+            }).join('');
         } else {
             activeScreensDiv.style.display = 'none';
         }
@@ -1041,11 +1060,13 @@ class StreamRecorderOptimized {
     }
 
     renderCurrentLayout() {
-        const streams = Array.from(this.streams.entries());
+        // Only render active streams
+        const allStreams = Array.from(this.streams.entries());
+        const activeStreams = allStreams.filter(([type, stream]) => this.activeStreams.has(type));
         let hasValidStreams = false;
         
-        // 🔍 Vorab-Check: Mindestens ein Stream bereit?
-        for (const [type, stream] of streams) {
+        // 🔍 Vorab-Check: Mindestens ein aktiver Stream bereit?
+        for (const [type, stream] of activeStreams) {
             const video = this.getVideoElementOptimized(type, stream);
             if (video && video.readyState >= 2 && !video.paused) {
                 hasValidStreams = true;
@@ -1060,29 +1081,29 @@ class StreamRecorderOptimized {
         try {
             switch (this.currentLayout) {
                 case 'fullscreen':
-                    this.renderFullscreen(streams);
+                    this.renderFullscreen(activeStreams);
                     break;
                 case 'pip':
-                    this.renderPictureInPicture(streams);
+                    this.renderPictureInPicture(activeStreams);
                     break;
                 case 'side':
-                    this.renderSideBySide(streams);
+                    this.renderSideBySide(activeStreams);
                     break;
                 case 'stack':
-                    this.renderStacked(streams);
+                    this.renderStacked(activeStreams);
                     break;
                 case 'threeCols':
-                    this.renderThreeColumns(streams);
+                    this.renderThreeColumns(activeStreams);
                     break;
                 case 'leftBigRight2':
-                    this.renderLeftBigRightTwo(streams);
+                    this.renderLeftBigRightTwo(activeStreams);
                     break;
                 case 'grid2x2':
-                    this.renderGrid2x2(streams);
+                    this.renderGrid2x2(activeStreams);
                     break;
                 default:
                     // Default: Intelligente Auswahl basierend auf Stream-Anzahl
-                    this.renderSmartDefault(streams);
+                    this.renderSmartDefault(activeStreams);
             }
             return true;
         } catch (error) {
@@ -1095,29 +1116,67 @@ class StreamRecorderOptimized {
     }
 
     renderPictureInPicture(streams) {
+        if (streams.length < 2) {
+            // Falls weniger als 2 Streams, Vollbild verwenden
+            this.renderFullscreen(streams);
+            return;
+        }
+
         const map = new Map(streams);
         
-        // Background: prefer screen, fallback to first stream
-        let bgEntry = map.has('screen') ? ['screen', map.get('screen')] : streams[0];
+        // Background: prefer any screen stream, fallback to first stream
+        let bgEntry = null;
+        // Find first screen stream (screen1, screen2, etc.)
+        for (const [type, stream] of streams) {
+            if (type.startsWith('screen')) {
+                bgEntry = [type, stream];
+                break;
+            }
+        }
+        // If no screen stream found, use first stream
+        if (!bgEntry) {
+            bgEntry = streams[0];
+        }
+        
+        // Draw background stream with its display mode
         if (bgEntry) {
             const [bgType, bgStream] = bgEntry;
             const bgVideo = this.getVideoElementOptimized(bgType, bgStream);
             if (bgVideo && bgVideo.readyState >= 2) {
-                this.drawVideoCover(bgVideo, 0, 0, this.canvas.width, this.canvas.height);
+                this.drawVideoWithMode(bgVideo, bgType, 0, 0, this.canvas.width, this.canvas.height);
             }
         }
 
-        // Overlay: Camera if available
-        if (map.has('camera')) {
-            const camVideo = this.getVideoElementOptimized('camera', map.get('camera'));
-            if (camVideo && camVideo.readyState >= 2) {
+        // Overlay: Find overlay stream (prefer camera, but exclude background stream)
+        let overlayEntry = null;
+        if (map.has('camera') && bgEntry[0] !== 'camera') {
+            overlayEntry = ['camera', map.get('camera')];
+        } else {
+            // Use first stream that's not the background
+            for (const [type, stream] of streams) {
+                if (type !== bgEntry[0]) {
+                    overlayEntry = [type, stream];
+                    break;
+                }
+            }
+        }
+
+        // Draw overlay stream
+        if (overlayEntry) {
+            const [overlayType, overlayStream] = overlayEntry;
+            const overlayVideo = this.getVideoElementOptimized(overlayType, overlayStream);
+            if (overlayVideo && overlayVideo.readyState >= 2) {
                 const size = 120;
                 const x = this.canvas.width - size - 20;
                 const y = 20;
+                
+                // White border
                 this.ctx.strokeStyle = '#fff';
                 this.ctx.lineWidth = 3;
                 this.ctx.strokeRect(x - 3, y - 3, size + 6, size + 6);
-                this.drawVideoContain(camVideo, x, y, size, size);
+                
+                // Draw overlay video with its display mode
+                this.drawVideoWithMode(overlayVideo, overlayType, x, y, size, size);
             }
         }
     }
@@ -1131,7 +1190,7 @@ class StreamRecorderOptimized {
             if (!video || video.readyState < 2) return;
             
             const x = index * halfWidth;
-            this.drawVideoContain(video, x, 0, halfWidth, this.canvas.height);
+            this.drawVideoWithMode(video, type, x, 0, halfWidth, this.canvas.height);
             
             // Draw separator
             if (index === 0 && streamArray.length > 1) {
@@ -1153,7 +1212,7 @@ class StreamRecorderOptimized {
         const [type, stream] = streamArray[0];
         const video = this.getVideoElementOptimized(type, stream);
         if (video && video.readyState >= 2) {
-            this.drawVideoCover(video, 0, 0, this.canvas.width, this.canvas.height);
+            this.drawVideoWithMode(video, type, 0, 0, this.canvas.width, this.canvas.height);
         }
     }
 
@@ -1167,7 +1226,7 @@ class StreamRecorderOptimized {
             if (!video || video.readyState < 2) return;
             
             const y = index * halfHeight;
-            this.drawVideoContain(video, 0, y, this.canvas.width, halfHeight);
+            this.drawVideoWithMode(video, type, 0, y, this.canvas.width, halfHeight);
             
             // Draw separator
             if (index === 0 && streamArray.length > 1) {
@@ -1881,10 +1940,10 @@ class StreamRecorderOptimized {
     }
 
     checkCompositionReady() {
-        const hasStreams = this.streams.size > 0;
-        if (hasStreams && !this.isComposing) {
+        const hasActiveStreams = this.activeStreams.size > 0;
+        if (hasActiveStreams && !this.isComposing) {
             this.startRenderLoop();
-        } else if (!hasStreams && this.isComposing) {
+        } else if (!hasActiveStreams && this.isComposing) {
             this.stopRenderLoop();
         }
     }
@@ -2098,7 +2157,7 @@ class StreamRecorderOptimized {
         
         if (!container) return;
         
-        const count = this.streams.size;
+        const count = this.activeStreams.size;
         const layouts = this.getAvailableLayouts(count);
         
         // Update stream count display
@@ -2268,11 +2327,19 @@ class StreamRecorderOptimized {
         const noStreamsMsg = document.getElementById('noStreamsMessage');
         if (noStreamsMsg) noStreamsMsg.style.display = 'none';
         
+        // Mark stream as active by default and set default display mode
+        this.activeStreams.add(type);
+        this.streamDisplayModes.set(type, 'cover'); // Default: cover (stretch to fill)
+        
         // Create thumbnail
         const thumbnail = document.createElement('div');
         thumbnail.id = `thumbnail-${type}`;
         thumbnail.className = 'stream-thumbnail position-relative';
-        thumbnail.style.cssText = 'width: 120px; height: 90px; border-radius: 0.5rem; overflow: hidden; border: 2px solid #dee2e6;';
+        thumbnail.style.cssText = 'width: 120px; height: 90px; border-radius: 0.5rem; overflow: hidden; border: 2px solid #28a745; cursor: pointer; transition: border-color 0.3s;';
+        thumbnail.setAttribute('data-stream-id', type);
+        
+        // Add click handler for toggle
+        thumbnail.addEventListener('click', () => this.toggleStream(type));
         
         const video = document.createElement('video');
         video.srcObject = stream;
@@ -2284,10 +2351,17 @@ class StreamRecorderOptimized {
         const label = document.createElement('div');
         label.className = 'position-absolute bottom-0 start-0 end-0 bg-dark bg-opacity-75 text-white text-center py-1';
         label.style.fontSize = '0.75rem';
-        label.textContent = type === 'camera' ? 'Kamera' : type === 'screen' ? 'Bildschirm' : type;
+        label.textContent = type === 'camera' ? 'Kamera' : type.startsWith('screen') ? (type === 'screen1' ? 'Bildschirm 1' : type.replace('screen', 'Bildschirm ')) : type;
+        
+        // Add status indicator
+        const statusIndicator = document.createElement('div');
+        statusIndicator.className = 'position-absolute top-0 end-0 m-1';
+        statusIndicator.innerHTML = '<i class="fas fa-circle text-success" style="font-size: 8px;"></i>';
+        statusIndicator.id = `status-${type}`;
         
         thumbnail.appendChild(video);
         thumbnail.appendChild(label);
+        thumbnail.appendChild(statusIndicator);
         container.appendChild(thumbnail);
     }
 
@@ -2297,12 +2371,120 @@ class StreamRecorderOptimized {
             thumbnail.remove();
         }
         
+        // Remove from active streams and display modes
+        this.activeStreams.delete(type);
+        this.streamDisplayModes.delete(type);
+        
         // Show no streams message if no thumbnails left
         const container = document.getElementById('streamThumbnails');
         if (container && container.children.length === 1) { // Only noStreamsMessage left
             const noStreamsMsg = document.getElementById('noStreamsMessage');
             if (noStreamsMsg) noStreamsMsg.style.display = 'block';
         }
+    }
+
+    toggleStream(streamId) {
+        const thumbnail = document.getElementById(`thumbnail-${streamId}`);
+        const statusIndicator = document.getElementById(`status-${streamId}`);
+        
+        if (!thumbnail) return;
+        
+        const isActive = this.activeStreams.has(streamId);
+        
+        if (isActive) {
+            // Deactivate stream
+            this.activeStreams.delete(streamId);
+            thumbnail.style.borderColor = '#ffc107'; // Yellow border
+            if (statusIndicator) {
+                statusIndicator.innerHTML = '<i class="fas fa-circle text-warning" style="font-size: 8px;"></i>';
+            }
+            console.log(`🟡 Stream ${streamId} deaktiviert`);
+        } else {
+            // Activate stream  
+            this.activeStreams.add(streamId);
+            thumbnail.style.borderColor = '#28a745'; // Green border
+            if (statusIndicator) {
+                statusIndicator.innerHTML = '<i class="fas fa-circle text-success" style="font-size: 8px;"></i>';
+            }
+            console.log(`🟢 Stream ${streamId} aktiviert`);
+        }
+        
+        // Update layout options based on active streams
+        this.refreshLayoutChips();
+    }
+
+    setStreamDisplayMode(streamId, mode) {
+        this.streamDisplayModes.set(streamId, mode);
+        console.log(`📺 Display-Modus für ${streamId} geändert: ${mode}`);
+        
+        // Force re-render to apply new display mode
+        if (this.isComposing) {
+            this.renderComposition();
+        }
+    }
+
+    // Draw video with individual display mode
+    drawVideoWithMode(video, streamId, x, y, width, height) {
+        const mode = this.streamDisplayModes.get(streamId) || 'cover';
+        
+        switch (mode) {
+            case 'cover':
+                // VERZERRT: Streckt/staucht das Video um den Bereich komplett zu füllen (kann verzerren)
+                this.drawVideoCover(video, x, y, width, height);
+                break;
+            case 'contain':
+                // EINGEPASST: Video passt komplett rein, behält Seitenverhältnis (schwarze Balken möglich)
+                this.drawVideoContain(video, x, y, width, height);
+                break;
+            case 'fill':
+                // ZUGESCHNITTEN: Füllt Bereich komplett, behält Seitenverhältnis (schneidet ab wo nötig)
+                this.drawVideoFill(video, x, y, width, height);
+                break;
+            case 'crop':
+                // ZENTRIERT ZUGESCHNITTEN: Wie "fill" aber schneidet gleichmäßig von allen Seiten ab
+                this.drawVideoCrop(video, x, y, width, height);
+                break;
+            default:
+                this.drawVideoCover(video, x, y, width, height);
+        }
+    }
+
+    drawVideoFill(video, x, y, width, height) {
+        // Fill the area completely, maintaining aspect ratio (may crop)
+        const videoAspect = video.videoWidth / video.videoHeight;
+        const canvasAspect = width / height;
+        
+        if (videoAspect > canvasAspect) {
+            // Video is wider - fit height and crop width
+            const drawWidth = height * videoAspect;
+            const offsetX = (drawWidth - width) / 2;
+            this.ctx.drawImage(video, x - offsetX, y, drawWidth, height);
+        } else {
+            // Video is taller - fit width and crop height
+            const drawHeight = width / videoAspect;
+            const offsetY = (drawHeight - height) / 2;
+            this.ctx.drawImage(video, x, y - offsetY, width, drawHeight);
+        }
+    }
+
+    drawVideoCrop(video, x, y, width, height) {
+        // Center crop - crop video to exact dimensions
+        const videoAspect = video.videoWidth / video.videoHeight;
+        const targetAspect = width / height;
+        
+        let sx = 0, sy = 0, sWidth = video.videoWidth, sHeight = video.videoHeight;
+        
+        if (videoAspect > targetAspect) {
+            // Video is wider - crop horizontally
+            sWidth = video.videoHeight * targetAspect;
+            sx = (video.videoWidth - sWidth) / 2;
+        } else {
+            // Video is taller - crop vertically  
+            sHeight = video.videoWidth / targetAspect;
+            sy = (video.videoHeight - sHeight) / 2;
+        }
+        
+        this.ctx.drawImage(video, sx, sy, sWidth, sHeight, x, y, width, height);
     }
 }
 
