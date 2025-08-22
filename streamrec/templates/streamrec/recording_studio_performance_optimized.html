@@ -194,6 +194,34 @@
 .btn-secondary { background-color: #6c757d !important; border-color: #6c757d !important; color: #ffffff !important; }
 
 .form-select, .form-control { color: #212529 !important; background-color: #ffffff !important; border-color: #ced4da !important; }
+
+/* Left sidebar matches right column height - no height restriction */
+
+/* Fix dropdown overflow in sidebar */
+.control-panel .form-select {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Compact screen stream items */
+.d-flex.justify-content-between.align-items-center.small {
+    flex-wrap: nowrap !important;
+}
+
+.d-flex.justify-content-between.align-items-center.small .form-select {
+    min-width: 80px !important;
+    max-width: 100px !important;
+}
+
+/* Keep stream thumbnails section responsive but no height restrictions on sidebar */
+@media (max-width: 768px) {
+    /* Only apply mobile optimizations on actual small screens */
+    .control-panel {
+        padding: 1rem !important;
+        margin-bottom: 1rem !important;
+    }
+}
 </style>
 {% endblock %}
 
@@ -232,7 +260,7 @@
                                 <div class="stat-label">Max. Dauer</div>
                             </div>
                             <div class="col-4">
-                                <div class="stat-value">9:16</div>
+                                <div class="stat-value" id="currentFormatDisplay">16:9</div>
                                 <div class="stat-label">Format</div>
                             </div>
                             <div class="col-4">
@@ -321,56 +349,6 @@
 
                 </div>
 
-                <!-- Layout Manager -->
-                <div class="control-panel" id="layoutControls">
-                    <h5 class="mb-4">
-                        <i class="fas fa-th-large me-2"></i>
-                        Layout Manager
-                    </h5>
-                    <div id="layoutControlsContent">
-                        <div class="alert alert-info" id="layoutManagerPlaceholder">
-                            <i class="fas fa-info-circle me-2"></i>
-                            Starten Sie Kamera oder Bildschirm-Sharing, um verfügbare Layouts zu sehen
-                        </div>
-                    </div>
-                </div>
-
-                <!-- System Information -->
-                <div class="control-panel">
-                    <h5 class="mb-4">
-                        <i class="fas fa-info-circle me-2"></i>
-                        System Information
-                    </h5>
-                    <div class="row">
-                        <div class="col-6">
-                            <div class="system-info-item">
-                                <small class="text-muted">Browser:</small>
-                                <div id="browserInfo" class="fw-bold">-</div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="system-info-item">
-                                <small class="text-muted">WebRTC:</small>
-                                <div id="webrtcSupport" class="fw-bold">-</div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="system-info-item">
-                                <small class="text-muted">Canvas:</small>
-                                <div id="canvasSupport" class="fw-bold">-</div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="system-info-item">
-                                <small class="text-muted">Recording:</small>
-                                <div id="mediaRecorderSupport" class="fw-bold">-</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="performanceMetrics" class="mt-3 text-center">
-                        <small class="text-muted">Performance wird überwacht...</small>
-                    </div>
-                </div>
 
                 <!-- Video Storage Status -->
                 <div class="control-panel">
@@ -489,8 +467,8 @@
                          style="height: 600px; border-radius: 0.5rem; overflow: hidden;">
                         
                         <canvas id="compositionCanvas" 
-                                width="360" 
-                                height="640" 
+                                width="1920" 
+                                height="1080" 
                                 class="border border-secondary"
                                 style="max-width: 100%; max-height: 100%; object-fit: contain;">
                         </canvas>
@@ -580,19 +558,21 @@
                         <div class="mb-3">
                             <label class="form-label">Bitrate:</label>
                             <select class="form-select" id="bitrateSetting">
-                                <option value="2000000" selected>2 Mbps (Ausgewogen)</option>
-                                <option value="4000000">4 Mbps (Hohe Qualität)</option>
-                                <option value="1000000">1 Mbps (Sparsam)</option>
-                                <option value="500000">0.5 Mbps (Minimum)</option>
+                                <option value="8000000">8 Mbps (Ultra HD Qualität) - Nur 1 Stream</option>
+                                <option value="6000000">6 Mbps (Sehr hohe Qualität) - Bis 2 Streams</option>
+                                <option value="4000000" selected>4 Mbps (Hohe Qualität) - Bis 3 Streams</option>
+                                <option value="2500000">2.5 Mbps (Gute Qualität) - Bis 4 Streams</option>
+                                <option value="1500000">1.5 Mbps (Grundqualität) - Viele Streams</option>
                             </select>
+                            <small class="form-text text-muted">💡 Bitrate wird automatisch an Stream-Anzahl angepasst</small>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">
                                 <i class="fas fa-expand-alt me-1"></i>Seitenverhältnis:
                             </label>
                             <select class="form-select" id="aspectRatioSetting">
-                                <option value="9:16" selected>9:16 (Vertikal - Social Media)</option>
-                                <option value="16:9">16:9 (Horizontal - Standard)</option>
+                                <option value="9:16">9:16 (Vertikal - Social Media)</option>
+                                <option value="16:9" selected>16:9 (Horizontal - Standard)</option>
                                 <option value="4:3">4:3 (Klassisch - TV Format)</option>
                                 <option value="1:1">1:1 (Quadratisch - Instagram)</option>
                                 <option value="21:9">21:9 (Ultrawide - Kino)</option>
@@ -605,12 +585,13 @@
                             <div class="mt-2" id="aspectRatioPreview">
                                 <small class="text-muted">Vorschau:</small>
                                 <div class="d-flex align-items-center justify-content-center mt-1" style="height: 60px;">
-                                    <div id="previewBox" class="border border-primary bg-light" 
-                                         style="width: 30px; height: 53px; transition: all 0.3s ease;">
+                                    <div id="previewBox" class="border border-primary bg-primary bg-opacity-10" 
+                                         style="width: 45px; height: 25px; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
+                                         <i class="fas fa-desktop text-primary" style="font-size: 12px; opacity: 0.6;"></i>
                                     </div>
                                 </div>
                                 <div class="text-center">
-                                    <small class="text-muted" id="previewDimensions">360 × 640px</small>
+                                    <small class="text-muted" id="previewDimensions">640 × 360px (16:9)</small>
                                 </div>
                             </div>
                         </div>
@@ -680,8 +661,8 @@ class StreamRecorderOptimized {
         this.isDragging = false;
         this.isResizing = false;
         this.draggedStream = null;
-        this.aspectRatio = '9:16'; // Current aspect ratio
-        this.aspectRatioDimensions = { width: 360, height: 640 }; // Canvas dimensions
+        this.aspectRatio = '16:9'; // Current aspect ratio (default changed)
+        this.aspectRatioDimensions = { width: 640, height: 360 }; // Canvas dimensions (default changed)
         this.resizeStream = null;
         this.dragOffset = { x: 0, y: 0 };
         this.resizeHandle = null;
@@ -705,6 +686,13 @@ class StreamRecorderOptimized {
         this.enableErrorRecovery = true;
         this.renderTimeBuffer = [];
         
+        // 🚀 NEW: Fullscreen & UI Features
+        this.showGrid = false;
+        this.canvasZoom = 1.0;
+        this.canvasOffsetX = 0;
+        this.canvasOffsetY = 0;
+        this.originalCanvasSize = null;
+        
         this.init();
     }
 
@@ -722,12 +710,21 @@ class StreamRecorderOptimized {
         
         // Initialize status badges
         this.initializeStatusBadges();
+        
+        // 🚀 Setup fullscreen change listener
+        this.setupFullscreenListener();
         this.checkMobileCompatibility(); // Check mobile device limitations
         this.initPerformanceMonitoring();
         this.initStorageStatus(); // Initialize video storage status
         this.loadSettings();
         this.refreshLayoutChips();
         this.updateScreenButtons(); // Initialize button states
+        
+        // Initialize aspect ratio preview
+        setTimeout(() => {
+            const currentRatio = document.getElementById('aspectRatioSetting')?.value || '16:9';
+            this.updateAspectRatio(currentRatio);
+        }, 100);
         
         console.log('✅ StreamRec Performance Optimized initialisiert');
     }
@@ -919,9 +916,17 @@ class StreamRecorderOptimized {
 
         // Fullscreen
         document.getElementById('fullscreenBtn')?.addEventListener('click', () => {
-            if (this.canvas.requestFullscreen) {
-                this.canvas.requestFullscreen();
-            }
+            this.toggleCanvasFullscreen();
+        });
+
+        // Grid Toggle
+        document.getElementById('gridToggle')?.addEventListener('click', () => {
+            this.toggleGrid();
+        });
+
+        // Zoom Fit
+        document.getElementById('zoomFit')?.addEventListener('click', () => {
+            this.zoomToFit();
         });
 
         // Layout Controls (delegierte Events für beide Bereiche)
@@ -940,25 +945,7 @@ class StreamRecorderOptimized {
             this.selectLayout(layout);
         });
 
-        // Event Handler für Layout Manager (große Cards) - nur Button clicks
-        document.getElementById('layoutControlsContent')?.addEventListener('click', (e) => {
-            // Nur auf Button-Klicks reagieren, nicht auf Card-Klicks
-            const btn = e.target.closest('button[data-layout]');
-            if (!btn) {
-                // Fallback: Card-Klick (aber nicht Button-Bereich)
-                const card = e.target.closest('.layout-preset-card[data-layout]');
-                if (card && !e.target.closest('button')) {
-                    const layout = card.getAttribute('data-layout');
-                    this.selectLayout(layout);
-                }
-                return;
-            }
-            
-            e.preventDefault();
-            e.stopPropagation();
-            const layout = btn.getAttribute('data-layout');
-            this.selectLayout(layout);
-        });
+        // Layout Manager event handler removed - section no longer exists
     }
 
     selectLayout(layout) {
@@ -986,7 +973,6 @@ class StreamRecorderOptimized {
         
         // Neu rendern mit korrektem aktuellen Layout
         this.refreshLayoutChips();
-        this.updateLayoutManager(layouts);
         
         console.log(`🎨 Layout UI komplett neu gerendert für: ${layout}`);
     }
@@ -1004,50 +990,17 @@ class StreamRecorderOptimized {
         // Mit setTimeout sicherstellen, dass DOM-Elemente bereit sind
         setTimeout(() => {
             try {
-                // Browser Information
+                // System Information elements removed from UI - only log to console
                 const browserInfo = this.getBrowserInfo();
-                const browserElement = document.getElementById('browserInfo');
-                if (browserElement) {
-                    browserElement.textContent = browserInfo;
-                    console.log('✅ Browser Info gesetzt:', browserInfo);
-                } else {
-                    console.error('❌ browserInfo Element nicht gefunden');
-                }
-                
-                // WebRTC Support
                 const webrtcStatus = support.getUserMedia && support.getDisplayMedia ? '✓ Unterstützt' : '❌ Nicht verfügbar';
-                const webrtcElement = document.getElementById('webrtcSupport');
-                if (webrtcElement) {
-                    webrtcElement.textContent = webrtcStatus;
-                    webrtcElement.className = `fw-bold ${support.getUserMedia && support.getDisplayMedia ? 'text-success' : 'text-danger'}`;
-                    console.log('✅ WebRTC Info gesetzt:', webrtcStatus);
-                } else {
-                    console.error('❌ webrtcSupport Element nicht gefunden');
-                }
-                
-                // Canvas Support
                 const canvasStatus = support.canvas ? '✓ Verfügbar' : '❌ Fehler';
-                const canvasElement = document.getElementById('canvasSupport');
-                if (canvasElement) {
-                    canvasElement.textContent = canvasStatus;
-                    canvasElement.className = `fw-bold ${support.canvas ? 'text-success' : 'text-danger'}`;
-                    console.log('✅ Canvas Info gesetzt:', canvasStatus);
-                } else {
-                    console.error('❌ canvasSupport Element nicht gefunden');
-                }
-                
-                // MediaRecorder Support
                 const recorderStatus = support.mediaRecorder ? '✓ Verfügbar' : '❌ Nicht unterstützt';
-                const recorderElement = document.getElementById('mediaRecorderSupport');
-                if (recorderElement) {
-                    recorderElement.textContent = recorderStatus;
-                    recorderElement.className = `fw-bold ${support.mediaRecorder ? 'text-success' : 'text-danger'}`;
-                    console.log('✅ Recorder Info gesetzt:', recorderStatus);
-                } else {
-                    console.error('❌ mediaRecorderSupport Element nicht gefunden');
-                }
                 
-                console.log('📊 System Information erfolgreich aktualisiert');
+                console.log('🌐 Browser:', browserInfo);
+                console.log('🔧 WebRTC:', webrtcStatus);
+                console.log('🎨 Canvas:', canvasStatus);
+                console.log('📹 MediaRecorder:', recorderStatus);
+                console.log('📊 Browser Support Check abgeschlossen');
             } catch (error) {
                 console.error('❌ Fehler beim Aktualisieren der System Info:', error);
             }
@@ -1254,23 +1207,26 @@ class StreamRecorderOptimized {
             listDiv.innerHTML = screenIds.map(screenId => {
                 const currentMode = this.streamDisplayModes.get(screenId) || 'cover';
                 return `
-                <div class="d-flex justify-content-between align-items-center small bg-light rounded p-2 mb-2">
-                    <div class="d-flex align-items-center flex-grow-1">
-                        <i class="fas fa-desktop me-2"></i>
-                        <span class="me-3">${screenId === 'screen1' ? 'Bildschirm 1' : screenId.replace('screen', 'Bildschirm ')}</span>
-                        
-                        <select class="form-select form-select-sm me-2" style="width: auto; min-width: 140px;" 
+                <div class="bg-light rounded p-2 mb-2" style="font-size: 0.8rem;">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-desktop me-2 text-primary"></i>
+                            <span class="fw-medium">${screenId === 'screen1' ? 'Bildschirm 1' : screenId.replace('screen', 'Bildschirm ')}</span>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger py-0 px-1" onclick="streamrecApp.removeScreen('${screenId}')" style="font-size: 0.7rem;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <label class="form-label mb-0 me-2 text-muted" style="font-size: 0.7rem;">Modus:</label>
+                        <select class="form-select form-select-sm" style="width: 90px; font-size: 0.7rem;" 
                                 onchange="streamrecApp.setStreamDisplayMode('${screenId}', this.value)">
-                            <option value="cover" ${currentMode === 'cover' ? 'selected' : ''}>Verzerrt (füllt komplett)</option>
-                            <option value="contain" ${currentMode === 'contain' ? 'selected' : ''}>Eingepasst (schwarze Balken)</option>
-                            <option value="fill" ${currentMode === 'fill' ? 'selected' : ''}>Zugeschnitten (keine Verzerrung)</option>
-                            <option value="crop" ${currentMode === 'crop' ? 'selected' : ''}>Zentriert zugeschnitten</option>
+                            <option value="cover" ${currentMode === 'cover' ? 'selected' : ''}>Füllen</option>
+                            <option value="contain" ${currentMode === 'contain' ? 'selected' : ''}>Anpassen</option>
+                            <option value="fill" ${currentMode === 'fill' ? 'selected' : ''}>Schneiden</option>
+                            <option value="crop" ${currentMode === 'crop' ? 'selected' : ''}>Zentriert</option>
                         </select>
                     </div>
-                    
-                    <button class="btn btn-sm btn-outline-danger" onclick="streamrecApp.removeScreen('${screenId}')">
-                        <i class="fas fa-times"></i>
-                    </button>
                 </div>
                 `;
             }).join('');
@@ -1385,6 +1341,12 @@ class StreamRecorderOptimized {
                     // Default: Intelligente Auswahl basierend auf Stream-Anzahl
                     this.renderSmartDefault(activeStreams);
             }
+            
+            // 🎯 Draw grid overlay if enabled
+            if (this.showGrid) {
+                this.drawGrid();
+            }
+            
             return true;
         } catch (error) {
             console.warn('⚠️ Render error:', error);
@@ -1467,11 +1429,16 @@ class StreamRecorderOptimized {
         
         if (streamCount === 0) return;
         
+        // 🎯 QUALITY OPTIMIZATION: Adaptive rendering quality
+        const qualitySettings = this.getAdaptiveRenderingSettings(streamCount);
         const streamWidth = this.canvas.width / streamCount;
         
         streamArray.forEach(([type, stream], index) => {
             const video = this.getVideoElementOptimized(type, stream);
             if (!video || video.readyState < 2) return;
+            
+            // 🚀 Apply quality optimizations before rendering
+            this.applyVideoQualitySettings(video, qualitySettings);
             
             const x = index * streamWidth;
             this.drawVideoWithMode(video, type, x, 0, streamWidth, this.canvas.height);
@@ -2239,38 +2206,37 @@ class StreamRecorderOptimized {
     updateAspectRatio(ratio) {
         this.aspectRatio = ratio;
         
-        // Calculate dimensions based on aspect ratio (max height 640px)
-        const maxHeight = 640;
+        // 🎯 HIGH-RESOLUTION CANVAS: Professional video quality dimensions
         let width, height;
         
         switch (ratio) {
-            case '9:16': // Vertikal - Social Media
-                width = 360;
-                height = 640;
+            case '9:16': // Vertikal - Social Media (Full HD Portrait)
+                width = 1080;
+                height = 1920;
                 break;
-            case '16:9': // Horizontal - Standard
-                width = 640;
-                height = 360;
+            case '16:9': // Horizontal - Standard (Full HD)
+                width = 1920;
+                height = 1080;
                 break;
-            case '4:3': // Klassisch - TV Format
-                width = 480;
-                height = 360;
+            case '4:3': // Klassisch - TV Format (4K-like)
+                width = 1440;
+                height = 1080;
                 break;
-            case '1:1': // Quadratisch - Instagram
-                width = 400;
-                height = 400;
+            case '1:1': // Quadratisch - Instagram (HD Square)
+                width = 1080;
+                height = 1080;
                 break;
-            case '21:9': // Ultrawide - Kino
-                width = 640;
-                height = 274;
+            case '21:9': // Ultrawide - Kino (2K Ultrawide)
+                width = 2560;
+                height = 1080;
                 break;
-            case '3:2': // Foto-Format
-                width = 480;
-                height = 320;
+            case '3:2': // Foto-Format (HD Photo)
+                width = 1620;
+                height = 1080;
                 break;
-            default:
-                width = 360;
-                height = 640;
+            default: // Fallback to Full HD 16:9
+                width = 1920;
+                height = 1080;
         }
         
         this.aspectRatioDimensions = { width, height };
@@ -2289,6 +2255,12 @@ class StreamRecorderOptimized {
             
             console.log(`🖼️ Aspect ratio changed to ${ratio} (${width}x${height})`);
             
+            // Update format display in UI
+            const formatDisplay = document.getElementById('currentFormatDisplay');
+            if (formatDisplay) {
+                formatDisplay.textContent = ratio;
+            }
+            
             // Update preview in settings modal
             this.updateAspectRatioPreview(ratio, width, height);
         }
@@ -2299,23 +2271,34 @@ class StreamRecorderOptimized {
         const previewDimensions = document.getElementById('previewDimensions');
         
         if (previewBox && previewDimensions) {
-            // Calculate preview box dimensions (max 60px height)
-            const maxSize = 50;
+            // Calculate preview box dimensions with proper aspect ratio scaling
+            const maxSize = 45;
             let previewWidth, previewHeight;
             
-            if (width >= height) {
-                // Landscape or square
-                previewWidth = Math.min(maxSize, width * maxSize / height);
-                previewHeight = maxSize;
-            } else {
-                // Portrait
+            // Calculate aspect ratio
+            const aspectRatio = width / height;
+            
+            if (aspectRatio >= 1) {
+                // Landscape or square - fit to width
                 previewWidth = maxSize;
-                previewHeight = Math.min(maxSize, height * maxSize / width);
+                previewHeight = Math.round(maxSize / aspectRatio);
+            } else {
+                // Portrait - fit to height
+                previewHeight = maxSize;
+                previewWidth = Math.round(maxSize * aspectRatio);
             }
+            
+            // Ensure minimum visible size
+            previewWidth = Math.max(previewWidth, 15);
+            previewHeight = Math.max(previewHeight, 15);
+            
+            console.log(`🖼️ Preview updated: ${ratio} -> ${previewWidth}x${previewHeight}px (from ${width}x${height})`);
             
             previewBox.style.width = `${previewWidth}px`;
             previewBox.style.height = `${previewHeight}px`;
             previewDimensions.textContent = `${width} × ${height}px (${ratio})`;
+        } else {
+            console.warn('⚠️ Preview elements not found:', { previewBox: !!previewBox, previewDimensions: !!previewDimensions });
         }
     }
 
@@ -2335,33 +2318,73 @@ class StreamRecorderOptimized {
 
     getOptimalRecorderOptions() {
         const quality = document.getElementById('qualitySelect')?.value || 'medium';
-        const bitrate = document.getElementById('bitrateSetting')?.value || '1500000'; // Reduziert für Server
+        const bitrate = document.getElementById('bitrateSetting')?.value || '4000000';
         
-        // 🚀 PYTHONANYWHERE OPTIMIZED: Konservativere Bitrates
-        let serverOptimizedBitrate = parseInt(bitrate);
+        // 🎯 MULTI-STREAM OPTIMIZATION: Dynamische Bitrate basierend auf Stream-Anzahl
+        const activeStreamCount = this.getActiveStreamCount();
+        const multiStreamFactor = this.calculateMultiStreamBitrateFactor(activeStreamCount);
+        
+        let baseBitrate = parseInt(bitrate);
+        let optimizedBitrate = Math.floor(baseBitrate * multiStreamFactor);
+        
+        // Quality-basierte Anpassungen mit Multi-Stream Berücksichtigung
         switch (quality) {
+            case 'ultra':
+                optimizedBitrate = Math.min(optimizedBitrate, activeStreamCount > 2 ? 2000000 : 3500000);
+                break;
             case 'high':
-                serverOptimizedBitrate = Math.min(serverOptimizedBitrate, 2000000); // Max 2 Mbps
+                optimizedBitrate = Math.min(optimizedBitrate, activeStreamCount > 2 ? 1500000 : 2500000);
                 break;
             case 'medium':
-                serverOptimizedBitrate = Math.min(serverOptimizedBitrate, 1500000); // Max 1.5 Mbps
+                optimizedBitrate = Math.min(optimizedBitrate, activeStreamCount > 2 ? 1000000 : 1800000);
                 break;
             case 'low':
-                serverOptimizedBitrate = Math.min(serverOptimizedBitrate, 800000);  // Max 0.8 Mbps
+                optimizedBitrate = Math.min(optimizedBitrate, activeStreamCount > 2 ? 600000 : 1000000);
+                break;
+            case 'potato':
+                optimizedBitrate = Math.min(optimizedBitrate, activeStreamCount > 2 ? 300000 : 500000);
+                break;
+        }
+        
+        // 🚀 ENHANCED CODEC SELECTION basierend auf Qualitäts-Level
+        let preferredCodec = 'video/webm;codecs=vp8,opus'; // Standard
+        let audioBitrate = 128000;
+        
+        switch (quality) {
+            case 'ultra':
+                preferredCodec = 'video/webm;codecs=vp9,opus';
+                audioBitrate = 192000;
+                break;
+            case 'high':
+                preferredCodec = 'video/webm;codecs=vp8,opus';
+                audioBitrate = 128000;
+                break;
+            case 'medium':
+                preferredCodec = 'video/webm;codecs=vp8';
+                audioBitrate = 96000;
+                break;
+            case 'low':
+            case 'potato':
+                preferredCodec = 'video/webm';
+                audioBitrate = 64000;
                 break;
         }
         
         let options = {
-            mimeType: 'video/webm;codecs=vp8',
-            videoBitsPerSecond: serverOptimizedBitrate
+            mimeType: preferredCodec,
+            videoBitsPerSecond: optimizedBitrate,
+            audioBitsPerSecond: audioBitrate
         };
         
-        // 🛡️ ROBUST FALLBACK für verschiedene Server-Umgebungen
+        // 🛡️ PROGRESSIVE FALLBACK mit Qualitäts-Priorisierung
         const supportedTypes = [
-            'video/webm;codecs=vp8,opus',
-            'video/webm;codecs=vp8',
-            'video/webm',
-            'video/mp4'
+            preferredCodec,                  // Bevorzugter Codec
+            'video/webm;codecs=vp9,opus',    // VP9 Fallback
+            'video/webm;codecs=vp8,opus',    // VP8 mit Audio
+            'video/webm;codecs=h264,aac',    // Hardware-beschleunigt
+            'video/webm;codecs=vp8',         // Basis VP8
+            'video/webm',                    // Standard WebM
+            'video/mp4'                      // Letzter Fallback
         ];
         
         for (const type of supportedTypes) {
@@ -2371,26 +2394,89 @@ class StreamRecorderOptimized {
             }
         }
         
-        console.log('📹 Server-optimierte MediaRecorder Options:', options);
+        console.log(`📹 Multi-Stream optimiert (${activeStreamCount} Streams): ${Math.round(optimizedBitrate/1000)}kbps, ${options.mimeType}`);
         return options;
+    }
+    
+    // 🎯 Neue Hilfsfunktionen für Multi-Stream Optimierung
+    getActiveStreamCount() {
+        let count = 0;
+        if (this.cameraStream) count++;
+        if (this.screenStreams && this.screenStreams.size > 0) count += this.screenStreams.size;
+        return Math.max(count, 1);
+    }
+    
+    calculateMultiStreamBitrateFactor(streamCount) {
+        // Reduziere Bitrate exponentiell mit mehr Streams
+        switch (streamCount) {
+            case 1: return 1.0;      // Volle Bitrate
+            case 2: return 0.8;      // 80% bei 2 Streams
+            case 3: return 0.6;      // 60% bei 3 Streams
+            case 4: return 0.45;     // 45% bei 4 Streams
+            default: return 0.35;    // 35% bei 5+ Streams
+        }
+    }
+    
+    // 🚀 ADAPTIVE RENDERING für bessere Multi-Stream Qualität
+    getAdaptiveRenderingSettings(streamCount) {
+        return {
+            // Canvas-Optimierungen basierend auf Stream-Anzahl
+            imageSmoothingEnabled: streamCount <= 2,
+            imageSmoothingQuality: streamCount <= 2 ? 'high' : 'medium',
+            skipFrame: streamCount > 3,
+            maxFPS: streamCount > 3 ? 15 : (streamCount > 2 ? 20 : 30),
+            downscale: streamCount > 4 ? 0.8 : 1.0
+        };
+    }
+    
+    applyVideoQualitySettings(video, settings) {
+        // Anwenden der Canvas-Optimierungen
+        this.ctx.imageSmoothingEnabled = settings.imageSmoothingEnabled;
+        if (settings.imageSmoothingEnabled) {
+            this.ctx.imageSmoothingQuality = settings.imageSmoothingQuality;
+        }
+        
+        // Video-spezifische Optimierungen
+        if (video.style) {
+            video.style.imageRendering = settings.imageSmoothingEnabled ? 'auto' : 'pixelated';
+        }
     }
 
     applyQualitySettings(quality) {
+        // 🎯 ENHANCED QUALITY SETTINGS mit Multi-Stream Optimierung
+        const streamCount = this.getActiveStreamCount();
+        
         switch (quality) {
+            case 'ultra':
+                this.targetFPS = streamCount <= 2 ? 30 : 25;
+                this.maxSkipFrames = 0;
+                this.quality = 'ultra';
+                break;
             case 'high':
-                this.targetFPS = 30;
-                this.maxSkipFrames = 1;
+                this.targetFPS = streamCount <= 3 ? 25 : 20;
+                this.maxSkipFrames = streamCount <= 2 ? 1 : 2;
+                this.quality = 'high';
                 break;
             case 'medium':
-                this.targetFPS = 25;
+                this.targetFPS = streamCount <= 3 ? 20 : 15;
                 this.maxSkipFrames = 2;
                 break;
             case 'low':
-                this.targetFPS = 20;
+                this.targetFPS = streamCount <= 2 ? 15 : 12;
                 this.maxSkipFrames = 3;
+                this.quality = 'low';
                 break;
+            case 'potato':
+                this.targetFPS = streamCount <= 1 ? 12 : 8;
+                this.maxSkipFrames = 5;
+                this.quality = 'potato';
+                break;
+            default:
+                this.quality = 'medium';
         }
         this.frameInterval = 1000 / this.targetFPS;
+        
+        console.log(`🎯 Qualität "${quality}" angewendet: ${this.targetFPS}fps (${streamCount} Streams)`);
     }
 
     handleRenderError(error) {
@@ -2620,15 +2706,22 @@ class StreamRecorderOptimized {
                     this.updateAspectRatio(settings.aspectRatio);
                     document.getElementById('aspectRatioSetting').value = settings.aspectRatio;
                 }
+            } else {
+                // No stored settings - apply default 16:9 format
+                this.updateAspectRatio('16:9');
+                document.getElementById('aspectRatioSetting').value = '16:9';
             }
         } catch (e) {
             console.warn('Settings load error:', e);
+            // On error, fallback to default 16:9 format
+            this.updateAspectRatio('16:9');
+            document.getElementById('aspectRatioSetting').value = '16:9';
         }
     }
 
     saveSettings() {
         try {
-            const aspectRatio = document.getElementById('aspectRatioSetting')?.value ?? '9:16';
+            const aspectRatio = document.getElementById('aspectRatioSetting')?.value ?? '16:9';
             
             const settings = {
                 targetFPS: this.targetFPS,
@@ -2636,7 +2729,7 @@ class StreamRecorderOptimized {
                 enableErrorRecovery: document.getElementById('enableErrorRecovery')?.checked ?? true,
                 showPerformance: document.getElementById('enablePerformanceMonitor')?.checked ?? false,
                 resolution: document.getElementById('resolutionSetting')?.value ?? '720p',
-                bitrate: document.getElementById('bitrateSetting')?.value ?? '2000000',
+                bitrate: document.getElementById('bitrateSetting')?.value ?? '4000000',
                 aspectRatio: aspectRatio
             };
             
@@ -2861,15 +2954,188 @@ class StreamRecorderOptimized {
     }
 
     renderFullscreen(streams) {
-        // Show first stream fullscreen
+        // 🎯 FIXED: Show first stream fullscreen with proper scaling
         const firstStream = Array.from(streams)[0];
         if (firstStream) {
             const [type, stream] = firstStream;
             const video = this.getVideoElementOptimized(type, stream);
             if (video && video.readyState >= 2) {
-                this.drawVideoCover(video, 0, 0, this.canvas.width, this.canvas.height);
+                // Clear canvas first
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                // Draw video with proper aspect ratio
+                this.drawVideoWithMode(video, type, 0, 0, this.canvas.width, this.canvas.height);
             }
         }
+    }
+    
+    // 🚀 NEW: Canvas Fullscreen Support
+    toggleCanvasFullscreen() {
+        const previewContainer = document.getElementById('previewContainer');
+        
+        if (!document.fullscreenElement) {
+            // Enter fullscreen
+            if (previewContainer.requestFullscreen) {
+                previewContainer.requestFullscreen().then(() => {
+                    this.adjustCanvasForFullscreen(true);
+                });
+            } else if (previewContainer.webkitRequestFullscreen) {
+                previewContainer.webkitRequestFullscreen();
+                this.adjustCanvasForFullscreen(true);
+            } else if (previewContainer.msRequestFullscreen) {
+                previewContainer.msRequestFullscreen();
+                this.adjustCanvasForFullscreen(true);
+            }
+        } else {
+            // Exit fullscreen
+            if (document.exitFullscreen) {
+                document.exitFullscreen().then(() => {
+                    this.adjustCanvasForFullscreen(false);
+                });
+            }
+        }
+    }
+    
+    adjustCanvasForFullscreen(isFullscreen) {
+        const canvas = this.canvas;
+        const previewContainer = document.getElementById('previewContainer');
+        
+        if (isFullscreen) {
+            // Store original size
+            this.originalCanvasSize = {
+                width: canvas.width,
+                height: canvas.height
+            };
+            
+            // Adjust to fullscreen
+            const screenWidth = screen.width;
+            const screenHeight = screen.height;
+            
+            // Maintain aspect ratio
+            const aspectRatio = this.originalCanvasSize.width / this.originalCanvasSize.height;
+            
+            if (screenWidth / screenHeight > aspectRatio) {
+                canvas.height = screenHeight;
+                canvas.width = screenHeight * aspectRatio;
+            } else {
+                canvas.width = screenWidth;
+                canvas.height = screenWidth / aspectRatio;
+            }
+            
+            canvas.style.width = canvas.width + 'px';
+            canvas.style.height = canvas.height + 'px';
+            previewContainer.style.backgroundColor = '#000';
+            
+        } else {
+            // Restore original size
+            if (this.originalCanvasSize) {
+                canvas.width = this.originalCanvasSize.width;
+                canvas.height = this.originalCanvasSize.height;
+                this.updateAspectRatio(this.aspectRatio); // Restore proper dimensions
+            }
+            canvas.style.width = '';
+            canvas.style.height = '';
+            previewContainer.style.backgroundColor = '';
+        }
+        
+        // Force a re-render
+        if (this.isComposing) {
+            this.renderCurrentLayout();
+        }
+        
+        // Show grid if enabled
+        if (this.showGrid) {
+            this.drawGrid();
+        }
+    }
+    
+    // 🎯 NEW: Grid Toggle Feature
+    toggleGrid() {
+        this.showGrid = !this.showGrid;
+        const gridBtn = document.getElementById('gridToggle');
+        
+        if (this.showGrid) {
+            gridBtn.classList.add('active');
+            gridBtn.style.backgroundColor = 'rgba(255,255,255,0.2)';
+        } else {
+            gridBtn.classList.remove('active');
+            gridBtn.style.backgroundColor = '';
+        }
+        
+        // Re-render to show/hide grid
+        if (this.isComposing) {
+            this.renderCurrentLayout();
+        }
+    }
+    
+    // 🎯 NEW: Zoom to Fit Feature
+    zoomToFit() {
+        // Reset any custom zoom/positioning
+        this.canvasZoom = 1.0;
+        this.canvasOffsetX = 0;
+        this.canvasOffsetY = 0;
+        
+        // Update canvas styling
+        this.canvas.style.transform = `scale(${this.canvasZoom}) translate(${this.canvasOffsetX}px, ${this.canvasOffsetY}px)`;
+        
+        // Show feedback
+        this.showToast('🎯 Canvas auf optimale Größe angepasst', 'info');
+    }
+    
+    // 🎯 NEW: Grid Drawing Function
+    drawGrid() {
+        if (!this.showGrid) return;
+        
+        this.ctx.save();
+        this.ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        this.ctx.lineWidth = 1;
+        this.ctx.setLineDash([5, 5]);
+        
+        const gridSize = 50;
+        
+        // Vertical lines
+        for (let x = gridSize; x < this.canvas.width; x += gridSize) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, this.canvas.height);
+            this.ctx.stroke();
+        }
+        
+        // Horizontal lines
+        for (let y = gridSize; y < this.canvas.height; y += gridSize) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, y);
+            this.ctx.lineTo(this.canvas.width, y);
+            this.ctx.stroke();
+        }
+        
+        this.ctx.restore();
+    }
+    
+    // 🚀 Setup fullscreen event listeners
+    setupFullscreenListener() {
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                this.adjustCanvasForFullscreen(false);
+            }
+        });
+        
+        document.addEventListener('webkitfullscreenchange', () => {
+            if (!document.webkitFullscreenElement) {
+                this.adjustCanvasForFullscreen(false);
+            }
+        });
+        
+        document.addEventListener('mozfullscreenchange', () => {
+            if (!document.mozFullScreenElement) {
+                this.adjustCanvasForFullscreen(false);
+            }
+        });
+        
+        document.addEventListener('msfullscreenchange', () => {
+            if (!document.msFullscreenElement) {
+                this.adjustCanvasForFullscreen(false);
+            }
+        });
     }
 
     applyLayout(layout) {
@@ -2902,7 +3168,7 @@ class StreamRecorderOptimized {
         
         if (layouts.length === 0) {
             container.innerHTML = '<small class="text-muted">Starte Streams für Layouts</small>';
-            this.updateLayoutManager([]); // Clear layout manager too
+            // Layout manager removed
             return;
         }
         
@@ -2912,9 +3178,6 @@ class StreamRecorderOptimized {
                 <i class="${l.icon} me-1" style="font-size: 12px;"></i>${l.name}${this.currentLayout === l.id ? ' ✓' : ''}
             </button>`
         ).join(' ');
-        
-        // Update Layout Manager (large cards)
-        this.updateLayoutManager(layouts);
         
         console.log(`📐 Layouts aktualisiert: ${count} Streams, ${layouts.length} Layouts verfügbar`);
     }
@@ -2982,67 +3245,7 @@ class StreamRecorderOptimized {
         return layouts;
     }
 
-    updateLayoutManager(layouts) {
-        const container = document.getElementById('layoutControlsContent');
-        const placeholder = document.getElementById('layoutManagerPlaceholder');
-        
-        if (!container) return;
-        
-        if (layouts.length === 0) {
-            // Show placeholder message
-            if (placeholder) {
-                placeholder.style.display = 'block';
-            } else {
-                container.innerHTML = `
-                    <div class="alert alert-info" id="layoutManagerPlaceholder">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Starten Sie Kamera oder Bildschirm-Sharing, um verfügbare Layouts zu sehen
-                    </div>`;
-            }
-            return;
-        }
-        
-        // Hide placeholder
-        if (placeholder) {
-            placeholder.style.display = 'none';
-        }
-        
-        // Create layout cards with new icons and improved clarity
-        const layoutCards = layouts.map(layout => `
-            <div class="col-md-6 mb-3">
-                <div class="layout-preset-card border rounded ${this.currentLayout === layout.id ? 'border-primary bg-primary bg-opacity-10' : 'border-light'} position-relative" 
-                     style="cursor: pointer; transition: all 0.2s ease; padding: 1rem;" 
-                     data-layout="${layout.id}"
-                     data-card-id="${layout.id}"
-                     title="${layout.description}">
-                    ${this.currentLayout === layout.id ? '<div class="position-absolute top-0 end-0 m-2"><i class="fas fa-check-circle text-success" style="font-size: 18px;"></i></div>' : ''}
-                    
-                    <div class="d-flex align-items-center mb-2">
-                        <div class="layout-icon me-3" style="width: 36px; height: 36px; background: ${this.currentLayout === layout.id ? '#0d6efd' : '#6c757d'}; border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                            <i class="${layout.icon} text-white" style="font-size: 16px;"></i>
-                        </div>
-                        <div class="flex-grow-1">
-                            <h6 class="mb-0 fw-bold">${layout.name}</h6>
-                            ${this.currentLayout === layout.id ? '<small class="text-success fw-semibold"><i class="fas fa-dot-circle me-1"></i>Aktives Layout</small>' : '<small class="text-muted">Verfügbar</small>'}
-                        </div>
-                    </div>
-                    
-                    <p class="small text-muted mb-3 lh-sm">${layout.description}</p>
-                    
-                    <div class="d-grid">
-                        <button class="btn btn-sm ${this.currentLayout === layout.id ? 'btn-success' : 'btn-outline-primary'}" data-layout="${layout.id}" data-button-id="${layout.id}" style="font-weight: 500;">
-                            <i class="fas fa-${this.currentLayout === layout.id ? 'check' : 'play'} me-1"></i>
-                            ${layout.name} ${this.currentLayout === layout.id ? '(Aktiv)' : ''}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `).join('');
-        
-        container.innerHTML = `<div class="row">${layoutCards}</div>`;
-        
-        console.log(`🎨 Layout Manager aktualisiert: ${layouts.length} Layouts mit verbesserter Klarheit`);
-    }
+    // updateLayoutManager function removed - Layout Manager section removed from UI
 
     // Layout Icon Mapping (not needed anymore, using layout.icon directly)
     getLayoutIcon(layoutId) {
@@ -3403,6 +3606,10 @@ class StreamRecorderOptimized {
             }
         }
 
+        // 🎯 QUALITY OPTIMIZATION: Adaptive settings für Free Layout
+        const streamCount = this.freeLayoutStreams.size;
+        const qualitySettings = this.getAdaptiveRenderingSettings(streamCount);
+
         // Render each stream that is in free layout
         for (const streamId of this.freeLayoutStreams.keys()) {
             const stream = availableStreams.get(streamId);
@@ -3413,8 +3620,19 @@ class StreamRecorderOptimized {
             const video = this.getVideoElementOptimized(streamId, stream);
             if (!video || video.readyState < 2) continue;
 
-            // Draw stream
-            this.drawVideoWithMode(video, streamId, streamData.x, streamData.y, streamData.width, streamData.height);
+            // 🚀 Apply quality optimizations
+            this.applyVideoQualitySettings(video, qualitySettings);
+
+            // Draw stream with adaptive scaling
+            const scaleFactor = qualitySettings.downscale;
+            const scaledWidth = streamData.width * scaleFactor;
+            const scaledHeight = streamData.height * scaleFactor;
+            const offsetX = (streamData.width - scaledWidth) / 2;
+            const offsetY = (streamData.height - scaledHeight) / 2;
+            
+            this.drawVideoWithMode(video, streamId, 
+                streamData.x + offsetX, streamData.y + offsetY, 
+                scaledWidth, scaledHeight);
 
             // Draw border (only when not recording)
             if (!this.isRecording) {

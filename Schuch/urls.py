@@ -7,6 +7,7 @@ from django.conf.urls.static import static
 
 # GEÄNDERT: Wir importieren jetzt aus unserer neuen 'core'-App
 from core import views as core_views
+from videos import views as video_views
 
 urlpatterns = [
     # GEÄNDERT: Der Pfad verweist jetzt auf die View in der core-App
@@ -30,6 +31,8 @@ urlpatterns = [
     path('bug-report/', include('bug_report.urls')),
     path('organization/', include('organization.urls')),
     path('videos/', include('videos.urls')),
+    # Public video access shortcut
+    path('v/<uuid:unique_id>/', video_views.video_view, name='public_video_view'),
     path('payments/', include('payments.urls')),
     path('mail/', include('mail_app.urls')),
     path('email-templates/', include('email_templates.urls')),
