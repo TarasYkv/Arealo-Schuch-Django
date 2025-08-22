@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}StreamRec - Performance Optimized Studio{% endblock %}
+{% block title %}StreamRec - Studio{% endblock %}
 
 {% block page_css %}
 <!-- PYTHONANYWHERE OPTIMIZED: Inline CSS for better loading -->
@@ -128,14 +128,14 @@
 /* Performance Indicator */
 .performance-indicator {
     position: fixed;
-    top: 10px;
+    top: 80px;
     right: 10px;
     background: rgba(0, 0, 0, 0.8);
     color: white;
     padding: 0.5rem;
     border-radius: 0.5rem;
     font-size: 0.75rem;
-    z-index: 1000;
+    z-index: 9999;
     min-width: 200px;
 }
 
@@ -186,7 +186,6 @@
                     <h1 class="display-5 fw-bold mb-2">
                         <i class="fas fa-video-camera me-3"></i>
                         StreamRec Studio
-                        <span class="badge bg-success ms-2">Performance Optimized</span>
                     </h1>
                     <p class="lead mb-0">Ultra-schnelle Multi-Stream Video Aufnahme</p>
                     <div class="phase-indicator mt-3">
@@ -716,18 +715,31 @@ class StreamRecorderOptimized {
     setupLayoutEventHandlers() {
         // Event Handler für Layout-Chips (kleine Buttons)
         document.getElementById('layoutChips')?.addEventListener('click', (e) => {
-            const btn = e.target.closest('[data-layout]');
+            const btn = e.target.closest('button[data-layout]');
             if (!btn) return;
             
+            e.preventDefault();
+            e.stopPropagation();
             const layout = btn.getAttribute('data-layout');
             this.selectLayout(layout);
         });
 
-        // Event Handler für Layout Manager (große Cards)
+        // Event Handler für Layout Manager (große Cards) - nur Button clicks
         document.getElementById('layoutControlsContent')?.addEventListener('click', (e) => {
-            const btn = e.target.closest('[data-layout]');
-            if (!btn) return;
+            // Nur auf Button-Klicks reagieren, nicht auf Card-Klicks
+            const btn = e.target.closest('button[data-layout]');
+            if (!btn) {
+                // Fallback: Card-Klick (aber nicht Button-Bereich)
+                const card = e.target.closest('.layout-preset-card[data-layout]');
+                if (card && !e.target.closest('button')) {
+                    const layout = card.getAttribute('data-layout');
+                    this.selectLayout(layout);
+                }
+                return;
+            }
             
+            e.preventDefault();
+            e.stopPropagation();
             const layout = btn.getAttribute('data-layout');
             this.selectLayout(layout);
         });
@@ -749,37 +761,23 @@ class StreamRecorderOptimized {
     }
 
     updateLayoutUI(layout) {
-        // Update Layout-Chips (kleine Buttons)
-        document.querySelectorAll('#layoutChips [data-layout]').forEach(el => {
-            if (el.getAttribute('data-layout') === layout) {
-                el.classList.remove('btn-outline-primary');
-                el.classList.add('btn-primary');
-            } else {
-                el.classList.remove('btn-primary');
-                el.classList.add('btn-outline-primary');
-            }
-        });
-
-        // Update Layout Manager (große Cards)
-        document.querySelectorAll('#layoutControlsContent [data-layout]').forEach(el => {
-            const card = el.closest('.layout-preset-card');
-            if (card) {
-                if (el.getAttribute('data-layout') === layout) {
-                    card.classList.add('border-primary', 'bg-primary', 'bg-opacity-10');
-                    el.textContent = 'Aktiv';
-                    el.classList.remove('btn-outline-primary');
-                    el.classList.add('btn-primary');
-                } else {
-                    card.classList.remove('border-primary', 'bg-primary', 'bg-opacity-10');
-                    el.textContent = 'Aktivieren';
-                    el.classList.remove('btn-primary');
-                    el.classList.add('btn-outline-primary');
-                }
-            }
-        });
+        // WICHTIG: Komplett neu rendern statt Klassen zu manipulieren
+        // Das verhindert CSS-Klassen-Konflikte bei den Layout Cards
+        
+        // Aktuelle Stream-Anzahl ermitteln
+        const count = this.streams.size;
+        const layouts = this.getAvailableLayouts(count);
+        
+        // Neu rendern mit korrektem aktuellen Layout
+        this.refreshLayoutChips();
+        this.updateLayoutManager(layouts);
+        
+        console.log(`🎨 Layout UI komplett neu gerendert für: ${layout}`);
     }
 
     checkBrowserSupport() {
+        console.log('🔍 Starting Browser Support Check...');
+        
         const support = {
             getUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
             getDisplayMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia),
@@ -787,8 +785,80 @@ class StreamRecorderOptimized {
             mediaRecorder: !!(window.MediaRecorder)
         };
         
+        // Mit setTimeout sicherstellen, dass DOM-Elemente bereit sind
+        setTimeout(() => {
+            try {
+                // Browser Information
+                const browserInfo = this.getBrowserInfo();
+                const browserElement = document.getElementById('browserInfo');
+                if (browserElement) {
+                    browserElement.textContent = browserInfo;
+                    console.log('✅ Browser Info gesetzt:', browserInfo);
+                } else {
+                    console.error('❌ browserInfo Element nicht gefunden');
+                }
+                
+                // WebRTC Support
+                const webrtcStatus = support.getUserMedia && support.getDisplayMedia ? '✓ Unterstützt' : '❌ Nicht verfügbar';
+                const webrtcElement = document.getElementById('webrtcSupport');
+                if (webrtcElement) {
+                    webrtcElement.textContent = webrtcStatus;
+                    webrtcElement.className = `fw-bold ${support.getUserMedia && support.getDisplayMedia ? 'text-success' : 'text-danger'}`;
+                    console.log('✅ WebRTC Info gesetzt:', webrtcStatus);
+                } else {
+                    console.error('❌ webrtcSupport Element nicht gefunden');
+                }
+                
+                // Canvas Support
+                const canvasStatus = support.canvas ? '✓ Verfügbar' : '❌ Fehler';
+                const canvasElement = document.getElementById('canvasSupport');
+                if (canvasElement) {
+                    canvasElement.textContent = canvasStatus;
+                    canvasElement.className = `fw-bold ${support.canvas ? 'text-success' : 'text-danger'}`;
+                    console.log('✅ Canvas Info gesetzt:', canvasStatus);
+                } else {
+                    console.error('❌ canvasSupport Element nicht gefunden');
+                }
+                
+                // MediaRecorder Support
+                const recorderStatus = support.mediaRecorder ? '✓ Verfügbar' : '❌ Nicht unterstützt';
+                const recorderElement = document.getElementById('mediaRecorderSupport');
+                if (recorderElement) {
+                    recorderElement.textContent = recorderStatus;
+                    recorderElement.className = `fw-bold ${support.mediaRecorder ? 'text-success' : 'text-danger'}`;
+                    console.log('✅ Recorder Info gesetzt:', recorderStatus);
+                } else {
+                    console.error('❌ mediaRecorderSupport Element nicht gefunden');
+                }
+                
+                console.log('📊 System Information erfolgreich aktualisiert');
+            } catch (error) {
+                console.error('❌ Fehler beim Aktualisieren der System Info:', error);
+            }
+        }, 100); // 100ms Verzögerung für DOM-Bereitschaft
+        
         console.log('🔍 Browser Support:', support);
         return support;
+    }
+    
+    getBrowserInfo() {
+        const ua = navigator.userAgent;
+        
+        if (ua.includes('Firefox')) {
+            const version = ua.match(/Firefox\/(\d+)/)?.[1];
+            return `Firefox ${version || '?'}`;
+        } else if (ua.includes('Chrome') && !ua.includes('Edge')) {
+            const version = ua.match(/Chrome\/(\d+)/)?.[1];
+            return `Chrome ${version || '?'}`;
+        } else if (ua.includes('Safari') && !ua.includes('Chrome')) {
+            const version = ua.match(/Safari\/(\d+)/)?.[1];
+            return `Safari ${version || '?'}`;
+        } else if (ua.includes('Edge')) {
+            const version = ua.match(/Edge\/(\d+)/)?.[1];
+            return `Edge ${version || '?'}`;
+        } else {
+            return 'Unbekannt';
+        }
     }
 
     getBrowserInfo() {
@@ -1651,7 +1721,58 @@ class StreamRecorderOptimized {
     initPerformanceMonitoring() {
         setInterval(() => {
             this.calculateFPS();
+            this.updateSystemInfoMetrics();
         }, 1000);
+    }
+    
+    updateSystemInfoMetrics() {
+        const metricsElement = document.getElementById('performanceMetrics');
+        if (!metricsElement) return;
+        
+        const fps = this.performanceMetrics.lastFPS || 0;
+        const dropped = this.performanceMetrics.droppedFrames || 0;
+        const total = this.performanceMetrics.totalFrames || 0;
+        const dropRate = total > 0 ? ((dropped / total) * 100).toFixed(1) : '0.0';
+        const renderTime = Math.round(this.performanceMetrics.averageRenderTime || 0);
+        
+        // Farbkodierung basierend auf Performance
+        let statusClass = 'text-muted';
+        let statusText = 'Bereit';
+        
+        // Nur bewerten wenn bereits Frames verarbeitet wurden
+        if (total > 0) {
+            if (fps >= 20 && dropRate <= 5) {
+                statusClass = 'text-success';
+                statusText = 'Gut';
+            } else if (fps >= 15 && dropRate <= 10) {
+                statusClass = 'text-warning';
+                statusText = 'Mittel';
+            } else {
+                statusClass = 'text-danger';
+                statusText = 'Schlecht';
+            }
+        }
+        
+        metricsElement.innerHTML = `
+            <div class="row g-2 text-center">
+                <div class="col-6">
+                    <small class="text-muted d-block">FPS</small>
+                    <span class="fw-bold ${statusClass}">${fps}</span>
+                </div>
+                <div class="col-6">
+                    <small class="text-muted d-block">Frames</small>
+                    <span class="fw-bold text-info">${total}</span>
+                </div>
+                <div class="col-6">
+                    <small class="text-muted d-block">Dropped</small>
+                    <span class="fw-bold ${dropRate > 5 ? 'text-warning' : 'text-success'}">${dropRate}%</span>
+                </div>
+                <div class="col-6">
+                    <small class="text-muted d-block">Status</small>
+                    <span class="fw-bold ${statusClass}">${statusText}</span>
+                </div>
+            </div>
+        `;
     }
 
     updatePerformanceMetrics(renderTime) {
@@ -1987,10 +2108,12 @@ class StreamRecorderOptimized {
             return;
         }
         
-        // Create layout chips (small buttons)
+        // Create layout chips (small buttons) with icons - always show layout name
         container.innerHTML = layouts.map(l => 
-            `<button type="button" class="btn btn-sm ${this.currentLayout === l.id ? 'btn-primary' : 'btn-outline-primary'}" data-layout="${l.id}" title="${l.description}">${l.name}</button>`
-        ).join('');
+            `<button type="button" class="btn btn-sm ${this.currentLayout === l.id ? 'btn-primary' : 'btn-outline-primary'}" data-layout="${l.id}" title="${l.description}">
+                <i class="${l.icon} me-1" style="font-size: 12px;"></i>${l.name}${this.currentLayout === l.id ? ' ✓' : ''}
+            </button>`
+        ).join(' ');
         
         // Update Layout Manager (large cards)
         this.updateLayoutManager(layouts);
@@ -2080,29 +2203,41 @@ class StreamRecorderOptimized {
             placeholder.style.display = 'none';
         }
         
-        // Create layout cards with new icons
+        // Create layout cards with new icons and improved clarity
         const layoutCards = layouts.map(layout => `
             <div class="col-md-6 mb-3">
-                <div class="layout-preset-card p-3 border rounded ${this.currentLayout === layout.id ? 'border-primary bg-primary bg-opacity-10' : 'border-light'}" style="cursor: pointer; transition: all 0.2s ease;" data-layout="${layout.id}">
+                <div class="layout-preset-card border rounded ${this.currentLayout === layout.id ? 'border-primary bg-primary bg-opacity-10' : 'border-light'} position-relative" 
+                     style="cursor: pointer; transition: all 0.2s ease; padding: 1rem;" 
+                     data-layout="${layout.id}"
+                     data-card-id="${layout.id}"
+                     title="${layout.description}">
+                    ${this.currentLayout === layout.id ? '<div class="position-absolute top-0 end-0 m-2"><i class="fas fa-check-circle text-success" style="font-size: 18px;"></i></div>' : ''}
+                    
                     <div class="d-flex align-items-center mb-2">
-                        <div class="layout-icon me-2" style="width: 30px; height: 30px; background: ${this.currentLayout === layout.id ? '#0d6efd' : '#6c757d'}; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
-                            <i class="${layout.icon} text-white" style="font-size: 14px;"></i>
+                        <div class="layout-icon me-3" style="width: 36px; height: 36px; background: ${this.currentLayout === layout.id ? '#0d6efd' : '#6c757d'}; border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <i class="${layout.icon} text-white" style="font-size: 16px;"></i>
                         </div>
-                        <h6 class="mb-0 flex-grow-1">${layout.name}</h6>
-                        ${this.currentLayout === layout.id ? '<span class="badge bg-success">Aktiv</span>' : ''}
+                        <div class="flex-grow-1">
+                            <h6 class="mb-0 fw-bold">${layout.name}</h6>
+                            ${this.currentLayout === layout.id ? '<small class="text-success fw-semibold"><i class="fas fa-dot-circle me-1"></i>Aktives Layout</small>' : '<small class="text-muted">Verfügbar</small>'}
+                        </div>
                     </div>
-                    <p class="small text-muted mb-3">${layout.description}</p>
-                    <button class="btn btn-sm w-100 ${this.currentLayout === layout.id ? 'btn-primary' : 'btn-outline-primary'}" data-layout="${layout.id}">
-                        <i class="fas fa-${this.currentLayout === layout.id ? 'check' : 'play'} me-1"></i>
-                        ${this.currentLayout === layout.id ? 'Aktiv' : 'Aktivieren'}
-                    </button>
+                    
+                    <p class="small text-muted mb-3 lh-sm">${layout.description}</p>
+                    
+                    <div class="d-grid">
+                        <button class="btn btn-sm ${this.currentLayout === layout.id ? 'btn-success' : 'btn-outline-primary'}" data-layout="${layout.id}" data-button-id="${layout.id}" style="font-weight: 500;">
+                            <i class="fas fa-${this.currentLayout === layout.id ? 'check' : 'play'} me-1"></i>
+                            ${layout.name} ${this.currentLayout === layout.id ? '(Aktiv)' : ''}
+                        </button>
+                    </div>
                 </div>
             </div>
         `).join('');
         
         container.innerHTML = `<div class="row">${layoutCards}</div>`;
         
-        console.log(`🎨 Layout Manager aktualisiert: ${layouts.length} Layouts`);
+        console.log(`🎨 Layout Manager aktualisiert: ${layouts.length} Layouts mit verbesserter Klarheit`);
     }
 
     // Layout Icon Mapping (not needed anymore, using layout.icon directly)
