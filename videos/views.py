@@ -429,3 +429,143 @@ def storage_optimizer(request):
     }
     
     return render(request, 'videos/storage_optimizer.html', context)
+
+
+@login_required
+@csrf_exempt
+@require_POST
+def api_upload_video(request):
+    """API endpoint for uploading videos from StreamRec"""
+    from django.core.files.base import ContentFile
+    from .subscription_sync import StorageSubscriptionSync
+    from .storage_management import StorageOverageService
+    import json
+    import base64
+    
+    try:
+        # Parse JSON data from request
+        if request.content_type == 'application/json':
+            data = json.loads(request.body.decode('utf-8'))
+        else:
+            return JsonResponse({'success': False, 'error': 'Content-Type muss application/json sein'}, status=400)
+        
+        # Get required fields
+        title = data.get('title', 'StreamRec Aufnahme')
+        description = data.get('description', '')
+        video_data = data.get('video_data')  # Base64 encoded video data
+        file_format = data.get('format', 'webm')
+        
+        if not video_data:
+            return JsonResponse({'success': False, 'error': 'video_data ist erforderlich'}, status=400)
+        
+        # Check user storage
+        user_storage = StorageSubscriptionSync.sync_user_storage(request.user)
+        StorageOverageService.check_user_storage_overage(request.user)
+        user_storage.refresh_from_db()
+        
+        if not user_storage.can_upload():
+            return JsonResponse({
+                'success': False, 
+                'error': user_storage.get_restriction_message()
+            }, status=403)
+        
+        # Decode base64 video data
+        try:
+            video_bytes = base64.b64decode(video_data)
+            file_size = len(video_bytes)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': 'Ungültige video_data (Base64 dekodierung fehlgeschlagen)'}, status=400)
+        
+        # Check storage availability
+        if not user_storage.has_storage_available(file_size):
+            available_mb = (user_storage.max_storage - user_storage.used_storage) / (1024 * 1024)
+            needed_mb = file_size / (1024 * 1024)
+            
+            return JsonResponse({
+                'success': False,
+                'error': f'Nicht genügend Speicherplatz. Verfügbar: {available_mb:.1f} MB, benötigt: {needed_mb:.1f} MB'
+            }, status=413)
+        
+        # Create video object
+        video = Video(
+            user=request.user,
+            title=title,
+            description=description,
+            file_size=file_size
+        )
+        
+        # Create file content
+        filename = f"streamrec_{video.unique_id}.{file_format}"
+        video_file = ContentFile(video_bytes, name=filename)
+        video.video_file.save(filename, video_file)
+        
+        # Save video
+        video.save()
+        
+        # Update user storage
+        user_storage.used_storage += file_size
+        user_storage.save()
+        
+        # Generate thumbnail (optional, don't fail if it doesn't work)
+        try:
+            generate_video_thumbnail(video)
+            video.duration = get_video_duration(video.video_file.path)
+            video.save()
+        except Exception as e:
+            print(f"Error generating thumbnail for API upload: {e}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Video erfolgreich gespeichert!',
+            'video': {
+                'id': video.id,
+                'unique_id': str(video.unique_id),
+                'title': video.title,
+                'share_link': video.share_link,
+                'embed_url': video.get_embed_url(),
+                'file_size_mb': round(video.file_size / (1024 * 1024), 2),
+                'duration': video.duration,
+                'created_at': video.created_at.isoformat()
+            },
+            'storage': {
+                'used_mb': round(user_storage.get_used_storage_mb(), 2),
+                'max_mb': round(user_storage.get_max_storage_mb(), 2),
+                'used_percentage': round((user_storage.used_storage / user_storage.max_storage * 100), 1),
+                'available_mb': round((user_storage.max_storage - user_storage.used_storage) / (1024 * 1024), 2)
+            }
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültiges JSON'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Server Fehler: {str(e)}'}, status=500)
+
+
+@login_required 
+def api_storage_status(request):
+    """API endpoint to check storage status"""
+    from .subscription_sync import StorageSubscriptionSync
+    from .storage_management import StorageOverageService
+    
+    try:
+        user_storage = StorageSubscriptionSync.sync_user_storage(request.user)
+        StorageOverageService.check_user_storage_overage(request.user)
+        user_storage.refresh_from_db()
+        
+        return JsonResponse({
+            'success': True,
+            'storage': {
+                'used_mb': round(user_storage.get_used_storage_mb(), 2),
+                'max_mb': round(user_storage.get_max_storage_mb(), 2),
+                'used_percentage': round((user_storage.used_storage / user_storage.max_storage * 100), 1),
+                'available_mb': round((user_storage.max_storage - user_storage.used_storage) / (1024 * 1024), 2),
+                'can_upload': user_storage.can_upload(),
+                'can_share': user_storage.can_share(),
+                'is_exceeded': user_storage.is_storage_exceeded(),
+                'restriction_message': user_storage.get_restriction_message(),
+                'tier_name': user_storage.get_tier_name(),
+                'current_price': float(user_storage.get_current_price())
+            }
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Fehler beim Abrufen des Speicherstatus: {str(e)}'}, status=500)

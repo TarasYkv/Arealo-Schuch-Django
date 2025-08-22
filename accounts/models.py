@@ -186,6 +186,7 @@ class AppPermission(models.Model):
         ('email_templates', 'Email-Vorlagen'),
         ('somi_plan', 'SoMi-Plan'),
         ('makeads', 'AdsMake'),
+        ('streamrec', 'StreamRec'),
         
         # Schuch Tools
         ('schuch', 'Schuch'),

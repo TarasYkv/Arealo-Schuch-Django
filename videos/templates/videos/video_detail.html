@@ -72,12 +72,26 @@
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">Aktionen</h5>
-                    <a href="{% url 'videos:list' %}" class="btn btn-secondary btn-sm">
-                        <i class="fas fa-arrow-left"></i> Zurück zur Liste
-                    </a>
-                    <a href="{% url 'videos:delete' video.id %}" class="btn btn-danger btn-sm">
-                        <i class="fas fa-trash"></i> Löschen
-                    </a>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'videos:view' video.unique_id %}" target="_blank" class="btn btn-primary">
+                            <i class="fas fa-play me-2"></i>Wiedergeben
+                        </a>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="toggleFullscreenPlayer()">
+                                <i class="fas fa-expand me-1"></i>Hier ansehen
+                            </button>
+                            <a href="{% url 'videos:view' video.unique_id %}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-external-link-alt me-1"></i>In neuem Tab
+                            </a>
+                        </div>
+                        <hr class="my-2">
+                        <a href="{% url 'videos:list' %}" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-arrow-left me-2"></i>Zurück zur Liste
+                        </a>
+                        <a href="{% url 'videos:delete' video.id %}" class="btn btn-danger btn-sm">
+                            <i class="fas fa-trash me-2"></i>Löschen
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -103,6 +117,61 @@ function copyToClipboard(elementId) {
         button.classList.remove('btn-success');
         button.classList.add('btn-outline-secondary');
     }, 2000);
+}
+
+function toggleFullscreenPlayer() {
+    const video = document.querySelector('video');
+    const container = document.querySelector('.video-container');
+    
+    if (!document.fullscreenElement) {
+        // Enter fullscreen
+        if (video.requestFullscreen) {
+            video.requestFullscreen();
+        } else if (video.webkitRequestFullscreen) {
+            video.webkitRequestFullscreen();
+        } else if (video.msRequestFullscreen) {
+            video.msRequestFullscreen();
+        }
+        
+        // Also play the video
+        video.play();
+        
+        // Show exit fullscreen hint
+        showFullscreenHint();
+    } else {
+        // Exit fullscreen
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+        }
+    }
+}
+
+function showFullscreenHint() {
+    const hint = document.createElement('div');
+    hint.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: 10px 15px;
+        border-radius: 5px;
+        font-size: 14px;
+        z-index: 9999;
+    `;
+    hint.innerHTML = '<i class="fas fa-info-circle me-2"></i>ESC zum Beenden des Vollbildmodus';
+    document.body.appendChild(hint);
+    
+    // Remove hint after 3 seconds
+    setTimeout(() => {
+        if (hint.parentNode) {
+            hint.remove();
+        }
+    }, 3000);
 }
 </script>
 {% endblock %}
