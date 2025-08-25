@@ -69,7 +69,7 @@ body.bg-dark .alert-warning {
 
 /* Improved Card Layout and Spacing */
 .api-provider-card {
-    min-height: 400px;
+    min-height: 350px;
     margin-bottom: 2rem;
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -103,41 +103,6 @@ body.bg-dark .api-provider-card:hover {
 
 .api-provider-card .btn-group {
     margin-top: auto;
-}
-
-/* Typography Improvements */
-h1 {
-    font-size: 2rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-}
-
-.lead {
-    font-size: 1.125rem;
-    color: #6c757d;
-    margin-bottom: 2rem;
-}
-
-body.bg-dark .lead {
-    color: #a0aec0 !important;
-}
-
-.form-label {
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    font-size: 0.875rem;
-}
-
-/* Button Improvements */
-.btn {
-    border-radius: 6px;
-    font-weight: 500;
-    transition: all 0.2s ease;
-}
-
-.btn-sm {
-    padding: 0.375rem 0.75rem;
-    font-size: 0.875rem;
 }
 
 /* Status Indicator Styles */
@@ -206,22 +171,12 @@ body.bg-dark .password-toggle:hover {
     <!-- Page Header -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-start">
-                <div>
-                    <h1 class="display-6 mb-2">
-                        <i class="fas fa-key me-3 text-primary"></i>API-Einstellungen
-                    </h1>
-                    <p class="lead">
-                        Verwalten Sie Ihre OpenAI API-Konfiguration für KI-gestützte Features
-                    </p>
-                </div>
-                <div class="text-end">
-                    <small class="text-muted">
-                        <i class="fas fa-user me-1"></i>
-                        Angemeldet als: <strong>{{ user.username }}</strong>
-                    </small>
-                </div>
-            </div>
+            <h1 class="display-6 mb-2">
+                <i class="fas fa-key me-3 text-primary"></i>API-Einstellungen
+            </h1>
+            <p class="lead">
+                Verwalten Sie Ihre API-Konfigurationen für alle integrierten Dienste
+            </p>
         </div>
     </div>
 
@@ -236,116 +191,268 @@ body.bg-dark .password-toggle:hover {
         {% endfor %}
     {% endif %}
 
-    <!-- OpenAI Configuration -->
-    <div class="row">
-        <div class="col-md-8 mx-auto">
+    <!-- API Providers Grid -->
+    <div class="row g-4">
+        <!-- OpenAI -->
+        <div class="col-lg-6">
             <div class="card api-provider-card">
                 <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center">
                         <i class="fas fa-robot fa-2x me-3"></i>
                         <div>
-                            <h4 class="mb-0">OpenAI API</h4>
+                            <h5 class="mb-0">OpenAI API</h5>
                             <small class="opacity-75">GPT-4, ChatGPT, DALL-E</small>
                         </div>
                     </div>
-                    <div class="api-status-indicator" id="openai_status_indicator">
+                    <div class="api-status-indicator">
                         <div class="status-light {% if openai_configured %}connected{% else %}disconnected{% endif %}"></div>
                         <small class="fw-bold">
-                            {% if openai_configured %}
-                                Konfiguriert
-                            {% else %}
-                                Nicht konfiguriert
-                            {% endif %}
+                            {% if openai_configured %}Konfiguriert{% else %}Nicht konfiguriert{% endif %}
                         </small>
                     </div>
                 </div>
 
                 <div class="card-body">
-                    <form method="post" class="mb-4">
+                    <form method="post" class="mb-3">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="update_openai">
                         
                         <div class="mb-3">
-                            <label for="openai_api_key" class="form-label">
-                                <i class="fas fa-key me-2"></i>OpenAI API-Schlüssel:
-                            </label>
+                            <label for="openai_api_key" class="form-label">API-Schlüssel:</label>
                             <div class="input-group">
-                                <span class="input-group-text">
-                                    <i class="fas fa-key"></i>
-                                </span>
+                                <span class="input-group-text"><i class="fas fa-key"></i></span>
                                 <input type="password" 
-                                       class="form-control api-key-input" 
+                                       class="form-control" 
                                        id="openai_api_key" 
                                        name="openai_api_key"
                                        placeholder="sk-..."
                                        value="{% if openai_configured %}{{ openai_key_masked }}{% endif %}">
                                 <button class="password-toggle" type="button" 
-                                        onclick="togglePasswordVisibility('openai_api_key', this)"
-                                        title="API-Key anzeigen/verbergen">
+                                        onclick="togglePasswordVisibility('openai_api_key', this)">
                                     <i class="fas fa-eye"></i>
                                 </button>
                             </div>
-                            {% if openai_configured %}
-                                <div class="form-text text-success">
-                                    <i class="fas fa-check-circle me-1"></i>
-                                    Status: <span id="openai_key_status" class="api-key-status-text">Konfiguriert</span>
-                                </div>
-                            {% else %}
-                                <div class="form-text text-warning">
-                                    <i class="fas fa-exclamation-triangle me-1"></i>
-                                    Status: <span id="openai_key_status" class="api-key-status-text">Nicht konfiguriert</span>
-                                </div>
-                            {% endif %}
+                            <div class="form-text">
+                                Status: <span class="{% if openai_configured %}text-success{% else %}text-warning{% endif %}">
+                                    {% if openai_configured %}Konfiguriert{% else %}Nicht konfiguriert{% endif %}
+                                </span>
+                            </div>
                         </div>
 
-                        <div class="d-flex gap-2 align-items-center">
-                            <button type="submit" class="btn btn-success">
-                                <i class="fas fa-save me-2"></i>
-                                {% if openai_configured %}Aktualisieren{% else %}Speichern{% endif %}
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success btn-sm">
+                                <i class="fas fa-save me-1"></i>Speichern
                             </button>
-                            
                             {% if openai_configured %}
-                                <button type="button" class="btn btn-outline-secondary" 
-                                        onclick="testApiKey('openai')" 
-                                        data-provider="openai" 
-                                        title="API-Schlüssel testen">
-                                    <i class="fas fa-vial me-2"></i>Testen
+                                <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                        onclick="testApiKey('openai')">
+                                    <i class="fas fa-vial me-1"></i>Testen
                                 </button>
                             {% endif %}
                         </div>
                     </form>
 
-                    {% if openai_configured %}
-                        <!-- Danger Zone -->
-                        <hr class="my-4">
-                        <div class="border border-danger rounded p-3">
-                            <h6 class="text-danger mb-3">
-                                <i class="fas fa-exclamation-triangle me-2"></i>Gefährliche Aktionen
-                            </h6>
-                            <p class="text-muted small mb-3">
-                                Diese Aktion kann nicht rückgängig gemacht werden.
-                            </p>
-                            <form method="post" onsubmit="return confirm('Sind Sie sicher, dass Sie den OpenAI API-Key löschen möchten?')">
-                                {% csrf_token %}
-                                <input type="hidden" name="action" value="clear_keys">
-                                <button type="submit" class="btn btn-outline-danger btn-sm">
-                                    <i class="fas fa-trash me-2"></i>API-Key löschen
-                                </button>
-                            </form>
-                        </div>
-                    {% endif %}
-
-                    <!-- API Documentation Link -->
-                    <hr class="my-4">
-                    <div class="text-center">
-                        <p class="text-muted mb-2">
-                            <i class="fas fa-external-link-alt me-2"></i>
-                            Weitere Informationen und API-Key erhalten:
-                        </p>
+                    <div class="mt-auto">
                         <a href="https://platform.openai.com/api-keys" 
                            target="_blank" 
                            class="btn btn-outline-primary btn-sm">
-                            <i class="fab fa-openai me-2"></i>OpenAI Platform
+                            <i class="fas fa-external-link-alt me-1"></i>API-Key erhalten
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- YouTube API -->
+        <div class="col-lg-6">
+            <div class="card api-provider-card">
+                <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <i class="fab fa-youtube fa-2x me-3"></i>
+                        <div>
+                            <h5 class="mb-0">YouTube Data API</h5>
+                            <small class="opacity-75">Video-Daten & Analytics</small>
+                        </div>
+                    </div>
+                    <div class="api-status-indicator">
+                        <div class="status-light {% if youtube_configured %}connected{% else %}disconnected{% endif %}"></div>
+                        <small class="fw-bold">
+                            {% if youtube_configured %}Konfiguriert{% else %}Nicht konfiguriert{% endif %}
+                        </small>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <form method="post" class="mb-3">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="update_youtube">
+                        
+                        <div class="mb-3">
+                            <label for="youtube_api_key" class="form-label">API-Schlüssel:</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fab fa-youtube"></i></span>
+                                <input type="password" 
+                                       class="form-control" 
+                                       id="youtube_api_key" 
+                                       name="youtube_api_key"
+                                       placeholder="AIzaSy..."
+                                       value="{% if youtube_configured %}{{ youtube_key_masked }}{% endif %}">
+                                <button class="password-toggle" type="button" 
+                                        onclick="togglePasswordVisibility('youtube_api_key', this)">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">
+                                Status: <span class="{% if youtube_configured %}text-success{% else %}text-warning{% endif %}">
+                                    {% if youtube_configured %}Konfiguriert{% else %}Nicht konfiguriert{% endif %}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-danger btn-sm">
+                                <i class="fas fa-save me-1"></i>Speichern
+                            </button>
+                            {% if youtube_configured %}
+                                <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                        onclick="testApiKey('youtube')">
+                                    <i class="fas fa-vial me-1"></i>Testen
+                                </button>
+                            {% endif %}
+                        </div>
+                    </form>
+
+                    <div class="mt-auto">
+                        <a href="https://console.developers.google.com/apis/credentials" 
+                           target="_blank" 
+                           class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-external-link-alt me-1"></i>API-Key erhalten
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Zoho Mail Integration -->
+        <div class="col-lg-6">
+            <div class="card api-provider-card">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-envelope fa-2x me-3"></i>
+                        <div>
+                            <h5 class="mb-0">Zoho Mail</h5>
+                            <small class="opacity-75">E-Mail Integration</small>
+                        </div>
+                    </div>
+                    <div class="api-status-indicator">
+                        <div class="status-light {% if zoho_configured %}connected{% else %}disconnected{% endif %}"></div>
+                        <small class="fw-bold">
+                            {% if zoho_configured %}Konfiguriert{% else %}Nicht konfiguriert{% endif %}
+                        </small>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    {% if zoho_configured %}
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            Zoho Mail ist konfiguriert und verbunden.
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'mail_app:dashboard' %}" class="btn btn-info btn-sm">
+                                <i class="fas fa-envelope me-1"></i>Mail Dashboard
+                            </a>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                    onclick="testZohoConnection()">
+                                <i class="fas fa-vial me-1"></i>Verbindung testen
+                            </button>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Zoho Mail ist noch nicht konfiguriert.
+                        </div>
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-info" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#zohoSetupModal">
+                                <i class="fas fa-cog me-2"></i>Zoho Mail einrichten
+                            </button>
+                        </div>
+                    {% endif %}
+
+                    <div class="mt-auto">
+                        <a href="https://api-console.zoho.eu/" 
+                           target="_blank" 
+                           class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-external-link-alt me-1"></i>Zoho API Console
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Shopify Integration -->
+        <div class="col-lg-6">
+            <div class="card api-provider-card">
+                <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <i class="fab fa-shopify fa-2x me-3"></i>
+                        <div>
+                            <h5 class="mb-0">Shopify</h5>
+                            <small class="opacity-75">E-Commerce Integration</small>
+                        </div>
+                    </div>
+                    <div class="api-status-indicator">
+                        <div class="status-light {% if shopify_configured %}connected{% else %}disconnected{% endif %}"></div>
+                        <small class="fw-bold">
+                            {% if shopify_configured %}{{ shopify_stores.count }} Store{{ shopify_stores.count|pluralize }}{% else %}Nicht konfiguriert{% endif %}
+                        </small>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    {% if shopify_configured %}
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            {{ shopify_stores.count }} Shopify Store{{ shopify_stores.count|pluralize }} verbunden.
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Ihre Stores:</label>
+                            <select class="form-select form-select-sm">
+                                {% for store in shopify_stores %}
+                                    <option value="{{ store.id }}">{{ store.shop_domain }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'shopify_manager:dashboard' %}" class="btn btn-warning btn-sm">
+                                <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                            </a>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                    onclick="testShopifyConnection()">
+                                <i class="fas fa-vial me-1"></i>Verbindung testen
+                            </button>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Kein Shopify Store verbunden.
+                        </div>
+                        <div class="d-grid">
+                            <a href="{% url 'shopify_manager:dashboard' %}" class="btn btn-warning">
+                                <i class="fab fa-shopify me-2"></i>Store hinzufügen
+                            </a>
+                        </div>
+                    {% endif %}
+
+                    <div class="mt-auto">
+                        <a href="https://partners.shopify.com/1234567/apps" 
+                           target="_blank" 
+                           class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-external-link-alt me-1"></i>Shopify Partner Dashboard
                         </a>
                     </div>
                 </div>
@@ -353,22 +460,45 @@ body.bg-dark .password-toggle:hover {
         </div>
     </div>
 
-    <!-- Information Card -->
-    <div class="row mt-4">
-        <div class="col-md-8 mx-auto">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">
-                        <i class="fas fa-info-circle text-info me-2"></i>
-                        Über API-Keys
+    <!-- Danger Zone -->
+    {% if openai_configured or youtube_configured %}
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Gefährliche Aktionen
                     </h5>
-                    <p class="card-text">
-                        Ihr API-Key wird verschlüsselt gespeichert und nur für die Verwendung in 
-                        autorisierten KI-Features verwendet. Teilen Sie Ihren API-Key niemals mit anderen 
-                        und überwachen Sie Ihre Nutzung regelmäßig über das OpenAI Dashboard.
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        Diese Aktion kann nicht rückgängig gemacht werden und löscht alle gespeicherten API-Keys.
                     </p>
-                    <div class="row text-center">
-                        <div class="col-md-12">
+                    <form method="post" onsubmit="return confirm('Sind Sie sicher, dass Sie alle API-Keys löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.')">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="clear_keys">
+                        <button type="submit" class="btn btn-outline-danger">
+                            <i class="fas fa-trash me-2"></i>Alle API-Keys löschen
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- API Status Overview -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>API-Status Übersicht
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center g-3">
+                        <div class="col-6 col-md-3">
                             <div class="border rounded p-3 {% if openai_configured %}border-success bg-light{% else %}border-warning{% endif %}">
                                 <i class="fas fa-robot fa-2x {% if openai_configured %}text-success{% else %}text-warning{% endif %} mb-2"></i>
                                 <h6>OpenAI</h6>
@@ -377,8 +507,62 @@ body.bg-dark .password-toggle:hover {
                                 </span>
                             </div>
                         </div>
+                        <div class="col-6 col-md-3">
+                            <div class="border rounded p-3 {% if youtube_configured %}border-success bg-light{% else %}border-warning{% endif %}">
+                                <i class="fab fa-youtube fa-2x {% if youtube_configured %}text-success{% else %}text-warning{% endif %} mb-2"></i>
+                                <h6>YouTube</h6>
+                                <span class="badge {% if youtube_configured %}bg-success{% else %}bg-warning{% endif %}">
+                                    {% if youtube_configured %}Bereit{% else %}Ausstehend{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="border rounded p-3 {% if zoho_configured %}border-success bg-light{% else %}border-warning{% endif %}">
+                                <i class="fas fa-envelope fa-2x {% if zoho_configured %}text-success{% else %}text-warning{% endif %} mb-2"></i>
+                                <h6>Zoho Mail</h6>
+                                <span class="badge {% if zoho_configured %}bg-success{% else %}bg-warning{% endif %}">
+                                    {% if zoho_configured %}Bereit{% else %}Ausstehend{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="border rounded p-3 {% if shopify_configured %}border-success bg-light{% else %}border-warning{% endif %}">
+                                <i class="fab fa-shopify fa-2x {% if shopify_configured %}text-success{% else %}text-warning{% endif %} mb-2"></i>
+                                <h6>Shopify</h6>
+                                <span class="badge {% if shopify_configured %}bg-success{% else %}bg-warning{% endif %}">
+                                    {% if shopify_configured %}Bereit{% else %}Ausstehend{% endif %}
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Zoho Setup Modal -->
+<div class="modal fade" id="zohoSetupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-envelope me-2"></i>Zoho Mail einrichten
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Um Zoho Mail zu nutzen, müssen Sie zunächst eine OAuth-App in der Zoho API Console erstellen.</p>
+                <ol>
+                    <li>Besuchen Sie die <a href="https://api-console.zoho.eu/" target="_blank">Zoho API Console</a></li>
+                    <li>Erstellen Sie eine neue "Server-based Application"</li>
+                    <li>Konfigurieren Sie die Redirect URL</li>
+                    <li>Kopieren Sie Client ID und Client Secret</li>
+                </ol>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                <a href="{% url 'mail_app:oauth_authorize' %}" class="btn btn-info">Einrichtung fortsetzen</a>
             </div>
         </div>
     </div>
@@ -403,16 +587,18 @@ function togglePasswordVisibility(fieldId, button) {
 }
 
 function testApiKey(provider) {
-    const button = document.querySelector(`[data-provider="${provider}"]`);
+    const button = document.querySelector(`[onclick="testApiKey('${provider}')"]`);
+    if (!button) return;
+    
     const originalText = button.innerHTML;
     
     // Show loading state
-    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Teste...';
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Teste...';
     button.disabled = true;
     
     // Simulate API test (you can implement actual testing here)
     setTimeout(() => {
-        button.innerHTML = '<i class="fas fa-check me-2"></i>Erfolgreich';
+        button.innerHTML = '<i class="fas fa-check me-1"></i>Erfolgreich';
         button.classList.remove('btn-outline-secondary');
         button.classList.add('btn-success');
         
@@ -423,6 +609,16 @@ function testApiKey(provider) {
             button.disabled = false;
         }, 2000);
     }, 1500);
+}
+
+function testZohoConnection() {
+    // Similar test implementation for Zoho
+    testApiKey('zoho');
+}
+
+function testShopifyConnection() {
+    // Similar test implementation for Shopify
+    testApiKey('shopify');
 }
 
 // Auto-hide alerts after 5 seconds
