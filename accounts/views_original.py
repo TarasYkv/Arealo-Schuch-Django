@@ -607,36 +607,10 @@ def api_settings_view(request):
 @login_required
 def neue_api_einstellungen_view(request):
     """Zeigt die neue API-Einstellungsseite an"""
-    user = request.user
-    
-    if request.method == 'POST':
-        # Update API Keys direkt im User Model - nur OpenAI
-        action = request.POST.get('action')
-        
-        if action == 'update_openai':
-            openai_key = request.POST.get('openai_api_key', '').strip()
-            if openai_key:
-                user.openai_api_key = openai_key
-                user.save()
-                messages.success(request, 'OpenAI API-Key erfolgreich gespeichert.')
-            else:
-                messages.error(request, 'Bitte geben Sie einen gültigen OpenAI API-Key ein.')
-                
-        elif action == 'clear_keys':
-            user.openai_api_key = ''
-            user.save()
-            messages.success(request, 'OpenAI API-Key wurde gelöscht.')
-        
-        return redirect('accounts:neue_api_einstellungen')
-    
-    # Erstelle maskierte Versionen der API-Keys für die Anzeige - nur OpenAI
-    context = {
-        'user': user,
-        'openai_key_masked': '••••••••' + user.openai_api_key[-4:] if user.openai_api_key and len(user.openai_api_key) > 4 else '',
-        'openai_configured': bool(user.openai_api_key),
-    }
-    
-    return render(request, 'accounts/api_einstellungen.html', context)
+    # Nur grundlegende Informationen anzeigen - ohne Datenbankabhängigkeiten
+    return render(request, 'accounts/api_einstellungen_simple.html', {
+        'user': request.user
+    })
 
 
 @login_required

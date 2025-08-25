@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     'somi_plan',
     'makeads',
     'streamrec',
+    'codelib',
 ]
 
 
