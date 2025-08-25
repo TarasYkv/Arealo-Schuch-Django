@@ -606,22 +606,10 @@ def api_settings_view(request):
 
 @login_required
 def neue_api_einstellungen_view(request):
-    """Zeigt die neue API-Einstellungsseite mit Canva- und Shopify-Integration an"""
-    # Canva-Einstellungen laden oder erstellen
-    from naturmacher.models import CanvaAPISettings
-    canva_settings, created = CanvaAPISettings.objects.get_or_create(user=request.user)
-    
-    # Shopify-Stores des Benutzers laden
-    from shopify_manager.models import ShopifyStore
-    shopify_stores = ShopifyStore.objects.filter(user=request.user, is_active=True)
-    
-    # Zoho Mail Settings laden oder erstellen
-    zoho_settings, created = ZohoAPISettings.objects.get_or_create(user=request.user)
-    
-    return render(request, 'accounts/api_einstellungen.html', {
-        'canva_settings': canva_settings,
-        'shopify_stores': shopify_stores,
-        'zoho_settings': zoho_settings
+    """Zeigt die neue API-Einstellungsseite an"""
+    # Nur grundlegende Informationen anzeigen - ohne Datenbankabhängigkeiten
+    return render(request, 'accounts/api_einstellungen_simple.html', {
+        'user': request.user
     })
 
 

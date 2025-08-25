@@ -6,7 +6,6 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('mail_app', '0002_add_zoho_account_id'),
         ('mail_app', '0002_emailthread_and_more'),
     ]
 
