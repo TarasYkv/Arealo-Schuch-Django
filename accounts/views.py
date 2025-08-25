@@ -610,7 +610,7 @@ def neue_api_einstellungen_view(request):
     user = request.user
     
     if request.method == 'POST':
-        # Update API Keys direkt im User Model - nur OpenAI
+        # Update API Keys direkt im User Model
         action = request.POST.get('action')
         
         if action == 'update_openai':
@@ -622,18 +622,47 @@ def neue_api_einstellungen_view(request):
             else:
                 messages.error(request, 'Bitte geben Sie einen gültigen OpenAI API-Key ein.')
                 
+        elif action == 'update_youtube':
+            youtube_key = request.POST.get('youtube_api_key', '').strip()
+            if youtube_key:
+                user.youtube_api_key = youtube_key
+                user.save()
+                messages.success(request, 'YouTube API-Key erfolgreich gespeichert.')
+            else:
+                messages.error(request, 'Bitte geben Sie einen gültigen YouTube API-Key ein.')
+                
         elif action == 'clear_keys':
             user.openai_api_key = ''
+            user.youtube_api_key = ''
             user.save()
-            messages.success(request, 'OpenAI API-Key wurde gelöscht.')
+            messages.success(request, 'Alle API-Keys wurden gelöscht.')
         
         return redirect('accounts:neue_api_einstellungen')
     
-    # Erstelle maskierte Versionen der API-Keys für die Anzeige - nur OpenAI
+    # Hole Zoho API Settings für den Benutzer
+    try:
+        zoho_settings = ZohoAPISettings.objects.get(user=user)
+    except ZohoAPISettings.DoesNotExist:
+        zoho_settings = None
+    
+    # Hole Shopify Stores für den Benutzer
+    try:
+        from shopify_manager.models import ShopifyStore
+        shopify_stores = ShopifyStore.objects.filter(user=user)
+    except:
+        shopify_stores = []
+    
+    # Erstelle maskierte Versionen der API-Keys für die Anzeige
     context = {
         'user': user,
         'openai_key_masked': '••••••••' + user.openai_api_key[-4:] if user.openai_api_key and len(user.openai_api_key) > 4 else '',
+        'youtube_key_masked': '••••••••' + user.youtube_api_key[-4:] if user.youtube_api_key and len(user.youtube_api_key) > 4 else '',
         'openai_configured': bool(user.openai_api_key),
+        'youtube_configured': bool(user.youtube_api_key),
+        'zoho_configured': bool(zoho_settings and zoho_settings.is_configured),
+        'shopify_configured': len(shopify_stores) > 0,
+        'zoho_settings': zoho_settings,
+        'shopify_stores': shopify_stores,
     }
     
     return render(request, 'accounts/api_einstellungen.html', context)
