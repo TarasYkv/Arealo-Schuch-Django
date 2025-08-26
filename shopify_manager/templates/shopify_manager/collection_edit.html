@@ -1,13 +1,69 @@
 {% extends 'shopify_manager/base.html' %}
 
-{% block title %}{{ collection.title }} bearbeiten - Shopify Manager{% endblock %}
+{% block title %}{{ object.title }} bearbeiten - Shopify Manager{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Readonly Felder Styling */
+.form-control[readonly] {
+    background-color: #f8f9fa !important;
+    border: 1px solid #dee2e6;
+    cursor: not-allowed;
+}
+
+/* Card Styling */
+.card {
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.card-header {
+    border-radius: 10px 10px 0 0 !important;
+}
+
+/* SEO Counter Styling */
+.form-text {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+/* Button Styling */
+.btn {
+    padding: 10px 20px;
+    border-radius: 5px;
+    font-weight: 500;
+}
+
+.btn-primary {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+}
+
+/* Form Labels */
+.form-label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+/* Textarea auto-resize */
+textarea.form-control {
+    min-height: 100px;
+    resize: vertical;
+}
+</style>
+{% endblock %}
 
 {% block shopify_content %}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Kategorie bearbeiten: {{ collection.title }}</h1>
+    <h1 class="h2">Kategorie bearbeiten: {{ object.title }}</h1>
     <div class="btn-toolbar mb-2 mb-md-0">
         <div class="btn-group me-2">
-            <a href="{% url 'shopify_manager:collection_detail' collection.pk %}" class="btn btn-outline-secondary">
+            <a href="{% url 'shopify_manager:collection_detail' object.pk %}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left"></i> Zurück
             </a>
         </div>
@@ -17,38 +73,50 @@
 <div class="row">
     <div class="col-md-8">
         <div class="card">
-            <div class="card-header">
+            <div class="card-header bg-primary text-white">
                 <h5 class="card-title mb-0">
-                    <i class="fas fa-edit"></i> Kategorie-Informationen
+                    <i class="fas fa-edit"></i> Kategorie bearbeiten
                 </h5>
             </div>
             <div class="card-body">
                 <form method="post">
                     {% csrf_token %}
                     
-                    <div class="mb-3">
-                        <label for="{{ form.title.id_for_label }}" class="form-label">Titel</label>
-                        {{ form.title }}
-                        {% if form.title.errors %}
-                        <div class="text-danger">
-                            {% for error in form.title.errors %}
-                            <small>{{ error }}</small>
-                            {% endfor %}
-                        </div>
-                        {% endif %}
+                    <!-- Readonly Felder von Shopify -->
+                    <div class="alert alert-info mb-4">
+                        <i class="fas fa-info-circle"></i> <strong>Hinweis:</strong> Titel und Beschreibung können nur direkt in Shopify geändert werden.
                     </div>
                     
                     <div class="mb-3">
-                        <label for="{{ form.description.id_for_label }}" class="form-label">Beschreibung</label>
-                        {{ form.description }}
-                        {% if form.description.errors %}
-                        <div class="text-danger">
-                            {% for error in form.description.errors %}
-                            <small>{{ error }}</small>
-                            {% endfor %}
+                        <label class="form-label">
+                            <i class="fas fa-lock text-muted"></i> Titel
+                            <small class="text-muted">(nicht editierbar)</small>
+                        </label>
+                        <div class="form-control bg-light" readonly>
+                            {{ object.title }}
                         </div>
-                        {% endif %}
                     </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="fas fa-lock text-muted"></i> Beschreibung
+                            <small class="text-muted">(nicht editierbar)</small>
+                        </label>
+                        <div class="form-control bg-light" style="min-height: 100px;" readonly>
+                            {% if object.description %}
+                                {{ object.description }}
+                            {% else %}
+                                <em class="text-muted">Keine Beschreibung vorhanden</em>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <h5 class="mb-3">
+                        <i class="fas fa-search"></i> SEO-Einstellungen
+                        <small class="text-muted">(editierbar)</small>
+                    </h5>
                     
                     <div class="mb-3">
                         <label for="{{ form.seo_title.id_for_label }}" class="form-label">
@@ -86,7 +154,7 @@
                         {% endif %}
                     </div>
                     
-                    {% if collection.image_url %}
+                    {% if object.image_url %}
                     <div class="mb-3">
                         <label for="{{ form.image_alt.id_for_label }}" class="form-label">
                             Alt-Text für Kategorie-Bild
@@ -103,11 +171,11 @@
                     {% endif %}
                     
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <a href="{% url 'shopify_manager:collection_detail' collection.pk %}" class="btn btn-secondary">
+                        <a href="{% url 'shopify_manager:collection_detail' object.pk %}" class="btn btn-secondary">
                             <i class="fas fa-times"></i> Abbrechen
                         </a>
                         <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i> Speichern
+                            <i class="fas fa-save"></i> Speichern + zu Shopify
                         </button>
                     </div>
                 </form>
@@ -124,19 +192,19 @@
                 </h5>
             </div>
             <div class="card-body">
-                {% if collection.image_url %}
-                <img src="{{ collection.image_url }}" class="img-fluid rounded mb-3" alt="{{ collection.image_alt|default:collection.title }}">
+                {% if object.image_url %}
+                <img src="{{ object.image_url }}" class="img-fluid rounded mb-3" alt="{{ object.image_alt|default:object.title }}">
                 {% else %}
                 <div class="bg-light rounded d-flex align-items-center justify-content-center mb-3" style="height: 150px;">
                     <i class="fas fa-layer-group fa-2x text-muted"></i>
                 </div>
                 {% endif %}
                 
-                <h6>{{ collection.title }}</h6>
-                <p class="text-muted">{{ collection.handle }}</p>
+                <h6>{{ object.title }}</h6>
+                <p class="text-muted">{{ object.handle }}</p>
                 
-                {% if collection.description %}
-                <p class="small">{{ collection.description|truncatewords:20 }}</p>
+                {% if object.description %}
+                <p class="small">{{ object.description|truncatewords:20 }}</p>
                 {% endif %}
             </div>
         </div>

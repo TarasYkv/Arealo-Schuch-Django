@@ -576,3 +576,42 @@ class BlogPostSEOOptimizationForm(forms.ModelForm):
         return seo_optimization
 
 
+
+
+
+
+class ShopifyCollectionEditForm(forms.ModelForm):
+    """Form für Shopify Collection Bearbeitung - nur SEO-Felder editierbar"""
+    
+    class Meta:
+        model = ShopifyCollection
+        fields = ['seo_title', 'seo_description', 'image_alt']
+        widgets = {
+            'seo_title': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'SEO Titel (max. 70 Zeichen)',
+                'maxlength': 70
+            }),
+            'seo_description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'SEO Beschreibung (max. 160 Zeichen)',
+                'maxlength': 160
+            }),
+            'image_alt': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Alt-Text für Kategorie-Bild'
+            }),
+        }
+    
+    def clean_seo_title(self):
+        seo_title = self.cleaned_data.get('seo_title', '')
+        if len(seo_title) > 70:
+            raise forms.ValidationError('SEO Titel darf maximal 70 Zeichen lang sein.')
+        return seo_title
+    
+    def clean_seo_description(self):
+        seo_description = self.cleaned_data.get('seo_description', '')
+        if len(seo_description) > 160:
+            raise forms.ValidationError('SEO Beschreibung darf maximal 160 Zeichen lang sein.')
+        return seo_description

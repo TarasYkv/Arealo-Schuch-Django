@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import ListView, DetailView, UpdateView
 from django.contrib import messages
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseRedirect
 from django.views.decorators.http import require_http_methods
 from django.db.models import Q
 from django.urls import reverse
@@ -14,6 +14,7 @@ from .models import ShopifyStore, ShopifyCollection, CollectionSEOOptimization
 from .ai_seo_service import generate_seo_with_ai
 from .shopify_api import ShopifyAPIClient, ShopifyCollectionSync
 from .collection_forms import CollectionFilterForm, CollectionSEOOptimizationForm
+from .forms import ShopifyCollectionEditForm
 
 
 class ShopifyCollectionListView(LoginRequiredMixin, ListView):
@@ -138,18 +139,54 @@ class ShopifyCollectionDetailView(LoginRequiredMixin, DetailView):
 class ShopifyCollectionUpdateView(LoginRequiredMixin, UpdateView):
     """Shopify Kategorie bearbeiten"""
     model = ShopifyCollection
-    fields = ['title', 'description', 'seo_title', 'seo_description', 'image_alt']
+    form_class = ShopifyCollectionEditForm  # Verwende custom Form statt fields
     template_name = 'shopify_manager/collection_edit.html'
     
     def get_queryset(self):
         return ShopifyCollection.objects.filter(store__user=self.request.user)
     
     def form_valid(self, form):
-        # Markiere für Synchronisation
-        form.instance.mark_for_sync()
+        # Speichere die Collection
+        self.object = form.save()
         
-        messages.success(self.request, f'Kategorie "{form.instance.title}" erfolgreich aktualisiert.')
-        return super().form_valid(form)
+        # Direkte Synchronisation zu Shopify
+        try:
+            # ShopifyCollectionSync erwartet ein Store-Objekt, nicht einen API-Client
+            collection_sync = ShopifyCollectionSync(self.object.store)
+            
+            # Synchronisiere die Collection zu Shopify
+            success, message = collection_sync.sync_collection_to_shopify(self.object)
+            
+            if success:
+                # Erfolgreiche Synchronisation
+                self.object.needs_sync = False
+                self.object.sync_error = ""
+                self.object.last_synced_at = timezone.now()
+                self.object.save(update_fields=['needs_sync', 'sync_error', 'last_synced_at'])
+                messages.success(
+                    self.request, 
+                    f'✅ Kategorie "{self.object.title}" erfolgreich gespeichert und zu Shopify synchronisiert!'
+                )
+            else:
+                # Synchronisation fehlgeschlagen, aber lokale Änderungen gespeichert
+                self.object.needs_sync = True
+                self.object.sync_error = message
+                self.object.save(update_fields=['needs_sync', 'sync_error'])
+                messages.warning(
+                    self.request, 
+                    f'⚠️ Kategorie lokal gespeichert, aber Shopify-Synchronisation fehlgeschlagen: {message}'
+                )
+        except Exception as e:
+            # Bei Fehler trotzdem lokale Änderungen beibehalten
+            self.object.needs_sync = True
+            self.object.sync_error = str(e)
+            self.object.save(update_fields=['needs_sync', 'sync_error'])
+            messages.warning(
+                self.request, 
+                f'⚠️ Kategorie lokal gespeichert, aber Shopify-Synchronisation fehlgeschlagen: {str(e)}'
+            )
+        
+        return redirect(self.get_success_url())
     
     def get_success_url(self):
         return reverse('shopify_manager:collection_detail', kwargs={'pk': self.object.pk})

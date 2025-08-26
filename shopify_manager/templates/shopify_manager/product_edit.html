@@ -186,7 +186,7 @@
             
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save"></i> Speichern
+                    <i class="fas fa-save"></i> Speichern + zu Shopify
                 </button>
                 <a href="{% url 'shopify_manager:product_detail' product.pk %}" class="btn btn-secondary">
                     Abbrechen
@@ -307,25 +307,39 @@ function generateSEO() {
     const title = document.getElementById('{{ form.title.id_for_label }}').value;
     const description = document.getElementById('{{ form.body_html.id_for_label }}').value;
     
-    if (!title) {
-        alert('Bitte erst einen Titel eingeben');
+    if (!title || title.trim() === '') {
+        showWarningModal('Kein Titel verfügbar', 'Es ist kein Produkttitel verfügbar, aus dem SEO-Daten generiert werden können.');
         return;
     }
     
-    // Einfache SEO-Generierung
-    if (!document.getElementById('{{ form.seo_title.id_for_label }}').value) {
-        document.getElementById('{{ form.seo_title.id_for_label }}').value = 
-            title.substring(0, 70);
+    let generated = false;
+    
+    // SEO-Titel generieren (falls leer)
+    const seoTitleField = document.getElementById('{{ form.seo_title.id_for_label }}');
+    if (!seoTitleField.value || seoTitleField.value.trim() === '') {
+        seoTitleField.value = title.substring(0, 70);
+        generated = true;
     }
     
-    if (!document.getElementById('{{ form.seo_description.id_for_label }}').value && description) {
-        const plainDesc = description.replace(/<[^>]*>/g, '').substring(0, 160);
-        document.getElementById('{{ form.seo_description.id_for_label }}').value = plainDesc;
+    // SEO-Beschreibung generieren (falls leer und Beschreibung verfügbar)
+    const seoDescField = document.getElementById('{{ form.seo_description.id_for_label }}');
+    if ((!seoDescField.value || seoDescField.value.trim() === '') && description && description.trim() !== '') {
+        const plainDesc = description.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().substring(0, 160);
+        if (plainDesc.length > 0) {
+            seoDescField.value = plainDesc;
+            generated = true;
+        }
     }
     
-    // Trigger input events to update counters
-    document.getElementById('{{ form.seo_title.id_for_label }}').dispatchEvent(new Event('input'));
-    document.getElementById('{{ form.seo_description.id_for_label }}').dispatchEvent(new Event('input'));
+    if (generated) {
+        // Trigger input events to update counters
+        seoTitleField.dispatchEvent(new Event('input'));
+        seoDescField.dispatchEvent(new Event('input'));
+        
+        showSuccessModal('SEO-Daten generiert', 'SEO-Titel und/oder SEO-Beschreibung wurden basierend auf den Produktdaten generiert.');
+    } else {
+        showWarningModal('Bereits vollständig', 'SEO-Titel und SEO-Beschreibung sind bereits ausgefüllt oder keine geeigneten Daten zum Generieren verfügbar.');
+    }
 }
 
 // Produkt synchronisieren
@@ -401,5 +415,71 @@ function getCookie(name) {
     }
     return cookieValue;
 }
+
+// Modal-Funktionen für bessere UX
+function showWarningModal(title, message) {
+    if (typeof bootstrap !== 'undefined' && document.getElementById('warningModal')) {
+        // Verwende das Bootstrap Modal system wenn verfügbar
+        document.getElementById('warningModalLabel').innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' + title;
+        document.getElementById('warningModalBody').innerHTML = message;
+        new bootstrap.Modal(document.getElementById('warningModal')).show();
+    } else {
+        // Fallback zu alert wenn Modals nicht verfügbar
+        alert(title + '\n\n' + message.replace(/<[^>]*>/g, ''));
+    }
+}
+
+function showSuccessModal(title, message) {
+    if (typeof bootstrap !== 'undefined' && document.getElementById('successModal')) {
+        // Verwende das Bootstrap Modal system wenn verfügbar
+        document.getElementById('successModalLabel').innerHTML = '<i class="fas fa-check-circle"></i> ' + title;
+        document.getElementById('successModalBody').innerHTML = message;
+        new bootstrap.Modal(document.getElementById('successModal')).show();
+    } else {
+        // Fallback zu alert wenn Modals nicht verfügbar
+        alert(title + '\n\n' + message.replace(/<[^>]*>/g, ''));
+    }
+}
 </script>
+
+<!-- Warnung-Modal -->
+<div class="modal fade" id="warningModal" tabindex="-1" aria-labelledby="warningModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="warningModalLabel">
+                    <i class="fas fa-exclamation-triangle"></i> Achtung
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="warningModalBody">
+                Bitte beachten Sie folgende Hinweise.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-warning" data-bs-dismiss="modal">Verstanden</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Erfolg-Modal -->
+<div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="successModalLabel">
+                    <i class="fas fa-check-circle"></i> Erfolgreich!
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="successModalBody">
+                Aktion wurde erfolgreich ausgeführt.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
