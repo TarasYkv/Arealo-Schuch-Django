@@ -292,7 +292,31 @@ class ShopifyProductEditView(LoginRequiredMixin, UpdateView):
         print(f"Gespeicherte SEO-Beschreibung: '{self.object.seo_description}'")
         print(f"Needs Sync: {self.object.needs_sync}")
         
-        messages.success(self.request, 'Produkt erfolgreich aktualisiert. Synchronisation erforderlich.')
+        # Direkte Synchronisation zu Shopify
+        try:
+            from .shopify_api import ShopifyProductSync
+            product_sync = ShopifyProductSync(self.object.store)
+            success, message = product_sync.sync_product_to_shopify(self.object)
+            
+            if success:
+                self.object.needs_sync = False
+                self.object.sync_error = ""
+                self.object.last_synced_at = timezone.now()
+                self.object.save(update_fields=['needs_sync', 'sync_error', 'last_synced_at'])
+                messages.success(self.request, '✅ Produkt erfolgreich gespeichert und zu Shopify synchronisiert!')
+                print(f"✅ Synchronisation erfolgreich: {message}")
+            else:
+                self.object.sync_error = str(message)[:500]  # Begrenzte Länge für DB
+                self.object.save(update_fields=['sync_error'])
+                messages.warning(self.request, f'Produkt gespeichert, aber Synchronisation fehlgeschlagen: {message}')
+                print(f"❌ Synchronisation fehlgeschlagen: {message}")
+                
+        except Exception as e:
+            self.object.sync_error = f"Sync-Fehler: {str(e)[:500]}"
+            self.object.save(update_fields=['sync_error'])
+            messages.warning(self.request, f'Produkt gespeichert, aber Synchronisation fehlgeschlagen: {str(e)}')
+            print(f"❌ Synchronisation-Exception: {str(e)}")
+        
         return result
 
 

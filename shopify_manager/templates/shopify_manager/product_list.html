@@ -70,9 +70,6 @@
             <button type="button" class="btn btn-outline-primary" onclick="bulkAction(event)">
                 <i class="fas fa-tasks"></i> Bulk-Aktionen
             </button>
-            <button type="button" class="btn btn-outline-info" onclick="bulkSeoAnalysis()">
-                <i class="fas fa-chart-line"></i> SEO-Analyse
-            </button>
         </div>
     </div>
 </div>
@@ -233,56 +230,65 @@
                     <div class="row mb-2">
                         <div class="col-6">
                             <small class="text-muted d-block">SEO-Status</small>
-                            {% with seo_status=product.get_seo_status %}
+                            {% with seo_status=product.get_seo_status seo_details=product.get_seo_details %}
                                 {% if seo_status == 'good' %}
-                                    <span class="badge bg-success"><i class="fas fa-circle"></i> Gut</span>
+                                    <span class="badge bg-success" 
+                                          data-bs-toggle="tooltip" 
+                                          data-bs-placement="top" 
+                                          data-bs-html="true"
+                                          title="📊 SEO Details:<br>• Titel: {% if seo_details.has_title %}{{ seo_details.title_length }}/70 Zeichen{% else %}Nicht vorhanden{% endif %}<br>• Beschreibung: {% if seo_details.has_description %}{{ seo_details.description_length }}/160 Zeichen{% else %}Nicht vorhanden{% endif %}">
+                                        <i class="fas fa-circle"></i> Gut
+                                    </span>
                                 {% elif seo_status == 'warning' %}
-                                    <span class="badge bg-warning"><i class="fas fa-circle"></i> Mittelmäßig</span>
+                                    <span class="badge bg-warning" 
+                                          data-bs-toggle="tooltip" 
+                                          data-bs-placement="top" 
+                                          data-bs-html="true"
+                                          title="📊 SEO Details:<br>• Titel: {% if seo_details.has_title %}{{ seo_details.title_length }}/70 Zeichen{% else %}Nicht vorhanden{% endif %}<br>• Beschreibung: {% if seo_details.has_description %}{{ seo_details.description_length }}/160 Zeichen{% else %}Nicht vorhanden{% endif %}">
+                                        <i class="fas fa-circle"></i> Mittelmäßig
+                                    </span>
                                 {% else %}
-                                    <span class="badge bg-danger"><i class="fas fa-circle"></i> Schlecht</span>
+                                    <span class="badge bg-danger" 
+                                          data-bs-toggle="tooltip" 
+                                          data-bs-placement="top" 
+                                          data-bs-html="true"
+                                          title="📊 SEO Details:<br>• Titel: {% if seo_details.has_title %}{{ seo_details.title_length }}/70 Zeichen{% else %}Nicht vorhanden{% endif %}<br>• Beschreibung: {% if seo_details.has_description %}{{ seo_details.description_length }}/160 Zeichen{% else %}Nicht vorhanden{% endif %}">
+                                        <i class="fas fa-circle"></i> Schlecht
+                                    </span>
                                 {% endif %}
                             {% endwith %}
                         </div>
                         <div class="col-6">
                             <small class="text-muted d-block">Alt-Texte</small>
-                            {% with alt_status=product.get_alt_text_status %}
+                            {% with alt_status=product.get_alt_text_status alt_details=product.get_alt_text_details %}
                                 {% if alt_status == 'good' %}
-                                    <span class="badge bg-success"><i class="fas fa-circle"></i> Gut</span>
+                                    <span class="badge bg-success" 
+                                          data-bs-toggle="tooltip" 
+                                          data-bs-placement="top" 
+                                          data-bs-html="true"
+                                          title="🖼️ Alt-Text Details:<br>• {{ alt_details.images_with_alt }}/{{ alt_details.total_images }} Bilder haben Alt-Texte<br>• {{ alt_details.percentage }}% vollständig">
+                                        <i class="fas fa-circle"></i> Gut
+                                    </span>
                                 {% elif alt_status == 'warning' %}
-                                    <span class="badge bg-warning"><i class="fas fa-circle"></i> Mittelmäßig</span>
+                                    <span class="badge bg-warning" 
+                                          data-bs-toggle="tooltip" 
+                                          data-bs-placement="top" 
+                                          data-bs-html="true"
+                                          title="🖼️ Alt-Text Details:<br>• {{ alt_details.images_with_alt }}/{{ alt_details.total_images }} Bilder haben Alt-Texte<br>• {{ alt_details.percentage }}% vollständig">
+                                        <i class="fas fa-circle"></i> Mittelmäßig
+                                    </span>
                                 {% else %}
-                                    <span class="badge bg-danger"><i class="fas fa-circle"></i> Schlecht</span>
+                                    <span class="badge bg-danger" 
+                                          data-bs-toggle="tooltip" 
+                                          data-bs-placement="top" 
+                                          data-bs-html="true"
+                                          title="🖼️ Alt-Text Details:<br>• {{ alt_details.images_with_alt }}/{{ alt_details.total_images }} Bilder haben Alt-Texte<br>• {{ alt_details.percentage }}% vollständig">
+                                        <i class="fas fa-circle"></i> Schlecht
+                                    </span>
                                 {% endif %}
                             {% endwith %}
                         </div>
                     </div>
-                    
-                    <!-- Detaillierte SEO/Alt-Text Info bei Hover -->
-                    {% with seo_details=product.get_seo_details alt_details=product.get_alt_text_details %}
-                    <div class="status-details" style="display: none;">
-                        <div class="card mt-2">
-                            <div class="card-body p-2">
-                                <h6 class="card-title mb-2">SEO & Alt-Text Details</h6>
-                                <div class="row">
-                                    <div class="col-6">
-                                        <strong>SEO:</strong><br>
-                                        <small>
-                                            Titel: {{ seo_details.title_length }}/70 Zeichen<br>
-                                            Beschreibung: {{ seo_details.description_length }}/160 Zeichen
-                                        </small>
-                                    </div>
-                                    <div class="col-6">
-                                        <strong>Alt-Texte:</strong><br>
-                                        <small>
-                                            {{ alt_details.images_with_alt }}/{{ alt_details.total_images }} Bilder<br>
-                                            {{ alt_details.percentage }}% vollständig
-                                        </small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endwith %}
                 </div>
                 
                 <div class="card-footer">
@@ -345,9 +351,6 @@
                         <a href="{% url 'shopify_manager:product_alt_text_manager' product.pk %}" class="btn btn-secondary btn-sm">
                             <i class="fas fa-image"></i> Do-Alt-Texte
                         </a>
-                        <button class="btn btn-outline-success btn-sm" onclick="syncProduct({{ product.id }})">
-                            <i class="fas fa-sync"></i> Änderungen synchronisieren
-                        </button>
                     </div>
                     
                     <small class="text-muted">
@@ -505,30 +508,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Keine Import-Mode-Logik mehr nötig, da beide Modi fest definiert sind
 });
 
-function syncProduct(productId) {
-    if (!confirm('Produkt zu Shopify synchronisieren?')) return;
-    
-    fetch(`/shopify/api/products/${productId}/sync/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'X-Requested-With': 'XMLHttpRequest',
-        },
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('Synchronisation erfolgreich!');
-            location.reload();
-        } else {
-            alert('Synchronisation fehlgeschlagen: ' + data.error);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Fehler bei der Synchronisation');
-    });
-}
 
 function bulkAction(event) {
     // Prevent any form submission
@@ -541,36 +520,18 @@ function bulkAction(event) {
     
     const checkboxes = document.querySelectorAll('.product-checkbox:checked');
     if (checkboxes.length === 0) {
-        alert('Bitte wählen Sie mindestens ein Produkt aus.');
-        return;
-    }
-    
-    const action = prompt('Aktion auswählen:\n1. sync_to_shopify\n2. mark_needs_sync\n3. clear_sync_errors\n4. update_status_active\n5. update_status_archived');
-    if (!action) return;
-    
-    const actions = {
-        '1': 'sync_to_shopify',
-        '2': 'mark_needs_sync', 
-        '3': 'clear_sync_errors',
-        '4': 'update_status_active',
-        '5': 'update_status_archived'
-    };
-    
-    const selectedAction = actions[action];
-    if (!selectedAction) {
-        alert('Ungültige Aktion');
+        showWarningModal('Keine Produkte ausgewählt', 'Bitte wählen Sie mindestens ein Produkt aus.');
         return;
     }
     
     // Collect selected product IDs
     const selectedIds = Array.from(checkboxes).map(cb => cb.value);
     
-    // Confirmation for sync action
-    if (selectedAction === 'sync_to_shopify') {
-        if (!confirm(`${selectedIds.length} Produkte zu Shopify synchronisieren?\nDies kann einige Zeit dauern.`)) {
-            return;
-        }
-    }
+    // Zeige schönen Bulk-Aktionen Modal
+    showBulkActionModal(selectedIds);
+}
+
+function executeBulkAction(selectedAction, selectedIds) {
     
     // Show loading state
     const originalText = 'Bulk-Aktion ausführen';
@@ -596,16 +557,16 @@ function bulkAction(event) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert(`✅ Erfolgreich!\n\n${data.message}\n\n${data.details || ''}`);
-            // Reload page to show updated data
-            location.reload();
+            showSuccessModal('Bulk-Aktion erfolgreich', `${data.message}<br><br>${data.details || ''}`, function() {
+                location.reload();
+            });
         } else {
-            alert(`❌ Fehler bei der Bulk-Aktion:\n\n${data.error}`);
+            showErrorModal('Fehler bei der Bulk-Aktion', data.error);
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('❌ Fehler bei der Bulk-Aktion\n\nBitte versuchen Sie es erneut.');
+        showErrorModal('Netzwerk-Fehler', 'Fehler bei der Bulk-Aktion.<br><br>Bitte versuchen Sie es erneut.');
     })
     .finally(() => {
         // Reset button state
@@ -637,7 +598,7 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             e.stopPropagation();
             console.log('❌ Bulk form submission BLOCKED - use bulkAction() button instead');
-            alert('⚠️ Bitte verwenden Sie den "Bulk-Aktionen" Button anstatt das Formular direkt zu übertragen.');
+            showWarningModal('Formular blockiert', 'Bitte verwenden Sie den <strong>"Bulk-Aktionen"</strong> Button anstatt das Formular direkt zu übertragen.');
             return false;
         });
         
@@ -867,96 +828,35 @@ function startProductProgressPolling(importId) {
     }, 1000);
 }
 
-function bulkSeoAnalysis() {
-    const storeSelect = document.getElementById('storeSelect');
-    if (!storeSelect || !storeSelect.value) {
-        // Verwende den ersten verfügbaren Store
-        const firstStore = document.querySelector('#storeSelect option[value]:not([value=""])');
-        if (!firstStore) {
-            alert('Kein Store verfügbar für die Analyse');
-            return;
-        }
-        var storeId = firstStore.value;
-    } else {
-        var storeId = storeSelect.value;
-    }
-    
-    if (!confirm(`SEO-Analyse für alle Produkte des Stores starten?\nDies kann einige Zeit dauern.`)) return;
-    
-    fetch('/shopify/api/bulk-seo-analysis/', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'X-Requested-With': 'XMLHttpRequest',
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `store_id=${storeId}`
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            const results = data.analysis_results;
-            let report = `SEO-ANALYSE ERGEBNIS:\n\n`;
-            report += `=== ÜBERSICHT ===\n`;
-            report += `Analysierte Produkte: ${results.total_products}\n`;
-            report += `Produkte mit Global SEO: ${results.products_with_global_seo}\n`;
-            report += `Produkte mit WooCommerce Daten: ${results.products_with_woo_data}\n`;
-            report += `Produkte mit Webrex Daten: ${results.products_with_webrex_data}\n`;
-            report += `Produkte ohne Metafields: ${results.products_with_no_metafields}\n\n`;
-            
-            report += `=== DETAILANALYSE ===\n`;
-            results.detailed_results.forEach(product => {
-                report += `\nProdukt: "${product.title}"\n`;
-                report += `  Shopify ID: ${product.shopify_id}\n`;
-                report += `  Metafields: ${product.metafields_count}\n`;
-                report += `  Namespaces: ${product.namespaces.join(', ')}\n`;
-                report += `  Global SEO: ${product.has_global_seo ? '✅' : '❌'}\n`;
-                report += `  SEO-Felder: ${product.seo_fields_found.join(', ')}\n`;
-                report += `  Aktuell SEO-Titel: "${product.current_seo_title}"\n`;
-                report += `  Aktuell SEO-Beschreibung: "${product.current_seo_description}"\n`;
-            });
-            
-            report += `\n=== JSON DATEN ===\n`;
-            report += JSON.stringify(data, null, 2);
-            
-            // Zeige Ergebnis in Alert (könnte später in Modal gezeigt werden)
-            const resultWindow = window.open('', '_blank', 'width=800,height=600');
-            resultWindow.document.write(`<pre style="font-family: monospace; white-space: pre-wrap; padding: 20px;">${report}</pre>`);
-            resultWindow.document.title = 'SEO-Analyse Ergebnis';
-            
-        } else {
-            alert('SEO-Analyse fehlgeschlagen: ' + data.error);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Fehler bei der SEO-Analyse');
-    });
-}
 
 function deleteProductLocal(productId) {
-    if (!confirm('⚠️ Produkt lokal aus der App löschen?\n\nDas Produkt bleibt in Shopify bestehen und kann später wieder importiert werden.')) return;
-    
-    fetch(`/shopify/api/products/${productId}/delete-local/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'X-Requested-With': 'XMLHttpRequest',
-        },
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('✅ ' + data.message);
-            location.reload(); // Seite neu laden um gelöschtes Produkt zu entfernen
-        } else {
-            alert('❌ Fehler beim lokalen Löschen: ' + data.error);
+    showConfirmModal(
+        'Produkt lokal löschen', 
+        '⚠️ Möchten Sie das Produkt lokal aus der App löschen?<br><br><strong>Das Produkt bleibt in Shopify bestehen</strong> und kann später wieder importiert werden.',
+        function() {
+            fetch(`/shopify/api/products/${productId}/delete-local/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showSuccessModal('Produkt gelöscht', data.message, function() {
+                        location.reload();
+                    });
+                } else {
+                    showErrorModal('Fehler beim Löschen', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showErrorModal('Netzwerk-Fehler', 'Fehler beim lokalen Löschen des Produkts.<br><br>Bitte versuchen Sie es erneut.');
+            });
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('❌ Fehler beim lokalen Löschen');
-    });
+    );
 }
 
 function getCookie(name) {
@@ -974,37 +874,18 @@ function getCookie(name) {
     return cookieValue;
 }
 
-// Status-Details bei Hover anzeigen
+// Bootstrap Tooltips initialisieren
 document.addEventListener('DOMContentLoaded', function() {
-    const productCards = document.querySelectorAll('.product-card');
-    
-    productCards.forEach(card => {
-        const statusDetails = card.querySelector('.status-details');
-        
-        if (statusDetails) {
-            // Hover-Events für SEO/Alt-Text Badges
-            const badges = card.querySelectorAll('.badge');
-            
-            badges.forEach(badge => {
-                badge.addEventListener('mouseenter', function() {
-                    statusDetails.style.display = 'block';
-                });
-                
-                badge.addEventListener('mouseleave', function() {
-                    statusDetails.style.display = 'none';
-                });
-            });
-            
-            // Hover-Events für Details-Card selbst
-            statusDetails.addEventListener('mouseenter', function() {
-                statusDetails.style.display = 'block';
-            });
-            
-            statusDetails.addEventListener('mouseleave', function() {
-                statusDetails.style.display = 'none';
-            });
-        }
+    // Aktiviere alle Tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl, {
+            delay: { show: 300, hide: 100 },
+            container: 'body'
+        });
     });
+    
+    console.log('✅ Bootstrap Tooltips initialized:', tooltipList.length);
 });
 </script>
 
@@ -1068,22 +949,335 @@ document.addEventListener('DOMContentLoaded', function() {
     text-align: center;
 }
 
-/* Verbesserte Card Hover Effects */
-.product-card:hover {
-    transform: translateY(-2px);
+/* Stabilisierte Card Effects ohne Größenveränderungen */
+.product-card {
     transition: all 0.2s ease-in-out;
 }
 
+.product-card:hover {
+    /* Keine transform-Veränderung mehr, um Stabilität zu gewährleisten */
+    /* Box-shadow bleibt subtil und konstant */
+}
+
 .product-card.seo-status-good:hover {
-    box-shadow: 0 4px 15px rgba(25, 135, 84, 0.4);
+    /* Subtile Hover-Effekte ohne Bewegung */
+    box-shadow: 0 2px 8px rgba(25, 135, 84, 0.2);
 }
 
 .product-card.seo-status-warning:hover {
-    box-shadow: 0 4px 15px rgba(255, 193, 7, 0.4);
+    box-shadow: 0 2px 8px rgba(255, 193, 7, 0.2);
 }
 
 .product-card.seo-status-poor:hover {
-    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.2);
+}
+
+/* Bootstrap Tooltip Styling */
+.tooltip {
+    font-size: 0.8rem;
+}
+
+.tooltip-inner {
+    max-width: 250px;
+    text-align: left;
+    padding: 8px 12px;
+}
+
+/* Bulk-Aktionen Modal Styling */
+#bulkActionModal .btn-lg {
+    text-align: left;
+    padding: 15px 20px;
+    border: 2px solid;
+    transition: all 0.2s ease-in-out;
+}
+
+#bulkActionModal .btn-lg:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+#bulkActionModal .btn-lg i {
+    font-size: 1.2rem;
+    width: 25px;
+    flex-shrink: 0;
+}
+
+#bulkActionModal .d-inline-block {
+    flex: 1;
 }
 </style>
+
+<!-- Bulk-Aktionen Modal -->
+<div class="modal fade" id="bulkActionModal" tabindex="-1" aria-labelledby="bulkActionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="bulkActionModalLabel">
+                    <i class="fas fa-tasks"></i> Bulk-Aktion auswählen
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">
+                    <strong id="bulkActionSelectedCount">0</strong> Produkte ausgewählt.<br>
+                    Wählen Sie eine Aktion aus:
+                </p>
+                
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-outline-success btn-lg" onclick="executeBulkActionFromModal('sync_to_shopify')">
+                        <i class="fas fa-sync"></i> 
+                        <div class="d-inline-block text-start ms-2">
+                            <div><strong>Zu Shopify synchronisieren</strong></div>
+                            <small class="text-muted">Alle Änderungen zu Shopify übertragen</small>
+                        </div>
+                    </button>
+                    
+                    <button type="button" class="btn btn-outline-warning btn-lg" onclick="executeBulkActionFromModal('mark_needs_sync')">
+                        <i class="fas fa-clock"></i>
+                        <div class="d-inline-block text-start ms-2">
+                            <div><strong>Sync erforderlich markieren</strong></div>
+                            <small class="text-muted">Produkte für nächste Synchronisation vormerken</small>
+                        </div>
+                    </button>
+                    
+                    <button type="button" class="btn btn-outline-info btn-lg" onclick="executeBulkActionFromModal('clear_sync_errors')">
+                        <i class="fas fa-eraser"></i>
+                        <div class="d-inline-block text-start ms-2">
+                            <div><strong>Sync-Fehler löschen</strong></div>
+                            <small class="text-muted">Fehlermarkierungen entfernen</small>
+                        </div>
+                    </button>
+                    
+                    <button type="button" class="btn btn-outline-success btn-lg" onclick="executeBulkActionFromModal('update_status_active')">
+                        <i class="fas fa-check-circle"></i>
+                        <div class="d-inline-block text-start ms-2">
+                            <div><strong>Status: Aktiv setzen</strong></div>
+                            <small class="text-muted">Produkte als aktiv markieren</small>
+                        </div>
+                    </button>
+                    
+                    <button type="button" class="btn btn-outline-dark btn-lg" onclick="executeBulkActionFromModal('update_status_archived')">
+                        <i class="fas fa-archive"></i>
+                        <div class="d-inline-block text-start ms-2">
+                            <div><strong>Status: Archivieren</strong></div>
+                            <small class="text-muted">Produkte archivieren</small>
+                        </div>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Universelle Modals -->
+<!-- Bestätigungs-Modal -->
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmModalLabel">Bestätigung erforderlich</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="confirmModalBody">
+                Sind Sie sicher?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="confirmModalConfirm">Bestätigen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Erfolg-Modal -->
+<div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="successModalLabel">
+                    <i class="fas fa-check-circle"></i> Erfolgreich!
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="successModalBody">
+                Aktion wurde erfolgreich ausgeführt.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Fehler-Modal -->
+<div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="errorModalLabel">
+                    <i class="fas fa-exclamation-triangle"></i> Fehler
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="errorModalBody">
+                Ein Fehler ist aufgetreten.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Warnung-Modal -->
+<div class="modal fade" id="warningModal" tabindex="-1" aria-labelledby="warningModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="warningModalLabel">
+                    <i class="fas fa-exclamation-triangle"></i> Achtung
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="warningModalBody">
+                Bitte beachten Sie folgende Hinweise.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-warning" data-bs-dismiss="modal">Verstanden</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Universelle Modal-Funktionen
+function showConfirmModal(title, message, onConfirm) {
+    document.getElementById('confirmModalLabel').textContent = title;
+    document.getElementById('confirmModalBody').innerHTML = message;
+    
+    const confirmBtn = document.getElementById('confirmModalConfirm');
+    // Entferne alte Event Listener
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+    
+    newConfirmBtn.addEventListener('click', function() {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('confirmModal'));
+        modal.hide();
+        onConfirm();
+    });
+    
+    new bootstrap.Modal(document.getElementById('confirmModal')).show();
+}
+
+function showSuccessModal(title, message, onClose = null) {
+    document.getElementById('successModalLabel').innerHTML = '<i class="fas fa-check-circle"></i> ' + title;
+    document.getElementById('successModalBody').innerHTML = message;
+    
+    const modal = new bootstrap.Modal(document.getElementById('successModal'));
+    
+    if (onClose) {
+        document.getElementById('successModal').addEventListener('hidden.bs.modal', onClose, { once: true });
+    }
+    
+    modal.show();
+}
+
+function showErrorModal(title, message) {
+    document.getElementById('errorModalLabel').innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' + title;
+    document.getElementById('errorModalBody').innerHTML = message;
+    
+    new bootstrap.Modal(document.getElementById('errorModal')).show();
+}
+
+function showWarningModal(title, message) {
+    document.getElementById('warningModalLabel').innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' + title;
+    document.getElementById('warningModalBody').innerHTML = message;
+    
+    new bootstrap.Modal(document.getElementById('warningModal')).show();
+}
+
+// Bulk-Aktionen Modal Funktionen
+let currentBulkProductIds = [];
+
+function showBulkActionModal(selectedIds) {
+    currentBulkProductIds = selectedIds;
+    
+    // Update count in modal
+    document.getElementById('bulkActionSelectedCount').textContent = selectedIds.length;
+    
+    // Show modal
+    new bootstrap.Modal(document.getElementById('bulkActionModal')).show();
+}
+
+function executeBulkActionFromModal(selectedAction) {
+    // Hide bulk action modal first
+    const modal = bootstrap.Modal.getInstance(document.getElementById('bulkActionModal'));
+    modal.hide();
+    
+    // Confirmation for sync action
+    if (selectedAction === 'sync_to_shopify') {
+        showConfirmModal(
+            'Synchronisation bestätigen',
+            `${currentBulkProductIds.length} Produkte zu Shopify synchronisieren?<br><br><strong>Dies kann einige Zeit dauern.</strong>`,
+            function() {
+                executeBulkAction(selectedAction, currentBulkProductIds);
+            }
+        );
+        return;
+    }
+    
+    // For other actions, show confirmation too
+    const actionNames = {
+        'mark_needs_sync': 'als "Sync erforderlich" markieren',
+        'clear_sync_errors': 'Sync-Fehler löschen',
+        'update_status_active': 'Status auf "Aktiv" setzen',
+        'update_status_archived': 'Status auf "Archiviert" setzen'
+    };
+    
+    const actionName = actionNames[selectedAction] || selectedAction;
+    
+    showConfirmModal(
+        'Bulk-Aktion bestätigen',
+        `${currentBulkProductIds.length} Produkte ${actionName}?`,
+        function() {
+            executeBulkAction(selectedAction, currentBulkProductIds);
+        }
+    );
+}
+
+// Sync Product Function
+function syncProduct(productId) {
+    showConfirmModal(
+        'Produkt synchronisieren', 
+        'Möchten Sie das Produkt zu Shopify synchronisieren?',
+        function() {
+            fetch(`/shopify/api/products/${productId}/sync/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showSuccessModal('Synchronisation erfolgreich', data.message || 'Produkt wurde erfolgreich zu Shopify synchronisiert.', function() {
+                        location.reload();
+                    });
+                } else {
+                    showErrorModal('Synchronisation fehlgeschlagen', data.error || data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showErrorModal('Netzwerk-Fehler', 'Fehler bei der Synchronisation.<br><br>Bitte versuchen Sie es erneut.');
+            });
+        }
+    );
+}
+</script>
+
 {% endblock %}
