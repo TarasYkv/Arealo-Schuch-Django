@@ -93,12 +93,16 @@ class ShopifyProductEditForm(forms.ModelForm):
         widgets = {
             'title': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Produkttitel'
+                'placeholder': 'Produkttitel',
+                'readonly': True,
+                'style': 'background-color: #f8f9fa; cursor: not-allowed;'
             }),
             'body_html': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 8,
-                'placeholder': 'Produktbeschreibung (HTML unterstützt)'
+                'placeholder': 'Produktbeschreibung (HTML unterstützt)',
+                'readonly': True,
+                'style': 'background-color: #f8f9fa; cursor: not-allowed;'
             }),
             'vendor': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -158,13 +162,24 @@ class ShopifyProductEditForm(forms.ModelForm):
         return seo_description
     
     def save(self, commit=True):
+        # Hole das ursprüngliche Objekt um title und body_html zu erhalten
+        if self.instance and self.instance.pk:
+            original = ShopifyProduct.objects.get(pk=self.instance.pk)
+        
         product = super().save(commit=False)
+        
+        # Verhindere Überschreiben von title und body_html
+        if self.instance and self.instance.pk:
+            product.title = original.title
+            product.body_html = original.body_html
         
         print(f"=== FORM SAVE DEBUG ===")
         print(f"Form cleaned_data SEO-Titel: '{self.cleaned_data.get('seo_title', '')}'")
         print(f"Form cleaned_data SEO-Beschreibung: '{self.cleaned_data.get('seo_description', '')}'")
         print(f"Product instance SEO-Titel: '{product.seo_title}'")
         print(f"Product instance SEO-Beschreibung: '{product.seo_description}'")
+        print(f"Title wurde beibehalten: '{product.title}'")
+        print(f"Body wurde beibehalten: {len(product.body_html or '')} Zeichen")
         
         if commit:
             product.save()

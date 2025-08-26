@@ -690,341 +690,299 @@
                 <h5 class="modal-title" id="importModalLabel">Kategorien importieren</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form method="post" action="{% url 'shopify_manager:collection_import' %}">
+            <form id="collectionImportForm" method="post" action="{% url 'shopify_manager:collection_import' %}" onsubmit="handleCollectionImport(event); return false;">
                 {% csrf_token %}
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label for="store_id" class="form-label">Store auswählen</label>
-                        <select class="form-select" id="store_id" name="store_id" required>
+                        <label for="collection_store_id" class="form-label">Store auswählen</label>
+                        <select class="form-select" id="collection_store_id" name="store_id" required>
                             <option value="">Bitte wählen...</option>
                             {% for store in user_stores %}
                             <option value="{{ store.pk }}">{{ store.name }} ({{ store.shop_domain }})</option>
                             {% endfor %}
                         </select>
                     </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Import-Modus</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="import_mode" id="import_mode_new" value="new_only" checked>
+                            <label class="form-check-label" for="import_mode_new">
+                                <strong>Nur neue Kategorien hinzufügen</strong><br>
+                                <small class="text-muted">Importiert nur Kategorien, die noch nicht vorhanden sind. Bestehende bleiben unverändert.</small>
+                            </label>
+                        </div>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="radio" name="import_mode" id="import_mode_all" value="all">
+                            <label class="form-check-label" for="import_mode_all">
+                                <strong>Alle Kategorien neu importieren</strong><br>
+                                <small class="text-muted">⚠️ Löscht alle vorhandenen Kategorien und importiert alle neu von Shopify.</small>
+                            </label>
+                        </div>
+                    </div>
+                    
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle"></i> 
-                        Der Import lädt alle Kategorien/Collections aus dem gewählten Shopify Store.
+                        Der Import lädt Kategorien/Collections aus dem gewählten Shopify Store mit Fortschrittsanzeige.
+                    </div>
+                    
+                    <!-- Progress Container (initially hidden) -->
+                    <div id="collectionImportProgress" class="d-none">
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Import-Fortschritt:</span>
+                                <span id="collectionProgressText">0 / 0</span>
+                            </div>
+                            <div class="progress">
+                                <div id="collectionProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                </div>
+                            </div>
+                        </div>
+                        <div id="collectionProgressMessage" class="small text-muted mb-2">Import wird gestartet...</div>
+                        <div id="collectionProgressStats" class="row text-center d-none">
+                            <div class="col-6">
+                                <div class="text-success">
+                                    <i class="fas fa-check-circle"></i> <span id="collectionSuccessCount">0</span> Erfolgreich
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="text-danger">
+                                    <i class="fas fa-times-circle"></i> <span id="collectionFailedCount">0</span> Fehlgeschlagen
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
-                    <button type="submit" class="btn btn-primary">Importieren</button>
+                    <button type="submit" id="collectionImportSubmit" class="btn btn-primary">
+                        <i class="fas fa-download"></i> Importieren
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
+<!-- Collection Import JavaScript direkt nach Modal -->
+<script>
+(function() {
+    // Warte auf DOM ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initCollectionImport);
+    } else {
+        initCollectionImport();
+    }
+    
+    // Globale Funktion für inline onsubmit
+    window.handleCollectionImport = function(event) {
+        event.preventDefault();
+        startCollectionImport();
+        return false;
+    };
+    
+    function initCollectionImport() {
+        const form = document.getElementById('collectionImportForm');
+        if (!form) return;
+        
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            startCollectionImport();
+        });
+    }
+    
+    window.startCollectionImport = function() {
+        const form = document.getElementById('collectionImportForm');
+        const formData = new FormData(form);
+        const submitBtn = document.getElementById('collectionImportSubmit');
+        const progressDiv = document.getElementById('collectionImportProgress');
+        const progressBar = document.getElementById('collectionProgressBar');
+        const progressText = document.getElementById('collectionProgressText');
+        const progressMessage = document.getElementById('collectionProgressMessage');
+        const progressStats = document.getElementById('collectionProgressStats');
+        const successCount = document.getElementById('collectionSuccessCount');
+        const failedCount = document.getElementById('collectionFailedCount');
+        
+        // UI für Import vorbereiten
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starte Import...';
+        progressDiv.classList.remove('d-none');
+        progressStats.classList.add('d-none');
+        
+        // Import starten
+        fetch('{% url "shopify_manager:collection_import" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Fortschritt überwachen
+                monitorCollectionImportProgress(data.import_id);
+            } else {
+                // Fehler anzeigen
+                progressBar.classList.remove('bg-primary');
+                progressBar.classList.add('bg-danger');
+                progressMessage.innerHTML = '<span class="text-danger">Fehler: ' + data.error + '</span>';
+                
+                setTimeout(() => {
+                    progressDiv.classList.add('d-none');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-download"></i> Importieren';
+                }, 3000);
+            }
+        })
+        .catch(error => {
+            console.error('Import error:', error);
+            progressBar.classList.remove('bg-primary');
+            progressBar.classList.add('bg-danger');
+            progressMessage.innerHTML = '<span class="text-danger">Fehler beim Starten des Imports</span>';
+            
+            setTimeout(() => {
+                progressDiv.classList.add('d-none');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-download"></i> Importieren';
+            }, 3000);
+        });
+    };
+    
+    let collectionImportInterval = null;
+    
+    window.monitorCollectionImportProgress = function(importId) {
+        const progressBar = document.getElementById('collectionProgressBar');
+        const progressText = document.getElementById('collectionProgressText');
+        const progressMessage = document.getElementById('collectionProgressMessage');
+        const progressStats = document.getElementById('collectionProgressStats');
+        const successCount = document.getElementById('collectionSuccessCount');
+        const failedCount = document.getElementById('collectionFailedCount');
+        const submitBtn = document.getElementById('collectionImportSubmit');
+        const progressDiv = document.getElementById('collectionImportProgress');
+        
+        // Clear any existing interval
+        if (collectionImportInterval) {
+            clearInterval(collectionImportInterval);
+        }
+        
+        // Polling für Progress Updates
+        collectionImportInterval = setInterval(() => {
+            fetch('{% url "shopify_manager:collection_import_progress" "dummy" %}'.replace('dummy', importId))
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const progress = data.progress;
+                        
+                        // Progress Bar aktualisieren
+                        let percentage = 0;
+                        if (progress.total > 0) {
+                            percentage = (progress.current / progress.total) * 100;
+                        }
+                        progressBar.style.width = percentage + '%';
+                        progressBar.setAttribute('aria-valuenow', percentage);
+                        progressText.textContent = progress.current + ' / ' + progress.total;
+                        progressMessage.innerHTML = progress.message || 'Import läuft...';
+                        
+                        // Update Stats wenn verfügbar
+                        if (progress.success_count !== undefined || progress.failed_count !== undefined) {
+                            successCount.textContent = progress.success_count || 0;
+                            failedCount.textContent = progress.failed_count || 0;
+                            progressStats.classList.remove('d-none');
+                        }
+                        
+                        // Prüfe ob Import abgeschlossen
+                        if (progress.status === 'completed' || progress.status === 'error') {
+                            clearInterval(collectionImportInterval);
+                            progressBar.classList.remove('progress-bar-animated');
+                            
+                            if (progress.status === 'completed' && progress.success) {
+                                // Erfolgreicher Import
+                                progressBar.classList.remove('bg-primary');
+                                progressBar.classList.add('bg-success');
+                                progressMessage.innerHTML = '<span class="text-success">' + progress.message + '</span>';
+                                
+                                // Finale Statistiken anzeigen
+                                if (progress.collections_imported !== undefined || progress.collections_failed !== undefined) {
+                                    successCount.textContent = progress.collections_imported || 0;
+                                    failedCount.textContent = progress.collections_failed || 0;
+                                    progressStats.classList.remove('d-none');
+                                }
+                                
+                                // Seite neu laden wenn Kategorien importiert wurden
+                                setTimeout(() => {
+                                    if ((progress.collections_imported || 0) > 0) {
+                                        location.reload();
+                                    } else {
+                                        progressDiv.classList.add('d-none');
+                                        submitBtn.disabled = false;
+                                        submitBtn.innerHTML = '<i class="fas fa-download"></i> Importieren';
+                                    }
+                                }, 2000);
+                            } else {
+                                // Fehlgeschlagener Import
+                                progressBar.classList.remove('bg-primary');
+                                progressBar.classList.add('bg-danger');
+                                progressMessage.innerHTML = '<span class="text-danger">' + (progress.error || progress.message) + '</span>';
+                                
+                                setTimeout(() => {
+                                    progressDiv.classList.add('d-none');
+                                    submitBtn.disabled = false;
+                                    submitBtn.innerHTML = '<i class="fas fa-download"></i> Importieren';
+                                }, 3000);
+                            }
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Progress polling error:', error);
+                    clearInterval(collectionImportInterval);
+                    
+                    progressBar.classList.remove('bg-primary', 'progress-bar-animated');
+                    progressBar.classList.add('bg-danger');
+                    progressMessage.innerHTML = '<span class="text-danger">Fehler beim Abrufen des Fortschritts</span>';
+                    
+                    setTimeout(() => {
+                        progressDiv.classList.add('d-none');
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="fas fa-download"></i> Importieren';
+                    }, 3000);
+                });
+        }, 1000);
+    };
+    
+    // CSRF Helper
+    window.getCookie = function(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    };
+})();
+</script>
+
 <!-- SEO-Analyse Modal -->
 <div class="modal fade" id="seoAnalysisModal" tabindex="-1" aria-labelledby="seoAnalysisModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="seoAnalysisModalLabel">SEO-Analyse wird durchgeführt...</h5>
+                <h5 class="modal-title" id="seoAnalysisModalLabel">SEO-Analyse für Collections</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div id="seoAnalysisContent">
-                    <div class="d-flex justify-content-center">
-                        <div class="spinner-border" role="status">
-                            <span class="visually-hidden">Wird geladen...</span>
-                        </div>
-                    </div>
-                </div>
+                <p>SEO-Analyse für Collections ist in Entwicklung.</p>
             </div>
         </div>
     </div>
 </div>
-
-{% endblock %}
-
-{% block extra_js %}
-<script>
-function doCollectionSeo(collectionId) {
-    window.location.href = "{% url 'shopify_manager:collection_seo_optimization' 0 %}".replace('0', collectionId);
-}
-
-function doCollectionAltText(collectionId) {
-    window.location.href = "{% url 'shopify_manager:collection_alt_text_manager' collection_id=0 %}".replace('0', collectionId);
-}
-
-function bulkSeoAnalysis() {
-    const modal = new bootstrap.Modal(document.getElementById('seoAnalysisModal'));
-    modal.show();
-    
-    fetch("{% url 'shopify_manager:seo_dashboard' %}")
-        .then(response => response.text())
-        .then(html => {
-            document.getElementById('seoAnalysisContent').innerHTML = html;
-            document.getElementById('seoAnalysisModalLabel').textContent = 'SEO-Analyse Ergebnisse';
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            document.getElementById('seoAnalysisContent').innerHTML = '<div class="alert alert-danger">Fehler beim Laden der SEO-Analyse.</div>';
-        });
-}
-
-// Erweiterte Filter-Funktionalität
-document.addEventListener('DOMContentLoaded', function() {
-    // Filter-Collapse-Icon aktualisieren
-    const filterToggle = document.querySelector('[data-bs-toggle="collapse"]');
-    const filterCollapse = document.getElementById('filterCollapse');
-    
-    if (filterToggle && filterCollapse) {
-        filterCollapse.addEventListener('show.bs.collapse', function() {
-            filterToggle.querySelector('i').className = 'fas fa-chevron-up';
-        });
-        
-        filterCollapse.addEventListener('hide.bs.collapse', function() {
-            filterToggle.querySelector('i').className = 'fas fa-chevron-down';
-        });
-    }
-    
-    // Aktive Filter anzeigen
-    updateActiveFilters();
-    
-    // Auto-Submit bei Select-Änderungen (optional)
-    const autoSubmitElements = document.querySelectorAll('#filterForm select');
-    autoSubmitElements.forEach(element => {
-        element.addEventListener('change', function() {
-            // Optional: Automatisches Submit bei Änderung
-            // document.getElementById('filterForm').submit();
-        });
-    });
-    
-    // Enter-Taste im Suchfeld
-    const searchInput = document.querySelector('#filterForm input[type="text"]');
-    if (searchInput) {
-        searchInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                document.getElementById('filterForm').submit();
-            }
-        });
-    }
-});
-
-function resetFilters() {
-    // Alle Form-Felder zurücksetzen
-    document.getElementById('filterForm').reset();
-    
-    // Zur Basis-URL weiterleiten
-    window.location.href = "{% url 'shopify_manager:collection_list' %}";
-}
-
-function saveFilters() {
-    // Filter-Einstellungen in localStorage speichern
-    const formData = new FormData(document.getElementById('filterForm'));
-    const filters = {};
-    
-    for (let [key, value] of formData.entries()) {
-        if (value) {
-            filters[key] = value;
-        }
-    }
-    
-    localStorage.setItem('collectionFilters', JSON.stringify(filters));
-    
-    // Feedback anzeigen
-    const saveBtn = document.querySelector('[onclick="saveFilters()"]');
-    const originalText = saveBtn.innerHTML;
-    const originalClass = saveBtn.className;
-    
-    saveBtn.innerHTML = '<i class="fas fa-check me-1"></i> Gespeichert';
-    saveBtn.className = 'btn btn-success btn-sm';
-    saveBtn.disabled = true;
-    
-    // Toast-Benachrichtigung hinzufügen
-    showToast('Filter-Einstellungen gespeichert!', 'success');
-    
-    setTimeout(() => {
-        saveBtn.innerHTML = originalText;
-        saveBtn.className = originalClass;
-        saveBtn.disabled = false;
-    }, 2000);
-}
-
-function showToast(message, type = 'info') {
-    // Einfache Toast-Benachrichtigung
-    const toast = document.createElement('div');
-    toast.className = `toast align-items-center text-white bg-${type} border-0 position-fixed top-0 end-0 m-3`;
-    toast.style.zIndex = '1055';
-    toast.setAttribute('role', 'alert');
-    toast.setAttribute('aria-live', 'assertive');
-    toast.setAttribute('aria-atomic', 'true');
-    
-    toast.innerHTML = `
-        <div class="d-flex">
-            <div class="toast-body">
-                <i class="fas fa-info-circle me-2"></i>${message}
-            </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-        </div>
-    `;
-    
-    document.body.appendChild(toast);
-    
-    const bsToast = new bootstrap.Toast(toast);
-    bsToast.show();
-    
-    // Toast nach dem Verstecken entfernen
-    toast.addEventListener('hidden.bs.toast', () => {
-        document.body.removeChild(toast);
-    });
-}
-
-function loadSavedFilters() {
-    // Gespeicherte Filter laden
-    const savedFilters = localStorage.getItem('collectionFilters');
-    if (savedFilters) {
-        const filters = JSON.parse(savedFilters);
-        const form = document.getElementById('filterForm');
-        
-        Object.keys(filters).forEach(key => {
-            const element = form.querySelector(`[name="${key}"]`);
-            if (element) {
-                if (element.type === 'checkbox') {
-                    element.checked = filters[key] === 'on';
-                } else {
-                    element.value = filters[key];
-                }
-            }
-        });
-    }
-}
-
-function updateActiveFilters() {
-    const activeFiltersDiv = document.getElementById('activeFilters');
-    const activeFilterTags = document.getElementById('activeFilterTags');
-    const form = document.getElementById('filterForm');
-    
-    if (!activeFiltersDiv || !activeFilterTags || !form) return;
-    
-    const formData = new FormData(form);
-    const activeTags = [];
-    
-    // Durchlaufe alle Form-Felder und erstelle Tags für aktive Filter
-    for (let [key, value] of formData.entries()) {
-        if (value && value !== '') {
-            let labelText = '';
-            let displayValue = value;
-            
-            // Label-Text basierend auf Feld-Name
-            switch(key) {
-                case 'search':
-                    labelText = 'Suche';
-                    break;
-                case 'published':
-                    labelText = 'Veröffentlichung';
-                    const publishedOptions = {
-                        'true': 'Nur veröffentlichte',
-                        'false': 'Nur unveröffentlichte'
-                    };
-                    displayValue = publishedOptions[value] || value;
-                    break;
-                case 'sync_status':
-                    labelText = 'Sync-Status';
-                    const syncOptions = {
-                        'synced': 'Synchronisiert',
-                        'needs_sync': 'Sync erforderlich',
-                        'sync_error': 'Sync-Fehler'
-                    };
-                    displayValue = syncOptions[value] || value;
-                    break;
-                case 'seo_score':
-                    labelText = 'SEO-Status';
-                    const seoOptions = {
-                        'good': 'Gut',
-                        'warning': 'Warnung',
-                        'poor': 'Schlecht'
-                    };
-                    displayValue = seoOptions[value] || value;
-                    break;
-                case 'seo_issues_only':
-                    labelText = 'SEO-Probleme';
-                    displayValue = 'Nur mit Problemen';
-                    break;
-                case 'sort':
-                    labelText = 'Sortierung';
-                    break;
-            }
-            
-            if (labelText) {
-                activeTags.push(`
-                    <span class="badge bg-primary">
-                        ${labelText}: ${displayValue}
-                        <button type="button" class="btn-close btn-close-white ms-1" style="font-size: 0.7em;" onclick="removeFilter('${key}')"></button>
-                    </span>
-                `);
-            }
-        }
-    }
-    
-    if (activeTags.length > 0) {
-        activeFilterTags.innerHTML = activeTags.join('');
-        activeFiltersDiv.style.display = 'block';
-    } else {
-        activeFiltersDiv.style.display = 'none';
-    }
-}
-
-function removeFilter(filterKey) {
-    const form = document.getElementById('filterForm');
-    const element = form.querySelector(`[name="${filterKey}"]`);
-    
-    if (element) {
-        if (element.type === 'checkbox') {
-            element.checked = false;
-        } else {
-            element.value = '';
-        }
-        
-        // Form automatisch abschicken
-        form.submit();
-    }
-}
-
-function clearAllFilters() {
-    resetFilters();
-}
-
-// Filter beim Laden der Seite aktualisieren
-window.addEventListener('load', function() {
-    updateActiveFilters();
-});
-
-// Status-Details bei Hover anzeigen (analog zu Product Cards)
-document.addEventListener('DOMContentLoaded', function() {
-    const collectionCards = document.querySelectorAll('.collection-card');
-    
-    collectionCards.forEach(card => {
-        const statusDetails = card.querySelector('.status-details');
-        
-        if (statusDetails) {
-            // Hover-Events für SEO/Alt-Text Badges
-            const badges = card.querySelectorAll('.badge');
-            
-            badges.forEach(badge => {
-                badge.addEventListener('mouseenter', function() {
-                    statusDetails.style.display = 'block';
-                });
-                
-                badge.addEventListener('mouseleave', function() {
-                    statusDetails.style.display = 'none';
-                });
-            });
-            
-            // Hover-Events für Details-Card selbst
-            statusDetails.addEventListener('mouseenter', function() {
-                statusDetails.style.display = 'block';
-            });
-            
-            statusDetails.addEventListener('mouseleave', function() {
-                statusDetails.style.display = 'none';
-            });
-        }
-    });
-});
-</script>
 {% endblock %}

@@ -230,34 +230,127 @@ def apply_collection_seo_optimization_view(request, optimization_id):
 
 
 @login_required
+@require_http_methods(["POST"])
 def collection_import_view(request):
-    """Importiert Kategorien von Shopify"""
-    if request.method == 'POST':
-        store_id = request.POST.get('store_id')
-        if not store_id:
-            messages.error(request, 'Bitte wählen Sie einen Store aus.')
-            return redirect('shopify_manager:collection_list')
-        
-        store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
-        
+    """Startet den Import von Collections/Kategorien mit Fortschrittsanzeige"""
+    import uuid
+    import threading
+    from django.utils import timezone
+    from .views import import_progress
+    
+    store_id = request.POST.get('store_id')
+    import_mode = request.POST.get('import_mode', 'new_only')  # 'all' oder 'new_only'
+    
+    if not store_id:
+        return JsonResponse({
+            'success': False, 
+            'error': 'Store ID ist erforderlich'
+        })
+    
+    store = get_object_or_404(ShopifyStore, id=store_id, user=request.user)
+    
+    # Generiere eindeutige Import-ID
+    import_id = str(uuid.uuid4())
+    
+    # Initialisiere Progress-Tracking
+    import_progress[import_id] = {
+        'status': 'running',
+        'current': 0,
+        'total': 0,
+        'message': 'Initialisiere Kategorie-Import...',
+        'success_count': 0,
+        'failed_count': 0,
+        'import_mode': import_mode
+    }
+    
+    def import_collections_async():
+        """Asynchroner Import von Collections"""
         try:
-            collection_sync = ShopifyCollectionSync(store)
+            import sys
+            from .collection_import_progress import CollectionImportWithProgress
             
-            # Importiere alle Kategorien
-            sync_log = collection_sync.import_collections(
-                import_mode='all',  # Alle Collections importieren
-                overwrite_existing=True  # Überschreibt existierende
+            importer = CollectionImportWithProgress(store, import_id)
+            log = importer.import_collections_with_progress(
+                import_mode=import_mode,
+                overwrite_existing=(import_mode == 'all')
             )
             
-            if sync_log.status == 'success':
-                messages.success(request, f'Erfolgreich {sync_log.products_success} Kategorien importiert.')
-            else:
-                messages.error(request, f'Fehler beim Import: {sync_log.error_message}')
+            # Final status bestimmen
+            is_successful = log.status == 'success' and log.products_success > 0
+            message = f"Erfolgreich {log.products_success} Kategorien importiert"
+            if log.products_failed > 0:
+                message += f", {log.products_failed} fehlgeschlagen"
+            
+            # Update final status
+            if import_id in import_progress:
+                import_progress[import_id].update({
+                    'status': 'completed',
+                    'success': is_successful,
+                    'message': message,
+                    'collections_imported': log.products_success,
+                    'collections_failed': log.products_failed,
+                })
                 
         except Exception as e:
-            messages.error(request, f'Fehler beim Import: {str(e)}')
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"Exception in async collection import: {error_details}")
+            
+            if import_id in import_progress:
+                import_progress[import_id].update({
+                    'status': 'error',
+                    'success': False,
+                    'error': f'Fehler beim Kategorie-Import: {str(e)}',
+                    'message': f'Import fehlgeschlagen: {str(e)}'
+                })
     
-    return redirect('shopify_manager:collection_list')
+    # Starte Import in separatem Thread
+    try:
+        import_thread = threading.Thread(target=import_collections_async)
+        import_thread.daemon = True
+        import_thread.start()
+        
+        return JsonResponse({
+            'success': True,
+            'import_id': import_id,
+            'message': 'Kategorie-Import gestartet'
+        })
+        
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Exception in collection import: {error_details}")
+        
+        import_progress[import_id].update({
+            'status': 'error',
+            'success': False,
+            'error': f'Fehler beim Kategorie-Import: {str(e)}',
+            'message': f'Import fehlgeschlagen: {str(e)}'
+        })
+        
+        return JsonResponse({
+            'success': False, 
+            'error': f'Fehler beim Starten des Imports: {str(e)}'
+        })
+
+
+@login_required
+def collection_import_progress_view(request, import_id):
+    """Gibt den aktuellen Kategorie-Import-Fortschritt zurück"""
+    from .views import import_progress
+    
+    if import_id not in import_progress:
+        return JsonResponse({
+            'success': False,
+            'error': 'Import-ID nicht gefunden'
+        })
+    
+    progress = import_progress[import_id]
+    
+    return JsonResponse({
+        'success': True,
+        'progress': progress
+    })
 
 
 @login_required

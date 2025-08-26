@@ -1568,11 +1568,6 @@ class CollectionSEOOptimization(models.Model):
         ('openai-gpt4o', 'OpenAI GPT-4o'),
         ('openai-gpt4o-mini', 'OpenAI GPT-4o Mini'),
         ('openai-gpt35', 'OpenAI GPT-3.5 Turbo'),
-        ('claude-3.5-sonnet', 'Claude 3.5 Sonnet'),
-        ('claude-3.5-haiku', 'Claude 3.5 Haiku'),
-        ('claude-3-opus', 'Claude 3 Opus'),
-        ('gemini-1.5-pro', 'Google Gemini 1.5 Pro'),
-        ('gemini-1.5-flash', 'Google Gemini 1.5 Flash'),
     ]
     
     collection = models.ForeignKey(ShopifyCollection, on_delete=models.CASCADE, related_name='seo_optimizations')
