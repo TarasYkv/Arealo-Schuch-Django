@@ -92,6 +92,7 @@ urlpatterns = [
     
     # Collection API Endpoints
     path('api/collections/import/', collection_views.collection_import_view, name='collection_import'),
+    path('api/collections/import-progress/<str:import_id>/', collection_views.collection_import_progress_view, name='collection_import_progress'),
     path('api/collections/<int:collection_id>/alt-text/', collection_views.update_collection_alt_text_view, name='update_collection_alt_text'),
     path('api/collections/<int:collection_id>/alt-text-suggestion/', collection_views.generate_collection_alt_text_view, name='generate_collection_alt_text'),
     

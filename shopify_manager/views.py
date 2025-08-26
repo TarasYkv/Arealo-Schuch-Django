@@ -2997,37 +2997,21 @@ def generate_alt_text_view(request):
                 'suggested_alt': suggested_alt  # Beide Formate für Kompatibilität
             })
         else:
-            # Fallback: Einfacher Vorschlag basierend auf Produktdaten
-            print(f"DEBUG: KI-Generierung fehlgeschlagen oder ungültig für Bild {image_url} ('{suggested_alt}'), verwende Fallback")
-            fallback_alt = generate_alt_text_fallback(product)
-            print(f"DEBUG: Fallback Alt-Text für Bild {image_url}: '{fallback_alt}'")
-            
-            # Zusätzliche Sicherheitsprüfung für Fallback
-            if not fallback_alt or fallback_alt.strip() == '':
-                fallback_alt = f"Produktbild - {product.title[:30]}" if product.title else "Produktbild"
-                print(f"DEBUG: NOTFALL-Fallback Alt-Text: '{fallback_alt}'")
-            
+            # Keine KI-Generierung möglich - Fehler zurückgeben statt Fallback
+            print(f"DEBUG: KI-Generierung fehlgeschlagen für Bild {image_url} ('{suggested_alt}')")
             return JsonResponse({
-                'success': True,
-                'alt_text': fallback_alt,
-                'suggested_alt': fallback_alt  # Beide Formate für Kompatibilität
+                'success': False,
+                'error': 'Alt-Text konnte nicht generiert werden. OpenAI API ist nicht verfügbar oder fehlgeschlagen.',
+                'details': f'API Response: {suggested_alt}' if suggested_alt else 'Keine API-Response erhalten'
             })
             
     except Exception as e:
         print(f"Alt-Text Generierung Fehler: {e}")
-        # Fallback auch bei Fehlern
-        try:
-            fallback_alt = generate_alt_text_fallback(product)
-            return JsonResponse({
-                'success': True,
-                'alt_text': fallback_alt,
-                'suggested_alt': fallback_alt  # Beide Formate für Kompatibilität
-            })
-        except:
-            return JsonResponse({
-                'success': False,
-                'error': f'Fehler bei der Alt-Text Generierung: {str(e)}'
-            })
+        # Kein Fallback mehr - direkt Fehler zurückgeben
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler bei der Alt-Text-Generierung: {str(e)}'
+        })
 
 
 def generate_alt_text_with_ai(product, image_url, user):
@@ -3054,37 +3038,7 @@ def generate_alt_text_with_ai(product, image_url, user):
             except Exception as e:
                 print(f"OpenAI Vision fehlgeschlagen: {e}")
         
-        # 2. Google Gemini Vision (falls verfügbar)
-        google_key = get_user_api_key(user, 'google')
-        print(f"DEBUG: Google Key verfügbar: {bool(google_key)}")
-        if google_key:
-            try:
-                print("DEBUG: Versuche Google Gemini Vision...")
-                alt_text = generate_alt_text_google_vision(product, image_url, google_key)
-                if alt_text:
-                    print(f"DEBUG: Google Vision erfolgreich: {alt_text}")
-                    return alt_text
-                else:
-                    print("DEBUG: Google Vision lieferte keinen Text")
-            except Exception as e:
-                print(f"Google Gemini Vision fehlgeschlagen: {e}")
-        
-        # 3. Anthropic Claude Vision (falls verfügbar)
-        anthropic_key = get_user_api_key(user, 'anthropic')
-        print(f"DEBUG: Anthropic Key verfügbar: {bool(anthropic_key)}")
-        if anthropic_key:
-            try:
-                print("DEBUG: Versuche Anthropic Claude Vision...")
-                alt_text = generate_alt_text_anthropic_vision(product, image_url, anthropic_key)
-                if alt_text:
-                    print(f"DEBUG: Anthropic Vision erfolgreich: {alt_text}")
-                    return alt_text
-                else:
-                    print("DEBUG: Anthropic Vision lieferte keinen Text")
-            except Exception as e:
-                print(f"Anthropic Claude Vision fehlgeschlagen: {e}")
-        
-        print("DEBUG: Keine KI-Services verfügbar oder alle fehlgeschlagen")
+        print("DEBUG: OpenAI nicht verfügbar oder fehlgeschlagen - keine weiteren KI-Services konfiguriert")
         return None
         
     except Exception as e:
@@ -3093,8 +3047,18 @@ def generate_alt_text_with_ai(product, image_url, user):
 
 
 def generate_alt_text_openai_vision(product, image_url, api_key):
-    """Generiert Alt-Text mit OpenAI GPT-4 Vision"""
+    """Generiert Alt-Text mit OpenAI GPT-4 Vision oder Text-basiertem Fallback"""
     try:
+        # Zuerst versuchen, das Bild zu validieren
+        try:
+            img_response = requests.head(image_url, timeout=5)
+            if img_response.status_code != 200:
+                print(f"DEBUG: Bild nicht erreichbar (Status {img_response.status_code}), verwende Text-basierte Generierung")
+                return generate_alt_text_openai_text_only(product, api_key)
+        except:
+            print(f"DEBUG: Bild-URL nicht erreichbar, verwende Text-basierte Generierung")
+            return generate_alt_text_openai_text_only(product, api_key)
+        
         prompt = f"""Analysiere dieses Produktbild und erstelle einen präzisen Alt-Text für SEO und Barrierefreiheit.
 
 Produktkontext:
@@ -3119,7 +3083,7 @@ Antworte nur mit dem Alt-Text, ohne weitere Erklärungen."""
                 'Content-Type': 'application/json'
             },
             json={
-                'model': 'gpt-4-vision-preview',
+                'model': 'gpt-4o',
                 'messages': [
                     {
                         'role': 'user',
@@ -3142,132 +3106,82 @@ Antworte nur mit dem Alt-Text, ohne weitere Erklärungen."""
                 # Kürze wenn nötig
                 if len(alt_text) > 125:
                     alt_text = alt_text[:122] + '...'
+                print(f"DEBUG: OpenAI Vision erfolgreich: {alt_text}")
                 return alt_text
+        else:
+            # Fallback zu Text-only bei API-Fehlern
+            print(f"DEBUG: Vision API Fehler (Status {response.status_code}), verwende Text-basierte Generierung")
+            return generate_alt_text_openai_text_only(product, api_key)
         
     except Exception as e:
-        print(f"OpenAI Vision Fehler: {e}")
+        print(f"DEBUG: OpenAI Vision Fehler: {e}, verwende Text-basierte Generierung")
+        return generate_alt_text_openai_text_only(product, api_key)
     
     return None
 
 
-def generate_alt_text_google_vision(product, image_url, api_key):
-    """Generiert Alt-Text mit Google Gemini Vision"""
+def generate_alt_text_openai_text_only(product, api_key):
+    """Generiert Alt-Text nur auf Basis der Produktdaten (ohne Bilderkennung)"""
     try:
-        # Hole das Bild für die Analyse
-        
-        try:
-            img_response = requests.get(image_url, timeout=10)
-            if img_response.status_code == 200:
-                image_data = base64.b64encode(img_response.content).decode()
-            else:
-                # Fallback zu text-only wenn Bild nicht verfügbar
-                return generate_alt_text_fallback(product)
-        except:
-            # Fallback zu text-only wenn Bild nicht erreichbar
-            return generate_alt_text_fallback(product)
-
-        prompt = f"""Analysiere dieses Produktbild und erstelle einen präzisen Alt-Text für SEO und Barrierefreiheit.
+        prompt = f"""Erstelle einen präzisen Alt-Text für ein Produktbild basierend auf den folgenden Produktdaten:
 
 Produktkontext:
 - Titel: {product.title}
 - Hersteller: {product.vendor or 'Unbekannt'}
 - Typ: {product.product_type or 'Unbekannt'}
-- Beschreibung: {(product.body_html or '')[:100]}
+- Beschreibung: {(product.body_html or '')[:300]}
 
 Erstelle einen Alt-Text der:
-- Das Bild präzise beschreibt
-- Für Screenreader geeignet ist  
+- Das Produkt präzise beschreibt (auch ohne das Bild zu sehen)
+- Für Screenreader geeignet ist
 - SEO-optimiert ist
 - Unter 125 Zeichen liegt
-- Den Produktkontext berücksichtigt
+- Natürlich klingt
 
 Antworte nur mit dem Alt-Text, ohne weitere Erklärungen."""
 
-        # Verwende Gemini 1.5 Pro Vision für Bildanalyse
         response = requests.post(
-            f'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={api_key}',
-            headers={'Content-Type': 'application/json'},
-            json={
-                'contents': [{
-                    'parts': [
-                        {'text': prompt},
-                        {
-                            'inline_data': {
-                                'mime_type': 'image/jpeg',
-                                'data': image_data
-                            }
-                        }
-                    ]
-                }],
-                'generationConfig': {
-                    'maxOutputTokens': 100,
-                    'temperature': 0.3
-                }
+            'https://api.openai.com/v1/chat/completions',
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
             },
-            timeout=30
+            json={
+                'model': 'gpt-4o-mini',  # Günstiger für Text-only
+                'messages': [
+                    {
+                        'role': 'user',
+                        'content': prompt
+                    }
+                ],
+                'max_tokens': 80,
+                'temperature': 0.3
+            },
+            timeout=20
         )
         
         if response.status_code == 200:
             result = response.json()
-            if 'candidates' in result and len(result['candidates']) > 0:
-                alt_text = result['candidates'][0]['content']['parts'][0]['text'].strip()
-                # Entferne Anführungszeichen falls vorhanden
-                alt_text = alt_text.strip('"\'')
+            if 'choices' in result and len(result['choices']) > 0:
+                alt_text = result['choices'][0]['message']['content'].strip()
+                # Kürze wenn nötig
                 if len(alt_text) > 125:
                     alt_text = alt_text[:122] + '...'
                 return alt_text
         
     except Exception as e:
-        print(f"Google Gemini Vision Fehler: {e}")
+        print(f"DEBUG: OpenAI Text-only Fehler: {e}")
     
     return None
 
 
-def generate_alt_text_fallback(product):
-    """Einfacher Fallback Alt-Text basierend auf Produktdaten"""
-    alt_text_parts = []
-    
-    if product.vendor:
-        alt_text_parts.append(product.vendor)
-    
-    # Verwende immer mindestens den Produkttitel
-    title = product.title[:50] if product.title else "Produktbild"
-    alt_text_parts.append(title)
-    
-    if product.product_type and product.product_type.lower() not in title.lower():
-        alt_text_parts.append(product.product_type)
-    
-    generated_alt_text = " - ".join(alt_text_parts)
-    
-    if len(generated_alt_text) > 125:
-        generated_alt_text = generated_alt_text[:122] + "..."
-    
-    # Sicherheitsprüfung: niemals leer oder None zurückgeben
-    if not generated_alt_text or generated_alt_text.strip() == "":
-        generated_alt_text = "Produktbild"
-    
-    return generated_alt_text
+# generate_alt_text_google_vision komplett entfernt
 
 
-def generate_alt_text_anthropic_vision(product, image_url, api_key):
-    """Generiert Alt-Text mit Anthropic Claude Vision"""
-    try:
-        # Claude Vision API würde hier implementiert werden
-        # Für jetzt einen kontextbasierten Vorschlag
-        base_text = f"{product.title}"
-        if product.vendor and product.vendor.lower() not in base_text.lower():
-            base_text += f" von {product.vendor}"
-        
-        # Kürze auf 125 Zeichen
-        if len(base_text) > 125:
-            base_text = base_text[:122] + '...'
-            
-        return base_text
-        
-    except Exception as e:
-        print(f"Anthropic Claude Fehler: {e}")
-    
-    return None
+# generate_alt_text_fallback komplett entfernt - keine automatischen Fallback-Texte
+
+
+# generate_alt_text_anthropic_vision komplett entfernt
 
 
 @login_required
@@ -3678,16 +3592,7 @@ def integrated_seo_optimization_view(request, content_type, content_id):
         'current_seo_description': current_seo_description,
         # AI-Modell-Optionen (bewährte Modelle aus Naturmacher-App)
         'ai_models': [
-            # Claude (Anthropic) Modelle - Empfohlen
-            ('claude-opus-4', 'Claude Opus 4 (Höchste Qualität)'),
-            ('claude-sonnet-4', 'Claude Sonnet 4 (Ausgezeichnet)'),
-            ('claude-sonnet-3.7', 'Claude Sonnet 3.7 (Extended Reasoning)'),
-            ('claude-sonnet-3.5-new', 'Claude Sonnet 3.5 (Aktualisiert)'),
-            ('claude-sonnet-3.5', 'Claude Sonnet 3.5 (Bewährt)'),
-            ('claude-haiku-3.5-new', 'Claude Haiku 3.5 (Schnell, neu)'),
-            ('claude-haiku-3.5', 'Claude Haiku 3.5 (Schnell)'),
-            
-            # OpenAI (ChatGPT) Modelle - Standard
+            # OpenAI (ChatGPT) Modelle - Einzige unterstützte Option
             ('gpt-4.1', 'ChatGPT 4.1 (Neuestes Flagship, 1M Token)'),
             ('gpt-4.1-mini', 'ChatGPT 4.1 Mini (Optimiert)'),
             ('gpt-4.1-nano', 'ChatGPT 4.1 Nano (Schnellstes)'),
@@ -3700,15 +3605,6 @@ def integrated_seo_optimization_view(request, content_type, content_id):
             # OpenAI Reasoning Modelle
             ('o3', 'OpenAI o3 (Neuestes Reasoning, langsam)'),
             ('o4-mini', 'OpenAI o4 Mini (Schnelles Reasoning)'),
-            
-            # Google Gemini Modelle
-            ('gemini-2.5-pro', 'Gemini 2.5 Pro (Höchste Performance)'),
-            ('gemini-2.5-flash', 'Gemini 2.5 Flash (Bestes Preis-Leistung)'),
-            ('gemini-2.0-flash', 'Gemini 2.0 Flash (Verfügbar)'),
-            ('gemini-2.0-pro', 'Gemini 2.0 Pro (Beste Coding Performance)'),
-            ('gemini-1.5-flash', 'Gemini 1.5 Flash (Bewährt, schnell)'),
-            ('gemini-1.5-pro', 'Gemini 1.5 Pro (Kraftvoll)'),
-            ('gemini', 'Gemini (Kostenlos)'),
         ]
     }
     
