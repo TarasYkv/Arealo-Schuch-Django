@@ -222,6 +222,134 @@
         margin-bottom: 1rem !important;
     }
 }
+
+/* Audio Level Meter */
+.audio-level-meter {
+    height: 8px;
+    background: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.audio-level-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #28a745 0%, #ffc107 70%, #dc3545 100%);
+    width: 0%;
+    transition: width 0.1s ease;
+    border-radius: 4px;
+}
+
+/* Audio Status Indicator */
+#audioStatusBadge .fas.fa-circle {
+    font-size: 0.7rem;
+}
+
+#audioStatusBadge .fas.fa-circle.text-success {
+    color: #28a745 !important;
+}
+
+#audioStatusBadge .fas.fa-circle.text-danger {
+    color: #dc3545 !important;
+}
+
+#audioStatusBadge .fas.fa-circle.text-warning {
+    color: #ffc107 !important;
+}
+
+#audioStatusBadge .fas.fa-circle.text-secondary {
+    color: #6c757d !important;
+}
+
+.audio-level-meter {
+    margin: 0.25rem 0;
+}
+
+/* Improved Checkbox Visibility */
+.form-check-input {
+    width: 1.2em !important;
+    height: 1.2em !important;
+    border: 2px solid #667eea !important;
+    background-color: #ffffff !important;
+    border-radius: 0.25em !important;
+    position: relative !important;
+}
+
+.form-check-input:checked {
+    background-color: #667eea !important;
+    border-color: #667eea !important;
+}
+
+.form-check-input:checked::before {
+    content: "✓" !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    color: white !important;
+    font-weight: bold !important;
+    font-size: 0.9em !important;
+}
+
+.form-check-input:focus {
+    border-color: #667eea !important;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25) !important;
+}
+
+.form-check-label {
+    cursor: pointer !important;
+    user-select: none !important;
+}
+
+/* Volume Slider */
+.volume-slider {
+    width: 100% !important;
+    height: 6px !important;
+    border-radius: 3px !important;
+    background: #e9ecef !important;
+    outline: none !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+}
+
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 18px !important;
+    height: 18px !important;
+    border-radius: 50% !important;
+    background: #667eea !important;
+    cursor: pointer !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
+    border: 2px solid #ffffff !important;
+}
+
+.volume-slider::-moz-range-thumb {
+    width: 18px !important;
+    height: 18px !important;
+    border-radius: 50% !important;
+    background: #667eea !important;
+    cursor: pointer !important;
+    border: 2px solid #ffffff !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
+}
+
+.volume-slider::-webkit-slider-track {
+    width: 100% !important;
+    height: 6px !important;
+    cursor: pointer !important;
+    background: #e9ecef !important;
+    border-radius: 3px !important;
+}
+
+.volume-slider::-moz-range-track {
+    width: 100% !important;
+    height: 6px !important;
+    cursor: pointer !important;
+    background: #e9ecef !important;
+    border-radius: 3px !important;
+    border: none !important;
+}
 </style>
 {% endblock %}
 
@@ -334,6 +462,58 @@
                             <div id="screenStreamsList" class="d-flex flex-column gap-1"></div>
                         </div>
                         <small id="screenStatus" class="text-muted d-block mt-2">Status: Nicht aktiv</small>
+                    </div>
+
+                    <!-- Audio Section -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0">
+                                <i class="fas fa-microphone text-danger me-2"></i>Audio
+                            </h6>
+                            <div class="status-indicator" id="audioStatusBadge">
+                                <i class="fas fa-circle text-secondary"></i>
+                            </div>
+                        </div>
+                        <div class="row g-1 mb-2">
+                            <div class="col-12">
+                                <div class="form-check form-check-sm">
+                                    <input class="form-check-input" type="checkbox" id="audioEnabled" checked>
+                                    <label class="form-check-label small" for="audioEnabled">
+                                        Audio-Aufnahme aktiv
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check form-check-sm">
+                                    <input class="form-check-input" type="checkbox" id="systemAudio" checked>
+                                    <label class="form-check-label small" for="systemAudio">
+                                        System-Audio einbeziehen
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Microphone Volume Control -->
+                        <div class="mb-3">
+                            <label for="microphoneVolume" class="form-label small">Mikrofonlautstärke:</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="fas fa-volume-down text-muted" style="font-size: 0.8rem;"></i>
+                                <input type="range" class="volume-slider" id="microphoneVolume" 
+                                       min="0" max="100" value="80" step="5">
+                                <i class="fas fa-volume-up text-muted" style="font-size: 0.8rem;"></i>
+                                <span class="small text-muted ms-1" id="volumeDisplay">80%</span>
+                            </div>
+                        </div>
+
+                        <!-- Audio Level Meter -->
+                        <div class="mb-2">
+                            <label class="form-label small">Eingangspegel:</label>
+                            <div class="audio-level-meter">
+                                <div class="audio-level-fill" id="audioLevelFill"></div>
+                            </div>
+                        </div>
+                        
+                        <small id="audioStatus" class="text-muted d-block mt-2">Status: Aktiv</small>
                     </div>
 
                     <!-- Layout-Schnellwahl -->
@@ -589,6 +769,37 @@
                         </div>
                     </div>
                     <div class="col-md-6">
+                        <h6>Audio-Einstellungen</h6>
+                        <div class="mb-3">
+                            <label class="form-label">Audio-Qualität:</label>
+                            <select class="form-select" id="settingsAudioQuality">
+                                <option value="192000">Hoch (192 kbps)</option>
+                                <option value="128000" selected>Mittel (128 kbps)</option>
+                                <option value="96000">Niedrig (96 kbps)</option>
+                            </select>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="settingsAGC" checked>
+                            <label class="form-check-label" for="settingsAGC">
+                                AGC (Automatische Verstärkungsregelung)
+                            </label>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="settingsNoiseSuppression" checked>
+                            <label class="form-check-label" for="settingsNoiseSuppression">
+                                Rauschunterdrückung
+                            </label>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="settingsEchoCancellation" checked>
+                            <label class="form-check-label" for="settingsEchoCancellation">
+                                Echo-Unterdrückung
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-4">
+                    <div class="col-md-6">
                         <h6>Performance-Einstellungen</h6>
                         <div class="form-check mb-3">
                             <input class="form-check-input" type="checkbox" id="enableFrameSkipping" checked>
@@ -725,6 +936,10 @@ class StreamRecorderOptimized {
         // Initialize both camera and screen status badges to secondary (gray) state
         this.updateStatusBadge('camera', 'secondary');
         this.updateStatusBadge('screen', 'secondary');
+        
+        // Initialize audio status badge
+        this.checkAudioStream();
+        
         console.log('🔧 Status-Badges initialisiert');
     }
 
@@ -905,6 +1120,10 @@ class StreamRecorderOptimized {
 
         // Settings
         document.getElementById('saveSettings')?.addEventListener('click', () => this.saveSettings());
+        
+        // Audio controls
+        document.getElementById('audioEnabled')?.addEventListener('change', () => this.checkAudioStream());
+        document.getElementById('systemAudio')?.addEventListener('change', () => this.checkAudioStream());
 
         // Fullscreen
         document.getElementById('fullscreenBtn')?.addEventListener('click', () => {
@@ -1035,13 +1254,16 @@ class StreamRecorderOptimized {
         try {
             this.updateStatus('camera', 'Kamera wird gestartet...', 'info');
             
+            // Get audio processing settings from UI
+            const audioConstraints = this.getAudioConstraints();
+            
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: { 
                     width: { ideal: 1280 },
                     height: { ideal: 720 },
                     frameRate: { ideal: this.targetFPS }
                 },
-                audio: true
+                audio: audioConstraints
             });
 
             this.streams.set('camera', stream);
@@ -1054,6 +1276,7 @@ class StreamRecorderOptimized {
             this.checkCompositionReady();
             this.updateActiveStreamsCount();
             this.refreshLayoutChips();
+            this.checkAudioStream(); // Check audio status after stream added
 
             console.log('✅ Kamera-Stream erfolgreich gestartet');
         } catch (error) {
@@ -1091,6 +1314,9 @@ class StreamRecorderOptimized {
             const screenId = `screen${this.nextScreenId}`;
             this.updateStatus('screen', 'Bildschirm-Sharing wird gestartet...', 'info');
             
+            // Get audio processing settings from UI
+            const audioConstraints = this.getAudioConstraints();
+            
             const stream = await navigator.mediaDevices.getDisplayMedia({
                 video: {
                     width: { ideal: 1920 },
@@ -1098,7 +1324,7 @@ class StreamRecorderOptimized {
                     frameRate: { ideal: this.targetFPS },
                     cursor: 'always'
                 },
-                audio: true
+                audio: audioConstraints
             });
 
             this.streams.set(screenId, stream);
@@ -1114,6 +1340,7 @@ class StreamRecorderOptimized {
             this.checkCompositionReady();
             this.updateActiveStreamsCount();
             this.refreshLayoutChips();
+            this.checkAudioStream(); // Check audio status after stream added
 
             // Handle screen sharing end event
             stream.getVideoTracks()[0].addEventListener('ended', () => {
@@ -1765,11 +1992,40 @@ class StreamRecorderOptimized {
         try {
             // 🎯 OPTIMIZED: Adaptive frame rate based on browser
             const targetFPS = this.getBrowserOptimalFPS();
-            const stream = this.canvas.captureStream(targetFPS);
+            const canvasStream = this.canvas.captureStream(targetFPS);
+            
+            // 🎤 Combine with audio streams if audio is enabled
+            const audioEnabled = document.getElementById('audioEnabled')?.checked;
+            let finalStream = canvasStream;
+            
+            if (audioEnabled) {
+                // Create combined stream with audio tracks from active streams
+                const combinedStream = new MediaStream();
+                
+                // Add video tracks from canvas
+                canvasStream.getVideoTracks().forEach(track => {
+                    combinedStream.addTrack(track);
+                });
+                
+                // Add audio tracks from active streams
+                for (const [streamId, stream] of this.streams) {
+                    if (stream && stream.getAudioTracks().length > 0) {
+                        stream.getAudioTracks().forEach(track => {
+                            combinedStream.addTrack(track);
+                            console.log(`🎤 Audio track added from ${streamId}`);
+                        });
+                    }
+                }
+                
+                finalStream = combinedStream;
+                console.log(`🎤 Audio-enabled recording: ${finalStream.getAudioTracks().length} audio tracks`);
+            } else {
+                console.log(`🔇 Audio-disabled recording: video only`);
+            }
             
             // 🚀 IMPROVED MediaRecorder configuration
             const options = this.getOptimalRecorderOptions();
-            this.mediaRecorder = new MediaRecorder(stream, options);
+            this.mediaRecorder = new MediaRecorder(finalStream, options);
             
             this.recordedChunks = [];
             this.pausedAccum = 0;
@@ -2342,31 +2598,49 @@ class StreamRecorderOptimized {
         let preferredCodec = 'video/webm;codecs=vp8,opus'; // Standard
         let audioBitrate = 128000;
         
-        switch (quality) {
-            case 'ultra':
-                preferredCodec = 'video/webm;codecs=vp9,opus';
+        // Audio-Qualität aus UI lesen
+        const audioQualitySelect = document.getElementById('audioQualitySelect');
+        const audioEnabled = document.getElementById('audioEnabled')?.checked !== false;
+        const audioQuality = audioQualitySelect?.value || 'medium';
+        
+        // Audio-Bitrate basierend auf Auswahl
+        switch (audioQuality) {
+            case 'high':
                 audioBitrate = 192000;
                 break;
-            case 'high':
-                preferredCodec = 'video/webm;codecs=vp8,opus';
+            case 'medium':
                 audioBitrate = 128000;
                 break;
-            case 'medium':
-                preferredCodec = 'video/webm;codecs=vp8';
+            case 'low':
                 audioBitrate = 96000;
+                break;
+        }
+        
+        switch (quality) {
+            case 'ultra':
+                preferredCodec = audioEnabled ? 'video/webm;codecs=vp9,opus' : 'video/webm;codecs=vp9';
+                break;
+            case 'high':
+                preferredCodec = audioEnabled ? 'video/webm;codecs=vp8,opus' : 'video/webm;codecs=vp8';
+                break;
+            case 'medium':
+                preferredCodec = audioEnabled ? 'video/webm;codecs=vp8,opus' : 'video/webm;codecs=vp8';
                 break;
             case 'low':
             case 'potato':
-                preferredCodec = 'video/webm';
-                audioBitrate = 64000;
+                preferredCodec = audioEnabled ? 'video/webm;codecs=vp8,opus' : 'video/webm';
                 break;
         }
         
         let options = {
             mimeType: preferredCodec,
-            videoBitsPerSecond: optimizedBitrate,
-            audioBitsPerSecond: audioBitrate
+            videoBitsPerSecond: optimizedBitrate
         };
+        
+        // Audio-Bitrate nur hinzufügen wenn Audio aktiviert ist
+        if (audioEnabled) {
+            options.audioBitsPerSecond = audioBitrate;
+        }
         
         // 🛡️ PROGRESSIVE FALLBACK mit Qualitäts-Priorisierung
         const supportedTypes = [
@@ -3767,6 +4041,393 @@ class StreamRecorderOptimized {
             this.removeScreen(streamId);
         }
     }
+
+    // 🎤 Audio Level Monitoring
+    setupAudioLevelMonitoring() {
+        // Try to get audio from existing streams
+        let audioStream = null;
+        
+        if (this.streams.has('camera')) {
+            const cameraStream = this.streams.get('camera');
+            const audioTracks = cameraStream.getAudioTracks();
+            if (audioTracks.length > 0) {
+                audioStream = new MediaStream(audioTracks);
+            }
+        }
+        
+        if (!audioStream) {
+            // Get microphone directly
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    this.startAudioLevelMonitoring(stream);
+                })
+                .catch(err => {
+                    console.warn('Audio monitoring failed:', err);
+                    this.updateAudioStatus('Mikrofon nicht verfügbar');
+                });
+        } else {
+            this.startAudioLevelMonitoring(audioStream);
+        }
+    }
+    
+    startAudioLevelMonitoring(audioStream) {
+        try {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const source = this.audioContext.createMediaStreamSource(audioStream);
+            this.audioAnalyser = this.audioContext.createAnalyser();
+            this.audioAnalyser.fftSize = 256;
+            
+            // Create gain node for volume control
+            this.audioGainNode = this.audioContext.createGain();
+            source.connect(this.audioGainNode);
+            this.audioGainNode.connect(this.audioAnalyser);
+            
+            // Set initial volume
+            const volumeSlider = document.getElementById('microphoneVolume');
+            if (volumeSlider) {
+                this.setMicrophoneVolume(volumeSlider.value);
+                volumeSlider.addEventListener('input', (e) => {
+                    this.setMicrophoneVolume(e.target.value);
+                });
+            }
+            
+            this.monitorAudioLevelWithVolume();
+            this.updateAudioStatus('Audio aktiv');
+        } catch (error) {
+            console.error('Audio level monitoring error:', error);
+            this.updateAudioStatus('Audio-Fehler');
+        }
+    }
+    
+    monitorAudioLevel() {
+        const bufferLength = this.audioAnalyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        
+        const updateLevel = () => {
+            if (!this.audioAnalyser) return;
+            
+            this.audioAnalyser.getByteFrequencyData(dataArray);
+            
+            let sum = 0;
+            for (let i = 0; i < bufferLength; i++) {
+                sum += dataArray[i];
+            }
+            const average = sum / bufferLength;
+            const percentage = (average / 255) * 100;
+            
+            const levelFill = document.getElementById('audioLevelFill');
+            if (levelFill) {
+                levelFill.style.width = percentage + '%';
+            }
+            
+            requestAnimationFrame(updateLevel);
+        };
+        
+        updateLevel();
+    }
+    
+    updateAudioStatus(message) {
+        const statusEl = document.getElementById('audioStatus');
+        if (statusEl) {
+            statusEl.textContent = `Status: ${message}`;
+        }
+    }
+    
+    updateAudioStatusBadge(status) {
+        const badge = document.getElementById('audioStatusBadge');
+        if (badge) {
+            const icon = badge.querySelector('i');
+            if (icon) {
+                // Remove all status classes
+                icon.classList.remove('text-secondary', 'text-success', 'text-danger', 'text-warning');
+                
+                // Add appropriate status class
+                switch(status) {
+                    case 'success':
+                        icon.classList.add('text-success');
+                        console.log('🟢 Audio Status Badge: GRÜN (success)');
+                        break;
+                    case 'danger':
+                        icon.classList.add('text-danger');
+                        console.log('🔴 Audio Status Badge: ROT (danger)');
+                        break;
+                    case 'warning':
+                        icon.classList.add('text-warning');
+                        console.log('🟡 Audio Status Badge: GELB (warning)');
+                        break;
+                    default:
+                        icon.classList.add('text-secondary');
+                        console.log('⚫ Audio Status Badge: GRAU (secondary)');
+                }
+                
+                // Debug info
+                console.log(`🔧 Audio Badge Classes: ${icon.className}`);
+            } else {
+                console.error('❌ Audio Status Badge: Icon nicht gefunden');
+            }
+        } else {
+            console.error('❌ Audio Status Badge: Element nicht gefunden');
+        }
+    }
+    
+    checkAudioStream() {
+        const audioEnabled = document.getElementById('audioEnabled')?.checked;
+        if (audioEnabled) {
+            // Check if any stream has audio
+            let hasAudioStream = false;
+            
+            for (const [streamId, stream] of this.streams) {
+                if (stream && stream.getAudioTracks().length > 0) {
+                    hasAudioStream = true;
+                    break;
+                }
+            }
+            
+            if (hasAudioStream) {
+                this.updateAudioStatusBadge('success');
+                this.updateAudioStatus('Audio aktiv');
+            } else {
+                this.updateAudioStatusBadge('warning');
+                this.updateAudioStatus('Warten auf Audio-Stream');
+            }
+        } else {
+            this.updateAudioStatusBadge('secondary');
+            this.updateAudioStatus('Audio deaktiviert');
+        }
+    }
+
+    // Get audio constraints based on settings modal
+    getAudioConstraints() {
+        const audioEnabled = document.getElementById('audioEnabled')?.checked !== false;
+        
+        if (!audioEnabled) {
+            return false;
+        }
+
+        // Get audio processing settings from settings modal
+        const agcEnabled = document.getElementById('settingsAGC')?.checked !== false;
+        const noiseSuppressionEnabled = document.getElementById('settingsNoiseSuppression')?.checked !== false;
+        const echoCancellationEnabled = document.getElementById('settingsEchoCancellation')?.checked !== false;
+
+        const audioConstraints = {
+            autoGainControl: agcEnabled,
+            noiseSuppression: noiseSuppressionEnabled,
+            echoCancellation: echoCancellationEnabled,
+            sampleRate: 44100,
+            channelCount: 2
+        };
+
+        console.log('🎛️ Audio Constraints from Settings:', {
+            agc: agcEnabled,
+            noiseSuppression: noiseSuppressionEnabled,
+            echoCancellation: echoCancellationEnabled
+        });
+
+        return audioConstraints;
+    }
+
+    setMicrophoneVolume(value) {
+        if (this.audioGainNode) {
+            // Convert 0-100 to 0-2 gain (allowing up to 2x amplification)
+            const gainValue = (value / 100) * 2;
+            this.audioGainNode.gain.setValueAtTime(gainValue, this.audioContext.currentTime);
+            
+            // Update display
+            const volumeDisplay = document.getElementById('volumeDisplay');
+            if (volumeDisplay) {
+                volumeDisplay.textContent = `${value}%`;
+            }
+            
+            console.log(`🎤 Mikrofonlautstärke gesetzt: ${value}% (Gain: ${gainValue.toFixed(2)})`);
+        }
+    }
+
+    // Enhanced audio monitoring with volume visualization
+    monitorAudioLevelWithVolume() {
+        const bufferLength = this.audioAnalyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        
+        const updateLevel = () => {
+            if (!this.audioAnalyser) return;
+            
+            this.audioAnalyser.getByteFrequencyData(dataArray);
+            
+            let sum = 0;
+            for (let i = 0; i < bufferLength; i++) {
+                sum += dataArray[i];
+            }
+            const average = sum / bufferLength;
+            
+            // Apply volume scaling to visualization
+            const volumeSlider = document.getElementById('microphoneVolume');
+            const volumeMultiplier = volumeSlider ? (volumeSlider.value / 100) : 1;
+            const adjustedAverage = Math.min(255, average * volumeMultiplier * 2);
+            const percentage = (adjustedAverage / 255) * 100;
+            
+            const levelFill = document.getElementById('audioLevelFill');
+            if (levelFill) {
+                levelFill.style.width = percentage + '%';
+                
+                // Add visual feedback for volume changes
+                if (percentage > 80) {
+                    levelFill.style.background = 'linear-gradient(90deg, #28a745 0%, #ffc107 50%, #dc3545 100%)';
+                } else if (percentage > 50) {
+                    levelFill.style.background = 'linear-gradient(90deg, #28a745 0%, #ffc107 100%)';
+                } else {
+                    levelFill.style.background = '#28a745';
+                }
+            }
+            
+            requestAnimationFrame(updateLevel);
+        };
+        
+        updateLevel();
+    }
+
+    // Quick Audio Recording functionality
+    async setupQuickAudioRecording() {
+        const recordBtn = document.getElementById('quickAudioRecordBtn');
+        const volumeSlider = document.getElementById('quickMicrophoneVolume');
+        const volumeDisplay = document.getElementById('quickVolumeDisplay');
+        
+        if (!recordBtn) return;
+
+        // Initialize quick audio state
+        this.quickAudioRecording = false;
+        this.quickAudioRecorder = null;
+        this.quickAudioChunks = [];
+
+        recordBtn.addEventListener('click', () => this.toggleQuickAudioRecord());
+        
+        if (volumeSlider) {
+            volumeSlider.addEventListener('input', (e) => {
+                this.setQuickMicrophoneVolume(e.target.value);
+            });
+        }
+
+        // Setup quick audio monitoring
+        try {
+            const constraints = this.getAudioConstraints();
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: constraints });
+            this.quickAudioStream = stream;
+            this.startAudioLevelMonitoring(stream);
+            this.updateQuickAudioStatus('Bereit');
+        } catch (error) {
+            console.error('Quick audio setup failed:', error);
+            this.updateQuickAudioStatus('Mikrofon nicht verfügbar');
+        }
+    }
+
+    async toggleQuickAudioRecord() {
+        if (!this.quickAudioRecording) {
+            await this.startQuickAudioRecord();
+        } else {
+            this.stopQuickAudioRecord();
+        }
+    }
+
+    async startQuickAudioRecord() {
+        try {
+            if (!this.quickAudioStream) {
+                const constraints = this.getAudioConstraints();
+                this.quickAudioStream = await navigator.mediaDevices.getUserMedia({ audio: constraints });
+            }
+
+            // Get quality settings
+            const qualitySelect = document.getElementById('quickAudioQuality');
+            const quality = qualitySelect?.value || 'medium';
+            
+            const audioBitrate = {
+                'high': 192000,
+                'medium': 128000,
+                'low': 96000
+            }[quality] || 128000;
+
+            const options = {
+                mimeType: 'audio/webm;codecs=opus',
+                audioBitsPerSecond: audioBitrate
+            };
+
+            this.quickAudioChunks = [];
+            this.quickAudioRecorder = new MediaRecorder(this.quickAudioStream, options);
+
+            this.quickAudioRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    this.quickAudioChunks.push(event.data);
+                }
+            };
+
+            this.quickAudioRecorder.onstop = () => {
+                this.handleQuickAudioRecordingComplete();
+            };
+
+            this.quickAudioRecorder.start();
+            this.quickAudioRecording = true;
+
+            // Update UI
+            const recordBtn = document.getElementById('quickAudioRecordBtn');
+            recordBtn.innerHTML = '<i class="fas fa-stop me-2"></i>Stop Record';
+            recordBtn.classList.remove('btn-danger');
+            recordBtn.classList.add('btn-success');
+
+            this.updateQuickAudioStatus('Aufnahme läuft...');
+
+        } catch (error) {
+            console.error('Quick audio record start failed:', error);
+            this.updateQuickAudioStatus('Aufnahme-Fehler');
+        }
+    }
+
+    stopQuickAudioRecord() {
+        if (this.quickAudioRecorder && this.quickAudioRecording) {
+            this.quickAudioRecorder.stop();
+            this.quickAudioRecording = false;
+
+            // Update UI
+            const recordBtn = document.getElementById('quickAudioRecordBtn');
+            recordBtn.innerHTML = '<i class="fas fa-microphone me-2"></i>Audio Record';
+            recordBtn.classList.remove('btn-success');
+            recordBtn.classList.add('btn-danger');
+
+            this.updateQuickAudioStatus('Aufnahme beendet');
+        }
+    }
+
+    handleQuickAudioRecordingComplete() {
+        if (this.quickAudioChunks.length > 0) {
+            const blob = new Blob(this.quickAudioChunks, { type: 'audio/webm' });
+            const url = URL.createObjectURL(blob);
+            
+            // Create download link
+            const a = document.createElement('a');
+            const filename = `quick_audio_${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.webm`;
+            a.href = url;
+            a.download = filename;
+            a.click();
+            
+            URL.revokeObjectURL(url);
+            this.updateQuickAudioStatus(`Download: ${filename}`);
+        }
+    }
+
+    setQuickMicrophoneVolume(value) {
+        if (this.audioGainNode) {
+            const gainValue = (value / 100) * 2;
+            this.audioGainNode.gain.setValueAtTime(gainValue, this.audioContext.currentTime);
+            
+            const volumeDisplay = document.getElementById('quickVolumeDisplay');
+            if (volumeDisplay) {
+                volumeDisplay.textContent = `${value}%`;
+            }
+        }
+    }
+
+    updateQuickAudioStatus(message) {
+        const statusEl = document.getElementById('quickAudioStatus');
+        if (statusEl) {
+            statusEl.textContent = `Status: ${message}`;
+        }
+    }
 }
 
 // Initialize when DOM is ready
@@ -3774,10 +4435,21 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         window.streamRecorder = new StreamRecorderOptimized();
         window.streamrecApp = window.streamRecorder; // Alias for button callbacks
+        
+        // Start audio monitoring after short delay
+        setTimeout(() => {
+            window.streamRecorder.setupAudioLevelMonitoring();
+        }, 1000);
     });
 } else {
     window.streamRecorder = new StreamRecorderOptimized();
     window.streamrecApp = window.streamRecorder; // Alias for button callbacks
+    
+    // Start audio monitoring and quick audio after short delay
+    setTimeout(() => {
+        window.streamRecorder.setupAudioLevelMonitoring();
+        window.streamRecorder.setupQuickAudioRecording();
+    }, 1000);
 }
 
 console.log('✅ Performance Optimized StreamRec loaded');

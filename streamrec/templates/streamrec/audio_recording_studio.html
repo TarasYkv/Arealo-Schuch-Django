@@ -1,0 +1,994 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}StreamRec - Audio Studio{% endblock %}
+
+{% block page_css %}
+<style>
+:root {
+    --audio-primary: #667eea;
+    --audio-secondary: #764ba2;
+    --audio-success: #28a745;
+    --audio-warning: #ffc107;
+    --audio-danger: #dc3545;
+    --audio-info: #17a2b8;
+    --audio-dark: #343a40;
+    --audio-light: #f8f9fa;
+}
+
+.audio-studio {
+    background: linear-gradient(135deg, var(--audio-primary) 0%, var(--audio-secondary) 100%);
+    min-height: 100vh;
+    padding: 2rem 0;
+}
+
+.studio-container {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    padding: 2rem;
+}
+
+.record-button {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, var(--audio-danger) 0%, #ff6b6b 100%);
+    color: white;
+    font-size: 1.5rem;
+    box-shadow: 0 10px 30px rgba(220, 53, 69, 0.3);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+}
+
+.record-button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 15px 35px rgba(220, 53, 69, 0.4);
+}
+
+.record-button.recording {
+    background: linear-gradient(135deg, var(--audio-success) 0%, #51cf66 100%);
+    animation: pulse 2s infinite;
+}
+
+.record-button.paused {
+    background: linear-gradient(135deg, var(--audio-warning) 0%, #ffd43b 100%);
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.waveform-container {
+    height: 150px;
+    background: var(--audio-dark);
+    border-radius: 10px;
+    margin: 2rem 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.waveform {
+    width: 100%;
+    height: 100%;
+    background: var(--audio-dark);
+}
+
+.level-meter {
+    height: 20px;
+    background: #e9ecef;
+    border-radius: 10px;
+    margin: 0.5rem 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.level-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--audio-success) 0%, var(--audio-warning) 70%, var(--audio-danger) 100%);
+    width: 0%;
+    transition: width 0.1s ease;
+    border-radius: 10px;
+}
+
+.control-panel {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    justify-content: center;
+    margin: 2rem 0;
+}
+
+.control-btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 25px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.control-btn.primary {
+    background: linear-gradient(135deg, var(--audio-primary) 0%, var(--audio-secondary) 100%);
+    color: white;
+}
+
+.control-btn.secondary {
+    background: var(--audio-light);
+    color: var(--audio-dark);
+    border: 2px solid var(--audio-primary);
+}
+
+.control-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.control-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.recording-info {
+    background: var(--audio-light);
+    border-radius: 10px;
+    padding: 1rem;
+    margin: 1rem 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.timer {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--audio-primary);
+    font-family: 'Courier New', monospace;
+}
+
+.status {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+}
+
+.status.idle {
+    background: var(--audio-light);
+    color: var(--audio-dark);
+}
+
+.status.recording {
+    background: var(--audio-danger);
+    color: white;
+    animation: blink 1s infinite;
+}
+
+.status.paused {
+    background: var(--audio-warning);
+    color: white;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0.5; }
+}
+
+.settings-panel {
+    background: var(--audio-light);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 2rem 0;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--audio-dark);
+}
+
+.form-select, .form-control {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+}
+
+.form-select:focus, .form-control:focus {
+    border-color: var(--audio-primary);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.recordings-list {
+    margin-top: 2rem;
+}
+
+.recording-item {
+    background: white;
+    border-radius: 10px;
+    padding: 1rem;
+    margin: 1rem 0;
+    border: 1px solid #e9ecef;
+    display: flex;
+    justify-content: between;
+    align-items: center;
+}
+
+.recording-controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+}
+
+.error-message {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 1rem;
+    border-radius: 10px;
+    margin: 1rem 0;
+    border: 1px solid #f5c6cb;
+}
+
+.success-message {
+    background: #d1edff;
+    color: #0c5460;
+    padding: 1rem;
+    border-radius: 10px;
+    margin: 1rem 0;
+    border: 1px solid #bee5eb;
+}
+
+.visualizer-canvas {
+    width: 100%;
+    height: 150px;
+    background: #000;
+    border-radius: 10px;
+}
+
+.device-selector {
+    background: white;
+    border-radius: 10px;
+    padding: 1rem;
+    margin: 1rem 0;
+    border: 1px solid #e9ecef;
+}
+
+/* Improved Checkbox Visibility */
+.form-check-input {
+    width: 1.2em !important;
+    height: 1.2em !important;
+    border: 2px solid var(--audio-primary) !important;
+    background-color: #ffffff !important;
+    border-radius: 0.25em !important;
+    position: relative !important;
+}
+
+.form-check-input:checked {
+    background-color: var(--audio-primary) !important;
+    border-color: var(--audio-primary) !important;
+}
+
+.form-check-input:checked::before {
+    content: "✓" !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    color: white !important;
+    font-weight: bold !important;
+    font-size: 0.9em !important;
+}
+
+.form-check-input:focus {
+    border-color: var(--audio-primary) !important;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25) !important;
+}
+
+.form-check-label {
+    cursor: pointer !important;
+    user-select: none !important;
+}
+
+/* Volume Slider */
+.volume-slider {
+    width: 100% !important;
+    height: 6px !important;
+    border-radius: 3px !important;
+    background: #e9ecef !important;
+    outline: none !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+}
+
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 18px !important;
+    height: 18px !important;
+    border-radius: 50% !important;
+    background: var(--audio-primary) !important;
+    cursor: pointer !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
+    border: 2px solid #ffffff !important;
+}
+
+.volume-slider::-moz-range-thumb {
+    width: 18px !important;
+    height: 18px !important;
+    border-radius: 50% !important;
+    background: var(--audio-primary) !important;
+    cursor: pointer !important;
+    border: 2px solid #ffffff !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="audio-studio">
+    <div class="container">
+        <div class="studio-container">
+            <div class="text-center mb-4">
+                <h1 class="display-4 mb-3">
+                    <i class="fas fa-microphone text-gradient"></i>
+                    Audio Studio
+                </h1>
+                <p class="lead">Professionelle Audio-Aufzeichnung mit Echtzeit-Visualisierung</p>
+            </div>
+
+            <!-- Recording Status -->
+            <div class="recording-info">
+                <div>
+                    <div class="timer" id="timer">00:00:00</div>
+                    <small class="text-muted">Aufnahmezeit</small>
+                </div>
+                <div>
+                    <div class="status idle" id="status">Bereit</div>
+                </div>
+            </div>
+
+            <!-- Main Record Button -->
+            <div class="text-center mb-4">
+                <button class="record-button" id="recordBtn" title="Audio Aufnahme starten">
+                    <i class="fas fa-microphone me-2"></i>Audio Record
+                </button>
+            </div>
+
+            <!-- Control Panel -->
+            <div class="control-panel">
+                <button class="control-btn secondary" id="pauseBtn" disabled>
+                    <i class="fas fa-pause"></i> Pause
+                </button>
+                <button class="control-btn secondary" id="stopBtn" disabled>
+                    <i class="fas fa-stop"></i> Stop
+                </button>
+                <button class="control-btn primary" id="saveBtn" disabled>
+                    <i class="fas fa-save"></i> Speichern
+                </button>
+                <button class="control-btn primary" id="downloadBtn" disabled>
+                    <i class="fas fa-download"></i> Download
+                </button>
+            </div>
+
+            <!-- Waveform Visualizer -->
+            <div class="waveform-container">
+                <canvas class="visualizer-canvas" id="visualizer"></canvas>
+            </div>
+
+            <!-- Level Meters -->
+            <div class="mb-3">
+                <label class="form-label">Eingangspegel</label>
+                <div class="level-meter">
+                    <div class="level-fill" id="levelMeter"></div>
+                </div>
+            </div>
+
+            <!-- Device Selection -->
+            <div class="device-selector">
+                <h5><i class="fas fa-cog"></i> Geräte-Einstellungen</h5>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label class="form-label">Mikrofon</label>
+                            <select class="form-select" id="microphoneSelect">
+                                <option value="">Mikrofon wählen...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label class="form-label">Audio-Qualität</label>
+                            <select class="form-select" id="qualitySelect">
+                                <option value="high">Hoch (192 kbps)</option>
+                                <option value="medium" selected>Mittel (128 kbps)</option>
+                                <option value="low">Niedrig (96 kbps)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label class="form-label">Mikrofonlautstärke</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="fas fa-volume-down text-muted" style="font-size: 0.8rem;"></i>
+                                <input type="range" class="volume-slider" id="microphoneVolume" 
+                                       min="0" max="100" value="80" step="5">
+                                <i class="fas fa-volume-up text-muted" style="font-size: 0.8rem;"></i>
+                            </div>
+                            <small class="text-muted" id="volumeDisplay">80%</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Panel -->
+            <div class="settings-panel">
+                <h5><i class="fas fa-sliders-h"></i> Aufnahme-Einstellungen</h5>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label class="form-label">Format</label>
+                            <select class="form-select" id="formatSelect">
+                                <option value="webm">WebM</option>
+                                <option value="wav">WAV</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label class="form-label">Dateiname</label>
+                            <input type="text" class="form-control" id="filenameInput" placeholder="aufnahme">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label class="form-label">Max. Dauer (Min)</label>
+                            <input type="number" class="form-control" id="maxDuration" value="10" min="1" max="60">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="autoGainControl" checked>
+                            <label class="form-check-label" for="autoGainControl">
+                                Automatische Verstärkungsregelung (AGC)
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="noiseSuppression" checked>
+                            <label class="form-check-label" for="noiseSuppression">
+                                Rauschunterdrückung
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="echoCancellation" checked>
+                            <label class="form-check-label" for="echoCancellation">
+                                Echo-Unterdrückung
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Error/Success Messages -->
+            <div id="messageContainer"></div>
+
+            <!-- Recent Recordings -->
+            <div class="recordings-list">
+                <h5><i class="fas fa-history"></i> Letzte Aufnahmen</h5>
+                <div id="recordingsList">
+                    <p class="text-muted">Noch keine Aufnahmen vorhanden</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+class AudioRecordingStudio {
+    constructor() {
+        this.mediaRecorder = null;
+        this.audioStream = null;
+        this.audioContext = null;
+        this.analyzer = null;
+        this.microphones = [];
+        this.recordedBlobs = [];
+        this.isRecording = false;
+        this.isPaused = false;
+        this.startTime = null;
+        this.pausedTime = 0;
+        this.timerInterval = null;
+        
+        this.initializeElements();
+        this.setupEventListeners();
+        this.loadMicrophones();
+        this.setupVisualization();
+    }
+
+    initializeElements() {
+        this.recordBtn = document.getElementById('recordBtn');
+        this.pauseBtn = document.getElementById('pauseBtn');
+        this.stopBtn = document.getElementById('stopBtn');
+        this.saveBtn = document.getElementById('saveBtn');
+        this.downloadBtn = document.getElementById('downloadBtn');
+        this.timer = document.getElementById('timer');
+        this.status = document.getElementById('status');
+        this.levelMeter = document.getElementById('levelMeter');
+        this.microphoneSelect = document.getElementById('microphoneSelect');
+        this.qualitySelect = document.getElementById('qualitySelect');
+        this.formatSelect = document.getElementById('formatSelect');
+        this.filenameInput = document.getElementById('filenameInput');
+        this.maxDuration = document.getElementById('maxDuration');
+        this.visualizer = document.getElementById('visualizer');
+        this.messageContainer = document.getElementById('messageContainer');
+        this.recordingsList = document.getElementById('recordingsList');
+    }
+
+    setupEventListeners() {
+        this.recordBtn.addEventListener('click', () => this.toggleRecording());
+        this.pauseBtn.addEventListener('click', () => this.pauseRecording());
+        this.stopBtn.addEventListener('click', () => this.stopRecording());
+        this.saveBtn.addEventListener('click', () => this.saveRecording());
+        this.downloadBtn.addEventListener('click', () => this.downloadRecording());
+        this.microphoneSelect.addEventListener('change', () => this.changeMicrophone());
+    }
+
+    async loadMicrophones() {
+        try {
+            await navigator.mediaDevices.getUserMedia({ audio: true });
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const audioInputs = devices.filter(device => device.kind === 'audioinput');
+            
+            this.microphoneSelect.innerHTML = '<option value="">Standard-Mikrofon</option>';
+            audioInputs.forEach(device => {
+                const option = document.createElement('option');
+                option.value = device.deviceId;
+                option.textContent = device.label || `Mikrofon ${audioInputs.indexOf(device) + 1}`;
+                this.microphoneSelect.appendChild(option);
+            });
+
+            this.microphones = audioInputs;
+        } catch (error) {
+            this.showMessage('Fehler beim Laden der Mikrophone: ' + error.message, 'error');
+        }
+    }
+
+    async changeMicrophone() {
+        if (this.isRecording) {
+            this.showMessage('Mikrophone kann während der Aufnahme nicht geändert werden', 'error');
+            return;
+        }
+
+        if (this.audioStream) {
+            this.audioStream.getTracks().forEach(track => track.stop());
+        }
+
+        await this.setupAudioStream();
+    }
+
+    async setupAudioStream() {
+        try {
+            const constraints = {
+                audio: {
+                    deviceId: this.microphoneSelect.value ? { exact: this.microphoneSelect.value } : undefined,
+                    autoGainControl: document.getElementById('autoGainControl').checked,
+                    noiseSuppression: document.getElementById('noiseSuppression').checked,
+                    echoCancellation: document.getElementById('echoCancellation').checked,
+                    sampleRate: 44100,
+                    channelCount: 2
+                }
+            };
+
+            this.audioStream = await navigator.mediaDevices.getUserMedia(constraints);
+            this.setupAudioContext();
+            this.showMessage('Mikrofon erfolgreich verbunden', 'success');
+        } catch (error) {
+            this.showMessage('Fehler beim Zugriff auf das Mikrofon: ' + error.message, 'error');
+        }
+    }
+
+    setupAudioContext() {
+        if (this.audioContext) {
+            this.audioContext.close();
+        }
+
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = this.audioContext.createMediaStreamSource(this.audioStream);
+        
+        // Create gain node for volume control
+        this.audioGainNode = this.audioContext.createGain();
+        source.connect(this.audioGainNode);
+        
+        this.analyzer = this.audioContext.createAnalyser();
+        this.analyzer.fftSize = 2048;
+        this.audioGainNode.connect(this.analyzer);
+
+        // Set initial volume
+        const volumeSlider = document.getElementById('microphoneVolume');
+        if (volumeSlider) {
+            this.setMicrophoneVolume(volumeSlider.value);
+            volumeSlider.addEventListener('input', (e) => {
+                this.setMicrophoneVolume(e.target.value);
+            });
+        }
+
+        this.startLevelMonitoring();
+    }
+
+    startLevelMonitoring() {
+        const bufferLength = this.analyzer.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        const updateLevel = () => {
+            this.analyzer.getByteFrequencyData(dataArray);
+            
+            let sum = 0;
+            for (let i = 0; i < bufferLength; i++) {
+                sum += dataArray[i];
+            }
+            const average = sum / bufferLength;
+            const percentage = (average / 255) * 100;
+            
+            this.levelMeter.style.width = percentage + '%';
+            
+            if (this.isRecording) {
+                this.updateVisualization(dataArray);
+            }
+            
+            requestAnimationFrame(updateLevel);
+        };
+        
+        updateLevel();
+    }
+
+    setupVisualization() {
+        this.canvas = this.visualizer;
+        this.canvasCtx = this.canvas.getContext('2d');
+        this.canvas.width = this.canvas.offsetWidth;
+        this.canvas.height = this.canvas.offsetHeight;
+    }
+
+    updateVisualization(dataArray) {
+        const width = this.canvas.width;
+        const height = this.canvas.height;
+        
+        this.canvasCtx.fillStyle = '#000000';
+        this.canvasCtx.fillRect(0, 0, width, height);
+        
+        const barWidth = (width / dataArray.length) * 2.5;
+        let barHeight;
+        let x = 0;
+        
+        for (let i = 0; i < dataArray.length; i++) {
+            barHeight = (dataArray[i] / 255) * height;
+            
+            const gradient = this.canvasCtx.createLinearGradient(0, height - barHeight, 0, height);
+            gradient.addColorStop(0, '#667eea');
+            gradient.addColorStop(1, '#764ba2');
+            
+            this.canvasCtx.fillStyle = gradient;
+            this.canvasCtx.fillRect(x, height - barHeight, barWidth, barHeight);
+            
+            x += barWidth + 1;
+        }
+    }
+
+    async toggleRecording() {
+        if (!this.isRecording) {
+            await this.startRecording();
+        } else {
+            this.stopRecording();
+        }
+    }
+
+    async startRecording() {
+        try {
+            if (!this.audioStream) {
+                await this.setupAudioStream();
+            }
+
+            const quality = this.qualitySelect.value;
+            const audioBitrate = {
+                'high': 192000,
+                'medium': 128000,
+                'low': 96000
+            }[quality] || 128000;
+
+            const options = {
+                mimeType: this.formatSelect.value === 'webm' ? 'audio/webm;codecs=opus' : 'audio/wav',
+                audioBitsPerSecond: audioBitrate
+            };
+
+            this.recordedBlobs = [];
+            this.mediaRecorder = new MediaRecorder(this.audioStream, options);
+
+            this.mediaRecorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    this.recordedBlobs.push(event.data);
+                }
+            };
+
+            this.mediaRecorder.onstop = () => {
+                this.updateUI('idle');
+            };
+
+            this.mediaRecorder.start();
+            this.isRecording = true;
+            this.isPaused = false;
+            this.startTime = Date.now();
+            this.pausedTime = 0;
+
+            this.startTimer();
+            this.updateUI('recording');
+            this.showMessage('Aufnahme gestartet', 'success');
+
+            // Auto-stop nach max Dauer
+            const maxMs = parseInt(this.maxDuration.value) * 60 * 1000;
+            setTimeout(() => {
+                if (this.isRecording) {
+                    this.stopRecording();
+                    this.showMessage('Aufnahme automatisch beendet (Maximale Dauer erreicht)', 'warning');
+                }
+            }, maxMs);
+
+        } catch (error) {
+            this.showMessage('Fehler beim Starten der Aufnahme: ' + error.message, 'error');
+        }
+    }
+
+    pauseRecording() {
+        if (this.mediaRecorder && this.isRecording && !this.isPaused) {
+            this.mediaRecorder.pause();
+            this.isPaused = true;
+            clearInterval(this.timerInterval);
+            this.updateUI('paused');
+            this.showMessage('Aufnahme pausiert', 'warning');
+        } else if (this.isPaused) {
+            this.mediaRecorder.resume();
+            this.isPaused = false;
+            this.startTimer();
+            this.updateUI('recording');
+            this.showMessage('Aufnahme fortgesetzt', 'success');
+        }
+    }
+
+    stopRecording() {
+        if (this.mediaRecorder && this.isRecording) {
+            this.mediaRecorder.stop();
+            this.isRecording = false;
+            this.isPaused = false;
+            clearInterval(this.timerInterval);
+            this.updateUI('idle');
+            this.showMessage('Aufnahme beendet', 'success');
+        }
+    }
+
+    startTimer() {
+        this.timerInterval = setInterval(() => {
+            const elapsed = Date.now() - this.startTime - this.pausedTime;
+            this.updateTimer(elapsed);
+        }, 100);
+    }
+
+    updateTimer(elapsed) {
+        const hours = Math.floor(elapsed / 3600000);
+        const minutes = Math.floor((elapsed % 3600000) / 60000);
+        const seconds = Math.floor((elapsed % 60000) / 1000);
+
+        this.timer.textContent = 
+            `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    updateUI(state) {
+        const states = {
+            idle: {
+                recordBtn: { icon: 'microphone', class: '', disabled: false },
+                pauseBtn: { disabled: true },
+                stopBtn: { disabled: true },
+                saveBtn: { disabled: this.recordedBlobs.length === 0 },
+                downloadBtn: { disabled: this.recordedBlobs.length === 0 },
+                status: { text: 'Bereit', class: 'idle' }
+            },
+            recording: {
+                recordBtn: { icon: 'stop', class: 'recording', disabled: false },
+                pauseBtn: { disabled: false },
+                stopBtn: { disabled: false },
+                saveBtn: { disabled: true },
+                downloadBtn: { disabled: true },
+                status: { text: 'Aufnahme', class: 'recording' }
+            },
+            paused: {
+                recordBtn: { icon: 'play', class: 'paused', disabled: false },
+                pauseBtn: { disabled: false },
+                stopBtn: { disabled: false },
+                saveBtn: { disabled: true },
+                downloadBtn: { disabled: true },
+                status: { text: 'Pausiert', class: 'paused' }
+            }
+        };
+
+        const currentState = states[state];
+        
+        this.recordBtn.innerHTML = `<i class="fas fa-${currentState.recordBtn.icon}"></i>`;
+        this.recordBtn.className = `record-button ${currentState.recordBtn.class}`;
+        this.recordBtn.disabled = currentState.recordBtn.disabled;
+        
+        this.pauseBtn.disabled = currentState.pauseBtn.disabled;
+        this.stopBtn.disabled = currentState.stopBtn.disabled;
+        this.saveBtn.disabled = currentState.saveBtn.disabled;
+        this.downloadBtn.disabled = currentState.downloadBtn.disabled;
+        
+        this.status.textContent = currentState.status.text;
+        this.status.className = `status ${currentState.status.class}`;
+    }
+
+    async saveRecording() {
+        if (this.recordedBlobs.length === 0) {
+            this.showMessage('Keine Aufnahme zum Speichern vorhanden', 'error');
+            return;
+        }
+
+        try {
+            const blob = new Blob(this.recordedBlobs, { type: this.recordedBlobs[0].type });
+            const reader = new FileReader();
+            
+            reader.onload = async () => {
+                const base64Data = reader.result;
+                const filename = (this.filenameInput.value || 'aufnahme') + '_' + 
+                                new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-') + 
+                                '.' + this.formatSelect.value;
+
+                try {
+                    const response = await fetch('/streamrec/api/save-audio/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({
+                            audio_data: base64Data,
+                            filename: filename
+                        })
+                    });
+
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        this.showMessage(`Aufnahme erfolgreich gespeichert: ${result.filename}`, 'success');
+                        this.addToRecordingsList(filename, blob.size);
+                    } else {
+                        this.showMessage('Fehler beim Speichern: ' + result.error, 'error');
+                    }
+                } catch (error) {
+                    this.showMessage('Netzwerkfehler beim Speichern: ' + error.message, 'error');
+                }
+            };
+
+            reader.readAsDataURL(blob);
+        } catch (error) {
+            this.showMessage('Fehler beim Verarbeiten der Aufnahme: ' + error.message, 'error');
+        }
+    }
+
+    downloadRecording() {
+        if (this.recordedBlobs.length === 0) {
+            this.showMessage('Keine Aufnahme zum Download vorhanden', 'error');
+            return;
+        }
+
+        const blob = new Blob(this.recordedBlobs, { type: this.recordedBlobs[0].type });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const filename = (this.filenameInput.value || 'aufnahme') + '_' + 
+                        new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-') + 
+                        '.' + this.formatSelect.value;
+        
+        a.href = url;
+        a.download = filename;
+        a.click();
+        
+        URL.revokeObjectURL(url);
+        this.showMessage('Download gestartet: ' + filename, 'success');
+    }
+
+    addToRecordingsList(filename, size) {
+        const listContainer = this.recordingsList;
+        
+        if (listContainer.querySelector('.text-muted')) {
+            listContainer.innerHTML = '';
+        }
+
+        const recordingItem = document.createElement('div');
+        recordingItem.className = 'recording-item';
+        
+        const sizeStr = (size / 1024 / 1024).toFixed(2) + ' MB';
+        const timeStr = new Date().toLocaleString('de-DE');
+        
+        recordingItem.innerHTML = `
+            <div>
+                <strong>${filename}</strong>
+                <br>
+                <small class="text-muted">${sizeStr} • ${timeStr}</small>
+            </div>
+            <div class="recording-controls">
+                <button class="control-btn primary btn-sm" onclick="this.parentElement.parentElement.remove()">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+        
+        listContainer.prepend(recordingItem);
+    }
+
+    showMessage(message, type) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = type === 'error' ? 'error-message' : 'success-message';
+        messageDiv.textContent = message;
+        
+        this.messageContainer.appendChild(messageDiv);
+        
+        setTimeout(() => {
+            messageDiv.remove();
+        }, 5000);
+    }
+
+    setMicrophoneVolume(value) {
+        if (this.audioGainNode) {
+            // Convert 0-100 to 0-2 gain (allowing up to 2x amplification)
+            const gainValue = (value / 100) * 2;
+            this.audioGainNode.gain.setValueAtTime(gainValue, this.audioContext.currentTime);
+            
+            // Update display
+            const volumeDisplay = document.getElementById('volumeDisplay');
+            if (volumeDisplay) {
+                volumeDisplay.textContent = `${value}%`;
+            }
+            
+            console.log(`🎤 Mikrofonlautstärke gesetzt: ${value}% (Gain: ${gainValue.toFixed(2)})`);
+        }
+    }
+}
+
+// CSRF Cookie Helper
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    new AudioRecordingStudio();
+});
+</script>
+{% endblock %}

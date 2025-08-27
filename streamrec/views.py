@@ -2,10 +2,14 @@
 
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
 import json
 import logging
+import base64
+import os
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +27,7 @@ def dashboard(request):
             'Multi-Monitor Unterstützung',
             'Live Komposition Vorschau',
             'Server Video-Speicherung',
+            'Audio Studio - Professionelle Aufnahme',
             'Drag & Drop Layout System',
             'Performance-Monitoring',
             'Mobile-Optimierung'
@@ -144,4 +149,71 @@ def get_media_devices(request):
         return JsonResponse({
             'success': False,
             'error': 'Fehler beim Aufzählen der Mediengeräte'
+        }, status=500)
+
+@login_required 
+def audio_recording_studio(request):
+    """
+    Dedicated Audio Recording Studio
+    """
+    context = {
+        'title': 'StreamRec - Audio Studio',
+        'max_duration_minutes': 10,
+        'supported_formats': ['webm', 'wav', 'mp3'],
+        'version': 'audio-studio',
+        'features': {
+            'recording': ['High-Quality Audio', 'Real-time Monitoring', 'Multiple Formats'],
+            'visualization': ['Waveform Display', 'Level Meters', 'Spectrum Analyzer'],
+            'processing': ['Auto Gain Control', 'Noise Reduction', 'Echo Cancellation']
+        }
+    }
+    return render(request, 'streamrec/audio_recording_studio.html', context)
+
+@login_required
+@csrf_exempt
+@require_http_methods(["POST"])
+def save_audio_recording(request):
+    """
+    Save audio recording to server
+    """
+    try:
+        data = json.loads(request.body)
+        audio_data = data.get('audio_data')
+        filename = data.get('filename', 'recording.webm')
+        
+        if not audio_data:
+            return JsonResponse({
+                'success': False,
+                'error': 'Keine Audio-Daten erhalten'
+            }, status=400)
+        
+        # Decode base64 audio data
+        if audio_data.startswith('data:'):
+            audio_data = audio_data.split(',', 1)[1]
+        
+        audio_bytes = base64.b64decode(audio_data)
+        
+        # Create media directory if it doesn't exist
+        media_dir = os.path.join(settings.MEDIA_ROOT, 'audio_recordings')
+        os.makedirs(media_dir, exist_ok=True)
+        
+        # Save the file
+        file_path = os.path.join(media_dir, f"{request.user.id}_{filename}")
+        with open(file_path, 'wb') as f:
+            f.write(audio_bytes)
+        
+        logger.info(f"Audio recording saved: {file_path}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Audio-Aufnahme erfolgreich gespeichert',
+            'filename': filename,
+            'file_size': len(audio_bytes)
+        })
+        
+    except Exception as e:
+        logger.error(f"Audio save error: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Fehler beim Speichern der Audio-Aufnahme'
         }, status=500)
