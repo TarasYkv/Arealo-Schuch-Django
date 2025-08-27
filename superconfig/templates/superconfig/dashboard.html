@@ -1,0 +1,520 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}SuperConfig - Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card-hover:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .backup-card {
+        border-left: 4px solid #28a745;
+    }
+    
+    .restore-card {
+        border-left: 4px solid #ffc107;
+    }
+    
+    .info-card {
+        border-left: 4px solid #17a2b8;
+    }
+    
+    .superuser-badge {
+        background: linear-gradient(45deg, #dc3545, #fd7e14);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        margin-left: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-cog text-danger me-2"></i>
+                        SuperConfig Dashboard
+                        <span class="superuser-badge">
+                            <i class="fas fa-crown me-1"></i>Superuser
+                        </span>
+                    </h2>
+                    <p class="text-muted mt-2">Erweiterte System-Konfiguration und Backup-Verwaltung</p>
+                </div>
+            </div>
+            
+            <!-- Alert Area -->
+            <div id="alertArea"></div>
+            
+            <!-- Database Info Card -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card info-card">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">
+                                <i class="fas fa-database text-info me-2"></i>
+                                Datenbank-Informationen
+                            </h5>
+                        </div>
+                        <div class="card-body" id="databaseInfo">
+                            <div class="d-flex justify-content-center">
+                                <div class="spinner-border text-info" role="status">
+                                    <span class="visually-hidden">Lädt...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Main Actions -->
+            <div class="row">
+                <!-- Backup Section -->
+                <div class="col-md-6 mb-4">
+                    <div class="card backup-card card-hover h-100">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-download me-2"></i>
+                                Database Backup
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">Erstelle ein vollständiges Backup der aktuellen Datenbank.</p>
+                            <div class="d-grid">
+                                <button class="btn btn-success btn-lg" onclick="createBackup()">
+                                    <i class="fas fa-download me-2"></i>
+                                    Backup erstellen
+                                </button>
+                            </div>
+                            
+                            <!-- Backup Progress -->
+                            <div id="backupProgress" class="mt-3" style="display: none;">
+                                <div class="progress">
+                                    <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" 
+                                         role="progressbar" style="width: 100%"></div>
+                                </div>
+                                <small class="text-muted">Backup wird erstellt...</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Restore Section -->
+                <div class="col-md-6 mb-4">
+                    <div class="card restore-card card-hover h-100">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="mb-0">
+                                <i class="fas fa-upload me-2"></i>
+                                Database Restore
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">Stelle die Datenbank aus einem Backup wieder her.</p>
+                            
+                            <!-- Tabs für Upload vs Server Selection -->
+                            <ul class="nav nav-tabs mb-3" id="restoreTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload-pane" type="button" role="tab">
+                                        <i class="fas fa-upload me-1"></i>Datei hochladen
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="server-tab" data-bs-toggle="tab" data-bs-target="#server-pane" type="button" role="tab">
+                                        <i class="fas fa-server me-1"></i>Vom Server
+                                    </button>
+                                </li>
+                            </ul>
+                            
+                            <div class="tab-content" id="restoreTabContent">
+                                <!-- Upload Tab -->
+                                <div class="tab-pane fade show active" id="upload-pane" role="tabpanel">
+                                    <div class="mb-3">
+                                        <label for="backupFile" class="form-label">Backup-Datei auswählen:</label>
+                                        <input type="file" class="form-control" id="backupFile" accept=".sqlite3">
+                                        <div class="form-text">Nur .sqlite3 Dateien sind erlaubt.</div>
+                                    </div>
+                                    
+                                    <div class="d-grid">
+                                        <button class="btn btn-warning btn-lg" onclick="restoreBackup()">
+                                            <i class="fas fa-upload me-2"></i>
+                                            Von Datei wiederherstellen
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Server Tab -->
+                                <div class="tab-pane fade" id="server-pane" role="tabpanel">
+                                    <div class="mb-3">
+                                        <label for="serverBackupSelect" class="form-label">Server-Backup auswählen:</label>
+                                        <select class="form-select" id="serverBackupSelect">
+                                            <option value="">Backup auswählen...</option>
+                                        </select>
+                                        <div class="form-text">Wählen Sie ein Backup vom Server aus.</div>
+                                    </div>
+                                    
+                                    <div class="d-grid">
+                                        <button class="btn btn-warning btn-lg" onclick="restoreFromServer()">
+                                            <i class="fas fa-server me-2"></i>
+                                            Vom Server wiederherstellen
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Available Backups -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-history me-2"></i>
+                                    Verfügbare Backups
+                                </h5>
+                                <button class="btn btn-sm btn-outline-primary" onclick="loadBackupList()">
+                                    <i class="fas fa-refresh me-1"></i>
+                                    Aktualisieren
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="backupList">
+                                <div class="d-flex justify-content-center">
+                                    <div class="spinner-border" role="status">
+                                        <span class="visually-hidden">Lädt...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Bestätigung erforderlich</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-danger" id="confirmAction">Bestätigen</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{% csrf_token %}
+<!-- Load jQuery if not already loaded -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script>
+// Debug script
+console.log('SuperConfig script starting...');
+
+// Ensure jQuery is loaded
+if (typeof $ === 'undefined') {
+    console.error('❌ jQuery is not loaded');
+    alert('jQuery ist nicht geladen! Bitte Seite neu laden.');
+} else {
+    console.log('✅ jQuery is loaded');
+}
+
+// Test if we're on the right port
+console.log('Current URL:', window.location.href);
+console.log('Expected port: should be 8001, not 8000');
+
+$(document).ready(function() {
+    console.log('✅ SuperConfig Dashboard loaded');
+    console.log('🔄 Loading database info...');
+    loadDatabaseInfo();
+    console.log('🔄 Loading backup list...');
+    loadBackupList();
+});
+
+function showAlert(message, type = 'info') {
+    const alertHtml = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    $('#alertArea').html(alertHtml);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        $('.alert').alert('close');
+    }, 5000);
+}
+
+function loadDatabaseInfo() {
+    console.log('📊 loadDatabaseInfo called');
+    const url = '{% url "superconfig:database_info" %}';
+    console.log('📊 Making request to:', url);
+    
+    $.get(url)
+        .done(function(response) {
+            console.log('📊 Database info response:', response);
+            if (response.success) {
+                const info = response.database_info;
+                const tablesHtml = info.tables.map(table => 
+                    `<span class="badge bg-secondary me-1">${table.name}: ${table.rows}</span>`
+                ).join('');
+                
+                $('#databaseInfo').html(`
+                    <div class="row">
+                        <div class="col-md-4">
+                            <strong>Dateigröße:</strong><br>
+                            <span class="text-primary">${info.size_mb} MB</span>
+                        </div>
+                        <div class="col-md-8">
+                            <strong>Tabellen:</strong><br>
+                            ${tablesHtml}
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <small class="text-muted">Pfad: ${info.path}</small>
+                        </div>
+                    </div>
+                `);
+            }
+        })
+        .fail(function(xhr, status, error) {
+            console.error('❌ Database info failed:', status, error, xhr.responseText);
+            $('#databaseInfo').html('<p class="text-danger">Fehler beim Laden der Datenbank-Informationen: ' + error + '</p>');
+        });
+}
+
+function createBackup() {
+    console.log('💾 createBackup called');
+    $('#backupProgress').show();
+    
+    const url = '{% url "superconfig:database_backup" %}';
+    console.log('💾 Making backup request to:', url);
+    
+    $.post(url)
+        .done(function(response) {
+            $('#backupProgress').hide();
+            if (response.success) {
+                showAlert(`✅ ${response.message}`, 'success');
+                loadBackupList();
+                loadDatabaseInfo();
+            } else {
+                showAlert(`❌ ${response.message}`, 'danger');
+            }
+        })
+        .fail(function() {
+            $('#backupProgress').hide();
+            showAlert('❌ Fehler beim Erstellen des Backups', 'danger');
+        });
+}
+
+function restoreBackup() {
+    const fileInput = $('#backupFile')[0];
+    if (!fileInput.files.length) {
+        showAlert('❌ Bitte wählen Sie eine Backup-Datei aus', 'warning');
+        return;
+    }
+    
+    // Confirmation dialog
+    $('#confirmMessage').text('Sind Sie sicher, dass Sie die Datenbank wiederherstellen möchten? Die aktuelle Datenbank wird überschrieben!');
+    
+    $('#confirmAction').off('click').on('click', function() {
+        const formData = new FormData();
+        formData.append('backup_file', fileInput.files[0]);
+        
+        $.ajax({
+            url: '{% url "superconfig:database_restore" %}',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: {
+                'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+            }
+        })
+        .done(function(response) {
+            if (response.success) {
+                showAlert(`✅ ${response.message}`, 'success');
+                loadDatabaseInfo();
+                $('#backupFile').val('');
+            } else {
+                showAlert(`❌ ${response.message}`, 'danger');
+            }
+        })
+        .fail(function() {
+            showAlert('❌ Fehler beim Wiederherstellen des Backups', 'danger');
+        });
+        
+        $('#confirmModal').modal('hide');
+    });
+    
+    $('#confirmModal').modal('show');
+}
+
+function loadBackupList() {
+    $.get('{% url "superconfig:list_backups" %}')
+        .done(function(response) {
+            if (response.success) {
+                // Update server backup dropdown
+                const serverSelect = $('#serverBackupSelect');
+                serverSelect.html('<option value="">Backup auswählen...</option>');
+                
+                if (response.backups.length === 0) {
+                    $('#backupList').html('<p class="text-muted">Keine Backups vorhanden</p>');
+                    serverSelect.append('<option value="" disabled>Keine Backups verfügbar</option>');
+                } else {
+                    // Populate backup list table
+                    let html = '<div class="table-responsive"><table class="table table-hover"><thead><tr><th>Dateiname</th><th>Erstellt</th><th>Größe</th><th>Aktionen</th></tr></thead><tbody>';
+                    
+                    response.backups.forEach(backup => {
+                        // Add to table
+                        html += `
+                            <tr>
+                                <td><code>${backup.filename}</code></td>
+                                <td>${backup.created}</td>
+                                <td>${backup.size} MB</td>
+                                <td>
+                                    <a href="{% url 'superconfig:download_backup' 'FILENAME' %}".replace('FILENAME', backup.filename) 
+                                       class="btn btn-sm btn-outline-primary me-1">
+                                        <i class="fas fa-download me-1"></i>Download
+                                    </a>
+                                    <button class="btn btn-sm btn-outline-warning" onclick="restoreFromServerDirect('${backup.filename}')">
+                                        <i class="fas fa-undo me-1"></i>Restore
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                        
+                        // Add to dropdown
+                        serverSelect.append(`<option value="${backup.filename}">${backup.filename} (${backup.size} MB)</option>`);
+                    });
+                    
+                    html += '</tbody></table></div>';
+                    $('#backupList').html(html);
+                }
+            } else {
+                $('#backupList').html('<p class="text-danger">Fehler beim Laden der Backup-Liste</p>');
+            }
+        })
+        .fail(function() {
+            $('#backupList').html('<p class="text-danger">Fehler beim Laden der Backup-Liste</p>');
+        });
+}
+
+function restoreFromServer() {
+    const selectedBackup = $('#serverBackupSelect').val();
+    if (!selectedBackup) {
+        showAlert('❌ Bitte wählen Sie ein Backup aus', 'warning');
+        return;
+    }
+    
+    restoreFromServerDirect(selectedBackup);
+}
+
+function restoreFromServerDirect(filename) {
+    // Confirmation dialog
+    $('#confirmMessage').text(`Sind Sie sicher, dass Sie die Datenbank von "${filename}" wiederherstellen möchten? Die aktuelle Datenbank wird überschrieben!`);
+    
+    $('#confirmAction').off('click').on('click', function() {
+        console.log('🔄 Restoring from server backup:', filename);
+        
+        $.ajax({
+            url: '{% url "superconfig:database_restore_from_server" %}',
+            type: 'POST',
+            data: {
+                'backup_filename': filename
+            },
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .done(function(response) {
+            if (response.success) {
+                showAlert(`✅ ${response.message}`, 'success');
+                loadDatabaseInfo();
+                $('#serverBackupSelect').val('');
+            } else {
+                showAlert(`❌ ${response.message}`, 'danger');
+            }
+        })
+        .fail(function() {
+            showAlert('❌ Fehler beim Wiederherstellen des Backups', 'danger');
+        });
+        
+        $('#confirmModal').modal('hide');
+    });
+    
+    $('#confirmModal').modal('show');
+}
+
+// CSRF Token setup
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Set up CSRF token for all AJAX requests
+$(document).ready(function() {
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings) {
+            if (!(/^http:.*/.test(settings.url) || /^https:.*/.test(settings.url))) {
+                xhr.setRequestHeader("X-CSRFToken", getCookie('csrftoken'));
+            }
+        }
+    });
+    
+    // Also try to get CSRF from the template
+    const csrftoken = $('[name=csrfmiddlewaretoken]').val();
+    if (csrftoken) {
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (!(/^http:.*/.test(settings.url) || /^https:.*/.test(settings.url))) {
+                    xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                }
+            }
+        });
+    }
+});
+
+// Make sure functions are in global scope for onclick handlers
+window.createBackup = createBackup;
+window.restoreBackup = restoreBackup;
+window.restoreFromServer = restoreFromServer;
+window.restoreFromServerDirect = restoreFromServerDirect;
+window.loadBackupList = loadBackupList;
+</script>
+{% endblock %}
