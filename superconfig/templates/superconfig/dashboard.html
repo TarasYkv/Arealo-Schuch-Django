@@ -55,146 +55,772 @@
             <!-- Alert Area -->
             <div id="alertArea"></div>
             
-            <!-- Database Info Card -->
+            <!-- Main Tabs -->
             <div class="row mb-4">
                 <div class="col-12">
-                    <div class="card info-card">
-                        <div class="card-header bg-light">
-                            <h5 class="mb-0">
-                                <i class="fas fa-database text-info me-2"></i>
-                                Datenbank-Informationen
-                            </h5>
-                        </div>
-                        <div class="card-body" id="databaseInfo">
-                            <div class="d-flex justify-content-center">
-                                <div class="spinner-border text-info" role="status">
-                                    <span class="visually-hidden">Lädt...</span>
+                    <ul class="nav nav-tabs nav-justified" id="mainTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="database-main-tab" data-bs-toggle="tab" data-bs-target="#database-main-pane" type="button" role="tab">
+                                <i class="fas fa-database me-2"></i>
+                                Database & Backup
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="email-main-tab" data-bs-toggle="tab" data-bs-target="#email-main-pane" type="button" role="tab">
+                                <i class="fas fa-envelope me-2"></i>
+                                Email Service
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Tab Content -->
+            <div class="tab-content" id="mainTabContent">
+                <!-- Database & Backup Tab -->
+                <div class="tab-pane fade show active" id="database-main-pane" role="tabpanel">
+                    <!-- Database Info Card -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card info-card">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-database text-info me-2"></i>
+                                        Datenbank-Informationen
+                                    </h5>
+                                </div>
+                                <div class="card-body" id="databaseInfo">
+                                    <div class="d-flex justify-content-center">
+                                        <div class="spinner-border text-info" role="status">
+                                            <span class="visually-hidden">Lädt...</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-            
-            <!-- Main Actions -->
-            <div class="row">
-                <!-- Backup Section -->
-                <div class="col-md-6 mb-4">
-                    <div class="card backup-card card-hover h-100">
-                        <div class="card-header bg-success text-white">
-                            <h5 class="mb-0">
-                                <i class="fas fa-download me-2"></i>
-                                Database Backup
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <p class="card-text">Erstelle ein vollständiges Backup der aktuellen Datenbank.</p>
-                            <div class="d-grid">
-                                <button class="btn btn-success btn-lg" onclick="createBackup()">
-                                    <i class="fas fa-download me-2"></i>
-                                    Backup erstellen
-                                </button>
-                            </div>
-                            
-                            <!-- Backup Progress -->
-                            <div id="backupProgress" class="mt-3" style="display: none;">
-                                <div class="progress">
-                                    <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" 
-                                         role="progressbar" style="width: 100%"></div>
+                    
+                    <!-- Backup Actions -->
+                    <div class="row mb-4">
+                        <!-- Backup Section -->
+                        <div class="col-md-6 mb-4">
+                            <div class="card backup-card card-hover h-100">
+                                <div class="card-header bg-success text-white">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-download me-2"></i>
+                                        Database Backup
+                                    </h5>
                                 </div>
-                                <small class="text-muted">Backup wird erstellt...</small>
+                                <div class="card-body">
+                                    <p class="card-text">Erstelle ein vollständiges Backup der aktuellen Datenbank.</p>
+                                    <div class="d-grid">
+                                        <button class="btn btn-success btn-lg" onclick="createBackup()">
+                                            <i class="fas fa-download me-2"></i>
+                                            Backup erstellen
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Backup Progress -->
+                                    <div id="backupProgress" class="mt-3" style="display: none;">
+                                        <div class="progress">
+                                            <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" 
+                                                 role="progressbar" style="width: 100%"></div>
+                                        </div>
+                                        <small class="text-muted">Backup wird erstellt...</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Restore Section -->
+                        <div class="col-md-6 mb-4">
+                            <div class="card restore-card card-hover h-100">
+                                <div class="card-header bg-warning text-dark">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-upload me-2"></i>
+                                        Database Restore
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">Stelle die Datenbank aus einem Backup wieder her.</p>
+                                    
+                                    <!-- Tabs für Upload vs Server Selection -->
+                                    <ul class="nav nav-tabs mb-3" id="restoreTabs" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload-pane" type="button" role="tab">
+                                                <i class="fas fa-upload me-1"></i>Datei hochladen
+                                            </button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="server-tab" data-bs-toggle="tab" data-bs-target="#server-pane" type="button" role="tab">
+                                                <i class="fas fa-server me-1"></i>Vom Server
+                                            </button>
+                                        </li>
+                                    </ul>
+                                    
+                                    <div class="tab-content" id="restoreTabContent">
+                                        <!-- Upload Tab -->
+                                        <div class="tab-pane fade show active" id="upload-pane" role="tabpanel">
+                                            <div class="mb-3">
+                                                <label for="backupFile" class="form-label">Backup-Datei auswählen:</label>
+                                                <input type="file" class="form-control" id="backupFile" accept=".sqlite3">
+                                                <div class="form-text">Nur .sqlite3 Dateien sind erlaubt.</div>
+                                            </div>
+                                            
+                                            <div class="d-grid">
+                                                <button class="btn btn-warning btn-lg" onclick="restoreBackup()">
+                                                    <i class="fas fa-upload me-2"></i>
+                                                    Von Datei wiederherstellen
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Server Tab -->
+                                        <div class="tab-pane fade" id="server-pane" role="tabpanel">
+                                            <div class="mb-3">
+                                                <label for="serverBackupSelect" class="form-label">Server-Backup auswählen:</label>
+                                                <select class="form-select" id="serverBackupSelect">
+                                                    <option value="">Backup auswählen...</option>
+                                                </select>
+                                                <div class="form-text">Wählen Sie ein Backup vom Server aus.</div>
+                                            </div>
+                                            
+                                            <div class="d-grid">
+                                                <button class="btn btn-warning btn-lg" onclick="restoreFromServer()">
+                                                    <i class="fas fa-server me-2"></i>
+                                                    Vom Server wiederherstellen
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Available Backups -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h5 class="mb-0">
+                                            <i class="fas fa-history me-2"></i>
+                                            Verfügbare Backups
+                                        </h5>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="loadBackupList()">
+                                            <i class="fas fa-refresh me-1"></i>
+                                            Aktualisieren
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div id="backupList">
+                                        <div class="d-flex justify-content-center">
+                                            <div class="spinner-border" role="status">
+                                                <span class="visually-hidden">Lädt...</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Restore Section -->
-                <div class="col-md-6 mb-4">
-                    <div class="card restore-card card-hover h-100">
-                        <div class="card-header bg-warning text-dark">
-                            <h5 class="mb-0">
-                                <i class="fas fa-upload me-2"></i>
-                                Database Restore
-                            </h5>
+                <!-- Email Service Tab -->
+                <div class="tab-pane fade" id="email-main-pane" role="tabpanel">
+                    <!-- Email Service Info Card -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card info-card">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-envelope text-warning me-2"></i>
+                                        Email Service Status
+                                    </h5>
+                                </div>
+                                <div class="card-body" id="emailServiceInfo">
+                                    <div class="d-flex justify-content-center">
+                                        <div class="spinner-border text-warning" role="status">
+                                            <span class="visually-hidden">Lädt...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="card-body">
-                            <p class="card-text">Stelle die Datenbank aus einem Backup wieder her.</p>
-                            
-                            <!-- Tabs für Upload vs Server Selection -->
-                            <ul class="nav nav-tabs mb-3" id="restoreTabs" role="tablist">
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link active" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload-pane" type="button" role="tab">
-                                        <i class="fas fa-upload me-1"></i>Datei hochladen
-                                    </button>
-                                </li>
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link" id="server-tab" data-bs-toggle="tab" data-bs-target="#server-pane" type="button" role="tab">
-                                        <i class="fas fa-server me-1"></i>Vom Server
-                                    </button>
-                                </li>
-                            </ul>
-                            
-                            <div class="tab-content" id="restoreTabContent">
-                                <!-- Upload Tab -->
-                                <div class="tab-pane fade show active" id="upload-pane" role="tabpanel">
+                    </div>
+                    
+                    <!-- Email Service Actions -->
+                    <div class="row mb-4">
+                        <div class="col-md-6 mb-4">
+                            <div class="card card-hover h-100" style="border-left: 4px solid #f39c12;">
+                                <div class="card-header bg-warning text-dark">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-paper-plane me-2"></i>
+                                        Email Test
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">Teste die Email-Funktionalität durch Senden einer Test-Email.</p>
+                                    
                                     <div class="mb-3">
-                                        <label for="backupFile" class="form-label">Backup-Datei auswählen:</label>
-                                        <input type="file" class="form-control" id="backupFile" accept=".sqlite3">
-                                        <div class="form-text">Nur .sqlite3 Dateien sind erlaubt.</div>
+                                        <label for="testEmailAddress" class="form-label">Test-Email-Adresse:</label>
+                                        <input type="email" class="form-control" id="testEmailAddress" value="kontakt@workloom.de" placeholder="test@example.com">
+                                        <div class="form-text">Die Test-Email wird an diese Adresse gesendet.</div>
                                     </div>
                                     
                                     <div class="d-grid">
-                                        <button class="btn btn-warning btn-lg" onclick="restoreBackup()">
-                                            <i class="fas fa-upload me-2"></i>
-                                            Von Datei wiederherstellen
+                                        <button class="btn btn-warning btn-lg" onclick="sendTestEmail()">
+                                            <i class="fas fa-paper-plane me-2"></i>
+                                            Test-Email senden
                                         </button>
                                     </div>
                                 </div>
-                                
-                                <!-- Server Tab -->
-                                <div class="tab-pane fade" id="server-pane" role="tabpanel">
-                                    <div class="mb-3">
-                                        <label for="serverBackupSelect" class="form-label">Server-Backup auswählen:</label>
-                                        <select class="form-select" id="serverBackupSelect">
-                                            <option value="">Backup auswählen...</option>
-                                        </select>
-                                        <div class="form-text">Wählen Sie ein Backup vom Server aus.</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-4">
+                            <div class="card card-hover h-100" style="border-left: 4px solid #e74c3c;">
+                                <div class="card-header bg-danger text-white">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        SMTP Diagnose
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text">Überprüfe die SMTP-Verbindung und Email-Konfiguration.</p>
+                                    
+                                    <div id="smtpStatus" class="mb-3">
+                                        <div class="d-flex align-items-center">
+                                            <div class="spinner-border spinner-border-sm text-danger me-2" role="status"></div>
+                                            <span>Überprüfe SMTP-Verbindung...</span>
+                                        </div>
                                     </div>
                                     
                                     <div class="d-grid">
-                                        <button class="btn btn-warning btn-lg" onclick="restoreFromServer()">
-                                            <i class="fas fa-server me-2"></i>
-                                            Vom Server wiederherstellen
+                                        <button class="btn btn-danger btn-lg" onclick="checkEmailService()">
+                                            <i class="fas fa-stethoscope me-2"></i>
+                                            Service überprüfen
                                         </button>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-            
-            <!-- Available Backups -->
-            <div class="row">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">
-                                    <i class="fas fa-history me-2"></i>
-                                    Verfügbare Backups
-                                </h5>
-                                <button class="btn btn-sm btn-outline-primary" onclick="loadBackupList()">
-                                    <i class="fas fa-refresh me-1"></i>
-                                    Aktualisieren
-                                </button>
+                    
+                    <!-- Email Configuration Section -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card" style="border-left: 4px solid #6f42c1;">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-cog text-primary me-2"></i>
+                                        SMTP Konfiguration
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="text-muted">Konfigurieren Sie SMTP-Einstellungen für den E-Mail-Versand. Diese Einstellungen werden sicher verschlüsselt gespeichert.</p>
+                                    
+                                    <form id="emailConfigForm">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <h6 class="fw-bold text-primary mb-3">SMTP Server Einstellungen</h6>
+                                                
+                                                <div class="mb-3">
+                                                    <label for="smtpHost" class="form-label">SMTP Host</label>
+                                                    <input type="text" class="form-control" id="smtpHost" value="smtp.gmail.com" 
+                                                           placeholder="smtp.gmail.com" required>
+                                                    <div class="form-text">z.B. smtp.gmail.com, smtp.outlook.com</div>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label for="smtpPort" class="form-label">SMTP Port</label>
+                                                    <input type="number" class="form-control" id="smtpPort" value="587" 
+                                                           placeholder="587" required>
+                                                    <div class="form-text">Standard: 587 (TLS), 465 (SSL), 25 (unverschlüsselt)</div>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="smtpUseTls" checked>
+                                                        <label class="form-check-label" for="smtpUseTls">
+                                                            TLS verwenden
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="smtpUseSsl">
+                                                        <label class="form-check-label" for="smtpUseSsl">
+                                                            SSL verwenden
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label for="backendType" class="form-label">Backend Typ</label>
+                                                    <select class="form-select" id="backendType" required>
+                                                        <option value="smtp">SMTP Backend (Produktiv)</option>
+                                                        <option value="console">Console Backend (Entwicklung)</option>
+                                                        <option value="filebased">File-based Backend (Test)</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="col-md-6">
+                                                <h6 class="fw-bold text-success mb-3">E-Mail Account</h6>
+                                                
+                                                <div class="mb-3">
+                                                    <label for="emailHostUser" class="form-label">E-Mail Adresse</label>
+                                                    <input type="email" class="form-control" id="emailHostUser" 
+                                                           placeholder="ihre-email@example.com" required>
+                                                    <div class="form-text">Die E-Mail-Adresse für den Versand</div>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label for="emailHostPassword" class="form-label">🔐 Zoho Passwort</label>
+                                                    <input type="password" class="form-control" id="emailHostPassword" 
+                                                           placeholder="Ihr Zoho Login-Passwort" required>
+                                                    <div class="alert alert-info mt-2 mb-0">
+                                                        <strong><i class="fas fa-info-circle me-1"></i>Hinweis:</strong> 
+                                                        Verwenden Sie Ihr <strong>normales Zoho Login-Passwort</strong>.
+                                                        <br><small>
+                                                            Falls der Test fehlschlägt, prüfen wir automatisch weitere Zoho-Einstellungen.
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label for="defaultFromEmail" class="form-label">Standard "Von"-Adresse</label>
+                                                    <input type="email" class="form-control" id="defaultFromEmail" 
+                                                           placeholder="noreply@example.com" required>
+                                                    <div class="form-text">Standard-Absenderadresse für E-Mails</div>
+                                                </div>
+                                                
+                                                <h6 class="fw-bold text-warning mb-3 mt-4">
+                                                    Zoho Konfiguration (Optional)
+                                                    <button type="button" class="btn btn-sm btn-outline-warning ms-2" onclick="showZohoSetupGuide()">
+                                                        <i class="fas fa-question-circle"></i> Anleitung
+                                                    </button>
+                                                </h6>
+                                                
+                                                <!-- Zoho Setup Status -->
+                                                <div id="zohoSetupStatus" class="alert alert-light border-warning mb-3" style="display: none;">
+                                                    <h6 class="alert-heading">
+                                                        <i class="fas fa-info-circle text-warning me-2"></i>
+                                                        Zoho API Setup Status
+                                                    </h6>
+                                                    <div id="zohoStatusContent">
+                                                        <!-- Status will be loaded here -->
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label for="zohoClientId" class="form-label">
+                                                        Zoho Client ID
+                                                        <i class="fas fa-info-circle text-muted ms-1" data-bs-toggle="tooltip" 
+                                                           title="Format: 1000.XXXXXXXXXXXXXXXXX"></i>
+                                                    </label>
+                                                    <div class="input-group">
+                                                        <input type="text" class="form-control" id="zohoClientId" 
+                                                               placeholder="1000.XXXXXXXXXXXXXXXXX">
+                                                        <button class="btn btn-outline-secondary" type="button" onclick="verifyZohoClientId()">
+                                                            <i class="fas fa-check"></i> Prüfen
+                                                        </button>
+                                                    </div>
+                                                    <div class="form-text">
+                                                        <i class="fas fa-lightbulb text-warning me-1"></i>
+                                                        Erhalten Sie aus der <a href="https://api-console.zoho.eu/" target="_blank">
+                                                            Zoho API Console <i class="fas fa-external-link-alt"></i>
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label for="zohoClientSecret" class="form-label">
+                                                        Zoho Client Secret
+                                                        <i class="fas fa-lock text-muted ms-1" data-bs-toggle="tooltip" 
+                                                           title="Wird verschlüsselt gespeichert"></i>
+                                                    </label>
+                                                    <div class="input-group">
+                                                        <input type="password" class="form-control" id="zohoClientSecret" 
+                                                               placeholder="Ihr geheimer Schlüssel">
+                                                        <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('zohoClientSecret')">
+                                                            <i class="fas fa-eye"></i>
+                                                        </button>
+                                                    </div>
+                                                    <div class="form-text">
+                                                        <i class="fas fa-shield-alt text-success me-1"></i>
+                                                        Wird sicher verschlüsselt in der Datenbank gespeichert
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label for="zohoRedirectUri" class="form-label">
+                                                        Zoho Redirect URI
+                                                        <i class="fas fa-link text-muted ms-1" data-bs-toggle="tooltip" 
+                                                           title="URL für OAuth2 Callback"></i>
+                                                    </label>
+                                                    <div class="input-group">
+                                                        <input type="url" class="form-control" id="zohoRedirectUri" 
+                                                               placeholder="https://ihre-domain.com/auth/callback">
+                                                        <button class="btn btn-outline-secondary" type="button" onclick="generateRedirectUri()">
+                                                            <i class="fas fa-magic"></i> Auto
+                                                        </button>
+                                                    </div>
+                                                    <div class="form-text">
+                                                        <i class="fas fa-clipboard text-info me-1"></i>
+                                                        Standard: <code id="suggestedRedirectUri">${window.location.origin}/zoho/callback</code>
+                                                        <button class="btn btn-link btn-sm p-0 ms-2" onclick="copyRedirectUri()">
+                                                            <i class="fas fa-copy"></i> Kopieren
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Zoho Region Selection -->
+                                                <div class="mb-3">
+                                                    <label for="zohoRegion" class="form-label">
+                                                        Zoho Region
+                                                        <i class="fas fa-globe text-muted ms-1" data-bs-toggle="tooltip" 
+                                                           title="Wählen Sie Ihre Zoho-Datenregion"></i>
+                                                    </label>
+                                                    <select class="form-select" id="zohoRegion">
+                                                        <option value="EU">Europa (zoho.eu)</option>
+                                                        <option value="US">USA (zoho.com)</option>
+                                                        <option value="IN">Indien (zoho.in)</option>
+                                                        <option value="AU">Australien (zoho.com.au)</option>
+                                                        <option value="CN">China (zoho.com.cn)</option>
+                                                    </select>
+                                                    <div class="form-text">
+                                                        <i class="fas fa-map-marker-alt text-primary me-1"></i>
+                                                        Wählen Sie die Region, in der Ihr Zoho-Konto registriert ist
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Quick Setup Button -->
+                                                <div class="alert alert-info mb-3">
+                                                    <h6 class="alert-heading">
+                                                        <i class="fas fa-rocket me-2"></i>
+                                                        Schnelleinrichtung
+                                                    </h6>
+                                                    <p class="mb-2">Noch keine Zoho App erstellt?</p>
+                                                    <button type="button" class="btn btn-info btn-sm" onclick="openZohoQuickSetup()">
+                                                        <i class="fas fa-magic me-1"></i>
+                                                        Schritt-für-Schritt Einrichtung starten
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row mt-4">
+                                            <div class="col-12">
+                                                <div class="d-flex gap-2">
+                                                    <button type="button" class="btn btn-primary" onclick="testEmailConfiguration()">
+                                                        <i class="fas fa-flask me-2"></i>
+                                                        Konfiguration testen
+                                                    </button>
+                                                    <button type="submit" class="btn btn-success">
+                                                        <i class="fas fa-save me-2"></i>
+                                                        Konfiguration speichern
+                                                    </button>
+                                                    <button type="button" class="btn btn-secondary" onclick="loadCurrentEmailConfig()">
+                                                        <i class="fas fa-sync me-2"></i>
+                                                        Aktuelle Konfiguration laden
+                                                    </button>
+                                                    <button type="button" class="btn btn-warning" onclick="runEmailDiagnostics()">
+                                                        <i class="fas fa-stethoscope me-2"></i>
+                                                        Verbindung diagnostizieren
+                                                    </button>
+                                                    <button type="button" class="btn btn-success" onclick="autoConfigureEmail()">
+                                                        <i class="fas fa-magic me-2"></i>
+                                                        Auto-Konfiguration
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
                             </div>
                         </div>
-                        <div class="card-body">
-                            <div id="backupList">
-                                <div class="d-flex justify-content-center">
-                                    <div class="spinner-border" role="status">
-                                        <span class="visually-hidden">Lädt...</span>
+                    </div>
+                    
+                    <!-- Email Connection Diagnostics Panel -->
+                    <div class="row mb-4" id="emailDiagnosticsPanel" style="display: none;">
+                        <div class="col-12">
+                            <div class="card" style="border-left: 4px solid #dc3545;">
+                                <div class="card-header bg-light">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h5 class="mb-0">
+                                            <i class="fas fa-stethoscope text-danger me-2"></i>
+                                            E-Mail Verbindungsdiagnose
+                                        </h5>
+                                        <button class="btn btn-sm btn-outline-secondary" onclick="closeDiagnosticsPanel()">
+                                            <i class="fas fa-times me-1"></i>
+                                            Schließen
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div id="diagnosticsResults">
+                                        <div class="d-flex justify-content-center">
+                                            <div class="spinner-border text-warning" role="status">
+                                                <span class="visually-hidden">Führe Diagnose durch...</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Quick Fixes Section -->
+                                    <div id="quickFixesSection" style="display: none;">
+                                        <hr>
+                                        <h6 class="text-primary mb-3">
+                                            <i class="fas fa-tools me-2"></i>
+                                            Schnelle Lösungsansätze
+                                        </h6>
+                                        <div id="quickFixesList">
+                                            <!-- Quick fixes will be populated here -->
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Alternative SMTP Servers -->
+                                    <div id="alternativeServersSection" style="display: none;">
+                                        <hr>
+                                        <h6 class="text-success mb-3">
+                                            <i class="fas fa-server me-2"></i>
+                                            Alternative SMTP-Server
+                                        </h6>
+                                        <div class="row" id="alternativeServersList">
+                                            <!-- Alternative servers will be populated here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Zoho Service Email Integration Assistant -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card" style="border-left: 4px solid #ff6b6b;">
+                                <div class="card-header bg-light">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h5 class="mb-0">
+                                            <i class="fab fa-zoho text-danger me-2"></i>
+                                            Zoho Service E-Mail Assistent
+                                        </h5>
+                                        <span class="badge bg-info">System E-Mail Service</span>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="alert alert-info mb-4">
+                                        <h6 class="alert-heading">
+                                            <i class="fas fa-info-circle me-2"></i>
+                                            🚀 Zoho Mail Service E-Mails
+                                        </h6>
+                                        <p class="mb-2">Dieser Bereich verwendet <strong>Zoho Mail</strong> für System-E-Mails:</p>
+                                        <ul class="mb-2">
+                                            <li>Anmeldungs- und Bestätigungsemails</li>
+                                            <li>Passwort-Reset E-Mails</li>
+                                            <li>Opt-In und Newsletter-E-Mails</li>
+                                            <li>Automatische Benachrichtigungen</li>
+                                        </ul>
+                                        <div class="p-2 bg-success bg-opacity-10 border border-success rounded">
+                                            <small class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i>DNS-Problem behoben! System verwendet automatisch Zoho SMTP Server.</small>
+                                        </div>
+                                        <hr>
+                                        <small class="text-muted">
+                                            <strong>Hinweis:</strong> Dies ist <u>nicht</u> für persönliche E-Mail-Verwaltung gedacht. 
+                                            Für persönliche E-Mails nutzen Sie die separate <strong>Mail App</strong>.
+                                        </small>
+                                    </div>
+                                    
+                                    <div id="zohoServiceStatus" class="mb-4">
+                                        <div class="d-flex justify-content-center">
+                                            <div class="spinner-border text-info" role="status">
+                                                <span class="visually-hidden">Lädt Service-Status...</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="card border-warning">
+                                                <div class="card-body text-center">
+                                                    <h6 class="card-title">
+                                                        <i class="fas fa-cog text-warning me-2"></i>
+                                                        Zoho API Setup
+                                                    </h6>
+                                                    <p class="card-text small">Konfigurieren Sie Zoho API für System-E-Mails</p>
+                                                    <button class="btn btn-outline-warning btn-sm" onclick="configureZohoService()">
+                                                        <i class="fas fa-wrench me-1"></i>
+                                                        Konfigurieren
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="card border-success">
+                                                <div class="card-body text-center">
+                                                    <h6 class="card-title">
+                                                        <i class="fas fa-envelope text-success me-2"></i>
+                                                        Service E-Mail
+                                                    </h6>
+                                                    <p class="card-text small">E-Mail-Adresse für System-Versand</p>
+                                                    <button class="btn btn-outline-success btn-sm" onclick="setupServiceEmail()">
+                                                        <i class="fas fa-plus me-1"></i>
+                                                        Einrichten
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="card border-info">
+                                                <div class="card-body text-center">
+                                                    <h6 class="card-title">
+                                                        <i class="fas fa-test-tube text-info me-2"></i>
+                                                        Service Test
+                                                    </h6>
+                                                    <p class="card-text small">Test System-E-Mail-Versand</p>
+                                                    <button class="btn btn-outline-info btn-sm" onclick="testServiceEmail()">
+                                                        <i class="fas fa-paper-plane me-1"></i>
+                                                        Testen
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Service Email Setup Form -->
+                                    <div id="serviceEmailSetup" style="display: none;">
+                                        <hr>
+                                        <h6 class="fw-bold text-primary mb-3">
+                                            <i class="fas fa-server me-2"></i>
+                                            Service E-Mail-Adresse einrichten
+                                        </h6>
+                                        
+                                        <form id="serviceEmailForm">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label for="serviceEmailAddress" class="form-label">
+                                                            Service E-Mail-Adresse
+                                                        </label>
+                                                        <input type="email" class="form-control" id="serviceEmailAddress" 
+                                                               placeholder="noreply@ihredomain.com" required>
+                                                        <div class="form-text">Diese Adresse wird für alle System-E-Mails verwendet</div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label for="serviceEmailName" class="form-label">
+                                                            Absender-Name
+                                                        </label>
+                                                        <input type="text" class="form-control" id="serviceEmailName" 
+                                                               placeholder="Ihr Unternehmen" required>
+                                                        <div class="form-text">Wird als "Von-Name" angezeigt</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="enableZohoApiService">
+                                                    <label class="form-check-label" for="enableZohoApiService">
+                                                        <strong>Zoho API für Service-E-Mails verwenden</strong>
+                                                        <div class="small text-muted">Anstatt SMTP direkt, Zoho Mail API verwenden</div>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="alert alert-warning">
+                                                <h6 class="alert-heading">
+                                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                                    Wichtig für Service E-Mails
+                                                </h6>
+                                                <ul class="mb-0 small">
+                                                    <li>Verwenden Sie eine dedizierte Service-Adresse (z.B. noreply@, system@)</li>
+                                                    <li>Diese Adresse sollte nur für automatische System-E-Mails verwendet werden</li>
+                                                    <li>Stellen Sie sicher, dass die Adresse in Ihrem Zoho-Konto existiert</li>
+                                                </ul>
+                                            </div>
+                                            
+                                            <div class="d-flex gap-2">
+                                                <button type="button" class="btn btn-success" onclick="saveServiceEmailConfig()">
+                                                    <i class="fas fa-save me-2"></i>
+                                                    Service E-Mail konfigurieren
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary" onclick="hideServiceSetup()">
+                                                    Abbrechen
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Shared Superuser Emails Section -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card" style="border-left: 4px solid #20c997;">
+                                <div class="card-header bg-light">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h5 class="mb-0">
+                                            <i class="fas fa-users text-info me-2"></i>
+                                            Integrierte E-Mail-Adressen
+                                        </h5>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="loadSharedEmails()">
+                                            <i class="fas fa-sync me-1"></i>
+                                            Aktualisieren
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <p class="text-muted">E-Mail-Adressen, die für alle Superuser sichtbar und verwendbar sind.</p>
+                                    
+                                    <!-- Add New Shared Email Form -->
+                                    <div class="row mb-4">
+                                        <div class="col-12">
+                                            <div class="card bg-light">
+                                                <div class="card-body">
+                                                    <h6 class="fw-bold text-success mb-3">Neue geteilte E-Mail hinzufügen</h6>
+                                                    <form id="addSharedEmailForm" class="row g-3">
+                                                        <div class="col-md-4">
+                                                            <label for="sharedEmailAddress" class="form-label">E-Mail-Adresse</label>
+                                                            <input type="email" class="form-control" id="sharedEmailAddress" 
+                                                                   placeholder="shared@example.com" required>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label for="sharedEmailDisplayName" class="form-label">Anzeigename</label>
+                                                            <input type="text" class="form-control" id="sharedEmailDisplayName" 
+                                                                   placeholder="z.B. Support-Team" required>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label for="sharedEmailDescription" class="form-label">Beschreibung</label>
+                                                            <input type="text" class="form-control" id="sharedEmailDescription" 
+                                                                   placeholder="Zweck oder Beschreibung">
+                                                        </div>
+                                                        <div class="col-12">
+                                                            <button type="submit" class="btn btn-success">
+                                                                <i class="fas fa-plus me-2"></i>
+                                                                E-Mail hinzufügen
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Shared Emails List -->
+                                    <div id="sharedEmailsList">
+                                        <div class="d-flex justify-content-center">
+                                            <div class="spinner-border text-info" role="status">
+                                                <span class="visually-hidden">Lädt...</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -252,6 +878,40 @@ $(document).ready(function() {
     loadDatabaseInfo();
     console.log('🔄 Loading backup list...');
     loadBackupList();
+    console.log('🔄 Loading email service info...');
+    loadEmailServiceInfo();
+    
+    // Load email service info when main email tab is clicked
+    $('#email-main-tab').on('shown.bs.tab', function (e) {
+        loadEmailServiceInfo();
+        loadSharedEmails();
+        loadCurrentEmailConfig();
+        loadZohoIntegrationStatus();
+    });
+    
+    // Setup form handlers
+    $('#emailConfigForm').on('submit', function(e) {
+        e.preventDefault();
+        saveEmailConfiguration();
+    });
+    
+    $('#addSharedEmailForm').on('submit', function(e) {
+        e.preventDefault();
+        addSharedEmail();
+    });
+    
+    // SSL/TLS mutual exclusion
+    $('#smtpUseTls').on('change', function() {
+        if (this.checked) {
+            $('#smtpUseSsl').prop('checked', false);
+        }
+    });
+    
+    $('#smtpUseSsl').on('change', function() {
+        if (this.checked) {
+            $('#smtpUseTls').prop('checked', false);
+        }
+    });
 });
 
 function showAlert(message, type = 'info') {
@@ -471,6 +1131,1184 @@ function restoreFromServerDirect(filename) {
     $('#confirmModal').modal('show');
 }
 
+function loadEmailServiceInfo() {
+    console.log('📧 loadEmailServiceInfo called');
+    const url = '{% url "superconfig:email_service_status" %}';
+    console.log('📧 Making request to:', url);
+    
+    $.get(url)
+        .done(function(response) {
+            console.log('📧 Email service response:', response);
+            if (response.success) {
+                const service = response.email_service;
+                
+                // Build email service info display
+                let html = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-server me-2"></i>SMTP Konfiguration</h6>
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between">
+                                    <span><strong>Backend:</strong></span>
+                                    <span class="text-muted">${service.smtp_config.backend}</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span><strong>Host:</strong></span>
+                                    <span class="text-muted">${service.smtp_config.host}:${service.smtp_config.port}</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span><strong>TLS:</strong></span>
+                                    <span class="badge bg-${service.smtp_config.use_tls ? 'success' : 'danger'}">${service.smtp_config.use_tls ? 'Aktiviert' : 'Deaktiviert'}</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span><strong>Benutzer:</strong></span>
+                                    <span class="text-muted">${service.smtp_config.host_user}</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span><strong>Passwort:</strong></span>
+                                    <span class="badge bg-${service.smtp_config.password_configured ? 'success' : 'danger'}">${service.smtp_config.password_configured ? 'Konfiguriert' : 'Fehlt'}</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span><strong>Von-Adresse:</strong></span>
+                                    <span class="text-muted">${service.smtp_config.default_from}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-link me-2"></i>SMTP Verbindung</h6>
+                            <div class="mb-3">
+                                <div class="alert alert-${service.smtp_connection.connected ? 'success' : 'danger'}" role="alert">
+                                    <i class="fas fa-${service.smtp_connection.connected ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+                                    <strong>${service.smtp_connection.status.toUpperCase()}:</strong><br>
+                                    ${service.smtp_connection.message}
+                                </div>
+                            </div>
+                            
+                            <h6><i class="fab fa-zoho me-2"></i>Zoho Konfiguration</h6>
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between">
+                                    <span><strong>Client ID:</strong></span>
+                                    <span class="badge bg-${service.zoho_config.client_id_configured ? 'success' : 'warning'}">${service.zoho_config.client_id_configured ? 'Konfiguriert' : 'Fehlt'}</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span><strong>Client Secret:</strong></span>
+                                    <span class="badge bg-${service.zoho_config.client_secret_configured ? 'success' : 'warning'}">${service.zoho_config.client_secret_configured ? 'Konfiguriert' : 'Fehlt'}</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span><strong>Base URL:</strong></span>
+                                    <span class="text-muted small">${service.zoho_config.base_url || 'Nicht konfiguriert'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h6><i class="fas fa-chart-line me-2"></i>Email Aktivität</h6>
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="text-muted small">Letzte Email</div>
+                                        <div class="fw-bold">${service.recent_activity.last_email_sent}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="text-muted small">Heute gesendet</div>
+                                        <div class="fw-bold">${service.recent_activity.total_emails_today}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="text-muted small">Fehlgeschlagen</div>
+                                        <div class="fw-bold text-danger">${service.recent_activity.failed_emails}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="text-muted small">Warteschlange</div>
+                                        <div class="fw-bold">${service.recent_activity.email_queue_length}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                $('#emailServiceInfo').html(html);
+                
+                // Update SMTP status in the action cards
+                updateSmtpStatusDisplay(service.smtp_connection);
+                
+            } else {
+                $('#emailServiceInfo').html('<div class="alert alert-danger">Fehler beim Laden der Email-Service-Informationen: ' + response.message + '</div>');
+            }
+        })
+        .fail(function(xhr, status, error) {
+            console.error('❌ Email service info failed:', status, error, xhr.responseText);
+            $('#emailServiceInfo').html('<div class="alert alert-danger">Fehler beim Laden der Email-Service-Informationen: ' + error + '</div>');
+        });
+}
+
+function updateSmtpStatusDisplay(smtpConnection) {
+    const statusHtml = `
+        <div class="alert alert-${smtpConnection.connected ? 'success' : 'danger'}" role="alert">
+            <i class="fas fa-${smtpConnection.connected ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+            <strong>${smtpConnection.status.toUpperCase()}</strong><br>
+            <small>${smtpConnection.message}</small>
+        </div>
+    `;
+    $('#smtpStatus').html(statusHtml);
+}
+
+function sendTestEmail() {
+    const testEmail = $('#testEmailAddress').val();
+    if (!testEmail) {
+        showAlert('❌ Bitte geben Sie eine gültige Email-Adresse ein', 'warning');
+        return;
+    }
+    
+    console.log('📤 Sending test email to:', testEmail);
+    
+    const url = '{% url "superconfig:test_email_service" %}';
+    
+    $.ajax({
+        url: url,
+        type: 'POST',
+        data: {
+            'test_email': testEmail
+        },
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .done(function(response) {
+        if (response.success) {
+            showAlert(`✅ ${response.message}`, 'success');
+        } else {
+            showAlert(`❌ ${response.message}`, 'danger');
+        }
+    })
+    .fail(function() {
+        showAlert('❌ Fehler beim Senden der Test-Email', 'danger');
+    });
+}
+
+function checkEmailService() {
+    console.log('🔍 Checking email service...');
+    loadEmailServiceInfo();
+    showAlert('🔄 Email-Service wird überprüft...', 'info');
+}
+
+function saveEmailConfiguration() {
+    console.log('💾 Saving email configuration...');
+    
+    const formData = {
+        smtp_host: $('#smtpHost').val(),
+        smtp_port: parseInt($('#smtpPort').val()),
+        smtp_use_tls: $('#smtpUseTls').is(':checked'),
+        smtp_use_ssl: $('#smtpUseSsl').is(':checked'),
+        email_host_user: $('#emailHostUser').val(),
+        email_host_password: $('#emailHostPassword').val(),
+        default_from_email: $('#defaultFromEmail').val(),
+        backend_type: $('#backendType').val(),
+        zoho_client_id: $('#zohoClientId').val() || null,
+        zoho_client_secret: $('#zohoClientSecret').val() || null,
+        zoho_redirect_uri: $('#zohoRedirectUri').val() || null
+    };
+    
+    // Basic validation
+    if (!formData.smtp_host || !formData.email_host_user || !formData.email_host_password || !formData.default_from_email) {
+        showAlert('❌ Bitte füllen Sie alle erforderlichen Felder aus', 'warning');
+        return;
+    }
+    
+    $.ajax({
+        url: '{% url "superconfig:save_email_config" %}',
+        type: 'POST',
+        data: formData,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .done(function(response) {
+        if (response.success) {
+            showAlert(`✅ ${response.message}`, 'success');
+            loadEmailServiceInfo(); // Refresh status
+        } else {
+            showAlert(`❌ ${response.message}`, 'danger');
+        }
+    })
+    .fail(function(xhr) {
+        console.error('❌ Save email config failed:', xhr.responseText);
+        showAlert('❌ Fehler beim Speichern der E-Mail-Konfiguration', 'danger');
+    });
+}
+
+function testEmailConfiguration() {
+    console.log('🧪 Testing email configuration...');
+    
+    const formData = {
+        smtp_host: $('#smtpHost').val(),
+        smtp_port: parseInt($('#smtpPort').val()),
+        smtp_use_tls: $('#smtpUseTls').is(':checked'),
+        smtp_use_ssl: $('#smtpUseSsl').is(':checked'),
+        email_host_user: $('#emailHostUser').val(),
+        email_host_password: $('#emailHostPassword').val(),
+        backend_type: $('#backendType').val()
+    };
+    
+    // Basic validation
+    if (!formData.smtp_host || !formData.email_host_user || !formData.email_host_password) {
+        showAlert('❌ Bitte füllen Sie mindestens SMTP Host, E-Mail und App-Passwort aus', 'warning');
+        return;
+    }
+    
+    showAlert('🔄 Teste E-Mail-Konfiguration...', 'info');
+    
+    $.ajax({
+        url: '{% url "superconfig:test_email_service" %}',
+        type: 'POST',
+        data: {
+            ...formData,
+            test_config: true
+        },
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .done(function(response) {
+        if (response.success) {
+            showAlert(`✅ Konfiguration erfolgreich getestet: ${response.message}`, 'success');
+        } else {
+            showAlert(`❌ Test fehlgeschlagen: ${response.message}`, 'danger');
+        }
+    })
+    .fail(function(xhr) {
+        console.error('❌ Test email config failed:', xhr.responseText);
+        showAlert('❌ Fehler beim Testen der E-Mail-Konfiguration', 'danger');
+    });
+}
+
+function loadCurrentEmailConfig() {
+    console.log('📥 Loading current email configuration...');
+    
+    $.get('{% url "superconfig:email_service_status" %}')
+    .done(function(response) {
+        if (response.success && response.email_config) {
+            const config = response.email_config;
+            
+            // Store config globally for Zoho service assistant
+            window.currentEmailConfig = config;
+            
+            // Populate form with current config
+            $('#smtpHost').val(config.smtp_host || 'smtp.gmail.com');
+            $('#smtpPort').val(config.smtp_port || 587);
+            $('#smtpUseTls').prop('checked', config.smtp_use_tls !== false);
+            $('#smtpUseSsl').prop('checked', config.smtp_use_ssl === true);
+            $('#emailHostUser').val(config.email_host_user || '');
+            $('#defaultFromEmail').val(config.default_from_email || '');
+            $('#backendType').val(config.backend_type || 'smtp');
+            $('#zohoClientId').val(config.zoho_client_id || '');
+            $('#zohoRedirectUri').val(config.zoho_redirect_uri || '');
+            
+            // Don't populate passwords for security
+            $('#emailHostPassword').attr('placeholder', config.email_host_password ? '••••••••••••' : 'Ihr Zoho Login-Passwort');
+            $('#zohoClientSecret').attr('placeholder', config.zoho_client_secret ? '••••••••••••' : 'Client Secret eingeben');
+            
+            // Update Zoho service status after loading config
+            if (typeof loadZohoServiceStatus === 'function') {
+                loadZohoServiceStatus();
+            }
+            
+            showAlert('✅ Aktuelle Konfiguration geladen', 'info');
+        }
+    })
+    .fail(function() {
+        showAlert('❌ Fehler beim Laden der aktuellen Konfiguration', 'warning');
+    });
+}
+
+function addSharedEmail() {
+    console.log('➕ Adding shared email...');
+    
+    const email = $('#sharedEmailAddress').val();
+    const displayName = $('#sharedEmailDisplayName').val();
+    const description = $('#sharedEmailDescription').val();
+    
+    if (!email || !displayName) {
+        showAlert('❌ E-Mail-Adresse und Anzeigename sind erforderlich', 'warning');
+        return;
+    }
+    
+    $.ajax({
+        url: '{% url "superconfig:add_shared_email" %}',
+        type: 'POST',
+        data: {
+            email_address: email,
+            display_name: displayName,
+            description: description
+        },
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .done(function(response) {
+        if (response.success) {
+            showAlert(`✅ ${response.message}`, 'success');
+            $('#addSharedEmailForm')[0].reset();
+            loadSharedEmails(); // Refresh list
+        } else {
+            showAlert(`❌ ${response.message}`, 'danger');
+        }
+    })
+    .fail(function(xhr) {
+        console.error('❌ Add shared email failed:', xhr.responseText);
+        showAlert('❌ Fehler beim Hinzufügen der geteilten E-Mail', 'danger');
+    });
+}
+
+function loadSharedEmails() {
+    console.log('📧 Loading shared emails...');
+    
+    // Show loading
+    $('#sharedEmailsList').html(`
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border text-info" role="status">
+                <span class="visually-hidden">Lädt...</span>
+            </div>
+        </div>
+    `);
+    
+    $.get('{% url "superconfig:email_service_status" %}')
+    .done(function(response) {
+        if (response.success && response.shared_emails) {
+            const sharedEmails = response.shared_emails;
+            
+            if (sharedEmails.length === 0) {
+                $('#sharedEmailsList').html(`
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                        <p>Keine geteilten E-Mails vorhanden</p>
+                        <small>Fügen Sie eine neue E-Mail über das Formular oben hinzu</small>
+                    </div>
+                `);
+            } else {
+                let html = '<div class="table-responsive"><table class="table table-hover"><thead><tr><th>Anzeigename</th><th>E-Mail-Adresse</th><th>Beschreibung</th><th>Hinzugefügt</th><th>Status</th></tr></thead><tbody>';
+                
+                sharedEmails.forEach(email => {
+                    html += `
+                        <tr>
+                            <td><strong>${email.display_name}</strong></td>
+                            <td>
+                                <a href="mailto:${email.email_address}" class="text-decoration-none">
+                                    <i class="fas fa-envelope me-1"></i>${email.email_address}
+                                </a>
+                            </td>
+                            <td><small class="text-muted">${email.description || '-'}</small></td>
+                            <td><small class="text-muted">${email.created_at}</small></td>
+                            <td>
+                                <span class="badge bg-${email.is_active ? 'success' : 'secondary'}">
+                                    ${email.is_active ? 'Aktiv' : 'Inaktiv'}
+                                </span>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table></div>';
+                $('#sharedEmailsList').html(html);
+            }
+        } else {
+            $('#sharedEmailsList').html('<div class="alert alert-warning">Fehler beim Laden der geteilten E-Mails</div>');
+        }
+    })
+    .fail(function() {
+        $('#sharedEmailsList').html('<div class="alert alert-danger">Fehler beim Laden der geteilten E-Mails</div>');
+    });
+}
+
+// Zoho Service Email Assistant Functions
+function loadZohoIntegrationStatus() {
+    console.log('🔍 Loading Zoho service email status...');
+    
+    // Check current email service configuration
+    loadZohoServiceStatus();
+}
+
+function loadZohoServiceStatus() {
+    // Load current email service configuration and Zoho settings
+    const currentEmailConfig = getCurrentEmailServiceInfo();
+    
+    let statusHtml = '';
+    
+    // Check if Zoho is configured in the current email configuration
+    if (currentEmailConfig && currentEmailConfig.zoho_configured) {
+        statusHtml = `
+            <div class="alert alert-success">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h6 class="alert-heading mb-2">
+                            <i class="fas fa-check-circle me-2"></i>
+                            Zoho Service E-Mail konfiguriert
+                        </h6>
+                        <p class="mb-2">Service E-Mail: <strong>${currentEmailConfig.service_email}</strong></p>
+                        <p class="mb-0">Status: <span class="badge bg-success">Aktiv</span></p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button class="btn btn-outline-success btn-sm" onclick="testServiceEmailConnection()">
+                            <i class="fas fa-test-tube me-1"></i>
+                            Verbindung testen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else {
+        // Check if basic Zoho config exists
+        const hasZohoConfig = checkZohoConfigExists();
+        
+        if (hasZohoConfig) {
+            statusHtml = `
+                <div class="alert alert-warning">
+                    <h6 class="alert-heading">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Service E-Mail nicht konfiguriert
+                    </h6>
+                    <p class="mb-3">Zoho API ist verfügbar, aber keine Service E-Mail-Adresse konfiguriert.</p>
+                    <button class="btn btn-warning" onclick="setupServiceEmail()">
+                        <i class="fas fa-envelope me-2"></i>
+                        Service E-Mail einrichten
+                    </button>
+                </div>
+            `;
+        } else {
+            statusHtml = `
+                <div class="alert alert-info">
+                    <h6 class="alert-heading">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Zoho Service Setup erforderlich
+                    </h6>
+                    <p class="mb-3">Konfigurieren Sie Zoho API für System E-Mail-Versand.</p>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary" onclick="configureZohoService()">
+                            <i class="fas fa-cog me-2"></i>
+                            Zoho API einrichten
+                        </button>
+                        <button class="btn btn-outline-info" onclick="showServiceEmailHelp()">
+                            <i class="fas fa-question-circle me-2"></i>
+                            Hilfe
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+    }
+    
+    $('#zohoServiceStatus').html(statusHtml);
+}
+
+function getCurrentEmailServiceInfo() {
+    // This would get the current email service configuration
+    // For now, return a placeholder - this should integrate with existing email_service_status
+    const emailConfig = window.currentEmailConfig || null;
+    
+    if (emailConfig && emailConfig.zoho_client_id) {
+        return {
+            zoho_configured: true,
+            service_email: emailConfig.default_from_email || emailConfig.email_host_user,
+            has_credentials: true
+        };
+    }
+    
+    return {
+        zoho_configured: false,
+        service_email: null,
+        has_credentials: false
+    };
+}
+
+function checkZohoConfigExists() {
+    // Check if Zoho configuration exists in the current email settings
+    const emailConfig = window.currentEmailConfig;
+    return emailConfig && emailConfig.zoho_client_id;
+}
+
+function configureZohoService() {
+    // Open the SMTP configuration section and focus on Zoho fields
+    showAlert('ℹ️ Konfigurieren Sie Ihre Zoho API-Einstellungen in der SMTP-Konfiguration oberhalb.', 'info');
+    
+    // Scroll to SMTP configuration
+    document.getElementById('emailConfigForm').scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+    });
+    
+    // Highlight Zoho fields
+    setTimeout(() => {
+        $('#zohoClientId, #zohoClientSecret, #zohoRedirectUri').addClass('border-warning');
+        setTimeout(() => {
+            $('#zohoClientId, #zohoClientSecret, #zohoRedirectUri').removeClass('border-warning');
+        }, 3000);
+    }, 500);
+}
+
+function setupServiceEmail() {
+    $('#serviceEmailSetup').slideDown();
+    
+    // Pre-fill with current email configuration if available
+    const currentConfig = getCurrentEmailServiceInfo();
+    if (currentConfig && currentConfig.service_email) {
+        $('#serviceEmailAddress').val(currentConfig.service_email);
+    }
+}
+
+function hideServiceSetup() {
+    $('#serviceEmailSetup').slideUp();
+}
+
+function saveServiceEmailConfig() {
+    const serviceEmail = $('#serviceEmailAddress').val();
+    const serviceName = $('#serviceEmailName').val();
+    const useZohoApi = $('#enableZohoApiService').is(':checked');
+    
+    if (!serviceEmail) {
+        showAlert('❌ Bitte geben Sie eine Service E-Mail-Adresse ein', 'warning');
+        return;
+    }
+    
+    // Update email configuration with service email settings
+    $('#emailHostUser').val(serviceEmail);
+    $('#defaultFromEmail').val(serviceEmail);
+    
+    if (serviceName) {
+        // Store service name for later use in email headers
+        window.serviceEmailName = serviceName;
+    }
+    
+    // Show success and trigger save
+    showAlert('✅ Service E-Mail-Konfiguration wird gespeichert...', 'info');
+    
+    // Trigger the main email configuration save
+    saveEmailConfiguration();
+    
+    // Hide setup form
+    hideServiceSetup();
+    
+    // Refresh status
+    setTimeout(() => {
+        loadZohoServiceStatus();
+    }, 1000);
+}
+
+function testServiceEmail() {
+    const testEmail = prompt('Geben Sie eine E-Mail-Adresse für den Service-Test ein:', 'test@example.com');
+    
+    if (testEmail) {
+        $('#testEmailAddress').val(testEmail);
+        sendTestEmail();
+    }
+}
+
+function testServiceEmailConnection() {
+    console.log('🧪 Testing service email connection...');
+    
+    const currentConfig = getCurrentEmailServiceInfo();
+    if (currentConfig && currentConfig.service_email) {
+        // Test with current service email
+        $('#testEmailAddress').val(currentConfig.service_email);
+        sendTestEmail();
+    } else {
+        showAlert('❌ Keine Service E-Mail konfiguriert zum Testen', 'warning');
+    }
+}
+
+// Zoho Configuration Helper Functions
+function showZohoSetupGuide() {
+    const guideModal = `
+        <div class="modal fade" id="zohoSetupGuideModal" tabindex="-1">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning text-dark">
+                        <h5 class="modal-title">
+                            <i class="fab fa-zoho me-2"></i>
+                            Zoho API Konfiguration - Detaillierte Anleitung
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5 class="text-primary mb-3">
+                                    <i class="fas fa-list-ol me-2"></i>
+                                    Schritt 1: Zoho Developer Console öffnen
+                                </h5>
+                                <div class="card mb-3">
+                                    <div class="card-body">
+                                        <ol>
+                                            <li class="mb-2">
+                                                Öffnen Sie die Zoho API Console für Ihre Region:
+                                                <ul class="mt-2">
+                                                    <li>🇪🇺 Europa: <a href="https://api-console.zoho.eu/" target="_blank">api-console.zoho.eu</a></li>
+                                                    <li>🇺🇸 USA: <a href="https://api-console.zoho.com/" target="_blank">api-console.zoho.com</a></li>
+                                                    <li>🇮🇳 Indien: <a href="https://api-console.zoho.in/" target="_blank">api-console.zoho.in</a></li>
+                                                </ul>
+                                            </li>
+                                            <li class="mb-2">Melden Sie sich mit Ihrem Zoho-Konto an</li>
+                                            <li>Klicken Sie auf <strong>"Add Client"</strong> oder <strong>"GET STARTED"</strong></li>
+                                        </ol>
+                                    </div>
+                                </div>
+                                
+                                <h5 class="text-primary mb-3">
+                                    <i class="fas fa-list-ol me-2"></i>
+                                    Schritt 2: Server-based Application erstellen
+                                </h5>
+                                <div class="card mb-3">
+                                    <div class="card-body">
+                                        <ol>
+                                            <li class="mb-2">Wählen Sie <strong>"Server-based Applications"</strong></li>
+                                            <li class="mb-2">
+                                                Füllen Sie das Formular aus:
+                                                <ul class="mt-2">
+                                                    <li><strong>Client Name:</strong> z.B. "SuperConfig Email Service"</li>
+                                                    <li><strong>Homepage URL:</strong> <code>${window.location.origin}</code></li>
+                                                    <li><strong>Authorized Redirect URIs:</strong> <code>${window.location.origin}/zoho/callback</code></li>
+                                                </ul>
+                                            </li>
+                                            <li>Klicken Sie auf <strong>"Create"</strong></li>
+                                        </ol>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <h5 class="text-primary mb-3">
+                                    <i class="fas fa-list-ol me-2"></i>
+                                    Schritt 3: Credentials kopieren
+                                </h5>
+                                <div class="card mb-3">
+                                    <div class="card-body">
+                                        <p>Nach der Erstellung sehen Sie:</p>
+                                        <ul>
+                                            <li class="mb-2">
+                                                <strong>Client ID:</strong> Format <code>1000.XXXXXXXXXXXXXXXXX</code>
+                                                <br><small class="text-muted">Kopieren Sie diese vollständig</small>
+                                            </li>
+                                            <li class="mb-2">
+                                                <strong>Client Secret:</strong> Ein langer alphanumerischer String
+                                                <br><small class="text-muted">WICHTIG: Speichern Sie diesen sofort, er wird nur einmal angezeigt!</small>
+                                            </li>
+                                        </ul>
+                                        <div class="alert alert-warning">
+                                            <i class="fas fa-exclamation-triangle me-2"></i>
+                                            <strong>Achtung:</strong> Das Client Secret wird nur einmal angezeigt. 
+                                            Kopieren und speichern Sie es sofort!
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <h5 class="text-primary mb-3">
+                                    <i class="fas fa-list-ol me-2"></i>
+                                    Schritt 4: In SuperConfig eintragen
+                                </h5>
+                                <div class="card">
+                                    <div class="card-body">
+                                        <ol>
+                                            <li class="mb-2">Kehren Sie zu dieser Seite zurück</li>
+                                            <li class="mb-2">Tragen Sie die Client ID ein</li>
+                                            <li class="mb-2">Tragen Sie das Client Secret ein</li>
+                                            <li class="mb-2">Die Redirect URI wird automatisch generiert</li>
+                                            <li class="mb-2">Wählen Sie Ihre Region aus</li>
+                                            <li>Speichern Sie die Konfiguration</li>
+                                        </ol>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <h5 class="text-danger mb-3">
+                                    <i class="fas fa-question-circle me-2"></i>
+                                    Häufige Probleme und Lösungen
+                                </h5>
+                                <div class="accordion" id="faqAccordion">
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                                                Client Secret verloren?
+                                            </button>
+                                        </h2>
+                                        <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                            <div class="accordion-body">
+                                                Sie müssen in der Zoho API Console ein neues Client Secret generieren:
+                                                <ol>
+                                                    <li>Gehen Sie zur API Console</li>
+                                                    <li>Klicken Sie auf Ihre App</li>
+                                                    <li>Wählen Sie "Client Secret" → "Regenerate"</li>
+                                                    <li>Kopieren Sie das neue Secret</li>
+                                                </ol>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                                                Welche Region soll ich wählen?
+                                            </button>
+                                        </h2>
+                                        <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                            <div class="accordion-body">
+                                                Die Region hängt davon ab, wo Sie Ihr Zoho-Konto registriert haben:
+                                                <ul>
+                                                    <li>Endung .eu → Europa</li>
+                                                    <li>Endung .com → USA</li>
+                                                    <li>Endung .in → Indien</li>
+                                                    <li>Endung .com.au → Australien</li>
+                                                </ul>
+                                                Prüfen Sie die URL wenn Sie bei Zoho eingeloggt sind.
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                                                Redirect URI Fehler?
+                                            </button>
+                                        </h2>
+                                        <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                            <div class="accordion-body">
+                                                Stellen Sie sicher, dass die Redirect URI exakt übereinstimmt:
+                                                <ul>
+                                                    <li>Keine abschließenden Schrägstriche</li>
+                                                    <li>HTTP vs HTTPS beachten</li>
+                                                    <li>Groß-/Kleinschreibung beachten</li>
+                                                </ul>
+                                                Empfohlen: <code>${window.location.origin}/zoho/callback</code>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                        <a href="https://www.zoho.com/mail/help/api/get-started.html" target="_blank" class="btn btn-outline-primary">
+                            <i class="fas fa-book me-1"></i>
+                            Offizielle Dokumentation
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    $('body').append(guideModal);
+    $('#zohoSetupGuideModal').modal('show');
+    
+    $('#zohoSetupGuideModal').on('hidden.bs.modal', function () {
+        $(this).remove();
+    });
+}
+
+function verifyZohoClientId() {
+    const clientId = $('#zohoClientId').val();
+    
+    if (!clientId) {
+        showAlert('❌ Bitte geben Sie eine Client ID ein', 'warning');
+        return;
+    }
+    
+    // Check format
+    const pattern = /^1000\.[A-Z0-9]{20,}$/i;
+    
+    if (pattern.test(clientId)) {
+        $('#zohoClientId').removeClass('is-invalid').addClass('is-valid');
+        showAlert('✅ Client ID Format ist korrekt', 'success');
+        
+        // Show status
+        $('#zohoSetupStatus').show();
+        $('#zohoStatusContent').html(`
+            <div class="text-success">
+                <i class="fas fa-check-circle me-2"></i>
+                Client ID Format validiert
+            </div>
+        `);
+    } else {
+        $('#zohoClientId').removeClass('is-valid').addClass('is-invalid');
+        showAlert('❌ Client ID Format ist ungültig. Erwartet: 1000.XXXXXXXXXXXXXXXXXXXX', 'danger');
+    }
+}
+
+function togglePasswordVisibility(fieldId) {
+    const field = $('#' + fieldId);
+    const button = field.next('button');
+    const icon = button.find('i');
+    
+    if (field.attr('type') === 'password') {
+        field.attr('type', 'text');
+        icon.removeClass('fa-eye').addClass('fa-eye-slash');
+    } else {
+        field.attr('type', 'password');
+        icon.removeClass('fa-eye-slash').addClass('fa-eye');
+    }
+}
+
+function generateRedirectUri() {
+    const redirectUri = window.location.origin + '/zoho/callback';
+    $('#zohoRedirectUri').val(redirectUri);
+    showAlert('✅ Redirect URI wurde generiert: ' + redirectUri, 'success');
+}
+
+function copyRedirectUri() {
+    const redirectUri = window.location.origin + '/zoho/callback';
+    
+    // Create temporary input
+    const tempInput = $('<input>');
+    $('body').append(tempInput);
+    tempInput.val(redirectUri).select();
+    document.execCommand('copy');
+    tempInput.remove();
+    
+    showAlert('✅ Redirect URI wurde in die Zwischenablage kopiert', 'success');
+}
+
+function openZohoQuickSetup() {
+    const region = $('#zohoRegion').val();
+    let apiConsoleUrl = 'https://api-console.zoho.eu/';
+    
+    switch(region) {
+        case 'US':
+            apiConsoleUrl = 'https://api-console.zoho.com/';
+            break;
+        case 'IN':
+            apiConsoleUrl = 'https://api-console.zoho.in/';
+            break;
+        case 'AU':
+            apiConsoleUrl = 'https://api-console.zoho.com.au/';
+            break;
+        case 'CN':
+            apiConsoleUrl = 'https://api-console.zoho.com.cn/';
+            break;
+    }
+    
+    // Open in new window
+    const setupWindow = window.open(apiConsoleUrl, 'zohoSetup', 'width=1200,height=800');
+    
+    // Show helper
+    showAlert(`
+        🚀 Zoho API Console wurde geöffnet!<br>
+        <strong>Nächste Schritte:</strong><br>
+        1. Erstellen Sie eine neue "Server-based Application"<br>
+        2. Homepage URL: <code>${window.location.origin}</code><br>
+        3. Redirect URI: <code>${window.location.origin}/zoho/callback</code><br>
+        4. Kopieren Sie Client ID und Secret zurück hierher
+    `, 'info');
+    
+    // Show inline helper
+    $('#zohoSetupStatus').show();
+    $('#zohoStatusContent').html(`
+        <div class="alert alert-warning mb-0">
+            <h6>Quick Reference für Zoho Setup:</h6>
+            <table class="table table-sm mb-0">
+                <tr>
+                    <td><strong>Homepage URL:</strong></td>
+                    <td><code>${window.location.origin}</code> 
+                        <button class="btn btn-link btn-sm p-0 ms-2" onclick="copyToClipboard('${window.location.origin}')">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>Redirect URI:</strong></td>
+                    <td><code>${window.location.origin}/zoho/callback</code>
+                        <button class="btn btn-link btn-sm p-0 ms-2" onclick="copyToClipboard('${window.location.origin}/zoho/callback')">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    `);
+}
+
+function copyToClipboard(text) {
+    const tempInput = $('<input>');
+    $('body').append(tempInput);
+    tempInput.val(text).select();
+    document.execCommand('copy');
+    tempInput.remove();
+    showAlert('✅ In Zwischenablage kopiert', 'success');
+}
+
+// Email Diagnostics Functions
+function runEmailDiagnostics() {
+    console.log('🔍 Running email connection diagnostics...');
+    
+    // Show diagnostics panel
+    $('#emailDiagnosticsPanel').slideDown();
+    
+    // Reset content
+    $('#diagnosticsResults').html(`
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border text-warning" role="status">
+                <span class="visually-hidden">Führe Diagnose durch...</span>
+            </div>
+        </div>
+    `);
+    $('#quickFixesSection, #alternativeServersSection').hide();
+    
+    // Run diagnostics
+    $.get('{% url "superconfig:email_network_diagnostics" %}')
+    .done(function(response) {
+        if (response.success) {
+            displayDiagnosticsResults(response.diagnostics);
+        } else {
+            $('#diagnosticsResults').html(`
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Fehler bei der Diagnose: ${response.message || 'Unbekannter Fehler'}
+                </div>
+            `);
+        }
+    })
+    .fail(function() {
+        $('#diagnosticsResults').html(`
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Fehler beim Ausführen der Netzwerk-Diagnose
+            </div>
+        `);
+    });
+}
+
+function displayDiagnosticsResults(diagnostics) {
+    let resultsHtml = '<div class="row">';
+    
+    // DNS Connectivity Results
+    resultsHtml += '<div class="col-md-6"><div class="card border-info mb-3"><div class="card-header bg-info text-white">';
+    resultsHtml += '<h6 class="mb-0"><i class="fas fa-globe me-2"></i>DNS-Konnektivität</h6></div><div class="card-body">';
+    
+    for (const [host, connected] of Object.entries(diagnostics.dns_connectivity)) {
+        const icon = connected ? 'fas fa-check-circle text-success' : 'fas fa-times-circle text-danger';
+        const status = connected ? 'Erreichbar' : 'Nicht erreichbar';
+        resultsHtml += `<div class="d-flex justify-content-between align-items-center mb-2">`;
+        resultsHtml += `<span>${host}</span><span><i class="${icon} me-1"></i>${status}</span></div>`;
+    }
+    resultsHtml += '</div></div></div>';
+    
+    // SMTP Connection Results
+    resultsHtml += '<div class="col-md-6"><div class="card border-warning mb-3"><div class="card-header bg-warning text-dark">';
+    resultsHtml += '<h6 class="mb-0"><i class="fas fa-envelope me-2"></i>SMTP-Verbindung</h6></div><div class="card-body">';
+    
+    const smtp = diagnostics.smtp_connection;
+    let smtpClass = 'text-success';
+    let smtpIcon = 'fas fa-check-circle';
+    
+    if (smtp.status === 'dns_error') {
+        smtpClass = 'text-danger';
+        smtpIcon = 'fas fa-exclamation-triangle';
+    } else if (!smtp.connected) {
+        smtpClass = 'text-warning';
+        smtpIcon = 'fas fa-exclamation-circle';
+    }
+    
+    resultsHtml += `<div class="alert alert-${smtpClass === 'text-danger' ? 'danger' : smtpClass === 'text-warning' ? 'warning' : 'success'}">`;
+    resultsHtml += `<i class="${smtpIcon} me-2"></i>${smtp.message}</div>`;
+    
+    resultsHtml += '</div></div></div>';
+    resultsHtml += '</div>';
+    
+    $('#diagnosticsResults').html(resultsHtml);
+    
+    // Show quick fixes if there are problems
+    if (smtp.diagnostics) {
+        showQuickFixes(smtp.diagnostics);
+    }
+    
+    // Show alternative servers
+    showAlternativeServers(diagnostics.suggested_alternatives);
+}
+
+function showQuickFixes(diagnostics) {
+    $('#quickFixesSection').show();
+    
+    let fixesHtml = '';
+    
+    if (diagnostics.suggestions) {
+        fixesHtml += '<div class="alert alert-warning"><h6 class="alert-heading">Lösungsvorschläge:</h6><ul class="mb-0">';
+        diagnostics.suggestions.forEach(suggestion => {
+            fixesHtml += `<li>${suggestion}</li>`;
+        });
+        fixesHtml += '</ul></div>';
+    }
+    
+    // DNS-specific fixes
+    if (diagnostics.dns_resolution === false) {
+        fixesHtml += `
+            <div class="alert alert-danger">
+                <h6 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>DNS-Problem erkannt</h6>
+                <p>Der SMTP-Server kann nicht aufgelöst werden. Mögliche Lösungen:</p>
+                <ul>
+                    <li>Überprüfen Sie Ihre Internetverbindung</li>
+                    <li>Versuchen Sie einen anderen DNS-Server (8.8.8.8, 1.1.1.1)</li>
+                    <li>Starten Sie Ihren Router/Modem neu</li>
+                    <li>Kontaktieren Sie Ihren Internetanbieter</li>
+                    <li>Verwenden Sie einen alternativen SMTP-Server (siehe unten)</li>
+                </ul>
+                <button class="btn btn-warning btn-sm" onclick="testAlternativeDNS()">
+                    <i class="fas fa-flask me-1"></i>
+                    DNS-Server testen
+                </button>
+            </div>
+        `;
+    }
+    
+    $('#quickFixesList').html(fixesHtml);
+}
+
+function showAlternativeServers(alternatives) {
+    $('#alternativeServersSection').show();
+    
+    let serversHtml = '';
+    
+    alternatives.forEach(server => {
+        const protocol = server.ssl ? 'SSL' : (server.tls ? 'TLS' : 'Plain');
+        serversHtml += `
+            <div class="col-md-6 mb-3">
+                <div class="card border-success">
+                    <div class="card-body">
+                        <h6 class="card-title">${server.name}</h6>
+                        <p class="card-text small">
+                            <strong>Host:</strong> ${server.host}<br>
+                            <strong>Port:</strong> ${server.port}<br>
+                            <strong>Verschlüsselung:</strong> ${protocol}
+                        </p>
+                        <button class="btn btn-outline-success btn-sm" onclick="useAlternativeServer('${server.host}', ${server.port}, ${server.tls || false}, ${server.ssl || false})">
+                            <i class="fas fa-arrow-right me-1"></i>
+                            Verwenden
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    $('#alternativeServersList').html(serversHtml);
+}
+
+function useAlternativeServer(host, port, tls, ssl) {
+    // Fill in the SMTP form with alternative server details
+    $('#smtpHost').val(host);
+    $('#smtpPort').val(port);
+    $('#smtpUseTls').prop('checked', tls);
+    $('#smtpUseSsl').prop('checked', ssl);
+    
+    // Scroll to form
+    document.getElementById('emailConfigForm').scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+    });
+    
+    // Highlight changed fields
+    $('#smtpHost, #smtpPort').addClass('border-success');
+    setTimeout(() => {
+        $('#smtpHost, #smtpPort').removeClass('border-success');
+    }, 3000);
+    
+    showAlert(`✅ SMTP-Server auf ${host}:${port} geändert. Bitte speichern Sie die Konfiguration.`, 'success');
+    
+    // Close diagnostics panel
+    closeDiagnosticsPanel();
+}
+
+function testAlternativeDNS() {
+    showAlert('🔄 Teste alternative DNS-Server...', 'info');
+    
+    // This could be extended to actually test different DNS servers
+    setTimeout(() => {
+        showAlert('ℹ️ Bitte versuchen Sie Ihre Netzwerkeinstellungen zu überprüfen oder kontaktieren Sie Ihren Administrator.', 'warning');
+    }, 2000);
+}
+
+function closeDiagnosticsPanel() {
+    $('#emailDiagnosticsPanel').slideUp();
+}
+
+// Initialize tooltips when page loads
+$(document).ready(function() {
+    // Initialize Bootstrap tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+    
+    // Update suggested redirect URI on page load
+    $('#suggestedRedirectUri').text(window.location.origin + '/zoho/callback');
+});
+
+function showServiceEmailHelp() {
+    const helpModal = `
+        <div class="modal fade" id="serviceEmailHelpModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-envelope me-2"></i>
+                            Service E-Mail Setup Hilfe
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <h6>Was sind Service E-Mails?</h6>
+                        <p>Service E-Mails sind automatische System-E-Mails wie:</p>
+                        <ul>
+                            <li>Registrierungs-Bestätigungen</li>
+                            <li>Passwort-Reset E-Mails</li>
+                            <li>Newsletter und Opt-In Mails</li>
+                            <li>Benachrichtigungen</li>
+                        </ul>
+                        
+                        <h6 class="mt-4">Zoho für Service E-Mails einrichten:</h6>
+                        <ol>
+                            <li>Konfigurieren Sie Zoho API-Credentials in der SMTP-Konfiguration</li>
+                            <li>Geben Sie eine dedizierte Service E-Mail-Adresse ein (z.B. noreply@ihredomain.com)</li>
+                            <li>Stellen Sie sicher, dass diese Adresse in Ihrem Zoho-Konto existiert</li>
+                            <li>Testen Sie die Konfiguration</li>
+                        </ol>
+                        
+                        <h6 class="mt-4">Best Practices:</h6>
+                        <ul>
+                            <li>Verwenden Sie Adressen wie <code>noreply@</code>, <code>system@</code>, <code>notifications@</code></li>
+                            <li>Trennen Sie Service-E-Mails von persönlichen E-Mails</li>
+                            <li>Konfigurieren Sie SPF/DKIM für bessere Zustellbarkeit</li>
+                        </ul>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                        <button type="button" class="btn btn-primary" onclick="configureZohoService()" data-bs-dismiss="modal">
+                            Zur Konfiguration
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    $('body').append(helpModal);
+    $('#serviceEmailHelpModal').modal('show');
+    
+    $('#serviceEmailHelpModal').on('hidden.bs.modal', function () {
+        $(this).remove();
+    });
+}
+
 // CSRF Token setup
 function getCookie(name) {
     let cookieValue = null;
@@ -516,5 +2354,93 @@ window.restoreBackup = restoreBackup;
 window.restoreFromServer = restoreFromServer;
 window.restoreFromServerDirect = restoreFromServerDirect;
 window.loadBackupList = loadBackupList;
+window.loadEmailServiceInfo = loadEmailServiceInfo;
+window.sendTestEmail = sendTestEmail;
+window.checkEmailService = checkEmailService;
+window.saveEmailConfiguration = saveEmailConfiguration;
+window.testEmailConfiguration = testEmailConfiguration;
+window.loadCurrentEmailConfig = loadCurrentEmailConfig;
+window.addSharedEmail = addSharedEmail;
+window.loadSharedEmails = loadSharedEmails;
+
+// Zoho Service Email Assistant functions
+window.loadZohoIntegrationStatus = loadZohoIntegrationStatus;
+window.configureZohoService = configureZohoService;
+window.setupServiceEmail = setupServiceEmail;
+window.hideServiceSetup = hideServiceSetup;
+window.saveServiceEmailConfig = saveServiceEmailConfig;
+window.testServiceEmail = testServiceEmail;
+window.testServiceEmailConnection = testServiceEmailConnection;
+window.showServiceEmailHelp = showServiceEmailHelp;
+
+// Zoho Configuration Helper functions
+window.showZohoSetupGuide = showZohoSetupGuide;
+window.verifyZohoClientId = verifyZohoClientId;
+window.togglePasswordVisibility = togglePasswordVisibility;
+window.generateRedirectUri = generateRedirectUri;
+window.copyRedirectUri = copyRedirectUri;
+window.openZohoQuickSetup = openZohoQuickSetup;
+window.copyToClipboard = copyToClipboard;
+
+// Email Diagnostics functions
+window.runEmailDiagnostics = runEmailDiagnostics;
+window.displayDiagnosticsResults = displayDiagnosticsResults;
+window.showQuickFixes = showQuickFixes;
+window.showAlternativeServers = showAlternativeServers;
+window.useAlternativeServer = useAlternativeServer;
+window.testAlternativeDNS = testAlternativeDNS;
+window.closeDiagnosticsPanel = closeDiagnosticsPanel;
+
+// Auto-configuration function
+function autoConfigureEmail() {
+    console.log('🔧 Starting automatic email configuration...');
+    
+    // Show loading state
+    const autoButton = document.querySelector('button[onclick="autoConfigureEmail()"]');
+    const originalText = autoButton.innerHTML;
+    autoButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Konfiguriere...';
+    autoButton.disabled = true;
+    
+    showAlert('⏳ Automatische E-Mail-Konfiguration läuft...', 'info');
+    
+    // Call auto-configuration endpoint
+    $.post('{% url "superconfig:auto_configure_email_fallback" %}', {
+        'csrfmiddlewaretoken': document.querySelector('[name=csrfmiddlewaretoken]').value
+    })
+    .done(function(response) {
+        if (response.success) {
+            if (response.fallback_used) {
+                showAlert(`✅ Auto-Konfiguration erfolgreich! ${response.message}`, 'success');
+                
+                // Reload current configuration to show updated values
+                loadCurrentEmailConfig();
+                
+                // Show success in diagnostics
+                $('#emailDiagnosticsPanel').slideDown();
+                $('#diagnosticsResults').html(`
+                    <div class="alert alert-success">
+                        <h6 class="alert-heading"><i class="fas fa-check-circle me-2"></i>Auto-Konfiguration erfolgreich</h6>
+                        <p class="mb-0">${response.message}</p>
+                        <small class="text-muted">Das System kann jetzt automatisch E-Mails versenden.</small>
+                    </div>
+                `);
+            } else {
+                showAlert('✅ E-Mail-Konfiguration bereits optimal!', 'success');
+            }
+        } else {
+            showAlert(`❌ Auto-Konfiguration fehlgeschlagen: ${response.message}`, 'danger');
+        }
+    })
+    .fail(function() {
+        showAlert('❌ Fehler bei der automatischen Konfiguration', 'danger');
+    })
+    .always(function() {
+        // Restore button state
+        autoButton.innerHTML = originalText;
+        autoButton.disabled = false;
+    });
+}
+
+window.autoConfigureEmail = autoConfigureEmail;
 </script>
 {% endblock %}
