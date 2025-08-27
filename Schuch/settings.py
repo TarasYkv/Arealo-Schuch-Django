@@ -173,10 +173,10 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'kontakt@workloom.de')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Workloom <kontakt@workloom.de>')
 
-# Fallback für Entwicklung - wenn keine E-Mail-Credentials vorhanden
-if not EMAIL_HOST_PASSWORD:
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-    print("⚠️  WARNUNG: Keine E-Mail-Credentials gefunden. E-Mails werden in der Konsole ausgegeben.")
+# WICHTIG: Immer unser AutoFallbackEmailBackend verwenden!
+# Das Backend lädt die Konfiguration automatisch aus der Datenbank
+# Kein Console-Fallback mehr - SuperConfig verwaltet alles über die Datenbank
+print("📧 Email-System: Verwendet SuperConfig AutoFallbackEmailBackend (Datenbank-Konfiguration)")
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
