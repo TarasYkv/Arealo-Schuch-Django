@@ -20,10 +20,29 @@ class AutoFallbackEmailBackend(SMTPEmailBackend):
         self.fallback_used = False
         self.original_host = None
         
-        # Load configuration from database instead of settings
+        # Load configuration from database BEFORE calling parent
         self._load_database_config()
         
+        # Override any kwargs with our database config
+        if hasattr(self, 'host'):
+            kwargs['host'] = self.host
+        if hasattr(self, 'port'):
+            kwargs['port'] = self.port
+        if hasattr(self, 'username'):
+            kwargs['username'] = self.username
+        if hasattr(self, 'password'):
+            kwargs['password'] = self.password
+        if hasattr(self, 'use_tls'):
+            kwargs['use_tls'] = self.use_tls
+        if hasattr(self, 'use_ssl'):
+            kwargs['use_ssl'] = self.use_ssl
+        
         super().__init__(*args, **kwargs)
+        
+        # FORCE override after parent init to prevent settings.py override
+        if hasattr(self, 'host'):
+            super(SMTPEmailBackend, self).__setattr__('host', self.host)
+            print(f"🔒 Forcing host to: {self.host} (preventing settings.py override)")
     
     def _load_database_config(self):
         """Load email configuration from database"""
@@ -40,13 +59,25 @@ class AutoFallbackEmailBackend(SMTPEmailBackend):
                 self.use_tls = config.smtp_use_tls
                 self.use_ssl = config.smtp_use_ssl
                 
-                logger.info(f"Loaded email config from database: {self.host}:{self.port}")
+                logger.info(f"✅ AutoFallbackEmailBackend: Loaded from DB - {self.host}:{self.port} (User: {self.username})")
+                print(f"🔧 SuperConfig Email Backend: {self.host}:{self.port} für {self.username}")
             else:
-                logger.warning("No active email configuration found in database")
+                logger.warning("❌ No active email configuration found in database - using Zoho defaults")
+                # Use Zoho defaults if no database config
+                self.host = 'smtp.zoho.eu'
+                self.port = 587
+                self.use_tls = True
+                self.use_ssl = False
+                print(f"⚡ SuperConfig: Fallback auf Zoho-Standard smtp.zoho.eu:587")
                 
         except Exception as e:
             logger.error(f"Failed to load database email config: {e}")
-            # Fall back to settings if database fails
+            # Use Zoho defaults on any database error
+            self.host = 'smtp.zoho.eu'
+            self.port = 587
+            self.use_tls = True
+            self.use_ssl = False
+            print(f"🔄 SuperConfig: Datenbank-Fehler, Fallback auf smtp.zoho.eu:587")
     
     def open(self):
         """
