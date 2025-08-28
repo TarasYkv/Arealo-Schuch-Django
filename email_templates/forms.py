@@ -248,11 +248,8 @@ class TestEmailForm(forms.Form):
         label='Vorlage'
     )
     
-    connection = forms.ModelChoiceField(
-        queryset=ZohoMailServerConnection.objects.filter(is_active=True, is_configured=True),
-        widget=forms.Select(attrs={'class': 'form-control'}),
-        label='Zoho Verbindung'
-    )
+    # WICHTIG: Keine Connection mehr nötig - verwendet SuperConfig!
+    # connection field entfernt, da wir jetzt immer SuperConfig verwenden
     
     recipient_email = forms.EmailField(
         widget=forms.EmailInput(attrs={

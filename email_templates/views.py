@@ -41,8 +41,18 @@ def dashboard(request):
     # Get statistics
     total_templates = EmailTemplate.objects.count()
     active_templates = EmailTemplate.objects.filter(is_active=True).count()
-    total_connections = ZohoMailServerConnection.objects.count()
-    active_connections = ZohoMailServerConnection.objects.filter(is_active=True, is_configured=True).count()
+    
+    # WICHTIG: Email-Templates verwendet jetzt SuperConfig!
+    # Check SuperConfig email status instead of own connections
+    from superconfig.models import EmailConfiguration
+    superconfig_active = EmailConfiguration.objects.filter(is_active=True).exists()
+    if superconfig_active:
+        config = EmailConfiguration.objects.filter(is_active=True).first()
+        total_connections = 1  # SuperConfig connection
+        active_connections = 1 if config.smtp_host else 0
+    else:
+        total_connections = 0
+        active_connections = 0
     
     # NEW: Trigger statistics
     total_triggers = EmailTrigger.objects.count()
@@ -496,7 +506,8 @@ def send_test_email(request):
         form = TestEmailForm(request.POST)
         if form.is_valid():
             template = form.cleaned_data['template']
-            connection = form.cleaned_data['connection']
+            # Connection nicht mehr aus Form - verwende dummy für compatibility
+            connection = None  # SuperConfig wird automatisch verwendet
             recipient_email = form.cleaned_data['recipient_email']
             recipient_name = form.cleaned_data['recipient_name']
             test_data = form.cleaned_data['test_data']
@@ -510,10 +521,10 @@ def send_test_email(request):
                     messages.error(request, 'Ungültige Test-Daten.')
                     return render(request, 'email_templates/test_email.html', {'form': form})
             
-            # Send email
+            # Send email via SuperConfig (connection wird ignoriert)
             result = EmailTemplateService.send_template_email(
                 template=template,
-                connection=connection,
+                connection=connection,  # wird von send_template_email ignoriert
                 recipient_email=recipient_email,
                 recipient_name=recipient_name,
                 context_data=context_data,
