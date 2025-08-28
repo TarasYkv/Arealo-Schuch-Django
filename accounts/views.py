@@ -3512,20 +3512,23 @@ def send_verification_email(user, request):
         # Verwende das neue Trigger-System
         try:
             # Importiere das neue Trigger-System
-            from email_templates.trigger_manager import trigger_manager
+            from email_templates.trigger_manager import TriggerManager
+            trigger_manager = TriggerManager()
             
             context_data = {
                 'user_name': user.get_full_name() or user.username,
                 'username': user.username,
+                'user_email': user.email,
                 'verification_url': verification_url,
+                'verification_token': token,
                 'domain': request.get_host(),
                 'site_name': 'Workloom',
                 'company_name': 'Workloom'
             }
             
-            # Feuer den account_activation Trigger
+            # Feuer den user_registration Trigger (richtig benannt)
             results = trigger_manager.fire_trigger(
-                trigger_key='account_activation',
+                trigger_key='user_registration',
                 context_data=context_data,
                 recipient_email=user.email,
                 recipient_name=user.get_full_name() or user.username
@@ -3540,7 +3543,7 @@ def send_verification_email(user, request):
                 logger.warning(f"All trigger templates failed for {user.email}, falling back to Django mail")
             else:
                 # No results (no templates)
-                logger.warning(f"No active templates found for account_activation trigger, falling back to Django mail")
+                logger.warning(f"No active templates found for user_registration trigger, falling back to Django mail")
         
         except Exception as trigger_error:
             logger.warning(f"Trigger system failed: {str(trigger_error)}, falling back to Django mail")

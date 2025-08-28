@@ -556,10 +556,11 @@ class EmailTemplateService:
                            context_data: dict = None, sent_by=None) -> dict:
         """Send an email using a template"""
         
-        # Create send log entry
+        # WICHTIG: connection parameter wird ignoriert - wir verwenden immer SuperConfig!
+        # Create send log entry (ohne connection, da wir SuperConfig verwenden)
         send_log = EmailSendLog.objects.create(
             template=template,
-            connection=connection,
+            connection=None,  # Keine direkte Verbindung - verwendet SuperConfig
             recipient_email=recipient_email,
             recipient_name=recipient_name or '',
             subject='',  # Will be updated after rendering
@@ -584,15 +585,39 @@ class EmailTemplateService:
             send_log.subject = render_result['subject']
             send_log.save()
             
-            # Send email
-            zoho_service = ZohoMailService(connection)
-            send_result = zoho_service.send_email(
-                to_email=recipient_email,
-                to_name=recipient_name,
-                subject=render_result['subject'],
-                html_content=render_result['html_content'],
-                text_content=render_result['text_content']
-            )
+            # Send email via SuperConfig Email Backend (alle Apps außer mail_app verwenden SuperConfig)
+            try:
+                from django.core.mail import EmailMultiAlternatives
+                from django.conf import settings
+                
+                # Create email message with SuperConfig AutoFallbackEmailBackend
+                msg = EmailMultiAlternatives(
+                    subject=render_result['subject'],
+                    body=render_result['text_content'],
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[recipient_email]
+                )
+                
+                # Add HTML version if available
+                if render_result['html_content']:
+                    msg.attach_alternative(render_result['html_content'], "text/html")
+                
+                # Send via SuperConfig Email Backend (automatisch mit Zoho smtp.zoho.eu)
+                msg.send()
+                
+                send_result = {
+                    'success': True,
+                    'message': 'Email sent successfully via SuperConfig'
+                }
+                
+                logger.info(f"✅ Email-Templates: Email sent via SuperConfig to {recipient_email} (Template: {template.name})")
+                
+            except Exception as e:
+                send_result = {
+                    'success': False,
+                    'message': f'SuperConfig email error: {str(e)}'
+                }
+                logger.error(f"❌ Email-Templates: SuperConfig backend failed: {str(e)}")
             
             if send_result['success']:
                 # Update send log

@@ -55,9 +55,21 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <h5 class="card-title">Verbindungen</h5>
-                            <h2 class="mb-0">{{ total_connections }}</h2>
-                            <small>{{ active_connections }} konfiguriert</small>
+                            <h5 class="card-title">E-Mail System</h5>
+                            <h2 class="mb-0">
+                                {% if active_connections > 0 %}
+                                    <i class="fas fa-check-circle"></i>
+                                {% else %}
+                                    <i class="fas fa-times-circle"></i>
+                                {% endif %}
+                            </h2>
+                            <small>
+                                {% if active_connections > 0 %}
+                                    SuperConfig aktiv
+                                {% else %}
+                                    Nicht konfiguriert
+                                {% endif %}
+                            </small>
                         </div>
                         <div class="align-self-center">
                             <i class="fas fa-server fa-2x"></i>
@@ -118,6 +130,24 @@
     </div>
     {% endif %}
 
+    <!-- SuperConfig Notice -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="alert alert-success d-flex align-items-center" role="alert">
+                <i class="fas fa-check-circle me-2"></i>
+                <div>
+                    <strong>✅ Email-System verbunden:</strong> 
+                    Diese App verwendet das zentrale <a href="/superconfig/" class="alert-link"><strong>SuperConfig Email-System</strong></a> mit Zoho SMTP. 
+                    {% if active_connections > 0 %}
+                        <span class="badge bg-light text-success ms-2">Aktiv: smtp.zoho.eu</span>
+                    {% else %}
+                        <span class="badge bg-danger ms-2">Nicht konfiguriert</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Quick Actions -->
     <div class="row mb-4">
         <div class="col-12">
@@ -172,9 +202,9 @@
                             </a>
                         </div>
                         <div class="col-lg-2 col-md-4 col-sm-6 mb-2">
-                            <a href="{% url 'email_templates:connection_list' %}" class="btn btn-dark btn-lg w-100">
+                            <a href="/superconfig/" class="btn btn-success btn-lg w-100">
                                 <i class="fas fa-cogs me-2"></i>
-                                Verbindungen
+                                SuperConfig
                             </a>
                         </div>
                     </div>
@@ -239,7 +269,7 @@
                                             {% if log.connection %}
                                                 {{ log.connection.name }}
                                             {% else %}
-                                                <span class="text-muted">Gelöscht</span>
+                                                <span class="badge bg-success">SuperConfig</span>
                                             {% endif %}
                                         </td>
                                         <td>

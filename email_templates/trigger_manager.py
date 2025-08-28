@@ -371,14 +371,13 @@ class TriggerManager:
                 logger.info(f"No active templates found for trigger '{trigger_key}'")
                 return []
             
-            # Get active Zoho connection
-            connection = ZohoMailServerConnection.objects.filter(
-                is_active=True,
-                is_configured=True
-            ).first()
+            # WICHTIG: Email-Templates verwendet jetzt SuperConfig!
+            # Check SuperConfig email status instead of Zoho connections
+            from superconfig.models import EmailConfiguration
+            superconfig_active = EmailConfiguration.objects.filter(is_active=True).exists()
             
-            if not connection:
-                logger.error("No active Zoho connection found")
+            if not superconfig_active:
+                logger.error("No active SuperConfig email configuration found")
                 return []
             
             results = []
@@ -396,9 +395,10 @@ class TriggerManager:
                     # TODO: Implement delay mechanism for future enhancement
                     # For now, send immediately
                     
+                    # WICHTIG: Verwende SuperConfig anstatt Zoho connection
                     result = EmailTemplateService.send_template_email(
                         template=template,
-                        connection=connection,
+                        connection=None,  # SuperConfig verwendet keine Connection
                         recipient_email=recipient_email,
                         recipient_name=recipient_name,
                         context_data=context_data,
