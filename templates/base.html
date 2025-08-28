@@ -2241,16 +2241,17 @@
         // Chat-Benachrichtigungen alle 45 Sekunden aktualisieren (aber nicht während Anrufen)
         document.addEventListener('DOMContentLoaded', function() {
             {% if user.is_authenticated %}
-            updateChatNotifications();
-            setInterval(function() {
-                // Überprüfen ob ein Anruf aktiv ist
-                const callModal = document.getElementById('callModal');
-                const isCallActive = callModal && callModal.classList.contains('show');
-                
-                if (!isCallActive) {
-                    updateChatNotifications();
-                }
-            }, 45000); // Alle 45 Sekunden (reduced frequency)
+            // TEMPORARILY DISABLED: Chat notification polling to reduce browser load
+            // updateChatNotifications();
+            // setInterval(function() {
+            //     // Überprüfen ob ein Anruf aktiv ist
+            //     const callModal = document.getElementById('callModal');
+            //     const isCallActive = callModal && callModal.classList.contains('show');
+            //     
+            //     if (!isCallActive) {
+            //         updateChatNotifications();
+            //     }
+            // }, 45000); // Alle 45 Sekunden (reduced frequency)
             
             // Set user offline when leaving the page
             window.addEventListener('beforeunload', function() {
@@ -2891,14 +2892,16 @@
         // Chat system - re-enabled for call notifications
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', function() {
+                // TEMPORARILY DISABLED: All polling to reduce browser load
                 // connectGlobalNotifications(); // Disabled - using HTTP polling only
-                startGlobalCallPolling(); // Re-enabled for call notifications
-                startGlobalOnlineStatusUpdate(); // Global online status updates
+                // startGlobalCallPolling(); // Re-enabled for call notifications
+                // startGlobalOnlineStatusUpdate(); // Global online status updates
             });
         } else {
+            // TEMPORARILY DISABLED: All polling to reduce browser load
             // connectGlobalNotifications(); // Disabled - using HTTP polling only
-            startGlobalCallPolling(); // Re-enabled for call notifications
-            startGlobalOnlineStatusUpdate(); // Global online status updates
+            // startGlobalCallPolling(); // Re-enabled for call notifications
+            // startGlobalOnlineStatusUpdate(); // Global online status updates
         }
         
         // Global call variables
@@ -3346,44 +3349,44 @@
             
             console.log('🔄 Starting global call polling...');
             
-            // Poll every 4 seconds for incoming calls (reduced frequency to avoid conflicts)
-            globalPollingInterval = setInterval(async () => {
-                try {
-                    // Skip polling if already in a call or call overlay is shown
-                    if (globalIsCallActive || globalIncomingCallData) {
-                        return;
-                    }
-                    
-                    // Check for calls across all user's chat rooms
-                    const response = await fetch('/chat/check-incoming-calls/', {
-                        method: 'GET',
-                        headers: {
-                            'X-CSRFToken': getCookie('csrftoken')
-                        }
-                    });
-                    
-                    const data = await response.json();
-                    
-                    console.log('🔍 Polling result:', data); // Debug log
-                    
-                    if (data.has_call && data.call_id !== globalLastCheckedMessageId) {
-                        globalLastCheckedMessageId = data.call_id;
-                        console.log('📞 Global incoming call detected:', data);
-                        
-                        // Show global incoming call overlay
-                        showGlobalIncomingCall({
-                            caller_name: data.caller_name,
-                            caller_id: data.caller_id,
-                            call_type: data.call_type,
-                            channel_name: data.channel_name,
-                            room_id: data.room_id,
-                            call_id: data.call_id
-                        });
-                    }
-                } catch (error) {
-                    console.error('Error checking for global incoming calls:', error);
-                }
-            }, 2000); // Reduced to 2000ms for faster call detection
+            // TEMPORARILY DISABLED: Call polling to reduce browser load
+            // globalPollingInterval = setInterval(async () => {
+            //     try {
+            //         // Skip polling if already in a call or call overlay is shown
+            //         if (globalIsCallActive || globalIncomingCallData) {
+            //             return;
+            //         }
+            //         
+            //         // Check for calls across all user's chat rooms
+            //         const response = await fetch('/chat/check-incoming-calls/', {
+            //             method: 'GET',
+            //             headers: {
+            //                 'X-CSRFToken': getCookie('csrftoken')
+            //             }
+            //         });
+            //         
+            //         const data = await response.json();
+            //         
+            //         console.log('🔍 Polling result:', data); // Debug log
+            //         
+            //         if (data.has_call && data.call_id !== globalLastCheckedMessageId) {
+            //             globalLastCheckedMessageId = data.call_id;
+            //             console.log('📞 Global incoming call detected:', data);
+            //             
+            //             // Show global incoming call overlay
+            //             showGlobalIncomingCall({
+            //                 caller_name: data.caller_name,
+            //                 caller_id: data.caller_id,
+            //                 call_type: data.call_type,
+            //                 channel_name: data.channel_name,
+            //                 room_id: data.room_id,
+            //                 call_id: data.call_id
+            //             });
+            //         }
+            //     } catch (error) {
+            //         console.error('Error checking for global incoming calls:', error);
+            //     }
+            // }, 2000); // Reduced to 2000ms for faster call detection
             {% endif %}
         }
         
@@ -3916,19 +3919,20 @@
             console.log('🟢 Starting global online status updates...');
             
             // Update user online status immediately
-            updateUserOnlineStatus();
-            
-            // Set up periodic updates every 2 minutes
-            globalOnlineStatusInterval = setInterval(async () => {
-                try {
-                    // Skip updates during active calls to avoid interference
-                    if (!globalIsCallActive) {
-                        await updateUserOnlineStatus();
-                    }
-                } catch (error) {
-                    console.error('Error in global online status update:', error);
-                }
-            }, 120000); // Every 2 minutes
+            // TEMPORARILY DISABLED: Online status updates to reduce browser load
+            // updateUserOnlineStatus();
+            // 
+            // // Set up periodic updates every 2 minutes
+            // globalOnlineStatusInterval = setInterval(async () => {
+            //     try {
+            //         // Skip updates during active calls to avoid interference
+            //         if (!globalIsCallActive) {
+            //             await updateUserOnlineStatus();
+            //         }
+            //     } catch (error) {
+            //         console.error('Error in global online status update:', error);
+            //     }
+            // }, 120000); // Every 2 minutes
             {% endif %}
         }
         
