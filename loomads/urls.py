@@ -1,0 +1,41 @@
+from django.urls import path
+from . import views
+from . import views_frontend
+
+app_name = 'loomads'
+
+urlpatterns = [
+    # Dashboard
+    path('', views.dashboard, name='dashboard'),
+    
+    # Kampagnen
+    path('campaigns/', views.campaign_list, name='campaign_list'),
+    path('campaigns/create/', views.campaign_create, name='campaign_create'),
+    path('campaigns/<uuid:campaign_id>/', views.campaign_detail, name='campaign_detail'),
+    path('campaigns/<uuid:campaign_id>/edit/', views.campaign_edit, name='campaign_edit'),
+    path('campaigns/<uuid:campaign_id>/delete/', views.campaign_delete, name='campaign_delete'),
+    
+    # Anzeigen
+    path('ads/', views.ad_list, name='ad_list'),
+    path('ads/create/', views.ad_create, name='ad_create'),
+    path('ads/<uuid:ad_id>/', views.ad_detail, name='ad_detail'),
+    path('ads/<uuid:ad_id>/edit/', views.ad_edit, name='ad_edit'),
+    path('ads/<uuid:ad_id>/delete/', views.ad_delete, name='ad_delete'),
+    
+    # Zonen
+    path('zones/', views.zone_list, name='zone_list'),
+    path('zones/create/', views.zone_create, name='zone_create'),
+    path('zones/<int:zone_id>/edit/', views.zone_edit, name='zone_edit'),
+    path('zones/<int:zone_id>/delete/', views.zone_delete, name='zone_delete'),
+    
+    # Analytics & Settings
+    path('analytics/', views.analytics, name='analytics'),
+    path('settings/', views_frontend.settings, name='settings'),
+    
+    # AJAX Endpoints
+    path('ajax/update-zone-status/', views_frontend.ajax_update_zone_status, name='ajax_update_zone_status'),
+    
+    # API Endpoints
+    path('api/zone/<str:zone_code>/ad/', views.get_ad_for_zone, name='get_ad_for_zone'),
+    path('api/track/click/<uuid:ad_id>/', views.track_click, name='track_click'),
+]

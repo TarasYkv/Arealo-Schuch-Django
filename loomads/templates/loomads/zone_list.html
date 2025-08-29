@@ -1,0 +1,261 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Werbezonen - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-0">
+                <i class="bi bi-grid-3x3 text-secondary me-2"></i>
+                Werbezonen
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'loomads:dashboard' %}">LoomAds</a></li>
+                    <li class="breadcrumb-item active">Werbezonen</li>
+                </ol>
+            </nav>
+        </div>
+        <a href="{% url 'loomads:zone_create' %}" class="btn btn-secondary">
+            <i class="bi bi-plus-lg me-2"></i>Neue Zone
+        </a>
+    </div>
+
+    <!-- Zone Grid -->
+    <div class="row">
+        {% for zone in zones %}
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card h-100 {% if not zone.is_active %}opacity-50{% endif %}">
+                <div class="card-header bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            {% if zone.zone_type == 'header' %}
+                                <i class="bi bi-layout-text-window text-primary"></i>
+                            {% elif zone.zone_type == 'sidebar' %}
+                                <i class="bi bi-layout-sidebar text-info"></i>
+                            {% elif zone.zone_type == 'modal' %}
+                                <i class="bi bi-window-stack text-warning"></i>
+                            {% elif zone.zone_type == 'in_feed' %}
+                                <i class="bi bi-card-list text-success"></i>
+                            {% else %}
+                                <i class="bi bi-grid text-secondary"></i>
+                            {% endif %}
+                            {{ zone.name }}
+                        </h5>
+                        {% if zone.is_active %}
+                            <span class="badge bg-success">Aktiv</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Inaktiv</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-2">
+                        <strong>Code:</strong> <code>{{ zone.code }}</code>
+                    </p>
+                    
+                    <!-- Zone-spezifische Standort-Erklärung -->
+                    <div class="alert alert-info small p-2 mb-2">
+                        <i class="bi bi-info-circle me-1"></i>
+                        <strong>Standort:</strong>
+                        {% if zone.code == 'header_main' %}
+                            Ganz oben auf jeder Seite, direkt unter der Navigation. Sichtbar für alle Benutzer auf allen Seiten.
+                        {% elif zone.code == 'footer_main' %}
+                            Ganz unten auf jeder Seite, über dem Footer. Sichtbar auf allen Seiten.
+                        {% elif zone.code == 'sidebar_main' %}
+                            In der rechten Seitenleiste im Dashboard und anderen Seiten mit Sidebar-Layout.
+                        {% elif zone.code == 'content_infeed' %}
+                            Zwischen Content-Elementen, z.B. in Listen oder zwischen Artikeln. Ideal für native Werbung.
+                        {% elif zone.code == 'popup_welcome' %}
+                            Als Modal-Popup, erscheint automatisch nach einigen Sekunden für neue Besucher.
+                        {% elif zone.zone_type == 'header' %}
+                            Im oberen Bereich der Seite, prominent platziert für maximale Sichtbarkeit.
+                        {% elif zone.zone_type == 'footer' %}
+                            Im unteren Bereich der Seite, für dezente aber dauerhafte Präsenz.
+                        {% elif zone.zone_type == 'sidebar' %}
+                            In der Seitenleiste, neben dem Hauptinhalt. Gut für vertikale Banner.
+                        {% elif zone.zone_type == 'in_feed' %}
+                            Innerhalb von Inhalten, zwischen Listenelementen oder Artikeln eingebettet.
+                        {% elif zone.zone_type == 'modal' %}
+                            Als Overlay/Popup über dem Inhalt. Hohe Aufmerksamkeit, sollte sparsam eingesetzt werden.
+                        {% elif zone.zone_type == 'video_preroll' %}
+                            Vor Video-Inhalten. Wird abgespielt bevor das eigentliche Video startet.
+                        {% elif zone.zone_type == 'video_overlay' %}
+                            Als Overlay über Video-Inhalten während der Wiedergabe.
+                        {% elif zone.zone_type == 'content_card' %}
+                            Als Karten-Element im Content-Bereich, fügt sich nahtlos in den Inhalt ein.
+                        {% elif zone.zone_type == 'notification' %}
+                            Als Benachrichtigungs-Banner, meist oben oder unten fixiert.
+                        {% else %}
+                            {{ zone.get_zone_type_display }}
+                        {% endif %}
+                    </div>
+                    
+                    {% if zone.description %}
+                    <p class="small mb-2">{{ zone.description }}</p>
+                    {% endif %}
+                    
+                    <div class="row text-center mt-3">
+                        <div class="col-6">
+                            <div class="bg-light rounded p-2">
+                                <small class="text-muted d-block">Größe</small>
+                                <strong>{{ zone.width }}x{{ zone.height }}px</strong>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="bg-light rounded p-2">
+                                <small class="text-muted d-block">Anzeigen</small>
+                                <strong>{{ zone.advertisements.count }}</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <small class="text-muted">Typ: {{ zone.get_zone_type_display }}</small>
+                        {% if zone.app_restriction %}
+                        <br><small class="text-warning">App: {{ zone.app_restriction }}</small>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-footer bg-white">
+                    <div class="btn-group btn-group-sm w-100">
+                        <a href="{% url 'loomads:zone_edit' zone.id %}" class="btn btn-outline-primary">
+                            <i class="bi bi-pencil"></i> Bearbeiten
+                        </a>
+                        <a href="{% url 'loomads:zone_delete' zone.id %}" class="btn btn-outline-danger">
+                            <i class="bi bi-trash"></i> Löschen
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="bi bi-grid-x display-1 text-muted"></i>
+                <p class="mt-3 text-muted">Keine Werbezonen gefunden.</p>
+                <a href="{% url 'loomads:zone_create' %}" class="btn btn-secondary">
+                    <i class="bi bi-plus-lg me-2"></i>Erste Zone erstellen
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Integration Hilfe -->
+    <div class="card mt-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="bi bi-code-slash me-2"></i>Integration & Standorte</h5>
+        </div>
+        <div class="card-body">
+            <h6>Bereits integrierte Zonen:</h6>
+            <div class="table-responsive mb-4">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Zone Code</th>
+                            <th>Template</th>
+                            <th>Sichtbar für</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>header_main</code></td>
+                            <td>base.html</td>
+                            <td>Nur Superuser</td>
+                            <td><span class="badge bg-success">Aktiv</span></td>
+                        </tr>
+                        <tr>
+                            <td><code>footer_main</code></td>
+                            <td>base.html</td>
+                            <td>Nur Superuser</td>
+                            <td><span class="badge bg-success">Aktiv</span></td>
+                        </tr>
+                        <tr>
+                            <td><code>popup_main</code></td>
+                            <td>base.html</td>
+                            <td>Anonyme Besucher</td>
+                            <td><span class="badge bg-success">Aktiv</span></td>
+                        </tr>
+                        <tr>
+                            <td><code>header_main</code></td>
+                            <td>core/startseite.html</td>
+                            <td>Alle</td>
+                            <td><span class="badge bg-success">Aktiv</span></td>
+                        </tr>
+                        <tr>
+                            <td><code>content_infeed</code></td>
+                            <td>core/startseite.html</td>
+                            <td>Alle</td>
+                            <td><span class="badge bg-success">Aktiv</span></td>
+                        </tr>
+                        <tr>
+                            <td><code>footer_main</code></td>
+                            <td>core/startseite.html</td>
+                            <td>Alle</td>
+                            <td><span class="badge bg-success">Aktiv</span></td>
+                        </tr>
+                        <tr>
+                            <td><code>header_dashboard</code></td>
+                            <td>accounts/dashboard.html</td>
+                            <td>Eingeloggte User</td>
+                            <td><span class="badge bg-success">Aktiv</span></td>
+                        </tr>
+                        <tr>
+                            <td><code>sidebar_dashboard</code></td>
+                            <td>accounts/dashboard.html</td>
+                            <td>Eingeloggte User</td>
+                            <td><span class="badge bg-success">Aktiv</span></td>
+                        </tr>
+                        <tr>
+                            <td><code>dashboard_infeed</code></td>
+                            <td>accounts/dashboard.html</td>
+                            <td>Eingeloggte User</td>
+                            <td><span class="badge bg-success">Aktiv</span></td>
+                        </tr>
+                        <tr>
+                            <td><code>footer_dashboard</code></td>
+                            <td>accounts/dashboard.html</td>
+                            <td>Eingeloggte User</td>
+                            <td><span class="badge bg-success">Aktiv</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <h6>So integrieren Sie neue Werbezonen in Ihre Templates:</h6>
+            <pre class="bg-light p-3 rounded"><code>{% templatetag openblock %} load loomads_tags {% templatetag closeblock %}
+{% templatetag openblock %} show_ad_zone 'zone_code' css_class='my-custom-class' {% templatetag closeblock %}</code></pre>
+            
+            <h6>Beispiele für verschiedene Positionen:</h6>
+            <div class="row">
+                <div class="col-md-6">
+                    <p class="mb-1"><strong>Header-Zone:</strong></p>
+                    <pre class="bg-light p-2 small"><code>{% templatetag openblock %} show_ad_zone 'header_main' css_class='mb-4' {% templatetag closeblock %}</code></pre>
+                </div>
+                <div class="col-md-6">
+                    <p class="mb-1"><strong>Sidebar-Zone:</strong></p>
+                    <pre class="bg-light p-2 small"><code>{% templatetag openblock %} show_ad_zone 'sidebar_main' css_class='sticky-top' {% templatetag closeblock %}</code></pre>
+                </div>
+                <div class="col-md-6">
+                    <p class="mb-1"><strong>In-Feed-Zone:</strong></p>
+                    <pre class="bg-light p-2 small"><code>{% templatetag openblock %} show_ad_zone 'content_infeed' css_class='my-3' {% templatetag closeblock %}</code></pre>
+                </div>
+                <div class="col-md-6">
+                    <p class="mb-1"><strong>Modal/Popup-Zone:</strong></p>
+                    <pre class="bg-light p-2 small"><code>{% templatetag openblock %} show_ad_modal 'popup_welcome' delay=5000 {% templatetag closeblock %}</code></pre>
+                </div>
+            </div>
+            
+            <div class="alert alert-warning mt-3 mb-0">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>Wichtig:</strong> Stellen Sie sicher, dass die Zone-Codes existieren und aktiv sind, bevor Sie sie in Templates einbinden.
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

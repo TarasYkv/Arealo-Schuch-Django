@@ -1,5 +1,6 @@
 {% load static %}
 {% load app_permissions %}
+{% load loomads_tags %}
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -21,6 +22,9 @@
     <link rel="stylesheet" href="{% static 'css/style.css' %}?v={% now 'U' %}&call-update=1">
     <link rel="stylesheet" href="{% static 'css/naturmacher.css' %}">
     <link rel="stylesheet" href="{% static 'css/bug-button.css' %}">
+    
+    <!-- LoomAds CSS -->
+    {% loomads_css %}
     
     <!-- Dark Mode CSS -->
     <style>
@@ -1399,6 +1403,13 @@
 </head>
 <body class="{% if user.is_authenticated and user.dark_mode %}bg-dark text-light{% else %}bg-light{% endif %}{% if user.is_authenticated and user.desktop_view %} force-desktop-view{% endif %}">
 
+    <!-- LoomAds Header Banner Zone -->
+    {% if user.is_superuser %}
+    <div class="container-fluid px-0">
+        {% show_ad_zone 'header_main' css_class='loomads-header-banner' %}
+    </div>
+    {% endif %}
+
     <!-- Editable Header Section -->
     {% load editable_content %}
     {% if user.is_authenticated %}
@@ -1669,6 +1680,9 @@
                                 </a></li>
                                 <li><a class="dropdown-item" href="{% url 'superconfig:dashboard' %}">
                                     <i class="bi bi-gear-fill text-danger"></i> SuperConfig
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'loomads:dashboard' %}">
+                                    <i class="bi bi-megaphone-fill text-warning"></i> LoomAds
                                 </a></li>
                                 {% endif %}
                                 {% if user|can_see_app_in_frontend:"editor" %}
@@ -4069,6 +4083,18 @@
     
     {% block page_css %}
     {% endblock %}
+    
+    <!-- LoomAds Footer Banner Zone -->
+    {% if user.is_superuser %}
+    <div class="container-fluid px-0 mt-4">
+        {% show_ad_zone 'footer_main' css_class='loomads-footer-banner' %}
+    </div>
+    {% endif %}
+    
+    <!-- LoomAds Modal/Pop-up for anonymous users -->
+    {% if not user.is_authenticated %}
+        {% show_ad_modal 'popup_welcome' delay=10000 %}
+    {% endif %}
 
 </body>
 </html>

@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Anzeigen - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-0">
+                <i class="bi bi-image text-primary me-2"></i>
+                Anzeigen
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'loomads:dashboard' %}">LoomAds</a></li>
+                    <li class="breadcrumb-item active">Anzeigen</li>
+                </ol>
+            </nav>
+        </div>
+        <a href="{% url 'loomads:ad_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-2"></i>Neue Anzeige
+        </a>
+    </div>
+
+    <!-- Debug Info -->
+    {% if user.is_superuser %}
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        <strong>Debug:</strong> Anzahl Anzeigen: {{ ads.paginator.count|default:ads.count|default:0 }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+    
+    <!-- Ads Grid -->
+    <div class="row">
+        {% for ad in ads %}
+        <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+            <div class="card h-100 {% if not ad.is_active %}opacity-75{% endif %}">
+                <!-- Ad Preview -->
+                <div class="card-img-top bg-light" style="height: 200px; overflow: hidden;">
+                    {% if ad.ad_type == 'image' and ad.image %}
+                        <img src="{{ ad.image.url }}" class="w-100 h-100" style="object-fit: cover;" alt="{{ ad.name }}">
+                    {% elif ad.ad_type == 'html' %}
+                        <div class="p-3 h-100 d-flex align-items-center justify-content-center">
+                            <div style="transform: scale(0.5); transform-origin: center;">
+                                {{ ad.html_content|safe|truncatechars_html:200 }}
+                            </div>
+                        </div>
+                    {% elif ad.ad_type == 'video' %}
+                        <div class="h-100 d-flex align-items-center justify-content-center bg-dark text-white">
+                            <i class="bi bi-play-circle display-3"></i>
+                        </div>
+                    {% else %}
+                        <div class="p-3 h-100 d-flex flex-column justify-content-center">
+                            <h5>{{ ad.title|default:"Text-Anzeige" }}</h5>
+                            <p class="small">{{ ad.description|truncatewords:15 }}</p>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="card-body">
+                    <h5 class="card-title">{{ ad.name }}</h5>
+                    <p class="card-text small text-muted">
+                        Kampagne: {{ ad.campaign.name }}<br>
+                        Typ: {{ ad.get_ad_type_display }}
+                    </p>
+                    
+                    <!-- Statistics -->
+                    <div class="row text-center mb-2">
+                        <div class="col-4">
+                            <small class="text-muted d-block">Impressions</small>
+                            <strong>{{ ad.impressions_count|intcomma }}</strong>
+                        </div>
+                        <div class="col-4">
+                            <small class="text-muted d-block">Klicks</small>
+                            <strong>{{ ad.clicks_count|intcomma }}</strong>
+                        </div>
+                        <div class="col-4">
+                            <small class="text-muted d-block">CTR</small>
+                            <strong>{{ ad.get_ctr|floatformat:2|default:0 }}%</strong>
+                        </div>
+                    </div>
+                    
+                    <!-- Zones -->
+                    <div class="mb-2">
+                        {% for zone in ad.zones.all|slice:":3" %}
+                            <span class="badge bg-secondary">{{ zone.code }}</span>
+                        {% endfor %}
+                        {% if ad.zones.count > 3 %}
+                            <span class="badge bg-secondary">+{{ ad.zones.count|add:"-3" }}</span>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Status -->
+                    <div class="d-flex justify-content-between align-items-center">
+                        {% if ad.is_active %}
+                            <span class="badge bg-success">Aktiv</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Inaktiv</span>
+                        {% endif %}
+                        <span class="badge bg-info">Gewicht: {{ ad.weight }}</span>
+                    </div>
+                </div>
+                
+                <div class="card-footer bg-white">
+                    <div class="btn-group btn-group-sm w-100">
+                        <a href="{% url 'loomads:ad_detail' ad.id %}" class="btn btn-outline-primary">
+                            <i class="bi bi-eye"></i> Details
+                        </a>
+                        <a href="{% url 'loomads:ad_edit' ad.id %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-pencil"></i> Bearbeiten
+                        </a>
+                        <a href="{% url 'loomads:ad_delete' ad.id %}" class="btn btn-outline-danger">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="bi bi-image display-1 text-muted"></i>
+                <p class="mt-3 text-muted">Keine Anzeigen gefunden.</p>
+                <a href="{% url 'loomads:ad_create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-lg me-2"></i>Erste Anzeige erstellen
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

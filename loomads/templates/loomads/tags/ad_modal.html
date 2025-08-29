@@ -1,0 +1,119 @@
+{% if error %}
+    <!-- LoomAds Modal Error: {{ error }} -->
+{% else %}
+    <!-- Modal für Werbeanzeige -->
+    <div class="modal fade" id="loomads-modal-{{ zone_code }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                {% if show_close %}
+                <div class="modal-header border-0 pb-0">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+                </div>
+                {% endif %}
+                <div class="modal-body text-center p-4">
+                    <div id="loomads-modal-content-{{ zone_code }}">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Wird geladen...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Anzeige wird geladen...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+    (function() {
+        const zoneCode = '{{ zone_code }}';
+        const apiUrl = '{{ api_url }}';
+        const trackUrlTemplate = '{{ track_url }}';
+        const delay = {{ delay }};
+        
+        function showModal() {
+            // Prüfen ob Modal bereits angezeigt wurde (Session Storage)
+            if (sessionStorage.getItem('loomads-modal-' + zoneCode + '-shown')) {
+                return;
+            }
+            
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        console.warn('LoomAds Modal: ' + data.error);
+                        return;
+                    }
+                    
+                    const modalContent = document.getElementById('loomads-modal-content-' + zoneCode);
+                    if (!modalContent) return;
+                    
+                    let adHtml = '';
+                    
+                    if (data.type === 'image' && data.image_url) {
+                        adHtml = `
+                            <a href="${data.target_url}" target="${data.target_type}" 
+                               onclick="trackClick('${data.id}', '${zoneCode}'); return true;" 
+                               class="d-block">
+                                <img src="${data.image_url}" alt="${data.title || ''}" 
+                                     class="img-fluid rounded" style="max-height: 400px;" />
+                            </a>
+                        `;
+                    } else if (data.type === 'html' && data.html_content) {
+                        adHtml = `
+                            <div onclick="trackClick('${data.id}', '${zoneCode}')" 
+                                 style="cursor: pointer;">
+                                ${data.html_content}
+                            </div>
+                        `;
+                    } else if (data.type === 'text') {
+                        adHtml = `
+                            <a href="${data.target_url}" target="${data.target_type}" 
+                               onclick="trackClick('${data.id}', '${zoneCode}'); return true;" 
+                               class="text-decoration-none">
+                                <div class="p-4 bg-gradient text-white rounded">
+                                    ${data.title ? `<h4 class="mb-3">${data.title}</h4>` : ''}
+                                    ${data.description ? `<p class="mb-0">${data.description}</p>` : ''}
+                                </div>
+                            </a>
+                        `;
+                    }
+                    
+                    if (adHtml) {
+                        modalContent.innerHTML = adHtml;
+                        
+                        // Modal anzeigen
+                        const modal = new bootstrap.Modal(document.getElementById('loomads-modal-' + zoneCode));
+                        modal.show();
+                        
+                        // Markieren dass Modal angezeigt wurde
+                        sessionStorage.setItem('loomads-modal-' + zoneCode + '-shown', 'true');
+                    }
+                })
+                .catch(error => {
+                    console.error('LoomAds Modal error:', error);
+                });
+        }
+        
+        function trackClick(adId, zoneCode) {
+            const trackUrl = trackUrlTemplate.replace('AD_ID_PLACEHOLDER', adId);
+            const formData = new FormData();
+            formData.append('zone_code', zoneCode);
+            
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                              document.querySelector('meta[name=csrf-token]')?.getAttribute('content') ||
+                              '{{ csrf_token }}';
+            if (csrfToken) {
+                formData.append('csrfmiddlewaretoken', csrfToken);
+            }
+            
+            fetch(trackUrl, {
+                method: 'POST',
+                body: formData
+            }).catch(error => console.error('LoomAds tracking error:', error));
+        }
+        
+        // Modal nach Delay anzeigen
+        setTimeout(showModal, delay);
+        
+    })();
+    </script>
+{% endif %}

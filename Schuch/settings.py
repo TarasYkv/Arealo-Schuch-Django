@@ -75,6 +75,7 @@ INSTALLED_APPS = [
     'superconfig',
     'codelib',
     'promptpro',
+    'loomads',
 ]
 
 

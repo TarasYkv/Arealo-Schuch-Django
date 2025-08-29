@@ -1,0 +1,334 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Analytics - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-0">
+                <i class="bi bi-graph-up text-success me-2"></i>
+                LoomAds Analytics
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'loomads:dashboard' %}">LoomAds</a></li>
+                    <li class="breadcrumb-item active">Analytics</li>
+                </ol>
+            </nav>
+        </div>
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="bi bi-calendar3 me-2"></i>Zeitraum: Letzten 30 Tage
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="?period=7">Letzte 7 Tage</a></li>
+                <li><a class="dropdown-item" href="?period=30">Letzte 30 Tage</a></li>
+                <li><a class="dropdown-item" href="?period=90">Letzte 90 Tage</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card bg-primary text-white shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h3 class="mb-0">{{ total_impressions|default:0|intcomma }}</h3>
+                            <small>Impressions gesamt</small>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-eye fs-2 opacity-75"></i>
+                        </div>
+                    </div>
+                    {% if impressions_change %}
+                    <small class="mt-2 d-block">
+                        <i class="bi bi-arrow-{{ impressions_change|add:0|yesno:'up,down' }} me-1"></i>
+                        {{ impressions_change|floatformat:1 }}% seit letztem Zeitraum
+                    </small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-success text-white shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h3 class="mb-0">{{ total_clicks|default:0|intcomma }}</h3>
+                            <small>Klicks gesamt</small>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-cursor fs-2 opacity-75"></i>
+                        </div>
+                    </div>
+                    {% if clicks_change %}
+                    <small class="mt-2 d-block">
+                        <i class="bi bi-arrow-{{ clicks_change|add:0|yesno:'up,down' }} me-1"></i>
+                        {{ clicks_change|floatformat:1 }}% seit letztem Zeitraum
+                    </small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-info text-white shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h3 class="mb-0">{{ average_ctr|default:0|floatformat:2 }}%</h3>
+                            <small>Durchschnittliche CTR</small>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-percent fs-2 opacity-75"></i>
+                        </div>
+                    </div>
+                    {% if ctr_change %}
+                    <small class="mt-2 d-block">
+                        <i class="bi bi-arrow-{{ ctr_change|add:0|yesno:'up,down' }} me-1"></i>
+                        {{ ctr_change|floatformat:2 }}pp seit letztem Zeitraum
+                    </small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-warning text-dark shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h3 class="mb-0">{{ active_campaigns|default:0 }}</h3>
+                            <small>Aktive Kampagnen</small>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="bi bi-folder fs-2 opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Performance Chart -->
+        <div class="col-md-8 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Performance Trend</h5>
+                </div>
+                <div class="card-body">
+                    <div id="performance-chart" style="height: 300px; display: flex; align-items: center; justify-content: center; color: #6c757d; background: #f8f9fa; border-radius: 4px;">
+                        <div class="text-center">
+                            <i class="bi bi-graph-up fs-1 mb-3 d-block"></i>
+                            <p>Performance-Chart würde hier angezeigt werden</p>
+                            <small>Integration mit Chart.js oder ähnlicher Bibliothek möglich</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Performing Ads -->
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-trophy me-2"></i>Top Anzeigen</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if top_ads %}
+                        {% for ad in top_ads %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center border-0">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">{{ ad.name|truncatechars:25 }}</h6>
+                                <small class="text-muted">{{ ad.clicks_count }} Klicks</small>
+                            </div>
+                            <span class="badge bg-primary rounded-pill">{{ ad.ctr|floatformat:1 }}%</span>
+                        </div>
+                        {% if not forloop.last %}<hr class="my-2">{% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <div class="p-3 text-center text-muted">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Keine Performance-Daten verfügbar
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Campaign Performance -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-folder-open me-2"></i>Kampagnen Performance</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if campaign_stats %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Kampagne</th>
+                                        <th class="text-end">Impressions</th>
+                                        <th class="text-end">Klicks</th>
+                                        <th class="text-end">CTR</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for campaign in campaign_stats %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'loomads:campaign_detail' campaign.id %}" class="text-decoration-none">
+                                                {{ campaign.name|truncatechars:30 }}
+                                            </a>
+                                        </td>
+                                        <td class="text-end">{{ campaign.total_impressions|default:0|intcomma }}</td>
+                                        <td class="text-end">{{ campaign.total_clicks|default:0|intcomma }}</td>
+                                        <td class="text-end">
+                                            <span class="badge bg-{% if campaign.ctr > 2 %}success{% elif campaign.ctr > 1 %}warning{% else %}secondary{% endif %}">
+                                                {{ campaign.ctr|floatformat:2 }}%
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="p-3 text-center text-muted">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Keine Kampagnen-Daten verfügbar
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Zone Performance -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="bi bi-grid-3x3 me-2"></i>Zonen Performance</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if zone_stats %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Zone</th>
+                                        <th class="text-end">Impressions</th>
+                                        <th class="text-end">Klicks</th>
+                                        <th class="text-end">CTR</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for zone in zone_stats %}
+                                    <tr>
+                                        <td>
+                                            <div>
+                                                <strong>{{ zone.name|truncatechars:20 }}</strong>
+                                                <br><small class="text-muted">{{ zone.get_zone_type_display }}</small>
+                                            </div>
+                                        </td>
+                                        <td class="text-end">{{ zone.impressions_count|default:0|intcomma }}</td>
+                                        <td class="text-end">{{ zone.clicks_count|default:0|intcomma }}</td>
+                                        <td class="text-end">
+                                            <span class="badge bg-{% if zone.ctr > 2 %}success{% elif zone.ctr > 1 %}warning{% else %}secondary{% endif %}">
+                                                {{ zone.ctr|floatformat:2 }}%
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="p-3 text-center text-muted">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Keine Zonen-Daten verfügbar
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Letzte Aktivitäten</h5>
+        </div>
+        <div class="card-body p-0">
+            {% if recent_impressions %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Zeitpunkt</th>
+                                <th>Anzeige</th>
+                                <th>Zone</th>
+                                <th>Nutzer</th>
+                                <th>Aktion</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for impression in recent_impressions %}
+                            <tr>
+                                <td>
+                                    <small>{{ impression.timestamp|date:"d.m.Y H:i" }}</small>
+                                </td>
+                                <td>
+                                    <a href="{% url 'loomads:ad_detail' impression.advertisement.id %}" class="text-decoration-none">
+                                        {{ impression.advertisement.name|truncatechars:25 }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark">{{ impression.zone.name|default:"N/A" }}</span>
+                                </td>
+                                <td>
+                                    {% if impression.user %}
+                                        {{ impression.user.username }}
+                                    {% else %}
+                                        <small class="text-muted">Anonym</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary">
+                                        <i class="bi bi-eye me-1"></i>Impression
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="p-4 text-center text-muted">
+                    <i class="bi bi-info-circle fs-1 mb-3 d-block"></i>
+                    <p>Noch keine Aktivitäten verfügbar</p>
+                    <small>Impressions und Klicks werden hier angezeigt, sobald Anzeigen geschaltet werden.</small>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Optional: Chart.js Integration
+// Hier könnte ein echtes Performance-Chart implementiert werden
+document.addEventListener('DOMContentLoaded', function() {
+    // Placeholder für Chart.js oder ähnliche Bibliothek
+    console.log('Analytics page loaded - ready for chart integration');
+});
+</script>
+{% endblock %}
