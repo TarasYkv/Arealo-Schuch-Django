@@ -148,8 +148,21 @@ def loomads_css():
     <style>
     .loomads-zone {
         margin: 10px 0;
-        text-align: center;
+        text-align: center !important;
         position: relative;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    
+    /* Spezielle Zentrierung für Header und Footer Banner */
+    .loomads-header-banner,
+    .loomads-footer-banner {
+        text-align: center !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 100%;
     }
     
     .loomads-link {
