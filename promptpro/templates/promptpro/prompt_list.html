@@ -12,10 +12,21 @@
   .pp-accent-orange { background: linear-gradient(90deg,#f59e0b,#f97316); }
   .pp-accent-cyan   { background: linear-gradient(90deg,#06b6d4,#22d3ee); }
   .pp-accent-pink   { background: linear-gradient(90deg,#f472b6,#fb7185); }
-  .pp-chip { background: rgba(0,0,0,0.04); border:1px solid rgba(0,0,0,0.06); padding:.15rem .5rem; border-radius:999px; font-size:.75rem; }
-  .pp-pre { background: rgba(0,0,0,0.03); border:1px dashed rgba(0,0,0,0.06); font-size:.9rem; line-height:1.35; max-height: 180px; overflow:auto; }
-  .pp-title { font-size:1.05rem; }
-  .pp-meta { font-size:.8rem; }
+  .pp-chip { background: rgba(0,0,0,0.04); border:1px solid rgba(0,0,0,0.06); padding:.22rem .6rem; border-radius:999px; font-size:.78rem; }
+  .pp-pre { background: rgba(0,0,0,0.03); border:1px solid rgba(0,0,0,0.06); font-size:.95rem; line-height:1.45; max-height: 240px; overflow:auto; }
+  .pp-title { font-size:1.08rem; }
+  .pp-meta { font-size:.82rem; }
+  .pp-card .card-body { padding: 1.1rem 1rem; }
+  /* Category emphasis */
+  .pp-cat-chip { 
+    background: linear-gradient(90deg,#6366f1,#8b5cf6);
+    color: #fff; border: 0; padding:.28rem .65rem; border-radius:999px; font-size:.78rem;
+    box-shadow: 0 4px 12px rgba(99,102,241,.25);
+  }
+  .pp-cat-chip .pp-dot { width:.5rem; height:.5rem; border-radius:50%; display:inline-block; margin-right:.4rem; background: rgba(255,255,255,.9); }
+  .pp-cat-toolbar { gap:.5rem; overflow:auto; white-space:nowrap; padding-bottom:.25rem; }
+  .pp-cat-pill { display:inline-flex; align-items:center; gap:.4rem; padding:.35rem .7rem; border-radius:999px; color:#fff; text-decoration:none; font-size:.84rem; }
+  .pp-cat-pill.teal{ background:linear-gradient(90deg,#20c997,#6bd3c9);} .pp-cat-pill.indigo{ background:linear-gradient(90deg,#6366f1,#8b5cf6);} .pp-cat-pill.purple{ background:linear-gradient(90deg,#a855f7,#ec4899);} .pp-cat-pill.orange{ background:linear-gradient(90deg,#f59e0b,#f97316);} .pp-cat-pill.cyan{ background:linear-gradient(90deg,#06b6d4,#22d3ee);} .pp-cat-pill.pink{ background:linear-gradient(90deg,#f472b6,#fb7185);} 
 </style>
 <div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
   <h2 class="mb-2 mb-sm-0">PromptPro</h2>
@@ -37,15 +48,28 @@
     </div>
     <button class="btn btn-outline-primary" type="submit"><i class="bi bi-funnel me-1"></i> Filtern</button>
   </form>
+
+  {% if categories %}
+  <div class="pp-cat-toolbar d-flex mt-3">
+    <a class="pp-cat-pill indigo" href="{% url 'promptpro:prompt_list' %}">
+      <i class="bi bi-collection"></i> Alle Kategorien
+    </a>
+    {% for cat in categories %}
+      <a class="pp-cat-pill {% cycle 'teal' 'indigo' 'purple' 'orange' 'cyan' 'pink' %}"
+         href="{% url 'promptpro:prompt_list' %}?kategorie={{ cat.slug }}">
+        <i class="bi bi-tag"></i> {{ cat.name }}
+      </a>
+    {% endfor %}
+  </div>
+  {% endif %}
 </div>
 
 {% if prompts %}
 <div class="row g-3">
   {% for p in prompts %}
-  {% cycle 'teal' 'indigo' 'purple' 'orange' 'cyan' 'pink' as accent %}
   <div class="col-12 col-md-6 col-lg-4">
     <div class="pp-card h-100">
-      <div class="pp-accent pp-accent-{{ accent }}"></div>
+      <div class="pp-accent pp-accent-{% cycle 'teal' 'indigo' 'purple' 'orange' 'cyan' 'pink' %}"></div>
       <div class="card-body d-flex flex-column">
         <div class="d-flex align-items-start justify-content-between mb-2">
           <h5 class="card-title mb-0 pp-title">{{ p.title }}</h5>
@@ -54,7 +78,7 @@
           </span>
         </div>
         {% if p.category %}
-          <span class="pp-chip mb-2">{{ p.category.name }}</span>
+          <span class="pp-cat-chip mb-2"><span class="pp-dot"></span> Kategorie: {{ p.category.name }}</span>
         {% endif %}
         {% if p.description %}
           <p class="text-muted small mb-3" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">{{ p.description }}</p>
