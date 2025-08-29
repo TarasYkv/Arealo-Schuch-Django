@@ -143,6 +143,7 @@ class AdZone(models.Model):
         ('modal', 'Modal/Pop-up'),
         ('video_preroll', 'Video Pre-Roll'),
         ('video_overlay', 'Video Overlay'),
+        ('video_popup', 'Video Pop-up (unten rechts)'),
         ('content_card', 'Content Card'),
         ('notification', 'Benachrichtigung'),
     ]
@@ -157,6 +158,12 @@ class AdZone(models.Model):
         default=1,
         verbose_name='Maximale Anzahl Anzeigen',
         help_text='Wie viele Anzeigen können gleichzeitig in dieser Zone angezeigt werden'
+    )
+    # Video-Popup spezifische Einstellungen
+    popup_delay = models.IntegerField(
+        default=5, 
+        verbose_name='Popup Verzögerung (Sekunden)',
+        help_text='Nach wie vielen Sekunden soll das Video-Popup erscheinen?'
     )
     is_active = models.BooleanField(default=True, verbose_name='Aktiv')
     app_restriction = models.CharField(
@@ -197,6 +204,7 @@ class Advertisement(models.Model):
     ad_type = models.CharField(max_length=20, choices=AD_TYPES, default='image')
     image = models.ImageField(upload_to='loomads/images/%Y/%m/', blank=True, null=True, verbose_name='Bild')
     video_url = models.URLField(blank=True, verbose_name='Video URL')
+    video_with_audio = models.BooleanField(default=True, verbose_name='Video mit Ton', help_text='Soll das Video mit oder ohne Ton abgespielt werden?')
     title = models.CharField(max_length=200, blank=True, verbose_name='Titel')
     description = models.TextField(blank=True, verbose_name='Beschreibung')
     html_content = models.TextField(blank=True, verbose_name='HTML Inhalt')
