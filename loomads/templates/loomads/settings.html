@@ -1,0 +1,392 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Einstellungen - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-0">
+                <i class="bi bi-gear text-info me-2"></i>
+                LoomAds Einstellungen
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'loomads:dashboard' %}">LoomAds</a></li>
+                    <li class="breadcrumb-item active">Einstellungen</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- System Status -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>System Status</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <td>Kampagnen gesamt:</td>
+                            <td class="text-end"><strong>{{ total_campaigns }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Aktive Kampagnen:</td>
+                            <td class="text-end"><strong class="text-success">{{ active_campaigns }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Anzeigen gesamt:</td>
+                            <td class="text-end"><strong>{{ total_ads }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Aktive Anzeigen:</td>
+                            <td class="text-end"><strong class="text-success">{{ active_ads }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Werbezonen gesamt:</td>
+                            <td class="text-end"><strong>{{ total_zones }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td>Aktive Zonen:</td>
+                            <td class="text-end"><strong class="text-success">{{ active_zones }}</strong></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0"><i class="bi bi-lightning-charge me-2"></i>Schnellaktionen</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'loomads:campaign_create' %}" class="btn btn-primary">
+                            <i class="bi bi-folder-plus me-2"></i>Neue Kampagne erstellen
+                        </a>
+                        <a href="{% url 'loomads:ad_create' %}" class="btn btn-outline-primary">
+                            <i class="bi bi-image me-2"></i>Neue Anzeige erstellen
+                        </a>
+                        <a href="{% url 'loomads:zone_create' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-grid-3x3 me-2"></i>Neue Zone erstellen
+                        </a>
+                        <a href="{% url 'loomads:analytics' %}" class="btn btn-outline-dark">
+                            <i class="bi bi-graph-up me-2"></i>Analytics anzeigen
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Settings -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0"><i class="bi bi-sliders me-2"></i>Globale Einstellungen</h5>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Anzeige-Einstellungen</h6>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="enable_tracking" name="enable_tracking" {% if settings.enable_tracking %}checked{% endif %}>
+                            <label class="form-check-label" for="enable_tracking">
+                                Impression & Click Tracking aktivieren
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="enable_targeting" name="enable_targeting" {% if settings.enable_targeting %}checked{% endif %}>
+                            <label class="form-check-label" for="enable_targeting">
+                                Targeting-Funktionen aktivieren
+                            </label>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="enable_scheduling" name="enable_scheduling" {% if settings.enable_scheduling %}checked{% endif %}>
+                            <label class="form-check-label" for="enable_scheduling">
+                                Zeitplan-Funktionen aktivieren
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6>Standard-Limits</h6>
+                        <div class="mb-3">
+                            <label for="default_daily_limit" class="form-label">Standard tägliches Impression-Limit</label>
+                            <input type="number" class="form-control" id="default_daily_limit" name="default_daily_limit" 
+                                   value="{{ settings.default_daily_limit|default:'' }}" placeholder="Leer für unbegrenzt">
+                        </div>
+                        <div class="mb-3">
+                            <label for="default_weight" class="form-label">Standard-Gewichtung für neue Anzeigen</label>
+                            <input type="number" class="form-control" id="default_weight" name="default_weight" 
+                                   value="{{ settings.default_weight }}" min="1" max="10">
+                        </div>
+                    </div>
+                </div>
+                
+                <hr class="my-4">
+                
+                <!-- Global Zone Controls -->
+                <h6>Globale Anzeigenzonen-Kontrolle</h6>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="global_header_enabled" name="global_header_enabled" {% if settings.global_header_enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="global_header_enabled">
+                                <strong>Header-Zonen global aktivieren</strong>
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="global_footer_enabled" name="global_footer_enabled" {% if settings.global_footer_enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="global_footer_enabled">
+                                <strong>Footer-Zonen global aktivieren</strong>
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="global_sidebar_enabled" name="global_sidebar_enabled" {% if settings.global_sidebar_enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="global_sidebar_enabled">
+                                <strong>Sidebar-Zonen global aktivieren</strong>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="global_infeed_enabled" name="global_infeed_enabled" {% if settings.global_infeed_enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="global_infeed_enabled">
+                                <strong>In-Feed-Zonen global aktivieren</strong>
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="global_modal_enabled" name="global_modal_enabled" {% if settings.global_modal_enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="global_modal_enabled">
+                                <strong>Modal/Pop-up-Zonen global aktivieren</strong>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-2"></i>Einstellungen speichern
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- App-specific Zone Controls -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0"><i class="bi bi-app-indicator me-2"></i>App-spezifische Anzeigenzonen-Kontrolle</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted mb-3">Hier können Sie für jede App individuell festlegen, welche Anzeigenzonen-Typen aktiviert sein sollen.</p>
+            
+            <!-- Zone Controls für jede App -->
+            <div id="app-zone-controls">
+                <!-- Diese werden dynamisch via JavaScript geladen -->
+                <div class="text-center text-muted">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Verfügbare Apps: accounts, amortization_calculator, core, documents, loomads, pdf_sucher, shopify_manager, somi_plan, sportplatzApp, streamrec, superconfig, videos
+                </div>
+            </div>
+            
+            <hr class="my-4">
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="app_name" class="form-label">App Name</label>
+                        <select class="form-select" id="app_name">
+                            <option value="">Wählen Sie eine App...</option>
+                            <option value="accounts">accounts</option>
+                            <option value="amortization_calculator">amortization_calculator</option>
+                            <option value="core">core</option>
+                            <option value="documents">documents</option>
+                            <option value="loomads">loomads</option>
+                            <option value="pdf_sucher">pdf_sucher</option>
+                            <option value="shopify_manager">shopify_manager</option>
+                            <option value="somi_plan">somi_plan</option>
+                            <option value="sportplatzApp">sportplatzApp</option>
+                            <option value="streamrec">streamrec</option>
+                            <option value="superconfig">superconfig</option>
+                            <option value="videos">videos</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="zone_type" class="form-label">Anzeigenzonen-Typ</label>
+                        <select class="form-select" id="zone_type">
+                            <option value="">Wählen Sie einen Typ...</option>
+                            <option value="header">Header-Zonen</option>
+                            <option value="footer">Footer-Zonen</option>
+                            <option value="sidebar">Sidebar-Zonen</option>
+                            <option value="infeed">In-Feed-Zonen</option>
+                            <option value="modal">Modal/Pop-up-Zonen</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-success" id="enable-zone-btn">
+                    <i class="bi bi-check-circle me-2"></i>Aktivieren
+                </button>
+                <button type="button" class="btn btn-danger" id="disable-zone-btn">
+                    <i class="bi bi-x-circle me-2"></i>Deaktivieren
+                </button>
+            </div>
+            
+            <div id="zone-status" class="mt-3"></div>
+        </div>
+    </div>
+
+    <!-- Integration Code -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0"><i class="bi bi-code-slash me-2"></i>Integration Code</h5>
+        </div>
+        <div class="card-body">
+            <p>Verwenden Sie diese Template-Tags, um LoomAds in Ihre Templates zu integrieren:</p>
+            
+            <h6>1. Template Tags laden</h6>
+            <pre class="bg-light p-3 rounded"><code>{% templatetag openblock %} load loomads_tags {% templatetag closeblock %}</code></pre>
+            
+            <h6>2. CSS einbinden</h6>
+            <pre class="bg-light p-3 rounded"><code>{% templatetag openblock %} loomads_css {% templatetag closeblock %}</code></pre>
+            
+            <h6>3. Werbezone anzeigen</h6>
+            <pre class="bg-light p-3 rounded"><code>{% templatetag openblock %} show_ad_zone 'zone_code' css_class='custom-class' {% templatetag closeblock %}</code></pre>
+            
+            <h6>4. Modal/Pop-up anzeigen</h6>
+            <pre class="bg-light p-3 rounded"><code>{% templatetag openblock %} show_ad_modal 'zone_code' delay=5000 {% templatetag closeblock %}</code></pre>
+            
+            <h6>5. Statistiken abrufen</h6>
+            <pre class="bg-light p-3 rounded"><code>{% templatetag openblock %} ad_stats 30 as stats {% templatetag closeblock %}
+Impressions: {% templatetag openvariable %} stats.impressions {% templatetag closevariable %}
+Klicks: {% templatetag openvariable %} stats.clicks {% templatetag closevariable %}
+CTR: {% templatetag openvariable %} stats.ctr {% templatetag closevariable %}%</code></pre>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+const csrftoken = getCookie('csrftoken');
+
+document.addEventListener('DOMContentLoaded', function() {
+    const enableZoneBtn = document.getElementById('enable-zone-btn');
+    const disableZoneBtn = document.getElementById('disable-zone-btn');
+    const appNameSelect = document.getElementById('app_name');
+    const zoneTypeSelect = document.getElementById('zone_type');
+    const zoneStatus = document.getElementById('zone-status');
+    
+    function updateZoneStatus(appName, zoneType, enabled) {
+        // AJAX call to update zone status
+        fetch('/loomads/ajax/update-zone-status/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({
+                app_name: appName,
+                zone_type: zoneType,
+                enabled: enabled
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                zoneStatus.innerHTML = `
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle me-2"></i>
+                        ${zoneType}-Zonen für App "${appName}" wurden ${enabled ? 'aktiviert' : 'deaktiviert'}.
+                    </div>
+                `;
+            } else {
+                zoneStatus.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Fehler: ${data.error || 'Unbekannter Fehler'}
+                    </div>
+                `;
+            }
+            
+            // Clear status after 3 seconds
+            setTimeout(() => {
+                zoneStatus.innerHTML = '';
+            }, 3000);
+        })
+        .catch(error => {
+            zoneStatus.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Netzwerkfehler: ${error.message}
+                </div>
+            `;
+        });
+    }
+    
+    enableZoneBtn.addEventListener('click', function() {
+        const appName = appNameSelect.value;
+        const zoneType = zoneTypeSelect.value;
+        
+        if (!appName || !zoneType) {
+            zoneStatus.innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Bitte wählen Sie eine App und einen Anzeigenzonen-Typ aus.
+                </div>
+            `;
+            return;
+        }
+        
+        updateZoneStatus(appName, zoneType, true);
+    });
+    
+    disableZoneBtn.addEventListener('click', function() {
+        const appName = appNameSelect.value;
+        const zoneType = zoneTypeSelect.value;
+        
+        if (!appName || !zoneType) {
+            zoneStatus.innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Bitte wählen Sie eine App und einen Anzeigenzonen-Typ aus.
+                </div>
+            `;
+            return;
+        }
+        
+        updateZoneStatus(appName, zoneType, false);
+    });
+});
+</script>
+{% endblock %}

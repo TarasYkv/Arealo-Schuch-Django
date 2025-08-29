@@ -1,0 +1,134 @@
+{% if error %}
+    <!-- LoomAds Error: {{ error }} -->
+    {% if fallback %}
+        {{ fallback|safe }}
+    {% endif %}
+{% else %}
+    <div id="loomads-zone-{{ zone_code }}" 
+         class="loomads-zone {{ css_class }}" 
+         style="width: {{ width }}px; height: {{ height }}px; {{ style }}
+                background: #f8f9fa; border: 1px dashed #dee2e6; 
+                display: none; align-items: center; justify-content: center;
+                color: #6c757d; font-size: 12px;">
+        Werbung wird geladen...
+    </div>
+    
+    <script>
+    (function() {
+        const zoneCode = '{{ zone_code }}';
+        const apiUrl = '{{ api_url }}';
+        const trackUrlTemplate = '{{ track_url }}';
+        let adLoaded = false; // Verhindert doppeltes Laden
+        
+        function loadAd() {
+            // Verhindere doppeltes Laden
+            if (adLoaded) return;
+            adLoaded = true;
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        console.warn('LoomAds: ' + data.error);
+                        {% if fallback %}
+                        document.getElementById('loomads-zone-' + zoneCode).innerHTML = `{{ fallback|escapejs }}`;
+                        document.getElementById('loomads-zone-' + zoneCode).style.display = 'block';
+                        {% endif %}
+                        return;
+                    }
+                    
+                    const adContainer = document.getElementById('loomads-zone-' + zoneCode);
+                    if (!adContainer) return;
+                    
+                    let adHtml = '';
+                    const trackUrl = trackUrlTemplate.replace('AD_ID_PLACEHOLDER', data.id);
+                    
+                    if (data.type === 'image' && data.image_url) {
+                        adHtml = `
+                            <a href="${data.target_url}" target="${data.target_type}" 
+                               onclick="trackClick('${data.id}', '${zoneCode}'); return true;" 
+                               class="loomads-link">
+                                <img src="${data.image_url}" alt="${data.title || ''}" 
+                                     class="loomads-image" 
+                                     style="max-width: {{ width }}px; max-height: {{ height }}px; width: auto; height: auto;" />
+                            </a>
+                        `;
+                    } else if (data.type === 'html' && data.html_content) {
+                        adHtml = `
+                            <div onclick="if(window.trackClick) window.trackClick('${data.id}', '${zoneCode}')" 
+                                 class="loomads-html" style="cursor: pointer;">
+                                ${data.html_content}
+                            </div>
+                        `;
+                    } else if (data.type === 'text') {
+                        adHtml = `
+                            <a href="${data.target_url}" target="${data.target_type}" 
+                               onclick="trackClick('${data.id}', '${zoneCode}'); return true;" 
+                               class="loomads-text">
+                                ${data.title ? `<h4>${data.title}</h4>` : ''}
+                                ${data.description ? `<p>${data.description}</p>` : ''}
+                            </a>
+                        `;
+                    } else if (data.type === 'video' && data.video_url) {
+                        adHtml = `
+                            <video controls 
+                                   onclick="trackClick('${data.id}', '${zoneCode}')" 
+                                   class="loomads-video" 
+                                   style="max-width: {{ width }}px; max-height: {{ height }}px;">
+                                <source src="${data.video_url}" type="video/mp4">
+                                Ihr Browser unterstützt keine Videos.
+                            </video>
+                        `;
+                    }
+                    
+                    if (adHtml) {
+                        adContainer.innerHTML = adHtml;
+                        adContainer.style.display = 'block';
+                        adContainer.style.background = 'transparent';
+                        adContainer.style.border = 'none';
+                        adContainer.style.color = 'inherit';
+                    }
+                })
+                .catch(error => {
+                    console.error('LoomAds error:', error);
+                    {% if fallback %}
+                    const adContainer = document.getElementById('loomads-zone-' + zoneCode);
+                    if (adContainer) {
+                        adContainer.innerHTML = `{{ fallback|escapejs }}`;
+                        adContainer.style.display = 'block';
+                    }
+                    {% endif %}
+                });
+        }
+        
+        function trackClick(adId, zoneCode) {
+            const trackUrl = trackUrlTemplate.replace('AD_ID_PLACEHOLDER', adId);
+            const formData = new FormData();
+            formData.append('zone_code', zoneCode);
+            
+            // CSRF Token holen
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                              document.querySelector('meta[name=csrf-token]')?.getAttribute('content') ||
+                              '{{ csrf_token }}';
+            if (csrfToken) {
+                formData.append('csrfmiddlewaretoken', csrfToken);
+            }
+            
+            fetch(trackUrl, {
+                method: 'POST',
+                body: formData
+            }).catch(error => console.error('LoomAds tracking error:', error));
+        }
+        
+        // Globale Funktion für Click-Tracking verfügbar machen
+        window.trackClick = window.trackClick || trackClick;
+        
+        // Ad laden wenn DOM bereit ist - mit Schutz vor doppeltem Aufruf
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadAd, { once: true });
+        } else {
+            // Kleine Verzögerung um sicherzustellen, dass nicht doppelt geladen wird
+            setTimeout(loadAd, 100);
+        }
+    })();
+    </script>
+{% endif %}

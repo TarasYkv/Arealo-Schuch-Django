@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ campaign.name }} - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-0">
+                <i class="bi bi-folder-open text-primary me-2"></i>
+                {{ campaign.name }}
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'loomads:dashboard' %}">LoomAds</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'loomads:campaign_list' %}">Kampagnen</a></li>
+                    <li class="breadcrumb-item active">{{ campaign.name }}</li>
+                </ol>
+            </nav>
+        </div>
+        <div class="btn-group">
+            <a href="{% url 'loomads:campaign_edit' campaign.id %}" class="btn btn-outline-primary">
+                <i class="bi bi-pencil me-2"></i>Bearbeiten
+            </a>
+            <a href="{% url 'loomads:campaign_delete' campaign.id %}" class="btn btn-outline-danger">
+                <i class="bi bi-trash me-2"></i>Löschen
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Kampagnen-Details -->
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Kampagnen-Details</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <td><strong>Status:</strong></td>
+                            <td>
+                                {% if campaign.status == 'active' %}
+                                    <span class="badge bg-success">Aktiv</span>
+                                {% elif campaign.status == 'paused' %}
+                                    <span class="badge bg-warning">Pausiert</span>
+                                {% elif campaign.status == 'completed' %}
+                                    <span class="badge bg-secondary">Abgeschlossen</span>
+                                {% else %}
+                                    <span class="badge bg-light text-dark">Entwurf</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Erstellt von:</strong></td>
+                            <td>{{ campaign.created_by.username }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Startdatum:</strong></td>
+                            <td>{{ campaign.start_date|date:"d.m.Y H:i" }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Enddatum:</strong></td>
+                            <td>{{ campaign.end_date|date:"d.m.Y H:i" }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Tägliches Limit:</strong></td>
+                            <td>{{ campaign.daily_impression_limit|default:"Unbegrenzt" }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Gesamt-Limit:</strong></td>
+                            <td>{{ campaign.total_impression_limit|default:"Unbegrenzt" }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Erstellt am:</strong></td>
+                            <td>{{ campaign.created_at|date:"d.m.Y H:i" }}</td>
+                        </tr>
+                    </table>
+                    
+                    {% if campaign.description %}
+                    <hr>
+                    <h6>Beschreibung</h6>
+                    <p class="small">{{ campaign.description }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance -->
+        <div class="col-md-8 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Kampagnen-Performance</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <div class="p-3">
+                                <h3 class="text-primary mb-0">{{ total_impressions|default:0|intcomma }}</h3>
+                                <small class="text-muted">Impressions gesamt</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3">
+                                <h3 class="text-success mb-0">{{ total_clicks|default:0|intcomma }}</h3>
+                                <small class="text-muted">Klicks gesamt</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3">
+                                <h3 class="text-info mb-0">{{ campaign_ctr|floatformat:2 }}%</h3>
+                                <small class="text-muted">Click-Through-Rate</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <!-- Status-Balken -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <small class="text-muted">Laufzeit-Fortschritt</small>
+                            <small class="text-muted">
+                                {% if campaign.is_active %}
+                                    <span class="text-success">Läuft</span>
+                                {% else %}
+                                    <span class="text-secondary">Beendet</span>
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar bg-primary" role="progressbar" style="width: 50%"></div>
+                        </div>
+                    </div>
+                    
+                    {% if campaign.total_impression_limit %}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <small class="text-muted">Impression-Limit</small>
+                            <small class="text-muted">{{ total_impressions }} / {{ campaign.total_impression_limit }}</small>
+                        </div>
+                        <div class="progress" style="height: 20px;">
+                            {% widthratio total_impressions campaign.total_impression_limit 100 as progress %}
+                            <div class="progress-bar bg-info" role="progressbar" style="width: {{ progress }}%"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Anzeigen in dieser Kampagne -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-warning text-dark">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-images me-2"></i>Anzeigen in dieser Kampagne</h5>
+                <a href="{% url 'loomads:ad_create' %}?campaign={{ campaign.id }}" class="btn btn-sm btn-primary">
+                    <i class="bi bi-plus-lg me-1"></i>Neue Anzeige
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if advertisements %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Typ</th>
+                                <th>Status</th>
+                                <th>Zonen</th>
+                                <th class="text-end">Impressions</th>
+                                <th class="text-end">Klicks</th>
+                                <th class="text-end">CTR</th>
+                                <th class="text-end">Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ad in advertisements %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'loomads:ad_detail' ad.id %}" class="text-decoration-none">
+                                        {{ ad.name }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark">{{ ad.get_ad_type_display }}</span>
+                                </td>
+                                <td>
+                                    {% if ad.is_active %}
+                                        <span class="badge bg-success">Aktiv</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Inaktiv</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% for zone in ad.zones.all|slice:":2" %}
+                                        <span class="badge bg-info">{{ zone.code }}</span>
+                                    {% endfor %}
+                                    {% if ad.zones.count > 2 %}
+                                        <span class="badge bg-info">+{{ ad.zones.count|add:"-2" }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">{{ ad.impressions_count|intcomma }}</td>
+                                <td class="text-end">{{ ad.clicks_count|intcomma }}</td>
+                                <td class="text-end">
+                                    <span class="badge bg-{% if ad.ctr > 2 %}success{% elif ad.ctr > 1 %}warning{% else %}secondary{% endif %}">
+                                        {{ ad.ctr|floatformat:2 }}%
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{% url 'loomads:ad_detail' ad.id %}" class="btn btn-outline-primary" title="Details">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a href="{% url 'loomads:ad_edit' ad.id %}" class="btn btn-outline-secondary" title="Bearbeiten">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <a href="{% url 'loomads:ad_delete' ad.id %}" class="btn btn-outline-danger" title="Löschen">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-image-alt fs-1 text-muted mb-3 d-block"></i>
+                    <p class="text-muted">Diese Kampagne hat noch keine Anzeigen.</p>
+                    <a href="{% url 'loomads:ad_create' %}?campaign={{ campaign.id }}" class="btn btn-primary">
+                        <i class="bi bi-plus-lg me-2"></i>Erste Anzeige erstellen
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

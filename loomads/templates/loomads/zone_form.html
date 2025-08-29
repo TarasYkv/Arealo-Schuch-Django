@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h2 mb-0">
+                        <i class="bi bi-grid-3x3 text-secondary me-2"></i>
+                        {{ title }}
+                    </h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a href="{% url 'loomads:dashboard' %}">LoomAds</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'loomads:zone_list' %}">Werbezonen</a></li>
+                            <li class="breadcrumb-item active">{{ title }}</li>
+                        </ol>
+                    </nav>
+                </div>
+            </div>
+
+            <!-- Form -->
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                        {% endif %}
+
+                        <!-- Zone Code -->
+                        <div class="mb-3">
+                            {{ form.code.label_tag }}
+                            {{ form.code }}
+                            {% if form.code.help_text %}
+                                <small class="form-text text-muted">{{ form.code.help_text }}</small>
+                            {% endif %}
+                            {% if form.code.errors %}
+                                <div class="text-danger small mt-1">{{ form.code.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Zone Name -->
+                        <div class="mb-3">
+                            {{ form.name.label_tag }}
+                            {{ form.name }}
+                            {% if form.name.errors %}
+                                <div class="text-danger small mt-1">{{ form.name.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-3">
+                            {{ form.description.label_tag }}
+                            {{ form.description }}
+                            {% if form.description.errors %}
+                                <div class="text-danger small mt-1">{{ form.description.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Zone Type -->
+                        <div class="mb-3">
+                            {{ form.zone_type.label_tag }}
+                            {{ form.zone_type }}
+                            {% if form.zone_type.errors %}
+                                <div class="text-danger small mt-1">{{ form.zone_type.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Dimensions -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.width.label_tag }}
+                                    <div class="input-group">
+                                        {{ form.width }}
+                                        <span class="input-group-text">px</span>
+                                    </div>
+                                    {% if form.width.errors %}
+                                        <div class="text-danger small mt-1">{{ form.width.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.height.label_tag }}
+                                    <div class="input-group">
+                                        {{ form.height }}
+                                        <span class="input-group-text">px</span>
+                                    </div>
+                                    {% if form.height.errors %}
+                                        <div class="text-danger small mt-1">{{ form.height.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Size Preview -->
+                        <div class="mb-3">
+                            <label class="form-label">Größenvorschau</label>
+                            <div class="border bg-light p-3 text-center" style="min-height: 100px;">
+                                <div id="size-preview" class="border border-primary d-inline-block" 
+                                     style="background: repeating-linear-gradient(45deg, #f0f0f0, #f0f0f0 10px, #fff 10px, #fff 20px);">
+                                    <div class="d-flex align-items-center justify-content-center h-100">
+                                        <span class="text-muted">Zone Preview</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Max Ads -->
+                        <div class="mb-3">
+                            {{ form.max_ads.label_tag }}
+                            {{ form.max_ads }}
+                            {% if form.max_ads.help_text %}
+                                <small class="form-text text-muted">{{ form.max_ads.help_text }}</small>
+                            {% endif %}
+                            {% if form.max_ads.errors %}
+                                <div class="text-danger small mt-1">{{ form.max_ads.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- App Restriction -->
+                        <div class="mb-3">
+                            {{ form.app_restriction.label_tag }}
+                            {{ form.app_restriction }}
+                            {% if form.app_restriction.help_text %}
+                                <small class="form-text text-muted">{{ form.app_restriction.help_text }}</small>
+                            {% endif %}
+                            {% if form.app_restriction.errors %}
+                                <div class="text-danger small mt-1">{{ form.app_restriction.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Active Status -->
+                        <div class="form-check mb-3">
+                            {{ form.is_active }}
+                            <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                {{ form.is_active.label }}
+                            </label>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="mt-4 d-flex justify-content-between">
+                            <a href="{% url 'loomads:zone_list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i>Abbrechen
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-2"></i>
+                                {% if zone %}Änderungen speichern{% else %}Zone erstellen{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Integration Help -->
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="bi bi-code-slash text-info me-2"></i>Integration
+                    </h6>
+                    <p class="card-text">Nach dem Erstellen können Sie diese Zone mit folgendem Code in Ihre Templates einbinden:</p>
+                    <pre class="bg-light p-2 rounded"><code>{% templatetag openblock %} load loomads_tags {% templatetag closeblock %}
+{% templatetag openblock %} show_ad_zone '{% if zone %}{{ zone.code }}{% else %}zone_code{% endif %}' {% templatetag closeblock %}</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Update size preview
+function updateSizePreview() {
+    const width = document.getElementById('id_width').value || 300;
+    const height = document.getElementById('id_height').value || 250;
+    const preview = document.getElementById('size-preview');
+    
+    // Limit preview size for large zones
+    const maxWidth = 500;
+    const maxHeight = 400;
+    
+    let previewWidth = width;
+    let previewHeight = height;
+    
+    if (width > maxWidth || height > maxHeight) {
+        const scale = Math.min(maxWidth / width, maxHeight / height);
+        previewWidth = width * scale;
+        previewHeight = height * scale;
+    }
+    
+    preview.style.width = previewWidth + 'px';
+    preview.style.height = previewHeight + 'px';
+    preview.innerHTML = `<div class="d-flex align-items-center justify-content-center h-100">
+        <span class="text-muted">${width}x${height}px</span>
+    </div>`;
+}
+
+document.getElementById('id_width').addEventListener('input', updateSizePreview);
+document.getElementById('id_height').addEventListener('input', updateSizePreview);
+
+// Initial preview
+updateSizePreview();
+</script>
+{% endblock %}

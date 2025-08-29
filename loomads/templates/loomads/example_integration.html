@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% load loomads_tags %}
+
+{% block title %}LoomAds Integration Beispiel{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>LoomAds Integration Beispiel</h1>
+    
+    <!-- CSS für LoomAds laden -->
+    {% loomads_css %}
+    
+    <div class="row">
+        <div class="col-12">
+            <h2>Header Banner</h2>
+            <!-- Beispiel für Header-Banner -->
+            {% show_ad_zone 'header_main' css_class='mb-4' %}
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <h2>Hauptinhalt</h2>
+            <p>Dies ist der Hauptinhalt der Seite. Hier würde normalerweise der eigentliche Content stehen.</p>
+            
+            <!-- In-Feed Anzeige -->
+            <h3>In-Feed Anzeige</h3>
+            {% show_ad_zone 'content_infeed' css_class='my-4' %}
+            
+            <p>Weiterer Content nach der In-Feed Anzeige...</p>
+        </div>
+        
+        <div class="col-md-4">
+            <h2>Seitenleiste</h2>
+            
+            <!-- Sidebar Banner -->
+            {% show_ad_zone 'sidebar_main' css_class='mb-3' fallback='<div class="alert alert-info">Hier könnte Ihre Werbung stehen!</div>' %}
+            
+            <p>Andere Sidebar-Inhalte...</p>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            <h2>Footer Banner</h2>
+            <!-- Footer-Banner -->
+            {% show_ad_zone 'footer_main' css_class='mt-4' %}
+        </div>
+    </div>
+    
+    <!-- Modal-Anzeige nach 10 Sekunden -->
+    {% show_ad_modal 'popup_welcome' delay=10000 %}
+    
+    <div class="mt-5">
+        <h2>Statistiken</h2>
+        {% ad_stats 7 as stats %}
+        <div class="alert alert-info">
+            <strong>LoomAds Statistiken (letzte 7 Tage):</strong><br>
+            Impressions: {{ stats.impressions }}<br>
+            Klicks: {{ stats.clicks }}<br>
+            CTR: {{ stats.ctr }}%
+        </div>
+    </div>
+</div>
+
+<!-- Beispiel für manuellen Ad-Platzhalter -->
+<div class="container mt-5">
+    <h2>Manueller Platzhalter</h2>
+    {% ad_zone_placeholder 'custom_zone' width=300 height=250 %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Beispiel für weitere JavaScript-Integration
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('LoomAds Integration Beispiel geladen');
+});
+</script>
+{% endblock %}

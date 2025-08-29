@@ -1,0 +1,241 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ ad.name }} - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-0">
+                <i class="bi bi-image text-primary me-2"></i>
+                {{ ad.name }}
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'loomads:dashboard' %}">LoomAds</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'loomads:ad_list' %}">Anzeigen</a></li>
+                    <li class="breadcrumb-item active">{{ ad.name }}</li>
+                </ol>
+            </nav>
+        </div>
+        <div class="btn-group">
+            <a href="{% url 'loomads:ad_edit' ad.id %}" class="btn btn-outline-primary">
+                <i class="bi bi-pencil me-2"></i>Bearbeiten
+            </a>
+            <a href="{% url 'loomads:ad_delete' ad.id %}" class="btn btn-outline-danger">
+                <i class="bi bi-trash me-2"></i>Löschen
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Anzeige Vorschau -->
+        <div class="col-md-8 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-eye me-2"></i>Anzeige Vorschau</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center p-4" style="background: #f8f9fa; border-radius: 8px;">
+                        {% if ad.ad_type == 'image' and ad.image %}
+                            <img src="{{ ad.image.url }}" alt="{{ ad.title }}" 
+                                 class="img-fluid" style="max-width: 400px; border-radius: 4px;">
+                        {% elif ad.ad_type == 'html' and ad.html_content %}
+                            <div class="border p-3" style="background: white;">
+                                {{ ad.html_content|safe }}
+                            </div>
+                        {% elif ad.ad_type == 'text' %}
+                            <div class="p-3 text-start" style="background: white; border-radius: 4px;">
+                                {% if ad.title %}<h4>{{ ad.title }}</h4>{% endif %}
+                                {% if ad.description %}<p>{{ ad.description }}</p>{% endif %}
+                            </div>
+                        {% elif ad.ad_type == 'video' and ad.video_url %}
+                            <video controls style="max-width: 400px;">
+                                <source src="{{ ad.video_url }}" type="video/mp4">
+                                Ihr Browser unterstützt keine Videos.
+                            </video>
+                        {% else %}
+                            <div class="text-muted">
+                                <i class="bi bi-exclamation-circle me-2"></i>
+                                Keine Vorschau verfügbar
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if ad.target_url %}
+                    <div class="mt-3 text-center">
+                        <small class="text-muted">Ziel-URL:</small><br>
+                        <a href="{{ ad.target_url }}" target="{{ ad.target_type }}" class="text-primary">
+                            {{ ad.target_url }}
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Anzeige Details -->
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Details</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <td><strong>Kampagne:</strong></td>
+                            <td><a href="{% url 'loomads:campaign_detail' ad.campaign.id %}">{{ ad.campaign.name }}</a></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Typ:</strong></td>
+                            <td>{{ ad.get_ad_type_display }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Status:</strong></td>
+                            <td>
+                                {% if ad.is_active %}
+                                    <span class="badge bg-success">Aktiv</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inaktiv</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Gewichtung:</strong></td>
+                            <td>{{ ad.weight }}/10</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Erstellt:</strong></td>
+                            <td>{{ ad.created_at|date:"d.m.Y H:i" }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Aktualisiert:</strong></td>
+                            <td>{{ ad.updated_at|date:"d.m.Y H:i" }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Performance -->
+            <div class="card shadow-sm mt-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up me-2"></i>Performance</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <h3 class="text-primary mb-0">{{ ad.impressions_count|default:0 }}</h3>
+                            <small class="text-muted">Impressions</small>
+                        </div>
+                        <div class="col-6">
+                            <h3 class="text-success mb-0">{{ ad.clicks_count|default:0 }}</h3>
+                            <small class="text-muted">Klicks</small>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="text-center">
+                        <h4 class="text-info mb-0">{{ ad.ctr|floatformat:2 }}%</h4>
+                        <small class="text-muted">Click-Through-Rate</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Zonen Zuordnung -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0"><i class="bi bi-grid-3x3 me-2"></i>Zugeordnete Werbezonen</h5>
+        </div>
+        <div class="card-body">
+            {% if ad.zones.all %}
+                <div class="row">
+                    {% for zone in ad.zones.all %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card border-primary">
+                                <div class="card-body p-3">
+                                    <h6 class="card-title mb-1">{{ zone.name }}</h6>
+                                    <p class="card-text text-muted small mb-2">{{ zone.description }}</p>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="badge bg-primary">{{ zone.get_zone_type_display }}</span>
+                                        <small class="text-muted">{{ zone.width }}x{{ zone.height }}px</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-exclamation-circle fs-1 mb-3 d-block"></i>
+                    <p>Diese Anzeige ist noch keiner Werbezone zugeordnet.</p>
+                    <a href="{% url 'loomads:ad_edit' ad.id %}" class="btn btn-primary">
+                        <i class="bi bi-pencil me-2"></i>Zonen zuweisen
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if targeting %}
+    <!-- Targeting Einstellungen -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0"><i class="bi bi-bullseye me-2"></i>Targeting Einstellungen</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Geräte-Targeting</h6>
+                    <div class="mb-2">
+                        <i class="bi bi-{{ targeting.target_desktop|yesno:'check-circle-fill text-success,x-circle-fill text-danger' }} me-2"></i>
+                        Desktop
+                    </div>
+                    <div class="mb-2">
+                        <i class="bi bi-{{ targeting.target_mobile|yesno:'check-circle-fill text-success,x-circle-fill text-danger' }} me-2"></i>
+                        Mobile
+                    </div>
+                    <div class="mb-2">
+                        <i class="bi bi-{{ targeting.target_tablet|yesno:'check-circle-fill text-success,x-circle-fill text-danger' }} me-2"></i>
+                        Tablet
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <h6>Nutzer-Targeting</h6>
+                    <div class="mb-2">
+                        <i class="bi bi-{{ targeting.target_logged_in|yesno:'check-circle-fill text-success,x-circle-fill text-danger' }} me-2"></i>
+                        Eingeloggte Nutzer
+                    </div>
+                    <div class="mb-2">
+                        <i class="bi bi-{{ targeting.target_anonymous|yesno:'check-circle-fill text-success,x-circle-fill text-danger' }} me-2"></i>
+                        Anonyme Nutzer
+                    </div>
+                </div>
+            </div>
+            
+            {% if targeting.target_apps %}
+            <hr>
+            <h6>Ziel-Apps</h6>
+            <div class="d-flex flex-wrap gap-2">
+                {% for app in targeting.target_apps %}
+                    <span class="badge bg-primary">{{ app }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+            
+            {% if targeting.exclude_apps %}
+            <hr>
+            <h6>Ausgeschlossene Apps</h6>
+            <div class="d-flex flex-wrap gap-2">
+                {% for app in targeting.exclude_apps %}
+                    <span class="badge bg-danger">{{ app }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,245 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h2 mb-0">
+                        <i class="bi bi-image text-primary me-2"></i>
+                        {{ title }}
+                    </h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a href="{% url 'loomads:dashboard' %}">LoomAds</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'loomads:ad_list' %}">Anzeigen</a></li>
+                            <li class="breadcrumb-item active">{{ title }}</li>
+                        </ol>
+                    </nav>
+                </div>
+            </div>
+
+            <!-- Form -->
+            <form method="post" enctype="multipart/form-data" novalidate>
+                {% csrf_token %}
+                
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="card shadow-sm mb-3">
+                            <div class="card-header">
+                                <h5 class="mb-0">Grundinformationen</h5>
+                            </div>
+                            <div class="card-body">
+                                <!-- Campaign -->
+                                <div class="mb-3">
+                                    {{ form.campaign.label_tag }}
+                                    {{ form.campaign }}
+                                </div>
+
+                                <!-- Name -->
+                                <div class="mb-3">
+                                    {{ form.name.label_tag }}
+                                    {{ form.name }}
+                                </div>
+
+                                <!-- Ad Type -->
+                                <div class="mb-3">
+                                    {{ form.ad_type.label_tag }}
+                                    {{ form.ad_type }}
+                                </div>
+
+                                <!-- Content based on type -->
+                                <div id="image-fields" class="ad-type-fields">
+                                    <div class="mb-3">
+                                        {{ form.image.label_tag }}
+                                        {{ form.image }}
+                                    </div>
+                                </div>
+
+                                <div id="video-fields" class="ad-type-fields" style="display:none;">
+                                    <div class="mb-3">
+                                        {{ form.video_url.label_tag }}
+                                        {{ form.video_url }}
+                                    </div>
+                                </div>
+
+                                <div id="html-fields" class="ad-type-fields" style="display:none;">
+                                    <div class="mb-3">
+                                        {{ form.html_content.label_tag }}
+                                        {{ form.html_content }}
+                                        <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="previewHtml()">
+                                            <i class="bi bi-eye"></i> Vorschau
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div id="text-fields" class="ad-type-fields">
+                                    <div class="mb-3">
+                                        {{ form.title.label_tag }}
+                                        {{ form.title }}
+                                    </div>
+                                    <div class="mb-3">
+                                        {{ form.description.label_tag }}
+                                        {{ form.description }}
+                                    </div>
+                                </div>
+
+                                <!-- Target URL -->
+                                <div class="mb-3">
+                                    {{ form.target_url.label_tag }}
+                                    {{ form.target_url }}
+                                </div>
+
+                                <div class="mb-3">
+                                    {{ form.target_type.label_tag }}
+                                    {{ form.target_type }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <!-- Settings -->
+                        <div class="card shadow-sm mb-3">
+                            <div class="card-header">
+                                <h5 class="mb-0">Einstellungen</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    {{ form.weight.label_tag }}
+                                    {{ form.weight }}
+                                    <small class="form-text text-muted">{{ form.weight.help_text }}</small>
+                                </div>
+
+                                <div class="form-check mb-3">
+                                    {{ form.is_active }}
+                                    <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                        {{ form.is_active.label }}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Zones -->
+                        <div class="card shadow-sm mb-3">
+                            <div class="card-header">
+                                <h5 class="mb-0">Werbezonen</h5>
+                            </div>
+                            <div class="card-body">
+                                <small class="form-text text-muted mb-2 d-block">{{ form.zones.help_text }}</small>
+                                {% for zone in zones %}
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="zones" 
+                                           value="{{ zone.id }}" id="zone_{{ zone.id }}"
+                                           {% if ad and zone in ad.zones.all %}checked{% endif %}>
+                                    <label class="form-check-label" for="zone_{{ zone.id }}">
+                                        {{ zone.name }} <small class="text-muted">({{ zone.width }}x{{ zone.height }}px)</small>
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Targeting -->
+                        <div class="card shadow-sm">
+                            <div class="card-header">
+                                <h5 class="mb-0">Targeting</h5>
+                            </div>
+                            <div class="card-body">
+                                <h6>Geräte</h6>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="target_desktop" id="target_desktop"
+                                           {% if not targeting or targeting.target_desktop %}checked{% endif %}>
+                                    <label class="form-check-label" for="target_desktop">Desktop</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="target_mobile" id="target_mobile"
+                                           {% if not targeting or targeting.target_mobile %}checked{% endif %}>
+                                    <label class="form-check-label" for="target_mobile">Mobile</label>
+                                </div>
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" name="target_tablet" id="target_tablet"
+                                           {% if not targeting or targeting.target_tablet %}checked{% endif %}>
+                                    <label class="form-check-label" for="target_tablet">Tablet</label>
+                                </div>
+
+                                <h6>Benutzer</h6>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="target_logged_in" id="target_logged_in"
+                                           {% if not targeting or targeting.target_logged_in %}checked{% endif %}>
+                                    <label class="form-check-label" for="target_logged_in">Eingeloggte Benutzer</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="target_anonymous" id="target_anonymous"
+                                           {% if not targeting or targeting.target_anonymous %}checked{% endif %}>
+                                    <label class="form-check-label" for="target_anonymous">Anonyme Besucher</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="mt-4 d-flex justify-content-between">
+                    <a href="{% url 'loomads:ad_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-2"></i>Abbrechen
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-2"></i>
+                        {% if ad %}Änderungen speichern{% else %}Anzeige erstellen{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- HTML Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">HTML Vorschau</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="preview-content"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Show/hide fields based on ad type
+document.getElementById('id_ad_type').addEventListener('change', function() {
+    const adType = this.value;
+    document.querySelectorAll('.ad-type-fields').forEach(el => el.style.display = 'none');
+    
+    if (adType === 'image') {
+        document.getElementById('image-fields').style.display = 'block';
+        document.getElementById('text-fields').style.display = 'block';
+    } else if (adType === 'video') {
+        document.getElementById('video-fields').style.display = 'block';
+        document.getElementById('text-fields').style.display = 'block';
+    } else if (adType === 'html') {
+        document.getElementById('html-fields').style.display = 'block';
+    } else if (adType === 'text') {
+        document.getElementById('text-fields').style.display = 'block';
+    }
+});
+
+// Trigger change event on page load
+document.getElementById('id_ad_type').dispatchEvent(new Event('change'));
+
+// Preview HTML content
+function previewHtml() {
+    const htmlContent = document.getElementById('id_html_content').value;
+    document.getElementById('preview-content').innerHTML = htmlContent;
+    new bootstrap.Modal(document.getElementById('previewModal')).show();
+}
+</script>
+{% endblock %}

@@ -41,6 +41,7 @@ urlpatterns = [
     path('makeads/', include('makeads.urls')),
     path('streamrec/', include('streamrec.urls')),
     path('superconfig/', include('superconfig.urls')),
+    path('loomads/', include('loomads.urls')),
     path('page/<str:page_name>/', core_views.dynamic_page_view, name='dynamic_page'),
     path('admin/', admin.site.urls),
 ]
