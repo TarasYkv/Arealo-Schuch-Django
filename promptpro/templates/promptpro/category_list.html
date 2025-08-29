@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+  .pp-item { border:1px solid rgba(0,0,0,0.06); border-radius:12px; padding:.85rem 1rem; margin-bottom:.5rem; display:flex; align-items:center; justify-content:space-between; transition:transform .2s ease, box-shadow .2s ease; box-shadow:0 6px 16px rgba(0,0,0,0.05); }
+  .pp-item:hover { transform:translateY(-2px); box-shadow:0 12px 24px rgba(0,0,0,0.10); }
+  .pp-bar { width:6px; align-self:stretch; border-radius:12px 0 0 12px; margin:-.85rem .75rem -.85rem -1rem; }
+  .pp-bar-teal   { background: linear-gradient(180deg,#20c997,#6bd3c9); }
+  .pp-bar-indigo { background: linear-gradient(180deg,#6366f1,#8b5cf6); }
+  .pp-bar-purple { background: linear-gradient(180deg,#a855f7,#ec4899); }
+  .pp-bar-orange { background: linear-gradient(180deg,#f59e0b,#f97316); }
+  .pp-bar-cyan   { background: linear-gradient(180deg,#06b6d4,#22d3ee); }
+  .pp-bar-pink   { background: linear-gradient(180deg,#f472b6,#fb7185); }
+  .pp-chip { background: rgba(0,0,0,0.04); border:1px solid rgba(0,0,0,0.06); padding:.15rem .5rem; border-radius:999px; font-size:.75rem; }
+</style>
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h3>Kategorien verwalten</h3>
+  <div class="d-flex gap-2">
+    <a href="{% url 'promptpro:prompt_list' %}" class="btn btn-outline-secondary">
+      <i class="bi bi-collection me-1"></i> Zu Prompts
+    </a>
+    <a href="{% url 'promptpro:category_create' %}" class="btn btn-primary">
+      <i class="bi bi-plus-lg me-1"></i> Neue Kategorie
+    </a>
+  </div>
+</div>
+
+<div>
+  {% for c in categories %}
+  {% cycle 'teal' 'indigo' 'purple' 'orange' 'cyan' 'pink' as accent %}
+  <div class="pp-item">
+    <div class="pp-bar pp-bar-{{ accent }}"></div>
+    <div class="flex-grow-1">
+      <div class="fw-semibold">{{ c.name }}</div>
+      {% if c.description %}<div class="text-muted small">{{ c.description }}</div>{% endif %}
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <span class="pp-chip">{{ c.prompts.count }} Prompts</span>
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'promptpro:category_edit' c.id %}"><i class="bi bi-pencil"></i></a>
+      <a class="btn btn-sm btn-outline-danger" href="{% url 'promptpro:category_delete' c.id %}"><i class="bi bi-trash"></i></a>
+    </div>
+  </div>
+  {% empty %}
+  <div class="text-muted">Noch keine Kategorien vorhanden.</div>
+  {% endfor %}
+</div>
+{% endblock %}

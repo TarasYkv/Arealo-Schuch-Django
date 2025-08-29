@@ -187,6 +187,7 @@ class AppPermission(models.Model):
         ('somi_plan', 'SoMi-Plan'),
         ('makeads', 'AdsMake'),
         ('streamrec', 'StreamRec'),
+        ('promptpro', 'PromptPro'),
         
         # Schuch Tools
         ('schuch', 'Schuch'),
