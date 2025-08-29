@@ -74,6 +74,7 @@ INSTALLED_APPS = [
     'streamrec',
     'superconfig',
     'codelib',
+    'promptpro',
 ]
 
 

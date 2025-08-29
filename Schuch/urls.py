@@ -31,6 +31,7 @@ urlpatterns = [
     path('bug-report/', include('bug_report.urls')),
     path('organization/', include('organization.urls')),
     path('videos/', include('videos.urls')),
+    path('promptpro/', include('promptpro.urls', namespace='promptpro')),
     # Public video access shortcut
     path('v/<uuid:unique_id>/', video_views.video_view, name='public_video_view'),
     path('payments/', include('payments.urls')),

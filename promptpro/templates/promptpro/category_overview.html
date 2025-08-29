@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+  .pp-card { border:1px solid rgba(0,0,0,0.06); border-radius:14px; box-shadow:0 8px 22px rgba(0,0,0,0.06); transition:transform .2s ease, box-shadow .2s ease; overflow:hidden; }
+  .pp-card:hover { transform:translateY(-3px); box-shadow:0 14px 30px rgba(0,0,0,0.10); }
+  .pp-accent { height:4px; width:100%; }
+  .pp-accent-teal   { background: linear-gradient(90deg,#20c997,#6bd3c9); }
+  .pp-accent-indigo { background: linear-gradient(90deg,#6366f1,#8b5cf6); }
+  .pp-accent-purple { background: linear-gradient(90deg,#a855f7,#ec4899); }
+  .pp-accent-orange { background: linear-gradient(90deg,#f59e0b,#f97316); }
+  .pp-accent-cyan   { background: linear-gradient(90deg,#06b6d4,#22d3ee); }
+  .pp-accent-pink   { background: linear-gradient(90deg,#f472b6,#fb7185); }
+  .pp-chip { background: rgba(0,0,0,0.04); border:1px solid rgba(0,0,0,0.06); padding:.15rem .5rem; border-radius:999px; font-size:.75rem; }
+</style>
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h3>Kategorien</h3>
+  <div class="d-flex gap-2">
+    <a href="{% url 'promptpro:prompt_list' %}" class="btn btn-outline-secondary">
+      <i class="bi bi-collection me-1"></i> Zu Prompts
+    </a>
+    {% if request.user.is_superuser %}
+      <a href="{% url 'promptpro:category_list' %}" class="btn btn-outline-secondary">Verwalten</a>
+      <a href="{% url 'promptpro:category_create' %}" class="btn btn-primary">Neue Kategorie</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3">
+  {% for c in categories %}
+  {% cycle 'teal' 'indigo' 'purple' 'orange' 'cyan' 'pink' as accent %}
+  <div class="col-12 col-md-6 col-lg-4">
+    <div class="pp-card h-100">
+      <div class="pp-accent pp-accent-{{ accent }}"></div>
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between">
+          <h5 class="mb-1">{{ c.name }}</h5>
+          <span class="pp-chip">{{ c.prompts.count }} Prompts</span>
+        </div>
+        {% if c.description %}
+        <p class="text-muted small mb-0">{{ c.description }}</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="col-12"><p class="text-muted">Keine Kategorien vorhanden.</p></div>
+  {% endfor %}
+</div>
+{% endblock %}
