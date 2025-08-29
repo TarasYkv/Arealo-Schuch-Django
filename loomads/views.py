@@ -474,6 +474,7 @@ def get_ad_for_zone(request, zone_code):
         response_data['html_content'] = selected_ad.html_content
     elif selected_ad.ad_type == 'video':
         response_data['video_url'] = selected_ad.video_url
+        response_data['video_with_audio'] = selected_ad.video_with_audio
     
     return JsonResponse(response_data)
 

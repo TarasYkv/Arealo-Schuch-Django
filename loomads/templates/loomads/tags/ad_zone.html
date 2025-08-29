@@ -9,6 +9,7 @@
          style="width: {{ width }}px; height: {{ height }}px; {{ style }}
                 background: #f8f9fa; border: 1px dashed #dee2e6; 
                 display: none; align-items: center; justify-content: center;
+                text-align: center;
                 color: #6c757d; font-size: 12px;">
         Werbung wird geladen...
     </div>
@@ -30,8 +31,14 @@
                     if (data.error) {
                         console.warn('LoomAds: ' + data.error);
                         {% if fallback %}
-                        document.getElementById('loomads-zone-' + zoneCode).innerHTML = `{{ fallback|escapejs }}`;
-                        document.getElementById('loomads-zone-' + zoneCode).style.display = 'block';
+                        const fallbackContainer = document.getElementById('loomads-zone-' + zoneCode);
+                        if (fallbackContainer) {
+                            fallbackContainer.innerHTML = `{{ fallback|escapejs }}`;
+                            fallbackContainer.style.display = 'flex';
+                            fallbackContainer.style.alignItems = 'center';
+                            fallbackContainer.style.justifyContent = 'center';
+                            fallbackContainer.style.textAlign = 'center';
+                        }
                         {% endif %}
                         return;
                     }
@@ -46,16 +53,16 @@
                         adHtml = `
                             <a href="${data.target_url}" target="${data.target_type}" 
                                onclick="trackClick('${data.id}', '${zoneCode}'); return true;" 
-                               class="loomads-link">
+                               class="loomads-link" style="display: block; text-align: center;">
                                 <img src="${data.image_url}" alt="${data.title || ''}" 
                                      class="loomads-image" 
-                                     style="max-width: {{ width }}px; max-height: {{ height }}px; width: auto; height: auto;" />
+                                     style="max-width: {{ width }}px; max-height: {{ height }}px; width: auto; height: auto; display: block; margin: 0 auto;" />
                             </a>
                         `;
                     } else if (data.type === 'html' && data.html_content) {
                         adHtml = `
                             <div onclick="if(window.trackClick) window.trackClick('${data.id}', '${zoneCode}')" 
-                                 class="loomads-html" style="cursor: pointer;">
+                                 class="loomads-html" style="cursor: pointer; text-align: center; width: 100%;">
                                 ${data.html_content}
                             </div>
                         `;
@@ -63,17 +70,18 @@
                         adHtml = `
                             <a href="${data.target_url}" target="${data.target_type}" 
                                onclick="trackClick('${data.id}', '${zoneCode}'); return true;" 
-                               class="loomads-text">
-                                ${data.title ? `<h4>${data.title}</h4>` : ''}
-                                ${data.description ? `<p>${data.description}</p>` : ''}
+                               class="loomads-text" style="display: block; text-align: center; width: 100%; text-decoration: none;">
+                                ${data.title ? `<h4 style="margin: 0 0 8px 0;">${data.title}</h4>` : ''}
+                                ${data.description ? `<p style="margin: 0;">${data.description}</p>` : ''}
                             </a>
                         `;
                     } else if (data.type === 'video' && data.video_url) {
                         adHtml = `
                             <video controls 
+                                   ${data.video_with_audio ? '' : 'muted'}
                                    onclick="trackClick('${data.id}', '${zoneCode}')" 
                                    class="loomads-video" 
-                                   style="max-width: {{ width }}px; max-height: {{ height }}px;">
+                                   style="max-width: {{ width }}px; max-height: {{ height }}px; display: block; margin: 0 auto;">
                                 <source src="${data.video_url}" type="video/mp4">
                                 Ihr Browser unterstützt keine Videos.
                             </video>
@@ -82,7 +90,10 @@
                     
                     if (adHtml) {
                         adContainer.innerHTML = adHtml;
-                        adContainer.style.display = 'block';
+                        adContainer.style.display = 'flex';
+                        adContainer.style.alignItems = 'center';
+                        adContainer.style.justifyContent = 'center';
+                        adContainer.style.textAlign = 'center';
                         adContainer.style.background = 'transparent';
                         adContainer.style.border = 'none';
                         adContainer.style.color = 'inherit';
@@ -94,7 +105,10 @@
                     const adContainer = document.getElementById('loomads-zone-' + zoneCode);
                     if (adContainer) {
                         adContainer.innerHTML = `{{ fallback|escapejs }}`;
-                        adContainer.style.display = 'block';
+                        adContainer.style.display = 'flex';
+                        adContainer.style.alignItems = 'center';
+                        adContainer.style.justifyContent = 'center';
+                        adContainer.style.textAlign = 'center';
                     }
                     {% endif %}
                 });

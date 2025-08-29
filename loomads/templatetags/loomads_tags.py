@@ -264,3 +264,52 @@ def show_ad_modal(context, zone_code, delay=5000, show_close=True):
         'api_url': request.build_absolute_uri(reverse('loomads:get_ad_for_zone', args=[zone_code])),
         'track_url': request.build_absolute_uri(reverse('loomads:track_click', args=[str(uuid.uuid4())])),
     }
+
+
+@register.inclusion_tag('loomads/tags/video_popup_zone.html', takes_context=True)
+def show_video_popup(context, zone_code, css_class='', style=''):
+    """
+    Video-Popup-Anzeige unten rechts mit zeitgesteuertem Autoplay
+    
+    Verwendung:
+    {% load loomads_tags %}
+    {% show_video_popup 'video_popup_main' %}
+    """
+    request = context.get('request')
+    if not request:
+        return {
+            'zone_code': zone_code,
+            'error': 'Request context not available'
+        }
+    
+    try:
+        zone = AdZone.objects.get(code=zone_code, is_active=True, zone_type='video_popup')
+    except AdZone.DoesNotExist:
+        return {
+            'zone_code': zone_code,
+            'error': 'Video popup zone "{}" not found'.format(zone_code)
+        }
+    
+    # App-spezifische Zone-Kontrolle prüfen
+    current_app = request.resolver_match.app_name if request.resolver_match else None
+    settings = LoomAdsSettings.get_settings()
+    
+    # App-Beschränkung prüfen
+    if zone.app_restriction:
+        if current_app != zone.app_restriction:
+            return {
+                'zone_code': zone_code,
+                'error': 'Zone restricted to app "{}"'.format(zone.app_restriction)
+            }
+    
+    return {
+        'zone': zone,
+        'zone_code': zone_code,
+        'api_url': request.build_absolute_uri(reverse('loomads:get_ad_for_zone', args=[zone_code])),
+        'track_url': request.build_absolute_uri(reverse('loomads:track_click', args=[str(uuid.uuid4())])),
+        'css_class': css_class,
+        'style': style,
+        'width': zone.width,
+        'height': zone.height,
+        'popup_delay': zone.popup_delay,
+    }

@@ -67,7 +67,7 @@ class AdvertisementForm(forms.ModelForm):
     
     class Meta:
         model = Advertisement
-        fields = ['campaign', 'name', 'ad_type', 'image', 'video_url', 'title', 
+        fields = ['campaign', 'name', 'ad_type', 'image', 'video_url', 'video_with_audio', 'title', 
                   'description', 'html_content', 'target_url', 'target_type', 
                   'weight', 'is_active', 'zones']
         widgets = {
@@ -82,6 +82,7 @@ class AdvertisementForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': 'https://example.com/video.mp4'
             }),
+            'video_with_audio': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'title': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Anzeigentitel'
@@ -116,6 +117,7 @@ class AdvertisementForm(forms.ModelForm):
             'ad_type': 'Anzeigentyp',
             'image': 'Bild',
             'video_url': 'Video URL',
+            'video_with_audio': 'Video mit Ton',
             'title': 'Titel',
             'description': 'Beschreibung',
             'html_content': 'HTML Inhalt',
@@ -127,6 +129,7 @@ class AdvertisementForm(forms.ModelForm):
         }
         help_texts = {
             'weight': 'Höhere Gewichtung = häufigere Anzeige (1-10)',
+            'video_with_audio': 'Soll das Video mit oder ohne Ton abgespielt werden?',
             'zones': 'Wählen Sie die Zonen aus, in denen diese Anzeige erscheinen soll',
         }
 
@@ -137,7 +140,7 @@ class AdZoneForm(forms.ModelForm):
     class Meta:
         model = AdZone
         fields = ['code', 'name', 'description', 'zone_type', 'width', 'height', 
-                  'max_ads', 'is_active', 'app_restriction']
+                  'max_ads', 'popup_delay', 'is_active', 'app_restriction']
         widgets = {
             'code': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -168,6 +171,13 @@ class AdZoneForm(forms.ModelForm):
                 'min': 1,
                 'value': 1
             }),
+            'popup_delay': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 1,
+                'max': 60,
+                'value': 5,
+                'placeholder': 'Verzögerung in Sekunden'
+            }),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'app_restriction': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -182,11 +192,13 @@ class AdZoneForm(forms.ModelForm):
             'width': 'Breite (px)',
             'height': 'Höhe (px)',
             'max_ads': 'Maximale Anzahl Anzeigen',
+            'popup_delay': 'Popup Verzögerung (Sek.)',
             'is_active': 'Aktiv',
             'app_restriction': 'App-Beschränkung',
         }
         help_texts = {
             'code': 'Eindeutiger Code für die Zone (z.B. header_main)',
             'max_ads': 'Wie viele Anzeigen können gleichzeitig in dieser Zone angezeigt werden',
+            'popup_delay': 'Nach wie vielen Sekunden soll das Video-Popup erscheinen? (nur für video_popup Zonen)',
             'app_restriction': 'Nur in dieser App anzeigen (leer = überall)',
         }
