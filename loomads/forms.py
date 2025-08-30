@@ -1,6 +1,6 @@
 from django import forms
 from django.utils import timezone
-from .models import Campaign, Advertisement, AdZone, AdTargeting
+from .models import Campaign, Advertisement, AdZone, AdTargeting, ZoneIntegration
 
 
 class CampaignForm(forms.ModelForm):
@@ -9,7 +9,8 @@ class CampaignForm(forms.ModelForm):
     class Meta:
         model = Campaign
         fields = ['name', 'description', 'status', 'start_date', 'end_date', 
-                  'daily_impression_limit', 'total_impression_limit']
+                  'daily_impression_limit', 'total_impression_limit',
+                  'daily_click_limit', 'total_click_limit']
         widgets = {
             'name': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -37,6 +38,14 @@ class CampaignForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': 'Leer lassen für unbegrenzt'
             }),
+            'daily_click_limit': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Leer lassen für unbegrenzt'
+            }),
+            'total_click_limit': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Leer lassen für unbegrenzt'
+            }),
         }
         labels = {
             'name': 'Kampagnenname',
@@ -46,10 +55,14 @@ class CampaignForm(forms.ModelForm):
             'end_date': 'Enddatum',
             'daily_impression_limit': 'Tägliches Impression-Limit',
             'total_impression_limit': 'Gesamt Impression-Limit',
+            'daily_click_limit': 'Tägliches Klick-Limit',
+            'total_click_limit': 'Gesamt Klick-Limit',
         }
         help_texts = {
             'daily_impression_limit': 'Maximale Anzahl der Impressions pro Tag',
             'total_impression_limit': 'Maximale Anzahl der Impressions insgesamt',
+            'daily_click_limit': 'Maximale Anzahl der Klicks pro Tag',
+            'total_click_limit': 'Maximale Anzahl der Klicks insgesamt',
         }
 
     def __init__(self, *args, **kwargs):
@@ -201,4 +214,42 @@ class AdZoneForm(forms.ModelForm):
             'max_ads': 'Wie viele Anzeigen können gleichzeitig in dieser Zone angezeigt werden',
             'popup_delay': 'Nach wie vielen Sekunden soll das Video-Popup erscheinen? (nur für video_popup Zonen)',
             'app_restriction': 'Nur in dieser App anzeigen (leer = überall)',
+        }
+
+
+class ZoneIntegrationForm(forms.ModelForm):
+    """Form for creating and editing zone integrations"""
+    
+    class Meta:
+        model = ZoneIntegration
+        fields = ['zone_code', 'template_path', 'visibility', 'status', 'description']
+        widgets = {
+            'zone_code': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'z.B. header_main'
+            }),
+            'template_path': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'z.B. base.html oder accounts/dashboard.html'
+            }),
+            'visibility': forms.Select(attrs={'class': 'form-select'}),
+            'status': forms.Select(attrs={'class': 'form-select'}),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': 'Zusätzliche Informationen zur Integration'
+            }),
+        }
+        labels = {
+            'zone_code': 'Zone Code',
+            'template_path': 'Template-Pfad',
+            'visibility': 'Sichtbar für',
+            'status': 'Status',
+            'description': 'Beschreibung',
+        }
+        help_texts = {
+            'zone_code': 'Der Code der Zone, die in diesem Template integriert ist',
+            'template_path': 'Pfad zum Template relativ zum templates/ Ordner',
+            'visibility': 'Für welche Benutzergruppen ist die Zone sichtbar',
+            'status': 'Aktueller Status der Integration',
         }

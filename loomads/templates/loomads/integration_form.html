@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h2 mb-0">
+                        <i class="bi bi-code-slash text-secondary me-2"></i>
+                        {{ title }}
+                    </h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a href="{% url 'loomads:dashboard' %}">LoomAds</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'loomads:zone_list' %}">Werbezonen</a></li>
+                            <li class="breadcrumb-item active">{{ title }}</li>
+                        </ol>
+                    </nav>
+                </div>
+            </div>
+
+            <!-- Form -->
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                        {% endif %}
+
+                        <!-- Zone Code -->
+                        <div class="mb-3">
+                            {{ form.zone_code.label_tag }}
+                            {{ form.zone_code }}
+                            {% if form.zone_code.help_text %}
+                                <small class="form-text text-muted">{{ form.zone_code.help_text }}</small>
+                            {% endif %}
+                            {% if form.zone_code.errors %}
+                                <div class="text-danger small mt-1">{{ form.zone_code.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Template Path -->
+                        <div class="mb-3">
+                            {{ form.template_path.label_tag }}
+                            {{ form.template_path }}
+                            {% if form.template_path.help_text %}
+                                <small class="form-text text-muted">{{ form.template_path.help_text }}</small>
+                            {% endif %}
+                            {% if form.template_path.errors %}
+                                <div class="text-danger small mt-1">{{ form.template_path.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Visibility -->
+                        <div class="mb-3">
+                            {{ form.visibility.label_tag }}
+                            {{ form.visibility }}
+                            {% if form.visibility.help_text %}
+                                <small class="form-text text-muted">{{ form.visibility.help_text }}</small>
+                            {% endif %}
+                            {% if form.visibility.errors %}
+                                <div class="text-danger small mt-1">{{ form.visibility.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Status -->
+                        <div class="mb-3">
+                            {{ form.status.label_tag }}
+                            {{ form.status }}
+                            {% if form.status.help_text %}
+                                <small class="form-text text-muted">{{ form.status.help_text }}</small>
+                            {% endif %}
+                            {% if form.status.errors %}
+                                <div class="text-danger small mt-1">{{ form.status.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-3">
+                            {{ form.description.label_tag }}
+                            {{ form.description }}
+                            {% if form.description.help_text %}
+                                <small class="form-text text-muted">{{ form.description.help_text }}</small>
+                            {% endif %}
+                            {% if form.description.errors %}
+                                <div class="text-danger small mt-1">{{ form.description.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="mt-4 d-flex justify-content-between">
+                            <a href="{% url 'loomads:zone_list' %}#integration-section" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i>Abbrechen
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-2"></i>
+                                {% if integration %}Änderungen speichern{% else %}Integration erstellen{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Integration Help -->
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="bi bi-info-circle text-info me-2"></i>Integration Code
+                    </h6>
+                    <p class="card-text">Nach dem Erstellen können Sie diese Zone mit folgendem Code in Ihr Template einbinden:</p>
+                    <pre class="bg-light p-2 rounded"><code>{% templatetag openblock %} load loomads_tags {% templatetag closeblock %}
+{% templatetag openblock %} show_ad_zone 'zone_code' css_class='my-custom-class' {% templatetag closeblock %}</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

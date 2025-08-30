@@ -1,5 +1,6 @@
 {% extends 'shopify_manager/base.html' %}
 {% load static %}
+{% load loomads_tags %}
 
 {% block title %}Blog-Beiträge - Shopify Manager{% endblock %}
 
@@ -283,6 +284,9 @@
     </div>
 </div>
 
+<!-- Blog Header Ad Zone -->
+{% show_ad_zone 'blog_header' css_class='mb-4' %}
+
 <!-- Blog Posts Liste -->
 <div class="row">
     {% for post in posts %}
@@ -492,6 +496,24 @@
             </div>
         </div>
     </div>
+    
+    <!-- In-Feed Blog Ad Block (every 6 posts) - appears as blog post card -->
+    {% if forloop.counter|divisibleby:6 and not forloop.last %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 border-2 border-success" style="background: linear-gradient(135deg, #ffffff 0%, #f0fff4 100%); box-shadow: 0 4px 12px rgba(40, 167, 69, 0.15);">
+            <div class="card-header bg-success text-white text-center py-2">
+                <small class="fw-bold"><i class="fas fa-lightbulb me-1"></i>EMPFEHLUNG</small>
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center p-2" style="min-height: 250px;">
+                {% show_ad_zone 'blog_post_ad' css_class='w-100 h-100' %}
+            </div>
+            <div class="card-footer bg-light text-center py-2">
+                <small class="text-muted">Gesponsert</small>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
     {% empty %}
     <div class="col-12">
         <div class="alert alert-info">
@@ -505,6 +527,9 @@
     </div>
     {% endfor %}
 </div>
+
+<!-- Blog Footer Ad Zone -->
+{% show_ad_zone 'blog_footer' css_class='mt-4 mb-4' %}
 
 <!-- Pagination -->
 {% if is_paginated %}

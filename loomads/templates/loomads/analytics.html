@@ -260,6 +260,186 @@
         </div>
     </div>
 
+    <!-- Targeting Analytics -->
+    <div class="row mb-4">
+        <!-- Browser Statistics -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-browser-chrome me-2"></i>Browser Performance</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if browser_stats %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Browser</th>
+                                        <th class="text-end">Impressions</th>
+                                        <th class="text-end">Klicks</th>
+                                        <th class="text-end">CTR</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for browser, stats in browser_stats.items %}
+                                    <tr>
+                                        <td>
+                                            <i class="bi bi-{% if browser == 'chrome' %}google{% elif browser == 'firefox' %}firefox{% elif browser == 'safari' %}apple{% elif browser == 'edge' %}microsoft{% else %}browser-chrome{% endif %} me-2"></i>
+                                            {{ browser|title }}
+                                        </td>
+                                        <td class="text-end">{{ stats.impressions|intcomma }}</td>
+                                        <td class="text-end">{{ stats.clicks|intcomma }}</td>
+                                        <td class="text-end">
+                                            <span class="badge bg-{% if stats.ctr > 2 %}success{% elif stats.ctr > 1 %}warning{% else %}secondary{% endif %}">
+                                                {{ stats.ctr|floatformat:2 }}%
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="p-3 text-center text-muted">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Keine Browser-Daten verfügbar
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Operating System Statistics -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="bi bi-pc-display me-2"></i>Betriebssystem Performance</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if os_stats %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Betriebssystem</th>
+                                        <th class="text-end">Impressions</th>
+                                        <th class="text-end">Klicks</th>
+                                        <th class="text-end">CTR</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for os, stats in os_stats.items %}
+                                    <tr>
+                                        <td>
+                                            <i class="bi bi-{% if os == 'windows' %}windows{% elif os == 'macos' %}apple{% elif os == 'linux' %}ubuntu{% elif os == 'ios' %}phone{% elif os == 'android' %}android2{% else %}pc-display{% endif %} me-2"></i>
+                                            {{ os|title }}
+                                        </td>
+                                        <td class="text-end">{{ stats.impressions|intcomma }}</td>
+                                        <td class="text-end">{{ stats.clicks|intcomma }}</td>
+                                        <td class="text-end">
+                                            <span class="badge bg-{% if stats.ctr > 2 %}success{% elif stats.ctr > 1 %}warning{% else %}secondary{% endif %}">
+                                                {{ stats.ctr|floatformat:2 }}%
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="p-3 text-center text-muted">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Keine Betriebssystem-Daten verfügbar
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Time-based Analytics -->
+    <div class="row mb-4">
+        <!-- Hourly Performance -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-clock me-2"></i>Stündliche Performance</h5>
+                </div>
+                <div class="card-body">
+                    {% if hourly_stats %}
+                        <div style="max-height: 300px; overflow-y: auto;">
+                            <div class="row">
+                                {% for hour, stats in hourly_stats.items %}
+                                <div class="col-6 col-md-4 mb-2">
+                                    <div class="d-flex justify-content-between align-items-center border rounded p-2">
+                                        <small><strong>{{ hour }}:00</strong></small>
+                                        <div class="text-end">
+                                            <small>{{ stats.impressions }}/{{ stats.clicks }}</small>
+                                            <br>
+                                            <span class="badge badge-sm bg-{% if stats.ctr > 2 %}success{% elif stats.ctr > 1 %}warning{% else %}secondary{% endif %}">
+                                                {{ stats.ctr|floatformat:1 }}%
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Keine stündlichen Daten verfügbar
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Weekday Performance -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-calendar-week me-2"></i>Wochentag Performance</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if weekday_stats %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Wochentag</th>
+                                        <th class="text-end">Impressions</th>
+                                        <th class="text-end">Klicks</th>
+                                        <th class="text-end">CTR</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for day, stats in weekday_stats.items %}
+                                    <tr>
+                                        <td>{{ stats.name }}</td>
+                                        <td class="text-end">{{ stats.impressions|intcomma }}</td>
+                                        <td class="text-end">{{ stats.clicks|intcomma }}</td>
+                                        <td class="text-end">
+                                            <span class="badge bg-{% if stats.ctr > 2 %}success{% elif stats.ctr > 1 %}warning{% else %}secondary{% endif %}">
+                                                {{ stats.ctr|floatformat:2 }}%
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="p-3 text-center text-muted">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Keine Wochentag-Daten verfügbar
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Recent Activity -->
     <div class="card shadow-sm">
         <div class="card-header bg-secondary text-white">

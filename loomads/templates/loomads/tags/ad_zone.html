@@ -4,11 +4,12 @@
         {{ fallback|safe }}
     {% endif %}
 {% else %}
-    <div id="loomads-zone-{{ zone_code }}" 
+    <div id="loomads-zone-{{ zone_code }}-{{ forloop.counter0|default:""}}{{ random_id|default:"" }}" 
          class="loomads-zone {{ css_class }}" 
+         data-zone-code="{{ zone_code }}"
          style="width: 100%; max-width: {{ width }}px; height: {{ height }}px; {{ style }}
                 background: #f8f9fa; border: 1px dashed #dee2e6; 
-                display: none; align-items: center; justify-content: center;
+                display: flex; align-items: center; justify-content: center;
                 text-align: center;
                 color: #6c757d; font-size: 12px; margin: 0 auto;">
         Werbung wird geladen...
@@ -17,21 +18,41 @@
     <script>
     (function() {
         const zoneCode = '{{ zone_code }}';
+        const uniqueId = 'loomads-zone-{{ zone_code }}-{{ forloop.counter0|default:""}}{{ random_id|default:"" }}';
         const apiUrl = '{{ api_url }}';
         const trackUrlTemplate = '{{ track_url }}';
-        let adLoaded = false; // Verhindert doppeltes Laden
+        let adLoaded = false; // Verhindert doppeltes Laden für DIESE spezifische Instanz
+        
+        console.log(`[LoomAds] Loading ad for zone: ${zoneCode} (ID: ${uniqueId})`);
+        console.log(`[LoomAds] API URL: ${apiUrl}`);
+        console.log(`[LoomAds] Track URL Template: ${trackUrlTemplate}`);
         
         function loadAd() {
-            // Verhindere doppeltes Laden
-            if (adLoaded) return;
+            // Verhindere doppeltes Laden für diese spezifische Instanz
+            if (adLoaded) {
+                console.log(`[LoomAds] ${uniqueId}: Ad already loaded, skipping`);
+                return;
+            }
             adLoaded = true;
+            console.log(`[LoomAds] ${uniqueId}: Starting ad fetch from ${apiUrl}`);
             fetch(apiUrl)
-                .then(response => response.json())
+                .then(response => {
+                    console.log(`[LoomAds] ${uniqueId}: API response status: ${response.status}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
+                    console.log(`[LoomAds] ${uniqueId}: API response data:`, data);
+                    
                     if (data.error) {
-                        console.warn('LoomAds: ' + data.error);
+                        console.warn(`[LoomAds] ${uniqueId}: API returned error: ${data.error}`);
+                        if (data.debug) {
+                            console.log(`[LoomAds] ${uniqueId}: Debug info: ${data.debug}`);
+                        }
                         {% if fallback %}
-                        const fallbackContainer = document.getElementById('loomads-zone-' + zoneCode);
+                        const fallbackContainer = document.getElementById(uniqueId);
                         if (fallbackContainer) {
                             fallbackContainer.innerHTML = `{{ fallback|escapejs }}`;
                             fallbackContainer.style.display = 'flex';
@@ -43,16 +64,22 @@
                         return;
                     }
                     
-                    const adContainer = document.getElementById('loomads-zone-' + zoneCode);
-                    if (!adContainer) return;
+                    const adContainer = document.getElementById(uniqueId);
+                    if (!adContainer) {
+                        console.error(`[LoomAds] ${uniqueId}: Container element not found`);
+                        return;
+                    }
                     
+                    console.log(`[LoomAds] ${uniqueId}: Rendering ad type: ${data.type}`);
+                    console.log(`[LoomAds] ${uniqueId}: Ad data:`, data);
                     let adHtml = '';
                     const trackUrl = trackUrlTemplate.replace('AD_ID_PLACEHOLDER', data.id);
+                    console.log(`[LoomAds] ${uniqueId}: Track URL: ${trackUrl}`);
                     
                     if (data.type === 'image' && data.image_url) {
                         adHtml = `
                             <a href="${data.target_url}" target="${data.target_type}" 
-                               onclick="trackClick('${data.id}', '${zoneCode}'); return true;" 
+                               onclick="trackClick('${data.id}', '${uniqueId}'); return true;" 
                                class="loomads-link" style="display: block; text-align: center;">
                                 <img src="${data.image_url}" alt="${data.title || ''}" 
                                      class="loomads-image" 
@@ -61,7 +88,7 @@
                         `;
                     } else if (data.type === 'html' && data.html_content) {
                         adHtml = `
-                            <div onclick="if(window.trackClick) window.trackClick('${data.id}', '${zoneCode}')" 
+                            <div onclick="if(window.trackClick) window.trackClick('${data.id}', '${uniqueId}')" 
                                  class="loomads-html" style="cursor: pointer; text-align: center; width: 100%;">
                                 ${data.html_content}
                             </div>
@@ -69,7 +96,7 @@
                     } else if (data.type === 'text') {
                         adHtml = `
                             <a href="${data.target_url}" target="${data.target_type}" 
-                               onclick="trackClick('${data.id}', '${zoneCode}'); return true;" 
+                               onclick="trackClick('${data.id}', '${uniqueId}'); return true;" 
                                class="loomads-text" style="display: block; text-align: center; width: 100%; text-decoration: none;">
                                 ${data.title ? `<h4 style="margin: 0 0 8px 0;">${data.title}</h4>` : ''}
                                 ${data.description ? `<p style="margin: 0;">${data.description}</p>` : ''}
@@ -79,7 +106,7 @@
                         adHtml = `
                             <video controls 
                                    ${data.video_with_audio ? '' : 'muted'}
-                                   onclick="trackClick('${data.id}', '${zoneCode}')" 
+                                   onclick="trackClick('${data.id}', '${uniqueId}')" 
                                    class="loomads-video" 
                                    style="max-width: {{ width }}px; max-height: {{ height }}px; display: block; margin: 0 auto;">
                                 <source src="${data.video_url}" type="video/mp4">
@@ -89,6 +116,7 @@
                     }
                     
                     if (adHtml) {
+                        console.log(`[LoomAds] ${uniqueId}: Setting HTML:`, adHtml.substring(0, 100) + '...');
                         adContainer.innerHTML = adHtml;
                         adContainer.style.display = 'flex';
                         adContainer.style.alignItems = 'center';
@@ -97,25 +125,36 @@
                         adContainer.style.background = 'transparent';
                         adContainer.style.border = 'none';
                         adContainer.style.color = 'inherit';
+                        console.log(`[LoomAds] ${uniqueId}: Ad successfully rendered`);
+                        console.log(`[LoomAds] ${uniqueId}: Container dimensions:`, adContainer.offsetWidth + 'x' + adContainer.offsetHeight);
+                    } else {
+                        console.warn(`[LoomAds] ${uniqueId}: No ad HTML generated for type: ${data.type}`);
+                        adContainer.innerHTML = '<div style="color: #999; font-size: 12px;">Keine Anzeige verfügbar</div>';
+                        adContainer.style.display = 'flex';
                     }
                 })
                 .catch(error => {
-                    console.error('LoomAds error:', error);
-                    {% if fallback %}
-                    const adContainer = document.getElementById('loomads-zone-' + zoneCode);
+                    console.error(`[LoomAds] ${uniqueId}: Fetch error:`, error);
+                    const adContainer = document.getElementById(uniqueId);
                     if (adContainer) {
+                        {% if fallback %}
                         adContainer.innerHTML = `{{ fallback|escapejs }}`;
+                        {% else %}
+                        adContainer.innerHTML = '<div style="color: #999; font-size: 12px;">Fehler beim Laden der Anzeige</div>';
+                        {% endif %}
                         adContainer.style.display = 'flex';
                         adContainer.style.alignItems = 'center';
                         adContainer.style.justifyContent = 'center';
                         adContainer.style.textAlign = 'center';
+                        console.log(`[LoomAds] ${uniqueId}: Error fallback displayed`);
                     }
-                    {% endif %}
                 });
         }
         
-        function trackClick(adId, zoneCode) {
+        function trackClick(adId, uniqueContainerId) {
+            console.log(`[LoomAds] ${uniqueContainerId}: Tracking click for ad ${adId}`);
             const trackUrl = trackUrlTemplate.replace('AD_ID_PLACEHOLDER', adId);
+            console.log(`[LoomAds] ${uniqueContainerId}: Track URL: ${trackUrl}`);
             const formData = new FormData();
             formData.append('zone_code', zoneCode);
             
@@ -130,16 +169,23 @@
             fetch(trackUrl, {
                 method: 'POST',
                 body: formData
-            }).catch(error => console.error('LoomAds tracking error:', error));
+            }).then(() => {
+                console.log(`[LoomAds] ${uniqueContainerId}: Click tracked successfully`);
+            }).catch(error => {
+                console.error(`[LoomAds] ${uniqueContainerId}: Tracking error:`, error);
+            });
         }
         
         // Globale Funktion für Click-Tracking verfügbar machen
         window.trackClick = window.trackClick || trackClick;
         
         // Ad laden wenn DOM bereit ist - mit Schutz vor doppeltem Aufruf
+        console.log(`[LoomAds] ${uniqueId}: DOM ready state: ${document.readyState}`);
         if (document.readyState === 'loading') {
+            console.log(`[LoomAds] ${uniqueId}: Waiting for DOMContentLoaded`);
             document.addEventListener('DOMContentLoaded', loadAd, { once: true });
         } else {
+            console.log(`[LoomAds] ${uniqueId}: DOM already loaded, scheduling ad load`);
             // Kleine Verzögerung um sicherzustellen, dass nicht doppelt geladen wird
             setTimeout(loadAd, 100);
         }

@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Kampagne löschen - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h2 mb-0">
+                        <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                        Kampagne löschen
+                    </h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a href="{% url 'loomads:dashboard' %}">LoomAds</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'loomads:campaign_list' %}">Kampagnen</a></li>
+                            <li class="breadcrumb-item active">Löschen</li>
+                        </ol>
+                    </nav>
+                </div>
+            </div>
+
+            <!-- Deletion Warning Card -->
+            <div class="card shadow-sm border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Bestätigung erforderlich
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-danger">
+                        <h6><i class="bi bi-trash me-2"></i>Diese Aktion kann nicht rückgängig gemacht werden!</h6>
+                        <p class="mb-0">Alle zugehörigen Anzeigen und Analytics-Daten werden ebenfalls gelöscht.</p>
+                    </div>
+
+                    <h6>Sie sind dabei, folgende Kampagne zu löschen:</h6>
+                    
+                    <!-- Campaign Info -->
+                    <div class="border rounded p-3 mb-3 bg-light">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h5 class="mb-1">{{ campaign.name }}</h5>
+                                {% if campaign.description %}
+                                    <p class="text-muted mb-2">{{ campaign.description }}</p>
+                                {% endif %}
+                                <div class="small text-muted">
+                                    <i class="bi bi-calendar-range me-1"></i>
+                                    {{ campaign.start_date|date:"d.m.Y H:i" }} - {{ campaign.end_date|date:"d.m.Y H:i" }}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-end">
+                                    {% if campaign.status == 'active' %}
+                                        <span class="badge bg-success fs-6">Aktiv</span>
+                                    {% elif campaign.status == 'paused' %}
+                                        <span class="badge bg-warning fs-6">Pausiert</span>
+                                    {% elif campaign.status == 'completed' %}
+                                        <span class="badge bg-secondary fs-6">Abgeschlossen</span>
+                                    {% else %}
+                                        <span class="badge bg-info fs-6">Entwurf</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Statistics -->
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <div class="text-center border rounded p-2">
+                                <div class="h5 mb-0 text-primary">{{ campaign.advertisements.count }}</div>
+                                <small class="text-muted">Anzeigen</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center border rounded p-2">
+                                <div class="h5 mb-0 text-info">{{ campaign.get_total_impressions|intcomma }}</div>
+                                <small class="text-muted">Impressions</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center border rounded p-2">
+                                <div class="h5 mb-0 text-success">{{ campaign.get_total_clicks|intcomma }}</div>
+                                <small class="text-muted">Klicks</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center border rounded p-2">
+                                <div class="h5 mb-0 text-warning">{{ campaign.get_ctr|floatformat:2 }}%</div>
+                                <small class="text-muted">CTR</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- What will be deleted -->
+                    <div class="alert alert-info">
+                        <h6><i class="bi bi-info-circle me-2"></i>Was wird gelöscht:</h6>
+                        <ul class="mb-0">
+                            <li>Die Kampagne "{{ campaign.name }}"</li>
+                            {% if campaign.advertisements.count > 0 %}
+                                <li>{{ campaign.advertisements.count }} zugehörige Anzeige{{ campaign.advertisements.count|pluralize:"n" }}</li>
+                            {% endif %}
+                            {% if campaign.get_total_impressions > 0 or campaign.get_total_clicks > 0 %}
+                                <li>Alle Analytics-Daten ({{ campaign.get_total_impressions|intcomma }} Impressions, {{ campaign.get_total_clicks|intcomma }} Klicks)</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+
+                    <!-- Confirmation Form -->
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="confirmDelete" required>
+                            <label class="form-check-label fw-bold text-danger" for="confirmDelete">
+                                Ja, ich bin mir sicher und möchte diese Kampagne unwiderruflich löschen
+                            </label>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'loomads:campaign_detail' campaign.id %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i>Abbrechen
+                            </a>
+                            <button type="submit" class="btn btn-danger" id="deleteButton" disabled>
+                                <i class="bi bi-trash me-2"></i>Kampagne endgültig löschen
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Enable/disable delete button based on checkbox
+document.addEventListener('DOMContentLoaded', function() {
+    const checkbox = document.getElementById('confirmDelete');
+    const deleteButton = document.getElementById('deleteButton');
+    
+    checkbox.addEventListener('change', function() {
+        deleteButton.disabled = !this.checked;
+        
+        if (this.checked) {
+            deleteButton.classList.remove('btn-danger');
+            deleteButton.classList.add('btn-outline-danger');
+        } else {
+            deleteButton.classList.remove('btn-outline-danger');
+            deleteButton.classList.add('btn-danger');
+        }
+    });
+    
+    // Double-check confirmation on submit
+    deleteButton.addEventListener('click', function(e) {
+        if (!checkbox.checked) {
+            e.preventDefault();
+            alert('Bitte bestätigen Sie die Löschung durch Aktivierung der Checkbox.');
+            return false;
+        }
+        
+        // Final confirmation dialog
+        const confirmed = confirm(
+            `Letzte Warnung!\n\n` +
+            `Kampagne: "${campaign.name}"\n` +
+            `Anzeigen: {{ campaign.advertisements.count }}\n` +
+            `Impressions: {{ campaign.get_total_impressions|intcomma }}\n` +
+            `Klicks: {{ campaign.get_total_clicks|intcomma }}\n\n` +
+            `Alle Daten werden unwiderruflich gelöscht!\n\n` +
+            `Wirklich fortfahren?`
+        );
+        
+        if (!confirmed) {
+            e.preventDefault();
+            return false;
+        }
+    });
+});
+</script>
+
+<style>
+.btn-danger:disabled {
+    opacity: 0.4;
+}
+
+.form-check-input:checked {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.card-header.bg-warning {
+    border-bottom: 1px solid rgba(0,0,0,.125);
+}
+</style>
+{% endblock %}

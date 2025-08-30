@@ -12,7 +12,7 @@ import random
 
 from .models import (
     Campaign, AdZone, Advertisement, AdPlacement,
-    AdImpression, AdClick, AdSchedule, AdTargeting
+    AdImpression, AdClick, AdSchedule, AdTargeting, ZoneIntegration
 )
 
 # Import frontend management views
@@ -274,10 +274,14 @@ def zone_list(request):
     elif active_filter == 'false':
         zones = zones.filter(is_active=False)
     
+    # Zone integrations for the Integration section
+    integrations = ZoneIntegration.objects.all().order_by('template_path', 'zone_code')
+    
     context = {
         'zones': zones,
         'zone_type_filter': zone_type_filter,
         'active_filter': active_filter,
+        'integrations': integrations,
     }
     
     return render(request, 'loomads/zone_list.html', context)
@@ -349,6 +353,131 @@ def analytics(request):
         })
     daily_stats.reverse()
     
+    # Browser-Statistiken
+    browser_stats = {}
+    for impression in impressions:
+        user_agent = impression.user_agent.lower() if impression.user_agent else 'unknown'
+        browser = 'andere'
+        if 'chrome' in user_agent and 'edge' not in user_agent:
+            browser = 'chrome'
+        elif 'firefox' in user_agent:
+            browser = 'firefox'
+        elif 'safari' in user_agent and 'chrome' not in user_agent:
+            browser = 'safari'
+        elif 'edge' in user_agent:
+            browser = 'edge'
+        elif 'opera' in user_agent or 'opr' in user_agent:
+            browser = 'opera'
+        
+        if browser not in browser_stats:
+            browser_stats[browser] = {'impressions': 0, 'clicks': 0}
+        browser_stats[browser]['impressions'] += 1
+    
+    for click in clicks:
+        user_agent = click.user_agent.lower() if click.user_agent else 'unknown'
+        browser = 'andere'
+        if 'chrome' in user_agent and 'edge' not in user_agent:
+            browser = 'chrome'
+        elif 'firefox' in user_agent:
+            browser = 'firefox'
+        elif 'safari' in user_agent and 'chrome' not in user_agent:
+            browser = 'safari'
+        elif 'edge' in user_agent:
+            browser = 'edge'
+        elif 'opera' in user_agent or 'opr' in user_agent:
+            browser = 'opera'
+            
+        if browser in browser_stats:
+            browser_stats[browser]['clicks'] += 1
+    
+    # CTR berechnen
+    for browser in browser_stats:
+        imp_count = browser_stats[browser]['impressions']
+        click_count = browser_stats[browser]['clicks']
+        browser_stats[browser]['ctr'] = (click_count / imp_count * 100) if imp_count > 0 else 0
+    
+    # Betriebssystem-Statistiken
+    os_stats = {}
+    for impression in impressions:
+        user_agent = impression.user_agent.lower() if impression.user_agent else 'unknown'
+        os_name = 'andere'
+        if 'windows' in user_agent:
+            os_name = 'windows'
+        elif 'macintosh' in user_agent or 'mac os' in user_agent:
+            os_name = 'macos'
+        elif 'linux' in user_agent and 'android' not in user_agent:
+            os_name = 'linux'
+        elif 'iphone' in user_agent or 'ipad' in user_agent:
+            os_name = 'ios'
+        elif 'android' in user_agent:
+            os_name = 'android'
+            
+        if os_name not in os_stats:
+            os_stats[os_name] = {'impressions': 0, 'clicks': 0}
+        os_stats[os_name]['impressions'] += 1
+        
+    for click in clicks:
+        user_agent = click.user_agent.lower() if click.user_agent else 'unknown'
+        os_name = 'andere'
+        if 'windows' in user_agent:
+            os_name = 'windows'
+        elif 'macintosh' in user_agent or 'mac os' in user_agent:
+            os_name = 'macos'
+        elif 'linux' in user_agent and 'android' not in user_agent:
+            os_name = 'linux'
+        elif 'iphone' in user_agent or 'ipad' in user_agent:
+            os_name = 'ios'
+        elif 'android' in user_agent:
+            os_name = 'android'
+            
+        if os_name in os_stats:
+            os_stats[os_name]['clicks'] += 1
+    
+    # CTR berechnen für OS
+    for os_name in os_stats:
+        imp_count = os_stats[os_name]['impressions']
+        click_count = os_stats[os_name]['clicks']
+        os_stats[os_name]['ctr'] = (click_count / imp_count * 100) if imp_count > 0 else 0
+    
+    # Stundenweise Performance
+    hourly_stats = {}
+    for i in range(24):
+        hourly_stats[i] = {'impressions': 0, 'clicks': 0}
+    
+    for impression in impressions:
+        hour = impression.timestamp.hour
+        hourly_stats[hour]['impressions'] += 1
+    
+    for click in clicks:
+        hour = click.timestamp.hour
+        hourly_stats[hour]['clicks'] += 1
+    
+    # CTR berechnen für Stunden
+    for hour in hourly_stats:
+        imp_count = hourly_stats[hour]['impressions']
+        click_count = hourly_stats[hour]['clicks']
+        hourly_stats[hour]['ctr'] = (click_count / imp_count * 100) if imp_count > 0 else 0
+    
+    # Wochentagsstatistiken
+    weekday_stats = {}
+    weekday_names = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag']
+    for i in range(7):
+        weekday_stats[i] = {'name': weekday_names[i], 'impressions': 0, 'clicks': 0}
+    
+    for impression in impressions:
+        weekday = impression.timestamp.weekday()
+        weekday_stats[weekday]['impressions'] += 1
+    
+    for click in clicks:
+        weekday = click.timestamp.weekday()
+        weekday_stats[weekday]['clicks'] += 1
+    
+    # CTR berechnen für Wochentage
+    for weekday in weekday_stats:
+        imp_count = weekday_stats[weekday]['impressions']
+        click_count = weekday_stats[weekday]['clicks']
+        weekday_stats[weekday]['ctr'] = (click_count / imp_count * 100) if imp_count > 0 else 0
+    
     context = {
         'period': period,
         'total_impressions': total_impressions,
@@ -359,6 +488,10 @@ def analytics(request):
         'zone_stats': zone_stats[:10],  # Top 10 Zonen
         'daily_stats': daily_stats,
         'chart_data': json.dumps(daily_stats),
+        'browser_stats': browser_stats,
+        'os_stats': os_stats,
+        'hourly_stats': hourly_stats,
+        'weekday_stats': weekday_stats,
     }
     
     return render(request, 'loomads/analytics.html', context)
@@ -367,10 +500,15 @@ def analytics(request):
 # API Endpoints für Anzeigen-Serving
 def get_ad_for_zone(request, zone_code):
     """API: Anzeige für eine bestimmte Zone abrufen"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
         zone = AdZone.objects.get(code=zone_code, is_active=True)
+        logger.debug(f'Found zone: {zone.name} ({zone.code})')
     except AdZone.DoesNotExist:
-        return JsonResponse({'error': 'Zone not found'}, status=404)
+        logger.warning(f'Zone not found: {zone_code}')
+        return JsonResponse({'error': f'Zone "{zone_code}" not found'}, status=404)
     
     # Aktive Anzeigen für diese Zone finden
     now = timezone.now()
@@ -382,10 +520,16 @@ def get_ad_for_zone(request, zone_code):
         campaign__end_date__gte=now
     )
     
+    initial_count = active_ads.count()
+    logger.debug(f'Initial ads found for {zone_code}: {initial_count}')
+    
     # Device-Targeting prüfen
     user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
     is_mobile = any(x in user_agent for x in ['mobile', 'android', 'iphone'])
     is_tablet = 'ipad' in user_agent or 'tablet' in user_agent
+    
+    device_type = 'mobile' if is_mobile and not is_tablet else 'tablet' if is_tablet else 'desktop'
+    logger.debug(f'Device type detected: {device_type}')
     
     if is_mobile and not is_tablet:
         active_ads = active_ads.filter(
@@ -400,7 +544,13 @@ def get_ad_for_zone(request, zone_code):
             Q(targeting__target_desktop=True) | Q(targeting__isnull=True)
         )
     
+    device_filtered_count = active_ads.count()
+    logger.debug(f'After device filtering: {device_filtered_count} ads')
+    
     # User-Targeting prüfen
+    user_type = 'authenticated' if request.user.is_authenticated else 'anonymous'
+    logger.debug(f'User type: {user_type}')
+    
     if request.user.is_authenticated:
         active_ads = active_ads.filter(
             Q(targeting__target_logged_in=True) | Q(targeting__isnull=True)
@@ -409,6 +559,181 @@ def get_ad_for_zone(request, zone_code):
         active_ads = active_ads.filter(
             Q(targeting__target_anonymous=True) | Q(targeting__isnull=True)
         )
+    
+    user_filtered_count = active_ads.count()
+    logger.debug(f'After user filtering: {user_filtered_count} ads')
+    
+    # Erweiterte Targeting-Prüfungen
+    current_time = timezone.now()
+    current_date = current_time.date()
+    current_hour = current_time.time()
+    current_weekday = current_time.weekday()
+    
+    # Browser-Targeting
+    user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
+    browser = 'andere'
+    if 'chrome' in user_agent and 'edge' not in user_agent:
+        browser = 'chrome'
+    elif 'firefox' in user_agent:
+        browser = 'firefox'
+    elif 'safari' in user_agent and 'chrome' not in user_agent:
+        browser = 'safari'
+    elif 'edge' in user_agent:
+        browser = 'edge'
+    elif 'opera' in user_agent or 'opr' in user_agent:
+        browser = 'opera'
+    
+    logger.debug(f'Browser detected: {browser}')
+    
+    # Betriebssystem-Targeting
+    os_name = 'andere'
+    if 'windows' in user_agent:
+        os_name = 'windows'
+    elif 'macintosh' in user_agent or 'mac os' in user_agent:
+        os_name = 'macos'
+    elif 'linux' in user_agent and 'android' not in user_agent:
+        os_name = 'linux'
+    elif 'iphone' in user_agent or 'ipad' in user_agent:
+        os_name = 'ios'
+    elif 'android' in user_agent:
+        os_name = 'android'
+    
+    logger.debug(f'OS detected: {os_name}')
+    
+    # Referrer-Targeting
+    referrer = request.META.get('HTTP_REFERER', '').lower()
+    if not referrer:
+        referrer = 'direkt'
+    
+    logger.debug(f'Referrer: {referrer}')
+    
+    # Ads mit Targeting filtern
+    filtered_ads = []
+    for ad in active_ads:
+        try:
+            targeting = ad.targeting.first()
+        except:
+            targeting = None
+            
+        if not targeting:
+            # Keine Targeting-Regeln -> zeige Anzeige
+            filtered_ads.append(ad)
+            continue
+            
+        # Browser-Targeting prüfen
+        if targeting.target_browsers:
+            if browser not in targeting.target_browsers:
+                logger.debug(f'Ad {ad.name} excluded: browser {browser} not in target_browsers')
+                continue
+        if targeting.exclude_browsers:
+            if browser in targeting.exclude_browsers:
+                logger.debug(f'Ad {ad.name} excluded: browser {browser} in exclude_browsers')
+                continue
+        
+        # OS-Targeting prüfen
+        if targeting.target_os:
+            if os_name not in targeting.target_os:
+                logger.debug(f'Ad {ad.name} excluded: OS {os_name} not in target_os')
+                continue
+        if targeting.exclude_os:
+            if os_name in targeting.exclude_os:
+                logger.debug(f'Ad {ad.name} excluded: OS {os_name} in exclude_os')
+                continue
+        
+        # Referrer-Targeting prüfen
+        if targeting.target_referrers and targeting.target_referrers.strip():
+            referrer_patterns = [pattern.strip().lower() for pattern in targeting.target_referrers.split('\n') if pattern.strip()]
+            referrer_match = False
+            for pattern in referrer_patterns:
+                if pattern == 'direkt' and referrer == 'direkt':
+                    referrer_match = True
+                    break
+                elif pattern in referrer:
+                    referrer_match = True
+                    break
+            if not referrer_match:
+                logger.debug(f'Ad {ad.name} excluded: referrer {referrer} not matching patterns')
+                continue
+        
+        if targeting.exclude_referrers and targeting.exclude_referrers.strip():
+            exclude_patterns = [pattern.strip().lower() for pattern in targeting.exclude_referrers.split('\n') if pattern.strip()]
+            referrer_excluded = False
+            for pattern in exclude_patterns:
+                if pattern in referrer:
+                    referrer_excluded = True
+                    break
+            if referrer_excluded:
+                logger.debug(f'Ad {ad.name} excluded: referrer {referrer} in exclude patterns')
+                continue
+        
+        # Zeitbasiertes Targeting prüfen
+        if targeting.target_weekdays:
+            weekday_strings = [str(w) for w in targeting.target_weekdays]
+            if str(current_weekday) not in weekday_strings:
+                logger.debug(f'Ad {ad.name} excluded: weekday {current_weekday} not in target_weekdays')
+                continue
+        
+        if targeting.target_hours_start and targeting.target_hours_end:
+            if not (targeting.target_hours_start <= current_hour <= targeting.target_hours_end):
+                logger.debug(f'Ad {ad.name} excluded: hour {current_hour} not in time range')
+                continue
+        
+        if targeting.target_date_start and current_date < targeting.target_date_start:
+            logger.debug(f'Ad {ad.name} excluded: date {current_date} before start date')
+            continue
+        
+        if targeting.target_date_end and current_date > targeting.target_date_end:
+            logger.debug(f'Ad {ad.name} excluded: date {current_date} after end date')
+            continue
+        
+        # App-Targeting prüfen (bereits implementiert)
+        if targeting.target_apps:
+            current_app = request.resolver_match.app_name if hasattr(request, 'resolver_match') and request.resolver_match else None
+            if current_app and current_app not in targeting.target_apps:
+                logger.debug(f'Ad {ad.name} excluded: app {current_app} not in target_apps')
+                continue
+        
+        if targeting.exclude_apps:
+            current_app = request.resolver_match.app_name if hasattr(request, 'resolver_match') and request.resolver_match else None
+            if current_app and current_app in targeting.exclude_apps:
+                logger.debug(f'Ad {ad.name} excluded: app {current_app} in exclude_apps')
+                continue
+        
+        # URL-Targeting prüfen (bereits implementiert)
+        current_url = request.get_full_path()
+        if targeting.target_urls and targeting.target_urls.strip():
+            url_patterns = [pattern.strip() for pattern in targeting.target_urls.split('\n') if pattern.strip()]
+            url_match = False
+            for pattern in url_patterns:
+                import fnmatch
+                if fnmatch.fnmatch(current_url, pattern):
+                    url_match = True
+                    break
+            if not url_match:
+                logger.debug(f'Ad {ad.name} excluded: URL {current_url} not matching patterns')
+                continue
+        
+        if targeting.exclude_urls and targeting.exclude_urls.strip():
+            exclude_url_patterns = [pattern.strip() for pattern in targeting.exclude_urls.split('\n') if pattern.strip()]
+            url_excluded = False
+            for pattern in exclude_url_patterns:
+                import fnmatch
+                if fnmatch.fnmatch(current_url, pattern):
+                    url_excluded = True
+                    break
+            if url_excluded:
+                logger.debug(f'Ad {ad.name} excluded: URL {current_url} in exclude patterns')
+                continue
+        
+        # Anzeige hat alle Targeting-Tests bestanden
+        filtered_ads.append(ad)
+    
+    # Update active_ads to filtered list
+    ad_ids = [ad.id for ad in filtered_ads]
+    active_ads = Advertisement.objects.filter(id__in=ad_ids)
+    
+    targeting_filtered_count = active_ads.count()
+    logger.debug(f'After extended targeting filtering: {targeting_filtered_count} ads')
     
     # Tägliche Limits prüfen
     today = timezone.now().date()
@@ -422,8 +747,13 @@ def get_ad_for_zone(request, zone_code):
             if ad.impressions_count >= campaign.total_impression_limit:
                 active_ads = active_ads.exclude(id=ad.id)
     
+    final_count = active_ads.count()
+    logger.debug(f'Final ads after all filtering: {final_count}')
+    
     if not active_ads.exists():
-        return JsonResponse({'error': 'No ads available'}, status=404)
+        error_msg = f'No ads available for zone {zone_code}. Initial: {initial_count}, Device filtered: {device_filtered_count}, User filtered: {user_filtered_count}, Targeting filtered: {targeting_filtered_count}, Final: {final_count}'
+        logger.warning(error_msg)
+        return JsonResponse({'error': 'No ads available', 'debug': error_msg}, status=200)
     
     # Gewichtete Auswahl
     ads_with_weights = list(active_ads.values_list('id', 'weight'))
@@ -431,11 +761,18 @@ def get_ad_for_zone(request, zone_code):
         ad_ids, weights = zip(*ads_with_weights)
         selected_ad_id = random.choices(ad_ids, weights=weights, k=1)[0]
         selected_ad = Advertisement.objects.get(id=selected_ad_id)
+        logger.debug(f'Selected ad: {selected_ad.name} (ID: {selected_ad_id})')
     else:
-        return JsonResponse({'error': 'No ads available'}, status=404)
+        logger.warning(f'No ads with weights available for zone {zone_code}')
+        return JsonResponse({'error': 'No ads available', 'debug': 'No weighted ads found'}, status=200)
     
-    # Impression tracken mit Duplikatsprüfung
-    if request.user.is_authenticated or request.GET.get('track') != 'false':
+    # Impression tracken mit Duplikatsprüfung (Superuser ausschließen)
+    should_track = (
+        request.GET.get('track') != 'false' and 
+        not (request.user.is_authenticated and request.user.is_superuser)
+    )
+    
+    if should_track:
         # Session-basierte Duplikatsprüfung
         session_key = f'ad_impression_{selected_ad.id}_{zone.id}'
         impression_time = request.session.get(session_key)
@@ -446,7 +783,7 @@ def get_ad_for_zone(request, zone_code):
             AdImpression.objects.create(
                 advertisement=selected_ad,
                 zone=zone,
-                user=request.user if request.user.is_authenticated else None,
+                user=request.user if request.user.is_authenticated and not request.user.is_superuser else None,
                 ip_address=get_client_ip(request),
                 user_agent=request.META.get('HTTP_USER_AGENT', ''),
                 page_url=request.META.get('HTTP_REFERER', '')
@@ -470,7 +807,8 @@ def get_ad_for_zone(request, zone_code):
     
     if selected_ad.ad_type == 'image' and selected_ad.image:
         response_data['image_url'] = request.build_absolute_uri(selected_ad.image.url)
-    elif selected_ad.ad_type == 'html':
+    elif selected_ad.ad_type == 'html' or (selected_ad.ad_type == 'banner' and selected_ad.html_content):
+        response_data['type'] = 'html'  # Override type for JavaScript compatibility
         response_data['html_content'] = selected_ad.html_content
     elif selected_ad.ad_type == 'video':
         response_data['video_url'] = selected_ad.video_url
@@ -496,17 +834,19 @@ def track_click(request, ad_id):
         except AdZone.DoesNotExist:
             pass
     
-    AdClick.objects.create(
-        advertisement=ad,
-        zone=zone,
-        user=request.user if request.user.is_authenticated else None,
-        ip_address=get_client_ip(request),
-        user_agent=request.META.get('HTTP_USER_AGENT', ''),
-        referrer_url=request.META.get('HTTP_REFERER', '')
-    )
-    
-    ad.clicks_count = F('clicks_count') + 1
-    ad.save(update_fields=['clicks_count'])
+    # Nur tracken wenn nicht Superuser
+    if not (request.user.is_authenticated and request.user.is_superuser):
+        AdClick.objects.create(
+            advertisement=ad,
+            zone=zone,
+            user=request.user if request.user.is_authenticated else None,
+            ip_address=get_client_ip(request),
+            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+            referrer_url=request.META.get('HTTP_REFERER', '')
+        )
+        
+        ad.clicks_count = F('clicks_count') + 1
+        ad.save(update_fields=['clicks_count'])
     
     return JsonResponse({'status': 'success'})
 

@@ -1,0 +1,295 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ zone.name }} - Anzeigen-Beispiele{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a href="{% url 'loomads:examples_overview' %}">Beispiele</a></li>
+                    <li class="breadcrumb-item active">{{ zone.name }}</li>
+                </ol>
+            </nav>
+            <h1 class="h2 mb-0">
+                <i class="bi bi-aspect-ratio text-primary me-2"></i>
+                {{ zone.name }}
+            </h1>
+            <p class="text-muted mb-0">
+                Zone-Code: <code>{{ zone.code }}</code> | 
+                Größe: <strong>{{ zone.width }} × {{ zone.height }}px</strong> |
+                {{ ads_count }} Beispielanzeigen
+                {% if is_hardcoded %}<span class="badge bg-info ms-2">Hartcodiert</span>{% endif %}
+            </p>
+        </div>
+        <a href="{% url 'loomads:examples_overview' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i>Zurück zur Übersicht
+        </a>
+    </div>
+
+    <!-- Zone Info -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h6><i class="bi bi-info-circle me-2"></i>Zone Information</h6>
+                        <p class="mb-0">
+                            Diese Zone hat die Abmessungen <strong>{{ zone.width }}×{{ zone.height }}px</strong>.
+                            {% if zone.height <= 100 %}
+                                Kompakte Banner-Designs sind für diese kleine Zone optimiert.
+                            {% elif zone.height <= 200 %}
+                                Mittlere Karten-Designs passen gut in diese Zone.
+                            {% else %}
+                                Feature-reiche Designs können in dieser großen Zone genutzt werden.
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="badge bg-primary fs-6">{{ ads_count }} Beispiele</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Examples Grid -->
+    <div class="row">
+        {% for ad in ads %}
+        <div class="col-xl-4 col-lg-6 mb-4">
+            <div class="card h-100">
+                <!-- Copy Button -->
+                <div class="position-relative">
+                    <button class="btn btn-success btn-sm position-absolute copy-btn" 
+                            style="top: 10px; right: 10px; z-index: 10;"
+                            onclick="copyToClipboard('{{ ad.id }}', this)"
+                            title="HTML Code kopieren">
+                        <i class="bi bi-clipboard"></i> Copy
+                    </button>
+                    
+                    <!-- Ad Preview -->
+                    <div class="card-img-top bg-light d-flex align-items-center justify-content-center" 
+                         style="min-height: 200px; padding: 20px; overflow: hidden;">
+                        <div class="w-100 h-100 d-flex align-items-center justify-content-center">
+                            <div style="transform: scale(0.8); transform-origin: center; max-width: {{ zone.width }}px; max-height: {{ zone.height }}px;">
+                                {{ ad.html_content|safe }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <h6 class="card-title">{{ ad.name }}</h6>
+                    <p class="card-text small text-muted">
+                        {{ ad.title }}
+                    </p>
+                    
+                    <!-- Ad Type Info -->
+                    <div class="mb-2">
+                        <span class="badge bg-success">HTML/Rich Content</span>
+                    </div>
+                    
+                    <!-- Code Preview -->
+                    <div class="small">
+                        <strong>HTML Länge:</strong> {{ ad.html_content|length }} Zeichen
+                    </div>
+                </div>
+                
+                <div class="card-footer bg-white">
+                    <button class="btn btn-outline-dark btn-sm w-100" 
+                            onclick="showCodeModal('{{ ad.id }}', '{{ ad.name|escapejs }}')">
+                        <i class="bi bi-code-square me-2"></i>Code anzeigen
+                    </button>
+                </div>
+                
+                <!-- Hidden HTML Content for copying -->
+                <textarea id="html-content-{{ ad.id }}" style="display: none;">{{ ad.html_content }}</textarea>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="bi bi-exclamation-triangle display-1 text-muted"></i>
+                <p class="mt-3 text-muted">Keine Beispielanzeigen für diese Zone gefunden.</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Code Modal -->
+<div class="modal fade" id="codeModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-code-square me-2"></i>
+                    <span id="modal-title">HTML Code</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex justify-content-end mb-3">
+                    <button class="btn btn-success" onclick="copyModalCode()">
+                        <i class="bi bi-clipboard"></i> Code kopieren
+                    </button>
+                </div>
+                <pre class="bg-dark text-light p-3 rounded"><code id="modal-code"></code></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Copy HTML to clipboard
+function copyToClipboard(adId, button) {
+    const textarea = document.getElementById('html-content-' + adId);
+    const htmlContent = textarea.value;
+    
+    // Create temporary textarea for copying
+    const tempTextarea = document.createElement('textarea');
+    tempTextarea.value = htmlContent;
+    document.body.appendChild(tempTextarea);
+    tempTextarea.select();
+    
+    try {
+        document.execCommand('copy');
+        
+        // Success feedback
+        const originalContent = button.innerHTML;
+        button.innerHTML = '<i class="bi bi-check"></i> Kopiert!';
+        button.classList.remove('btn-success');
+        button.classList.add('btn-primary');
+        
+        setTimeout(() => {
+            button.innerHTML = originalContent;
+            button.classList.remove('btn-primary');
+            button.classList.add('btn-success');
+        }, 2000);
+        
+        // Show toast notification
+        showToast('HTML Code erfolgreich kopiert!', 'success');
+        
+    } catch (err) {
+        console.error('Copy failed:', err);
+        showToast('Kopieren fehlgeschlagen!', 'error');
+    }
+    
+    document.body.removeChild(tempTextarea);
+}
+
+// Show code in modal
+function showCodeModal(adId, adName) {
+    const textarea = document.getElementById('html-content-' + adId);
+    const htmlContent = textarea.value;
+    
+    document.getElementById('modal-title').textContent = adName;
+    document.getElementById('modal-code').textContent = htmlContent;
+    
+    const modal = new bootstrap.Modal(document.getElementById('codeModal'));
+    modal.show();
+}
+
+// Copy code from modal
+function copyModalCode() {
+    const codeElement = document.getElementById('modal-code');
+    const htmlContent = codeElement.textContent;
+    
+    const tempTextarea = document.createElement('textarea');
+    tempTextarea.value = htmlContent;
+    document.body.appendChild(tempTextarea);
+    tempTextarea.select();
+    
+    try {
+        document.execCommand('copy');
+        showToast('HTML Code aus Modal kopiert!', 'success');
+    } catch (err) {
+        showToast('Kopieren fehlgeschlagen!', 'error');
+    }
+    
+    document.body.removeChild(tempTextarea);
+}
+
+// Toast notification
+function showToast(message, type = 'success') {
+    // Create toast container if it doesn't exist
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '9999';
+        document.body.appendChild(toastContainer);
+    }
+    
+    // Create toast
+    const toastId = 'toast-' + Date.now();
+    const bgClass = type === 'success' ? 'bg-success' : 'bg-danger';
+    const icon = type === 'success' ? 'check-circle' : 'exclamation-triangle';
+    
+    const toastHTML = `
+        <div id="${toastId}" class="toast ${bgClass} text-white" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="bi bi-${icon} me-2"></i>
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+    
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, { delay: 3000 });
+    toast.show();
+    
+    // Remove toast element after it's hidden
+    toastElement.addEventListener('hidden.bs.toast', () => {
+        toastElement.remove();
+    });
+}
+
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    const tooltips = document.querySelectorAll('[title]');
+    tooltips.forEach(element => {
+        new bootstrap.Tooltip(element);
+    });
+});
+</script>
+
+<style>
+.copy-btn {
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
+}
+
+.copy-btn:hover {
+    opacity: 1;
+}
+
+.card:hover .copy-btn {
+    opacity: 1;
+}
+
+pre {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+#modal-code {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+</style>
+{% endblock %}

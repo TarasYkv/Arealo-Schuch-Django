@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}Integration löschen - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h2 mb-0">
+                        <i class="bi bi-exclamation-triangle text-danger me-2"></i>
+                        Integration löschen
+                    </h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a href="{% url 'loomads:dashboard' %}">LoomAds</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'loomads:zone_list' %}">Werbezonen</a></li>
+                            <li class="breadcrumb-item active">Integration löschen</li>
+                        </ol>
+                    </nav>
+                </div>
+            </div>
+
+            <!-- Confirmation -->
+            <div class="card shadow-sm border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Bestätigung erforderlich
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Achtung:</strong> Diese Aktion kann nicht rückgängig gemacht werden!
+                    </div>
+
+                    <p class="mb-3">
+                        Sind Sie sicher, dass Sie die folgende Zone-Integration löschen möchten?
+                    </p>
+
+                    <div class="border p-3 rounded bg-light">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Zone Code:</strong><br>
+                                <code class="fs-6">{{ integration.zone_code }}</code>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Template:</strong><br>
+                                <code class="fs-6">{{ integration.template_path }}</code>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-md-6">
+                                <strong>Sichtbar für:</strong><br>
+                                {{ integration.get_visibility_display }}
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Status:</strong><br>
+                                <span class="badge {{ integration.get_status_badge_class }}">
+                                    {{ integration.get_status_display }}
+                                </span>
+                            </div>
+                        </div>
+                        {% if integration.description %}
+                        <div class="mt-2">
+                            <strong>Beschreibung:</strong><br>
+                            {{ integration.description }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mt-4 d-flex justify-content-between">
+                        <a href="{% url 'loomads:zone_list' %}#integration-section" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-2"></i>Abbrechen
+                        </a>
+                        <form method="post" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-trash me-2"></i>Integration löschen
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
