@@ -170,6 +170,36 @@
                                 <strong>Modal/Pop-up-Zonen global aktivieren</strong>
                             </label>
                         </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="global_video_preroll_enabled" name="global_video_preroll_enabled" {% if settings.global_video_preroll_enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="global_video_preroll_enabled">
+                                <strong>Video Pre-Roll-Zonen global aktivieren</strong>
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="global_video_overlay_enabled" name="global_video_overlay_enabled" {% if settings.global_video_overlay_enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="global_video_overlay_enabled">
+                                <strong>Video Overlay-Zonen global aktivieren</strong>
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="global_video_popup_enabled" name="global_video_popup_enabled" {% if settings.global_video_popup_enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="global_video_popup_enabled">
+                                <strong>Video Pop-up-Zonen global aktivieren</strong>
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="global_content_card_enabled" name="global_content_card_enabled" {% if settings.global_content_card_enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="global_content_card_enabled">
+                                <strong>Content Card-Zonen global aktivieren</strong>
+                            </label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="global_notification_enabled" name="global_notification_enabled" {% if settings.global_notification_enabled %}checked{% endif %}>
+                            <label class="form-check-label" for="global_notification_enabled">
+                                <strong>Benachrichtigungs-Zonen global aktivieren</strong>
+                            </label>
+                        </div>
                     </div>
                 </div>
 
@@ -190,13 +220,109 @@
         <div class="card-body">
             <p class="text-muted mb-3">Hier können Sie für jede App individuell festlegen, welche Anzeigenzonen-Typen aktiviert sein sollen.</p>
             
-            <!-- Zone Controls für jede App -->
-            <div id="app-zone-controls">
-                <!-- Diese werden dynamisch via JavaScript geladen -->
-                <div class="text-center text-muted">
-                    <i class="bi bi-info-circle me-2"></i>
-                    Verfügbare Apps: accounts, amortization_calculator, core, documents, loomads, pdf_sucher, shopify_manager, somi_plan, sportplatzApp, streamrec, superconfig, videos
-                </div>
+            <!-- App Status Übersicht -->
+            <div class="table-responsive mb-4">
+                <table class="table table-hover table-bordered">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>App</th>
+                            <th class="text-center">Header</th>
+                            <th class="text-center">Footer</th>
+                            <th class="text-center">Sidebar</th>
+                            <th class="text-center">In-Feed</th>
+                            <th class="text-center">Modal</th>
+                            <th class="text-center">Video Pre-Roll</th>
+                            <th class="text-center">Video Overlay</th>
+                            <th class="text-center">Video Pop-up</th>
+                            <th class="text-center">Content Card</th>
+                            <th class="text-center">Benachrichtigung</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for app_status in app_zone_status %}
+                        <tr>
+                            <td>
+                                <strong>{{ app_status.name }}</strong>
+                            </td>
+                            <td class="text-center">
+                                {% if app_status.zones.header %}
+                                    <span class="badge bg-success"><i class="bi bi-check-circle"></i> Aktiv</span>
+                                {% else %}
+                                    <span class="badge bg-secondary"><i class="bi bi-x-circle"></i> Inaktiv</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if app_status.zones.footer %}
+                                    <span class="badge bg-success"><i class="bi bi-check-circle"></i> Aktiv</span>
+                                {% else %}
+                                    <span class="badge bg-secondary"><i class="bi bi-x-circle"></i> Inaktiv</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if app_status.zones.sidebar %}
+                                    <span class="badge bg-success"><i class="bi bi-check-circle"></i> Aktiv</span>
+                                {% else %}
+                                    <span class="badge bg-secondary"><i class="bi bi-x-circle"></i> Inaktiv</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if app_status.zones.infeed %}
+                                    <span class="badge bg-success"><i class="bi bi-check-circle"></i> Aktiv</span>
+                                {% else %}
+                                    <span class="badge bg-secondary"><i class="bi bi-x-circle"></i> Inaktiv</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if app_status.zones.modal %}
+                                    <span class="badge bg-success"><i class="bi bi-check-circle"></i> Aktiv</span>
+                                {% else %}
+                                    <span class="badge bg-secondary"><i class="bi bi-x-circle"></i> Inaktiv</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if app_status.zones.video_preroll %}
+                                    <span class="badge bg-success"><i class="bi bi-check-circle"></i> Aktiv</span>
+                                {% else %}
+                                    <span class="badge bg-secondary"><i class="bi bi-x-circle"></i> Inaktiv</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if app_status.zones.video_overlay %}
+                                    <span class="badge bg-success"><i class="bi bi-check-circle"></i> Aktiv</span>
+                                {% else %}
+                                    <span class="badge bg-secondary"><i class="bi bi-x-circle"></i> Inaktiv</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if app_status.zones.video_popup %}
+                                    <span class="badge bg-success"><i class="bi bi-check-circle"></i> Aktiv</span>
+                                {% else %}
+                                    <span class="badge bg-secondary"><i class="bi bi-x-circle"></i> Inaktiv</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if app_status.zones.content_card %}
+                                    <span class="badge bg-success"><i class="bi bi-check-circle"></i> Aktiv</span>
+                                {% else %}
+                                    <span class="badge bg-secondary"><i class="bi bi-x-circle"></i> Inaktiv</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if app_status.zones.notification %}
+                                    <span class="badge bg-success"><i class="bi bi-check-circle"></i> Aktiv</span>
+                                {% else %}
+                                    <span class="badge bg-secondary"><i class="bi bi-x-circle"></i> Inaktiv</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong>Hinweis:</strong> Die Tabelle zeigt den aktuellen Status aller Apps. Globale Einstellungen überschreiben App-spezifische Einstellungen.
             </div>
             
             <hr class="my-4">
@@ -232,6 +358,11 @@
                             <option value="sidebar">Sidebar-Zonen</option>
                             <option value="infeed">In-Feed-Zonen</option>
                             <option value="modal">Modal/Pop-up-Zonen</option>
+                            <option value="video_preroll">Video Pre-Roll-Zonen</option>
+                            <option value="video_overlay">Video Overlay-Zonen</option>
+                            <option value="video_popup">Video Pop-up-Zonen</option>
+                            <option value="content_card">Content Card-Zonen</option>
+                            <option value="notification">Benachrichtigungs-Zonen</option>
                         </select>
                     </div>
                 </div>
@@ -275,6 +406,74 @@
 Impressions: {% templatetag openvariable %} stats.impressions {% templatetag closevariable %}
 Klicks: {% templatetag openvariable %} stats.clicks {% templatetag closevariable %}
 CTR: {% templatetag openvariable %} stats.ctr {% templatetag closevariable %}%</code></pre>
+        </div>
+    </div>
+    
+    <!-- Analytics Data Management Section -->
+    <div class="card shadow-sm mt-4">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0">
+                <i class="bi bi-trash me-2"></i>
+                Analytics-Datenverwaltung
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <strong>Achtung:</strong> Das Löschen von Analytics-Daten ist unwiderruflich. Alle Impressions und Klicks im gewählten Zeitraum werden dauerhaft entfernt.
+            </div>
+            
+            <h6>Analytics-Daten löschen</h6>
+            <p class="text-muted">Löschen Sie Analytics-Daten (Impressions und Klicks) für einen bestimmten Zeitraum.</p>
+            
+            <form method="post" onsubmit="return confirm('Sind Sie sicher, dass Sie die Analytics-Daten für den gewählten Zeitraum löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.')">
+                {% csrf_token %}
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="delete_start_date" class="form-label">Startdatum</label>
+                            <input type="date" class="form-control" id="delete_start_date" name="delete_start_date" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="delete_end_date" class="form-label">Enddatum</label>
+                            <input type="date" class="form-control" id="delete_end_date" name="delete_end_date" required>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <button type="submit" name="delete_analytics" value="1" class="btn btn-danger">
+                        <i class="bi bi-trash me-2"></i>
+                        Analytics-Daten löschen
+                    </button>
+                </div>
+            </form>
+            
+            <hr class="mt-4">
+            
+            <div class="row text-center">
+                <div class="col-md-4">
+                    <div class="border rounded p-3">
+                        <h6 class="text-primary">Gesamt Impressions</h6>
+                        <h4>{{ total_impressions|default:0|intcomma }}</h4>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="border rounded p-3">
+                        <h6 class="text-success">Gesamt Klicks</h6>
+                        <h4>{{ total_clicks|default:0|intcomma }}</h4>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="border rounded p-3">
+                        <h6 class="text-info">Gesamt CTR</h6>
+                        <h4>{{ overall_ctr|default:0|floatformat:2 }}%</h4>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

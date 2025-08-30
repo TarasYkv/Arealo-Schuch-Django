@@ -173,10 +173,223 @@
                                            {% if not targeting or targeting.target_logged_in %}checked{% endif %}>
                                     <label class="form-check-label" for="target_logged_in">Eingeloggte Benutzer</label>
                                 </div>
-                                <div class="form-check">
+                                <div class="form-check mb-3">
                                     <input class="form-check-input" type="checkbox" name="target_anonymous" id="target_anonymous"
                                            {% if not targeting or targeting.target_anonymous %}checked{% endif %}>
                                     <label class="form-check-label" for="target_anonymous">Anonyme Besucher</label>
+                                </div>
+
+                                <h6>App-Targeting</h6>
+                                <div class="mb-3">
+                                    <label for="target_apps" class="form-label">Ziel-Apps</label>
+                                    <select multiple class="form-select" name="target_apps" id="target_apps">
+                                        <option value="accounts" {% if targeting and 'accounts' in targeting.target_apps %}selected{% endif %}>Accounts</option>
+                                        <option value="shopify_manager" {% if targeting and 'shopify_manager' in targeting.target_apps %}selected{% endif %}>Shopify Manager</option>
+                                        <option value="loomads" {% if targeting and 'loomads' in targeting.target_apps %}selected{% endif %}>LoomAds</option>
+                                        <option value="streamrec" {% if targeting and 'streamrec' in targeting.target_apps %}selected{% endif %}>StreamRec</option>
+                                        <option value="videos" {% if targeting and 'videos' in targeting.target_apps %}selected{% endif %}>Videos</option>
+                                        <option value="makeads" {% if targeting and 'makeads' in targeting.target_apps %}selected{% endif %}>MakeAds</option>
+                                        <option value="payments" {% if targeting and 'payments' in targeting.target_apps %}selected{% endif %}>Payments</option>
+                                        <option value="promptpro" {% if targeting and 'promptpro' in targeting.target_apps %}selected{% endif %}>PromptPro</option>
+                                        <option value="codelib" {% if targeting and 'codelib' in targeting.target_apps %}selected{% endif %}>CodeLib</option>
+                                    </select>
+                                    <small class="form-text text-muted">Leer lassen für alle Apps. Strg+Klick für Mehrfachauswahl.</small>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="exclude_apps" class="form-label">Ausgeschlossene Apps</label>
+                                    <select multiple class="form-select" name="exclude_apps" id="exclude_apps">
+                                        <option value="accounts" {% if targeting and 'accounts' in targeting.exclude_apps %}selected{% endif %}>Accounts</option>
+                                        <option value="shopify_manager" {% if targeting and 'shopify_manager' in targeting.exclude_apps %}selected{% endif %}>Shopify Manager</option>
+                                        <option value="loomads" {% if targeting and 'loomads' in targeting.exclude_apps %}selected{% endif %}>LoomAds</option>
+                                        <option value="streamrec" {% if targeting and 'streamrec' in targeting.exclude_apps %}selected{% endif %}>StreamRec</option>
+                                        <option value="videos" {% if targeting and 'videos' in targeting.exclude_apps %}selected{% endif %}>Videos</option>
+                                        <option value="makeads" {% if targeting and 'makeads' in targeting.exclude_apps %}selected{% endif %}>MakeAds</option>
+                                        <option value="payments" {% if targeting and 'payments' in targeting.exclude_apps %}selected{% endif %}>Payments</option>
+                                        <option value="promptpro" {% if targeting and 'promptpro' in targeting.exclude_apps %}selected{% endif %}>PromptPro</option>
+                                        <option value="codelib" {% if targeting and 'codelib' in targeting.exclude_apps %}selected{% endif %}>CodeLib</option>
+                                    </select>
+                                    <small class="form-text text-muted">Apps in denen die Anzeige NICHT erscheinen soll.</small>
+                                </div>
+
+                                <h6>URL-Targeting</h6>
+                                <div class="mb-3">
+                                    <label for="target_urls" class="form-label">Ziel-URLs</label>
+                                    <textarea class="form-control" name="target_urls" id="target_urls" rows="3" 
+                                              placeholder="z.B.&#10;/shopify/products/&#10;/blog/*&#10;*.html">{% if targeting %}{{ targeting.target_urls }}{% endif %}</textarea>
+                                    <small class="form-text text-muted">URL-Muster (eine pro Zeile). Wildcards (*) sind erlaubt. Leer lassen für alle URLs.</small>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="exclude_urls" class="form-label">Ausgeschlossene URLs</label>
+                                    <textarea class="form-control" name="exclude_urls" id="exclude_urls" rows="3" 
+                                              placeholder="z.B.&#10;/admin/*&#10;/api/*">{% if targeting %}{{ targeting.exclude_urls }}{% endif %}</textarea>
+                                    <small class="form-text text-muted">URLs auf denen die Anzeige NICHT erscheinen soll.</small>
+                                </div>
+
+                                <h6>Browser-Targeting</h6>
+                                <div class="mb-3">
+                                    <label for="target_browsers" class="form-label">Ziel-Browser</label>
+                                    <select multiple class="form-select" name="target_browsers" id="target_browsers">
+                                        <option value="chrome" {% if targeting and 'chrome' in targeting.target_browsers %}selected{% endif %}>Chrome</option>
+                                        <option value="firefox" {% if targeting and 'firefox' in targeting.target_browsers %}selected{% endif %}>Firefox</option>
+                                        <option value="safari" {% if targeting and 'safari' in targeting.target_browsers %}selected{% endif %}>Safari</option>
+                                        <option value="edge" {% if targeting and 'edge' in targeting.target_browsers %}selected{% endif %}>Edge</option>
+                                        <option value="opera" {% if targeting and 'opera' in targeting.target_browsers %}selected{% endif %}>Opera</option>
+                                        <option value="andere" {% if targeting and 'andere' in targeting.target_browsers %}selected{% endif %}>Andere</option>
+                                    </select>
+                                    <small class="form-text text-muted">Leer lassen für alle Browser. Strg+Klick für Mehrfachauswahl.</small>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="exclude_browsers" class="form-label">Ausgeschlossene Browser</label>
+                                    <select multiple class="form-select" name="exclude_browsers" id="exclude_browsers">
+                                        <option value="chrome" {% if targeting and 'chrome' in targeting.exclude_browsers %}selected{% endif %}>Chrome</option>
+                                        <option value="firefox" {% if targeting and 'firefox' in targeting.exclude_browsers %}selected{% endif %}>Firefox</option>
+                                        <option value="safari" {% if targeting and 'safari' in targeting.exclude_browsers %}selected{% endif %}>Safari</option>
+                                        <option value="edge" {% if targeting and 'edge' in targeting.exclude_browsers %}selected{% endif %}>Edge</option>
+                                        <option value="opera" {% if targeting and 'opera' in targeting.exclude_browsers %}selected{% endif %}>Opera</option>
+                                        <option value="andere" {% if targeting and 'andere' in targeting.exclude_browsers %}selected{% endif %}>Andere</option>
+                                    </select>
+                                    <small class="form-text text-muted">Browser in denen die Anzeige NICHT erscheinen soll.</small>
+                                </div>
+
+                                <h6>Betriebssystem-Targeting</h6>
+                                <div class="mb-3">
+                                    <label for="target_os" class="form-label">Ziel-Betriebssysteme</label>
+                                    <select multiple class="form-select" name="target_os" id="target_os">
+                                        <option value="windows" {% if targeting and 'windows' in targeting.target_os %}selected{% endif %}>Windows</option>
+                                        <option value="macos" {% if targeting and 'macos' in targeting.target_os %}selected{% endif %}>macOS</option>
+                                        <option value="linux" {% if targeting and 'linux' in targeting.target_os %}selected{% endif %}>Linux</option>
+                                        <option value="ios" {% if targeting and 'ios' in targeting.target_os %}selected{% endif %}>iOS</option>
+                                        <option value="android" {% if targeting and 'android' in targeting.target_os %}selected{% endif %}>Android</option>
+                                        <option value="andere" {% if targeting and 'andere' in targeting.target_os %}selected{% endif %}>Andere</option>
+                                    </select>
+                                    <small class="form-text text-muted">Leer lassen für alle Betriebssysteme. Strg+Klick für Mehrfachauswahl.</small>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="exclude_os" class="form-label">Ausgeschlossene Betriebssysteme</label>
+                                    <select multiple class="form-select" name="exclude_os" id="exclude_os">
+                                        <option value="windows" {% if targeting and 'windows' in targeting.exclude_os %}selected{% endif %}>Windows</option>
+                                        <option value="macos" {% if targeting and 'macos' in targeting.exclude_os %}selected{% endif %}>macOS</option>
+                                        <option value="linux" {% if targeting and 'linux' in targeting.exclude_os %}selected{% endif %}>Linux</option>
+                                        <option value="ios" {% if targeting and 'ios' in targeting.exclude_os %}selected{% endif %}>iOS</option>
+                                        <option value="android" {% if targeting and 'android' in targeting.exclude_os %}selected{% endif %}>Android</option>
+                                        <option value="andere" {% if targeting and 'andere' in targeting.exclude_os %}selected{% endif %}>Andere</option>
+                                    </select>
+                                    <small class="form-text text-muted">Betriebssysteme in denen die Anzeige NICHT erscheinen soll.</small>
+                                </div>
+
+                                <h6>Referrer-Targeting</h6>
+                                <div class="mb-3">
+                                    <label for="target_referrers" class="form-label">Ziel-Referrer</label>
+                                    <textarea class="form-control" name="target_referrers" id="target_referrers" rows="3" 
+                                              placeholder="z.B.&#10;google.com&#10;facebook.com&#10;direkt">{% if targeting %}{{ targeting.target_referrers }}{% endif %}</textarea>
+                                    <small class="form-text text-muted">Referrer-Muster (eine pro Zeile). 'direkt' für direkten Aufruf. Leer lassen für alle Referrer.</small>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="exclude_referrers" class="form-label">Ausgeschlossene Referrer</label>
+                                    <textarea class="form-control" name="exclude_referrers" id="exclude_referrers" rows="3" 
+                                              placeholder="z.B.&#10;spam-site.com&#10;bot-referrer.com">{% if targeting %}{{ targeting.exclude_referrers }}{% endif %}</textarea>
+                                    <small class="form-text text-muted">Referrer von denen die Anzeige NICHT kommen soll.</small>
+                                </div>
+
+                                <h6>Geografisches Targeting</h6>
+                                <div class="mb-3">
+                                    <label for="target_cities" class="form-label">Ziel-Städte/Regionen</label>
+                                    <select multiple class="form-select" name="target_cities" id="target_cities">
+                                        <option value="berlin" {% if targeting and 'berlin' in targeting.target_cities %}selected{% endif %}>Berlin</option>
+                                        <option value="hamburg" {% if targeting and 'hamburg' in targeting.target_cities %}selected{% endif %}>Hamburg</option>
+                                        <option value="muenchen" {% if targeting and 'muenchen' in targeting.target_cities %}selected{% endif %}>München</option>
+                                        <option value="koeln" {% if targeting and 'koeln' in targeting.target_cities %}selected{% endif %}>Köln</option>
+                                        <option value="frankfurt" {% if targeting and 'frankfurt' in targeting.target_cities %}selected{% endif %}>Frankfurt</option>
+                                        <option value="stuttgart" {% if targeting and 'stuttgart' in targeting.target_cities %}selected{% endif %}>Stuttgart</option>
+                                        <option value="duesseldorf" {% if targeting and 'duesseldorf' in targeting.target_cities %}selected{% endif %}>Düsseldorf</option>
+                                        <option value="dortmund" {% if targeting and 'dortmund' in targeting.target_cities %}selected{% endif %}>Dortmund</option>
+                                        <option value="essen" {% if targeting and 'essen' in targeting.target_cities %}selected{% endif %}>Essen</option>
+                                        <option value="leipzig" {% if targeting and 'leipzig' in targeting.target_cities %}selected{% endif %}>Leipzig</option>
+                                        <option value="bremen" {% if targeting and 'bremen' in targeting.target_cities %}selected{% endif %}>Bremen</option>
+                                        <option value="dresden" {% if targeting and 'dresden' in targeting.target_cities %}selected{% endif %}>Dresden</option>
+                                        <option value="hannover" {% if targeting and 'hannover' in targeting.target_cities %}selected{% endif %}>Hannover</option>
+                                        <option value="nuernberg" {% if targeting and 'nuernberg' in targeting.target_cities %}selected{% endif %}>Nürnberg</option>
+                                    </select>
+                                    <small class="form-text text-muted">Leer lassen für alle Regionen. Strg+Klick für Mehrfachauswahl.</small>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="exclude_cities" class="form-label">Ausgeschlossene Städte/Regionen</label>
+                                    <select multiple class="form-select" name="exclude_cities" id="exclude_cities">
+                                        <option value="berlin" {% if targeting and 'berlin' in targeting.exclude_cities %}selected{% endif %}>Berlin</option>
+                                        <option value="hamburg" {% if targeting and 'hamburg' in targeting.exclude_cities %}selected{% endif %}>Hamburg</option>
+                                        <option value="muenchen" {% if targeting and 'muenchen' in targeting.exclude_cities %}selected{% endif %}>München</option>
+                                        <option value="koeln" {% if targeting and 'koeln' in targeting.exclude_cities %}selected{% endif %}>Köln</option>
+                                        <option value="frankfurt" {% if targeting and 'frankfurt' in targeting.exclude_cities %}selected{% endif %}>Frankfurt</option>
+                                        <option value="stuttgart" {% if targeting and 'stuttgart' in targeting.exclude_cities %}selected{% endif %}>Stuttgart</option>
+                                        <option value="duesseldorf" {% if targeting and 'duesseldorf' in targeting.exclude_cities %}selected{% endif %}>Düsseldorf</option>
+                                        <option value="dortmund" {% if targeting and 'dortmund' in targeting.exclude_cities %}selected{% endif %}>Dortmund</option>
+                                        <option value="essen" {% if targeting and 'essen' in targeting.exclude_cities %}selected{% endif %}>Essen</option>
+                                        <option value="leipzig" {% if targeting and 'leipzig' in targeting.exclude_cities %}selected{% endif %}>Leipzig</option>
+                                        <option value="bremen" {% if targeting and 'bremen' in targeting.exclude_cities %}selected{% endif %}>Bremen</option>
+                                        <option value="dresden" {% if targeting and 'dresden' in targeting.exclude_cities %}selected{% endif %}>Dresden</option>
+                                        <option value="hannover" {% if targeting and 'hannover' in targeting.exclude_cities %}selected{% endif %}>Hannover</option>
+                                        <option value="nuernberg" {% if targeting and 'nuernberg' in targeting.exclude_cities %}selected{% endif %}>Nürnberg</option>
+                                    </select>
+                                    <small class="form-text text-muted">Städte/Regionen in denen die Anzeige NICHT erscheinen soll.</small>
+                                </div>
+
+                                <h6>Zeitbasiertes Targeting</h6>
+                                <div class="mb-3">
+                                    <label for="target_weekdays" class="form-label">Wochentage</label>
+                                    <select multiple class="form-select" name="target_weekdays" id="target_weekdays">
+                                        <option value="0" {% if targeting and '0' in targeting.target_weekdays %}selected{% endif %}>Montag</option>
+                                        <option value="1" {% if targeting and '1' in targeting.target_weekdays %}selected{% endif %}>Dienstag</option>
+                                        <option value="2" {% if targeting and '2' in targeting.target_weekdays %}selected{% endif %}>Mittwoch</option>
+                                        <option value="3" {% if targeting and '3' in targeting.target_weekdays %}selected{% endif %}>Donnerstag</option>
+                                        <option value="4" {% if targeting and '4' in targeting.target_weekdays %}selected{% endif %}>Freitag</option>
+                                        <option value="5" {% if targeting and '5' in targeting.target_weekdays %}selected{% endif %}>Samstag</option>
+                                        <option value="6" {% if targeting and '6' in targeting.target_weekdays %}selected{% endif %}>Sonntag</option>
+                                    </select>
+                                    <small class="form-text text-muted">Leer lassen für alle Wochentage. Strg+Klick für Mehrfachauswahl.</small>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="target_hours_start" class="form-label">Startzeit</label>
+                                            <input type="time" class="form-control" name="target_hours_start" id="target_hours_start"
+                                                   value="{% if targeting.target_hours_start %}{{ targeting.target_hours_start|time:'H:i' }}{% endif %}">
+                                            <small class="form-text text-muted">Ab welcher Uhrzeit soll die Anzeige erscheinen</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="target_hours_end" class="form-label">Endzeit</label>
+                                            <input type="time" class="form-control" name="target_hours_end" id="target_hours_end"
+                                                   value="{% if targeting.target_hours_end %}{{ targeting.target_hours_end|time:'H:i' }}{% endif %}">
+                                            <small class="form-text text-muted">Bis welcher Uhrzeit soll die Anzeige erscheinen</small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="target_date_start" class="form-label">Startdatum</label>
+                                            <input type="date" class="form-control" name="target_date_start" id="target_date_start"
+                                                   value="{% if targeting.target_date_start %}{{ targeting.target_date_start|date:'Y-m-d' }}{% endif %}">
+                                            <small class="form-text text-muted">Ab welchem Datum soll die Anzeige erscheinen</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="target_date_end" class="form-label">Enddatum</label>
+                                            <input type="date" class="form-control" name="target_date_end" id="target_date_end"
+                                                   value="{% if targeting.target_date_end %}{{ targeting.target_date_end|date:'Y-m-d' }}{% endif %}">
+                                            <small class="form-text text-muted">Bis welchem Datum soll die Anzeige erscheinen</small>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

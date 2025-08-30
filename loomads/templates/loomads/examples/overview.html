@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+
+{% block title %}Anzeigen-Beispiele - Zone Übersicht{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-0">
+                <i class="bi bi-grid-3x3-gap text-primary me-2"></i>
+                Anzeigen-Beispiele
+            </h1>
+            <p class="text-muted mb-0">Wähle eine Zone um Beispielanzeigen anzuzeigen</p>
+        </div>
+        <div class="text-muted small">
+            {{ total_zones }} Zonen verfügbar
+            {% if is_hardcoded %}<span class="badge bg-info ms-2">Hartcodiert</span>{% endif %}
+        </div>
+    </div>
+
+    <!-- Zone Grid -->
+    <div class="row">
+        {% for item in zone_data %}
+        <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+            <div class="card h-100 zone-tile {% if item.size_category == 'small' %}border-warning{% elif item.size_category == 'medium' %}border-info{% else %}border-success{% endif %}" 
+                 onclick="openZoneDetail('{{ item.zone.id }}')" 
+                 style="cursor: pointer; transition: all 0.2s ease;">
+                
+                <!-- Zone Preview -->
+                <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 120px;">
+                    <div class="text-center">
+                        <!-- Size Indicator -->
+                        {% if item.size_category == 'small' %}
+                            <i class="bi bi-aspect-ratio text-warning" style="font-size: 2rem;"></i>
+                            <div class="small text-warning mt-1">Kompakt</div>
+                        {% elif item.size_category == 'medium' %}
+                            <i class="bi bi-aspect-ratio-fill text-info" style="font-size: 2rem;"></i>
+                            <div class="small text-info mt-1">Mittel</div>
+                        {% else %}
+                            <i class="bi bi-window text-success" style="font-size: 2rem;"></i>
+                            <div class="small text-success mt-1">Groß</div>
+                        {% endif %}
+                        
+                        <!-- Zone Dimensions -->
+                        <div class="badge bg-secondary mt-2">
+                            {{ item.zone.width }} × {{ item.zone.height }}px
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <h5 class="card-title">{{ item.zone.name }}</h5>
+                    <p class="card-text small text-muted">
+                        Zone-Code: <code>{{ item.zone.code }}</code>
+                    </p>
+                    
+                    <!-- Statistics -->
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="badge bg-primary">{{ item.ads_count }} Beispiele</span>
+                        </div>
+                        <div class="text-end">
+                            <small class="text-muted">{{ item.zone.width }}×{{ item.zone.height }}</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-footer bg-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        {% if item.size_category == 'small' %}
+                            <small class="text-warning"><i class="bi bi-info-circle"></i> Banner-Style</small>
+                        {% elif item.size_category == 'medium' %}
+                            <small class="text-info"><i class="bi bi-info-circle"></i> Card-Style</small>
+                        {% else %}
+                            <small class="text-success"><i class="bi bi-info-circle"></i> Feature-Rich</small>
+                        {% endif %}
+                        <small class="text-muted">
+                            <i class="bi bi-arrow-right"></i>
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Info Section -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <h6><i class="bi bi-lightbulb me-2"></i>Wie verwenden?</h6>
+                <p class="mb-0">
+                    Klicke auf eine Zone-Kachel um alle Beispielanzeigen für diese Zone zu sehen. 
+                    Auf der Detail-Seite kannst du dann den HTML-Code jeder Anzeige kopieren und als Vorlage verwenden.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openZoneDetail(zoneId) {
+    window.location.href = `/loomads/examples/zone/${zoneId}/`;
+}
+
+// Hover effects
+document.addEventListener('DOMContentLoaded', function() {
+    const tiles = document.querySelectorAll('.zone-tile');
+    
+    tiles.forEach(tile => {
+        tile.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+            this.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+        });
+        
+        tile.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = '';
+        });
+    });
+});
+</script>
+
+<style>
+.zone-tile:hover {
+    border-color: #007bff !important;
+}
+
+.zone-tile:hover .card-footer {
+    background-color: #f8f9fa !important;
+}
+</style>
+{% endblock %}

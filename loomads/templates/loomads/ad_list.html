@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load humanize %}
+{% load loomads_tags %}
 
 {% block title %}Anzeigen - LoomAds{% endblock %}
 
@@ -19,9 +20,14 @@
                 </ol>
             </nav>
         </div>
-        <a href="{% url 'loomads:ad_create' %}" class="btn btn-primary">
-            <i class="bi bi-plus-lg me-2"></i>Neue Anzeige
-        </a>
+        <div class="btn-group">
+            <a href="{% url 'loomads:ad_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-2"></i>Neue Anzeige
+            </a>
+            <a href="{% url 'loomads:examples_overview' %}" class="btn btn-outline-info" target="_blank">
+                <i class="bi bi-grid-3x3-gap me-2"></i>Beispiele
+            </a>
+        </div>
     </div>
 
     <!-- Debug Info -->
@@ -82,7 +88,7 @@
                         </div>
                     </div>
                     
-                    <!-- Zones -->
+                    <!-- Zones with App Info -->
                     <div class="mb-2">
                         {% for zone in ad.zones.all|slice:":3" %}
                             <span class="badge bg-secondary">{{ zone.code }}</span>
@@ -90,6 +96,17 @@
                         {% if ad.zones.count > 3 %}
                             <span class="badge bg-secondary">+{{ ad.zones.count|add:"-3" }}</span>
                         {% endif %}
+                        
+                        <!-- App Info Hover -->
+                        {% get_ad_apps ad as app_info %}
+                        <div class="d-inline-block ms-2 position-relative">
+                            <i class="bi bi-info-circle text-muted app-hover-info" 
+                               data-apps='{{ app_info.apps|join:", " }}'
+                               data-restricted='{{ app_info.is_restricted|yesno:"true,false" }}'
+                               title="Ausgespielt in: {{ app_info.apps|join:", " }}{% if app_info.is_restricted %} (App-spezifisch beschränkt){% else %} (Basierend auf Zone-Einstellungen){% endif %}"
+                               style="cursor: help; font-size: 14px;">
+                            </i>
+                        </div>
                     </div>
                     
                     <!-- Status -->
@@ -130,5 +147,132 @@
         </div>
         {% endfor %}
     </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="d-flex justify-content-between align-items-center mt-4">
+        <div class="text-muted">
+            Zeige {{ page_obj.start_index }}-{{ page_obj.end_index }} von {{ page_obj.paginator.count }} Anzeigen
+        </div>
+        
+        <nav aria-label="Anzeigen Pagination">
+            <ul class="pagination pagination-sm mb-0">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if request.GET.campaign %}&campaign={{ request.GET.campaign }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.active %}&active={{ request.GET.active }}{% endif %}">&laquo; Erste</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.campaign %}&campaign={{ request.GET.campaign }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.active %}&active={{ request.GET.active }}{% endif %}">Zurück</a>
+                    </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if request.GET.campaign %}&campaign={{ request.GET.campaign }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.active %}&active={{ request.GET.active }}{% endif %}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.campaign %}&campaign={{ request.GET.campaign }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.active %}&active={{ request.GET.active }}{% endif %}">Weiter</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.campaign %}&campaign={{ request.GET.campaign }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.type %}&type={{ request.GET.type }}{% endif %}{% if request.GET.active %}&active={{ request.GET.active }}{% endif %}">Letzte &raquo;</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.app-info-tooltip {
+    max-width: 300px !important;
+}
+
+.app-info-tooltip .tooltip-inner {
+    background-color: #2d3748 !important;
+    color: white !important;
+    padding: 12px 16px !important;
+    font-size: 13px !important;
+    line-height: 1.4 !important;
+    text-align: left !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    border-radius: 8px !important;
+}
+
+.app-info-tooltip .tooltip-arrow::before {
+    border-top-color: #2d3748 !important;
+}
+
+.bi-info-circle:hover {
+    color: #007bff !important;
+    transform: scale(1.1);
+    transition: all 0.2s ease;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Initializing tooltips...');
+    
+    // Initialize app info tooltips
+    var appInfoElements = document.querySelectorAll('.app-hover-info');
+    console.log('Found', appInfoElements.length, 'app hover elements');
+    
+    appInfoElements.forEach(function(element) {
+        var appsData = element.getAttribute('data-apps');
+        var isRestricted = element.getAttribute('data-restricted') === 'true';
+        
+        console.log('Apps data:', appsData);
+        console.log('Is restricted:', isRestricted);
+        
+        if (!appsData) {
+            console.warn('No apps data found for element');
+            return;
+        }
+        
+        var apps = appsData.split(', ');
+        
+        var tooltipContent = '<div class="text-start">' +
+            '<strong>Ausgespielt in:</strong><br>';
+        
+        apps.forEach(function(app) {
+            tooltipContent += '<i class="bi bi-check-circle text-success"></i> ' + app + '<br>';
+        });
+        
+        tooltipContent += '<br><small class="text-muted">';
+        if (isRestricted) {
+            tooltipContent += '<i class="bi bi-lock"></i> App-spezifisch beschränkt';
+        } else {
+            tooltipContent += '<i class="bi bi-gear"></i> Basierend auf Zone-Einstellungen';
+        }
+        tooltipContent += '</small></div>';
+        
+        console.log('Creating tooltip with content:', tooltipContent);
+        
+        var tooltip = new bootstrap.Tooltip(element, {
+            html: true,
+            placement: 'top',
+            customClass: 'app-info-tooltip',
+            title: tooltipContent,
+            delay: { "show": 200, "hide": 100 },
+            boundary: 'window'
+        });
+        
+        console.log('Tooltip created for element');
+    });
+});
+</script>
 {% endblock %}

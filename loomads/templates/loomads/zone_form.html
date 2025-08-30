@@ -67,8 +67,22 @@
 
                         <!-- Zone Type -->
                         <div class="mb-3">
-                            {{ form.zone_type.label_tag }}
+                            <div class="d-flex align-items-center">
+                                {{ form.zone_type.label_tag }}
+                                <i class="bi bi-info-circle text-muted ms-2 zone-type-info" 
+                                   style="cursor: help; font-size: 16px;"
+                                   title="Bewegen Sie die Maus über eine Zone-Option für Details">
+                                </i>
+                            </div>
                             {{ form.zone_type }}
+                            <div id="zone-type-description" class="mt-3 p-3 bg-light border-start border-primary border-3 rounded" style="display: none; border-width: 4px !important;">
+                                <div class="d-flex align-items-start">
+                                    <i class="bi bi-info-circle text-primary me-2 mt-1"></i>
+                                    <div id="zone-description-content" class="flex-grow-1">
+                                        Wählen Sie einen Zone-Typ aus, um eine Beschreibung zu sehen.
+                                    </div>
+                                </div>
+                            </div>
                             {% if form.zone_type.errors %}
                                 <div class="text-danger small mt-1">{{ form.zone_type.errors }}</div>
                             {% endif %}
@@ -208,5 +222,101 @@ document.getElementById('id_height').addEventListener('input', updateSizePreview
 
 // Initial preview
 updateSizePreview();
+
+// Zone type descriptions
+const zoneTypeDescriptions = {
+    'header': {
+        title: 'Header Banner',
+        description: 'Wird oben auf jeder Seite angezeigt. Standard-Banner-Position für maximale Sichtbarkeit.',
+        location: '📍 Position: Ganz oben auf der Webseite',
+        typical_size: '📏 Typische Größe: 728x90px oder 970x90px'
+    },
+    'footer': {
+        title: 'Footer Banner', 
+        description: 'Wird am Ende jeder Seite angezeigt. Weniger aufdringlich als Header-Banner.',
+        location: '📍 Position: Ganz unten auf der Webseite',
+        typical_size: '📏 Typische Größe: 728x90px oder 320x50px (mobile)'
+    },
+    'sidebar': {
+        title: 'Seitenleiste',
+        description: 'Wird in der seitlichen Navigation angezeigt. Ideal für dauerhaft sichtbare Werbung.',
+        location: '📍 Position: Links oder rechts neben dem Hauptinhalt',
+        typical_size: '📏 Typische Größe: 300x250px oder 160x600px'
+    },
+    'in_feed': {
+        title: 'In-Feed',
+        description: 'Wird zwischen Content-Elementen eingefügt. Natürlicher Teil des Inhalts.',
+        location: '📍 Position: Zwischen anderen Inhalten (z.B. in Listen)',
+        typical_size: '📏 Typische Größe: 300x250px oder responsiv'
+    },
+    'modal': {
+        title: 'Modal/Pop-up',
+        description: 'Erscheint als Overlay über dem Inhalt. Sehr aufmerksamkeitsstark aber auch aufdringlich.',
+        location: '📍 Position: Zentriert über dem gesamten Inhalt',
+        typical_size: '📏 Typische Größe: 400x300px oder 500x400px'
+    },
+    'video_preroll': {
+        title: 'Video Pre-Roll',
+        description: 'Werbevideo das vor dem eigentlichen Video abgespielt wird.',
+        location: '📍 Position: Vor Video-Inhalten', 
+        typical_size: '📏 Typische Größe: 640x360px oder 1280x720px'
+    },
+    'video_overlay': {
+        title: 'Video Overlay',
+        description: 'Semi-transparente Anzeige die über Videos eingeblendet wird.',
+        location: '📍 Position: Über Video-Player',
+        typical_size: '📏 Typische Größe: 300x100px oder 480x70px'
+    },
+    'video_popup': {
+        title: 'Video Pop-up (unten rechts)',
+        description: 'Kleines Video-Fenster das unten rechts erscheint. Kann minimiert werden.',
+        location: '📍 Position: Unten rechts am Bildschirmrand',
+        typical_size: '📏 Typische Größe: 300x200px oder 400x225px'
+    },
+    'content_card': {
+        title: 'Content Card',
+        description: 'Native Anzeige die wie natürlicher Inhalt aussieht. Fügt sich nahtlos ein.',
+        location: '📍 Position: Zwischen Content-Cards oder in Feeds',
+        typical_size: '📏 Typische Größe: 350x250px oder responsiv'
+    },
+    'notification': {
+        title: 'Benachrichtigung',
+        description: 'Kleine Toast-Benachrichtigung die temporär eingeblendet wird.',
+        location: '📍 Position: Oben rechts am Bildschirmrand',
+        typical_size: '📏 Typische Größe: 300x80px oder 350x100px'
+    }
+};
+
+// Zone type change handler
+function updateZoneTypeDescription() {
+    const zoneTypeSelect = document.getElementById('id_zone_type');
+    const descriptionDiv = document.getElementById('zone-type-description');
+    const contentSpan = document.getElementById('zone-description-content');
+    const selectedType = zoneTypeSelect.value;
+    
+    if (selectedType && zoneTypeDescriptions[selectedType]) {
+        const info = zoneTypeDescriptions[selectedType];
+        contentSpan.innerHTML = `
+            <div>
+                <strong>${info.title}</strong><br>
+                ${info.description}<br>
+                <small class="text-muted">
+                    ${info.location}<br>
+                    ${info.typical_size}
+                </small>
+            </div>
+        `;
+        descriptionDiv.style.display = 'block';
+    } else {
+        contentSpan.innerHTML = 'Wählen Sie einen Zone-Typ aus, um eine Beschreibung zu sehen.';
+        descriptionDiv.style.display = 'none';
+    }
+}
+
+// Initial description update
+updateZoneTypeDescription();
+
+// Listen to zone type changes
+document.getElementById('id_zone_type').addEventListener('change', updateZoneTypeDescription);
 </script>
 {% endblock %}

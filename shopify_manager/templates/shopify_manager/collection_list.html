@@ -1,4 +1,5 @@
 {% extends 'shopify_manager/base.html' %}
+{% load loomads_tags %}
 
 {% block title %}Kategorien - Shopify Manager{% endblock %}
 
@@ -449,6 +450,9 @@
     </div>
 </div>
 
+<!-- Collection Header Ad Zone -->
+{% show_ad_zone 'collection_header' css_class='mb-4' %}
+
 <!-- Kategorien Grid -->
 <div class="row">
     {% for collection in collections %}
@@ -632,6 +636,24 @@
             </div>
         </div>
     </div>
+    
+    <!-- In-Feed Collection Ad Block (every 6 collections) - appears as collection card -->
+    {% if forloop.counter|divisibleby:6 and not forloop.last %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 border-2 border-warning" style="background: linear-gradient(135deg, #ffffff 0%, #fffbf0 100%); box-shadow: 0 4px 12px rgba(255, 193, 7, 0.15);">
+            <div class="card-header bg-warning text-dark text-center py-2">
+                <small class="fw-bold"><i class="fas fa-tags me-1"></i>EMPFEHLUNG</small>
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center p-2" style="min-height: 250px;">
+                {% show_ad_zone 'collection_ad' css_class='w-100 h-100' %}
+            </div>
+            <div class="card-footer bg-light text-center py-2">
+                <small class="text-muted">Gesponsert</small>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
     {% empty %}
     <div class="col-12">
         <div class="alert alert-info">
@@ -643,6 +665,9 @@
     </div>
     {% endfor %}
 </div>
+
+<!-- Collection Footer Ad Zone -->
+{% show_ad_zone 'collection_footer' css_class='mt-4 mb-4' %}
 
 <!-- Pagination -->
 {% if is_paginated %}

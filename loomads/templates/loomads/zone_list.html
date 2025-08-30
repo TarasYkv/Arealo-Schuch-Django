@@ -58,9 +58,10 @@
                     </p>
                     
                     <!-- Zone-spezifische Standort-Erklärung -->
-                    <div class="alert alert-info small p-2 mb-2">
-                        <i class="bi bi-info-circle me-1"></i>
-                        <strong>Standort:</strong>
+                    <div class="card bg-light border-info small mb-2">
+                        <div class="card-body p-2">
+                            <i class="bi bi-info-circle text-info me-1"></i>
+                            <strong>Standort:</strong>
                         {% if zone.code == 'header_main' %}
                             Ganz oben auf jeder Seite, direkt unter der Navigation. Sichtbar für alle Benutzer auf allen Seiten.
                         {% elif zone.code == 'footer_main' %}
@@ -94,6 +95,7 @@
                         {% else %}
                             {{ zone.get_zone_type_display }}
                         {% endif %}
+                        </div>
                     </div>
                     
                     {% if zone.description %}
@@ -148,83 +150,61 @@
     </div>
 
     <!-- Integration Hilfe -->
-    <div class="card mt-4">
+    <div class="card mt-4" id="integration-section">
         <div class="card-header bg-info text-white">
-            <h5 class="mb-0"><i class="bi bi-code-slash me-2"></i>Integration & Standorte</h5>
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-code-slash me-2"></i>Integration & Standorte</h5>
+                <a href="{% url 'loomads:integration_create' %}" class="btn btn-light btn-sm">
+                    <i class="bi bi-plus-lg me-1"></i>Integration hinzufügen
+                </a>
+            </div>
         </div>
         <div class="card-body">
             <h6>Bereits integrierte Zonen:</h6>
             <div class="table-responsive mb-4">
-                <table class="table table-sm">
+                <table class="table table-hover">
                     <thead>
                         <tr>
                             <th>Zone Code</th>
                             <th>Template</th>
                             <th>Sichtbar für</th>
                             <th>Status</th>
+                            <th width="150">Aktionen</th>
                         </tr>
                     </thead>
                     <tbody>
+                        {% for integration in integrations %}
                         <tr>
-                            <td><code>header_main</code></td>
-                            <td>base.html</td>
-                            <td>Nur Superuser</td>
-                            <td><span class="badge bg-success">Aktiv</span></td>
+                            <td><code>{{ integration.zone_code }}</code></td>
+                            <td>{{ integration.template_path }}</td>
+                            <td>{{ integration.get_visibility_display }}</td>
+                            <td>
+                                <span class="badge {{ integration.get_status_badge_class }}">
+                                    {{ integration.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'loomads:integration_edit' integration.id %}" 
+                                       class="btn btn-outline-primary" title="Bearbeiten">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'loomads:integration_delete' integration.id %}" 
+                                       class="btn btn-outline-danger" title="Löschen">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
                         </tr>
+                        {% empty %}
                         <tr>
-                            <td><code>footer_main</code></td>
-                            <td>base.html</td>
-                            <td>Nur Superuser</td>
-                            <td><span class="badge bg-success">Aktiv</span></td>
+                            <td colspan="5" class="text-center text-muted py-3">
+                                <i class="bi bi-exclamation-circle me-2"></i>
+                                Keine Integrationen konfiguriert. 
+                                <a href="{% url 'loomads:integration_create' %}">Erste Integration hinzufügen</a>
+                            </td>
                         </tr>
-                        <tr>
-                            <td><code>popup_main</code></td>
-                            <td>base.html</td>
-                            <td>Anonyme Besucher</td>
-                            <td><span class="badge bg-success">Aktiv</span></td>
-                        </tr>
-                        <tr>
-                            <td><code>header_main</code></td>
-                            <td>core/startseite.html</td>
-                            <td>Alle</td>
-                            <td><span class="badge bg-success">Aktiv</span></td>
-                        </tr>
-                        <tr>
-                            <td><code>content_infeed</code></td>
-                            <td>core/startseite.html</td>
-                            <td>Alle</td>
-                            <td><span class="badge bg-success">Aktiv</span></td>
-                        </tr>
-                        <tr>
-                            <td><code>footer_main</code></td>
-                            <td>core/startseite.html</td>
-                            <td>Alle</td>
-                            <td><span class="badge bg-success">Aktiv</span></td>
-                        </tr>
-                        <tr>
-                            <td><code>header_dashboard</code></td>
-                            <td>accounts/dashboard.html</td>
-                            <td>Eingeloggte User</td>
-                            <td><span class="badge bg-success">Aktiv</span></td>
-                        </tr>
-                        <tr>
-                            <td><code>sidebar_dashboard</code></td>
-                            <td>accounts/dashboard.html</td>
-                            <td>Eingeloggte User</td>
-                            <td><span class="badge bg-success">Aktiv</span></td>
-                        </tr>
-                        <tr>
-                            <td><code>dashboard_infeed</code></td>
-                            <td>accounts/dashboard.html</td>
-                            <td>Eingeloggte User</td>
-                            <td><span class="badge bg-success">Aktiv</span></td>
-                        </tr>
-                        <tr>
-                            <td><code>footer_dashboard</code></td>
-                            <td>accounts/dashboard.html</td>
-                            <td>Eingeloggte User</td>
-                            <td><span class="badge bg-success">Aktiv</span></td>
-                        </tr>
+                        {% endfor %}
                     </tbody>
                 </table>
             </div>

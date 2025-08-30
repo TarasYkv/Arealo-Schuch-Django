@@ -23,6 +23,11 @@ class LoomAdsSettings(models.Model):
     enable_sidebar_zones = models.JSONField(default=dict, verbose_name='Sidebar-Zonen pro App')
     enable_infeed_zones = models.JSONField(default=dict, verbose_name='In-Feed-Zonen pro App')
     enable_modal_zones = models.JSONField(default=dict, verbose_name='Modal-Zonen pro App')
+    enable_video_preroll_zones = models.JSONField(default=dict, verbose_name='Video Pre-Roll-Zonen pro App')
+    enable_video_overlay_zones = models.JSONField(default=dict, verbose_name='Video Overlay-Zonen pro App')
+    enable_video_popup_zones = models.JSONField(default=dict, verbose_name='Video Pop-up-Zonen pro App')
+    enable_content_card_zones = models.JSONField(default=dict, verbose_name='Content Card-Zonen pro App')
+    enable_notification_zones = models.JSONField(default=dict, verbose_name='Benachrichtigungs-Zonen pro App')
     
     # Global zone controls
     global_header_enabled = models.BooleanField(default=True, verbose_name='Header-Zonen global')
@@ -30,6 +35,11 @@ class LoomAdsSettings(models.Model):
     global_sidebar_enabled = models.BooleanField(default=True, verbose_name='Sidebar-Zonen global')
     global_infeed_enabled = models.BooleanField(default=True, verbose_name='In-Feed-Zonen global')
     global_modal_enabled = models.BooleanField(default=True, verbose_name='Modal-Zonen global')
+    global_video_preroll_enabled = models.BooleanField(default=True, verbose_name='Video Pre-Roll-Zonen global')
+    global_video_overlay_enabled = models.BooleanField(default=True, verbose_name='Video Overlay-Zonen global')
+    global_video_popup_enabled = models.BooleanField(default=True, verbose_name='Video Pop-up-Zonen global')
+    global_content_card_enabled = models.BooleanField(default=True, verbose_name='Content Card-Zonen global')
+    global_notification_enabled = models.BooleanField(default=True, verbose_name='Benachrichtigungs-Zonen global')
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -96,6 +106,16 @@ class Campaign(models.Model):
         null=True, blank=True,
         verbose_name='Gesamt Impression-Limit',
         help_text='Maximale Anzahl der Impressions insgesamt (leer = unbegrenzt)'
+    )
+    daily_click_limit = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Tägliches Klick-Limit',
+        help_text='Maximale Anzahl der Klicks pro Tag (leer = unbegrenzt)'
+    )
+    total_click_limit = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Gesamt Klick-Limit',
+        help_text='Maximale Anzahl der Klicks insgesamt (leer = unbegrenzt)'
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -339,6 +359,81 @@ class AdTargeting(models.Model):
         help_text='URLs oder URL-Muster (eine pro Zeile)'
     )
     
+    # Browser targeting
+    target_browsers = models.JSONField(
+        default=list, blank=True,
+        verbose_name='Browser',
+        help_text='Liste der Browser (chrome, firefox, safari, edge, opera, andere)'
+    )
+    exclude_browsers = models.JSONField(
+        default=list, blank=True,
+        verbose_name='Ausgeschlossene Browser',
+        help_text='Browser die ausgeschlossen werden sollen'
+    )
+    
+    # Operating System targeting
+    target_os = models.JSONField(
+        default=list, blank=True,
+        verbose_name='Betriebssysteme',
+        help_text='Liste der Betriebssysteme (windows, macos, linux, ios, android, andere)'
+    )
+    exclude_os = models.JSONField(
+        default=list, blank=True,
+        verbose_name='Ausgeschlossene Betriebssysteme',
+        help_text='Betriebssysteme die ausgeschlossen werden sollen'
+    )
+    
+    # Referrer targeting
+    target_referrers = models.TextField(
+        blank=True,
+        verbose_name='Referrer-Muster',
+        help_text='Referrer-URLs oder Muster (eine pro Zeile), z.B. google.com, facebook.com, direkt'
+    )
+    exclude_referrers = models.TextField(
+        blank=True,
+        verbose_name='Ausgeschlossene Referrer',
+        help_text='Referrer die ausgeschlossen werden sollen'
+    )
+    
+    # Geographic targeting
+    target_cities = models.JSONField(
+        default=list, blank=True,
+        verbose_name='Städte/Regionen',
+        help_text='Liste der Städte oder Regionen'
+    )
+    exclude_cities = models.JSONField(
+        default=list, blank=True,
+        verbose_name='Ausgeschlossene Städte/Regionen',
+        help_text='Städte oder Regionen die ausgeschlossen werden sollen'
+    )
+    
+    # Time-based targeting
+    target_weekdays = models.JSONField(
+        default=list, blank=True,
+        verbose_name='Wochentage',
+        help_text='Liste der Wochentage (0=Montag, 6=Sonntag)'
+    )
+    target_hours_start = models.TimeField(
+        null=True, blank=True,
+        verbose_name='Startzeit',
+        help_text='Ab welcher Uhrzeit soll die Anzeige erscheinen'
+    )
+    target_hours_end = models.TimeField(
+        null=True, blank=True,
+        verbose_name='Endzeit',
+        help_text='Bis welcher Uhrzeit soll die Anzeige erscheinen'
+    )
+    target_date_start = models.DateField(
+        null=True, blank=True,
+        verbose_name='Startdatum',
+        help_text='Ab welchem Datum soll die Anzeige erscheinen'
+    )
+    target_date_end = models.DateField(
+        null=True, blank=True,
+        verbose_name='Enddatum',
+        help_text='Bis welchem Datum soll die Anzeige erscheinen'
+    )
+    
     class Meta:
         verbose_name = 'Targeting'
         verbose_name_plural = 'Targetings'
@@ -391,3 +486,62 @@ class AdClick(models.Model):
     
     def __str__(self):
         return f"Klick: {self.advertisement.name} - {self.timestamp}"
+
+
+class ZoneIntegration(models.Model):
+    """Verwaltet Zone-Integrationen in verschiedenen Templates"""
+    VISIBILITY_CHOICES = [
+        ('all', 'Alle Benutzer'),
+        ('authenticated', 'Eingeloggte User'),
+        ('anonymous', 'Anonyme Besucher'),
+        ('superuser', 'Nur Superuser'),
+        ('premium', 'Premium-Benutzer'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('active', 'Aktiv'),
+        ('inactive', 'Inaktiv'),
+        ('planned', 'Geplant'),
+        ('deprecated', 'Veraltet'),
+    ]
+    
+    zone_code = models.CharField(max_length=100, verbose_name='Zone Code')
+    template_path = models.CharField(max_length=200, verbose_name='Template-Pfad')
+    visibility = models.CharField(
+        max_length=20, 
+        choices=VISIBILITY_CHOICES, 
+        default='all',
+        verbose_name='Sichtbar für'
+    )
+    status = models.CharField(
+        max_length=20, 
+        choices=STATUS_CHOICES, 
+        default='active',
+        verbose_name='Status'
+    )
+    description = models.TextField(
+        blank=True, 
+        verbose_name='Beschreibung',
+        help_text='Zusätzliche Informationen zur Integration'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Zone Integration'
+        verbose_name_plural = 'Zone Integrationen'
+        unique_together = ['zone_code', 'template_path']
+        ordering = ['template_path', 'zone_code']
+    
+    def __str__(self):
+        return f"{self.zone_code} in {self.template_path}"
+    
+    def get_status_badge_class(self):
+        """Returns Bootstrap badge class for status"""
+        status_classes = {
+            'active': 'bg-success',
+            'inactive': 'bg-secondary', 
+            'planned': 'bg-warning',
+            'deprecated': 'bg-danger',
+        }
+        return status_classes.get(self.status, 'bg-secondary')

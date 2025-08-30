@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load humanize %}
+{% load loomads_tags %}
 
 {% block title %}{{ ad.name }} - LoomAds{% endblock %}
 
@@ -146,8 +147,23 @@
 
     <!-- Zonen Zuordnung -->
     <div class="card shadow-sm mb-4">
-        <div class="card-header bg-warning text-dark">
+        <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
             <h5 class="mb-0"><i class="bi bi-grid-3x3 me-2"></i>Zugeordnete Werbezonen</h5>
+            
+            <!-- App Info -->
+            {% get_ad_apps ad as app_info %}
+            <div class="d-flex align-items-center">
+                <span class="badge bg-info me-2">
+                    <i class="bi bi-app-indicator me-1"></i>
+                    {{ app_info.count }} App{{ app_info.count|pluralize:"s" }}
+                </span>
+                <i class="bi bi-info-circle text-muted app-hover-info-detail" 
+                   data-apps='{{ app_info.apps|join:", " }}'
+                   data-restricted='{{ app_info.is_restricted|yesno:"true,false" }}'
+                   title="Diese Anzeige wird ausgespielt in: {{ app_info.apps|join:", " }}{% if app_info.is_restricted %} (App-spezifisch beschränkt){% else %} (Basierend auf Zone-Einstellungen){% endif %}"
+                   style="cursor: help; font-size: 16px;">
+                </i>
+            </div>
         </div>
         <div class="card-body">
             {% if ad.zones.all %}
@@ -238,4 +254,93 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.app-info-tooltip {
+    max-width: 350px !important;
+}
+
+.app-info-tooltip .tooltip-inner {
+    background-color: #2d3748 !important;
+    color: white !important;
+    padding: 16px 20px !important;
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+    text-align: left !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    border-radius: 8px !important;
+}
+
+.app-info-tooltip .tooltip-arrow::before {
+    border-left-color: #2d3748 !important;
+    border-top-color: #2d3748 !important;
+}
+
+.bi-info-circle:hover {
+    color: #007bff !important;
+    transform: scale(1.1);
+    transition: all 0.2s ease;
+}
+
+.badge.bg-info {
+    background-color: #0dcaf0 !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Initializing detail tooltips...');
+    
+    // Initialize app info tooltips
+    var appInfoElements = document.querySelectorAll('.app-hover-info-detail');
+    console.log('Found', appInfoElements.length, 'app hover detail elements');
+    
+    appInfoElements.forEach(function(element) {
+        var appsData = element.getAttribute('data-apps');
+        var isRestricted = element.getAttribute('data-restricted') === 'true';
+        
+        console.log('Detail Apps data:', appsData);
+        console.log('Detail Is restricted:', isRestricted);
+        
+        if (!appsData) {
+            console.warn('No apps data found for detail element');
+            return;
+        }
+        
+        var apps = appsData.split(', ');
+        
+        var tooltipContent = '<div class="text-start">' +
+            '<strong>Diese Anzeige wird ausgespielt in:</strong><br><br>';
+        
+        apps.forEach(function(app) {
+            tooltipContent += '<i class="bi bi-check-circle text-success"></i> ' + app + '<br>';
+        });
+        
+        tooltipContent += '<br><small class="text-muted">';
+        if (isRestricted) {
+            tooltipContent += '<i class="bi bi-lock"></i> App-spezifisch beschränkt';
+        } else {
+            tooltipContent += '<i class="bi bi-gear"></i> Basierend auf Zone-Einstellungen';
+        }
+        tooltipContent += '</small></div>';
+        
+        console.log('Creating detail tooltip with content:', tooltipContent);
+        
+        var tooltip = new bootstrap.Tooltip(element, {
+            html: true,
+            placement: 'left',
+            customClass: 'app-info-tooltip',
+            title: tooltipContent,
+            delay: { "show": 300, "hide": 100 },
+            boundary: 'window'
+        });
+        
+        console.log('Detail tooltip created for element');
+    });
+});
+</script>
 {% endblock %}

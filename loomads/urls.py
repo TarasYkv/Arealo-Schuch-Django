@@ -28,9 +28,18 @@ urlpatterns = [
     path('zones/<int:zone_id>/edit/', views.zone_edit, name='zone_edit'),
     path('zones/<int:zone_id>/delete/', views.zone_delete, name='zone_delete'),
     
+    # Zone Integrations
+    path('integrations/create/', views_frontend.integration_create, name='integration_create'),
+    path('integrations/<int:integration_id>/edit/', views_frontend.integration_edit, name='integration_edit'),
+    path('integrations/<int:integration_id>/delete/', views_frontend.integration_delete, name='integration_delete'),
+    
     # Analytics & Settings
     path('analytics/', views.analytics, name='analytics'),
     path('settings/', views_frontend.settings, name='settings'),
+    
+    # Examples
+    path('examples/', views_frontend.examples_overview, name='examples_overview'),
+    path('examples/zone/<str:zone_id>/', views_frontend.examples_zone_detail, name='examples_zone_detail'),
     
     # AJAX Endpoints
     path('ajax/update-zone-status/', views_frontend.ajax_update_zone_status, name='ajax_update_zone_status'),

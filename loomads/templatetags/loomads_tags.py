@@ -61,17 +61,21 @@ def show_ad_zone(context, zone_code, css_class='', style='', fallback=''):
                 'fallback': fallback
             }
     
+    # Generiere eine eindeutige ID für diese Zone-Instanz
+    random_id = str(uuid.uuid4())[:8]
+    
     context_data = {
         'zone': zone,
         'zone_code': zone_code,
         'api_url': request.build_absolute_uri(reverse('loomads:get_ad_for_zone', args=[zone_code])),
-        'track_url': request.build_absolute_uri(reverse('loomads:track_click', args=[str(uuid.uuid4())])),
+        'track_url': request.build_absolute_uri('/loomads/api/track/click/AD_ID_PLACEHOLDER/'),
         'css_class': css_class,
         'style': style,
         'fallback': fallback,
         'width': zone.width,
         'height': zone.height,
         'zone_type': zone.zone_type,
+        'random_id': random_id,
     }
     
     return context_data
@@ -275,7 +279,7 @@ def show_ad_modal(context, zone_code, delay=5000, show_close=True):
         'delay': delay,
         'show_close': show_close,
         'api_url': request.build_absolute_uri(reverse('loomads:get_ad_for_zone', args=[zone_code])),
-        'track_url': request.build_absolute_uri(reverse('loomads:track_click', args=[str(uuid.uuid4())])),
+        'track_url': request.build_absolute_uri('/loomads/api/track/click/AD_ID_PLACEHOLDER/'),
     }
 
 
@@ -319,10 +323,76 @@ def show_video_popup(context, zone_code, css_class='', style=''):
         'zone': zone,
         'zone_code': zone_code,
         'api_url': request.build_absolute_uri(reverse('loomads:get_ad_for_zone', args=[zone_code])),
-        'track_url': request.build_absolute_uri(reverse('loomads:track_click', args=[str(uuid.uuid4())])),
+        'track_url': request.build_absolute_uri('/loomads/api/track/click/AD_ID_PLACEHOLDER/'),
         'css_class': css_class,
         'style': style,
         'width': zone.width,
         'height': zone.height,
         'popup_delay': zone.popup_delay,
+    }
+
+
+@register.simple_tag
+def get_ad_apps(advertisement):
+    """
+    Ermittelt in welchen Apps eine Anzeige ausgespielt wird
+    
+    Verwendung:
+    {% get_ad_apps ad as app_info %}
+    """
+    from django.urls import get_resolver
+    from django.conf import settings
+    
+    # Alle verfügbaren Apps ermitteln
+    resolver = get_resolver()
+    all_apps = []
+    
+    # Standard Apps sammeln
+    app_names = {
+        'accounts': 'Accounts',
+        'loomads': 'LoomAds', 
+        'streamrec': 'StreamRec',
+        'videos': 'Videos',
+        'shopify': 'Shopify Manager',
+        'makeads': 'MakeAds',
+        'payments': 'Payments',
+        'promptpro': 'PromptPro',
+    }
+    
+    # LoomAds Einstellungen abrufen
+    settings_obj = LoomAdsSettings.get_settings()
+    
+    # Für jede Zone der Anzeige prüfen, in welchen Apps sie aktiv ist
+    active_apps = set()
+    restricted_apps = set()
+    
+    for zone in advertisement.zones.all():
+        zone_type = zone.zone_type
+        
+        # Prüfe globale Aktivierung der Zone
+        if not settings_obj.is_zone_enabled(zone_type):
+            continue
+            
+        # Wenn Zone app-spezifisch beschränkt ist
+        if zone.app_restriction:
+            if zone.app_restriction in app_names:
+                restricted_apps.add(app_names[zone.app_restriction])
+        else:
+            # Zone ist für alle Apps verfügbar (außer explizit deaktivierte)
+            for app_key, app_name in app_names.items():
+                if settings_obj.is_zone_enabled(zone_type, app_key):
+                    active_apps.add(app_name)
+    
+    # Falls app-spezifische Beschränkungen existieren, diese verwenden
+    if restricted_apps:
+        active_apps = restricted_apps
+    
+    # Falls keine Apps gefunden wurden, Standard-Apps verwenden
+    if not active_apps:
+        active_apps = {'Alle Apps (Standard)'}
+    
+    return {
+        'apps': sorted(list(active_apps)),
+        'count': len(active_apps),
+        'is_restricted': bool(restricted_apps)
     }
