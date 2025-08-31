@@ -1732,25 +1732,14 @@
                                 </a></li>
                             </ul>
                         {% else %}
-                            <!-- Direct App Links for Non-Authenticated Users -->
-                            <a class="nav-link" href="{% url 'public_app_info' 'todos' %}" title="ToDo Manager">
-                                <i class="bi bi-list-check"></i> <span class="d-none d-lg-inline">ToDos</span>
+                            <!-- Direct App Links for Non-Authenticated Users (Dynamically loaded from enabled apps) -->
+                            {% load public_apps %}
+                            {% get_public_apps as public_apps %}
+                            {% for app_key, app_info in public_apps.items %}
+                            <a class="nav-link" href="{% url 'public_app_info' app_key %}" title="{{ app_info.name }}">
+                                <i class="{{ app_info.icon }}"></i> <span class="d-none d-lg-inline">{{ app_info.name|truncatewords:1|cut:"..." }}</span>
                             </a>
-                            <a class="nav-link" href="{% url 'public_app_info' 'organization' %}" title="Organisation Suite">
-                                <i class="bi bi-building"></i> <span class="d-none d-lg-inline">Organisation</span>
-                            </a>
-                            <a class="nav-link" href="{% url 'public_app_info' 'videos' %}" title="Video Hub">
-                                <i class="bi bi-play-circle"></i> <span class="d-none d-lg-inline">Videos</span>
-                            </a>
-                            <a class="nav-link" href="{% url 'public_app_info' 'streamrec' %}" title="StreamRec Studio">
-                                <i class="bi bi-mic"></i> <span class="d-none d-lg-inline">StreamRec</span>
-                            </a>
-                            <a class="nav-link" href="{% url 'public_app_info' 'chat' %}" title="Chat Connect">
-                                <i class="bi bi-chat-dots"></i> <span class="d-none d-lg-inline">Chat</span>
-                            </a>
-                            <a class="nav-link" href="{% url 'public_app_info' 'shopify' %}" title="Shopify Manager">
-                                <i class="bi bi-shop"></i> <span class="d-none d-lg-inline">Shop</span>
-                            </a>
+                            {% endfor %}
                             
                             <!-- User Menu for Non-Authenticated Users -->
                             <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
