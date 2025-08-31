@@ -366,15 +366,76 @@
     @media (max-width: 768px) {
         .app-hero-title {
             font-size: 2rem !important;
+            line-height: 1.2 !important;
+            word-wrap: break-word !important;
         }
         .app-hero-subtitle {
             font-size: 1.1rem !important;
+            line-height: 1.4 !important;
+            padding: 0 10px !important;
         }
         .app-section-title {
-            font-size: 2rem !important;
+            font-size: 1.8rem !important;
+            line-height: 1.3 !important;
+            word-wrap: break-word !important;
+        }
+        .app-section-subtitle {
+            font-size: 1rem !important;
+            padding: 0 15px !important;
         }
         .app-hero-icon {
             font-size: 3rem !important;
+        }
+        .app-hero-btn {
+            padding: 0.8rem 1.5rem !important;
+            font-size: 1rem !important;
+            margin: 0.3rem !important;
+            display: block !important;
+            width: 90% !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }
+        .app-feature-title {
+            font-size: 1.1rem !important;
+            line-height: 1.3 !important;
+        }
+        .app-benefit-title {
+            font-size: 1.2rem !important;
+            line-height: 1.3 !important;
+        }
+        .app-cta-title {
+            font-size: 2rem !important;
+            line-height: 1.2 !important;
+        }
+        .app-cta-subtitle {
+            font-size: 1.1rem !important;
+            padding: 0 15px !important;
+        }
+        .container {
+            padding-left: 15px !important;
+            padding-right: 15px !important;
+        }
+        .card-body {
+            padding: 1.5rem !important;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .app-hero-title {
+            font-size: 1.75rem !important;
+        }
+        .app-section-title {
+            font-size: 1.6rem !important;
+        }
+        .app-hero-btn {
+            font-size: 0.9rem !important;
+            padding: 0.7rem 1.2rem !important;
+        }
+        .app-stat-number {
+            font-size: 2rem !important;
+        }
+        .app-stat-label {
+            font-size: 0.9rem !important;
         }
     }
 </style>
@@ -409,6 +470,52 @@
             </div>
         </div>
     </section>
+
+    <!-- Dynamische Inhalte aus dem Editor -->
+    {% if user.is_authenticated %}
+    <section class="py-5">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="app-section-title mb-0">Zusätzliche Inhalte</h2>
+                <a href="{% url 'accounts:content_editor' %}?page={{ current_page }}" class="btn btn-outline-primary">
+                    <i class="fas fa-edit me-2"></i>Seite bearbeiten
+                </a>
+            </div>
+
+            {% with page_contents=user.editable_contents.all|dictsort:"sort_order" %}
+                {% regroup page_contents by page as pages %}
+                {% for page_group in pages %}
+                    {% if page_group.grouper == current_page %}
+                        {% for content in page_group.list %}
+                            {% if content.is_active %}
+                                <div class="dynamic-content-item mb-4" data-editable-id="{{ content.id }}" data-editable-key="{{ content.content_key }}" data-editable-type="{{ content.content_type }}">
+                                    {% if content.content_type == 'html_block' or content.content_type == 'ai_generated' %}
+                                        {% if content.css_content %}<style>{{ content.css_content|safe }}</style>{% endif %}
+                                        {{ content.html_content|safe }}
+                                    {% elif content.content_type == 'image' %}
+                                        {% if content.image_content %}
+                                            <div class="text-center">
+                                                <img src="{{ content.image_content.url }}" alt="{{ content.image_alt_text|default:content.content_key }}" class="img-fluid rounded">
+                                            </div>
+                                        {% endif %}
+                                    {% else %}
+                                        {% if content.css_content %}<style>.content-{{ content.id }} { {{ content.css_content|safe }} }</style>{% endif %}
+                                        <div class="content-{{ content.id }}">{{ content.text_content }}</div>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        {% empty %}
+                            <div class="text-center text-muted">
+                                <i class="fas fa-layer-group fa-2x mb-2"></i>
+                                <p>Noch keine zusätzlichen Inhalte. Füge über den Editor neue Blöcke hinzu.</p>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endfor %}
+            {% endwith %}
+        </div>
+    </section>
+    {% endif %}
 
     <!-- Features Section -->
     <section id="features" class="app-features-section">
@@ -501,9 +608,9 @@
                             <div class="mb-3">
                                 <i class="bi bi-currency-euro text-success" style="font-size: 3rem;"></i>
                             </div>
-                            <h5 class="card-title">Dauerhaft kostenlos</h5>
+                            <h5 class="card-title">Beta-Phase kostenlos</h5>
                             <p class="card-text">
-                                Nutzen Sie alle Grundfunktionen ohne zeitliche Begrenzung. Keine versteckten Kosten, kein Kleingedrucktes.
+                                Nutzen Sie alle Funktionen während der Beta-Phase kostenlos. Testen Sie ohne Risiko und Verpflichtungen.
                             </p>
                         </div>
                     </div>
@@ -596,7 +703,7 @@
                         <div class="card-header bg-{{ app.color }} text-white text-center py-4">
                             <h3 class="card-title mb-3 text-white">Basis Version</h3>
                             <div class="display-4 fw-bold text-white">0€</div>
-                            <p class="text-white-50 mb-0">Dauerhaft kostenlos</p>
+                            <p class="text-white-50 mb-0">Beta-Phase kostenlos</p>
                         </div>
                         <div class="card-body p-4">
                             <ul class="list-unstyled">
@@ -606,7 +713,7 @@
                                 </li>
                                 <li class="mb-3 d-flex align-items-center">
                                     <i class="bi bi-check-circle-fill text-success me-3"></i>
-                                    Unbegrenzte Nutzungsdauer
+                                    Kostenlos während Beta-Phase
                                 </li>
                                 <li class="mb-3 d-flex align-items-center">
                                     <i class="bi bi-check-circle-fill text-success me-3"></i>
@@ -656,7 +763,7 @@
             </div>
             <p class="opacity-90">
                 <i class="bi bi-shield-check me-1"></i>
-                Keine Kreditkarte erforderlich • Dauerhaft kostenlos nutzbar • Kein Abo • Keine versteckten Kosten
+                Keine Kreditkarte erforderlich • Beta-Phase kostenlos • Kein Abo • Jederzeit kündbar
             </p>
             <p class="opacity-80 mt-3">
                 <small>
