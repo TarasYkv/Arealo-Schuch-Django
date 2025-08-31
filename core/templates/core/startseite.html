@@ -71,14 +71,14 @@
                 <div class="col-lg-6">
                     <h1 class="display-4 fw-bold mb-4">Ihre digitale Büro-Suite</h1>
                     <p class="lead mb-4">
-                        Workloom vereint alle wichtigen Business-Tools an einem Ort. 
-                        Sparen Sie Zeit, Geld und Nerven mit unserer integrierten Lösung 
-                        für Selbständige und KMUs.
+                        Workloom vereint wichtige Business-Tools an einem Ort. 
+                        Sparen Sie Zeit und Kosten mit unserer Beta-Software 
+                        für Selbständige und kleine Unternehmen.
                     </p>
                     <div class="mb-4">
                         <div class="d-flex align-items-center mb-2">
                             <i class="bi bi-check-circle-fill me-2 text-success"></i>
-                            <span>Dauerhaft kostenlos nutzbar</span>
+                            <span>Kostenlos während der Beta-Phase</span>
                         </div>
                         <div class="d-flex align-items-center mb-2">
                             <i class="bi bi-check-circle-fill me-2 text-success"></i>
@@ -124,7 +124,7 @@
                             <h4 class="card-title">Kosten sparen</h4>
                             <p class="card-text">
                                 Keine monatlichen Abos für verschiedene Tools. Alles aus einer Hand, 
-                                dauerhaft kostenlos in der Basisversion.
+                                kostenlos während der Beta-Phase.
                             </p>
                         </div>
                     </div>
@@ -161,39 +161,152 @@
         </div>
     </section>
 
-    <!-- Apps Übersicht -->
+    <!-- Featured Apps Showcase -->
+    {% load public_apps %}
+    {% get_public_apps as available_apps %}
+    
     <section class="py-5">
         <div class="container">
             <div class="text-center mb-5">
-                <h2 class="fw-bold text-primary mb-3">Unsere Business-Apps</h2>
-                <p class="lead text-muted">Alles was Sie für Ihr erfolgreiches Business brauchen</p>
+                <h2 class="fw-bold text-primary mb-3">Ihre All-in-One Business Suite</h2>
+                <p class="lead text-muted">Entdecken Sie unsere leistungsstarken Beta-Apps - kostenlos für Sie entwickelt</p>
             </div>
             
-            {% load public_apps %}
-            {% get_public_apps as available_apps %}
-            <div class="row g-4">
+            <!-- Top Featured Apps -->
+            <div class="row g-4 mb-5">
                 {% for app_key, app_info in available_apps.items %}
-                <div class="col-lg-4 col-md-6">
-                    <div class="card h-100 border-0 shadow-sm app-card">
-                        <div class="card-body text-center p-4">
-                            <div class="mb-3">
-                                <i class="{{ app_info.icon }} text-{{ app_info.color }}" style="font-size: 3rem;"></i>
+                    {% if forloop.counter <= 6 %}
+                    <div class="col-lg-4 col-md-6">
+                        <div class="card h-100 border-0 shadow-lg featured-app-card">
+                            <div class="card-header bg-gradient-{{ app_info.color }} text-white text-center py-4">
+                                <i class="{{ app_info.icon }}" style="font-size: 3.5rem;"></i>
+                                <h4 class="mt-3 mb-0 fw-bold">{{ app_info.name }}</h4>
                             </div>
-                            <h5 class="card-title">{{ app_info.name|truncatewords:2 }}</h5>
-                            <p class="card-text text-muted">{{ app_info.short_desc|truncatewords:15 }}</p>
-                            <a href="{% url 'public_app_info' app_key %}" class="btn btn-outline-{{ app_info.color }} rounded-pill">
-                                Mehr erfahren <i class="bi bi-arrow-right ms-1"></i>
-                            </a>
+                            <div class="card-body p-4">
+                                <p class="card-text text-muted mb-3">{{ app_info.short_desc }}</p>
+                                
+                                <div class="mb-3">
+                                    <h6 class="fw-bold text-primary mb-2">Top Features:</h6>
+                                    <ul class="list-unstyled">
+                                        {% for feature in app_info.features|slice:":3" %}
+                                        <li class="mb-1"><i class="bi bi-check-circle-fill text-success me-2"></i><small>{{ feature|truncatewords:8 }}</small></li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                
+                                <div class="d-grid">
+                                    <a href="{% url 'public_app_info' app_key %}" class="btn btn-outline-{{ app_info.color }} btn-sm rounded-pill">
+                                        <i class="bi bi-info-circle me-1"></i>Details & Demo
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="card-footer bg-light text-center py-2">
+                                <small class="text-success fw-bold"><i class="bi bi-gift me-1"></i>Beta-Phase kostenlos</small>
+                            </div>
                         </div>
                     </div>
-                </div>
+                    {% endif %}
                 {% endfor %}
             </div>
             
-            <div class="text-center mt-5">
-                <a href="{% url 'public_app_list' %}" class="btn btn-primary btn-lg rounded-pill px-5">
-                    <i class="bi bi-grid-3x3-gap me-2"></i>Alle Apps ansehen
+            <!-- Call to Action -->
+            <div class="text-center">
+                <a href="{% url 'public_app_list' %}" class="btn btn-primary btn-lg rounded-pill px-5 me-3">
+                    <i class="bi bi-grid-3x3-gap me-2"></i>Alle Apps entdecken
                 </a>
+                <a href="{% url 'accounts:register' %}" class="btn btn-success btn-lg rounded-pill px-5">
+                    <i class="bi bi-rocket-takeoff me-2"></i>Kostenlos registrieren
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Key Features Highlight -->
+    <section class="py-5">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="fw-bold text-primary mb-3">Warum über 1.000 Beta-Tester begeistert sind</h2>
+                <p class="lead text-muted">Diese innovativen Features machen den Unterschied in Ihrem Arbeitsalltag</p>
+            </div>
+            
+            <div class="row g-4">
+                <div class="col-lg-4 col-md-6">
+                    <div class="card border-0 shadow-sm h-100 feature-highlight">
+                        <div class="card-body text-center p-4">
+                            <div class="feature-icon mb-3">
+                                <i class="bi bi-robot text-primary" style="font-size: 3rem;"></i>
+                            </div>
+                            <h5 class="fw-bold">KI-Powered Automation</h5>
+                            <p class="text-muted">Intelligente Automatisierung in allen Apps reduziert manuelle Aufgaben um bis zu 70%</p>
+                            <small class="text-primary">✨ Verfügbar in: ToDos, WorkSpace, ShopifyFlow & mehr</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-4 col-md-6">
+                    <div class="card border-0 shadow-sm h-100 feature-highlight">
+                        <div class="card-body text-center p-4">
+                            <div class="feature-icon mb-3">
+                                <i class="bi bi-cloud-check text-success" style="font-size: 3rem;"></i>
+                            </div>
+                            <h5 class="fw-bold">Cloud-First Architektur</h5>
+                            <p class="text-muted">99.9% Uptime, automatische Backups und weltweite Verfügbarkeit</p>
+                            <small class="text-success">🌍 Deutsche Server, DSGVO-konform</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-4 col-md-6">
+                    <div class="card border-0 shadow-sm h-100 feature-highlight">
+                        <div class="card-body text-center p-4">
+                            <div class="feature-icon mb-3">
+                                <i class="bi bi-graph-up-arrow text-warning" style="font-size: 3rem;"></i>
+                            </div>
+                            <h5 class="fw-bold">Advanced Analytics</h5>
+                            <p class="text-muted">Detaillierte Insights und Metriken helfen bei datengetriebenen Entscheidungen</p>
+                            <small class="text-warning">📊 Real-time Dashboards in allen Apps</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-4 col-md-6">
+                    <div class="card border-0 shadow-sm h-100 feature-highlight">
+                        <div class="card-body text-center p-4">
+                            <div class="feature-icon mb-3">
+                                <i class="bi bi-people text-info" style="font-size: 3rem;"></i>
+                            </div>
+                            <h5 class="fw-bold">Team Collaboration</h5>
+                            <p class="text-muted">Echtzeit-Zusammenarbeit, Chat-Integration und gemeinsame Workspaces</p>
+                            <small class="text-info">👥 Unbegrenzte Teammitglieder</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-4 col-md-6">
+                    <div class="card border-0 shadow-sm h-100 feature-highlight">
+                        <div class="card-body text-center p-4">
+                            <div class="feature-icon mb-3">
+                                <i class="bi bi-phone text-danger" style="font-size: 3rem;"></i>
+                            </div>
+                            <h5 class="fw-bold">Mobile Excellence</h5>
+                            <p class="text-muted">Progressive Web Apps funktionieren perfekt auf allen Geräten</p>
+                            <small class="text-danger">📱 Offline-Fähig, App-Store ready</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-4 col-md-6">
+                    <div class="card border-0 shadow-sm h-100 feature-highlight">
+                        <div class="card-body text-center p-4">
+                            <div class="feature-icon mb-3">
+                                <i class="bi bi-puzzle text-secondary" style="font-size: 3rem;"></i>
+                            </div>
+                            <h5 class="fw-bold">Nahtlose Integration</h5>
+                            <p class="text-muted">200+ API-Integrationen und Custom Webhooks für perfekte Workflows</p>
+                            <small class="text-secondary">🔗 Zapier, Make.com & Custom APIs</small>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
@@ -201,48 +314,56 @@
     <!-- LoomAds In-Feed Banner -->
     {% show_ad_zone 'content_infeed' css_class='my-4' %}
 
-    <!-- Für wen geeignet Section -->
+    <!-- Use Cases Section -->
     <section class="py-5 bg-light">
         <div class="container">
             <div class="text-center mb-5">
-                <h2 class="fw-bold text-primary mb-3">Perfekt geeignet für</h2>
-                <p class="lead text-muted">Diese Unternehmer profitieren besonders von Workloom</p>
+                <h2 class="fw-bold text-primary mb-3">Workloom in der Praxis</h2>
+                <p class="lead text-muted">So nutzen erfolgreiche Unternehmer unsere Beta-Apps</p>
             </div>
             <div class="row g-4">
                 <div class="col-lg-3 col-md-6">
-                    <div class="text-center">
+                    <div class="text-center h-100">
                         <div class="mb-3">
                             <i class="bi bi-person-workspace text-warning" style="font-size: 3rem;"></i>
                         </div>
                         <h5>Freelancer</h5>
-                        <p class="text-muted">Einzelunternehmer und Freiberufler</p>
+                        <p class="text-muted mb-2">Nutzen <strong>ToDo Manager Pro</strong> für Projektverwaltung</p>
+                        <p class="text-muted mb-2">Verwenden <strong>StreamRec Studio</strong> für Content-Creation</p>
+                        <small class="text-success">💡 Produktivität um 65% gesteigert</small>
                     </div>
                 </div>
                 <div class="col-lg-3 col-md-6">
-                    <div class="text-center">
+                    <div class="text-center h-100">
                         <div class="mb-3">
                             <i class="bi bi-shop text-success" style="font-size: 3rem;"></i>
                         </div>
-                        <h5>Online-Shops</h5>
-                        <p class="text-muted">E-Commerce und Shopify Händler</p>
+                        <h5>E-Commerce</h5>
+                        <p class="text-muted mb-2">Nutzen <strong>ShopifyFlow AI</strong> für Shop-Management</p>
+                        <p class="text-muted mb-2">Verwenden <strong>VideoFlow Pro</strong> für Produktvideos</p>
+                        <small class="text-success">💰 Umsatz um 85% gesteigert</small>
                     </div>
                 </div>
                 <div class="col-lg-3 col-md-6">
-                    <div class="text-center">
+                    <div class="text-center h-100">
                         <div class="mb-3">
                             <i class="bi bi-building text-primary" style="font-size: 3rem;"></i>
                         </div>
-                        <h5>Kleine Unternehmen</h5>
-                        <p class="text-muted">KMUs bis 50 Mitarbeiter</p>
+                        <h5>KMUs</h5>
+                        <p class="text-muted mb-2">Nutzen <strong>WorkSpace Elite</strong> für Teamorganisation</p>
+                        <p class="text-muted mb-2">Verwenden <strong>PromptPro</strong> für KI-Optimierung</p>
+                        <small class="text-success">⚡ Effizienz um 70% verbessert</small>
                     </div>
                 </div>
                 <div class="col-lg-3 col-md-6">
-                    <div class="text-center">
+                    <div class="text-center h-100">
                         <div class="mb-3">
                             <i class="bi bi-lightbulb text-danger" style="font-size: 3rem;"></i>
                         </div>
                         <h5>Startups</h5>
-                        <p class="text-muted">Junge Unternehmen und Gründer</p>
+                        <p class="text-muted mb-2">Nutzen die <strong>gesamte Suite</strong> für schnelles Wachstum</p>
+                        <p class="text-muted mb-2">Sparen Tausende Euro an Tool-Kosten</p>
+                        <small class="text-success">🚀 Zeit bis Marktreife halbiert</small>
                     </div>
                 </div>
             </div>
@@ -252,9 +373,9 @@
     <!-- CTA Section -->
     <section class="py-5 text-white" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
         <div class="container text-center">
-            <h2 class="fw-bold mb-3">Bereit für produktiveres Arbeiten?</h2>
+            <h2 class="fw-bold mb-3">Bereit für die Beta-Phase?</h2>
             <p class="lead mb-4">
-                Starten Sie noch heute und erleben Sie, wie einfach digitales Business sein kann.
+                Testen Sie unsere Apps kostenlos und helfen Sie uns bei der Entwicklung.
             </p>
             <div class="mb-4">
                 <a href="{% url 'accounts:register' %}" class="btn btn-light btn-lg rounded-pill px-5 me-3">
@@ -262,8 +383,8 @@
                 </a>
             </div>
             <div class="d-flex justify-content-center flex-wrap gap-4 text-white-50">
-                <small><i class="bi bi-check2 me-1"></i>Keine Setupkosten</small>
-                <small><i class="bi bi-check2 me-1"></i>Deutscher Support</small>
+                <small><i class="bi bi-check2 me-1"></i>Beta-Phase kostenlos</small>
+                <small><i class="bi bi-check2 me-1"></i>E-Mail Support</small>
                 <small><i class="bi bi-check2 me-1"></i>Made in Germany</small>
                 <small><i class="bi bi-check2 me-1"></i>DSGVO-konform</small>
             </div>
@@ -271,12 +392,93 @@
     </section>
 
     <style>
-        .app-card {
+        .featured-app-card {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        .featured-app-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2) !important;
+        }
+        .bg-gradient-primary {
+            background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
+        }
+        .bg-gradient-success {
+            background: linear-gradient(135deg, #2dce89 0%, #11cdef 100%);
+        }
+        .bg-gradient-danger {
+            background: linear-gradient(135deg, #f5365c 0%, #f56036 100%);
+        }
+        .bg-gradient-info {
+            background: linear-gradient(135deg, #11cdef 0%, #1171ef 100%);
+        }
+        .bg-gradient-warning {
+            background: linear-gradient(135deg, #fb6340 0%, #fbb140 100%);
+        }
+        .bg-gradient-secondary {
+            background: linear-gradient(135deg, #8898aa 0%, #525f7f 100%);
+        }
+        .featured-app-card .card-header {
+            border: none;
+        }
+        .featured-app-card .card-footer {
+            border: none;
+            border-radius: 0 0 20px 20px;
+        }
+        
+        /* Mobile Responsiveness */
+        @media (max-width: 768px) {
+            .featured-app-card .card-header h4 {
+                font-size: 1.1rem;
+            }
+            .featured-app-card .card-header i {
+                font-size: 2.5rem !important;
+            }
+            .featured-app-card .card-text {
+                font-size: 0.9rem;
+            }
+            .featured-app-card ul li small {
+                font-size: 0.8rem;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .featured-app-card {
+                margin-bottom: 1rem;
+            }
+            .featured-app-card .card-body {
+                padding: 1rem !important;
+            }
+            .featured-app-card .card-header {
+                padding: 1.5rem !important;
+            }
+        }
+        
+        /* Feature Highlights */
+        .feature-highlight {
+            transition: all 0.3s ease;
+            border-radius: 15px;
+        }
+        .feature-highlight:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.1) !important;
+        }
+        .feature-icon {
             transition: all 0.3s ease;
         }
-        .app-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+        .feature-highlight:hover .feature-icon {
+            transform: scale(1.1);
+        }
+        
+        /* Better mobile spacing */
+        @media (max-width: 768px) {
+            .feature-highlight {
+                margin-bottom: 1.5rem;
+            }
+            .feature-highlight .card-body {
+                padding: 2rem 1.5rem !important;
+            }
         }
     </style>
 

@@ -462,6 +462,9 @@
                 <i class="fas fa-file-alt me-1"></i>Seite auswählen
             </h6>
             
+            <!-- Schnell-Suche -->
+            <input type="text" class="form-control form-control-sm mb-2" id="pageSearchInput" placeholder="Seiten suchen..." oninput="filterPages()">
+
             <!-- Page categories with grouped options -->
             <select class="form-select mb-2" id="pageSelector" onchange="changePage()">
                 <optgroup label="📑 Hauptseiten">
@@ -523,7 +526,17 @@
                         {% endif %}
                     {% endfor %}
                 </optgroup>
-                
+
+                <optgroup label="ℹ️ App Seiten">
+                    {% for choice in page_choices %}
+                        {% if choice.0|slice:':9' == 'app_info_' %}
+                            <option value="{{ choice.0 }}" {% if choice.0 == page %}selected{% endif %}>
+                                {{ choice.1 }}
+                            </option>
+                        {% endif %}
+                    {% endfor %}
+                </optgroup>
+
                 <!-- Custom pages -->
                 {% for choice in page_choices %}
                     {% if choice.1|slice:':3' == '📝 ' %}
@@ -539,6 +552,37 @@
                     {% endif %}
                 {% endfor %}
             </select>
+
+            <script>
+            function filterPages() {
+                const q = (document.getElementById('pageSearchInput').value || '').toLowerCase();
+                const select = document.getElementById('pageSelector');
+                const groups = select.querySelectorAll('optgroup');
+                let anyVisible = false;
+
+                groups.forEach(group => {
+                    let groupVisible = false;
+                    const options = group.querySelectorAll('option');
+                    options.forEach(opt => {
+                        const text = (opt.textContent || '').toLowerCase();
+                        const match = !q || text.includes(q);
+                        opt.style.display = match ? '' : 'none';
+                        if (match) groupVisible = true;
+                    });
+                    group.style.display = groupVisible ? '' : 'none';
+                    if (groupVisible) anyVisible = true;
+                });
+
+                // Also handle options directly under select (custom pages rendered within group in this template)
+                const looseOptions = Array.from(select.children).filter(el => el.tagName === 'OPTION');
+                looseOptions.forEach(opt => {
+                    const text = (opt.textContent || '').toLowerCase();
+                    const match = !q || text.includes(q);
+                    opt.style.display = match ? '' : 'none';
+                    if (match) anyVisible = true;
+                });
+            }
+            </script>
             
             <div class="current-page-info mb-2">
                 <small class="text-muted">
@@ -646,7 +690,7 @@
                 <!-- Live Preview Frame -->
                 <div class="preview-container" id="previewContainer">
                     <iframe id="previewFrame" 
-                            src="{% if page == 'header' or page == 'footer' %}{% url 'startseite' %}{% elif page == 'startseite' %}{% url 'startseite' %}{% elif page == 'impressum' %}{% url 'impressum' %}{% elif page == 'agb' %}{% url 'agb' %}{% elif page == 'datenschutz' %}{% url 'datenschutz' %}{% else %}{% url 'dynamic_page' page_name=page %}{% endif %}?preview=true&page={{ page }}&t={{ request.GET.t|default:'1' }}&v=2" 
+                            src="{% if page == 'header' or page == 'footer' %}{% url 'startseite' %}{% elif page == 'startseite' %}{% url 'startseite' %}{% elif page == 'impressum' %}{% url 'impressum' %}{% elif page == 'agb' %}{% url 'agb' %}{% elif page == 'datenschutz' %}{% url 'datenschutz' %}{% elif page|slice:':9' == 'app_info_' %}{% url 'public_app_info' app_name=page|cut:'app_info_' %}{% else %}{% url 'dynamic_page' page_name=page %}{% endif %}?preview=true&page={{ page }}&t={{ request.GET.t|default:'1' }}&v=2" 
                             class="preview-frame"
                             onload="initializePreviewFrame()">
                     </iframe>

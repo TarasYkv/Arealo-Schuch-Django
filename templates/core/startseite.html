@@ -157,191 +157,32 @@
     <p class="text-center text-muted mb-5">Alle wichtigen Werkzeuge für deinen Erfolg - einfach, integriert und sofort einsatzbereit</p>
 </div>
 
-<!-- Features Grid -->
+<!-- Dynamic Apps Grid -->
+{% load public_apps %}
+{% get_public_apps as available_apps %}
 <div class="tool-grid">
+    {% for app_key, app_info in available_apps.items %}
     <div class="card feature-card">
         <div class="card-body">
             <div class="text-center mb-3">
-                <i class="fas fa-shopping-cart feature-icon"></i>
-                <h5 class="card-title mt-2">Shop-Management & Analytics</h5>
+                <i class="{{ app_info.icon }} feature-icon text-{{ app_info.color }}"></i>
+                <h5 class="card-title mt-2">{{ app_info.name }}</h5>
             </div>
             <p class="tool-description">
-                Professionelle E-Commerce-Verwaltung mit direkter Shopify-Integration. Verwalte Produkte, Collections und Blogs zentral.
+                {{ app_info.short_desc }}
             </p>
             <ul class="tool-features">
-                <li>Shopify-Synchronisation in Echtzeit</li>
-                <li>SEO-Dashboard mit Ranking-Tracking</li>
-                <li>Verkaufsanalysen & Umsatzstatistiken</li>
-                <li>Alt-Text-Manager für bessere Sichtbarkeit</li>
-                <li>PayPal-Gebührenanalyse</li>
+                {% for feature in app_info.features|slice:":5" %}
+                <li>{{ feature }}</li>
+                {% endfor %}
             </ul>
             <div class="mt-auto text-center">
-                <a href="{% url 'shopify_manager:dashboard' %}" class="btn btn-primary btn-sm me-2">Dashboard öffnen</a>
-                <a href="{% url 'shopify_manager:store_list' %}" class="btn btn-outline-primary btn-sm">Stores verwalten</a>
+                <a href="{% url 'public_app_info' app_key %}" class="btn btn-primary btn-sm me-2">Mehr erfahren</a>
+                <a href="{% url 'accounts:login' %}" class="btn btn-outline-primary btn-sm">Jetzt anmelden</a>
             </div>
         </div>
     </div>
-
-    <div class="card feature-card">
-        <div class="card-body">
-            <div class="text-center mb-3">
-                <i class="fas fa-images feature-icon"></i>
-                <h5 class="card-title mt-2">Bild-Editor & KI-Generator</h5>
-            </div>
-            <p class="tool-description">
-                Erstelle und bearbeite professionelle Produktbilder mit KI-Unterstützung. Perfekt für Social Media und Shop-Content.
-            </p>
-            <ul class="tool-features">
-                <li>KI-Bildgenerierung mit DALL-E</li>
-                <li>Browser-basierter Bildeditor</li>
-                <li>Canva-Import für nahtlose Workflows</li>
-                <li>Projekt-basierte Organisation</li>
-                <li>Direkte Shopify-Integration</li>
-            </ul>
-            <div class="mt-auto text-center">
-                <a href="{% url 'image_editor:dashboard' %}" class="btn btn-primary btn-sm me-2">Editor starten</a>
-                <a href="{% url 'image_editor:ai_generation' %}" class="btn btn-outline-primary btn-sm">KI-Generator</a>
-            </div>
-        </div>
-    </div>
-
-    <div class="card feature-card">
-        <div class="card-body">
-            <div class="text-center mb-3">
-                <i class="fas fa-graduation-cap feature-icon"></i>
-                <h5 class="card-title mt-2">Schulungen & Kurse</h5>
-            </div>
-            <p class="tool-description">
-                Umfassende Lernplattform mit praxisnahen Kursen zu E-Commerce, Marketing und Business-Aufbau.
-            </p>
-            <ul class="tool-features">
-                <li>Strukturierte Themenbereiche</li>
-                <li>Video-Tutorials & Anleitungen</li>
-                <li>Praktische Übungen & Beispiele</li>
-                <li>Fortschrittsverfolgung</li>
-                <li>Zertifikate nach Abschluss</li>
-            </ul>
-            <div class="mt-auto text-center">
-                <a href="{% url 'naturmacher:thema_list' %}" class="btn btn-primary btn-sm me-2">Kurse ansehen</a>
-                <a href="{% url 'naturmacher:thema_list' %}" class="btn btn-outline-primary btn-sm">Lernpfade</a>
-            </div>
-        </div>
-    </div>
-
-    <div class="card feature-card">
-        <div class="card-body">
-            <div class="text-center mb-3">
-                <i class="fas fa-users feature-icon"></i>
-                <h5 class="card-title mt-2">Community & Chat</h5>
-            </div>
-            <p class="tool-description">
-                Vernetze dich mit Gleichgesinnten, teile Erfahrungen und finde Lösungen in unserer aktiven Community.
-            </p>
-            <ul class="tool-features">
-                <li>Echtzeit-Chat mit anderen Gründern</li>
-                <li>Themenbasierte Gruppen</li>
-                <li>Direktnachrichten & Videocalls</li>
-                <li>Gemeinsame Projekte & Kollaboration</li>
-                <li>Expertensupport</li>
-            </ul>
-            <div class="mt-auto text-center">
-                <a href="{% url 'chat:home' %}" class="btn btn-primary btn-sm me-2">Zum Chat</a>
-                <a href="{% url 'chat:schuch_dashboard' %}" class="btn btn-outline-primary btn-sm">Dashboard</a>
-            </div>
-        </div>
-    </div>
-
-    <div class="card feature-card">
-        <div class="card-body">
-            <div class="text-center mb-3">
-                <i class="fas fa-tasks feature-icon"></i>
-                <h5 class="card-title mt-2">Organisation & Planung</h5>
-            </div>
-            <p class="tool-description">
-                Komplettes Projektmanagement mit Kanban-Boards, To-Do-Listen und Kalender für effiziente Arbeitsabläufe.
-            </p>
-            <ul class="tool-features">
-                <li>Kanban-Boards für Projekte</li>
-                <li>To-Do-Listen mit Prioritäten</li>
-                <li>Kalender & Event-Planung</li>
-                <li>Team-Kollaboration</li>
-                <li>Zeiterfassung & Berichte</li>
-            </ul>
-            <div class="mt-auto text-center">
-                <a href="{% url 'organization:dashboard' %}" class="btn btn-primary btn-sm me-2">Dashboard</a>
-                <a href="{% url 'todos:my_todos' %}" class="btn btn-outline-primary btn-sm">To-Do-Listen</a>
-            </div>
-        </div>
-    </div>
-
-    <div class="card feature-card">
-        <div class="card-body">
-            <div class="text-center mb-3">
-                <i class="fas fa-robot feature-icon"></i>
-                <h5 class="card-title mt-2">KI-Assistenz & Dokumente</h5>
-            </div>
-            <p class="tool-description">
-                Intelligente Dokumentenanalyse und KI-gestützte Textgenerierung für effizientere Arbeitsprozesse.
-            </p>
-            <ul class="tool-features">
-                <li>PDF-Analyse & Zusammenfassungen</li>
-                <li>KI-Textgenerierung</li>
-                <li>Automatische SEO-Optimierung</li>
-                <li>Produktbeschreibungen erstellen</li>
-                <li>Dokumentensuche & Archiv</li>
-            </ul>
-            <div class="mt-auto text-center">
-                <a href="{% url 'pdf_sucher:document_list' %}" class="btn btn-primary btn-sm me-2">Dokumente</a>
-                <a href="{% url 'pdf_sucher:pdf_suche' %}" class="btn btn-outline-primary btn-sm">PDF-Suche</a>
-            </div>
-        </div>
-    </div>
-
-    <div class="card feature-card">
-        <div class="card-body">
-            <div class="text-center mb-3">
-                <i class="fas fa-envelope feature-icon"></i>
-                <h5 class="card-title mt-2">E-Mail-Automatisierung</h5>
-            </div>
-            <p class="tool-description">
-                Professionelle E-Mail-Vorlagen und automatisierte Kampagnen für effektive Kundenkommunikation.
-            </p>
-            <ul class="tool-features">
-                <li>Anpassbare E-Mail-Templates</li>
-                <li>Trigger-basierte Automatisierung</li>
-                <li>Personalisierte Kampagnen</li>
-                <li>A/B-Testing & Analytics</li>
-                <li>SMTP-Integration</li>
-            </ul>
-            <div class="mt-auto text-center">
-                <a href="{% url 'email_templates:template_list' %}" class="btn btn-primary btn-sm me-2">Templates</a>
-                <a href="{% url 'email_templates:trigger_list' %}" class="btn btn-outline-primary btn-sm">Trigger</a>
-            </div>
-        </div>
-    </div>
-
-    <div class="card feature-card">
-        <div class="card-body">
-            <div class="text-center mb-3">
-                <i class="fas fa-calendar-alt feature-icon"></i>
-                <h5 class="card-title mt-2">Social Media Planer</h5>
-            </div>
-            <p class="tool-description">
-                Plane und verwalte deine Social-Media-Inhalte zentral für alle Plattformen mit KI-Unterstützung.
-            </p>
-            <ul class="tool-features">
-                <li>Multi-Plattform-Planung</li>
-                <li>Content-Kalender</li>
-                <li>KI-gestützte Post-Vorschläge</li>
-                <li>Automatisches Scheduling</li>
-                <li>Performance-Tracking</li>
-            </ul>
-            <div class="mt-auto text-center">
-                <a href="{% url 'somi_plan:dashboard' %}" class="btn btn-primary btn-sm me-2">Planer öffnen</a>
-                <a href="{% url 'somi_plan:calendar' %}" class="btn btn-outline-primary btn-sm">Kalender</a>
-            </div>
-        </div>
-    </div>
+    {% endfor %}
 </div>
 
 <!-- Community Section -->

@@ -400,72 +400,36 @@ class CustomPage(models.Model):
     
     @classmethod
     def get_all_page_choices(cls, user):
-        """Gibt alle verfügbaren Seiten für einen User zurück"""
-        # Core/Standard Seiten
+        """Gibt alle verfügbaren Seiten für einen User zurück (automatisch synchronisiert)."""
+        # 1) Core/Standard Seiten
         choices = [
             ('startseite', '🏠 Startseite'),
             ('impressum', '📄 Impressum'),
             ('agb', '📄 AGB'),
             ('datenschutz', '🔒 Datenschutz'),
         ]
-        
-        # Globale Bereiche
-        choices.extend([
-            ('header', '🔹 Header (global)'),
-            ('footer', '🔹 Footer (global)'),
-        ])
-        
-        # App-Dashboard Seiten (nur wenn User Zugriff hat)
-        if user and user.is_authenticated:
-            app_pages = [
-                ('accounts_dashboard', '👤 Account Dashboard'),
-                ('mail_dashboard', '📧 Mail Dashboard'),
-                ('shopify_dashboard', '🛒 Shopify Dashboard'),
-                ('image_editor_dashboard', '🖼️ Bild-Editor Dashboard'),
-                ('organization_dashboard', '📅 Organisation Dashboard'),
-                ('naturmacher_dashboard', '🌱 Schulungen Dashboard'),
-                ('videos_dashboard', '🎥 Videos Dashboard'),
-                ('chat_dashboard', '💬 Chat Dashboard'),
-                ('somi_plan_dashboard', '📊 SOMI Plan Dashboard'),
-                ('email_templates_dashboard', '📨 E-Mail Templates Dashboard'),
-            ]
-            
-            # Prüfe App-Berechtigungen (falls implementiert)
-            for page_key, page_name in app_pages:
-                choices.append((page_key, page_name))
-        
-        # Landing Pages & Marketing
-        choices.extend([
-            ('landing_about', '🌟 Über uns'),
-            ('landing_services', '🔧 Services'),
-            ('landing_pricing', '💰 Preise'),
-            ('landing_contact', '📞 Kontakt'),
-            ('landing_features', '⚡ Features'),
-            ('landing_testimonials', '💬 Kundenstimmen'),
-            ('landing_blog', '📝 Blog'),
-            ('landing_faq', '❓ FAQ'),
-        ])
-        
-        # E-Commerce Seiten
-        choices.extend([
-            ('shop_products', '🛍️ Produkte'),
-            ('shop_categories', '📂 Kategorien'),
-            ('shop_cart', '🛒 Warenkorb'),
-            ('shop_checkout', '💳 Checkout'),
-            ('shop_account', '👤 Kundenkonto'),
-            ('shop_orders', '📦 Bestellungen'),
-        ])
-        
-        # Funktionale Seiten
-        choices.extend([
-            ('search_results', '🔍 Suchergebnisse'),
-            ('error_404', '❌ 404 Fehlerseite'),
-            ('error_500', '⚠️ 500 Fehlerseite'),
-            ('maintenance', '🔧 Wartungsseite'),
-            ('coming_soon', '🚀 Bald verfügbar'),
-        ])
-        
-        # Benutzerdefinierte Seiten hinzufügen
+
+        # 2) System-/App-Seiten aus zentralem Registry
+        try:
+            from core.page_registry import get_system_page_choices
+            system_choices = get_system_page_choices()
+            # Hinweis: Registry enthält auch Header/Footer als 'global'
+            choices.extend(system_choices)
+        except Exception:
+            # Fallback: wenn Registry nicht verfügbar, weiterhin nur Core-Seiten anzeigen
+            pass
+
+        # 3) Öffentliche App-Infoseiten (Editor soll diese bearbeiten können)
+        try:
+            from core.page_registry import get_app_info_page_choices
+            app_info_choices = get_app_info_page_choices(user)
+            if app_info_choices:
+                choices.append(('', '--- Öffentliche App-Seiten ---'))
+                choices.extend(app_info_choices)
+        except Exception:
+            pass
+
+        # 4) Benutzerdefinierte Seiten
         if user:
             custom_pages = cls.objects.filter(user=user, is_active=True)
             if custom_pages.exists():
