@@ -46,5 +46,6 @@ urlpatterns = [
     
     # API Endpoints
     path('api/zone/<str:zone_code>/ad/', views.get_ad_for_zone, name='get_ad_for_zone'),
+    path('api/zone/<str:zone_code>/ads/<int:count>/', views.get_multiple_ads_for_zone, name='get_multiple_ads_for_zone'),
     path('api/track/click/<uuid:ad_id>/', views.track_click, name='track_click'),
 ]

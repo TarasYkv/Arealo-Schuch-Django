@@ -5,14 +5,13 @@
     {% endif %}
 {% else %}
     <div id="loomads-zone-{{ zone_code }}-{{ forloop.counter0|default:""}}{{ random_id|default:"" }}" 
-         class="loomads-zone {{ css_class }}" 
+         class="loomads-zone loomads-{{ zone_type }} {{ css_class }}" 
          data-zone-code="{{ zone_code }}"
-         style="width: 100%; max-width: {{ width }}px; height: {{ height }}px; {{ style }}
-                background: #f8f9fa; border: 1px dashed #dee2e6; 
-                display: flex; align-items: center; justify-content: center;
-                text-align: center;
-                color: #6c757d; font-size: 12px; margin: 0 auto;">
-        Werbung wird geladen...
+         data-zone-type="{{ zone_type }}"
+         style="width: 100%; max-width: 100%; {% if zone_type != 'header' and zone_type != 'notification' %}min-height: {{ height }}px;{% else %}height: auto;{% endif %} {{ style }}
+                display: block; text-align: center; box-sizing: border-box;
+                color: #6c757d; font-size: 12px; margin: 0;">
+        <div style="padding: 8px; color: #999; font-size: 11px;">Lade...</div>
     </div>
     
     <script>
@@ -87,10 +86,17 @@
                             </a>
                         `;
                     } else if (data.type === 'html' && data.html_content) {
+                        // Make HTML content responsive
+                        let responsiveHtml = data.html_content
+                            .replace(/max-width:\s*\d+px/g, 'max-width: 100%')
+                            .replace(/width:\s*\d+px/g, 'width: 100%')
+                            .replace(/min-width:\s*\d+px/g, 'min-width: auto')
+                            .replace(/box-sizing:\s*border-box/g, 'box-sizing: border-box');
+                        
                         adHtml = `
                             <div onclick="if(window.trackClick) window.trackClick('${data.id}', '${uniqueId}')" 
-                                 class="loomads-html" style="cursor: pointer; text-align: center; width: 100%;">
-                                ${data.html_content}
+                                 class="loomads-html" style="cursor: pointer; text-align: center; width: 100%; max-width: 100%; box-sizing: border-box;">
+                                ${responsiveHtml}
                             </div>
                         `;
                     } else if (data.type === 'text') {
@@ -118,19 +124,21 @@
                     if (adHtml) {
                         console.log(`[LoomAds] ${uniqueId}: Setting HTML:`, adHtml.substring(0, 100) + '...');
                         adContainer.innerHTML = adHtml;
-                        adContainer.style.display = 'flex';
-                        adContainer.style.alignItems = 'center';
-                        adContainer.style.justifyContent = 'center';
+                        adContainer.style.display = 'block';
                         adContainer.style.textAlign = 'center';
                         adContainer.style.background = 'transparent';
                         adContainer.style.border = 'none';
                         adContainer.style.color = 'inherit';
+                        adContainer.style.overflow = 'hidden';
+                        adContainer.style.width = '100%';
+                        adContainer.style.maxWidth = '100%';
+                        adContainer.style.boxSizing = 'border-box';
                         console.log(`[LoomAds] ${uniqueId}: Ad successfully rendered`);
                         console.log(`[LoomAds] ${uniqueId}: Container dimensions:`, adContainer.offsetWidth + 'x' + adContainer.offsetHeight);
                     } else {
                         console.warn(`[LoomAds] ${uniqueId}: No ad HTML generated for type: ${data.type}`);
                         adContainer.innerHTML = '<div style="color: #999; font-size: 12px;">Keine Anzeige verfügbar</div>';
-                        adContainer.style.display = 'flex';
+                        adContainer.style.display = 'block';
                     }
                 })
                 .catch(error => {
@@ -142,9 +150,7 @@
                         {% else %}
                         adContainer.innerHTML = '<div style="color: #999; font-size: 12px;">Fehler beim Laden der Anzeige</div>';
                         {% endif %}
-                        adContainer.style.display = 'flex';
-                        adContainer.style.alignItems = 'center';
-                        adContainer.style.justifyContent = 'center';
+                        adContainer.style.display = 'block';
                         adContainer.style.textAlign = 'center';
                         console.log(`[LoomAds] ${uniqueId}: Error fallback displayed`);
                     }

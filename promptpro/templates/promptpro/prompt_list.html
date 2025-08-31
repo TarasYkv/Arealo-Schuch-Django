@@ -1,6 +1,8 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load loomads_tags %}
 {% block content %}
+<div class="promptpro-page">
 <style>
   /* PromptPro compact & modern cards */
   .pp-card { border:1px solid rgba(0,0,0,0.06); border-radius:14px; box-shadow:0 8px 22px rgba(0,0,0,0.06); transition:transform .2s ease, box-shadow .2s ease; overflow:hidden; }
@@ -27,7 +29,37 @@
   .pp-cat-toolbar { gap:.5rem; overflow:auto; white-space:nowrap; padding-bottom:.25rem; }
   .pp-cat-pill { display:inline-flex; align-items:center; gap:.4rem; padding:.35rem .7rem; border-radius:999px; color:#fff; text-decoration:none; font-size:.84rem; }
   .pp-cat-pill.teal{ background:linear-gradient(90deg,#20c997,#6bd3c9);} .pp-cat-pill.indigo{ background:linear-gradient(90deg,#6366f1,#8b5cf6);} .pp-cat-pill.purple{ background:linear-gradient(90deg,#a855f7,#ec4899);} .pp-cat-pill.orange{ background:linear-gradient(90deg,#f59e0b,#f97316);} .pp-cat-pill.cyan{ background:linear-gradient(90deg,#06b6d4,#22d3ee);} .pp-cat-pill.pink{ background:linear-gradient(90deg,#f472b6,#fb7185);} 
+  
+  /* Ad Card Centering Styles */
+  .pp-card[style*="dashed"] .card-body {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  
+  /* Center all ad content divs */
+  [id^="promptpro-ad-card-"] {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    text-align: center !important;
+  }
+  
+  /* Override inline styles from ads */
+  [id^="promptpro-ad-card-"] > div {
+    margin: 0 auto !important;
+  }
+  
+  [id^="promptpro-ad-card-"] > div > div {
+    margin: 0 auto !important;
+    max-width: 100% !important;
+  }
 </style>
+<!-- Header Banner Ad -->
+{% show_ad_zone 'promptpro_dashboard_header' %}
+
 <div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
   <h2 class="mb-2 mb-sm-0">PromptPro</h2>
   <div class="d-flex gap-2">
@@ -67,6 +99,101 @@
 {% if prompts %}
 <div class="row g-3">
   {% for p in prompts %}
+  
+  <!-- Ad Card every 2 prompts -->
+  {% if forloop.counter|divisibleby:2 %}
+  <div class="col-12 col-md-6 col-lg-4">
+    <div class="pp-card h-100" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border: 2px dashed #6c757d;">
+      <div class="pp-accent" style="background: linear-gradient(90deg, #6366f1, #8b5cf6);"></div>
+      <div class="card-body d-flex flex-column text-center">
+        <div id="promptpro-ad-card-{{ forloop.counter }}" class="flex-grow-1 d-flex align-items-center justify-content-center" style="min-height: 240px;">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Lade Anzeige...</span>
+          </div>
+        </div>
+        <div class="mt-auto pt-2">
+          <small class="text-muted" style="font-size: 10px; opacity: 0.7;">Werbeanzeige</small>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    // Load ad for this card
+    (function() {
+      const cardId = 'promptpro-ad-card-{{ forloop.counter }}';
+      fetch('/loomads/api/zone/promptpro_prompt_card/ad/')
+        .then(response => response.json())
+        .then(data => {
+          const container = document.getElementById(cardId);
+          if (data.error) {
+            container.innerHTML = '<p class="text-muted small">Keine Anzeige verfügbar</p>';
+            return;
+          }
+          
+          let adHtml = '';
+          if (data.type === 'html' && data.html_content) {
+            // Process HTML content to ensure centering
+            let processedHtml = data.html_content;
+            // Remove max-width restrictions and make responsive
+            processedHtml = processedHtml.replace(/max-width:\s*\d+px/g, 'max-width: 100%');
+            processedHtml = processedHtml.replace(/width:\s*\d+px/g, 'width: 100%');
+            processedHtml = processedHtml.replace(/height:\s*\d+px/g, 'height: auto');
+            
+            // Wrap HTML content in centered container
+            adHtml = `
+              <div class="w-100 text-center" onclick="if(window.trackClick) window.trackClick('${data.id}', '${cardId}')" style="cursor: pointer;">
+                <div style="display: inline-block; max-width: 280px; width: 100%;">${processedHtml}</div>
+              </div>
+            `;
+          } else if (data.type === 'text') {
+            adHtml = `
+              <div class="text-center w-100" onclick="if(window.trackClick) window.trackClick('${data.id}', '${cardId}')" style="cursor: pointer;">
+                <h6 class="fw-bold mb-2">${data.title || 'Anzeige'}</h6>
+                <p class="small text-muted mb-3">${data.description || ''}</p>
+                <button class="btn btn-sm btn-primary">Mehr erfahren</button>
+              </div>
+            `;
+          } else if (data.type === 'image' && data.image_url) {
+            adHtml = `
+              <div class="text-center w-100" onclick="if(window.trackClick) window.trackClick('${data.id}', '${cardId}')" style="cursor: pointer;">
+                <img src="${data.image_url}" alt="${data.title || ''}" class="img-fluid rounded mb-2" style="max-height: 120px;">
+                <h6 class="fw-bold">${data.title || 'Anzeige'}</h6>
+                <p class="small text-muted">${data.description || ''}</p>
+              </div>
+            `;
+          }
+          
+          if (adHtml) {
+            container.innerHTML = adHtml;
+            // Maintain flex centering
+            container.classList.add('d-flex', 'align-items-center', 'justify-content-center');
+            
+            // Force centering after a short delay to ensure DOM is ready
+            setTimeout(() => {
+              const innerDiv = container.querySelector('div');
+              if (innerDiv) {
+                innerDiv.style.margin = '0 auto';
+                innerDiv.style.textAlign = 'center';
+                
+                // Center any nested divs too
+                const nestedDivs = innerDiv.querySelectorAll('div');
+                nestedDivs.forEach(div => {
+                  div.style.margin = '0 auto';
+                });
+              }
+            }, 100);
+          } else {
+            container.innerHTML = '<p class="text-muted small">Anzeige nicht verfügbar</p>';
+          }
+        })
+        .catch(error => {
+          console.error('Ad loading error:', error);
+          const container = document.getElementById(cardId);
+          container.innerHTML = '<p class="text-muted small">Anzeige konnte nicht geladen werden</p>';
+        });
+    })();
+  </script>
+  {% endif %}
   <div class="col-12 col-md-6 col-lg-4">
     <div class="pp-card h-100">
       <div class="pp-accent pp-accent-{% cycle 'teal' 'indigo' 'purple' 'orange' 'cyan' 'pink' %}"></div>
@@ -111,4 +238,5 @@
   
 </div>
 {% endif %}
+</div>
 {% endblock %}

@@ -13,6 +13,75 @@ from ..models import AdZone, Advertisement, AdImpression, AdClick, AdTargeting, 
 register = template.Library()
 
 
+@register.inclusion_tag('loomads/tags/multi_ad_zone.html', takes_context=True)
+def show_multi_ad_zone(context, zone_code, ad_count=3, css_class='', style='', fallback=''):
+    """
+    Template Tag für Mehrfachanzeigen in einer Zone
+    
+    Verwendung:
+    {% load loomads_tags %}
+    {% show_multi_ad_zone 'header_main' ad_count=3 css_class='my-ads-container' %}
+    """
+    request = context.get('request')
+    if not request:
+        return {
+            'zone_code': zone_code,
+            'error': 'Request context not available',
+            'fallback': fallback
+        }
+    
+    try:
+        zone = AdZone.objects.get(code=zone_code, is_active=True)
+    except AdZone.DoesNotExist:
+        return {
+            'zone_code': zone_code,
+            'error': 'Zone "{}" not found'.format(zone_code),
+            'fallback': fallback
+        }
+    
+    # App-spezifische Zone-Kontrolle prüfen
+    current_app = request.resolver_match.app_name if request.resolver_match else None
+    settings = LoomAdsSettings.get_settings()
+    
+    # Überprüfe ob Zone für diese App aktiviert ist
+    zone_type = zone.zone_type
+    if not settings.is_zone_enabled(zone_type, current_app):
+        return {
+            'zone_code': zone_code,
+            'error': 'Zone "{}" disabled for app "{}"'.format(zone_type, current_app or 'default'),
+            'fallback': fallback
+        }
+    
+    # App-Beschränkung prüfen
+    if zone.app_restriction:
+        if current_app != zone.app_restriction:
+            return {
+                'zone_code': zone_code,
+                'error': 'Zone restricted to app "{}"'.format(zone.app_restriction),
+                'fallback': fallback
+            }
+    
+    # Generiere eine eindeutige ID für diese Zone-Instanz
+    random_id = str(uuid.uuid4())[:8]
+    
+    context_data = {
+        'zone': zone,
+        'zone_code': zone_code,
+        'ad_count': min(max(1, ad_count), 10),  # Limit zwischen 1-10
+        'api_url': request.build_absolute_uri(reverse('loomads:get_multiple_ads_for_zone', args=[zone_code, ad_count])),
+        'track_url': request.build_absolute_uri('/loomads/api/track/click/AD_ID_PLACEHOLDER/'),
+        'css_class': css_class,
+        'style': style,
+        'fallback': fallback,
+        'width': zone.width,
+        'height': zone.height,
+        'zone_type': zone.zone_type,
+        'random_id': random_id,
+    }
+    
+    return context_data
+
+
 @register.inclusion_tag('loomads/tags/ad_zone.html', takes_context=True)
 def show_ad_zone(context, zone_code, css_class='', style='', fallback=''):
     """
@@ -151,95 +220,165 @@ def loomads_css():
     css = """
     <style>
     .loomads-zone {
-        margin: 10px 0;
+        margin: 0;
+        padding: 0;
         text-align: center !important;
         position: relative;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
+        display: block !important;
+        width: 100% !important;
+        overflow: hidden;
+        clear: both;
     }
     
-    /* Spezielle Zentrierung für Header und Footer Banner */
-    .loomads-header-banner,
-    .loomads-footer-banner {
-        text-align: center !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        width: 100%;
+    .loomads-zone > * {
+        max-width: 100% !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* Kompakte Header Anzeigen */
+    .loomads-header {
+        margin: 0 0 1rem 0 !important;
+        height: auto !important;
+        min-height: auto !important;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .loomads-header .loomads-html > div {
+        border-radius: 8px !important;
+        overflow: hidden !important;
+    }
+    
+    /* Sidebar Anzeigen ohne extra Margin */
+    .loomads-sidebar {
+        margin: 0 !important;
+        width: 100% !important;
+    }
+    
+    /* Content Cards kompakt */
+    .loomads-content_card {
+        margin: 0 0 1rem 0 !important;
+    }
+    
+    /* Notification Banner schlank */
+    .loomads-notification {
+        margin: 0 0 0.5rem 0 !important;
+        height: auto !important;
+        min-height: auto !important;
     }
     
     .loomads-link {
         text-decoration: none;
         display: block;
+        width: 100%;
     }
     
     .loomads-image {
         max-width: 100%;
         height: auto;
-        border-radius: 4px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        transition: transform 0.2s ease;
-    }
-    
-    .loomads-image:hover {
-        transform: scale(1.02);
+        display: block;
+        margin: 0 auto;
     }
     
     .loomads-text {
         display: block;
-        padding: 15px;
+        padding: 10px;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         text-decoration: none;
-        border-radius: 8px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        border-radius: 6px;
         transition: transform 0.2s ease;
     }
     
     .loomads-text:hover {
-        transform: translateY(-2px);
+        transform: translateY(-1px);
         color: white;
         text-decoration: none;
     }
     
     .loomads-text h4 {
-        margin: 0 0 8px 0;
-        font-size: 16px;
+        margin: 0 0 5px 0;
+        font-size: 14px;
         font-weight: 600;
     }
     
     .loomads-text p {
         margin: 0;
-        font-size: 14px;
+        font-size: 12px;
         opacity: 0.9;
     }
     
     .loomads-html {
         cursor: pointer;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        overflow: hidden;
+    }
+    
+    .loomads-html > div {
+        max-width: 100% !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
     }
     
     .loomads-video {
-        border-radius: 4px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        max-width: 100%;
+        height: auto;
+    }
+    
+    /* Videos App spezifisch */
+    .videos-page .loomads-zone {
+        margin-bottom: 1rem;
+    }
+    
+    /* StreamRec App spezifisch */
+    .streamrec-page .loomads-zone {
+        margin-bottom: 0.75rem;
+    }
+    
+    /* PromptPro App spezifisch */
+    .promptpro-page .loomads-zone {
+        margin-bottom: 0.5rem;
     }
     
     /* Responsive */
     @media (max-width: 768px) {
         .loomads-zone {
-            margin: 5px 0;
+            margin: 0 0 0.5rem 0;
         }
         
         .loomads-text {
-            padding: 12px;
+            padding: 8px;
         }
         
         .loomads-text h4 {
-            font-size: 14px;
+            font-size: 13px;
         }
         
         .loomads-text p {
-            font-size: 12px;
+            font-size: 11px;
+        }
+        
+        .loomads-html > div {
+            padding: 6px 8px !important;
+            font-size: 12px !important;
+        }
+        
+        .loomads-header {
+            margin-bottom: 0.75rem !important;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .loomads-html > div {
+            padding: 4px 6px !important;
+            font-size: 11px !important;
+        }
+        
+        .loomads-header {
+            margin-bottom: 0.5rem !important;
         }
     }
     </style>

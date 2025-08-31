@@ -10,7 +10,7 @@ from .models import (
 
 @admin.register(Campaign)
 class CampaignAdmin(admin.ModelAdmin):
-    list_display = ['name', 'status_badge', 'start_date', 'end_date', 'created_by', 'ads_count', 'impressions_count', 'clicks_count']
+    list_display = ['name', 'status_badge', 'start_date', 'end_date', 'created_by', 'ads_count', 'impressions_count', 'clicks_count', 'daily_limits_display']
     list_filter = ['status', 'start_date', 'end_date', 'created_by']
     search_fields = ['name', 'description']
     readonly_fields = ['id', 'created_at', 'updated_at']
@@ -23,8 +23,12 @@ class CampaignAdmin(admin.ModelAdmin):
         ('Zeitplanung', {
             'fields': ('start_date', 'end_date')
         }),
-        ('Limits', {
+        ('Impression Limits', {
             'fields': ('daily_impression_limit', 'total_impression_limit'),
+            'classes': ('collapse',)
+        }),
+        ('Click Limits', {
+            'fields': ('daily_click_limit', 'total_click_limit'),
             'classes': ('collapse',)
         }),
         ('Metadaten', {
@@ -58,6 +62,15 @@ class CampaignAdmin(admin.ModelAdmin):
     def clicks_count(self, obj):
         return sum(ad.clicks_count for ad in obj.advertisements.all())
     clicks_count.short_description = 'Klicks'
+    
+    def daily_limits_display(self, obj):
+        imp_limit = obj.daily_impression_limit or '∞'
+        click_limit = obj.daily_click_limit or '∞'
+        return format_html(
+            '<small>Imp: {}<br>Clicks: {}</small>',
+            imp_limit, click_limit
+        )
+    daily_limits_display.short_description = 'Tägl. Limits'
 
 
 @admin.register(AdZone)

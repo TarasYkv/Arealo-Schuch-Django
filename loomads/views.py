@@ -12,7 +12,7 @@ import random
 
 from .models import (
     Campaign, AdZone, Advertisement, AdPlacement,
-    AdImpression, AdClick, AdSchedule, AdTargeting, ZoneIntegration
+    AdImpression, AdClick, AdSchedule, AdTargeting, ZoneIntegration, LoomAdsSettings
 )
 
 # Import frontend management views
@@ -815,6 +815,69 @@ def get_ad_for_zone(request, zone_code):
         response_data['video_with_audio'] = selected_ad.video_with_audio
     
     return JsonResponse(response_data)
+
+
+def get_multiple_ads_for_zone(request, zone_code, count=3):
+    """API: Mehrfache Anzeigen für eine Zone abrufen"""
+    try:
+        zone = AdZone.objects.get(code=zone_code, is_active=True)
+    except AdZone.DoesNotExist:
+        return JsonResponse({'error': f'Zone "{zone_code}" not found'}, status=404)
+    
+    # Check zone permissions
+    current_app = request.resolver_match.app_name if request.resolver_match else None
+    settings = LoomAdsSettings.get_settings()
+    
+    # App-spezifische Zone-Kontrolle
+    zone_type = zone.zone_type
+    if not settings.is_zone_enabled(zone_type, current_app):
+        return JsonResponse({
+            'error': f'Zone "{zone_type}" disabled for app "{current_app or "default"}"'
+        }, status=403)
+    
+    # App-Beschränkung prüfen
+    if zone.app_restriction and current_app != zone.app_restriction:
+        return JsonResponse({
+            'error': f'Zone restricted to app "{zone.app_restriction}"'
+        }, status=403)
+    
+    # Limit count to reasonable number
+    count = min(max(1, count), 10)
+    
+    # Get multiple ads
+    active_ads = Advertisement.objects.filter(
+        zones=zone,
+        is_active=True
+    ).select_related().order_by('?')[:count]
+    
+    if not active_ads:
+        return JsonResponse({
+            'error': 'No active ads available for this zone'
+        }, status=404)
+    
+    ads_data = []
+    for ad in active_ads:
+        ad_data = {
+            'id': str(ad.id),
+            'type': ad.ad_type,
+            'title': ad.title,
+            'description': ad.description,
+            'target_url': ad.target_url,
+            'target_type': ad.target_type,
+        }
+        
+        if ad.ad_type == 'image' and ad.image:
+            ad_data['image_url'] = request.build_absolute_uri(ad.image.url)
+        elif ad.ad_type == 'html' or (ad.ad_type == 'banner' and ad.html_content):
+            ad_data['type'] = 'html'
+            ad_data['html_content'] = ad.html_content
+        elif ad.ad_type == 'video':
+            ad_data['video_url'] = ad.video_url
+            ad_data['video_with_audio'] = ad.video_with_audio
+        
+        ads_data.append(ad_data)
+    
+    return JsonResponse({'ads': ads_data, 'count': len(ads_data)})
 
 
 @require_POST
