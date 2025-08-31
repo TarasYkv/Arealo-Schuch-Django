@@ -14,6 +14,7 @@ urlpatterns = [
     path('', core_views.startseite_ansicht, name='startseite'),
 
     # Public App Info Pages (accessible without login)
+    path('apps/', core_views.public_app_list, name='public_app_list'),
     path('app/<str:app_name>/', core_views.public_app_info, name='public_app_info'),
 
     # Legal pages

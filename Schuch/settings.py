@@ -88,6 +88,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'core.middleware.PublicAppRedirectMiddleware',  # Redirect unauthenticated users to app info pages
     'chat.middleware.RateLimitMiddleware',
     'chat.middleware.ChatRateLimitMiddleware',
     'makeads.middleware.APIKeyCacheMiddleware',  # MakeAds API-Key Cache Management

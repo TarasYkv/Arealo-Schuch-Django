@@ -111,9 +111,12 @@ def datenschutz_view(request):
     return render(request, 'core/datenschutz.html', context)
 
 
-def public_app_info(request, app_name):
-    """Öffentliche App-Info-Seiten für nicht angemeldete Benutzer"""
-    apps_info = {
+def _get_available_apps():
+    """Gibt nur freigegebene Apps mit ihren Informationen zurück"""
+    from accounts.models import AppPermission
+    
+    # Alle App-Informationen (keys müssen mit AppPermission.app_name übereinstimmen)
+    all_apps = {
         'todos': {
             'name': 'ToDo Manager Pro',
             'icon': 'bi-list-check',
@@ -135,7 +138,7 @@ def public_app_info(request, app_name):
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         },
-        'organization': {
+        'organisation': {
             'name': 'WorkSpace Elite',
             'icon': 'bi-building',
             'color': 'success',
@@ -198,6 +201,27 @@ def public_app_info(request, app_name):
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         },
+        'shopify': {
+            'name': 'ShopifyFlow AI',
+            'icon': 'bi-shop',
+            'color': 'secondary',
+            'short_desc': 'KI-gestütztes E-Commerce Management für maximale Umsätze',
+            'features': [
+                'Intelligente Multi-Shop Verwaltung mit Unified Dashboard',
+                'KI-basierte automatisierte Bestellabwicklung und Fulfillment',
+                'Predictive Inventory Management mit Demand Forecasting',
+                'Advanced Customer Analytics mit Lifetime Value Prediction',
+                'Omnichannel Marketing-Automatisierung mit A/B Testing',
+                'Dynamische Preisoptimierung und Conversion-Rate-Optimierung'
+            ],
+            'benefits': {
+                'Umsatzexplosion': 'Steigern Sie Ihren Umsatz um durchschnittlich 85% durch KI-optimierte Prozesse',
+                'Totale Automatisierung': 'Reduzieren Sie manuelle Aufgaben um bis zu 95% durch intelligente Workflows',
+                'Kompletter Überblick': 'Verwalten Sie unbegrenzt viele Shops von einem zentralen Control-Center',
+                'Unbegrenztes Wachstum': 'Skalieren Sie mühelos von Startup bis Enterprise mit elastischer Infrastruktur'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
         'chat': {
             'name': 'ChatFlow Enterprise',
             'icon': 'bi-chat-dots',
@@ -219,28 +243,134 @@ def public_app_info(request, app_name):
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         },
-        'shopify': {
-            'name': 'ShopifyFlow AI',
-            'icon': 'bi-shop',
-            'color': 'secondary',
-            'short_desc': 'KI-gestütztes E-Commerce Management für maximale Umsätze',
+        'bilder': {
+            'name': 'ImageFlow Pro',
+            'icon': 'bi-image',
+            'color': 'primary',
+            'short_desc': 'Professionelle Bildbearbeitung mit KI-Power',
             'features': [
-                'Intelligente Multi-Shop Verwaltung mit Unified Dashboard',
-                'KI-basierte automatisierte Bestellabwicklung und Fulfillment',
-                'Predictive Inventory Management mit Demand Forecasting',
-                'Advanced Customer Analytics mit Lifetime Value Prediction',
-                'Omnichannel Marketing-Automatisierung mit A/B Testing',
-                'Dynamische Preisoptimierung und Conversion-Rate-Optimierung'
+                'KI-gestützte automatische Bildverbesserung',
+                'Batch-Processing für Hunderte von Bildern',
+                'Advanced Filter und Effekte',
+                'Cloud-basierte Bildarchivierung'
             ],
             'benefits': {
-                'Umsatzexplosion': 'Steigern Sie Ihren Umsatz um durchschnittlich 85% durch KI-optimierte Prozesse',
-                'Totale Automatisierung': 'Reduzieren Sie manuelle Aufgaben um bis zu 95% durch intelligente Workflows',
-                'Kompletter Überblick': 'Verwalten Sie unbegrenzt viele Shops von einem zentralen Control-Center',
-                'Unbegrenztes Wachstum': 'Skalieren Sie mühelos von Startup bis Enterprise mit elastischer Infrastruktur'
+                'Zeitersparnis': 'Bearbeiten Sie Bilder 10x schneller',
+                'Professionelle Qualität': 'Studio-Qualität mit einem Klick'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'mail': {
+            'name': 'MailFlow Enterprise',
+            'icon': 'bi-envelope',
+            'color': 'info',
+            'short_desc': 'Intelligentes E-Mail-Management für Profis',
+            'features': [
+                'KI-basierte E-Mail-Sortierung und Priorisierung',
+                'Automatische Antwort-Vorschläge',
+                'Erweiterte Suchfunktionen',
+                'Multi-Account Management'
+            ],
+            'benefits': {
+                'Inbox Zero': 'Behalten Sie Ihre E-Mails unter Kontrolle',
+                'Maximale Effizienz': 'Sparen Sie täglich Stunden'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'schulungen': {
+            'name': 'LernHub Pro',
+            'icon': 'bi-graduation-cap',
+            'color': 'success',
+            'short_desc': 'Moderne Lern- und Schulungsplattform',
+            'features': [
+                'Interaktive Kurse und Tutorials',
+                'Fortschrittstracking und Zertifikate',
+                'Community-Features',
+                'Mobile Learning'
+            ],
+            'benefits': {
+                'Flexible Weiterbildung': 'Lernen Sie in Ihrem Tempo',
+                'Zertifiziert': 'Anerkannte Abschlüsse'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'somi_plan': {
+            'name': 'PlanMaster Pro',
+            'icon': 'bi-calendar-check',
+            'color': 'warning',
+            'short_desc': 'Intelligente Planung und Terminverwaltung',
+            'features': [
+                'KI-optimierte Terminplanung',
+                'Ressourcenmanagement',
+                'Team-Koordination',
+                'Mobile Synchronisation'
+            ],
+            'benefits': {
+                'Perfekte Organisation': 'Nie wieder Terminkonflikte',
+                'Teamwork': 'Koordinierte Zusammenarbeit'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'loomads': {
+            'name': 'AdFlow Pro',
+            'icon': 'bi-megaphone',
+            'color': 'danger',
+            'short_desc': 'Intelligente Werbeplattform der nächsten Generation',
+            'features': [
+                'KI-optimierte Werbeschaltung',
+                'Multi-Platform Kampagnen',
+                'Real-time Analytics',
+                'Automatisches Targeting'
+            ],
+            'benefits': {
+                'ROI Maximum': 'Maximieren Sie Ihren Werbeerfolg',
+                'Volle Kontrolle': 'Behalten Sie den Überblick'
+            },
+            'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
+        },
+        'promptpro': {
+            'name': 'PromptPro',
+            'icon': 'bi-collection',
+            'color': 'info',
+            'short_desc': 'KI-Prompt-Management und -Optimierung',
+            'features': [
+                'Prompt-Bibliothek verwalten',
+                'KI-optimierte Prompt-Erstellung',
+                'Team-Kollaboration',
+                'Performance-Analytics'
+            ],
+            'benefits': {
+                'Bessere KI-Ergebnisse': 'Optimierte Prompts für bessere Outputs',
+                'Zeit sparen': 'Wiederverwendbare Prompt-Templates'
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         }
     }
+    
+    # Filtere nur freigegebene Apps
+    available_apps = {}
+    
+    for app_name, app_info in all_apps.items():
+        try:
+            # Prüfe ob die App freigegeben ist (anonymous oder authenticated)
+            permission = AppPermission.objects.get(app_name=app_name, is_active=True)
+            
+            # App ist verfügbar wenn:
+            # - access_level ist 'anonymous' (für alle sichtbar)
+            # - access_level ist 'authenticated' (für angemeldete sichtbar, aber Info-Seite ist öffentlich)
+            # - nicht hide_in_frontend
+            if permission.access_level in ['anonymous', 'authenticated'] and not permission.hide_in_frontend:
+                available_apps[app_name] = app_info
+        except AppPermission.DoesNotExist:
+            # Wenn keine Permission existiert, App nicht anzeigen
+            pass
+    
+    return available_apps
+
+
+def public_app_info(request, app_name):
+    """Öffentliche App-Info-Seiten für nicht angemeldete Benutzer"""
+    apps_info = _get_available_apps()
     
     app_data = apps_info.get(app_name)
     if not app_data:
@@ -260,3 +390,16 @@ def public_app_info(request, app_name):
     }
     
     return render(request, 'core/public_app_info.html', context)
+
+
+def public_app_list(request):
+    """Zeigt alle verfügbaren Apps für nicht angemeldete Benutzer"""
+    apps_info = _get_available_apps()
+    
+    context = {
+        'apps': apps_info,
+        'is_public': True,
+        'current_page': 'app_list'
+    }
+    
+    return render(request, 'core/public_app_list.html', context)
