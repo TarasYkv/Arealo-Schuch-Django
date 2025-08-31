@@ -1,0 +1,689 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load loomads_tags %}
+{% load editable_content %}
+
+{% block title %}{{ app.name }} - Workloom{% endblock %}
+
+{% block content %}
+<style>
+    /* Import modern font */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+    
+    /* Override all styles for app pages */
+    .app-page * {
+        font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    }
+    
+    /* Hero Section Styles */
+    .app-hero-section {
+        min-height: 75vh !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        display: flex !important;
+        align-items: center !important;
+        position: relative !important;
+        overflow: hidden !important;
+    }
+    
+    .app-hero-section.color-primary {
+        background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%) !important;
+    }
+    
+    .app-hero-section.color-success {
+        background: linear-gradient(135deg, #2dce89 0%, #11cdef 100%) !important;
+    }
+    
+    .app-hero-section.color-danger {
+        background: linear-gradient(135deg, #f5365c 0%, #f56036 100%) !important;
+    }
+    
+    .app-hero-section.color-info {
+        background: linear-gradient(135deg, #11cdef 0%, #1171ef 100%) !important;
+    }
+    
+    .app-hero-section.color-warning {
+        background: linear-gradient(135deg, #fb6340 0%, #fbb140 100%) !important;
+    }
+    
+    .app-hero-section.color-secondary {
+        background: linear-gradient(135deg, #8898aa 0%, #525f7f 100%) !important;
+    }
+    
+    .hero-pattern {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        background-image: radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 1px) !important;
+        background-size: 30px 30px !important;
+        animation: patternMove 30s linear infinite !important;
+    }
+    
+    @keyframes patternMove {
+        0% { transform: translate(0, 0) !important; }
+        100% { transform: translate(30px, 30px) !important; }
+    }
+    
+    .app-hero-content {
+        position: relative !important;
+        z-index: 10 !important;
+        text-align: center !important;
+        color: white !important;
+    }
+    
+    .app-hero-icon {
+        font-size: 4rem !important;
+        margin-bottom: 1.5rem !important;
+        display: block !important;
+        animation: floatIcon 3s ease-in-out infinite !important;
+    }
+    
+    @keyframes floatIcon {
+        0%, 100% { transform: translateY(0px) !important; }
+        50% { transform: translateY(-15px) !important; }
+    }
+    
+    .app-hero-title {
+        font-size: 3rem !important;
+        font-weight: 800 !important;
+        margin-bottom: 1rem !important;
+        color: white !important;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.2) !important;
+    }
+    
+    .app-hero-subtitle {
+        font-size: 1.3rem !important;
+        margin-bottom: 2rem !important;
+        opacity: 0.95 !important;
+        font-weight: 400 !important;
+        max-width: 600px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+    
+    .app-hero-buttons {
+        margin-bottom: 2rem !important;
+    }
+    
+    .app-hero-btn {
+        display: inline-block !important;
+        padding: 1rem 2.5rem !important;
+        margin: 0.5rem !important;
+        border-radius: 50px !important;
+        text-decoration: none !important;
+        font-weight: 600 !important;
+        font-size: 1.1rem !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .app-hero-btn-primary {
+        background: white !important;
+        color: #333 !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
+    }
+    
+    .app-hero-btn-primary:hover {
+        transform: translateY(-3px) !important;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+        text-decoration: none !important;
+        color: #333 !important;
+    }
+    
+    .app-hero-btn-secondary {
+        background: rgba(255,255,255,0.15) !important;
+        color: white !important;
+        border: 2px solid rgba(255,255,255,0.3) !important;
+    }
+    
+    .app-hero-btn-secondary:hover {
+        background: rgba(255,255,255,0.25) !important;
+        color: white !important;
+        text-decoration: none !important;
+    }
+    
+    /* Feature Section */
+    .app-features-section {
+        padding: 4rem 0 !important;
+        background: #f8f9fa !important;
+    }
+    
+    .app-section-title {
+        font-size: 2.5rem !important;
+        font-weight: 800 !important;
+        color: #2c3e50 !important;
+        text-align: center !important;
+        margin-bottom: 1rem !important;
+    }
+    
+    .app-section-subtitle {
+        font-size: 1.1rem !important;
+        color: #6c757d !important;
+        text-align: center !important;
+        margin-bottom: 3rem !important;
+    }
+    
+    .app-feature-card {
+        background: white !important;
+        border-radius: 15px !important;
+        padding: 2rem !important;
+        height: 100% !important;
+        border: none !important;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.08) !important;
+        transition: all 0.3s ease !important;
+        text-align: center !important;
+    }
+    
+    .app-feature-card:hover {
+        transform: translateY(-5px) !important;
+        box-shadow: 0 15px 30px rgba(0,0,0,0.15) !important;
+    }
+    
+    .app-feature-icon {
+        width: 70px !important;
+        height: 70px !important;
+        border-radius: 15px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 auto 1.5rem !important;
+        font-size: 1.8rem !important;
+        color: white !important;
+    }
+    
+    .app-feature-icon.icon-primary {
+        background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%) !important;
+    }
+    
+    .app-feature-icon.icon-success {
+        background: linear-gradient(135deg, #2dce89 0%, #11cdef 100%) !important;
+    }
+    
+    .app-feature-icon.icon-danger {
+        background: linear-gradient(135deg, #f5365c 0%, #f56036 100%) !important;
+    }
+    
+    .app-feature-icon.icon-info {
+        background: linear-gradient(135deg, #11cdef 0%, #1171ef 100%) !important;
+    }
+    
+    .app-feature-icon.icon-warning {
+        background: linear-gradient(135deg, #fb6340 0%, #fbb140 100%) !important;
+    }
+    
+    .app-feature-icon.icon-secondary {
+        background: linear-gradient(135deg, #8898aa 0%, #525f7f 100%) !important;
+    }
+    
+    .app-feature-title {
+        font-size: 1.3rem !important;
+        font-weight: 700 !important;
+        color: #2c3e50 !important;
+        margin-bottom: 0.8rem !important;
+    }
+    
+    .app-feature-text {
+        color: #6c757d !important;
+        line-height: 1.6 !important;
+    }
+    
+    /* Benefits Section */
+    .app-benefits-section {
+        padding: 4rem 0 !important;
+        background: white !important;
+    }
+    
+    .app-benefit-card {
+        background: #f8f9fa !important;
+        border-radius: 15px !important;
+        padding: 2rem !important;
+        margin-bottom: 1.5rem !important;
+        border-left: 5px solid #5e72e4 !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .app-benefit-card.benefit-primary {
+        border-left-color: #5e72e4 !important;
+    }
+    
+    .app-benefit-card.benefit-success {
+        border-left-color: #2dce89 !important;
+    }
+    
+    .app-benefit-card.benefit-danger {
+        border-left-color: #f5365c !important;
+    }
+    
+    .app-benefit-card.benefit-info {
+        border-left-color: #11cdef !important;
+    }
+    
+    .app-benefit-card.benefit-warning {
+        border-left-color: #fb6340 !important;
+    }
+    
+    .app-benefit-card.benefit-secondary {
+        border-left-color: #8898aa !important;
+    }
+    
+    .app-benefit-card:hover {
+        transform: translateX(10px) !important;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1) !important;
+    }
+    
+    .app-benefit-title {
+        font-size: 1.4rem !important;
+        font-weight: 700 !important;
+        color: #2c3e50 !important;
+        margin-bottom: 0.8rem !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+    
+    .app-benefit-icon {
+        font-size: 1.5rem !important;
+        margin-right: 1rem !important;
+    }
+    
+    .app-benefit-text {
+        color: #495057 !important;
+        line-height: 1.6 !important;
+    }
+    
+    /* Stats Section */
+    .app-stats-section {
+        padding: 3rem 0 !important;
+        background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%) !important;
+        color: white !important;
+    }
+    
+    .app-stats-section.stats-primary {
+        background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%) !important;
+    }
+    
+    .app-stats-section.stats-success {
+        background: linear-gradient(135deg, #2dce89 0%, #11cdef 100%) !important;
+    }
+    
+    .app-stats-section.stats-danger {
+        background: linear-gradient(135deg, #f5365c 0%, #f56036 100%) !important;
+    }
+    
+    .app-stats-section.stats-info {
+        background: linear-gradient(135deg, #11cdef 0%, #1171ef 100%) !important;
+    }
+    
+    .app-stats-section.stats-warning {
+        background: linear-gradient(135deg, #fb6340 0%, #fbb140 100%) !important;
+    }
+    
+    .app-stats-section.stats-secondary {
+        background: linear-gradient(135deg, #8898aa 0%, #525f7f 100%) !important;
+    }
+    
+    .app-stat-item {
+        text-align: center !important;
+        padding: 1.5rem !important;
+    }
+    
+    .app-stat-number {
+        font-size: 2.5rem !important;
+        font-weight: 800 !important;
+        margin-bottom: 0.5rem !important;
+        color: white !important;
+    }
+    
+    .app-stat-label {
+        font-size: 1rem !important;
+        opacity: 0.9 !important;
+        color: white !important;
+    }
+    
+    /* CTA Section */
+    .app-cta-section {
+        padding: 4rem 0 !important;
+        background: linear-gradient(135deg, #f5365c 0%, #fb6340 100%) !important;
+        color: white !important;
+        text-align: center !important;
+    }
+    
+    .app-cta-title {
+        font-size: 2.5rem !important;
+        font-weight: 800 !important;
+        margin-bottom: 1rem !important;
+        color: white !important;
+    }
+    
+    .app-cta-subtitle {
+        font-size: 1.2rem !important;
+        margin-bottom: 2rem !important;
+        opacity: 0.9 !important;
+        color: white !important;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .app-hero-title {
+            font-size: 2rem !important;
+        }
+        .app-hero-subtitle {
+            font-size: 1.1rem !important;
+        }
+        .app-section-title {
+            font-size: 2rem !important;
+        }
+        .app-hero-icon {
+            font-size: 3rem !important;
+        }
+    }
+</style>
+
+<div class="app-page">
+    <!-- Hero Section -->
+    <section class="app-hero-section color-{{ app.color }}">
+        <div class="hero-pattern"></div>
+        <div class="container">
+            <div class="app-hero-content">
+                <i class="bi {{ app.icon }} app-hero-icon"></i>
+                <h1 class="app-hero-title">{{ app.name }}</h1>
+                <p class="app-hero-subtitle">{{ app.short_desc }}</p>
+                <div class="app-hero-buttons">
+                    <a href="{% url 'accounts:signup' %}" class="app-hero-btn app-hero-btn-primary">
+                        <i class="bi bi-rocket-takeoff me-2"></i>
+                        Kostenlos starten
+                    </a>
+                    <a href="#features" class="app-hero-btn app-hero-btn-secondary">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Mehr erfahren
+                    </a>
+                </div>
+                <div>
+                    <div class="d-flex justify-content-center gap-1 mb-2">
+                        {% for i in "12345"|make_list %}
+                            <i class="bi bi-star-fill text-warning"></i>
+                        {% endfor %}
+                    </div>
+                    <p class="opacity-90">Über 50.000 zufriedene Kunden weltweit</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="app-features-section">
+        <div class="container">
+            {% show_ad_zone 'public_app_content' css_class='mb-5' %}
+            
+            <h2 class="app-section-title">Leistungsstarke Features</h2>
+            <p class="app-section-subtitle">Entdecken Sie alle Möglichkeiten unserer App</p>
+            
+            <div class="row g-4">
+                {% for feature in app.features %}
+                <div class="col-lg-4 col-md-6">
+                    <div class="app-feature-card">
+                        <div class="app-feature-icon icon-{{ app.color }}">
+                            <i class="bi bi-check-lg"></i>
+                        </div>
+                        <h3 class="app-feature-title">Feature {{ forloop.counter }}</h3>
+                        <p class="app-feature-text">{{ feature }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <!-- Benefits Section -->
+    <section class="app-benefits-section">
+        <div class="container">
+            <h2 class="app-section-title">Ihre Vorteile</h2>
+            <p class="app-section-subtitle">Darum vertrauen uns tausende Kunden</p>
+            
+            <div class="row">
+                {% for benefit_name, benefit_desc in app.benefits.items %}
+                <div class="col-lg-6">
+                    <div class="app-benefit-card benefit-{{ app.color }}">
+                        <h3 class="app-benefit-title">
+                            <i class="bi bi-check-circle-fill app-benefit-icon text-{{ app.color }}"></i>
+                            {{ benefit_name }}
+                        </h3>
+                        <p class="app-benefit-text">{{ benefit_desc }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="app-stats-section stats-{{ app.color }}">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-3 col-6">
+                    <div class="app-stat-item">
+                        <div class="app-stat-number">50K+</div>
+                        <div class="app-stat-label">Aktive Nutzer</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="app-stat-item">
+                        <div class="app-stat-number">99.9%</div>
+                        <div class="app-stat-label">Verfügbarkeit</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="app-stat-item">
+                        <div class="app-stat-number">24/7</div>
+                        <div class="app-stat-label">Support</div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="app-stat-item">
+                        <div class="app-stat-number">4.9★</div>
+                        <div class="app-stat-label">Bewertung</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials Section -->
+    <section class="py-5 bg-light">
+        <div class="container">
+            <h2 class="app-section-title">Kundenstimmen</h2>
+            <p class="app-section-subtitle">Das sagen unsere zufriedenen Kunden</p>
+            
+            <div class="row g-4">
+                <div class="col-lg-4">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body p-4">
+                            <div class="mb-3">
+                                {% for i in "12345"|make_list %}
+                                    <i class="bi bi-star-fill text-warning"></i>
+                                {% endfor %}
+                            </div>
+                            <p class="card-text mb-3 fst-italic">
+                                "Diese App hat unsere Arbeitsabläufe revolutioniert. Wir sparen täglich Stunden an Zeit!"
+                            </p>
+                            <div class="d-flex align-items-center">
+                                <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-3" 
+                                     style="width: 45px; height: 45px; font-weight: bold;">
+                                    MK
+                                </div>
+                                <div>
+                                    <strong class="d-block">Maria König</strong>
+                                    <small class="text-muted">CEO, TechStart GmbH</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-4">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body p-4">
+                            <div class="mb-3">
+                                {% for i in "12345"|make_list %}
+                                    <i class="bi bi-star-fill text-warning"></i>
+                                {% endfor %}
+                            </div>
+                            <p class="card-text mb-3 fst-italic">
+                                "Einfache Bedienung und unglaublich mächtige Features. Absolut empfehlenswert!"
+                            </p>
+                            <div class="d-flex align-items-center">
+                                <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center me-3" 
+                                     style="width: 45px; height: 45px; font-weight: bold;">
+                                    TM
+                                </div>
+                                <div>
+                                    <strong class="d-block">Thomas Müller</strong>
+                                    <small class="text-muted">Freelancer</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-4">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <div class="card-body p-4">
+                            <div class="mb-3">
+                                {% for i in "12345"|make_list %}
+                                    <i class="bi bi-star-fill text-warning"></i>
+                                {% endfor %}
+                            </div>
+                            <p class="card-text mb-3 fst-italic">
+                                "Der Support ist erstklassig und die ständigen Updates bringen tolle neue Features!"
+                            </p>
+                            <div class="d-flex align-items-center">
+                                <div class="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center me-3" 
+                                     style="width: 45px; height: 45px; font-weight: bold;">
+                                    SB
+                                </div>
+                                <div>
+                                    <strong class="d-block">Sarah Becker</strong>
+                                    <small class="text-muted">Marketing Manager</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section class="py-5">
+        <div class="container">
+            <h2 class="app-section-title">Transparente Preise</h2>
+            <p class="app-section-subtitle">Wählen Sie den perfekten Plan für Ihre Bedürfnisse</p>
+            
+            <div class="row justify-content-center">
+                <div class="col-lg-5">
+                    <div class="card border-0 shadow-lg overflow-hidden">
+                        <div class="card-header bg-{{ app.color }} text-white text-center py-4">
+                            <h3 class="card-title mb-3 text-white">Premium Plan</h3>
+                            <div class="display-4 fw-bold text-white">{{ app.pricing }}</div>
+                        </div>
+                        <div class="card-body p-4">
+                            <ul class="list-unstyled">
+                                <li class="mb-3 d-flex align-items-center">
+                                    <i class="bi bi-check-circle-fill text-success me-3"></i>
+                                    Alle Features inklusive
+                                </li>
+                                <li class="mb-3 d-flex align-items-center">
+                                    <i class="bi bi-check-circle-fill text-success me-3"></i>
+                                    Unbegrenzte Nutzer
+                                </li>
+                                <li class="mb-3 d-flex align-items-center">
+                                    <i class="bi bi-check-circle-fill text-success me-3"></i>
+                                    Priority Support 24/7
+                                </li>
+                                <li class="mb-3 d-flex align-items-center">
+                                    <i class="bi bi-check-circle-fill text-success me-3"></i>
+                                    Kostenlose Updates
+                                </li>
+                                <li class="mb-3 d-flex align-items-center">
+                                    <i class="bi bi-check-circle-fill text-success me-3"></i>
+                                    API Zugang
+                                </li>
+                                <li class="mb-3 d-flex align-items-center">
+                                    <i class="bi bi-check-circle-fill text-success me-3"></i>
+                                    Keine versteckten Kosten
+                                </li>
+                            </ul>
+                            <div class="text-center">
+                                <a href="{% url 'payments:subscription_plans' %}" class="btn btn-{{ app.color }} btn-lg rounded-pill px-5">
+                                    Jetzt upgraden
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {% show_ad_zone 'public_app_sidebar' css_class='my-5 text-center' %}
+
+    <!-- CTA Section -->
+    <section class="app-cta-section">
+        <div class="container">
+            <h2 class="app-cta-title">Bereit durchzustarten?</h2>
+            <p class="app-cta-subtitle">Schließen Sie sich über 50.000 zufriedenen Nutzern an</p>
+            <div class="mb-4">
+                <a href="{% url 'accounts:signup' %}" class="app-hero-btn app-hero-btn-primary me-3">
+                    <i class="bi bi-rocket-takeoff me-2"></i>
+                    Kostenlos registrieren
+                </a>
+                <a href="{% url 'payments:subscription_plans' %}" class="app-hero-btn app-hero-btn-primary">
+                    <i class="bi bi-credit-card me-2"></i>
+                    Preise ansehen
+                </a>
+            </div>
+            <p class="opacity-90">
+                <i class="bi bi-shield-check me-1"></i>
+                Keine Kreditkarte erforderlich • 30 Tage kostenlos testen • Jederzeit kündbar
+            </p>
+        </div>
+    </section>
+
+    {% show_ad_zone 'public_app_footer' css_class='my-4' %}
+</div>
+
+<script>
+// Smooth scrolling for anchor links
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+            target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
+    });
+});
+
+// Add some basic animations on load
+document.addEventListener('DOMContentLoaded', function() {
+    const cards = document.querySelectorAll('.app-feature-card, .app-benefit-card, .card');
+    cards.forEach((card, index) => {
+        setTimeout(() => {
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 100);
+    });
+});
+
+// Initial state for cards
+document.querySelectorAll('.app-feature-card, .app-benefit-card, .card').forEach(card => {
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(20px)';
+    card.style.transition = 'all 0.6s ease';
+});
+</script>
+
+{% endblock %}
