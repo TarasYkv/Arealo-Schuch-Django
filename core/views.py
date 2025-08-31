@@ -83,107 +83,107 @@ def _get_available_apps():
     # Alle App-Informationen (keys müssen mit AppPermission.app_name übereinstimmen)
     all_apps = {
         'todos': {
-            'name': 'ToDo Manager Pro',
+            'name': 'ToDo Manager',
             'icon': 'bi-list-check',
             'color': 'primary',
-            'short_desc': 'Die ultimative Aufgabenverwaltung für moderne Teams',
+            'short_desc': 'Einfache und effektive Aufgabenverwaltung für Teams',
             'features': [
-                'Intelligente Aufgabenplanung mit KI-Unterstützung',
-                'Kollaborative Team-Workspaces mit Echtzeit-Synchronisation',
-                'Erweiterte Prioritätssysteme und automatische Deadline-Erinnerungen',
-                'Detaillierte Fortschrittsanalysen und Produktivitäts-Insights',
-                'Integrierte Zeiterfassung und Projektbudget-Tracking',
-                'Anpassbare Dashboards und mobile Apps für iOS/Android'
+                'To-Do-Listen erstellen und verwalten',
+                'Aufgaben zwischen Teammitgliedern zuweisen',
+                'Status-Updates und Kommentarfunktion',
+                'Listen-basierte Organisation',
+                'KI-Unterstützung (in Entwicklung)',
+                'Team-Kollaboration (in Entwicklung)'
             ],
             'benefits': {
-                'Maximale Produktivität': 'Steigern Sie Ihre Teameffizienz um durchschnittlich 65% durch intelligente Automatisierung',
-                'Perfekte Organisation': 'Nie wieder verlorene Aufgaben - behalten Sie alle Projekte und Deadlines im Überblick',
-                'Nahtlose Teamwork': 'Revolutionäre Kollaboration mit Echtzeit-Updates und integrierter Kommunikation',
-                'Vollste Flexibilität': 'Komplett anpassbar an Ihre Arbeitsweise mit über 50 Integrationen'
+                'Einfache Organisation': 'Behalten Sie alle Aufgaben und Projekte strukturiert im Überblick',
+                'Team-Koordination': 'Weisen Sie Aufgaben zu und verfolgen Sie den Fortschritt',
+                'Beta-Features': 'Neue Funktionen werden kontinuierlich entwickelt und getestet',
+                'Benutzerfreundlich': 'Intuitive Bedienung ohne komplexe Einrichtung'
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         },
         'organisation': {
-            'name': 'WorkSpace Elite',
+            'name': 'WorkSpace',
             'icon': 'bi-building',
             'color': 'success',
-            'short_desc': 'Ihr All-in-One Business Hub für maximale Produktivität',
+            'short_desc': 'Organisieren Sie Termine, Notizen und Ideen zentral',
             'features': [
-                'KI-powered Terminplanung mit automatischer Konfliktauflösung',
-                'Enterprise-Dokumentenmanagement mit Versionskontrolle',
-                'Interaktive Mindmaps und digitale Whiteboards für Brainstorming',
-                'Integrierte 4K-Videokonferenzen mit Bildschirmfreigabe',
-                'Fortgeschrittene Teamanalytics und Performance-Dashboards',
-                'Cross-Platform Synchronisation und Offline-Modus'
+                'Notizen erstellen und verwalten',
+                'Kalender mit Terminerstellung',
+                'Digitale Ideenboards mit Kollaboration',
+                'Video/Audio-Calls zwischen Nutzern',
+                'Einladungen an andere Nutzer',
+                'KI-Terminplanung (in Entwicklung)'
             ],
             'benefits': {
-                'Revolutionäre Effizienz': 'Reduzieren Sie administrative Aufgaben um bis zu 70% durch intelligente Automatisierung',
-                'Zentrale Kommandozentrale': 'Verwalten Sie alle Geschäftsprozesse von einer einzigen, intuitiven Plattform',
-                'Grenzenlose Mobilität': 'Arbeiten Sie produktiv von überall - Cloud-basiert mit 99.9% Uptime-Garantie',
-                'Intelligente Integration': 'Nahtlose Anbindung an über 100 Business-Tools und APIs'
+                'Zentrale Organisation': 'Alle wichtigen Informationen und Termine an einem Ort',
+                'Team-Kollaboration': 'Arbeiten Sie gemeinsam an Ideen und Projekten',
+                'Integrierte Kommunikation': 'Direct Calls und Zusammenarbeit möglich',
+                'Beta-Entwicklung': 'Ständig neue Features in der Entwicklungsphase'
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         },
         'videos': {
-            'name': 'VideoFlow Pro',
+            'name': 'VideoFlow',
             'icon': 'bi-play-circle',
             'color': 'danger',
-            'short_desc': 'Professionelles Video-Hosting der nächsten Generation',
+            'short_desc': 'Einfaches Video-Hosting und -Management',
             'features': [
-                'Unbegrenzte 8K Video-Uploads mit intelligenter Komprimierung',
-                'KI-basierte automatische Transkription in 50+ Sprachen',
-                'Fortgeschrittene Video-SEO und Content-Discovery-Engine',
-                'Interactive Video-Player mit Hotspots und Call-to-Actions',
-                'Live-Streaming mit bis zu 100.000 gleichzeitigen Zuschauern',
-                'Erweiterte Analytics und Zuschauerverhalten-Tracking'
+                'Video-Upload und -Speicherung',
+                'Öffentliche und private Video-Links',
+                'Embed-Player für Websites',
+                'Video-Archivierung und Prioritäten',
+                'Storage-Management',
+                'KI-Transkription (in Entwicklung)'
             ],
             'benefits': {
-                'Unlimited Skalierung': 'Bis zu 10TB Cloud-Speicher mit globaler CDN-Auslieferung',
-                'Broadcast-Qualität': '8K Video-Unterstützung mit adaptiver Bitrate-Streaming',
-                'Enterprise-Sicherheit': 'Ende-zu-Ende Verschlüsselung mit DRM-Schutz',
-                'Tiefe Insights': 'Detaillierte Zuschaueranalytik mit Heatmaps und Engagement-Metriken'
+                'Sicheres Hosting': 'Ihre Videos sicher gespeichert und verfügbar',
+                'Einfache Integration': 'Embed-Codes für nahtlose Website-Integration',
+                'Flexible Verwaltung': 'Organisieren Sie Videos nach Prioritäten',
+                'StreamRec Integration': 'Direkte Uploads aus der StreamRec App'
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         },
         'streamrec': {
-            'name': 'StreamRec Studio Pro',
+            'name': 'StreamRec Studio',
             'icon': 'bi-mic',
             'color': 'info',
-            'short_desc': 'Die ultimative Content-Creation-Suite für Profis',
+            'short_desc': 'Bildschirm- und Audio-Aufnahme für Content Creation',
             'features': [
-                '4K Bildschirmaufnahme mit Multi-Monitor-Unterstützung',
-                'Professional-Grade Audio mit Rauschunterdrückung und EQ',
-                'Multi-Stream Live-Broadcasting auf alle Plattformen gleichzeitig',
-                'KI-gestützte automatische Nachbearbeitung und Schnitt',
-                'Unbegrenztes Cloud-Backup mit intelligenter Archivierung',
-                'Integrierte Grafik-Overlays und Green-Screen-Technologie'
+                'Browser-basierte Audio-Aufnahme',
+                'Bildschirmaufnahme (in Entwicklung)',
+                'Kamera-Zugriff für Recording',
+                'Geräte-Erkennung und -Test',
+                'VideoFlow-Integration für Uploads',
+                'Multi-Stream Broadcasting (in Entwicklung)'
             ],
             'benefits': {
-                'Studio-Exzellenz': 'Broadcast-Qualität direkt vom Homeoffice mit professionellem Equipment-Sound',
-                'Maximale Effizienz': 'Ein-Klick-Workflows für komplette Produktionen von Aufnahme bis Publishing',
-                'Grenzenlose Kreativität': 'Perfekt für Podcasts, Webinare, Tutorials, Gaming-Streams und Corporate-Videos',
-                'Absolute Sicherheit': 'Automatisches Cloud-Backup mit Versionierung und 30-Tage-Wiederherstellung'
+                'Einfache Bedienung': 'Direkt im Browser ohne Software-Installation',
+                'Content Creation': 'Perfekt für Podcasts, Tutorials und Präsentationen',
+                'Integrierte Lösung': 'Aufnehmen und direkt in VideoFlow hochladen',
+                'Beta-Features': 'Ständige Weiterentwicklung neuer Aufnahme-Features'
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         },
         'shopify': {
-            'name': 'ShopifyFlow AI',
+            'name': 'ShopifyFlow',
             'icon': 'bi-shop',
             'color': 'secondary',
-            'short_desc': 'KI-gestütztes E-Commerce Management für maximale Umsätze',
+            'short_desc': 'Shopify-Shop Management und Optimierung',
             'features': [
-                'Intelligente Multi-Shop Verwaltung mit Unified Dashboard',
-                'KI-basierte automatisierte Bestellabwicklung und Fulfillment',
-                'Predictive Inventory Management mit Demand Forecasting',
-                'Advanced Customer Analytics mit Lifetime Value Prediction',
-                'Omnichannel Marketing-Automatisierung mit A/B Testing',
-                'Dynamische Preisoptimierung und Conversion-Rate-Optimierung'
+                'Multi-Shop Verwaltung',
+                'Produkt-Import und -Synchronisation',
+                'SEO-Optimierung für Produkte und Collections',
+                'Alt-Text-Manager für Bilder',
+                'Blog-Management',
+                'Verkaufsanalysen und Kostentracking'
             ],
             'benefits': {
-                'Umsatzexplosion': 'Steigern Sie Ihren Umsatz um durchschnittlich 85% durch KI-optimierte Prozesse',
-                'Totale Automatisierung': 'Reduzieren Sie manuelle Aufgaben um bis zu 95% durch intelligente Workflows',
-                'Kompletter Überblick': 'Verwalten Sie unbegrenzt viele Shops von einem zentralen Control-Center',
-                'Unbegrenztes Wachstum': 'Skalieren Sie mühelos von Startup bis Enterprise mit elastischer Infrastruktur'
+                'Zentrale Verwaltung': 'Verwalten Sie mehrere Shopify-Shops von einer Plattform',
+                'SEO-Optimierung': 'Verbessern Sie Ihre Suchmaschinen-Rankings',
+                'Zeitersparnis': 'Automatisieren Sie wiederkehrende Shop-Management-Aufgaben',
+                'Kostenübersicht': 'Behalten Sie PayPal-Gebühren und andere Kosten im Blick'
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         },
@@ -297,16 +297,20 @@ def _get_available_apps():
             'name': 'PromptPro',
             'icon': 'bi-collection',
             'color': 'info',
-            'short_desc': 'KI-Prompt-Management und -Optimierung',
+            'short_desc': 'KI-Prompt-Bibliothek und Kategorisierung',
             'features': [
-                'Prompt-Bibliothek verwalten',
-                'KI-optimierte Prompt-Erstellung',
-                'Team-Kollaboration',
-                'Performance-Analytics'
+                'Prompt-Bibliothek erstellen und verwalten',
+                'Kategorien für bessere Organisation',
+                'Prompt-Templates speichern',
+                'Einfache Suche und Verwaltung',
+                'Team-Kollaboration (in Entwicklung)',
+                'Performance-Analytics (in Entwicklung)'
             ],
             'benefits': {
-                'Bessere KI-Ergebnisse': 'Optimierte Prompts für bessere Outputs',
-                'Zeit sparen': 'Wiederverwendbare Prompt-Templates'
+                'Bessere Organisation': 'Alle Ihre KI-Prompts zentral verwaltet',
+                'Zeit sparen': 'Wiederverwendbare Prompt-Templates',
+                'Strukturiert arbeiten': 'Kategorien helfen beim schnellen Finden',
+                'Beta-Entwicklung': 'Neue Features kommen regelmäßig dazu'
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         }
@@ -336,7 +340,10 @@ def public_app_info(request, app_name):
     # Get editable content if exists
     editable_content = {}
     if request.user.is_authenticated and request.user.is_superuser:
-        editable_content = EditableContent.get_content_for_page(f'app_info_{app_name}')
+        editable_content = EditableContent.objects.filter(
+            user=request.user, 
+            page=f'app_info_{app_name}'
+        ).order_by('sort_order', 'created_at')
     
     context = {
         'app_name': app_name,

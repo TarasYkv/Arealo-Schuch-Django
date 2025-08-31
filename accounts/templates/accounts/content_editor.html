@@ -2767,9 +2767,8 @@ function convertToEditableContent(staticId) {
         // Generate a unique content key
         const contentKey = `converted_${staticId}_${Date.now()}`;
         
-        // Get current page from URL parameter
-        const urlParams = new URLSearchParams(window.location.search);
-        const currentPage = urlParams.get('page') || 'startseite';
+        // Get current page directly from template context (more reliable than URL)
+        const currentPage = '{{ page }}' || 'startseite';
         
         // Create FormData for the request
         const formData = new FormData();
@@ -2786,11 +2785,21 @@ function convertToEditableContent(staticId) {
             method: 'POST',
             body: formData,
             headers: {
-                'X-CSRFToken': getCookie('csrftoken')
-            }
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin'
         })
-        .then(response => response.json())
-        .then(data => {
+        .then(async response => {
+            let data;
+            try {
+                data = await response.json();
+            } catch (e) {
+                // Not JSON (e.g., 403/500 with HTML) – show meaningful message
+                const text = await response.text();
+                throw new Error(`HTTP ${response.status}: ${text.substring(0, 300)}`);
+            }
+            
             if (data.success) {
                 // Replace static container with editable content
                 container.setAttribute('data-editable-id', data.content_id);
@@ -2815,7 +2824,7 @@ function convertToEditableContent(staticId) {
         })
         .catch(error => {
             console.error('Error converting to editable content:', error);
-            alert('Fehler beim Umwandeln des Inhalts.');
+            alert('Fehler beim Umwandeln des Inhalts: ' + (error && error.message ? error.message : 'Unbekannter Fehler'));
         });
     }
 }
