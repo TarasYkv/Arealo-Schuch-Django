@@ -20,7 +20,7 @@
                     </div>
                 {% endif %}
                 
-                <form method="post">
+                <form method="post" id="signupForm">
                     {% csrf_token %}
                     
                     <div class="mb-3">
@@ -50,9 +50,26 @@
                     </div>
                     
                     <div class="d-grid">
-                        <button type="submit" class="btn btn-success btn-lg">
-                            <i class="bi bi-person-check"></i> Registrieren
+                        <button type="submit" class="btn btn-success btn-lg" id="submitBtn">
+                            <span id="btnIcon" class="bi bi-person-check"></span>
+                            <span id="btnText">Registrieren</span>
+                            <span id="btnSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
                         </button>
+                    </div>
+                    
+                    <!-- Loading overlay -->
+                    <div id="loadingOverlay" class="d-none">
+                        <div class="text-center py-3">
+                            <div class="spinner-border text-success" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    <strong>Registrierung wird verarbeitet...</strong><br>
+                                    Dies kann einen Moment dauern. Bitte haben Sie etwas Geduld.
+                                </small>
+                            </div>
+                        </div>
                     </div>
                 </form>
                 
@@ -69,4 +86,52 @@
         </div>
     </div>
 </div>
+
+<script>
+document.getElementById('signupForm').addEventListener('submit', function() {
+    // Button elements
+    const submitBtn = document.getElementById('submitBtn');
+    const btnIcon = document.getElementById('btnIcon');
+    const btnText = document.getElementById('btnText');
+    const btnSpinner = document.getElementById('btnSpinner');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    
+    // Disable button and show loading state
+    submitBtn.disabled = true;
+    submitBtn.classList.add('disabled');
+    
+    // Hide icon and text, show spinner
+    btnIcon.classList.add('d-none');
+    btnText.textContent = 'Wird verarbeitet...';
+    btnSpinner.classList.remove('d-none');
+    
+    // Show loading overlay after form
+    loadingOverlay.classList.remove('d-none');
+    
+    // Optional: Add a subtle fade effect to the form
+    document.querySelector('.card-body').style.opacity = '0.8';
+});
+
+// Re-enable button if there's an error (form is redisplayed)
+window.addEventListener('load', function() {
+    const submitBtn = document.getElementById('submitBtn');
+    const btnIcon = document.getElementById('btnIcon');
+    const btnText = document.getElementById('btnText');
+    const btnSpinner = document.getElementById('btnSpinner');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    
+    // Check if there are form errors (form was redisplayed)
+    const hasErrors = document.querySelector('.alert-danger');
+    if (hasErrors) {
+        // Reset button state
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('disabled');
+        btnIcon.classList.remove('d-none');
+        btnText.textContent = 'Registrieren';
+        btnSpinner.classList.add('d-none');
+        loadingOverlay.classList.add('d-none');
+        document.querySelector('.card-body').style.opacity = '1';
+    }
+});
+</script>
 {% endblock %}
