@@ -25,7 +25,7 @@
                         {% endfor %}
                     {% endif %}
                     
-                    <form method="post">
+                    <form method="post" id="resendForm">
                         {% csrf_token %}
                         <div class="mb-3">
                             <label for="email" class="form-label">E-Mail-Adresse</label>
@@ -34,9 +34,28 @@
                         </div>
                         
                         <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-paper-plane"></i> E-Mail erneut senden
+                            <button type="submit" class="btn btn-primary" id="resendBtn">
+                                <i class="fas fa-paper-plane" id="btnIcon"></i>
+                                <span id="btnText">E-Mail erneut senden</span>
+                                <div id="btnSpinner" class="spinner-border spinner-border-sm d-none" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
                             </button>
+                        </div>
+                        
+                        <!-- Loading message -->
+                        <div id="loadingMessage" class="d-none mt-3">
+                            <div class="alert alert-info">
+                                <div class="d-flex align-items-center">
+                                    <div class="spinner-border spinner-border-sm text-info me-3" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <div>
+                                        <strong>E-Mail wird versendet...</strong><br>
+                                        <small>Dies kann einen Moment dauern. Bitte warten Sie.</small>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </form>
                     
@@ -62,4 +81,49 @@
         </div>
     </div>
 </div>
+
+<script>
+document.getElementById('resendForm').addEventListener('submit', function() {
+    const resendBtn = document.getElementById('resendBtn');
+    const btnIcon = document.getElementById('btnIcon');
+    const btnText = document.getElementById('btnText');
+    const btnSpinner = document.getElementById('btnSpinner');
+    const loadingMessage = document.getElementById('loadingMessage');
+    
+    // Disable button and show loading state
+    resendBtn.disabled = true;
+    resendBtn.classList.add('disabled');
+    
+    // Update button appearance
+    btnIcon.style.display = 'none';
+    btnText.textContent = 'Wird versendet...';
+    btnSpinner.classList.remove('d-none');
+    
+    // Show loading message
+    loadingMessage.classList.remove('d-none');
+    
+    // Scroll to loading message
+    loadingMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+
+// Reset button if form is redisplayed (e.g., validation error)
+window.addEventListener('load', function() {
+    const hasMessages = document.querySelector('.alert');
+    if (hasMessages) {
+        const resendBtn = document.getElementById('resendBtn');
+        const btnIcon = document.getElementById('btnIcon');
+        const btnText = document.getElementById('btnText');
+        const btnSpinner = document.getElementById('btnSpinner');
+        const loadingMessage = document.getElementById('loadingMessage');
+        
+        // Reset button state
+        resendBtn.disabled = false;
+        resendBtn.classList.remove('disabled');
+        btnIcon.style.display = 'inline';
+        btnText.textContent = 'E-Mail erneut senden';
+        btnSpinner.classList.add('d-none');
+        loadingMessage.classList.add('d-none');
+    }
+});
+</script>
 {% endblock %}

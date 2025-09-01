@@ -36,7 +36,7 @@
                     {% endfor %}
                 {% endif %}
                 
-                <form method="post">
+                <form method="post" id="loginForm">
                     {% csrf_token %}
                     
                     <div class="mb-3">
@@ -50,8 +50,12 @@
                     </div>
                     
                     <div class="d-grid">
-                        <button type="submit" class="btn btn-primary btn-lg">
-                            <i class="bi bi-box-arrow-in-right"></i> Anmelden
+                        <button type="submit" class="btn btn-primary btn-lg" id="loginBtn">
+                            <i class="bi bi-box-arrow-in-right" id="loginIcon"></i>
+                            <span id="loginText">Anmelden</span>
+                            <div class="spinner-border spinner-border-sm d-none" id="loginSpinner" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
                         </button>
                     </div>
                 </form>
@@ -69,4 +73,36 @@
         </div>
     </div>
 </div>
+
+<script>
+document.getElementById('loginForm').addEventListener('submit', function() {
+    const loginBtn = document.getElementById('loginBtn');
+    const loginIcon = document.getElementById('loginIcon');
+    const loginText = document.getElementById('loginText');
+    const loginSpinner = document.getElementById('loginSpinner');
+    
+    // Show loading state (subtle for login)
+    loginBtn.disabled = true;
+    loginIcon.style.opacity = '0.5';
+    loginText.textContent = 'Wird angemeldet...';
+    loginSpinner.classList.remove('d-none');
+});
+
+// Reset button if form is redisplayed with errors
+window.addEventListener('load', function() {
+    const hasErrors = document.querySelector('.alert-warning, .login-error');
+    if (hasErrors) {
+        const loginBtn = document.getElementById('loginBtn');
+        const loginIcon = document.getElementById('loginIcon');
+        const loginText = document.getElementById('loginText');
+        const loginSpinner = document.getElementById('loginSpinner');
+        
+        // Reset button state
+        loginBtn.disabled = false;
+        loginIcon.style.opacity = '1';
+        loginText.textContent = 'Anmelden';
+        loginSpinner.classList.add('d-none');
+    }
+});
+</script>
 {% endblock %}
