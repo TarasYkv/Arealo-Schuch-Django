@@ -2182,8 +2182,13 @@ function setupContainerHandling(frameDoc) {
         containerControls.className = 'container-controls';
         
         // Find the first editable content in this container for ID reference
-        const editableContent = container.querySelector('[data-editable-id]');
-        const contentId = editableContent ? editableContent.dataset.editableId : '';
+        let editableContent = container.querySelector('[data-editable-id]');
+        let contentId = editableContent ? editableContent.dataset.editableId : '';
+        // Fallback: if container itself is the editable target
+        if (!contentId && container.dataset && container.dataset.editableId) {
+            contentId = container.dataset.editableId;
+            editableContent = container;
+        }
         
         // Special handling for static content without editable IDs
         if (!contentId) {
@@ -2214,14 +2219,18 @@ function setupContainerHandling(frameDoc) {
                 e.stopPropagation();
                 
                 // Check if this container has editable content with AI capabilities
-                const editableContent = this.querySelector('[data-editable-type="html_block"], [data-editable-type="ai_generated"]');
-                if (editableContent && editableContent.isConnected) {
-                    const contentId = editableContent.dataset.editableId;
-                    if (contentId) {
-                        // Verify content still exists by checking if element has valid data
-                        showAiEditModal(contentId, editableContent);
+                let editableContentEl = this.querySelector('[data-editable-type="html_block"], [data-editable-type="ai_generated"]');
+                if (!editableContentEl && this.dataset && this.dataset.editableId) {
+                    editableContentEl = this;
+                }
+                if (editableContentEl && editableContentEl.isConnected) {
+                    const cid = editableContentEl.dataset.editableId;
+                    if (cid) {
+                        showAiEditModal(cid, editableContentEl);
+                        return;
                     }
-                } else {
+                }
+                {
                     // For static containers, show static editing modal
                     const staticId = this.getAttribute('data-static-id');
                     if (staticId) {
@@ -2727,6 +2736,9 @@ function showStaticContainerEditModal(containerElement, staticId) {
                             <button class="btn btn-primary" onclick="convertToEditableContent('${staticId}')">
                                 <i class="fas fa-magic me-2"></i>In bearbeitbaren Inhalt umwandeln
                             </button>
+                            <button class="btn btn-outline-primary" onclick="createOverrideForStatic('${staticId}')">
+                                <i class="fas fa-exchange-alt me-2"></i>Bestehendes Element überschreiben (ohne Duplikat)
+                            </button>
                             <button class="btn btn-outline-secondary" onclick="duplicateAsEditableContent('${staticId}')">
                                 <i class="fas fa-copy me-2"></i>Als bearbeitbaren Inhalt duplizieren
                             </button>
@@ -2810,8 +2822,18 @@ function convertToEditableContent(staticId) {
                 // Add editable styling
                 container.classList.add('editable-content');
                 
-                // Refresh the iframe to show updated content
-                reloadIframe();
+                // Update container controls to use content actions instead of static actions
+                const controls = container.querySelector('.container-controls');
+                if (controls) {
+                    controls.innerHTML = `
+                        <button type="button" onclick="editContainer('${data.content_id}')">✏️</button>
+                        <button type="button" onclick="moveContainer(this.parentElement.parentElement, 'up')">↑</button>
+                        <button type="button" onclick="moveContainer(this.parentElement.parentElement, 'down')">↓</button>
+                        <button type="button" class="delete-btn" onclick="deleteContainer('${data.content_id}')">×</button>
+                    `;
+                }
+                
+                // Do NOT reload the iframe; keep live view so change is visible immediately
                 
                 // Close modal
                 bootstrap.Modal.getInstance(document.getElementById('staticEditModal')).hide();
@@ -2833,6 +2855,109 @@ function duplicateAsEditableContent(staticId) {
     // Similar to convert, but keeps the original
     convertToEditableContent(staticId);
 }
+
+// Compute a unique CSS selector for an element
+function getUniqueSelector(el) {
+    if (!el) return '';
+    if (el.id) return '#' + el.id;
+    const parts = [];
+    let depth = 0;
+    while (el && el.nodeType === 1 && depth < 6) { // prevent overly long selectors
+        let selector = el.nodeName.toLowerCase();
+        if (el.classList && el.classList.length) {
+            const classes = Array.from(el.classList).slice(0, 3).map(c => '.' + c.replace(/[^a-zA-Z0-9_-]/g, ''));
+            if (classes.length) selector += classes.join('');
+        }
+        // nth-of-type disambiguation
+        let sib = el, nth = 1;
+        while ((sib = sib.previousElementSibling) != null) {
+            if (sib.nodeName.toLowerCase() === el.nodeName.toLowerCase()) nth++;
+        }
+        selector += `:nth-of-type(${nth})`;
+        parts.unshift(selector);
+        if (el.parentElement && el.parentElement.id) {
+            parts.unshift('#' + el.parentElement.id);
+            break;
+        }
+        el = el.parentElement;
+        depth++;
+    }
+    return parts.join(' > ');
+}
+
+// Create an override for a static container (replace in place without duplicating)
+function createOverrideForStatic(staticId) {
+    const iframe = document.querySelector('iframe');
+    const frameDoc = iframe && (iframe.contentDocument || iframe.contentWindow.document);
+    const container = frameDoc && frameDoc.querySelector(`[data-static-id="${staticId}"]`);
+    if (!container) {
+        alert('Container wurde nicht gefunden.');
+        return;
+    }
+    const selector = getUniqueSelector(container);
+    if (!selector) {
+        alert('Konnte keinen eindeutigen Selektor bestimmen.');
+        return;
+    }
+
+    const htmlContent = container.innerHTML;
+    const contentKey = `override:${selector}`;
+    const currentPage = '{{ page }}' || 'startseite';
+
+    const formData = new FormData();
+    formData.append('content_key', contentKey);
+    formData.append('content_type', 'html_block');
+    formData.append('html_content', htmlContent);
+    formData.append('text_content', '');
+    formData.append('page', currentPage);
+    formData.append('sort_order', '0');
+    formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+
+    fetch('{% url "accounts:update_content" %}', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-CSRFToken': getCookie('csrftoken'), 'Accept': 'application/json' },
+        credentials: 'same-origin'
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            // Apply override immediately in the iframe
+            try {
+                const targets = frameDoc.querySelectorAll(selector);
+                targets.forEach(node => { 
+                    node.innerHTML = htmlContent; 
+                    // Mark node as editable to allow further edits via AI/editor
+                    node.setAttribute('data-editable-id', data.content_id);
+                    node.setAttribute('data-editable-key', contentKey);
+                    node.setAttribute('data-editable-type', 'html_block');
+                    const controls = node.querySelector('.container-controls');
+                    if (controls) {
+                        controls.innerHTML = `
+                            <button type=\"button\" onclick=\"editContainer('${data.content_id}')\">✏️</button>
+                            <button type=\"button\" onclick=\"moveContainer(this.parentElement.parentElement, 'up')\">↑</button>
+                            <button type=\"button\" onclick=\"moveContainer(this.parentElement.parentElement, 'down')\">↓</button>
+                            <button type=\"button\" class=\"delete-btn\" onclick=\"deleteContainer('${data.content_id}')\">×</button>
+                        `;
+                    }
+                });
+            } catch (e) {
+                console.warn('Konnte Override nicht direkt anwenden:', e);
+            }
+            bootstrap.Modal.getInstance(document.getElementById('staticEditModal')).hide();
+            alert('Override gespeichert. Der Bereich wird nun überschrieben und kann im Editor angepasst werden.');
+        } else {
+            alert('Fehler beim Speichern des Overrides: ' + (data.error || 'Unbekannter Fehler'));
+        }
+    })
+    .catch(err => {
+        console.error('Override Fehler:', err);
+        alert('Fehler beim Speichern des Overrides: ' + (err && err.message ? err.message : 'Unbekannter Fehler'));
+    });
+}
+
+// Expose for inline handlers
+window.createOverrideForStatic = createOverrideForStatic;
 
 // Container action functions
 function convertContainerToEditable() {
@@ -3247,6 +3372,18 @@ function refreshPreview() {
         // Add timestamp to force refresh
         const baseUrl = previewFrame.src.split('&t=')[0];
         previewFrame.src = baseUrl + '&t=' + Date.now();
+    }
+}
+
+// Backwards-compat helper used by some actions
+function reloadIframe() {
+    try {
+        refreshPreview();
+    } catch (e) {
+        const iframe = document.getElementById('previewFrame');
+        if (iframe && iframe.contentWindow) {
+            iframe.contentWindow.location.reload();
+        }
     }
 }
 

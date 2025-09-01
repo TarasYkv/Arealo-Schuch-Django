@@ -51,6 +51,7 @@ def impressum_view(request):
     """Impressum Seite"""
     context = {
         'page_title': 'Impressum',
+        'current_page': 'impressum',
     }
     return render(request, 'core/impressum.html', context)
 
@@ -58,6 +59,7 @@ def agb_view(request):
     """AGB Seite"""
     context = {
         'page_title': 'Allgemeine Geschäftsbedingungen',
+        'current_page': 'agb',
     }
     return render(request, 'core/agb.html', context)
 
@@ -65,6 +67,7 @@ def datenschutz_view(request):
     """Datenschutzbedingungen Seite"""
     context = {
         'page_title': 'Datenschutzerklärung',
+        'current_page': 'datenschutz',
     }
     return render(request, 'core/datenschutz.html', context)
 
@@ -86,6 +89,7 @@ def _get_available_apps():
             'name': 'ToDo Manager',
             'icon': 'bi-list-check',
             'color': 'primary',
+            'app_url': '/todos/',
             'short_desc': 'Einfache und effektive Aufgabenverwaltung für Teams',
             'features': [
                 'To-Do-Listen erstellen und verwalten',
@@ -107,6 +111,7 @@ def _get_available_apps():
             'name': 'WorkSpace',
             'icon': 'bi-building',
             'color': 'success',
+            'app_url': '/organization/',
             'short_desc': 'Organisieren Sie Termine, Notizen und Ideen zentral',
             'features': [
                 'Notizen erstellen und verwalten',
@@ -128,6 +133,7 @@ def _get_available_apps():
             'name': 'VideoFlow',
             'icon': 'bi-play-circle',
             'color': 'danger',
+            'app_url': '/videos/',
             'short_desc': 'Einfaches Video-Hosting und -Management',
             'features': [
                 'Video-Upload und -Speicherung',
@@ -149,6 +155,7 @@ def _get_available_apps():
             'name': 'StreamRec Studio',
             'icon': 'bi-mic',
             'color': 'info',
+            'app_url': '/streamrec/',
             'short_desc': 'Bildschirm- und Audio-Aufnahme für Content Creation',
             'features': [
                 'Browser-basierte Audio-Aufnahme',
@@ -170,6 +177,7 @@ def _get_available_apps():
             'name': 'ShopifyFlow',
             'icon': 'bi-shop',
             'color': 'secondary',
+            'app_url': '/shopify/',
             'short_desc': 'Shopify-Shop Management und Optimierung',
             'features': [
                 'Multi-Shop Verwaltung',
@@ -297,6 +305,7 @@ def _get_available_apps():
             'name': 'PromptPro',
             'icon': 'bi-collection',
             'color': 'info',
+            'app_url': '/promptpro/',
             'short_desc': 'KI-Prompt-Bibliothek und Kategorisierung',
             'features': [
                 'Prompt-Bibliothek erstellen und verwalten',
@@ -349,7 +358,7 @@ def public_app_info(request, app_name):
         'app_name': app_name,
         'app': app_data,
         'editable_content': editable_content,
-        'is_public': True,
+        'is_public': not request.user.is_authenticated,  # True nur für nicht-angemeldete Benutzer
         'current_page': f'app_info_{app_name}'
     }
     
@@ -362,7 +371,7 @@ def public_app_list(request):
     
     context = {
         'apps': apps_info,
-        'is_public': True,
+        'is_public': not request.user.is_authenticated,  # True nur für nicht-angemeldete Benutzer
         'current_page': 'app_list'
     }
     

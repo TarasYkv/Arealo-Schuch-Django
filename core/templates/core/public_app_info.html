@@ -450,10 +450,17 @@
                 <h1 class="app-hero-title">{{ app.name }}</h1>
                 <p class="app-hero-subtitle">{{ app.short_desc }}</p>
                 <div class="app-hero-buttons">
+                    {% if is_public %}
                     <a href="{% url 'accounts:signup' %}" class="app-hero-btn app-hero-btn-primary">
                         <i class="bi bi-rocket-takeoff me-2"></i>
                         Kostenlos starten
                     </a>
+                    {% else %}
+                    <a href="/{{ app_name }}/" class="app-hero-btn app-hero-btn-primary">
+                        <i class="bi bi-play-circle me-2"></i>
+                        App öffnen
+                    </a>
+                    {% endif %}
                     <a href="#features" class="app-hero-btn app-hero-btn-secondary">
                         <i class="bi bi-info-circle me-2"></i>
                         Mehr erfahren
@@ -482,37 +489,37 @@
                 </a>
             </div>
 
-            {% with page_contents=user.editable_contents.all|dictsort:"sort_order" %}
-                {% regroup page_contents by page as pages %}
-                {% for page_group in pages %}
-                    {% if page_group.grouper == current_page %}
-                        {% for content in page_group.list %}
-                            {% if content.is_active %}
-                                <div class="dynamic-content-item mb-4" data-editable-id="{{ content.id }}" data-editable-key="{{ content.content_key }}" data-editable-type="{{ content.content_type }}">
-                                    {% if content.content_type == 'html_block' or content.content_type == 'ai_generated' %}
-                                        {% if content.css_content %}<style>{{ content.css_content|safe }}</style>{% endif %}
-                                        {{ content.html_content|safe }}
-                                    {% elif content.content_type == 'image' %}
-                                        {% if content.image_content %}
-                                            <div class="text-center">
-                                                <img src="{{ content.image_content.url }}" alt="{{ content.image_alt_text|default:content.content_key }}" class="img-fluid rounded">
-                                            </div>
-                                        {% endif %}
-                                    {% else %}
-                                        {% if content.css_content %}<style>.content-{{ content.id }} { {{ content.css_content|safe }} }</style>{% endif %}
-                                        <div class="content-{{ content.id }}">{{ content.text_content }}</div>
-                                    {% endif %}
-                                </div>
+            {% if editable_content %}
+                {% for content in editable_content %}
+                    {% if content.is_active %}
+                        <div class="dynamic-content-item mb-4" data-editable-id="{{ content.id }}" data-editable-key="{{ content.content_key }}" data-editable-type="{{ content.content_type }}">
+                            {% if content.content_type == 'html_block' or content.content_type == 'ai_generated' %}
+                                {% if content.css_content %}<style>{{ content.css_content|safe }}</style>{% endif %}
+                                {{ content.html_content|safe }}
+                            {% elif content.content_type == 'image' %}
+                                {% if content.image_content %}
+                                    <div class="text-center">
+                                        <img src="{{ content.image_content.url }}" alt="{{ content.image_alt_text|default:content.content_key }}" class="img-fluid rounded">
+                                    </div>
+                                {% endif %}
+                            {% else %}
+                                {% if content.css_content %}<style>.content-{{ content.id }} { {{ content.css_content|safe }} }</style>{% endif %}
+                                <div class="content-{{ content.id }}">{{ content.text_content }}</div>
                             {% endif %}
-                        {% empty %}
-                            <div class="text-center text-muted">
-                                <i class="fas fa-layer-group fa-2x mb-2"></i>
-                                <p>Noch keine zusätzlichen Inhalte. Füge über den Editor neue Blöcke hinzu.</p>
-                            </div>
-                        {% endfor %}
+                        </div>
                     {% endif %}
+                {% empty %}
+                    <div class="text-center text-muted">
+                        <i class="fas fa-layer-group fa-2x mb-2"></i>
+                        <p>Noch keine zusätzlichen Inhalte. Füge über den Editor neue Blöcke hinzu.</p>
+                    </div>
                 {% endfor %}
-            {% endwith %}
+            {% else %}
+                <div class="text-center text-muted">
+                    <i class="fas fa-layer-group fa-2x mb-2"></i>
+                    <p>Noch keine zusätzlichen Inhalte. Füge über den Editor neue Blöcke hinzu.</p>
+                </div>
+            {% endif %}
         </div>
     </section>
     {% endif %}
@@ -733,9 +740,15 @@
                                 </li>
                             </ul>
                             <div class="text-center">
+                                {% if is_public %}
                                 <a href="{% url 'accounts:signup' %}" class="btn btn-{{ app.color }} btn-lg rounded-pill px-5">
                                     Jetzt kostenlos starten
                                 </a>
+                                {% else %}
+                                <a href="/{{ app_name }}/" class="btn btn-{{ app.color }} btn-lg rounded-pill px-5">
+                                    <i class="bi bi-play-circle me-2"></i>App jetzt nutzen
+                                </a>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -752,6 +765,7 @@
             <h2 class="app-cta-title">Bereit durchzustarten?</h2>
             <p class="app-cta-subtitle">Starten Sie jetzt kostenlos und unverbindlich</p>
             <div class="mb-4">
+                {% if is_public %}
                 <a href="{% url 'accounts:signup' %}" class="app-hero-btn app-hero-btn-primary me-3">
                     <i class="bi bi-rocket-takeoff me-2"></i>
                     Kostenlos registrieren
@@ -760,6 +774,16 @@
                     <i class="bi bi-credit-card me-2"></i>
                     Preise ansehen
                 </a>
+                {% else %}
+                <a href="/{{ app_name }}/" class="app-hero-btn app-hero-btn-primary me-3">
+                    <i class="bi bi-play-circle me-2"></i>
+                    App öffnen
+                </a>
+                <a href="{% url 'startseite' %}" class="app-hero-btn app-hero-btn-secondary">
+                    <i class="bi bi-house me-2"></i>
+                    Zur Startseite
+                </a>
+                {% endif %}
             </div>
             <p class="opacity-90">
                 <i class="bi bi-shield-check me-1"></i>
