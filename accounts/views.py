@@ -3619,7 +3619,11 @@ def resend_verification(request):
         email = request.POST.get('email')
         if email:
             try:
-                user = CustomUser.objects.get(email=email, email_verified=False)
+                # Get the most recent unverified user for this email
+                user = CustomUser.objects.filter(email=email, email_verified=False).order_by('-date_joined').first()
+                
+                if not user:
+                    raise CustomUser.DoesNotExist
                 
                 # Prüfe ob seit letzter E-Mail genug Zeit vergangen ist (5 Minuten)
                 if user.email_verification_sent_at:
@@ -3643,5 +3647,9 @@ def resend_verification(request):
             except CustomUser.DoesNotExist:
                 messages.error(request, 
                     'Keine unverifizierte E-Mail-Adresse gefunden oder E-Mail bereits bestätigt.')
+            except CustomUser.MultipleObjectsReturned:
+                # This shouldn't happen with our new logic, but adding as safety net
+                messages.error(request, 
+                    'Es gibt ein Problem mit Ihrem Konto. Bitte wenden Sie sich an den Support.')
     
     return render(request, 'accounts/resend_verification.html')

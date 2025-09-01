@@ -1,5 +1,5 @@
 """
-Custom Email Backend with automatic fallback for DNS issues
+Custom Email Backend with clear error messages for connection issues
 """
 from django.core.mail.backends.smtp import EmailBackend as SMTPEmailBackend
 from django.conf import settings
@@ -81,24 +81,33 @@ class AutoFallbackEmailBackend(SMTPEmailBackend):
     
     def open(self):
         """
-        Override open to test connection and auto-fallback if needed
+        Override open to test connection and provide clear error messages
         """
         try:
             # Test DNS resolution first
             socket.gethostbyname(self.host)
+            
+            # Test if port is reachable
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(5)
+            result = sock.connect_ex((self.host, self.port))
+            sock.close()
+            
+            if result != 0:
+                error_msg = f"❌ SMTP-Server {self.host} ist nicht erreichbar auf Port {self.port}. Bitte prüfen Sie Ihre Firewall-Einstellungen oder Netzwerkverbindung."
+                logger.error(error_msg)
+                raise socket.error(error_msg)
+            
             return super().open()
             
         except socket.gaierror as dns_error:
-            logger.warning(f"DNS resolution failed for {self.host}: {dns_error}")
+            error_msg = f"❌ DNS-Fehler: {self.host} konnte nicht aufgelöst werden. Bitte prüfen Sie die Server-Adresse."
+            logger.error(error_msg)
+            raise socket.gaierror(error_msg) from dns_error
             
-            # Attempt automatic fallback
-            fallback_result = self._attempt_fallback()
-            if fallback_result['success']:
-                logger.info(f"Successfully fell back to {self.host}")
-                return super().open()
-            else:
-                logger.error(f"All fallback attempts failed: {fallback_result['message']}")
-                raise dns_error
+        except socket.error as sock_error:
+            # Re-raise with clear message
+            raise
     
     def _attempt_fallback(self):
         """
@@ -163,9 +172,12 @@ class AutoFallbackEmailBackend(SMTPEmailBackend):
     
     def send_messages(self, email_messages):
         """
-        Override to log fallback usage
+        Override to provide clear error messages
         """
-        if self.fallback_used:
-            logger.info(f"Sending {len(email_messages)} emails via fallback server {self.host}")
-        
-        return super().send_messages(email_messages)
+        try:
+            return super().send_messages(email_messages)
+        except Exception as e:
+            error_msg = f"❌ Email-Versand fehlgeschlagen: {str(e)}"
+            logger.error(error_msg)
+            # Re-raise the original exception with clear message
+            raise Exception(error_msg) from e

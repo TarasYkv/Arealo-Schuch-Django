@@ -4095,7 +4095,53 @@
             }
         }
     });
+</script>
+
+    {% comment %} Page Override Injector {% endcomment %}
+    {% if user.is_authenticated and current_page %}
+    <script>
+    // Expose current page
+    window.__current_page = {{ current_page|safe|json_script:"current_page_value" }};
+    window.__current_page = document.getElementById('current_page_value') ? JSON.parse(document.getElementById('current_page_value').textContent) : '{{ current_page }}';
+    (function(){
+        var currentPage = window.__current_page || '';
+        if (!currentPage) return;
+        var overrides = [];
+        {% if user.is_authenticated %}
+        {% with page_contents=user.editable_contents.all|dictsort:"sort_order" %}
+        {% regroup page_contents by page as pages %}
+        {% for page_group in pages %}
+            {% if page_group.grouper == current_page %}
+                {% for content in page_group.list %}
+                    {% if content.is_active %}
+                        {% if content.content_type == 'html_block' or content.content_type == 'ai_generated' %}
+                            {% if content.content_key|slice:':9' == 'override:' %}
+                                overrides.push({selector: "{{ content.content_key|cut:'override:'|escapejs }}", html: "{{ content.html_content|escapejs }}"});
+                            {% endif %}
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        {% endfor %}
+        {% endwith %}
+        {% endif %}
+        if (!overrides.length) return;
+        var applyOverrides = function(){
+            overrides.forEach(function(ov){
+                try {
+                    var nodes = document.querySelectorAll(ov.selector);
+                    nodes.forEach(function(node){ node.innerHTML = ov.html; });
+                } catch(e) { console.warn('Override failed for', ov.selector, e); }
+            });
+        };
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', applyOverrides);
+        } else {
+            applyOverrides();
+        }
+    })();
     </script>
+    {% endif %}
 
     {% block scripts %}
     {% endblock %}
