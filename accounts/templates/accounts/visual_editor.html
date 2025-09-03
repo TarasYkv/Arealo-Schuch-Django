@@ -1,0 +1,2029 @@
+{% extends 'base_minimal.html' %}
+{% load static %}
+
+{% block title %}Visual Page Editor - {{ page_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Editor Layout */
+body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    height: 100vh;
+}
+
+.editor-container {
+    display: flex;
+    height: 100vh;
+    background: #1e1e1e;
+}
+
+/* Sidebar */
+.editor-sidebar {
+    width: 320px;
+    background: #252526;
+    border-right: 1px solid #3e3e42;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.3s ease;
+    overflow: hidden;
+}
+
+.editor-sidebar.collapsed {
+    width: 50px;
+}
+
+.sidebar-header {
+    background: #2d2d30;
+    padding: 15px;
+    border-bottom: 1px solid #3e3e42;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sidebar-title {
+    color: #cccccc;
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+}
+
+/* Tabs */
+.editor-tabs {
+    display: flex;
+    background: #2d2d30;
+    border-bottom: 1px solid #3e3e42;
+}
+
+.editor-tab {
+    flex: 1;
+    padding: 10px;
+    background: transparent;
+    border: none;
+    color: #969696;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 13px;
+}
+
+.editor-tab:hover {
+    background: #3e3e42;
+    color: #cccccc;
+}
+
+.editor-tab.active {
+    background: #252526;
+    color: #ffffff;
+    border-bottom: 2px solid #007acc;
+}
+
+/* Preview Area */
+.preview-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #1e1e1e;
+}
+
+.preview-toolbar {
+    background: #2d2d30;
+    padding: 10px 20px;
+    border-bottom: 1px solid #3e3e42;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.toolbar-left, .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.device-selector {
+    display: flex;
+    gap: 5px;
+    background: #3e3e42;
+    padding: 3px;
+    border-radius: 4px;
+}
+
+.device-btn {
+    padding: 6px 12px;
+    background: transparent;
+    border: none;
+    color: #969696;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+}
+
+.device-btn:hover {
+    background: #4e4e52;
+}
+
+.device-btn.active {
+    background: #007acc;
+    color: white;
+}
+
+.preview-frame-container {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    background: #1e1e1e;
+    overflow: auto;
+}
+
+.preview-frame-wrapper {
+    background: white;
+    box-shadow: 0 10px 50px rgba(0,0,0,0.5);
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.preview-frame-wrapper.desktop {
+    width: 100%;
+    max-width: 1400px;
+    height: 90%;
+}
+
+.preview-frame-wrapper.tablet {
+    width: 768px;
+    height: 1024px;
+}
+
+.preview-frame-wrapper.mobile {
+    width: 375px;
+    height: 667px;
+}
+
+#previewFrame {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+/* Property Editor */
+.property-group {
+    margin-bottom: 20px;
+}
+
+.property-group-title {
+    color: #cccccc;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #3e3e42;
+}
+
+.property-field {
+    margin-bottom: 12px;
+}
+
+.property-label {
+    color: #969696;
+    font-size: 12px;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.property-input,
+.property-select,
+.property-textarea {
+    width: 100%;
+    padding: 6px 10px;
+    background: #3e3e42;
+    border: 1px solid #4e4e52;
+    color: #cccccc;
+    border-radius: 3px;
+    font-size: 13px;
+}
+
+.property-input:focus,
+.property-select:focus,
+.property-textarea:focus {
+    outline: none;
+    border-color: #007acc;
+    background: #4e4e52;
+}
+
+.property-textarea {
+    min-height: 80px;
+    resize: vertical;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 12px;
+}
+
+/* Color Picker */
+.color-picker-wrapper {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.color-preview {
+    width: 30px;
+    height: 30px;
+    border-radius: 3px;
+    border: 1px solid #4e4e52;
+    cursor: pointer;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.btn-editor {
+    flex: 1;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 3px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background: #007acc;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #0098ff;
+}
+
+.btn-secondary {
+    background: #3e3e42;
+    color: #cccccc;
+}
+
+.btn-secondary:hover {
+    background: #4e4e52;
+}
+
+.btn-danger {
+    background: #c42e2e;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #e74c3c;
+}
+
+/* Floating Toolbar */
+.element-toolbar {
+    position: absolute;
+    background: #2d2d30;
+    border: 1px solid #007acc;
+    border-radius: 4px;
+    padding: 5px;
+    display: none;
+    z-index: 10000;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+
+.element-toolbar.visible {
+    display: flex;
+    gap: 5px;
+}
+
+.toolbar-btn {
+    padding: 5px 10px;
+    background: #3e3e42;
+    border: none;
+    color: #cccccc;
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.toolbar-btn:hover {
+    background: #007acc;
+    color: white;
+}
+
+/* Element Highlighting */
+.editable-highlight {
+    outline: 2px dashed #007acc !important;
+    outline-offset: 2px;
+    cursor: pointer !important;
+    position: relative;
+}
+
+.editable-highlight:hover {
+    outline: 2px solid #0098ff !important;
+    background: rgba(0, 152, 255, 0.05) !important;
+}
+
+.element-selected {
+    outline: 2px solid #ff6b6b !important;
+    background: rgba(255, 107, 107, 0.05) !important;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(30, 30, 30, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 3px solid #3e3e42;
+    border-top: 3px solid #007acc;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .editor-sidebar {
+        position: absolute;
+        z-index: 1000;
+        height: 100%;
+        transform: translateX(-100%);
+    }
+    
+    .editor-sidebar.open {
+        transform: translateX(0);
+    }
+    
+    .preview-frame-wrapper {
+        width: 100% !important;
+        height: 100% !important;
+    }
+}
+
+/* Undo/Redo Stack Indicator */
+.history-indicator {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #2d2d30;
+    padding: 10px 15px;
+    border-radius: 20px;
+    color: #cccccc;
+    font-size: 12px;
+    display: none;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+
+.history-indicator.visible {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Site Tree */
+.site-tree {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #4e4e52;
+    border-radius: 3px;
+    background: #2d2d30;
+}
+
+.tree-category {
+    border-bottom: 1px solid #3e3e42;
+}
+
+.tree-category:last-child {
+    border-bottom: none;
+}
+
+.category-header {
+    padding: 8px 12px;
+    background: #3e3e42;
+    color: #cccccc;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.category-header:hover {
+    background: #4e4e52;
+}
+
+.category-toggle {
+    font-size: 10px;
+    transition: transform 0.2s;
+}
+
+.category-header.collapsed .category-toggle {
+    transform: rotate(-90deg);
+}
+
+.category-pages {
+    max-height: 200px;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.category-pages.collapsed {
+    max-height: 0;
+}
+
+.tree-page {
+    padding: 6px 20px;
+    color: #969696;
+    cursor: pointer;
+    font-size: 13px;
+    border-bottom: 1px solid #3e3e42;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.tree-page:hover {
+    background: #3e3e42;
+    color: #cccccc;
+}
+
+.tree-page.current {
+    background: #007acc;
+    color: white;
+}
+
+.page-type-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    text-transform: uppercase;
+}
+
+.page-type-static { background: #28a745; }
+.page-type-app { background: #007acc; }
+.page-type-account { background: #6f42c1; }
+.page-type-custom { background: #fd7e14; }
+.page-type-crawled { background: #6c757d; }
+
+/* Navigation improvements */
+.preview-toolbar .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #969696;
+    font-size: 12px;
+    margin-left: 10px;
+}
+
+.breadcrumb-item {
+    display: flex;
+    align-items: center;
+}
+
+.breadcrumb-separator {
+    margin: 0 5px;
+    opacity: 0.5;
+}
+
+/* AI Assistant Panel */
+.ai-assistant {
+    background: #1e1e1e;
+    border-top: 1px solid #3e3e42;
+    padding: 15px;
+}
+
+.ai-input-group {
+    display: flex;
+    gap: 10px;
+}
+
+.ai-input {
+    flex: 1;
+    padding: 8px 12px;
+    background: #3e3e42;
+    border: 1px solid #4e4e52;
+    color: #cccccc;
+    border-radius: 3px;
+    font-size: 13px;
+}
+
+.ai-submit {
+    padding: 8px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.ai-submit:hover {
+    opacity: 0.9;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="editor-container">
+    <!-- Sidebar -->
+    <div class="editor-sidebar" id="editorSidebar">
+        <div class="sidebar-header">
+            <span class="sidebar-title">Visual Editor</span>
+            <button class="btn-editor btn-secondary" onclick="toggleSidebar()">
+                <i class="bi bi-chevron-left"></i>
+            </button>
+        </div>
+        
+        <!-- Tabs -->
+        <div class="editor-tabs">
+            <button class="editor-tab active" onclick="switchTab('content')">
+                <i class="bi bi-pencil-square"></i> Inhalt
+            </button>
+            <button class="editor-tab" onclick="switchTab('style')">
+                <i class="bi bi-palette"></i> Design
+            </button>
+            <button class="editor-tab" onclick="switchTab('settings')">
+                <i class="bi bi-gear"></i> Einstellungen
+            </button>
+            <button class="editor-tab" onclick="switchTab('help')">
+                <i class="bi bi-question-circle"></i> Hilfe
+            </button>
+        </div>
+        
+        <!-- Tab Content -->
+        <div class="sidebar-content">
+            <!-- Content Tab -->
+            <div id="contentTab" class="tab-content">
+                <div class="property-group">
+                    <div class="property-group-title">Element-Eigenschaften</div>
+                    
+                    <div class="property-field">
+                        <label class="property-label">Element-Typ</label>
+                        <input type="text" id="elementType" class="property-input" readonly>
+                    </div>
+                    
+                    <div class="property-field">
+                        <label class="property-label">Text-Inhalt</label>
+                        <textarea id="elementText" class="property-textarea" 
+                                  placeholder="Text eingeben..." 
+                                  onchange="updateElementText()"></textarea>
+                    </div>
+                    
+                    <div class="property-field">
+                        <label class="property-label">Link (URL)</label>
+                        <input type="text" id="elementLink" class="property-input" 
+                               placeholder="https://..." 
+                               onchange="updateElementLink()">
+                    </div>
+                    
+                    <div class="property-field">
+                        <label class="property-label">Bild-URL</label>
+                        <input type="text" id="elementImage" class="property-input" 
+                               placeholder="Bild-URL eingeben..." 
+                               onchange="updateElementImage()">
+                    </div>
+                </div>
+                
+                <!-- AI Assistant -->
+                <div class="property-group">
+                    <div class="property-group-title">KI-Assistent</div>
+                    <div class="ai-input-group">
+                        <input type="text" id="aiPrompt" class="ai-input" 
+                               placeholder="Was soll die KI ändern?">
+                        <button class="ai-submit" onclick="generateWithAI()">
+                            <i class="bi bi-magic"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="action-buttons">
+                    <button class="btn-editor btn-primary" onclick="saveElement()">
+                        <i class="bi bi-check"></i> Speichern
+                    </button>
+                    <button class="btn-editor btn-secondary" onclick="resetElement()">
+                        <i class="bi bi-x"></i> Zurücksetzen
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Style Tab -->
+            <div id="styleTab" class="tab-content" style="display: none;">
+                <div class="property-group">
+                    <div class="property-group-title">Typografie</div>
+                    
+                    <div class="property-field">
+                        <label class="property-label">Schriftgröße</label>
+                        <input type="text" id="fontSize" class="property-input" 
+                               placeholder="16px" onchange="updateStyle()">
+                    </div>
+                    
+                    <div class="property-field">
+                        <label class="property-label">Schriftart</label>
+                        <select id="fontFamily" class="property-select" onchange="updateStyle()">
+                            <option value="">Standard</option>
+                            <option value="Arial, sans-serif">Arial</option>
+                            <option value="'Times New Roman', serif">Times New Roman</option>
+                            <option value="'Courier New', monospace">Courier New</option>
+                            <option value="Georgia, serif">Georgia</option>
+                            <option value="Verdana, sans-serif">Verdana</option>
+                        </select>
+                    </div>
+                    
+                    <div class="property-field">
+                        <label class="property-label">Schriftgewicht</label>
+                        <select id="fontWeight" class="property-select" onchange="updateStyle()">
+                            <option value="">Normal</option>
+                            <option value="300">Light</option>
+                            <option value="400">Regular</option>
+                            <option value="500">Medium</option>
+                            <option value="600">Semibold</option>
+                            <option value="700">Bold</option>
+                        </select>
+                    </div>
+                    
+                    <div class="property-field">
+                        <label class="property-label">Textfarbe</label>
+                        <div class="color-picker-wrapper">
+                            <input type="color" id="textColor" onchange="updateStyle()">
+                            <input type="text" id="textColorHex" class="property-input" 
+                                   placeholder="#000000" onchange="updateStyle()">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="property-group">
+                    <div class="property-group-title">Hintergrund</div>
+                    
+                    <div class="property-field">
+                        <label class="property-label">Hintergrundfarbe</label>
+                        <div class="color-picker-wrapper">
+                            <input type="color" id="bgColor" onchange="updateStyle()">
+                            <input type="text" id="bgColorHex" class="property-input" 
+                                   placeholder="#FFFFFF" onchange="updateStyle()">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="property-group">
+                    <div class="property-group-title">Abstände</div>
+                    
+                    <div class="property-field">
+                        <label class="property-label">Padding</label>
+                        <input type="text" id="padding" class="property-input" 
+                               placeholder="10px" onchange="updateStyle()">
+                    </div>
+                    
+                    <div class="property-field">
+                        <label class="property-label">Margin</label>
+                        <input type="text" id="margin" class="property-input" 
+                               placeholder="10px" onchange="updateStyle()">
+                    </div>
+                </div>
+                
+                <div class="property-group">
+                    <div class="property-group-title">Rahmen</div>
+                    
+                    <div class="property-field">
+                        <label class="property-label">Rahmenbreite</label>
+                        <input type="text" id="borderWidth" class="property-input" 
+                               placeholder="1px" onchange="updateStyle()">
+                    </div>
+                    
+                    <div class="property-field">
+                        <label class="property-label">Rahmenfarbe</label>
+                        <div class="color-picker-wrapper">
+                            <input type="color" id="borderColor" onchange="updateStyle()">
+                            <input type="text" id="borderColorHex" class="property-input" 
+                                   placeholder="#CCCCCC" onchange="updateStyle()">
+                        </div>
+                    </div>
+                    
+                    <div class="property-field">
+                        <label class="property-label">Rahmenradius</label>
+                        <input type="text" id="borderRadius" class="property-input" 
+                               placeholder="4px" onchange="updateStyle()">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Settings Tab -->
+            <div id="settingsTab" class="tab-content" style="display: none;">
+                <div class="property-group">
+                    <div class="property-group-title">Site-Navigation</div>
+                    
+                    <div class="property-field">
+                        <button class="btn-editor btn-primary" onclick="discoverSiteStructure()">
+                            <i class="bi bi-search"></i> Alle Seiten finden
+                        </button>
+                    </div>
+                    
+                    <div class="property-field">
+                        <label class="property-label">Seite wählen</label>
+                        <select id="pageSelector" class="property-select" onchange="loadSelectedPage()">
+                            {% for value, label in page_choices %}
+                                <option value="{{ value }}" {% if value == page %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Site Structure Tree -->
+                    <div id="siteStructure" class="property-field" style="display: none;">
+                        <label class="property-label">Site-Struktur</label>
+                        <div id="siteTree" class="site-tree"></div>
+                    </div>
+                </div>
+                
+                <div class="property-group">
+                    <div class="property-group-title">Neue Seite erstellen</div>
+                    
+                    <div class="property-field">
+                        <label class="property-label">Seitenname (URL)</label>
+                        <input type="text" id="newPageName" class="property-input" 
+                               placeholder="meine-neue-seite">
+                    </div>
+                    
+                    <div class="property-field">
+                        <label class="property-label">Anzeigename</label>
+                        <input type="text" id="newPageTitle" class="property-input" 
+                               placeholder="Meine neue Seite">
+                    </div>
+                    
+                    <div class="property-field">
+                        <label class="property-label">Vorlage</label>
+                        <select id="newPageTemplate" class="property-select">
+                            <option value="blank">Leere Seite</option>
+                            <option value="landing">Landing Page</option>
+                            <option value="blog">Blog-Seite</option>
+                        </select>
+                    </div>
+                    
+                    <div class="property-field">
+                        <button class="btn-editor btn-success" onclick="createNewPage()">
+                            <i class="bi bi-plus-circle"></i> Seite erstellen
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="property-group">
+                    <div class="property-group-title">Seiten-Einstellungen</div>
+                    
+                    <div class="property-field">
+                        <label class="property-label">SEO Titel</label>
+                        <input type="text" id="seoTitle" class="property-input" 
+                               placeholder="Seitentitel">
+                    </div>
+                    
+                    <div class="property-field">
+                        <label class="property-label">Meta-Beschreibung</label>
+                        <textarea id="metaDescription" class="property-textarea" 
+                                  placeholder="Beschreibung der Seite..."></textarea>
+                    </div>
+                </div>
+                
+                <div class="action-buttons">
+                    <button class="btn-editor btn-primary" onclick="savePageSettings()">
+                        <i class="bi bi-save"></i> Einstellungen speichern
+                    </button>
+                    <button class="btn-editor btn-danger" onclick="publishChanges()">
+                        <i class="bi bi-cloud-upload"></i> Veröffentlichen
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Help Tab -->
+            <div id="helpTab" class="tab-content" style="display: none;">
+                <div class="property-group">
+                    <div class="property-group-title">Visual Editor Hilfe</div>
+                    
+                    <div class="help-section" style="color: #cccccc;">
+                        <h4 style="color: #ffffff;">🎯 So funktioniert der Editor:</h4>
+                        <ol>
+                            <li><strong>Element auswählen:</strong> Klicken Sie auf ein Element in der Vorschau rechts</li>
+                            <li><strong>Text bearbeiten:</strong> Ausgewählte Texte können direkt bearbeitet werden</li>
+                            <li><strong>Änderungen speichern:</strong> Klicken Sie "Speichern" nach jeder Änderung</li>
+                            <li><strong>Veröffentlichen:</strong> Alle Änderungen mit "Veröffentlichen" live schalten</li>
+                        </ol>
+                        
+                        <h4 style="color: #ffffff;">💡 Tipps:</h4>
+                        <ul>
+                            <li>Elemente mit blauem Rahmen sind bearbeitbar</li>
+                            <li>Text-Änderungen werden sofort im Content-Tab angezeigt</li>
+                            <li>Design-Änderungen im Design-Tab vornehmen</li>
+                            <li>Konsole (F12) öffnen für Debug-Informationen</li>
+                        </ul>
+                        
+                        <h4 style="color: #ffffff;">⚠️ Fehlerbehebung:</h4>
+                        <ul>
+                            <li><strong>"Keine Änderungen zu speichern":</strong> Erst Element auswählen und bearbeiten</li>
+                            <li><strong>Element nicht anklickbar:</strong> Im iframe (Vorschau) klicken, nicht im Editor</li>
+                            <li><strong>Änderungen nicht sichtbar:</strong> Nach Speichern "Veröffentlichen" klicken, dann Seite neu laden</li>
+                            <li><strong>Smart-Match System:</strong> System verwendet intelligente Inhalts-Erkennung für komplexe Elemente</li>
+                        </ul>
+                        
+                        <div style="margin-top: 15px; padding: 10px; background: #1a5e1a; border-radius: 5px; color: #ffffff;">
+                            <strong>✨ Smart-Match System (v3.0):</strong><br>
+                            <small>• 3-Stufen Matching: ID → Smart → Aggressive</small><br>
+                            <small>• Schützt Navigation/Menü vor ungewollten Änderungen</small><br>
+                            <small>• Automatische Bereinigung fehlgeleiteter Inhalte</small><br>
+                            <small>• Aggressive Fallbacks für komplexe Selektoren</small>
+                        </div>
+                        
+                        <div style="margin-top: 10px; padding: 8px; background: #1a4d5e; border-radius: 5px; color: #ffffff; font-size: 12px;">
+                            <strong>🛡️ System-Stats:</strong><br>
+                            <small>• 48KB JavaScript generiert</small><br>
+                            <small>• 9 Aggressive Fallback-Strategien</small><br>
+                            <small>• 8 Navigation-Schutz Checks</small><br>
+                            <small>• 13 Hint-Extraktions-Algorithmen</small>
+                        </div>
+                        
+                        <div style="margin-top: 10px; padding: 8px; background: #5e1a1a; border-radius: 5px; color: #ffffff; font-size: 12px;">
+                            <strong>🚀 Matching-Stufen:</strong><br>
+                            <small>1. 🎯 Simple ID/Exact Match</small><br>
+                            <small>2. 🔍 Smart Content Similarity</small><br>
+                            <small>3. 🚀 Aggressive Complex Selectors</small>
+                        </div>
+                        
+                        <div class="debug-info" style="margin-top: 15px; padding: 10px; background: #2d2d30; border-radius: 5px;">
+                            <strong>Debug-Info:</strong><br>
+                            <small>Ungespeicherte Änderungen: <span id="debugUnsavedCount">0</span></small><br>
+                            <small>Aktuell ausgewählt: <span id="debugCurrentElement">Kein Element</span></small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Preview Area -->
+    <div class="preview-container">
+        <div class="preview-toolbar">
+            <div class="toolbar-left">
+                <button class="btn-editor btn-secondary" onclick="toggleSidebar()">
+                    <i class="bi bi-list"></i>
+                </button>
+                
+                <div class="device-selector">
+                    <button class="device-btn active" onclick="setDevice('desktop')">
+                        <i class="bi bi-laptop"></i> Desktop
+                    </button>
+                    <button class="device-btn" onclick="setDevice('tablet')">
+                        <i class="bi bi-tablet"></i> Tablet
+                    </button>
+                    <button class="device-btn" onclick="setDevice('mobile')">
+                        <i class="bi bi-phone"></i> Mobile
+                    </button>
+                </div>
+                
+                <span style="color: #969696; font-size: 13px; margin-left: 20px;">
+                    Bearbeite: <strong id="currentPage">{{ page_name }}</strong>
+                </span>
+            </div>
+            
+            <div class="toolbar-right">
+                <button class="btn-editor btn-secondary" onclick="undoChange()">
+                    <i class="bi bi-arrow-counterclockwise"></i> Rückgängig
+                </button>
+                <button class="btn-editor btn-secondary" onclick="redoChange()">
+                    <i class="bi bi-arrow-clockwise"></i> Wiederholen
+                </button>
+                <button class="btn-editor btn-primary" onclick="saveAllChanges()">
+                    <i class="bi bi-save"></i> Alle Änderungen speichern
+                </button>
+                <button class="btn-editor btn-danger" onclick="publishChanges()">
+                    <i class="bi bi-cloud-upload"></i> Veröffentlichen
+                </button>
+            </div>
+        </div>
+        
+        <div class="preview-frame-container">
+            <div class="preview-frame-wrapper desktop" id="previewWrapper">
+                <div class="loading-overlay" id="loadingOverlay">
+                    <div class="loading-spinner"></div>
+                </div>
+                <iframe id="previewFrame" src=""></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Floating Element Toolbar -->
+<div class="element-toolbar" id="elementToolbar">
+    <button class="toolbar-btn" onclick="editElement()">
+        <i class="bi bi-pencil"></i> Bearbeiten
+    </button>
+    <button class="toolbar-btn" onclick="duplicateElement()">
+        <i class="bi bi-files"></i> Duplizieren
+    </button>
+    <button class="toolbar-btn" id="deleteBtn">
+        <i class="bi bi-trash"></i> Löschen
+    </button>
+</div>
+
+<!-- History Indicator -->
+<div class="history-indicator" id="historyIndicator">
+    <i class="bi bi-clock-history"></i> <span id="historyText">Änderung gespeichert</span>
+</div>
+
+{% csrf_token %}
+
+<script>
+// Global Variables
+let currentElement = null;
+let originalContent = {};
+let changeHistory = [];
+let historyIndex = -1;
+let currentDevice = 'desktop';
+let currentPage = '{{ page }}';
+let iframeDoc = null;
+let unsavedChanges = {};
+let savedChanges = {}; // Track saved but unpublished changes
+
+// Initialize Editor
+document.addEventListener('DOMContentLoaded', function() {
+    initializeEditor();
+    
+    // Add event handler for delete button
+    const deleteBtn = document.getElementById('deleteBtn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('[Visual Editor] Delete button clicked');
+            deleteElement();
+        });
+    }
+});
+
+function initializeEditor() {
+    const iframe = document.getElementById('previewFrame');
+    
+    // Load the current page
+    iframe.src = `/${currentPage === 'startseite' ? '' : currentPage + '/'}`;
+    
+    iframe.onload = function() {
+        iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+        
+        // Inject editor styles and scripts into iframe
+        injectEditorAssets();
+        
+        // Make elements editable
+        initializeEditableElements();
+        
+        // Hide loading
+        document.getElementById('loadingOverlay').style.display = 'none';
+    };
+}
+
+function injectEditorAssets() {
+    if (!iframeDoc) return;
+    
+    // Inject CSS for highlighting
+    const style = iframeDoc.createElement('style');
+    style.textContent = `
+        .editable-highlight {
+            outline: 2px dashed #007acc !important;
+            outline-offset: 2px;
+            cursor: pointer !important;
+            transition: all 0.2s;
+        }
+        .editable-highlight:hover {
+            outline: 2px solid #0098ff !important;
+            background: rgba(0, 152, 255, 0.05) !important;
+        }
+        .element-selected {
+            outline: 2px solid #ff6b6b !important;
+            background: rgba(255, 107, 107, 0.05) !important;
+        }
+        [contenteditable="true"] {
+            outline: 2px solid #28a745 !important;
+        }
+    `;
+    iframeDoc.head.appendChild(style);
+}
+
+function initializeEditableElements() {
+    if (!iframeDoc) return;
+    
+    // Mark all text elements as editable
+    const editableSelectors = [
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'p', 'span', 'a', 'button', 'li', 'td', 'th',
+        'div', 'section', 'article', 'header', 'footer'
+    ];
+    
+    editableSelectors.forEach(selector => {
+        const elements = iframeDoc.querySelectorAll(selector);
+        elements.forEach(element => {
+            // Skip if element has children that shouldn't be edited
+            if (element.querySelector('script, style, iframe')) return;
+            
+            // Add editable class
+            element.classList.add('editable-highlight');
+            
+            // Add click handler
+            element.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                selectElement(element);
+            });
+            
+            // Enable direct text editing on double-click
+            element.addEventListener('dblclick', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                enableInlineEdit(element);
+            });
+        });
+    });
+    
+    // Handle images separately
+    const images = iframeDoc.querySelectorAll('img');
+    images.forEach(img => {
+        img.classList.add('editable-highlight');
+        img.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            selectElement(img);
+        });
+    });
+}
+
+function selectElement(element) {
+    console.log('[Visual Editor] Selecting element:', element, element.tagName, element.id);
+    
+    // Remove previous selection
+    if (currentElement) {
+        currentElement.classList.remove('element-selected');
+    }
+    
+    // Set new selection
+    currentElement = element;
+    element.classList.add('element-selected');
+    
+    console.log('[Visual Editor] Current element set to:', currentElement);
+    
+    // Store original content
+    originalContent = {
+        text: element.textContent || '',
+        html: element.innerHTML || '',
+        src: element.src || '',
+        href: element.href || '',
+        style: element.getAttribute('style') || ''
+    };
+    
+    // Update property panel
+    updatePropertyPanel(element);
+    
+    // Show floating toolbar
+    showElementToolbar(element);
+}
+
+function updatePropertyPanel(element) {
+    // Content properties
+    document.getElementById('elementType').value = element.tagName.toLowerCase();
+    document.getElementById('elementText').value = element.textContent || '';
+    
+    if (element.tagName === 'A') {
+        document.getElementById('elementLink').value = element.href || '';
+    } else {
+        document.getElementById('elementLink').value = '';
+    }
+    
+    if (element.tagName === 'IMG') {
+        document.getElementById('elementImage').value = element.src || '';
+    } else {
+        document.getElementById('elementImage').value = '';
+    }
+    
+    // Style properties
+    const computedStyle = iframeDoc.defaultView.getComputedStyle(element);
+    
+    document.getElementById('fontSize').value = computedStyle.fontSize || '';
+    document.getElementById('fontFamily').value = computedStyle.fontFamily || '';
+    document.getElementById('fontWeight').value = computedStyle.fontWeight || '';
+    document.getElementById('textColor').value = rgbToHex(computedStyle.color) || '#000000';
+    document.getElementById('textColorHex').value = rgbToHex(computedStyle.color) || '#000000';
+    document.getElementById('bgColor').value = rgbToHex(computedStyle.backgroundColor) || '#FFFFFF';
+    document.getElementById('bgColorHex').value = rgbToHex(computedStyle.backgroundColor) || '#FFFFFF';
+    document.getElementById('padding').value = computedStyle.padding || '';
+    document.getElementById('margin').value = computedStyle.margin || '';
+    document.getElementById('borderWidth').value = computedStyle.borderWidth || '';
+    document.getElementById('borderColor').value = rgbToHex(computedStyle.borderColor) || '#CCCCCC';
+    document.getElementById('borderColorHex').value = rgbToHex(computedStyle.borderColor) || '#CCCCCC';
+    document.getElementById('borderRadius').value = computedStyle.borderRadius || '';
+}
+
+function enableInlineEdit(element) {
+    element.contentEditable = true;
+    element.focus();
+    
+    // Select all text
+    const range = iframeDoc.createRange();
+    range.selectNodeContents(element);
+    const selection = iframeDoc.defaultView.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    
+    // Save on blur
+    element.addEventListener('blur', function() {
+        element.contentEditable = false;
+        saveElementChange(element);
+    }, { once: true });
+    
+    // Save on Enter key
+    element.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            element.blur();
+        }
+    });
+}
+
+function updateElementText() {
+    if (!currentElement) return;
+    
+    const newText = document.getElementById('elementText').value;
+    if (currentElement.tagName === 'IMG') return;
+    
+    currentElement.textContent = newText;
+    saveElementChange(currentElement);
+}
+
+function updateElementLink() {
+    if (!currentElement || currentElement.tagName !== 'A') return;
+    
+    const newLink = document.getElementById('elementLink').value;
+    currentElement.href = newLink;
+    saveElementChange(currentElement);
+}
+
+function updateElementImage() {
+    if (!currentElement || currentElement.tagName !== 'IMG') return;
+    
+    const newSrc = document.getElementById('elementImage').value;
+    currentElement.src = newSrc;
+    saveElementChange(currentElement);
+}
+
+function updateStyle() {
+    if (!currentElement) return;
+    
+    const styles = {
+        fontSize: document.getElementById('fontSize').value,
+        fontFamily: document.getElementById('fontFamily').value,
+        fontWeight: document.getElementById('fontWeight').value,
+        color: document.getElementById('textColorHex').value,
+        backgroundColor: document.getElementById('bgColorHex').value,
+        padding: document.getElementById('padding').value,
+        margin: document.getElementById('margin').value,
+        borderWidth: document.getElementById('borderWidth').value,
+        borderColor: document.getElementById('borderColorHex').value,
+        borderRadius: document.getElementById('borderRadius').value
+    };
+    
+    // Apply styles
+    Object.keys(styles).forEach(prop => {
+        if (styles[prop]) {
+            currentElement.style[prop] = styles[prop];
+        }
+    });
+    
+    saveElementChange(currentElement);
+}
+
+function saveElementChange(element) {
+    // Create unique identifier for element
+    const elementId = getElementIdentifier(element);
+    console.log('[Visual Editor] Saving change for element:', elementId);
+    
+    // Store change
+    if (!unsavedChanges[elementId]) {
+        unsavedChanges[elementId] = {};
+    }
+    
+    unsavedChanges[elementId] = {
+        tagName: element.tagName,
+        content: element.innerHTML,
+        textContent: element.textContent,
+        attributes: {
+            src: element.src || '',
+            href: element.href || '',
+            style: element.getAttribute('style') || '',
+            class: element.className || '',
+            id: element.id || ''
+        }
+    };
+    
+    console.log('[Visual Editor] Element change stored:', unsavedChanges[elementId]);
+    updateUnsavedCount();
+    updateDebugInfo();
+    
+    // Add to history
+    addToHistory({
+        element: elementId,
+        changes: unsavedChanges[elementId],
+        timestamp: new Date().toISOString()
+    });
+    
+    showHistoryIndicator('Änderung für ' + element.tagName + ' gespeichert');
+}
+
+function getElementIdentifier(element) {
+    // If element has an ID, use only the ID (much simpler and more reliable)
+    if (element.id) {
+        console.log('[Visual Editor] Using simple ID for element:', element.id);
+        return element.id;
+    }
+    
+    // Create a unique path to the element (fallback for elements without ID)
+    const path = [];
+    let current = element;
+    
+    while (current && current !== iframeDoc.body) {
+        let selector = current.tagName.toLowerCase();
+        
+        if (current.id) {
+            selector += '#' + current.id;
+            path.unshift(selector);
+            break; // Stop here if we find an ID in the path
+        } else if (current.className) {
+            // Filter out editor-specific classes
+            const classes = current.className.split(' ').filter(cls => 
+                cls && cls !== 'editable-highlight' && cls !== 'element-selected'
+            );
+            if (classes.length > 0) {
+                selector += '.' + classes.join('.');
+            }
+        }
+        
+        // Add index among siblings
+        const siblings = current.parentNode ? current.parentNode.children : [];
+        const index = Array.from(siblings).indexOf(current);
+        selector += `:nth-child(${index + 1})`;
+        
+        path.unshift(selector);
+        current = current.parentNode;
+    }
+    
+    return path.join(' > ');
+}
+
+function addToHistory(change) {
+    // Remove any history after current index
+    changeHistory = changeHistory.slice(0, historyIndex + 1);
+    
+    // Add new change
+    changeHistory.push(change);
+    historyIndex++;
+    
+    // Limit history size
+    if (changeHistory.length > 50) {
+        changeHistory.shift();
+        historyIndex--;
+    }
+}
+
+function undoChange() {
+    if (historyIndex > 0) {
+        historyIndex--;
+        // Apply previous state
+        applyHistoryState(changeHistory[historyIndex]);
+        showHistoryIndicator('Rückgängig gemacht');
+    }
+}
+
+function redoChange() {
+    if (historyIndex < changeHistory.length - 1) {
+        historyIndex++;
+        // Apply next state
+        applyHistoryState(changeHistory[historyIndex]);
+        showHistoryIndicator('Wiederhergestellt');
+    }
+}
+
+function applyHistoryState(state) {
+    // Find element and apply saved state
+    const element = iframeDoc.querySelector(state.element);
+    if (element && state.changes) {
+        element.innerHTML = state.changes.content;
+        Object.keys(state.changes.attributes).forEach(attr => {
+            if (state.changes.attributes[attr]) {
+                element.setAttribute(attr, state.changes.attributes[attr]);
+            }
+        });
+    }
+}
+
+function showElementToolbar(element) {
+    console.log('[Visual Editor] Showing toolbar for element:', element);
+    const toolbar = document.getElementById('elementToolbar');
+    const rect = element.getBoundingClientRect();
+    const iframe = document.getElementById('previewFrame');
+    const iframeRect = iframe.getBoundingClientRect();
+    
+    toolbar.style.left = (iframeRect.left + rect.left) + 'px';
+    toolbar.style.top = (iframeRect.top + rect.top - 40) + 'px';
+    toolbar.classList.add('visible');
+    
+    // Hide toolbar when clicking elsewhere
+    setTimeout(() => {
+        document.addEventListener('click', hideToolbar, { once: true });
+        iframeDoc.addEventListener('click', hideToolbar, { once: true });
+    }, 100);
+}
+
+function hideToolbar() {
+    document.getElementById('elementToolbar').classList.remove('visible');
+}
+
+function duplicateElement() {
+    if (!currentElement) return;
+    
+    const clone = currentElement.cloneNode(true);
+    currentElement.parentNode.insertBefore(clone, currentElement.nextSibling);
+    initializeEditableElements();
+    saveElementChange(clone);
+    showHistoryIndicator('Element dupliziert');
+}
+
+function deleteElement() {
+    console.log('[Visual Editor] deleteElement() called, currentElement:', currentElement);
+    
+    if (!currentElement) {
+        console.log('[Visual Editor] No current element selected for deletion');
+        showHistoryIndicator('Kein Element ausgewählt', 'warning');
+        return;
+    }
+    
+    // Check if already being deleted (prevent double execution)
+    if (currentElement.dataset.deleting === 'true') {
+        console.log('[Visual Editor] Element already being deleted, skipping');
+        return;
+    }
+    
+    if (confirm('Möchten Sie dieses Element wirklich löschen?')) {
+        try {
+            // Mark as being deleted to prevent double execution
+            currentElement.dataset.deleting = 'true';
+            
+            // Get element identifier before deleting
+            const elementId = getElementIdentifier(currentElement);
+            console.log('[Visual Editor] Deleting element:', elementId, currentElement);
+            
+            // Store deletion in unsavedChanges
+            unsavedChanges[elementId] = {
+                action: 'delete',
+                tagName: currentElement.tagName,
+                originalContent: currentElement.innerHTML,
+                originalTextContent: currentElement.textContent
+            };
+            
+            // Remove element from DOM
+            const parent = currentElement.parentNode;
+            console.log('[Visual Editor] Removing element from parent:', parent);
+            
+            // Add visual feedback before removal
+            currentElement.style.opacity = '0.3';
+            currentElement.style.border = '2px dashed red';
+            
+            // Store reference to element before timeout
+            const elementToDelete = currentElement;
+            
+            setTimeout(() => {
+                // Check if element still exists before trying to remove
+                if (elementToDelete && elementToDelete.parentNode) {
+                    elementToDelete.remove();
+                }
+                currentElement = null;
+                hideToolbar();
+                
+                // Update counters and show feedback
+                updateUnsavedCount();
+                updateDebugInfo();
+                showHistoryIndicator('Element gelöscht');
+                
+                console.log('[Visual Editor] Element deletion completed and stored:', unsavedChanges[elementId]);
+            }, 200);
+            
+        } catch (error) {
+            console.error('[Visual Editor] Error during element deletion:', error);
+            showHistoryIndicator('Fehler beim Löschen', 'error');
+        }
+    } else {
+        console.log('[Visual Editor] Element deletion cancelled by user');
+    }
+}
+
+// Test function for debugging
+function testDelete() {
+    console.log('[Visual Editor] Testing delete function');
+    console.log('Current element:', currentElement);
+    console.log('Unsaved changes:', unsavedChanges);
+    
+    if (currentElement) {
+        deleteElement();
+    } else {
+        console.log('No element selected - please click an element first');
+        showHistoryIndicator('Bitte wählen Sie zuerst ein Element aus', 'warning');
+    }
+}
+
+// Make functions globally available for debugging
+window.testDelete = testDelete;
+window.deleteElement = deleteElement;
+window.getCurrentElement = () => currentElement;
+
+function saveAllChanges() {
+    console.log('[Visual Editor] Attempting to save changes...', unsavedChanges);
+    
+    if (Object.keys(unsavedChanges).length === 0) {
+        showHistoryIndicator('Keine Änderungen zu speichern - keine Elemente bearbeitet');
+        console.log('[Visual Editor] No unsaved changes found');
+        return;
+    }
+    
+    console.log('[Visual Editor] Saving', Object.keys(unsavedChanges).length, 'changes');
+    
+    // Show loading
+    document.getElementById('loadingOverlay').style.display = 'flex';
+    
+    // Prepare data
+    const data = {
+        page: currentPage,
+        changes: unsavedChanges,
+        html: iframeDoc.documentElement.outerHTML
+    };
+    
+    // Send to server
+    fetch('{% url "accounts:save_visual_changes" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        document.getElementById('loadingOverlay').style.display = 'none';
+        
+        if (result.success) {
+            // Move unsaved changes to saved changes for publishing later
+            Object.assign(savedChanges, unsavedChanges);
+            unsavedChanges = {};
+            updateUnsavedCount();
+            updateDebugInfo();
+            showHistoryIndicator('Alle Änderungen gespeichert!');
+        } else {
+            alert('Fehler beim Speichern: ' + (result.error || 'Unbekannter Fehler'));
+        }
+    })
+    .catch(error => {
+        document.getElementById('loadingOverlay').style.display = 'none';
+        alert('Fehler beim Speichern: ' + error.message);
+    });
+}
+
+function generateWithAI() {
+    const prompt = document.getElementById('aiPrompt').value;
+    if (!prompt || !currentElement) return;
+    
+    // Show loading
+    document.getElementById('aiPrompt').disabled = true;
+    
+    fetch('{% url "accounts:generate_ai_content" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: `prompt=${encodeURIComponent(prompt)}&element_type=${currentElement.tagName}&current_content=${encodeURIComponent(currentElement.innerHTML)}`
+    })
+    .then(response => response.json())
+    .then(result => {
+        document.getElementById('aiPrompt').disabled = false;
+        
+        if (result.success) {
+            if (result.html_content) {
+                currentElement.innerHTML = result.html_content;
+            } else if (result.text_content) {
+                currentElement.textContent = result.text_content;
+            }
+            saveElementChange(currentElement);
+            updatePropertyPanel(currentElement);
+            showHistoryIndicator('KI-Inhalt generiert');
+        } else {
+            alert('KI-Fehler: ' + (result.error || 'Unbekannter Fehler'));
+        }
+    })
+    .catch(error => {
+        document.getElementById('aiPrompt').disabled = false;
+        alert('Fehler bei KI-Generierung: ' + error.message);
+    });
+}
+
+// UI Functions
+function toggleSidebar() {
+    const sidebar = document.getElementById('editorSidebar');
+    sidebar.classList.toggle('collapsed');
+}
+
+function switchTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.style.display = 'none';
+    });
+    
+    // Remove active class from all tab buttons
+    document.querySelectorAll('.editor-tab').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Show selected tab
+    document.getElementById(tabName + 'Tab').style.display = 'block';
+    
+    // Add active class to clicked button
+    event.target.classList.add('active');
+}
+
+function setDevice(device) {
+    currentDevice = device;
+    const wrapper = document.getElementById('previewWrapper');
+    
+    // Remove all device classes
+    wrapper.classList.remove('desktop', 'tablet', 'mobile');
+    wrapper.classList.add(device);
+    
+    // Update button states
+    document.querySelectorAll('.device-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+}
+
+function loadPage() {
+    const selectedPage = document.getElementById('pageSelector').value;
+    loadPageByUrl(selectedPage);
+}
+
+function loadPageByUrl(pageUrl) {
+    if (pageUrl !== currentPage) {
+        if (Object.keys(unsavedChanges).length > 0) {
+            if (!confirm('Sie haben ungespeicherte Änderungen. Möchten Sie fortfahren?')) {
+                document.getElementById('pageSelector').value = currentPage;
+                return;
+            }
+        }
+        
+        currentPage = pageUrl;
+        document.getElementById('currentPage').textContent = getPageTitle(pageUrl);
+        unsavedChanges = {};
+        savedChanges = {}; // Clear saved changes when switching pages
+        changeHistory = [];
+        historyIndex = -1;
+        
+        // Update URL without reload
+        const newUrl = new URL(window.location);
+        newUrl.searchParams.set('page', pageUrl);
+        window.history.pushState({}, '', newUrl);
+        
+        // Load page in iframe
+        const iframe = document.getElementById('previewFrame');
+        
+        // Map page identifiers to actual URLs
+        let actualUrl = pageUrl;
+        if (pageUrl === 'startseite' || pageUrl === '') {
+            actualUrl = '/';
+        } else if (!pageUrl.startsWith('/')) {
+            actualUrl = `/${pageUrl}/`;
+        }
+        
+        iframe.src = actualUrl;
+        document.getElementById('loadingOverlay').style.display = 'flex';
+        
+        // Update page selector
+        const pageSelector = document.getElementById('pageSelector');
+        pageSelector.value = pageUrl;
+        
+        // Update site tree selection
+        updateSiteTreeSelection(pageUrl);
+    }
+}
+
+function getPageTitle(url) {
+    const titleMap = {
+        'startseite': 'Startseite',
+        '': 'Startseite',
+        '/': 'Startseite',
+        'dashboard': 'Dashboard',
+        'streamrec': 'StreamRec',
+        'videos': 'Videos',
+        'naturmacher': 'Naturmacher',
+        'impressum': 'Impressum',
+        'datenschutz': 'Datenschutz',
+        'agb': 'AGB'
+    };
+    
+    return titleMap[url] || url.charAt(0).toUpperCase() + url.slice(1);
+}
+
+function showHistoryIndicator(text) {
+    const indicator = document.getElementById('historyIndicator');
+    document.getElementById('historyText').textContent = text;
+    indicator.classList.add('visible');
+    
+    setTimeout(() => {
+        indicator.classList.remove('visible');
+    }, 2000);
+}
+
+// Missing function: showMessage (used throughout the editor)
+function showMessage(message, type = 'info') {
+    // Reuse showHistoryIndicator for consistency
+    showHistoryIndicator(message);
+    
+    // Also log to console for debugging
+    if (type === 'danger' || type === 'error') {
+        console.error('[Visual Editor]', message);
+    } else if (type === 'warning') {
+        console.warn('[Visual Editor]', message);
+    } else {
+        console.log('[Visual Editor]', message);
+    }
+}
+
+// Update debug information in help tab
+function updateDebugInfo() {
+    const unsavedCountEl = document.getElementById('debugUnsavedCount');
+    const currentElementEl = document.getElementById('debugCurrentElement');
+    
+    if (unsavedCountEl) {
+        unsavedCountEl.textContent = Object.keys(unsavedChanges).length;
+    }
+    
+    if (currentElementEl && currentElement) {
+        currentElementEl.textContent = currentElement.tagName + ' (' + (currentElement.textContent?.substring(0, 30) || 'Kein Text') + ')';
+    } else if (currentElementEl) {
+        currentElementEl.textContent = 'Kein Element';
+    }
+}
+
+// Missing function: updateUnsavedCount (used in saveElementChange)
+function updateUnsavedCount() {
+    // Update the count display in the debug section
+    const unsavedCountEl = document.getElementById('debugUnsavedCount');
+    if (unsavedCountEl) {
+        unsavedCountEl.textContent = Object.keys(unsavedChanges).length;
+    }
+    
+    // Could also update a badge or indicator in the main UI if needed
+    const count = Object.keys(unsavedChanges).length;
+    console.log(`[Visual Editor] Unsaved changes count: ${count}`);
+}
+
+// Helper Functions
+function rgbToHex(rgb) {
+    if (!rgb || rgb === 'transparent') return '';
+    
+    const match = rgb.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    if (!match) return rgb;
+    
+    const hex = "#" + ((1 << 24) + (parseInt(match[1]) << 16) + (parseInt(match[2]) << 8) + parseInt(match[3])).toString(16).slice(1);
+    return hex;
+}
+
+// Keyboard Shortcuts
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey || e.metaKey) {
+        switch(e.key) {
+            case 's':
+                e.preventDefault();
+                saveAllChanges();
+                break;
+            case 'z':
+                e.preventDefault();
+                undoChange();
+                break;
+            case 'y':
+                e.preventDefault();
+                redoChange();
+                break;
+        }
+    }
+});
+
+// Site Discovery Functions
+function discoverSiteStructure() {
+    showMessage('Durchsuche Website nach Seiten...', 'info');
+    
+    fetch('{% url "accounts:discover_site_structure" %}', {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displaySiteStructure(data.pages);
+            populatePageSelector(data.pages);
+            showMessage(`${data.total_count} Seiten gefunden!`, 'success');
+        } else {
+            showMessage('Fehler beim Durchsuchen: ' + (data.error || 'Unbekannter Fehler'), 'danger');
+        }
+    })
+    .catch(error => {
+        showMessage('Fehler beim Durchsuchen: ' + error.message, 'danger');
+    });
+}
+
+function displaySiteStructure(pages) {
+    const siteStructure = document.getElementById('siteStructure');
+    const siteTree = document.getElementById('siteTree');
+    
+    let treeHtml = '';
+    
+    Object.keys(pages).forEach(categoryKey => {
+        const category = pages[categoryKey];
+        if (category.pages.length === 0) return;
+        
+        treeHtml += `
+            <div class="tree-category">
+                <div class="category-header" onclick="toggleCategory('${categoryKey}')">
+                    <span>${category.name} (${category.pages.length})</span>
+                    <span class="category-toggle">▼</span>
+                </div>
+                <div class="category-pages" id="category-${categoryKey}">
+        `;
+        
+        category.pages.forEach(page => {
+            const isCurrentPage = (page.url === '/' && currentPage === 'startseite') || 
+                                 page.url === `/${currentPage}/` || 
+                                 page.url === currentPage;
+            
+            treeHtml += `
+                <div class="tree-page ${isCurrentPage ? 'current' : ''}" 
+                     onclick="navigateToPage('${page.url}', '${page.title}')">
+                    <span>${page.title}</span>
+                    <span class="page-type-badge page-type-${page.type}">${page.type}</span>
+                </div>
+            `;
+        });
+        
+        treeHtml += `
+                </div>
+            </div>
+        `;
+    });
+    
+    siteTree.innerHTML = treeHtml;
+    siteStructure.style.display = 'block';
+}
+
+function populatePageSelector(pages) {
+    const pageSelector = document.getElementById('pageSelector');
+    const currentValue = pageSelector.value;
+    
+    // Clear existing options except the current one
+    pageSelector.innerHTML = '';
+    
+    Object.keys(pages).forEach(categoryKey => {
+        const category = pages[categoryKey];
+        if (category.pages.length === 0) return;
+        
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = category.name;
+        
+        category.pages.forEach(page => {
+            const option = document.createElement('option');
+            let pageKey = page.url === '/' ? 'startseite' : page.url.replace(/^\/|\/$/g, '');
+            option.value = pageKey;
+            option.textContent = page.title;
+            optgroup.appendChild(option);
+        });
+        
+        pageSelector.appendChild(optgroup);
+    });
+    
+    // Restore selected value
+    pageSelector.value = currentValue;
+}
+
+function toggleCategory(categoryKey) {
+    const header = document.querySelector(`.category-header[onclick*="${categoryKey}"]`);
+    const pages = document.getElementById(`category-${categoryKey}`);
+    
+    header.classList.toggle('collapsed');
+    pages.classList.toggle('collapsed');
+}
+
+function navigateToPage(url, title) {
+    let pageKey = url === '/' ? 'startseite' : url.replace(/^\/|\/$/g, '');
+    loadPageByUrl(pageKey);
+}
+
+function updateSiteTreeSelection(pageUrl) {
+    document.querySelectorAll('.tree-page').forEach(page => {
+        page.classList.remove('current');
+    });
+    
+    const currentPageElement = document.querySelector(`[onclick*="navigateToPage('${pageUrl}"]`);
+    if (currentPageElement) {
+        currentPageElement.classList.add('current');
+    }
+}
+
+// Create New Page
+function createNewPage() {
+    const pageName = document.getElementById('newPageName').value.trim();
+    const pageTitle = document.getElementById('newPageTitle').value.trim();
+    const pageTemplate = document.getElementById('newPageTemplate').value;
+    
+    if (!pageName || !pageTitle) {
+        showMessage('Name und Titel sind erforderlich', 'danger');
+        return;
+    }
+    
+    // Validate page name
+    if (!/^[a-zA-Z0-9_-]+$/.test(pageName)) {
+        showMessage('Seitenname darf nur Buchstaben, Zahlen, _ und - enthalten', 'danger');
+        return;
+    }
+    
+    showMessage('Erstelle neue Seite...', 'info');
+    
+    fetch('{% url "accounts:create_custom_page" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({
+            page_name: pageName,
+            display_name: pageTitle,
+            template_type: pageTemplate,
+            description: `Benutzerdefinierte Seite: ${pageTitle}`
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showMessage('Seite erfolgreich erstellt!', 'success');
+            
+            // Clear form
+            document.getElementById('newPageName').value = '';
+            document.getElementById('newPageTitle').value = '';
+            document.getElementById('newPageTemplate').value = 'blank';
+            
+            // Add to selector
+            const pageSelector = document.getElementById('pageSelector');
+            const option = document.createElement('option');
+            option.value = data.page.url.replace(/^\/|\/$/g, '');
+            option.textContent = data.page.title;
+            pageSelector.appendChild(option);
+            
+            // Navigate to new page
+            setTimeout(() => {
+                loadPageByUrl(option.value);
+            }, 1000);
+            
+        } else {
+            showMessage('Fehler beim Erstellen: ' + (data.error || 'Unbekannter Fehler'), 'danger');
+        }
+    })
+    .catch(error => {
+        showMessage('Fehler beim Erstellen: ' + error.message, 'danger');
+    });
+}
+
+// Auto-discover pages on load
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+        if (document.getElementById('siteStructure').style.display === 'none') {
+            discoverSiteStructure();
+        }
+    }, 2000);
+});
+
+// Warn before leaving with unsaved changes
+window.addEventListener('beforeunload', function(e) {
+    if (Object.keys(unsavedChanges).length > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+});
+
+// Missing function: saveElement (called from Content tab)
+function saveElement() {
+    if (currentElement) {
+        saveElementChange(currentElement);
+        showHistoryIndicator('Element gespeichert');
+    } else {
+        showHistoryIndicator('Kein Element ausgewählt', 'warning');
+    }
+}
+
+// Refresh the preview iframe to show published changes
+function refreshPreview() {
+    const iframe = document.getElementById('previewFrame');
+    if (iframe && iframe.src) {
+        console.log('[Visual Editor] Refreshing preview iframe');
+        iframe.src = iframe.src; // Force reload
+    }
+}
+
+// Missing function: publishChanges (called from main toolbar)
+function publishChanges() {
+    // Check both unsaved and saved changes
+    const hasUnsavedChanges = Object.keys(unsavedChanges).length > 0;
+    const hasSavedChanges = Object.keys(savedChanges).length > 0;
+    
+    if (!hasUnsavedChanges && !hasSavedChanges) {
+        showHistoryIndicator('Keine Änderungen zum Veröffentlichen', 'warning');
+        return;
+    }
+    
+    // Combine unsaved and saved changes
+    const allChanges = {...savedChanges, ...unsavedChanges};
+    
+    console.log('[Visual Editor] Publishing changes:', allChanges);
+    
+    if (confirm('Möchten Sie alle Änderungen veröffentlichen? Dies überschreibt die aktuelle Live-Version.')) {
+        // Show loading
+        document.getElementById('loadingOverlay').style.display = 'flex';
+        
+        // Prepare data with all changes
+        const data = {
+            page: currentPage,
+            changes: allChanges,
+            html: iframeDoc.documentElement.outerHTML
+        };
+        
+        // Send to publish endpoint
+        fetch('{% url "accounts:publish_visual_changes" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Clear both unsaved and saved changes since they're now published
+                unsavedChanges = {};
+                savedChanges = {};
+                updateUnsavedCount();
+                showHistoryIndicator('Änderungen erfolgreich veröffentlicht!', 'success');
+                
+                // Refresh preview to show published changes
+                setTimeout(() => {
+                    refreshPreview();
+                }, 1000);
+            } else {
+                showHistoryIndicator('Fehler beim Veröffentlichen: ' + (data.error || 'Unbekannter Fehler'), 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Publish error:', error);
+            showHistoryIndicator('Fehler beim Veröffentlichen', 'error');
+        })
+        .finally(() => {
+            document.getElementById('loadingOverlay').style.display = 'none';
+        });
+    }
+}
+</script>
+{% endblock %}

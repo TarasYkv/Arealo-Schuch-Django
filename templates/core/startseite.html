@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 {% load editable_content %}
+{% load visual_editor_tags %}
 
 {% block content %}
 <style>
@@ -133,47 +134,47 @@
 </style>
 
 <!-- Hero Section -->
-<div class="hero-section">
+<div class="hero-section" id="hero_section">
     <div class="container">
-        <h1>{% editable_content 'startseite' 'hero_title' 'hero_title' 'Dein All-in-One Business Hub' %}</h1>
-        <p>{% editable_content 'startseite' 'hero_subtitle' 'hero_subtitle' 'Alle wichtigen Tools für Selbständige und Online-Shop-Gründer an einem Ort' %}</p>
+        <h1 id="hero_title">{% editable_content 'startseite' 'hero_title' 'hero_title' 'Dein All-in-One Business Hub' %}</h1>
+        <p id="hero_subtitle">{% editable_content 'startseite' 'hero_subtitle' 'hero_subtitle' 'Alle wichtigen Tools für Selbständige und Online-Shop-Gründer an einem Ort' %}</p>
         <a href="{% url 'accounts:signup' %}" class="btn btn-light btn-lg px-4">
-            <i class="fas fa-rocket me-2"></i>{% editable_content 'startseite' 'hero_button' 'button_text' 'Kostenlos starten' %}
+            <i class="fas fa-rocket me-2"></i><span id="hero_button">{% editable_content 'startseite' 'hero_button' 'button_text' 'Kostenlos starten' %}</span>
         </a>
     </div>
 </div>
 
 <!-- Value Proposition -->
-<div class="container text-center mb-5">
-    <h2 class="mb-4">{% editable_content 'startseite' 'value_title' 'section_title' 'Starte dein Business ohne hohe Kosten' %}</h2>
+<div class="container text-center mb-5" id="value_section">
+    <h2 class="mb-4" id="value_title">{% editable_content 'startseite' 'value_title' 'section_title' 'Starte dein Business ohne hohe Kosten' %}</h2>
     <p class="lead text-muted">
-        {% editable_content 'startseite' 'value_text' 'section_text' 'Workloom bündelt alle wichtigen Business-Tools in einer Plattform. Spare Zeit und Geld, während du dein Unternehmen aufbaust.' %}
+        <span id="value_text">{% editable_content 'startseite' 'value_text' 'section_text' 'Workloom bündelt alle wichtigen Business-Tools in einer Plattform. Spare Zeit und Geld, während du dein Unternehmen aufbaust.' %}</span>
     </p>
 </div>
 
 <!-- Tools Section -->
-<div class="container mb-5">
-    <h2 class="text-center mb-4">Unsere Business-Tools im Überblick</h2>
+<div class="container mb-5" id="tools_section">
+    <h2 class="text-center mb-4" id="h2_tools_overview">{% visual_content 'startseite' 'h2_tools_overview' 'Unsere Business-Tools im Überblick' %}</h2>
     <p class="text-center text-muted mb-5">Alle wichtigen Werkzeuge für deinen Erfolg - einfach, integriert und sofort einsatzbereit</p>
 </div>
 
 <!-- Dynamic Apps Grid -->
 {% load public_apps %}
 {% get_public_apps as available_apps %}
-<div class="tool-grid">
+<div class="tool-grid" id="apps_grid">
     {% for app_key, app_info in available_apps.items %}
     <div class="card feature-card">
         <div class="card-body">
             <div class="text-center mb-3">
                 <i class="{{ app_info.icon }} feature-icon text-{{ app_info.color }}"></i>
-                <h5 class="card-title mt-2">{{ app_info.name }}</h5>
+                <h5 class="card-title mt-2" id="app_title_{{ app_key }}">{{ app_info.name }}</h5>
             </div>
-            <p class="tool-description">
+            <p class="tool-description" id="app_desc_{{ app_key }}">
                 {{ app_info.short_desc }}
             </p>
             <ul class="tool-features">
                 {% for feature in app_info.features|slice:":5" %}
-                <li>{{ feature }}</li>
+                <li id="feature_{{ app_key }}_{{ forloop.counter }}">{{ feature }}</li>
                 {% endfor %}
             </ul>
             <div class="mt-auto text-center">
@@ -186,35 +187,35 @@
 </div>
 
 <!-- Community Section -->
-<div class="community-section">
+<div class="community-section" id="community_section">
     <div class="container">
         <div class="row align-items-center">
             <div class="col-lg-6">
-                <h3>{% editable_content 'startseite' 'community_title' 'section_title' 'Gemeinsam stärker' %}</h3>
+                <h3 id="community_title">{% editable_content 'startseite' 'community_title' 'section_title' 'Gemeinsam stärker' %}</h3>
                 <p class="lead">
-                    {% editable_content 'startseite' 'community_text' 'section_text' 'Bei Workloom bist du nicht allein. Unsere Community aus Selbständigen und Shop-Betreibern unterstützt sich gegenseitig.' %}
+                    <span id="community_text">{% editable_content 'startseite' 'community_text' 'section_text' 'Bei Workloom bist du nicht allein. Unsere Community aus Selbständigen und Shop-Betreibern unterstützt sich gegenseitig.' %}</span>
                 </p>
                 <ul class="list-unstyled">
-                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Direkter Austausch mit anderen Gründern</li>
-                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Gemeinsame Problemlösung</li>
-                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Erfahrungen und Best Practices teilen</li>
-                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Netzwerken und Kooperationen</li>
+                    <li class="mb-2" id="community_feature_1"><i class="fas fa-check text-success me-2"></i>Direkter Austausch mit anderen Gründern</li>
+                    <li class="mb-2" id="community_feature_2"><i class="fas fa-check text-success me-2"></i>Gemeinsame Problemlösung</li>
+                    <li class="mb-2" id="community_feature_3"><i class="fas fa-check text-success me-2"></i>Erfahrungen und Best Practices teilen</li>
+                    <li class="mb-2" id="community_feature_4"><i class="fas fa-check text-success me-2"></i>Netzwerken und Kooperationen</li>
                 </ul>
             </div>
             <div class="col-lg-6">
                 <div class="testimonial-card">
                     <p class="mb-2">
                         <i class="fas fa-quote-left text-muted"></i>
-                        {% editable_content 'startseite' 'testimonial_1' 'testimonial' 'Workloom hat mir geholfen, meinen Shop aufzubauen ohne teure Tools kaufen zu müssen. Die Community ist unbezahlbar!' %}
+                        <span id="testimonial_1">{% editable_content 'startseite' 'testimonial_1' 'testimonial' 'Workloom hat mir geholfen, meinen Shop aufzubauen ohne teure Tools kaufen zu müssen. Die Community ist unbezahlbar!' %}</span>
                     </p>
-                    <small class="text-muted">{% editable_content 'startseite' 'testimonial_1_author' 'text' '- Sarah, Online-Shop-Gründerin' %}</small>
+                    <small class="text-muted" id="testimonial_1_author">{% editable_content 'startseite' 'testimonial_1_author' 'text' '- Sarah, Online-Shop-Gründerin' %}</small>
                 </div>
                 <div class="testimonial-card">
                     <p class="mb-2">
                         <i class="fas fa-quote-left text-muted"></i>
-                        {% editable_content 'startseite' 'testimonial_2' 'testimonial' 'Endlich alle wichtigen Business-Tools an einem Ort. Das spart mir täglich Zeit und Nerven.' %}
+                        <span id="testimonial_2">{% editable_content 'startseite' 'testimonial_2' 'testimonial' 'Endlich alle wichtigen Business-Tools an einem Ort. Das spart mir täglich Zeit und Nerven.' %}</span>
                     </p>
-                    <small class="text-muted">{% editable_content 'startseite' 'testimonial_2_author' 'text' '- Max, Selbständiger Designer' %}</small>
+                    <small class="text-muted" id="testimonial_2_author">{% editable_content 'startseite' 'testimonial_2_author' 'text' '- Max, Selbständiger Designer' %}</small>
                 </div>
             </div>
         </div>
@@ -223,28 +224,28 @@
 
 <!-- Pricing -->
 <div class="text-center my-5">
-    <h3>{% editable_content 'startseite' 'pricing_title' 'section_title' 'Einfache, transparente Preise' %}</h3>
-    <div class="price-tag my-3">{% editable_content 'startseite' 'price_value' 'text' 'Kostenlos' %}</div>
+    <h3 id="pricing_title">{% editable_content 'startseite' 'pricing_title' 'section_title' 'Einfache, transparente Preise' %}</h3>
+    <div class="price-tag my-3" id="price_value">{% editable_content 'startseite' 'price_value' 'text' 'Kostenlos' %}</div>
     <p class="lead text-muted">
-        {% editable_content 'startseite' 'pricing_text' 'section_text' 'Starte ohne Risiko und ohne versteckte Kosten.<br>Upgrade nur wenn du mehr brauchst.' %}
+        <span id="pricing_text">{% editable_content 'startseite' 'pricing_text' 'section_text' 'Starte ohne Risiko und ohne versteckte Kosten.<br>Upgrade nur wenn du mehr brauchst.' %}</span>
     </p>
     <a href="{% url 'accounts:signup' %}" class="btn btn-primary btn-lg">
-        <i class="fas fa-user-plus me-2"></i>{% editable_content 'startseite' 'pricing_button' 'button_text' 'Jetzt kostenlos registrieren' %}
+        <i class="fas fa-user-plus me-2"></i><span id="pricing_button">{% editable_content 'startseite' 'pricing_button' 'button_text' 'Jetzt kostenlos registrieren' %}</span>
     </a>
 </div>
 
 <!-- Call to Action -->
-<div class="bg-light rounded p-5 text-center">
-    <h3 class="mb-3">{% editable_content 'startseite' 'cta_title' 'section_title' 'Bereit durchzustarten?' %}</h3>
+<div class="bg-light rounded p-5 text-center" id="cta_section">
+    <h3 class="mb-3" id="cta_title">{% editable_content 'startseite' 'cta_title' 'section_title' 'Bereit durchzustarten?' %}</h3>
     <p class="lead mb-4">
-        {% editable_content 'startseite' 'cta_text' 'section_text' 'Schließe dich hunderten von Selbständigen und Shop-Gründern an, die mit Workloom ihr Business aufbauen.' %}
+        <span id="cta_text">{% editable_content 'startseite' 'cta_text' 'section_text' 'Schließe dich hunderten von Selbständigen und Shop-Gründern an, die mit Workloom ihr Business aufbauen.' %}</span>
     </p>
     <div class="d-flex gap-3 justify-content-center flex-wrap">
         <a href="{% url 'accounts:signup' %}" class="btn btn-primary btn-lg">
-            <i class="fas fa-rocket me-2"></i>{% editable_content 'startseite' 'cta_button_1' 'button_text' 'Kostenlos starten' %}
+            <i class="fas fa-rocket me-2"></i><span id="cta_button_1">{% editable_content 'startseite' 'cta_button_1' 'button_text' 'Kostenlos starten' %}</span>
         </a>
         <a href="{% url 'naturmacher:thema_list' %}" class="btn btn-outline-primary btn-lg">
-            <i class="fas fa-book me-2"></i>{% editable_content 'startseite' 'cta_button_2' 'button_text' 'Mehr erfahren' %}
+            <i class="fas fa-book me-2"></i><span id="cta_button_2">{% editable_content 'startseite' 'cta_button_2' 'button_text' 'Mehr erfahren' %}</span>
         </a>
     </div>
 </div>
