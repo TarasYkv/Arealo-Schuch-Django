@@ -62,12 +62,29 @@ urlpatterns = [
     path('profil/', views.profile_view, name='profile'),
     # path('passwort-aendern/', views.change_password_view, name='change_password'),
     
-    # Content Editor
-    path('content-editor/', views.content_editor, name='content_editor'),
-    path('content/update/', views.update_content, name='update_content'),
-    path('content/delete/', views.delete_content, name='delete_content'),
-    path('content/<int:content_id>/', views.get_content, name='get_content'),
-    path('content/generate-ai/', views.generate_ai_content, name='generate_ai_content'),
+    # Content Editor (now using Visual Editor)
+    path('content-editor/', views.visual_editor, name='content_editor'),
+    
+    # Visual Editor (keeping for compatibility)
+    path('visual-editor/', views.visual_editor, name='visual_editor'),
+    path('visual-editor/save/', views.save_visual_changes, name='save_visual_changes'),
+    path('visual-editor/publish/', views.publish_visual_changes, name='publish_visual_changes'),
+    path('visual-editor/get-content/', views.get_page_content, name='get_page_content'),
+    path('visual-editor/clone-element/', views.clone_element, name='clone_element'),
+    path('visual-editor/get-styles/', views.get_element_styles, name='get_element_styles'),
+    path('visual-editor/save-style/', views.save_element_style, name='save_element_style'),
+    path('visual-editor/preview/<str:page_name>/', views.preview_page, name='preview_page'),
+    path('visual-editor/export/', views.export_page_changes, name='export_page_changes'),
+    path('visual-editor/import/', views.import_page_changes, name='import_page_changes'),
+    
+    # Site Discovery
+    path('site/discover/', views.discover_site_structure, name='discover_site_structure'),
+    path('site/page-info/', views.get_page_info, name='get_page_info'),
+    path('site/create-page/', views.create_custom_page, name='create_custom_page'),
+    path('content/update/', views.update_content_simple, name='update_content'),
+    path('content/delete/', views.delete_content_simple, name='delete_content'),
+    path('content/<int:content_id>/', views.get_content_simple, name='get_content'),
+    path('content/generate-ai/', views.generate_ai_content_simple, name='generate_ai_content'),
     path('content/ai-edit/', views.ai_edit_content, name='ai_edit_content'),
     path('content/ai-rephrase/', views.ai_rephrase_content, name='ai_rephrase_content'),
     path('page/create/', views.create_page, name='create_page'),

@@ -436,6 +436,14 @@
                                 <i class="fas fa-circle text-secondary"></i>
                             </div>
                         </div>
+                        
+                        <!-- Camera Selection -->
+                        <div class="mb-2">
+                            <select class="form-select form-select-sm" id="cameraSelect">
+                                <option value="">Lade Kameras...</option>
+                            </select>
+                        </div>
+                        
                         <div class="d-grid gap-2">
                             <button id="startCameraBtn" class="btn btn-outline-success">
                                 <i class="fas fa-play me-2"></i>Kamera starten
@@ -506,6 +514,14 @@
                             </div>
                         </div>
                         
+                        <!-- Microphone Selection -->
+                        <div class="mb-3">
+                            <label for="microphoneSelect" class="form-label small">Mikrofon auswählen:</label>
+                            <select class="form-select form-select-sm" id="microphoneSelect">
+                                <option value="">Lade Mikrofone...</option>
+                            </select>
+                        </div>
+                        
                         <!-- Microphone Volume Control -->
                         <div class="mb-3">
                             <label for="microphoneVolume" class="form-label small">Mikrofonlautstärke:</label>
@@ -538,6 +554,52 @@
                             <small class="text-muted" id="layoutStreamCount">0 Streams</small>
                         </div>
                         <div id="layoutChips" class="d-flex flex-wrap gap-1"></div>
+                    </div>
+                    
+                    <!-- PIP Controls (Picture-in-Picture) -->
+                    <div class="mt-4" id="pipControls" style="display: none;">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h6 class="mb-0">
+                                <i class="fas fa-square text-primary me-2"></i>PiP Einstellungen
+                            </h6>
+                        </div>
+                        
+                        <!-- PIP Size Control -->
+                        <div class="mb-3">
+                            <label for="pipSize" class="form-label small">Kamera-Größe:</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <small>Klein</small>
+                                <input type="range" class="form-range" id="pipSize" 
+                                       min="10" max="40" value="20" step="5">
+                                <small>Groß</small>
+                                <span class="badge bg-secondary ms-2" id="pipSizeValue">20%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- PIP Shape Toggle -->
+                        <div class="mb-3">
+                            <label class="form-label small">Kamera-Form:</label>
+                            <div class="btn-group btn-group-sm w-100" role="group">
+                                <input type="radio" class="btn-check" name="pipShape" id="pipShapeSquare" value="square" checked>
+                                <label class="btn btn-outline-primary" for="pipShapeSquare">
+                                    <i class="fas fa-square me-1"></i>Eckig
+                                </label>
+                                
+                                <input type="radio" class="btn-check" name="pipShape" id="pipShapeCircle" value="circle">
+                                <label class="btn btn-outline-primary" for="pipShapeCircle">
+                                    <i class="fas fa-circle me-1"></i>Rund
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- PIP Position -->
+                        <div class="mb-3">
+                            <label class="form-label small">Position:</label>
+                            <div class="alert alert-info p-2">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <small>Ziehen Sie die Kamera im Preview-Bereich um sie zu positionieren</small>
+                            </div>
+                        </div>
                     </div>
 
                 </div>
@@ -882,6 +944,24 @@ class StreamRecorderOptimized {
         this.mediaRecorder = null;
         this.recordedChunks = [];
         this.isRecording = false;
+        
+        // PIP Settings
+        this.pipSettings = {
+            size: 20, // percentage of canvas width/height
+            shape: 'square', // 'square' or 'circle'
+            x: 0, // x coordinate (will be calculated on first render)
+            y: 0, // y coordinate (will be calculated on first render)
+            padding: 20 // padding from edges
+        };
+        
+        // PIP Drag & Drop state
+        this.pipDragState = {
+            isDragging: false,
+            startX: 0,
+            startY: 0,
+            offsetX: 0,
+            offsetY: 0
+        };
         this.recordingStartTime = null;
         this.recordingTimer = null;
         this.maxDuration = 180000; // 3 minutes
@@ -950,6 +1030,12 @@ class StreamRecorderOptimized {
         this.refreshLayoutChips();
         this.updateScreenButtons(); // Initialize button states
         
+        // Load available media devices
+        this.loadMediaDevices();
+        
+        // Initialize PIP controls visibility based on default layout
+        this.updateLayoutUI(this.currentLayout);
+        
         // Initialize aspect ratio preview
         setTimeout(() => {
             const currentRatio = document.getElementById('aspectRatioSetting')?.value || '16:9';
@@ -968,6 +1054,69 @@ class StreamRecorderOptimized {
         this.checkAudioStream();
         
         console.log('🔧 Status-Badges initialisiert');
+    }
+
+    async loadMediaDevices() {
+        try {
+            // Request permissions first to get device labels
+            let devices = await navigator.mediaDevices.enumerateDevices();
+            
+            // Check if we need to request permissions to see device labels
+            const needsPermission = devices.some(device => 
+                (device.kind === 'audioinput' || device.kind === 'videoinput') && !device.label
+            );
+            
+            if (needsPermission) {
+                try {
+                    // Request permissions temporarily to get device labels
+                    const tempStream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: true, 
+                        video: true 
+                    });
+                    // Stop tracks immediately
+                    tempStream.getTracks().forEach(track => track.stop());
+                    // Re-enumerate devices with labels
+                    devices = await navigator.mediaDevices.enumerateDevices();
+                } catch (err) {
+                    console.warn('Permission request for device enumeration failed:', err);
+                }
+            }
+            
+            // Load audio input devices (microphones)
+            const audioInputs = devices.filter(device => device.kind === 'audioinput');
+            const microphoneSelect = document.getElementById('microphoneSelect');
+            if (microphoneSelect) {
+                microphoneSelect.innerHTML = '<option value="">Standard-Mikrofon</option>';
+                
+                audioInputs.forEach((device, index) => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.textContent = device.label || `Mikrofon ${index + 1}`;
+                    microphoneSelect.appendChild(option);
+                });
+                
+                console.log(`📢 ${audioInputs.length} Mikrofon(e) gefunden`);
+            }
+            
+            // Load video input devices (cameras)
+            const videoInputs = devices.filter(device => device.kind === 'videoinput');
+            const cameraSelect = document.getElementById('cameraSelect');
+            if (cameraSelect) {
+                cameraSelect.innerHTML = '<option value="">Standard-Kamera</option>';
+                
+                videoInputs.forEach((device, index) => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.textContent = device.label || `Kamera ${index + 1}`;
+                    cameraSelect.appendChild(option);
+                });
+                
+                console.log(`📷 ${videoInputs.length} Kamera(s) gefunden`);
+            }
+            
+        } catch (error) {
+            console.error('Error loading media devices:', error);
+        }
     }
 
     checkMobileCompatibility() {
@@ -1121,6 +1270,15 @@ class StreamRecorderOptimized {
         document.getElementById('addScreenBtn')?.addEventListener('click', () => this.addScreen());
         document.getElementById('stopAllScreensBtn')?.addEventListener('click', () => this.stopAllScreens());
         
+        // Device change listeners
+        navigator.mediaDevices?.addEventListener('devicechange', () => {
+            console.log('📱 Geräte wurden geändert - lade neu...');
+            this.loadMediaDevices();
+        });
+        
+        // PIP Controls
+        this.setupPIPControls();
+        
         // Recording controls
         document.getElementById('recordBtn')?.addEventListener('click', () => this.startRecordingWithCountdown());
         document.getElementById('stopRecordBtn')?.addEventListener('click', () => this.stopRecording());
@@ -1205,6 +1363,12 @@ class StreamRecorderOptimized {
         // WICHTIG: Komplett neu rendern statt Klassen zu manipulieren
         // Das verhindert CSS-Klassen-Konflikte bei den Layout Cards
         
+        // Show/hide PIP controls based on layout
+        const pipControls = document.getElementById('pipControls');
+        if (pipControls) {
+            pipControls.style.display = (layout === 'pip') ? 'block' : 'none';
+        }
+        
         // Aktuelle Stream-Anzahl ermitteln
         const count = this.streams.size;
         const layouts = this.getAvailableLayouts(count);
@@ -1213,6 +1377,187 @@ class StreamRecorderOptimized {
         this.refreshLayoutChips();
         
         console.log(`🎨 Layout UI komplett neu gerendert für: ${layout}`);
+    }
+    
+    setupPIPControls() {
+        console.log('🔧 Setting up PIP controls...');
+        
+        // PIP Size Control
+        const pipSizeSlider = document.getElementById('pipSize');
+        const pipSizeValue = document.getElementById('pipSizeValue');
+        
+        console.log('🎛️ PIP Size slider found:', !!pipSizeSlider);
+        
+        if (pipSizeSlider) {
+            pipSizeSlider.addEventListener('input', (e) => {
+                this.pipSettings.size = parseInt(e.target.value);
+                if (pipSizeValue) pipSizeValue.textContent = `${this.pipSettings.size}%`;
+                
+                console.log(`🔧 PIP Size changed to: ${this.pipSettings.size}%`);
+                console.log(`🎬 Current layout: ${this.currentLayout}, Is composing: ${this.isComposing}`);
+                
+                if (this.isComposing && this.currentLayout === 'pip') {
+                    console.log('🔄 Triggering render update...');
+                    this.renderCurrentLayout();
+                }
+            });
+            console.log('✅ PIP size listener added');
+        }
+        
+        // PIP Shape Toggle
+        const shapeRadios = document.querySelectorAll('input[name="pipShape"]');
+        console.log('🔘 PIP Shape radios found:', shapeRadios.length);
+        
+        shapeRadios.forEach((radio, index) => {
+            console.log(`📻 Adding listener to radio ${index}: ${radio.value}`);
+            radio.addEventListener('change', (e) => {
+                this.pipSettings.shape = e.target.value;
+                console.log(`🔧 PIP Shape changed to: ${this.pipSettings.shape}`);
+                
+                if (this.isComposing && this.currentLayout === 'pip') {
+                    console.log('🔄 Triggering render update for shape...');
+                    this.renderCurrentLayout();
+                }
+            });
+        });
+        
+        // Setup PIP Drag & Drop for canvas
+        this.setupPIPDragAndDrop();
+        
+        console.log('✅ PIP controls setup complete');
+        console.log('🎛️ Initial PIP settings:', this.pipSettings);
+    }
+
+    setupPIPDragAndDrop() {
+        // Only setup drag and drop for PIP mode
+        if (!this.canvas) return;
+        
+        // Initialize PIP position if not set yet
+        this.initializePIPPosition();
+        
+        // Mouse down event for starting drag
+        this.canvas.addEventListener('mousedown', (e) => {
+            console.log(`🖱️ Mouse down - Layout: ${this.currentLayout}, Composing: ${this.isComposing}`);
+            if (this.currentLayout !== 'pip' || !this.isComposing) return;
+            
+            const coords = this.getCanvasCoordinates(e);
+            console.log(`🖱️ Mouse coordinates (scaled): ${coords.x}, ${coords.y}`);
+            console.log(`🖱️ PIP position: ${this.pipSettings.x}, ${this.pipSettings.y}`);
+            
+            // Check if click is within PIP area
+            const hitTest = this.isPIPHitTest(coords.x, coords.y);
+            console.log(`🎯 PIP hit test result: ${hitTest}`);
+            
+            if (hitTest) {
+                this.pipDragState.isDragging = true;
+                this.pipDragState.startX = coords.x;
+                this.pipDragState.startY = coords.y;
+                this.pipDragState.offsetX = coords.x - this.pipSettings.x;
+                this.pipDragState.offsetY = coords.y - this.pipSettings.y;
+                this.canvas.style.cursor = 'grabbing';
+                console.log('🎯 PIP drag started');
+                e.preventDefault();
+            }
+        });
+        
+        // Mouse move event for dragging
+        this.canvas.addEventListener('mousemove', (e) => {
+            if (this.currentLayout !== 'pip' || !this.isComposing) return;
+            
+            const coords = this.getCanvasCoordinates(e);
+            
+            if (this.pipDragState.isDragging) {
+                console.log(`🖱️ Dragging - Mouse: ${coords.x}, ${coords.y}`);
+                // Calculate new position
+                const newX = coords.x - this.pipDragState.offsetX;
+                const newY = coords.y - this.pipDragState.offsetY;
+                
+                // Get PIP dimensions
+                const sizePercentage = this.pipSettings.size / 100;
+                const pipWidth = this.canvas.width * sizePercentage;
+                const pipHeight = this.canvas.height * sizePercentage;
+                
+                // Constrain to canvas bounds
+                this.pipSettings.x = Math.max(0, Math.min(this.canvas.width - pipWidth, newX));
+                this.pipSettings.y = Math.max(0, Math.min(this.canvas.height - pipHeight, newY));
+                
+                // Trigger re-render
+                this.renderCurrentLayout();
+                
+            } else {
+                // Change cursor when hovering over PIP area
+                if (this.isPIPHitTest(coords.x, coords.y)) {
+                    this.canvas.style.cursor = 'grab';
+                } else {
+                    this.canvas.style.cursor = 'default';
+                }
+            }
+        });
+        
+        // Mouse up event for ending drag
+        this.canvas.addEventListener('mouseup', (e) => {
+            if (this.pipDragState.isDragging) {
+                this.pipDragState.isDragging = false;
+                this.canvas.style.cursor = 'default';
+                console.log(`🎯 PIP drag ended at: ${this.pipSettings.x}, ${this.pipSettings.y}`);
+            }
+        });
+        
+        // Mouse leave event to stop drag if mouse leaves canvas
+        this.canvas.addEventListener('mouseleave', (e) => {
+            if (this.pipDragState.isDragging) {
+                this.pipDragState.isDragging = false;
+                this.canvas.style.cursor = 'default';
+                console.log('🎯 PIP drag cancelled (mouse left canvas)');
+            }
+        });
+        
+        console.log('✅ PIP Drag & Drop setup complete');
+    }
+    
+    getCanvasCoordinates(e) {
+        // Convert mouse coordinates to canvas coordinates, accounting for scaling
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        
+        return {
+            x: (e.clientX - rect.left) * scaleX,
+            y: (e.clientY - rect.top) * scaleY
+        };
+    }
+    
+    initializePIPPosition() {
+        // Initialize PIP position if canvas is available and position not set
+        if (this.canvas && this.pipSettings.x === 0 && this.pipSettings.y === 0) {
+            const sizePercentage = this.pipSettings.size / 100;
+            const pipWidth = this.canvas.width * sizePercentage;
+            const pipHeight = this.canvas.height * sizePercentage;
+            
+            // Default position: top-right corner with padding, but ensure it fits on screen
+            const maxX = this.canvas.width - pipWidth - this.pipSettings.padding;
+            const maxY = this.canvas.height - pipHeight - this.pipSettings.padding;
+            
+            this.pipSettings.x = Math.max(this.pipSettings.padding, maxX);
+            this.pipSettings.y = this.pipSettings.padding;
+            
+            console.log(`🎯 PIP position initialized: x=${this.pipSettings.x}, y=${this.pipSettings.y}`);
+            console.log(`🖼️ Canvas dimensions: ${this.canvas.width}x${this.canvas.height}`);
+            console.log(`📐 PIP dimensions: ${pipWidth}x${pipHeight}`);
+            console.log(`📍 Max position: ${maxX}, ${maxY}`);
+        }
+    }
+    
+    isPIPHitTest(mouseX, mouseY) {
+        // Check if mouse position is within PIP area
+        const sizePercentage = this.pipSettings.size / 100;
+        const pipWidth = this.canvas.width * sizePercentage;
+        const pipHeight = this.canvas.height * sizePercentage;
+        
+        return (mouseX >= this.pipSettings.x && 
+                mouseX <= this.pipSettings.x + pipWidth &&
+                mouseY >= this.pipSettings.y && 
+                mouseY <= this.pipSettings.y + pipHeight);
     }
 
     checkBrowserSupport() {
@@ -1281,15 +1626,27 @@ class StreamRecorderOptimized {
         try {
             this.updateStatus('camera', 'Kamera wird gestartet...', 'info');
             
-            // Get audio processing settings from UI
+            // Get selected camera device
+            const cameraSelect = document.getElementById('cameraSelect');
+            const videoDeviceId = cameraSelect ? cameraSelect.value : undefined;
+            
+            // Get audio processing settings from UI with selected microphone
             const audioConstraints = this.getAudioConstraints();
             
+            // Build video constraints with selected camera
+            const videoConstraints = {
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                frameRate: { ideal: this.targetFPS }
+            };
+            
+            // Add specific device if selected
+            if (videoDeviceId) {
+                videoConstraints.deviceId = { exact: videoDeviceId };
+            }
+            
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { 
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 },
-                    frameRate: { ideal: this.targetFPS }
-                },
+                video: videoConstraints,
                 audio: audioConstraints
             });
 
@@ -1649,22 +2006,80 @@ class StreamRecorderOptimized {
             }
         }
 
-        // Draw overlay stream
+        // Draw overlay stream with customizable PIP settings
         if (overlayEntry) {
             const [overlayType, overlayStream] = overlayEntry;
             const overlayVideo = this.getVideoElementOptimized(overlayType, overlayStream);
             if (overlayVideo && overlayVideo.readyState >= 2) {
-                const size = 120;
-                const x = this.canvas.width - size - 20;
-                const y = 20;
+                console.log('🎬 PIP Settings:', this.pipSettings); // Debug log
                 
-                // White border
-                this.ctx.strokeStyle = '#fff';
-                this.ctx.lineWidth = 3;
-                this.ctx.strokeRect(x - 3, y - 3, size + 6, size + 6);
+                // Calculate PIP size based on percentage
+                const sizePercentage = this.pipSettings.size / 100;
+                const pipWidth = this.canvas.width * sizePercentage;
+                const pipHeight = this.canvas.height * sizePercentage;
                 
-                // Draw overlay video with its display mode
-                this.drawVideoWithMode(overlayVideo, overlayType, x, y, size, size);
+                // Use stored x/y coordinates, with fallback to top-right
+                if (this.pipSettings.x === 0 && this.pipSettings.y === 0) {
+                    // Initialize position to top-right corner if not set yet
+                    this.pipSettings.x = this.canvas.width - pipWidth - this.pipSettings.padding;
+                    this.pipSettings.y = this.pipSettings.padding;
+                }
+                
+                let x = this.pipSettings.x;
+                let y = this.pipSettings.y;
+                
+                // Ensure PIP stays within bounds (in case canvas size changed)
+                x = Math.max(0, Math.min(this.canvas.width - pipWidth, x));
+                y = Math.max(0, Math.min(this.canvas.height - pipHeight, y));
+                
+                // Update stored position if it was constrained
+                this.pipSettings.x = x;
+                this.pipSettings.y = y;
+                
+                console.log(`📐 PIP Size: ${this.pipSettings.size}%, Shape: ${this.pipSettings.shape}`);
+                console.log(`📍 PIP Position: x=${x}, y=${y}, w=${pipWidth}, h=${pipHeight}`);
+                
+                // Draw based on shape setting
+                if (this.pipSettings.shape === 'circle') {
+                    // Save context state
+                    this.ctx.save();
+                    
+                    // Create circular clipping path
+                    const centerX = x + pipWidth / 2;
+                    const centerY = y + pipHeight / 2;
+                    const radius = Math.min(pipWidth, pipHeight) / 2;
+                    
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                    this.ctx.closePath();
+                    this.ctx.clip();
+                    
+                    // Draw video in circular area
+                    const squareSize = radius * 2;
+                    const squareX = centerX - radius;
+                    const squareY = centerY - radius;
+                    this.drawVideoWithMode(overlayVideo, overlayType, squareX, squareY, squareSize, squareSize);
+                    
+                    // Restore context and draw border
+                    this.ctx.restore();
+                    
+                    // Draw circular border
+                    this.ctx.strokeStyle = '#ffffff';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.beginPath();
+                    this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                    this.ctx.stroke();
+                    
+                } else {
+                    // Square/Rectangle shape (default)
+                    // Draw PIP with frame
+                    this.ctx.strokeStyle = '#ffffff';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.strokeRect(x - 1, y - 1, pipWidth + 2, pipHeight + 2);
+                    
+                    // Draw video content with display mode
+                    this.drawVideoWithMode(overlayVideo, overlayType, x, y, pipWidth, pipHeight);
+                }
             }
         }
     }
@@ -3971,22 +4386,28 @@ class StreamRecorderOptimized {
 
     initializeFreeLayoutStream(streamId) {
         const existingCount = this.freeLayoutStreams.size;
-        const defaultWidth = 200;
-        const defaultHeight = 150;
+        // 150% größere Anfangsgrößen (ursprünglich 200x150, jetzt 300x225)
+        const defaultWidth = 300;  // 200 * 1.5
+        const defaultHeight = 225; // 150 * 1.5
         const margin = 20;
         
-        // Calculate position to avoid overlaps
-        const x = margin + (existingCount % 3) * (defaultWidth + margin);
-        const y = margin + Math.floor(existingCount / 3) * (defaultHeight + margin);
+        // Calculate position to avoid overlaps (weniger Streams pro Reihe wegen größerer Größe)
+        const streamsPerRow = Math.max(1, Math.floor((this.canvas.width - margin) / (defaultWidth + margin)));
+        const x = margin + (existingCount % streamsPerRow) * (defaultWidth + margin);
+        const y = margin + Math.floor(existingCount / streamsPerRow) * (defaultHeight + margin);
+        
+        // Ensure streams fit within canvas
+        const finalX = Math.min(x, Math.max(0, this.canvas.width - defaultWidth - margin));
+        const finalY = Math.min(y, Math.max(0, this.canvas.height - defaultHeight - margin));
         
         this.freeLayoutStreams.set(streamId, {
-            x: Math.min(x, this.canvas.width - defaultWidth),
-            y: Math.min(y, this.canvas.height - defaultHeight),
+            x: finalX,
+            y: finalY,
             width: defaultWidth,
             height: defaultHeight
         });
         
-        console.log(`🎯 Stream ${streamId} für freies Layout initialisiert`);
+        console.log(`🎯 Stream ${streamId} für freies Layout initialisiert (Größe: ${defaultWidth}x${defaultHeight}, Position: ${finalX},${finalY})`);
     }
 
     handleThumbnailClick(streamId) {
@@ -4231,6 +4652,10 @@ class StreamRecorderOptimized {
             return false;
         }
 
+        // Get selected microphone device
+        const microphoneSelect = document.getElementById('microphoneSelect');
+        const audioDeviceId = microphoneSelect ? microphoneSelect.value : undefined;
+
         // Get audio processing settings from settings modal
         const agcEnabled = document.getElementById('settingsAGC')?.checked !== false;
         const noiseSuppressionEnabled = document.getElementById('settingsNoiseSuppression')?.checked !== false;
@@ -4243,11 +4668,17 @@ class StreamRecorderOptimized {
             sampleRate: 44100,
             channelCount: 2
         };
+        
+        // Add specific device if selected
+        if (audioDeviceId) {
+            audioConstraints.deviceId = { exact: audioDeviceId };
+        }
 
         console.log('🎛️ Audio Constraints from Settings:', {
             agc: agcEnabled,
             noiseSuppression: noiseSuppressionEnabled,
-            echoCancellation: echoCancellationEnabled
+            echoCancellation: echoCancellationEnabled,
+            deviceId: audioDeviceId || 'default'
         });
 
         return audioConstraints;

@@ -118,7 +118,6 @@ def _get_available_apps():
                 'Kalender mit Terminerstellung',
                 'Digitale Ideenboards mit Kollaboration',
                 'Video/Audio-Calls zwischen Nutzern',
-                'Einladungen an andere Nutzer',
                 'KI-Terminplanung (in Entwicklung)'
             ],
             'benefits': {

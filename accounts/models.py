@@ -481,6 +481,8 @@ class EditableContent(models.Model):
                               help_text="Kategorisierung des Inhalts (z.B. hero, features, pricing)")
     sort_order = models.PositiveIntegerField(default=0, verbose_name="Sortierreihenfolge")
     is_active = models.BooleanField(default=True, verbose_name="Aktiv")
+    is_published = models.BooleanField(default=False, verbose_name="Veröffentlicht", 
+                                     help_text="Ob die Änderungen live geschaltet wurden")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -1104,3 +1106,18 @@ class FeatureAccess(models.Model):
                     'show_upgrade_prompt': True,
                 }
             )
+
+
+class PageSnapshot(models.Model):
+    """Snapshots of page edits for backup and versioning"""
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='page_snapshots')
+    page = models.CharField(max_length=100)
+    html_content = models.TextField(blank=True)
+    changes = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        
+    def __str__(self):
+        return f"{self.page} - {self.user.username} - {self.created_at}"
