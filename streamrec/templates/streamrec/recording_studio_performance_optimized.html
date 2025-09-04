@@ -453,6 +453,83 @@
                             </button>
                         </div>
                         <small id="cameraStatus" class="text-muted d-block mt-2">Status: Nicht aktiv</small>
+                        
+                        <!-- Background Effects -->
+                        <div class="mt-3 border-top pt-3" id="backgroundEffectsSection" style="display: none;">
+                            <h6 class="mb-2">
+                                <i class="fas fa-magic text-info me-2"></i>Hintergrund-Effekte
+                                <span class="badge bg-success ms-2" id="effectsActiveBadge" style="display: none;">AKTIV</span>
+                            </h6>
+                            
+                            <!-- Versteckter Toggle für Kompatibilität -->
+                            <input class="form-check-input" type="checkbox" id="enableBackgroundEffects" style="display: none;">
+                            
+                            <!-- DEBUG: Canvas Vorschau -->
+                            <div class="mb-3 p-2 border rounded bg-light">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <strong class="text-muted">Debug: MediaPipe Canvas</strong>
+                                    <span class="badge bg-info" id="debugCanvasStatus">Nicht aktiv</span>
+                                </div>
+                                <canvas id="debugCanvas" width="320" height="180" class="border" style="background: #f0f0f0; max-width: 100%;"></canvas>
+                                <small class="text-muted d-block mt-1">Dieser Canvas zeigt, was MediaPipe wirklich verarbeitet</small>
+                            </div>
+
+                            <div id="backgroundEffectOptions">
+                                <div class="btn-group btn-group-sm w-100 mb-2" role="group">
+                                    <input type="radio" class="btn-check" name="bgEffect" id="bgEffectNone" value="none" checked>
+                                    <label class="btn btn-outline-secondary" for="bgEffectNone">
+                                        <i class="fas fa-ban"></i> Aus
+                                    </label>
+                                    
+                                    <input type="radio" class="btn-check" name="bgEffect" id="bgEffectRemove" value="remove">
+                                    <label class="btn btn-outline-secondary" for="bgEffectRemove">
+                                        <i class="fas fa-eraser"></i> Entfernen
+                                    </label>
+                                    
+                                    <input type="radio" class="btn-check" name="bgEffect" id="bgEffectBlur" value="blur">
+                                    <label class="btn btn-outline-secondary" for="bgEffectBlur">
+                                        <i class="fas fa-blur"></i> Blur
+                                    </label>
+                                    
+                                    <input type="radio" class="btn-check" name="bgEffect" id="bgEffectImage" value="image">
+                                    <label class="btn btn-outline-secondary" for="bgEffectImage">
+                                        <i class="fas fa-image"></i> Bild
+                                    </label>
+                                </div>
+                                
+                                <!-- Test Mode Button -->
+                                <div class="mt-2">
+                                    <button type="button" class="btn btn-outline-warning btn-sm w-100" id="testBackgroundEffects">
+                                        <i class="fas fa-bug"></i> Test-Modus (Debug)
+                                    </button>
+                                </div>
+                                
+                                <!-- Blur Strength Slider -->
+                                <div id="blurControls" style="display: none;" class="mb-2">
+                                    <label class="form-label">
+                                        Blur-Stärke: <span id="blurStrengthValue">15</span>px
+                                    </label>
+                                    <input type="range" class="form-range" id="blurStrength" min="5" max="30" value="15">
+                                </div>
+                                
+                                <!-- Background Image Upload -->
+                                <div id="imageControls" style="display: none;" class="mb-2">
+                                    <input type="file" class="form-control form-control-sm" id="backgroundImageUpload" accept="image/*">
+                                    <small class="text-muted">JPG, PNG, GIF (max. 5MB)</small>
+                                    <div id="backgroundImagePreview" class="mt-2" style="display: none;">
+                                        <img src="" alt="Hintergrund" class="img-thumbnail w-100" style="max-height: 100px; object-fit: cover;">
+                                    </div>
+                                </div>
+                                
+                                <!-- Performance Indicator -->
+                                <div class="alert alert-info py-1 px-2 small mb-0">
+                                    <i class="fas fa-tachometer-alt me-1"></i>
+                                    <span id="segmentationFPS">0</span> FPS
+                                    <span class="ms-2">|</span>
+                                    <span class="ms-2" id="segmentationStatus">Bereit</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Screen Section -->
@@ -923,6 +1000,9 @@
 {% endblock %}
 
 {% block page_js %}
+<!-- MediaPipe Selfie Segmentation Library -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
+
 <script>
 console.log('🚀 StreamRec Performance Optimized Version (PythonAnywhere Ready) wird geladen...');
 
@@ -963,6 +1043,23 @@ class StreamRecorderOptimized {
             offsetY: 0
         };
         this.recordingStartTime = null;
+        
+        // Background Effects Properties
+        this.backgroundEffects = {
+            enabled: false,
+            mode: 'none', // 'none', 'remove', 'blur', 'image'
+            blurStrength: 15,
+            backgroundImage: null,
+            segmentationCanvas: null,
+            segmentationCtx: null,
+            processedStream: null
+        };
+        
+        // MediaPipe Selfie Segmentation
+        this.selfieSegmentation = null;
+        this.segmentationReady = false;
+        this.segmentationFPS = 0;
+        this.lastSegmentationTime = performance.now();
         this.recordingTimer = null;
         this.maxDuration = 180000; // 3 minutes
         this.nextScreenId = 1; // Screen counter for multiple screens
@@ -1279,6 +1376,9 @@ class StreamRecorderOptimized {
         // PIP Controls
         this.setupPIPControls();
         
+        // Background Effects
+        this.setupBackgroundEffects();
+        
         // Recording controls
         document.getElementById('recordBtn')?.addEventListener('click', () => this.startRecordingWithCountdown());
         document.getElementById('stopRecordBtn')?.addEventListener('click', () => this.stopRecording());
@@ -1559,6 +1659,1985 @@ class StreamRecorderOptimized {
                 mouseY >= this.pipSettings.y && 
                 mouseY <= this.pipSettings.y + pipHeight);
     }
+    
+    setupBackgroundEffects() {
+        console.log('🎨 Setting up background effects...');
+        
+        // Enable/disable effects
+        const enableSwitch = document.getElementById('enableBackgroundEffects');
+        if (enableSwitch) {
+            enableSwitch.addEventListener('change', (e) => {
+                this.backgroundEffects.enabled = e.target.checked;
+                document.getElementById('backgroundEffectOptions').style.display = e.target.checked ? 'block' : 'none';
+                
+                if (e.target.checked) {
+                    // Check if camera is ready first
+                    if (this.streams.has('camera')) {
+                        const cameraVideo = this.getRawVideoElement('camera');
+                        if (cameraVideo && cameraVideo.readyState >= 2) {
+                            console.log('✅ Camera is ready, starting background effects');
+                            this.createSegmentationCanvas();
+                            this.initializeSegmentation();
+                        } else {
+                            console.log('⏳ Camera not ready, waiting...');
+                            // Wait for camera to be ready
+                            this.waitForCameraAndStartEffects();
+                        }
+                    } else {
+                        console.log('❌ No camera stream available');
+                        this.updateSegmentationStatus('Fehler: Keine Kamera');
+                        e.target.checked = false;
+                    }
+                } else {
+                    this.disableBackgroundEffects();
+                }
+            });
+        }
+        
+        // Effect mode selection
+        document.querySelectorAll('input[name="bgEffect"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                const selectedValue = e.target.value;
+                this.backgroundEffects.mode = selectedValue;
+                this.updateEffectControls(selectedValue);
+                
+                // Auto-enable/disable effects based on selection
+                const enableSwitch = document.getElementById('enableBackgroundEffects');
+                const effectsActiveBadge = document.getElementById('effectsActiveBadge');
+                
+                if (selectedValue === 'none') {
+                    // Disable effects when "Aus" is selected
+                    if (this.backgroundEffects.enabled) {
+                        console.log('🔄 Disabling background effects (None selected)');
+                        enableSwitch.checked = false;
+                        this.backgroundEffects.enabled = false;
+                        this.backgroundEffects.mode = 'none';
+                        this.applySimpleEffect('none'); // Remove all CSS effects
+                        effectsActiveBadge.style.display = 'none';
+                    }
+                } else {
+                    // Enable effects with MediaPipe-based approach
+                    if (!this.backgroundEffects.enabled) {
+                        console.log('🎆 Enabling background effects (MediaPipe mode) for:', selectedValue);
+                        enableSwitch.checked = true;
+                        this.backgroundEffects.enabled = true;
+                        this.backgroundEffects.mode = selectedValue;
+                        
+                        // Start MediaPipe segmentation
+                        this.createSegmentationCanvas();
+                        this.initializeSegmentation();
+                        effectsActiveBadge.style.display = 'inline';
+                    } else {
+                        // Just change mode
+                        console.log('🔄 Changing effect mode to:', selectedValue);
+                        this.backgroundEffects.mode = selectedValue;
+                        
+                        // If MediaPipe is running, it will pick up the new mode
+                        // Otherwise fall back to simple effect
+                        if (!this.backgroundEffects.segmentationActive) {
+                            this.applySimpleEffect(selectedValue);
+                        }
+                    }
+                }
+            });
+        });
+        
+        // Blur strength slider
+        const blurSlider = document.getElementById('blurStrength');
+        if (blurSlider) {
+            blurSlider.addEventListener('input', (e) => {
+                this.backgroundEffects.blurStrength = parseInt(e.target.value);
+                document.getElementById('blurStrengthValue').textContent = e.target.value;
+            });
+        }
+        
+        // Background image upload
+        const imageUpload = document.getElementById('backgroundImageUpload');
+        if (imageUpload) {
+            imageUpload.addEventListener('change', (e) => {
+                this.handleBackgroundImageUpload(e);
+            });
+        }
+        
+        // Test button - now auto-enables background effects
+        const testButton = document.getElementById('testBackgroundEffects');
+        if (testButton) {
+            testButton.addEventListener('click', () => {
+                console.log('🧪 Test button clicked');
+                
+                // Auto-enable effects and set to test mode
+                const enableSwitch = document.getElementById('enableBackgroundEffects');
+                const effectsActiveBadge = document.getElementById('effectsActiveBadge');
+                
+                this.backgroundEffects.mode = 'test';
+                this.updateSegmentationStatus('Test-Modus aktiv');
+                
+                if (!this.backgroundEffects.enabled) {
+                    console.log('🔄 Auto-enabling background effects for test mode');
+                    enableSwitch.checked = true;
+                    this.backgroundEffects.enabled = true;
+                    
+                    // Trigger the enable logic
+                    if (this.streams.has('camera')) {
+                        const cameraVideo = this.getRawVideoElement('camera');
+                        if (cameraVideo && cameraVideo.readyState >= 2) {
+                            console.log('✅ Camera is ready, starting background effects for test');
+                            this.createSegmentationCanvas();
+                            this.initializeSegmentation();
+                            effectsActiveBadge.style.display = 'inline';
+                        } else {
+                            console.log('⏳ Camera not ready, waiting for test mode...');
+                            this.waitForCameraAndStartEffects();
+                            effectsActiveBadge.style.display = 'inline';
+                        }
+                    }
+                }
+                
+                // Draw test pattern immediately if canvas is available
+                setTimeout(() => {
+                    if (this.backgroundEffects.segmentationCanvas) {
+                        const ctx = this.backgroundEffects.segmentationCtx;
+                        ctx.fillStyle = '#ff0000';
+                        ctx.fillRect(0, 0, ctx.canvas.width/2, ctx.canvas.height);
+                        ctx.fillStyle = '#00ff00';
+                        ctx.fillRect(ctx.canvas.width/2, 0, ctx.canvas.width/2, ctx.canvas.height);
+                        console.log('✅ Drew test pattern directly to canvas');
+                    }
+                }, 200);
+            });
+        }
+        
+        console.log('✅ Background effects setup complete');
+    }
+    
+    createSegmentationCanvas() {
+        console.log('🎨 Creating segmentation canvas...');
+        
+        try {
+            // Create canvas if it doesn't exist
+            if (!this.backgroundEffects.segmentationCanvas) {
+                this.backgroundEffects.segmentationCanvas = document.createElement('canvas');
+                this.backgroundEffects.segmentationCtx = this.backgroundEffects.segmentationCanvas.getContext('2d', { willReadFrequently: true });
+                
+                // Set canvas size to match video dimensions (default to 640x480 initially)
+                this.backgroundEffects.segmentationCanvas.width = 640;
+                this.backgroundEffects.segmentationCanvas.height = 480;
+                
+                console.log('📐 Segmentation canvas created:', {
+                    width: this.backgroundEffects.segmentationCanvas.width,
+                    height: this.backgroundEffects.segmentationCanvas.height
+                });
+            }
+            
+            // Update canvas size if camera stream exists
+            if (this.streams.has('camera')) {
+                const videoElement = this.getRawVideoElement('camera');
+                if (videoElement) {
+                    // Wait for video metadata if not ready
+                    if (videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
+                        this.backgroundEffects.segmentationCanvas.width = videoElement.videoWidth;
+                        this.backgroundEffects.segmentationCanvas.height = videoElement.videoHeight;
+                        console.log('📐 Updated segmentation canvas size from video:', {
+                            width: this.backgroundEffects.segmentationCanvas.width,
+                            height: this.backgroundEffects.segmentationCanvas.height
+                        });
+                    } else {
+                        console.log('⏳ Waiting for video metadata to set canvas size...');
+                        videoElement.addEventListener('loadedmetadata', () => {
+                            this.backgroundEffects.segmentationCanvas.width = videoElement.videoWidth || 640;
+                            this.backgroundEffects.segmentationCanvas.height = videoElement.videoHeight || 480;
+                            console.log('📐 Updated canvas size after metadata:', {
+                                width: this.backgroundEffects.segmentationCanvas.width,
+                                height: this.backgroundEffects.segmentationCanvas.height
+                            });
+                        }, { once: true });
+                    }
+                }
+                // Always start fallback drawing
+                this.startFallbackDrawing();
+            } else {
+                // Start a fallback drawing loop to ensure we always have content
+                this.startFallbackDrawing();
+            }
+            
+            // Test canvas with initial pattern
+            const ctx = this.backgroundEffects.segmentationCtx;
+            ctx.fillStyle = '#4CAF50';
+            ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            ctx.fillStyle = '#2196F3';
+            ctx.fillRect(50, 50, ctx.canvas.width - 100, ctx.canvas.height - 100);
+            
+            console.log('✅ Segmentation canvas created successfully');
+            
+            // DON'T start drawing immediately - wait for MediaPipe
+            // this.drawEffectWithoutSegmentation(this.backgroundEffects.mode || 'none');
+            
+            // Don't start canvas stream automatically - wait for user to enable effects
+            console.log('🎨 Segmentation canvas ready, waiting for user to enable effects');
+            
+        } catch (error) {
+            console.error('❌ Failed to create segmentation canvas:', error);
+        }
+    }
+    
+    startFallbackDrawing() {
+        console.log('🔄 Starting fallback drawing loop...');
+        
+        const drawFallback = () => {
+            if (!this.backgroundEffects.enabled || !this.backgroundEffects.segmentationCanvas) {
+                return;
+            }
+            
+            const canvas = this.backgroundEffects.segmentationCanvas;
+            const ctx = this.backgroundEffects.segmentationCtx;
+            
+            // Try to draw actual camera video if available
+            if (this.backgroundEffects.originalCameraStream || this.streams.has('camera')) {
+                const videoElement = this.getRawVideoElement('camera');
+                if (videoElement && videoElement.readyState >= 2) {
+                    // Update canvas size to match video
+                    if (videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
+                        canvas.width = videoElement.videoWidth;
+                        canvas.height = videoElement.videoHeight;
+                    }
+                    
+                    // Clear and draw the video
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                    
+                    console.log('✅ Drew camera video to fallback canvas');
+                } else {
+                    // Draw a test pattern if video not ready
+                    ctx.fillStyle = '#FF6B6B';
+                    ctx.fillRect(0, 0, canvas.width/3, canvas.height);
+                    ctx.fillStyle = '#4ECDC4';
+                    ctx.fillRect(canvas.width/3, 0, canvas.width/3, canvas.height);
+                    ctx.fillStyle = '#45B7D1';
+                    ctx.fillRect((canvas.width/3)*2, 0, canvas.width/3, canvas.height);
+                    
+                    // Add text
+                    ctx.fillStyle = 'white';
+                    ctx.font = '20px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Background Effects Active', canvas.width/2, canvas.height/2);
+                    ctx.fillText('Camera Loading...', canvas.width/2, canvas.height/2 + 30);
+                }
+            }
+            
+            // Continue the loop
+            if (this.backgroundEffects.enabled) {
+                requestAnimationFrame(drawFallback);
+            }
+        };
+        
+        // Start the drawing loop
+        drawFallback();
+    }
+    
+    drawEffectWithoutSegmentation(mode) {
+        console.log(`🎯 Drawing effect without segmentation: ${mode}`);
+        
+        if (!this.backgroundEffects.segmentationCanvas || !this.backgroundEffects.segmentationCtx) {
+            console.error('❌ No canvas available');
+            return;
+        }
+        
+        const canvas = this.backgroundEffects.segmentationCanvas;
+        const ctx = this.backgroundEffects.segmentationCtx;
+        
+        // Get the correct video element for drawing
+        let videoElement = null;
+        
+        // Always try to create/use a source element for the original stream
+        if (this.backgroundEffects.originalCameraStream) {
+            if (!this.backgroundEffects.sourceVideoElement) {
+                // Create source video element for original stream
+                this.backgroundEffects.sourceVideoElement = document.createElement('video');
+                this.backgroundEffects.sourceVideoElement.autoplay = true;
+                this.backgroundEffects.sourceVideoElement.playsInline = true;
+                this.backgroundEffects.sourceVideoElement.muted = true;
+                this.backgroundEffects.sourceVideoElement.srcObject = this.backgroundEffects.originalCameraStream;
+                
+                // Add to DOM but hide it
+                this.backgroundEffects.sourceVideoElement.style.display = 'none';
+                document.body.appendChild(this.backgroundEffects.sourceVideoElement);
+                
+                console.log('📹 Created and added source video element to DOM');
+            }
+            videoElement = this.backgroundEffects.sourceVideoElement;
+        } else {
+            // Fallback: Use the current camera video element
+            videoElement = document.getElementById('video-camera') || this.getRawVideoElement('camera');
+            console.log('⚠️ Using fallback video element');
+        }
+        
+        if (!videoElement) {
+            console.log('❌ No video element available');
+            return;
+        }
+        
+        if (videoElement.readyState < 2) {
+            console.log('⏳ Video not ready, waiting...');
+            videoElement.addEventListener('loadeddata', () => {
+                this.drawEffectWithoutSegmentation(mode);
+            }, { once: true });
+            return;
+        }
+        
+        // Cancel any existing animation frame
+        if (this.backgroundEffects.animationFrame) {
+            cancelAnimationFrame(this.backgroundEffects.animationFrame);
+        }
+        
+        // Start continuous drawing loop
+        const draw = () => {
+            if (!this.backgroundEffects.enabled || this.backgroundEffects.mode === 'none') {
+                console.log('🔄 Stopping drawing loop - effects disabled');
+                return;
+            }
+            
+            // Stop fallback if MediaPipe is working
+            if (this.backgroundEffects.mediapipeWorking) {
+                console.log('🔄 Stopping fallback drawing - MediaPipe is working');
+                return;
+            }
+            
+            try {
+                // Update canvas size to match video if needed
+                if (videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
+                    if (canvas.width !== videoElement.videoWidth || canvas.height !== videoElement.videoHeight) {
+                        canvas.width = videoElement.videoWidth;
+                        canvas.height = videoElement.videoHeight;
+                        console.log('📐 Updated canvas size:', canvas.width, 'x', canvas.height);
+                    }
+                }
+                
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                switch (mode) {
+                case 'remove':
+                    // Draw white background
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // Draw the video normally in the center (simulate person)
+                    const removeScale = 0.8;
+                    const removeW = canvas.width * removeScale;
+                    const removeH = canvas.height * removeScale;
+                    const removeX = (canvas.width - removeW) / 2;
+                    const removeY = (canvas.height - removeH) / 2;
+                    
+                    ctx.drawImage(videoElement, removeX, removeY, removeW, removeH);
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    ctx.fillRect(10, canvas.height - 50, 300, 30);
+                    ctx.fillStyle = 'black';
+                    ctx.font = '14px Arial';
+                    ctx.fillText('Hintergrund-Entfernung (vereinfacht)', 15, canvas.height - 30);
+                    break;
+                    
+                case 'blur':
+                    // First draw the blurred background
+                    ctx.save();
+                    ctx.filter = `blur(${this.backgroundEffects.blurStrength || 15}px)`;
+                    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                    ctx.restore();
+                    
+                    // Now draw a clear center area (simulated person)
+                    const centerW = canvas.width * 0.5;
+                    const centerH = canvas.height * 0.7;
+                    const personX = (canvas.width - centerW) / 2;
+                    const personY = (canvas.height - centerH) / 2;
+                    
+                    // Draw oval mask for person area
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.ellipse(
+                        canvas.width / 2,      // center x
+                        canvas.height / 2,     // center y  
+                        centerW / 2,           // radius x
+                        centerH / 2,           // radius y
+                        0, 0, 2 * Math.PI      // angles
+                    );
+                    ctx.clip();
+                    
+                    // Draw clear video in clipped area
+                    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                    ctx.restore();
+                    break;
+                    
+                case 'image':
+                    // Draw background image if available, otherwise solid color
+                    if (this.backgroundEffects.backgroundImage) {
+                        ctx.drawImage(this.backgroundEffects.backgroundImage, 0, 0, canvas.width, canvas.height);
+                    } else {
+                        ctx.fillStyle = '#4CAF50';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    }
+                    
+                    // Draw person in center (simplified)
+                    const personW2 = canvas.width * 0.5;
+                    const personH2 = canvas.height * 0.7;
+                    const personX2 = (canvas.width - personW2) / 2;
+                    const personY2 = (canvas.height - personH2) / 2;
+                    
+                    ctx.drawImage(videoElement,
+                        personX2, personY2, personW2, personH2,  // source 
+                        personX2, personY2, personW2, personH2   // dest
+                    );
+                    break;
+                    
+                case 'test':
+                    // Test mode - show video with colored overlay
+                    // First draw the video
+                    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                    
+                    // Add semi-transparent colored overlay
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+                    ctx.fillRect(0, 0, canvas.width/2, canvas.height);
+                    ctx.fillStyle = 'rgba(0, 255, 0, 0.3)'; 
+                    ctx.fillRect(canvas.width/2, 0, canvas.width/2, canvas.height);
+                    
+                    // Add text to show it's working
+                    ctx.fillStyle = 'white';
+                    ctx.font = '20px Arial';
+                    ctx.fillText('Test Mode Active', 10, 30);
+                    break;
+                    
+                default:
+                    // Just draw the video normally
+                    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                    break;
+            }
+            
+            // Log successful draw for debugging
+            if (this.backgroundEffects.debugMode) {
+                console.log(`✅ Drew frame with effect: ${mode}`);
+            }
+            
+                // Trigger canvas stream update after drawing
+                if (this.backgroundEffects.canvasStream) {
+                    const tracks = this.backgroundEffects.canvasStream.getVideoTracks();
+                    if (tracks.length > 0 && tracks[0].readyState === 'live') {
+                        // Stream is active, no action needed
+                    }
+                }
+                
+            } catch (error) {
+                console.error('❌ Failed to draw effect without segmentation:', error);
+                // Fallback to normal video
+                ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+            }
+            
+            // Continue animation loop if effects are still enabled
+            if (this.backgroundEffects.enabled && this.backgroundEffects.mode !== 'none') {
+                this.backgroundEffects.animationFrame = requestAnimationFrame(draw);
+            }
+        };
+        
+        // Start the drawing loop
+        draw();
+        console.log('✅ Started continuous drawing for effect:', mode);
+        
+        // Also update the main video element to show the canvas
+        const mainVideoElement = document.getElementById('video-camera');
+        if (mainVideoElement && this.backgroundEffects.canvasStream) {
+            mainVideoElement.srcObject = this.backgroundEffects.canvasStream;
+            console.log('📺 Updated main video element with canvas stream');
+        }
+    }
+    
+    startContinuousCanvasDrawing() {
+        console.log('🎬 Starting continuous canvas drawing loop...');
+        
+        let lastMediaPipeUpdate = Date.now();
+        
+        const drawLoop = () => {
+            if (!this.backgroundEffects.enabled || !this.backgroundEffects.segmentationCanvas) {
+                return;
+            }
+            
+            // Check if MediaPipe is working (updated recently)
+            const timeSinceLastUpdate = Date.now() - lastMediaPipeUpdate;
+            
+            // If MediaPipe hasn't updated in more than 500ms, use fallback
+            if (timeSinceLastUpdate > 500) {
+                // Check if we're not in test mode (test mode should always work)
+                if (this.backgroundEffects.mode !== 'test') {
+                    this.drawDirectVideoToCanvas();
+                }
+            }
+            
+            // Update timestamp when MediaPipe is working
+            if (this.segmentationReady && this.streams.has('camera')) {
+                lastMediaPipeUpdate = Date.now();
+            }
+            
+            // Continue the loop
+            if (this.backgroundEffects.enabled) {
+                setTimeout(drawLoop, 33); // ~30 FPS
+            }
+        };
+        
+        // Start the loop
+        drawLoop();
+    }
+    
+    getRawVideoElement(type) {
+        // Get raw video element without background effects logic
+        // Used internally to avoid circular dependencies
+        
+        // 1. Check pool first
+        if (this.videoElements.has(type)) {
+            return this.videoElements.get(type);
+        }
+        
+        // 2. Check DOM
+        const video = document.getElementById(`video-${type}`);
+        if (video) {
+            this.videoElements.set(type, video);
+            return video;
+        }
+        
+        return null;
+    }
+    
+    waitForCameraAndStartEffects() {
+        console.log('⏳ Waiting for camera to be ready...');
+        this.updateSegmentationStatus('Warte auf Kamera...');
+        
+        let attempts = 0;
+        const maxAttempts = 50; // 5 seconds max
+        
+        const checkCamera = () => {
+            attempts++;
+            
+            if (!this.backgroundEffects.enabled) {
+                // User turned off effects while waiting
+                console.log('❌ Background effects disabled while waiting');
+                return;
+            }
+            
+            if (attempts > maxAttempts) {
+                console.log('❌ Camera wait timeout');
+                this.updateSegmentationStatus('Fehler: Kamera-Timeout');
+                const enableSwitch = document.getElementById('enableBackgroundEffects');
+                if (enableSwitch) enableSwitch.checked = false;
+                this.backgroundEffects.enabled = false;
+                return;
+            }
+            
+            const cameraVideo = this.getRawVideoElement('camera');
+            if (cameraVideo && cameraVideo.readyState >= 2) {
+                console.log('✅ Camera ready after waiting, starting effects');
+                this.createSegmentationCanvas();
+                this.initializeSegmentation();
+            } else {
+                console.log(`⏳ Still waiting for camera... (attempt ${attempts}/${maxAttempts})`);
+                setTimeout(checkCamera, 100);
+            }
+        };
+        
+        checkCamera();
+    }
+    
+    getOrCreateSegmentationVideoElement() {
+        console.log('🎬 Creating/getting segmentation video element...');
+        
+        // Check if we already have a segmentation video element
+        let segVideo = document.getElementById('video-segmentation');
+        
+        if (!segVideo) {
+            console.log('🎬 Creating new segmentation video element');
+            segVideo = document.createElement('video');
+            segVideo.id = 'video-segmentation';
+            segVideo.autoplay = true;
+            segVideo.muted = true;
+            segVideo.playsInline = true;
+            segVideo.style.display = 'none';
+            segVideo.style.position = 'absolute';
+            segVideo.style.top = '-9999px';
+            document.body.appendChild(segVideo);
+        }
+        
+        // Create stream from canvas if not already done
+        if (!segVideo.srcObject && this.backgroundEffects.segmentationCanvas) {
+            try {
+                console.log('🎬 Creating canvas stream...');
+                
+                // Create stream from canvas with 30 FPS
+                const canvasStream = this.backgroundEffects.segmentationCanvas.captureStream(30);
+                segVideo.srcObject = canvasStream;
+                
+                // Store reference to the stream for later use
+                this.backgroundEffects.canvasStream = canvasStream;
+                
+                console.log('✅ Canvas stream created and assigned to video element');
+                
+                // Start playback
+                segVideo.play().catch(err => {
+                    console.error('❌ Failed to play segmentation video:', err);
+                });
+                
+            } catch (error) {
+                console.error('❌ Failed to create canvas stream:', error);
+                
+                // Even if canvas stream creation fails, return the video element
+                // The rendering system expects a video element, not a canvas
+            }
+        }
+        
+        // Return the video element if it's ready, otherwise setup ready callback
+        if (segVideo.readyState >= 2) {
+            console.log('✅ Returning ready segmentation video element');
+            return segVideo;
+        } else {
+            console.log('🔄 Video not ready yet, setting up ready callback');
+            
+            // Set up event listener for when video is ready
+            segVideo.addEventListener('loadedmetadata', () => {
+                console.log('✅ Segmentation video ready, dimensions:', segVideo.videoWidth, 'x', segVideo.videoHeight);
+                // Clear video cache to force refresh
+                this.videoElements.delete('camera');
+            }, { once: true });
+            
+            // Always return the video element, even if not ready - rendering system will handle it
+            return segVideo;
+        }
+    }
+    
+    updateStreamWithCanvasStream() {
+        console.log('🔄 Updating stream map with canvas stream...');
+        
+        if (!this.backgroundEffects.enabled || !this.backgroundEffects.segmentationCanvas) {
+            console.log('❌ Background effects not enabled or no canvas');
+            return;
+        }
+        
+        try {
+            // Make sure canvas has content before creating stream
+            const ctx = this.backgroundEffects.segmentationCtx;
+            
+            // Get proper video element - use original stream if effects are enabled
+            let videoElement = null;
+            if (this.backgroundEffects.originalCameraStream) {
+                // Create hidden video element for original stream if needed
+                if (!this.backgroundEffects.sourceVideoElement) {
+                    this.backgroundEffects.sourceVideoElement = document.createElement('video');
+                    this.backgroundEffects.sourceVideoElement.autoplay = true;
+                    this.backgroundEffects.sourceVideoElement.playsInline = true;
+                    this.backgroundEffects.sourceVideoElement.muted = true;
+                    this.backgroundEffects.sourceVideoElement.srcObject = this.backgroundEffects.originalCameraStream;
+                    
+                    // Add to DOM but hide it
+                    this.backgroundEffects.sourceVideoElement.style.display = 'none';
+                    document.body.appendChild(this.backgroundEffects.sourceVideoElement);
+                    
+                    console.log('📹 Created and added source video element to DOM');
+                }
+                videoElement = this.backgroundEffects.sourceVideoElement;
+            } else if (this.streams.has('camera')) {
+                videoElement = this.getRawVideoElement('camera');
+            }
+            
+            // Draw initial content
+            if (videoElement && videoElement.readyState >= 2) {
+                // Update canvas size if needed
+                if (videoElement.videoWidth > 0) {
+                    ctx.canvas.width = videoElement.videoWidth;
+                    ctx.canvas.height = videoElement.videoHeight;
+                }
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                ctx.drawImage(videoElement, 0, 0, ctx.canvas.width, ctx.canvas.height);
+                console.log('✅ Drew initial camera frame to canvas');
+            } else {
+                // Draw placeholder
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                console.log('⚠️ Camera not ready, drew white placeholder');
+                
+                // Wait for video to be ready and try again
+                setTimeout(() => {
+                    if (this.backgroundEffects.enabled) {
+                        this.updateStreamWithCanvasStream();
+                    }
+                }, 500);
+            }
+            
+            // Create or recreate the canvas stream if needed
+            if (!this.backgroundEffects.canvasStream || 
+                this.backgroundEffects.canvasStream.getVideoTracks().length === 0 ||
+                this.backgroundEffects.canvasStream.getVideoTracks()[0].readyState === 'ended') {
+                
+                // Stop old stream if it exists
+                if (this.backgroundEffects.canvasStream) {
+                    this.backgroundEffects.canvasStream.getVideoTracks().forEach(track => track.stop());
+                }
+                
+                this.backgroundEffects.canvasStream = this.backgroundEffects.segmentationCanvas.captureStream(30);
+                console.log('✅ Created new canvas stream');
+            }
+            
+            // Store original camera stream if not already stored  
+            if (this.streams.has('camera') && !this.backgroundEffects.originalCameraStream) {
+                this.backgroundEffects.originalCameraStream = this.streams.get('camera');
+                console.log('✅ Stored original camera stream');
+            }
+            
+            // Only replace stream if we successfully created a canvas stream
+            if (this.backgroundEffects.canvasStream && this.backgroundEffects.canvasStream.active) {
+                // Replace camera stream with canvas stream
+                this.streams.set('camera', this.backgroundEffects.canvasStream);
+                console.log('✅ Updated camera stream with canvas stream');
+                
+                // Update the video element to show the canvas stream
+                const videoElement = document.getElementById('video-camera');
+                if (videoElement) {
+                    videoElement.srcObject = this.backgroundEffects.canvasStream;
+                    console.log('✅ Updated video element with canvas stream');
+                    
+                    // Ensure video plays
+                    videoElement.play().catch(e => {
+                        console.error('Error playing canvas stream:', e);
+                    });
+                }
+                
+                // Trigger UI update
+                this.onStreamUpdate('camera', this.backgroundEffects.canvasStream);
+            } else {
+                console.warn('⚠️ Canvas stream not ready or inactive');
+            }
+            
+            // Trigger stream update event if needed
+            this.onStreamUpdate('camera', this.backgroundEffects.canvasStream);
+            
+            // Start monitoring the canvas stream (only if not already monitoring)
+            if (!this.backgroundEffects.isMonitoring) {
+                this.backgroundEffects.isMonitoring = true;
+                this.monitorCanvasStream();
+            }
+            
+        } catch (error) {
+            console.error('❌ Failed to update stream with canvas:', error);
+        }
+    }
+    
+    monitorCanvasStream() {
+        console.log('🔍 Starting canvas stream monitoring...');
+        
+        let checkCount = 0;
+        const maxChecks = 30; // Increased monitoring time
+        
+        const checkStream = () => {
+            checkCount++;
+            
+            if (!this.backgroundEffects.enabled || !this.backgroundEffects.canvasStream) {
+                this.backgroundEffects.isMonitoring = false;
+                return;
+            }
+            
+            if (checkCount > maxChecks) {
+                console.log('✅ Canvas stream monitoring complete');
+                this.backgroundEffects.isMonitoring = false;
+                return;
+            }
+            
+            // Check if the canvas stream has tracks and they're active
+            const videoTracks = this.backgroundEffects.canvasStream.getVideoTracks();
+            if (videoTracks.length === 0) {
+                console.error('❌ Canvas stream has no video tracks! Recreating stream...');
+                this.backgroundEffects.isMonitoring = false;
+                this.recreateCanvasStream();
+                return;
+            }
+            
+            const track = videoTracks[0];
+            if (track.readyState === 'ended') {
+                console.error('❌ Canvas stream track has ended! Recreating stream...');
+                this.backgroundEffects.isMonitoring = false;
+                this.recreateCanvasStream();
+                return;
+            }
+            
+            console.log(`✅ Canvas stream check ${checkCount}/${maxChecks} passed`);
+            
+            // Continue monitoring
+            setTimeout(checkStream, 500);
+        };
+        
+        // Start monitoring after a brief delay
+        setTimeout(checkStream, 1000);
+    }
+    
+    recreateCanvasStream() {
+        console.log('🔄 Recreating canvas stream to maintain background effects...');
+        
+        if (!this.backgroundEffects.enabled || !this.backgroundEffects.segmentationCanvas) {
+            console.log('❌ Cannot recreate stream - effects disabled or no canvas');
+            return;
+        }
+        
+        try {
+            // Stop the old stream if it exists
+            if (this.backgroundEffects.canvasStream) {
+                this.backgroundEffects.canvasStream.getVideoTracks().forEach(track => {
+                    track.stop();
+                });
+            }
+            
+            // Ensure canvas has content
+            const ctx = this.backgroundEffects.segmentationCtx;
+            if (ctx) {
+                // Clear and ensure white background
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                
+                // Draw current camera frame if available
+                if (this.streams.has('camera') && this.backgroundEffects.originalCameraStream) {
+                    const videoElement = this.getRawVideoElement('camera');
+                    if (videoElement && videoElement.readyState >= 2) {
+                        ctx.drawImage(videoElement, 0, 0, ctx.canvas.width, ctx.canvas.height);
+                        console.log('✅ Drew camera frame to refreshed canvas');
+                    }
+                }
+            }
+            
+            // Create new canvas stream
+            this.backgroundEffects.canvasStream = this.backgroundEffects.segmentationCanvas.captureStream(30);
+            
+            // Update stream map
+            this.streams.set('camera', this.backgroundEffects.canvasStream);
+            this.onStreamUpdate('camera', this.backgroundEffects.canvasStream);
+            
+            console.log('✅ Successfully recreated canvas stream');
+            
+            // Continue background processing if MediaPipe is working
+            if (this.backgroundEffects.mediapipeWorking) {
+                console.log('🔄 Resuming MediaPipe processing with new stream');
+            }
+            
+            // Start new monitoring cycle
+            this.backgroundEffects.isMonitoring = false;
+            setTimeout(() => {
+                if (!this.backgroundEffects.isMonitoring) {
+                    this.backgroundEffects.isMonitoring = true;
+                    this.monitorCanvasStream();
+                }
+            }, 500);
+            
+        } catch (error) {
+            console.error('❌ Failed to recreate canvas stream:', error);
+            // Only fall back to original stream if recreation fails
+            this.restoreOriginalStream();
+        }
+    }
+    
+    validateCanvasStream() {
+        // Quick check if canvas stream is still valid
+        if (!this.backgroundEffects.enabled || !this.backgroundEffects.canvasStream) {
+            return;
+        }
+        
+        const videoTracks = this.backgroundEffects.canvasStream.getVideoTracks();
+        if (videoTracks.length === 0 || videoTracks[0].readyState === 'ended') {
+            console.log('🔄 Canvas stream invalid during processing, recreating...');
+            this.recreateCanvasStream();
+        }
+    }
+    
+    restoreOriginalStream() {
+        console.log('🔄 Restoring original camera stream due to canvas stream failure');
+        
+        if (this.backgroundEffects.originalCameraStream) {
+            this.streams.set('camera', this.backgroundEffects.originalCameraStream);
+            this.onStreamUpdate('camera', this.backgroundEffects.originalCameraStream);
+            
+            // Reset effects
+            const enableSwitch = document.getElementById('enableBackgroundEffects');
+            if (enableSwitch) enableSwitch.checked = false;
+            this.backgroundEffects.enabled = false;
+            this.updateSegmentationStatus('Stream-Fehler - Effekte deaktiviert');
+            
+            console.log('✅ Original stream restored');
+        }
+    }
+    
+    async initializeSegmentation() {
+        if (this.selfieSegmentation) {
+            console.log('🎯 Segmentation already initialized');
+            return;
+        }
+        
+        try {
+            console.log('🚀 Initializing MediaPipe Selfie Segmentation...');
+            this.updateSegmentationStatus('Initialisiere...');
+            
+            // Check if SelfieSegmentation is available
+            if (typeof window.SelfieSegmentation === 'undefined') {
+                console.error('❌ SelfieSegmentation not loaded. Waiting...');
+                // Try again after a delay
+                setTimeout(() => this.initializeSegmentation(), 1000);
+                return;
+            }
+            
+            // Ensure segmentation canvas exists
+            if (!this.backgroundEffects.segmentationCanvas) {
+                console.log('🔄 Canvas not found, creating...');
+                this.createSegmentationCanvas();
+            }
+            
+            // Initialize MediaPipe
+            this.selfieSegmentation = new window.SelfieSegmentation({
+                locateFile: (file) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`;
+                }
+            });
+            
+            this.selfieSegmentation.setOptions({
+                modelSelection: 1, // 0 = fast, 1 = accurate
+                selfieMode: true
+            });
+            
+            this.selfieSegmentation.onResults((results) => {
+                this.onSegmentationResults(results);
+            });
+            
+            this.segmentationReady = true;
+            this.updateSegmentationStatus('Bereit');
+            console.log('✅ MediaPipe Selfie Segmentation initialized');
+            
+            // Start processing if camera is active
+            if (this.streams.has('camera')) {
+                this.startBackgroundProcessing();
+                // Update the stream map with canvas stream
+                this.updateStreamWithCanvasStream();
+                
+                // Set up timeout for MediaPipe initialization
+                setTimeout(() => {
+                    if (!this.backgroundEffects.mediapipeWorking) {
+                        console.log('⚠️ MediaPipe timeout, using permanent fallback mode');
+                        this.backgroundEffects.useFallbackMode = true;
+                        this.updateSegmentationStatus('Fallback-Modus (MediaPipe nicht verfügbar)');
+                    }
+                }, 3000); // 3 second timeout
+            }
+            
+        } catch (error) {
+            console.error('❌ Failed to initialize segmentation:', error);
+            this.updateSegmentationStatus('Fehler: ' + error.message);
+            this.segmentationReady = false;
+            
+            // Show user-friendly error message
+            const errorMsg = `MediaPipe konnte nicht geladen werden. 
+                             Bitte stellen Sie sicher, dass Sie eine stabile Internetverbindung haben.
+                             Fehler: ${error.message}`;
+            console.warn(errorMsg);
+        }
+    }
+    
+    startBackgroundProcessing() {
+        if (!this.segmentationReady || !this.backgroundEffects.enabled) {
+            console.log('❌ Cannot start processing - segmentation not ready or effects disabled');
+            return;
+        }
+        
+        const cameraStream = this.streams.get('camera');
+        if (!cameraStream) {
+            console.log('❌ No camera stream available for background processing');
+            return;
+        }
+        
+        console.log('🎬 Starting background processing...');
+        
+        // Create video element for processing
+        let processingVideo = document.getElementById('processing-video');
+        if (!processingVideo) {
+            processingVideo = document.createElement('video');
+            processingVideo.id = 'processing-video';
+            processingVideo.autoplay = true;
+            processingVideo.muted = true;
+            processingVideo.playsInline = true;
+            processingVideo.style.display = 'none';
+            processingVideo.style.position = 'absolute';
+            processingVideo.style.top = '-9999px';
+            document.body.appendChild(processingVideo);
+        }
+        
+        processingVideo.srcObject = cameraStream;
+        
+        const processFrame = async () => {
+            if (!this.backgroundEffects.enabled || !this.streams.has('camera') || !this.segmentationReady) {
+                return;
+            }
+            
+            try {
+                // Send frame to MediaPipe
+                if (processingVideo.readyState >= 2) {
+                    await this.selfieSegmentation.send({ image: processingVideo });
+                }
+                
+                // Calculate FPS
+                const now = performance.now();
+                const delta = now - this.lastSegmentationTime;
+                if (delta > 0) {
+                    this.segmentationFPS = Math.round(1000 / delta);
+                    this.lastSegmentationTime = now;
+                    
+                    // Update FPS display
+                    const fpsEl = document.getElementById('segmentationFPS');
+                    if (fpsEl) {
+                        fpsEl.textContent = this.segmentationFPS;
+                    }
+                }
+                
+                // Continue processing
+                requestAnimationFrame(processFrame);
+                
+            } catch (error) {
+                console.error('❌ Error in background processing:', error);
+                this.updateSegmentationStatus('Fehler beim Verarbeiten');
+            }
+        };
+        
+        processingVideo.onloadedmetadata = () => {
+            console.log(`📹 Processing video ready: ${processingVideo.videoWidth}x${processingVideo.videoHeight}`);
+            
+            // Set canvas dimensions to match video
+            if (this.backgroundEffects.segmentationCanvas) {
+                this.backgroundEffects.segmentationCanvas.width = processingVideo.videoWidth;
+                this.backgroundEffects.segmentationCanvas.height = processingVideo.videoHeight;
+                console.log(`🖼️ Segmentation canvas set to: ${this.backgroundEffects.segmentationCanvas.width}x${this.backgroundEffects.segmentationCanvas.height}`);
+            }
+            
+            // Start processing
+            processFrame();
+        };
+        
+        processingVideo.onerror = (error) => {
+            console.error('❌ Processing video error:', error);
+            this.updateSegmentationStatus('Video-Fehler');
+        };
+    }
+    
+    drawDirectVideoToCanvas() {
+        console.log('🎯 Drawing direct video to canvas (fallback mode)');
+        
+        if (!this.backgroundEffects.segmentationCanvas || !this.backgroundEffects.segmentationCtx) {
+            console.error('❌ No canvas available for direct video drawing');
+            return;
+        }
+        
+        const canvas = this.backgroundEffects.segmentationCanvas;
+        const ctx = this.backgroundEffects.segmentationCtx;
+        
+        // Get the raw camera video element
+        const videoElement = this.getRawVideoElement('camera');
+        
+        if (videoElement && videoElement.readyState >= 2) {
+            try {
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw the video directly
+                ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                
+                // Add overlay text to show it's fallback mode
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.fillRect(10, 10, 200, 30);
+                ctx.fillStyle = 'black';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText('Kamera (Fallback-Modus)', 15, 30);
+                
+                console.log('✅ Direct video drawn to canvas');
+                
+            } catch (error) {
+                console.error('❌ Failed to draw direct video:', error);
+                
+                // Last resort: draw a colored background
+                ctx.fillStyle = '#4CAF50';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = 'white';
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Kamera wird geladen...', canvas.width/2, canvas.height/2);
+            }
+        } else {
+            // Video not ready, draw placeholder
+            ctx.fillStyle = '#2196F3';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Kamera wird initialisiert...', canvas.width/2, canvas.height/2);
+            
+            console.log('📹 Video not ready, drew placeholder');
+        }
+    }
+    
+    onSegmentationResults(results) {
+        console.log('🔍 MediaPipe Results:', {
+            hasResults: !!results,
+            hasImage: !!(results && results.image),
+            hasSegmentationMask: !!(results && results.segmentationMask),
+            imageType: results && results.image ? results.image.constructor.name : 'none',
+            imageSize: results && results.image ? `${results.image.width}x${results.image.height}` : 'none'
+        });
+        
+        if (!results || !results.image) {
+            console.warn('❌ Invalid segmentation results received - drawing test pattern');
+            
+            // Draw test pattern directly to canvas
+            const canvas = this.backgroundEffects.segmentationCanvas;
+            const ctx = this.backgroundEffects.segmentationCtx;
+            
+            if (canvas && ctx) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#FF00FF'; // Magenta for "no results"
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = '20px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('NO RESULTS', canvas.width/2, canvas.height/2);
+                
+                this.updateDebugCanvas(canvas);
+                console.log('🔍 Drew "no results" test pattern');
+            }
+            
+            return;
+        }
+        
+        const canvas = this.backgroundEffects.segmentationCanvas;
+        const ctx = this.backgroundEffects.segmentationCtx;
+        
+        if (!canvas || !ctx) {
+            console.warn('❌ No segmentation canvas available');
+            this.drawDirectVideoToCanvas();
+            return;
+        }
+        
+        try {
+            // Mark MediaPipe as working
+            this.backgroundEffects.mediapipeWorking = true;
+            this.backgroundEffects.segmentationActive = true;
+            
+            // Always start fresh
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            console.log(`🎬 Processing frame: ${canvas.width}x${canvas.height}, mode: ${this.backgroundEffects.mode}`);
+            
+            // Draw based on effect mode to the internal canvas
+            switch (this.backgroundEffects.mode) {
+                case 'remove':
+                    if (results.segmentationMask) {
+                        this.applyBackgroundRemoval(ctx, results);
+                    } else {
+                        // Fallback: just draw the original image
+                        console.log('⚠️ No segmentation mask, drawing original image');
+                        ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+                    }
+                    break;
+                case 'blur':
+                    if (results.segmentationMask) {
+                        this.applyBackgroundBlur(ctx, results);
+                    } else {
+                        // Fallback: just draw the original image
+                        console.log('⚠️ No segmentation mask, drawing original image');
+                        ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+                    }
+                    break;
+                case 'image':
+                    if (results.segmentationMask) {
+                        this.applyBackgroundImage(ctx, results);
+                    } else {
+                        // Fallback: just draw the original image
+                        console.log('⚠️ No segmentation mask, drawing original image');
+                        ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+                    }
+                    break;
+                case 'test':
+                    // Test mode: draw colored rectangles
+                    ctx.fillStyle = '#ff0000';
+                    ctx.fillRect(0, 0, canvas.width/2, canvas.height);
+                    ctx.fillStyle = '#00ff00';
+                    ctx.fillRect(canvas.width/2, 0, canvas.width/2, canvas.height);
+                    console.log('✅ Drew test pattern');
+                    break;
+                default:
+                    // Just draw the original image if available
+                    if (results.image) {
+                        ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+                        console.log('✅ Drew original image (default)');
+                    } else {
+                        // Try to draw camera video directly
+                        console.log('⚠️ No MediaPipe image, trying direct camera video...');
+                        this.drawDirectVideoToCanvas();
+                        return; // Exit early as drawDirectVideoToCanvas handles everything
+                    }
+            }
+            
+            // ALSO apply intelligent effects to the composition canvas
+            if (results.segmentationMask && this.backgroundEffects.mode !== 'none') {
+                this.applyEffectToCompositionCanvas(this.backgroundEffects.mode, results);
+            }
+            
+            // Validate canvas stream is still active
+            this.validateCanvasStream();
+            
+            // Update the camera stream with processed video (but don't recreate stream every frame)
+            this.updateCameraStreamWithProcessed();
+            
+        } catch (error) {
+            console.error('❌ Error processing segmentation results:', error);
+            this.updateSegmentationStatus('Verarbeitungsfehler');
+            
+            // Fallback: draw original image
+            try {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+            } catch (fallbackError) {
+                console.error('❌ Even fallback failed:', fallbackError);
+            }
+        }
+    }
+    
+    applyBackgroundRemoval(ctx, results) {
+        const canvas = ctx.canvas;
+        
+        // Clear canvas with white background (or transparent)
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        if (!results.segmentationMask) {
+            console.log('⚠️ No segmentation mask available, drawing original');
+            ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+            return;
+        }
+        
+        try {
+            // Create a temporary canvas for the mask
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Draw the segmentation mask
+            tempCtx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+            
+            // Get mask data
+            const maskData = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            // Draw the original image
+            tempCtx.clearRect(0, 0, canvas.width, canvas.height);
+            tempCtx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+            
+            // Get image data
+            const imageData = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            // Apply mask to remove background
+            for (let i = 0; i < maskData.data.length; i += 4) {
+                // Use the red channel of the mask as the alpha
+                const maskValue = maskData.data[i] / 255.0;
+                
+                // Apply mask to alpha channel
+                imageData.data[i + 3] = Math.floor(maskValue * 255);
+            }
+            
+            // Put the processed image back
+            ctx.putImageData(imageData, 0, 0);
+            
+            console.log('✅ Applied background removal with segmentation mask');
+        } catch (error) {
+            console.error('❌ Error applying background removal:', error);
+            // Fallback to original image
+            ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+            ctx.font = '20px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('MediaPipe Test', canvas.width/2, canvas.height/2);
+            console.log('✅ Drew test pattern (no image available)');
+        }
+        
+        // DEBUG: Copy to debug canvas
+        this.updateDebugCanvas(canvas);
+    }
+    
+    applyBackgroundBlur(ctx, results) {
+        const canvas = ctx.canvas;
+        
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        if (!results.segmentationMask) {
+            console.log('⚠️ No segmentation mask available, drawing original');
+            ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+            return;
+        }
+        
+        try {
+            // Get blur strength from settings
+            const blurStrength = this.backgroundEffects.blurStrength || 10;
+            
+            // Step 1: Draw blurred background
+            ctx.save();
+            ctx.filter = `blur(${blurStrength}px)`;
+            ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+            ctx.restore();
+            
+            // Step 2: Draw foreground (person) without blur using mask
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Draw original image to temp canvas
+            tempCtx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+            
+            // Apply mask as clipping
+            tempCtx.globalCompositeOperation = 'destination-in';
+            tempCtx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+            
+            // Draw masked foreground over blurred background
+            ctx.drawImage(tempCanvas, 0, 0);
+            
+            console.log(`✅ Applied background blur (strength: ${blurStrength}px)`);
+        } catch (error) {
+            console.error('❌ Error applying background blur:', error);
+            // Fallback to original image
+            ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+        }
+        
+        // DEBUG: Copy to debug canvas
+        this.updateDebugCanvas(canvas);
+    }
+    
+    applyBackgroundImage(ctx, results) {
+        const canvas = ctx.canvas;
+        
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // SIMPLE TEST: Just draw green background and original image
+        if (results.image) {
+            // Draw green background
+            ctx.fillStyle = '#00FF00';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw original image with some transparency
+            ctx.globalAlpha = 0.8;
+            ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+            ctx.globalAlpha = 1.0;
+            
+            console.log('✅ Drew green background with image for test');
+        } else {
+            // Draw a test pattern
+            ctx.fillStyle = '#00FF00';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#000000';
+            ctx.font = '20px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Image Test', canvas.width/2, canvas.height/2);
+            console.log('✅ Drew image test pattern');
+        }
+        
+        // DEBUG: Copy to debug canvas
+        this.updateDebugCanvas(canvas);
+    }
+    
+    updateDebugCanvas(sourceCanvas) {
+        const debugCanvas = document.getElementById('debugCanvas');
+        const debugStatus = document.getElementById('debugCanvasStatus');
+        
+        console.log('🔍 updateDebugCanvas called:', {
+            hasDebugCanvas: !!debugCanvas,
+            hasSourceCanvas: !!sourceCanvas,
+            sourceCanvasSize: sourceCanvas ? `${sourceCanvas.width}x${sourceCanvas.height}` : 'none'
+        });
+        
+        if (debugCanvas) {
+            const debugCtx = debugCanvas.getContext('2d');
+            
+            // Always draw something to test
+            debugCtx.clearRect(0, 0, debugCanvas.width, debugCanvas.height);
+            
+            if (sourceCanvas) {
+                // Try to copy the source canvas
+                try {
+                    debugCtx.drawImage(sourceCanvas, 0, 0, debugCanvas.width, debugCanvas.height);
+                    console.log('🖼️ Successfully copied source canvas to debug canvas');
+                } catch (error) {
+                    console.error('❌ Error copying source canvas:', error);
+                    // Draw error pattern
+                    debugCtx.fillStyle = '#FF0000';
+                    debugCtx.fillRect(0, 0, debugCanvas.width, debugCanvas.height);
+                    debugCtx.fillStyle = '#FFFFFF';
+                    debugCtx.font = '12px Arial';
+                    debugCtx.textAlign = 'center';
+                    debugCtx.fillText('ERROR', debugCanvas.width/2, debugCanvas.height/2);
+                }
+            } else {
+                // Draw "no source" pattern
+                debugCtx.fillStyle = '#800080'; // Purple
+                debugCtx.fillRect(0, 0, debugCanvas.width, debugCanvas.height);
+                debugCtx.fillStyle = '#FFFFFF';
+                debugCtx.font = '12px Arial';
+                debugCtx.textAlign = 'center';
+                debugCtx.fillText('NO SOURCE', debugCanvas.width/2, debugCanvas.height/2);
+                console.log('🖼️ Drew "no source" pattern');
+            }
+            
+            // Update status
+            if (debugStatus) {
+                debugStatus.textContent = sourceCanvas ? `Aktiv (${sourceCanvas.width}x${sourceCanvas.height})` : 'Kein Canvas';
+                debugStatus.className = sourceCanvas ? 'badge bg-success' : 'badge bg-warning';
+            }
+        } else {
+            console.warn('❌ Debug canvas element not found');
+        }
+    }
+    
+    updateCameraStreamWithProcessed() {
+        // If background effects are enabled, use the processed stream
+        if (this.backgroundEffects.enabled && this.backgroundEffects.mode !== 'none' && this.backgroundEffects.segmentationCanvas) {
+            try {
+                // Create stream from canvas (throttle to avoid too frequent updates)
+                if (!this.backgroundEffects.processedStream) {
+                    this.backgroundEffects.processedStream = this.backgroundEffects.segmentationCanvas.captureStream(30);
+                    console.log('🎬 Created processed stream from canvas');
+                }
+            } catch (error) {
+                console.error('❌ Error creating processed stream:', error);
+            }
+        }
+    }
+    
+    handleBackgroundImageUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        // Check file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Datei zu groß. Maximal 5MB erlaubt.');
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                this.backgroundEffects.backgroundImage = img;
+                
+                // Show preview
+                const preview = document.getElementById('backgroundImagePreview');
+                if (preview) {
+                    preview.style.display = 'block';
+                    const previewImg = preview.querySelector('img');
+                    if (previewImg) {
+                        previewImg.src = e.target.result;
+                    }
+                }
+                
+                // If image mode is active, reapply the effect
+                if (this.backgroundEffects.mode === 'image' && this.backgroundEffects.enabled) {
+                    this.applySimpleEffect('image');
+                    console.log('🖼️ Updated background image effect');
+                }
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    applyEffectToCompositionCanvas(mode, segmentationResults = null) {
+        console.log('🎨 Applying effect to composition canvas:', mode, segmentationResults ? 'with segmentation' : 'without segmentation');
+        
+        // Get the main composition canvas in the Live Vorschau area
+        const compositionCanvas = document.getElementById('compositionCanvas');
+        if (!compositionCanvas) {
+            console.log('❌ Composition canvas not found');
+            return;
+        }
+        
+        // Get the direct parent container of the canvas
+        const container = compositionCanvas.parentElement;
+        if (!container) {
+            console.log('❌ Canvas container not found');
+            return;
+        }
+        
+        console.log('🎯 Targeting composition canvas in Live Vorschau');
+        
+        // Ensure container has position relative for overlay positioning
+        container.style.position = 'relative';
+        container.style.overflow = 'hidden';
+        
+        // Remove any existing effects first
+        compositionCanvas.style.filter = '';
+        compositionCanvas.style.transform = '';
+        compositionCanvas.style.mixBlendMode = '';
+        container.style.backgroundColor = '';
+        
+        // Remove old overlays
+        const oldOverlays = container.querySelectorAll('.effect-overlay, .blur-overlay, .bg-image-overlay');
+        oldOverlays.forEach(o => o.remove());
+        
+        // If we have segmentation results, apply intelligent effects
+        if (segmentationResults && segmentationResults.segmentationMask) {
+            this.applyIntelligentEffect(compositionCanvas, container, mode, segmentationResults);
+        } else {
+            // Fall back to simple CSS-based effects
+            this.applySimpleCSSEffect(compositionCanvas, container, mode);
+        }
+    }
+    
+    applyIntelligentEffect(canvas, container, mode, results) {
+        console.log('🧠 Applying intelligent effect with person segmentation:', mode);
+        
+        // Create an overlay canvas for the effect
+        let effectCanvas = container.querySelector('.intelligent-effect-canvas');
+        if (!effectCanvas) {
+            effectCanvas = document.createElement('canvas');
+            effectCanvas.className = 'intelligent-effect-canvas';
+            effectCanvas.style.cssText = `
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                z-index: 3;
+            `;
+            container.appendChild(effectCanvas);
+        }
+        
+        // Set canvas size to match composition canvas
+        effectCanvas.width = canvas.width;
+        effectCanvas.height = canvas.height;
+        const effectCtx = effectCanvas.getContext('2d');
+        
+        // Clear the effect canvas
+        effectCtx.clearRect(0, 0, effectCanvas.width, effectCanvas.height);
+        
+        try {
+            switch(mode) {
+                case 'blur':
+                    this.applyIntelligentBlur(effectCtx, results);
+                    break;
+                case 'remove':
+                    this.applyIntelligentRemoval(effectCtx, results);
+                    break;
+                case 'image':
+                    this.applyIntelligentImageBackground(effectCtx, results);
+                    break;
+                default:
+                    // Remove effect canvas for 'none'
+                    effectCanvas.remove();
+                    break;
+            }
+        } catch (error) {
+            console.error('❌ Error applying intelligent effect:', error);
+            // Fall back to simple effect
+            effectCanvas.remove();
+            this.applySimpleCSSEffect(canvas, container, mode);
+        }
+    }
+    
+    applyIntelligentBlur(ctx, results) {
+        const canvas = ctx.canvas;
+        
+        // Step 1: Create inverted mask (blur everywhere except person)
+        const maskCanvas = document.createElement('canvas');
+        maskCanvas.width = canvas.width;
+        maskCanvas.height = canvas.height;
+        const maskCtx = maskCanvas.getContext('2d');
+        
+        // Fill with white (blur area)
+        maskCtx.fillStyle = 'white';
+        maskCtx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw inverted segmentation mask (black = person area, no blur)
+        maskCtx.globalCompositeOperation = 'destination-out';
+        maskCtx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+        
+        // Step 2: Apply blur effect using the mask
+        const blurStrength = this.backgroundEffects.blurStrength || 15;
+        ctx.filter = `blur(${blurStrength}px)`;
+        ctx.globalCompositeOperation = 'source-over';
+        
+        // Create a pattern that will be blurred
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Apply the mask
+        ctx.globalCompositeOperation = 'destination-in';
+        ctx.filter = 'none';
+        ctx.drawImage(maskCanvas, 0, 0);
+        
+        console.log(`✅ Applied intelligent blur (strength: ${blurStrength}px)`);
+    }
+    
+    applyIntelligentRemoval(ctx, results) {
+        const canvas = ctx.canvas;
+        
+        // Step 1: Fill with background color
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Step 2: Create soft edge mask from segmentation
+        const blurredMask = document.createElement('canvas');
+        blurredMask.width = canvas.width;
+        blurredMask.height = canvas.height;
+        const blurredMaskCtx = blurredMask.getContext('2d');
+        
+        // Draw segmentation mask with blur for soft edges
+        blurredMaskCtx.filter = 'blur(10px)';
+        blurredMaskCtx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+        
+        // Step 3: Create gradient overlay based on the segmentation mask
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.drawImage(blurredMask, 0, 0);
+        
+        console.log('✅ Applied intelligent background removal');
+    }
+    
+    applyIntelligentImageBackground(ctx, results) {
+        const canvas = ctx.canvas;
+        
+        if (this.backgroundEffects.backgroundImage) {
+            // Draw background image
+            ctx.drawImage(this.backgroundEffects.backgroundImage, 0, 0, canvas.width, canvas.height);
+            
+            // Create inverted mask for background visibility
+            const maskCanvas = document.createElement('canvas');
+            maskCanvas.width = canvas.width;
+            maskCanvas.height = canvas.height;
+            const maskCtx = maskCanvas.getContext('2d');
+            
+            // Invert the segmentation mask
+            maskCtx.fillStyle = 'white';
+            maskCtx.fillRect(0, 0, canvas.width, canvas.height);
+            maskCtx.globalCompositeOperation = 'destination-out';
+            maskCtx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+            
+            // Apply background only where person is not detected
+            ctx.globalCompositeOperation = 'destination-in';
+            ctx.drawImage(maskCanvas, 0, 0);
+            
+            console.log('✅ Applied intelligent background image');
+        } else {
+            // Default green screen
+            ctx.fillStyle = '#00ff00';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+    }
+    
+    applySimpleEffect(mode) {
+        // Forward to new function
+        this.applyEffectToCompositionCanvas(mode);
+    }
+    
+    applySimpleCSSEffect(canvas, container, mode) {
+        console.log('🎨 Applying simple CSS effect:', mode);
+        
+        // Apply effect to the main canvas
+        switch(mode) {
+            case 'blur':
+                // Create a canvas-based blur effect
+                const blurOverlay = document.createElement('div');
+                blurOverlay.className = 'blur-overlay effect-overlay';
+                blurOverlay.style.cssText = `
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    backdrop-filter: blur(${this.backgroundEffects.blurStrength || 15}px);
+                    -webkit-backdrop-filter: blur(${this.backgroundEffects.blurStrength || 15}px);
+                    mask-image: radial-gradient(ellipse 35% 45% at center, transparent 60%, black 100%);
+                    -webkit-mask-image: radial-gradient(ellipse 35% 45% at center, transparent 60%, black 100%);
+                    pointer-events: none;
+                    z-index: 2;
+                `;
+                container.appendChild(blurOverlay);
+                console.log('✅ Applied blur overlay effect to composition canvas');
+                break;
+                    
+            case 'remove':
+                // Set a neutral studio background
+                container.style.backgroundColor = '#f0f0f0';
+                
+                // Apply stronger contrast and saturation to make canvas content stand out
+                canvas.style.filter = 'contrast(1.6) saturate(1.3) brightness(1.2)';
+                
+                // Create a better background removal simulation with soft edges
+                const removeOverlay = document.createElement('div');
+                removeOverlay.className = 'effect-overlay';
+                removeOverlay.style.cssText = `
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: radial-gradient(ellipse 60% 70% at center, 
+                        transparent 0%, 
+                        transparent 35%,
+                        rgba(240, 240, 240, 0.4) 55%,
+                        rgba(240, 240, 240, 0.95) 85%,
+                        rgba(240, 240, 240, 1) 100%);
+                    pointer-events: none;
+                    z-index: 2;
+                `;
+                container.appendChild(removeOverlay);
+                console.log('✅ Applied improved background removal effect to composition canvas');
+                break;
+                    
+            case 'image':
+                // Background image effect
+                if (this.backgroundEffects.backgroundImage) {
+                    // Create image overlay behind canvas
+                    const imgOverlay = document.createElement('div');
+                    imgOverlay.className = 'bg-image-overlay effect-overlay';
+                    imgOverlay.style.cssText = `
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background-image: url(${this.backgroundEffects.backgroundImage.src});
+                        background-size: cover;
+                        background-position: center;
+                        z-index: 0;
+                    `;
+                    container.appendChild(imgOverlay);
+                    
+                    // Make canvas appear on top with some transparency
+                    canvas.style.position = 'relative';
+                    canvas.style.zIndex = '1';
+                    
+                    // Create mask for canvas
+                    const maskOverlay = document.createElement('div');
+                    maskOverlay.className = 'effect-overlay';
+                    maskOverlay.style.cssText = `
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: radial-gradient(ellipse at center,
+                            transparent 40%,
+                            rgba(0, 0, 0, 0.8) 70%);
+                        pointer-events: none;
+                        z-index: 2;
+                    `;
+                    container.appendChild(maskOverlay);
+                    console.log('✅ Applied background image effect to composition canvas');
+                } else {
+                    // Default green screen effect
+                    container.style.backgroundColor = '#00ff00';
+                    canvas.style.filter = 'contrast(1.2)';
+                    console.log('✅ Applied green screen effect to composition canvas (no image uploaded)');
+                }
+                break;
+                    
+            case 'none':
+            default:
+                // Already cleaned up at the beginning
+                console.log('✅ Removed all effects from composition canvas');
+                break;
+        }
+        
+        // Setup blur strength slider if not already done
+        this.setupEffectControls();
+    }
+    
+    setupEffectControls() {
+        // Blur strength slider
+        const blurSlider = document.getElementById('blurStrength');
+        if (blurSlider && !blurSlider.hasListener) {
+            blurSlider.hasListener = true;
+            blurSlider.addEventListener('input', (e) => {
+                this.backgroundEffects.blurStrength = parseInt(e.target.value);
+                document.getElementById('blurStrengthValue').textContent = e.target.value;
+                
+                // Update blur overlay if blur is active
+                if (this.backgroundEffects.mode === 'blur') {
+                    const overlays = document.querySelectorAll('.blur-overlay');
+                    overlays.forEach(overlay => {
+                        overlay.style.backdropFilter = `blur(${this.backgroundEffects.blurStrength}px)`;
+                        overlay.style.webkitBackdropFilter = `blur(${this.backgroundEffects.blurStrength}px)`;
+                    });
+                }
+            });
+        }
+        
+        // Background image upload
+        const imageUpload = document.getElementById('backgroundImageUpload');
+        if (imageUpload && !imageUpload.hasListener) {
+            imageUpload.hasListener = true;
+            imageUpload.addEventListener('change', (e) => {
+                this.handleBackgroundImageUpload(e);
+            });
+        }
+    }
+    
+    updateEffectControls(mode) {
+        // Hide all controls
+        const blurControls = document.getElementById('blurControls');
+        const imageControls = document.getElementById('imageControls');
+        
+        if (blurControls) blurControls.style.display = 'none';
+        if (imageControls) imageControls.style.display = 'none';
+        
+        // Show relevant controls
+        switch (mode) {
+            case 'blur':
+                if (blurControls) blurControls.style.display = 'block';
+                break;
+            case 'image':
+                if (imageControls) imageControls.style.display = 'block';
+                break;
+        }
+    }
+    
+    disableBackgroundEffects() {
+        console.log('🔄 Disabling background effects...');
+        
+        this.backgroundEffects.enabled = false;
+        this.backgroundEffects.mode = 'none';
+        
+        // Stop animation frame first
+        if (this.backgroundEffects.animationFrame) {
+            cancelAnimationFrame(this.backgroundEffects.animationFrame);
+            this.backgroundEffects.animationFrame = null;
+        }
+        
+        // Clean up source video element
+        if (this.backgroundEffects.sourceVideoElement) {
+            this.backgroundEffects.sourceVideoElement.srcObject = null;
+            if (this.backgroundEffects.sourceVideoElement.parentNode) {
+                this.backgroundEffects.sourceVideoElement.parentNode.removeChild(this.backgroundEffects.sourceVideoElement);
+            }
+            this.backgroundEffects.sourceVideoElement = null;
+        }
+        
+        // Clean up canvas stream BEFORE restoring
+        if (this.backgroundEffects.canvasStream) {
+            this.backgroundEffects.canvasStream.getTracks().forEach(track => track.stop());
+            this.backgroundEffects.canvasStream = null;
+        }
+        
+        // Restore original camera stream
+        if (this.backgroundEffects.originalCameraStream) {
+            console.log('🔄 Restoring original camera stream');
+            
+            // Update stream map
+            this.streams.set('camera', this.backgroundEffects.originalCameraStream);
+            
+            // Get or create video element for camera
+            let videoElement = document.getElementById('video-camera');
+            if (!videoElement) {
+                // If video element doesn't exist, create it
+                const streamContainer = document.querySelector(`[data-stream-id="camera"]`);
+                if (streamContainer) {
+                    videoElement = document.createElement('video');
+                    videoElement.id = 'video-camera';
+                    videoElement.autoplay = true;
+                    videoElement.playsInline = true;
+                    videoElement.muted = true;
+                    videoElement.style.width = '100%';
+                    videoElement.style.height = '100%';
+                    videoElement.style.objectFit = 'cover';
+                    streamContainer.appendChild(videoElement);
+                }
+            }
+            
+            if (videoElement) {
+                // Clear and reset the video element
+                videoElement.srcObject = null;
+                videoElement.load();
+                
+                // Set the original stream
+                videoElement.srcObject = this.backgroundEffects.originalCameraStream;
+                
+                // Play the video
+                videoElement.play().catch(e => {
+                    console.error('Error playing video after restore:', e);
+                });
+                
+                console.log('✅ Restored original stream to video element');
+            }
+            
+            // Trigger UI update
+            this.onStreamUpdate('camera', this.backgroundEffects.originalCameraStream);
+            
+            // Clear the original stream reference
+            // Don't clear it yet - keep it for potential re-enable
+            // this.backgroundEffects.originalCameraStream = null;
+        } else {
+            console.warn('⚠️ No original stream to restore');
+        }
+        
+        // Continue with the rest of cleanup
+        if (this.backgroundEffects.animationFrame) {
+            cancelAnimationFrame(this.backgroundEffects.animationFrame);
+            this.backgroundEffects.animationFrame = null;
+            console.log('✅ Stopped animation frame');
+        }
+        
+        // Clean up segmentation video element
+        const segVideo = document.getElementById('video-segmentation');
+        if (segVideo) {
+            segVideo.srcObject = null;
+            segVideo.remove();
+            console.log('✅ Segmentation video element removed');
+        }
+        
+        // Reset UI
+        const noneRadio = document.getElementById('bgEffectNone');
+        if (noneRadio) noneRadio.checked = true;
+        this.updateSegmentationStatus('Deaktiviert');
+        
+        console.log('✅ Background effects disabled');
+    }
+    
+    onStreamUpdate(type, newStream) {
+        console.log(`🔄 Stream update for ${type}:`, newStream);
+        
+        try {
+            // Update the main video element for this stream type
+            const videoElement = document.getElementById(`video-${type}`);
+            if (videoElement) {
+                videoElement.srcObject = newStream;
+                console.log(`✅ Updated video-${type} with new stream`);
+            }
+            
+            // Clear video element cache to force recreation
+            if (this.videoElements.has(type)) {
+                this.videoElements.delete(type);
+                console.log(`🗑️ Cleared cached video element for ${type}`);
+            }
+            
+            // Force canvas refresh for next frame
+            this.needsCanvasRefresh = true;
+            
+            // Update PiP if it's currently active for this stream
+            if (type === 'camera' && this.pipVideo && !this.pipVideo.paused) {
+                console.log('🔄 Updating PiP video with new stream');
+                this.pipVideo.srcObject = newStream;
+            }
+            
+            console.log(`✅ Stream update complete for ${type}`);
+            
+        } catch (error) {
+            console.error(`❌ Failed to update stream for ${type}:`, error);
+        }
+    }
+    
+    updateSegmentationStatus(status) {
+        const statusEl = document.getElementById('segmentationStatus');
+        if (statusEl) {
+            statusEl.textContent = status;
+        }
+    }
 
     checkBrowserSupport() {
         console.log('🔍 Starting Browser Support Check...');
@@ -1653,6 +3732,17 @@ class StreamRecorderOptimized {
             this.streams.set('camera', stream);
             this.activeStreams.add('camera');
             this.streamDisplayModes.set('camera', 'cover'); // Default for camera
+            
+            // Show background effects section
+            const bgEffectsSection = document.getElementById('backgroundEffectsSection');
+            if (bgEffectsSection) {
+                bgEffectsSection.style.display = 'block';
+            }
+            
+            // Start background processing if enabled
+            if (this.backgroundEffects.enabled && this.segmentationReady) {
+                this.startBackgroundProcessing();
+            }
             this.updateStatus('camera', 'Aktiv', 'success');
             this.updateButtons('camera', true);
             this.updateStatusBadge('camera', 'success');
@@ -2271,6 +4361,15 @@ class StreamRecorderOptimized {
 
     // 🚀 OPTIMIZED: Video Element Pool Management
     getVideoElementOptimized(type, stream) {
+        // For camera with background effects, we still return the video element
+        // The background effects are drawn on a separate canvas that we'll composite
+        if (type === 'camera' && this.backgroundEffects.enabled && 
+            this.backgroundEffects.mode !== 'none' && this.backgroundEffects.segmentationCanvas) {
+            
+            console.log('🎨 Camera with background effects - using composite rendering');
+            // We'll handle this specially in the draw methods
+        }
+        
         // 1. Check pool first (Performance)
         if (this.videoElements.has(type)) {
             const video = this.videoElements.get(type);
@@ -2348,8 +4447,39 @@ class StreamRecorderOptimized {
 
     // Helper: draw video preserving aspect ratio (contain)
     drawVideoContain(video, dx, dy, dw, dh) {
-        const vw = video.videoWidth || 16;
-        const vh = video.videoHeight || 9;
+        // Special handling for camera with background effects
+        if (this.backgroundEffects.enabled && 
+            this.backgroundEffects.mode !== 'none' && 
+            this.backgroundEffects.segmentationCanvas &&
+            video.id === 'video-camera') {
+            
+            // Draw the segmentation canvas instead of the video
+            const canvas = this.backgroundEffects.segmentationCanvas;
+            const vw = canvas.width;
+            const vh = canvas.height;
+            const videoAspect = vw / vh;
+            const targetAspect = dw / dh;
+            
+            let renderW, renderH, x, y;
+            if (videoAspect > targetAspect) {
+                renderW = dw;
+                renderH = dw / videoAspect;
+                x = dx;
+                y = dy + (dh - renderH) / 2;
+            } else {
+                renderH = dh;
+                renderW = dh * videoAspect;
+                x = dx + (dw - renderW) / 2;
+                y = dy;
+            }
+            
+            this.ctx.drawImage(canvas, x, y, renderW, renderH);
+            return;
+        }
+        
+        // Normal video handling
+        const vw = video.videoWidth || video.width || 16;
+        const vh = video.videoHeight || video.height || 9;
         const videoAspect = vw / vh;
         const targetAspect = dw / dh;
         
@@ -2371,8 +4501,35 @@ class StreamRecorderOptimized {
 
     // Helper: draw video covering target rect (cover) with cropping
     drawVideoCover(video, dx, dy, dw, dh) {
-        const vw = video.videoWidth || 16;
-        const vh = video.videoHeight || 9;
+        // Special handling for camera with background effects
+        if (this.backgroundEffects.enabled && 
+            this.backgroundEffects.mode !== 'none' && 
+            this.backgroundEffects.segmentationCanvas &&
+            video.id === 'video-camera') {
+            
+            // Draw the segmentation canvas instead of the video
+            const canvas = this.backgroundEffects.segmentationCanvas;
+            const vw = canvas.width;
+            const vh = canvas.height;
+            const videoAspect = vw / vh;
+            const targetAspect = dw / dh;
+            
+            let sx = 0, sy = 0, sw = vw, sh = vh;
+            if (videoAspect > targetAspect) {
+                sw = vh * targetAspect;
+                sx = (vw - sw) / 2;
+            } else {
+                sh = vw / targetAspect;
+                sy = (vh - sh) / 2;
+            }
+            
+            this.ctx.drawImage(canvas, sx, sy, sw, sh, dx, dy, dw, dh);
+            return;
+        }
+        
+        // Normal video handling
+        const vw = video.videoWidth || video.width || 16;
+        const vh = video.videoHeight || video.height || 9;
         const videoAspect = vw / vh;
         const targetAspect = dw / dh;
         
@@ -4265,8 +6422,37 @@ class StreamRecorderOptimized {
     }
 
     drawVideoFill(video, x, y, width, height) {
-        // Fill the area completely, maintaining aspect ratio (may crop)
-        const videoAspect = video.videoWidth / video.videoHeight;
+        // Special handling for camera with background effects
+        if (this.backgroundEffects.enabled && 
+            this.backgroundEffects.mode !== 'none' && 
+            this.backgroundEffects.segmentationCanvas &&
+            video.id === 'video-camera') {
+            
+            // Draw the segmentation canvas instead of the video
+            const canvas = this.backgroundEffects.segmentationCanvas;
+            const vw = canvas.width;
+            const vh = canvas.height;
+            const videoAspect = vw / vh;
+            const canvasAspect = width / height;
+            
+            if (videoAspect > canvasAspect) {
+                // Video is wider - fit height and crop width
+                const drawWidth = height * videoAspect;
+                const offsetX = (drawWidth - width) / 2;
+                this.ctx.drawImage(canvas, offsetX, 0, width, height);
+            } else {
+                // Video is taller - fit width and crop height
+                const drawHeight = width / videoAspect;
+                const offsetY = (drawHeight - height) / 2;
+                this.ctx.drawImage(canvas, 0, offsetY, width, height);
+            }
+            return;
+        }
+        
+        // Normal video handling
+        const vw = video.videoWidth || video.width || 16;
+        const vh = video.videoHeight || video.height || 9;
+        const videoAspect = vw / vh;
         const canvasAspect = width / height;
         
         if (videoAspect > canvasAspect) {

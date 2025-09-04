@@ -5,11 +5,12 @@ from .models import Prompt, Category
 class PromptForm(forms.ModelForm):
     class Meta:
         model = Prompt
-        fields = ["title", "description", "content", "category", "visibility"]
+        fields = ["title", "description", "content", "link_url", "category", "visibility"]
         widgets = {
             "title": forms.TextInput(attrs={"class": "form-control", "placeholder": "Titel"}),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 3, "placeholder": "Kurze Beschreibung"}),
             "content": forms.Textarea(attrs={"class": "form-control font-monospace", "rows": 6, "placeholder": "Dein KI-Prompt"}),
+            "link_url": forms.URLInput(attrs={"class": "form-control", "placeholder": "Optionaler Link (https://...)"}),
             "category": forms.Select(attrs={"class": "form-select"}),
             "visibility": forms.Select(attrs={"class": "form-select"}),
         }
@@ -23,4 +24,3 @@ class CategoryForm(forms.ModelForm):
             "name": forms.TextInput(attrs={"class": "form-control", "placeholder": "Kategoriename"}),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 3, "placeholder": "Beschreibung (optional)"}),
         }
-

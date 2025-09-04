@@ -1,5 +1,5 @@
 from django import forms
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm, PasswordChangeForm
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm, PasswordChangeForm, PasswordResetForm, SetPasswordForm
 from django.contrib.auth import authenticate
 from .models import CustomUser, AmpelCategory, CategoryKeyword, AppPermission, FeatureAccess
 
@@ -439,3 +439,39 @@ class FeatureAccessFilterForm(forms.Form):
         }),
         label='Suche'
     )
+
+
+class CustomPasswordResetForm(PasswordResetForm):
+    """Erweiterte Passwort-Zurücksetzen mit Bootstrap-Styling"""
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['email'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': 'Ihre E-Mail-Adresse eingeben'
+        })
+        self.fields['email'].label = 'E-Mail-Adresse'
+        self.fields['email'].help_text = 'Geben Sie die E-Mail-Adresse Ihres Kontos ein. Wir senden Ihnen einen Link zum Zurücksetzen des Passworts.'
+
+
+class CustomSetPasswordForm(SetPasswordForm):
+    """Erweiterte Passwort-Setzen mit Bootstrap-Styling"""
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['new_password1'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': 'Neues Passwort eingeben'
+        })
+        self.fields['new_password2'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': 'Neues Passwort bestätigen'
+        })
+        self.fields['new_password1'].label = 'Neues Passwort'
+        self.fields['new_password2'].label = 'Passwort bestätigen'
+        self.fields['new_password1'].help_text = 'Ihr Passwort sollte mindestens 8 Zeichen lang sein und nicht nur aus Zahlen bestehen.'
+        self.fields['new_password2'].help_text = 'Geben Sie das gleiche Passwort zur Bestätigung noch einmal ein.'
+    
+    error_messages = {
+        'password_mismatch': 'Die beiden Passwörter stimmen nicht überein. Bitte versuchen Sie es noch einmal.',
+    }

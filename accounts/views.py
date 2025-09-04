@@ -1,6 +1,6 @@
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.views import LoginView
+from django.contrib.auth.views import LoginView, PasswordResetView, PasswordResetDoneView, PasswordResetConfirmView, PasswordResetCompleteView
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.urls import reverse_lazy, reverse
@@ -17,7 +17,7 @@ import json
 import logging
 import secrets
 import uuid
-from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm, ApiKeyForm, CompanyInfoForm, UserProfileForm, CustomPasswordChangeForm, SuperUserManagementForm, BugChatSettingsForm, AppPermissionForm, FeatureAccessForm, BulkFeatureAccessForm, FeatureAccessFilterForm
+from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCategoryForm, CategoryKeywordForm, KeywordBulkForm, ApiKeyForm, CompanyInfoForm, UserProfileForm, CustomPasswordChangeForm, SuperUserManagementForm, BugChatSettingsForm, AppPermissionForm, FeatureAccessForm, BulkFeatureAccessForm, FeatureAccessFilterForm, CustomPasswordResetForm, CustomSetPasswordForm
 from .models import CustomUser, AmpelCategory, CategoryKeyword, UserLoginHistory, EditableContent, CustomPage, SEOSettings, FeatureAccess, AppUsageTracking, AppInfo, ZohoAPISettings, AppPermission, UserAppPermission
 from naturmacher.models import APIBalance
 from videos.models import UserStorage as VideoUserStorage, Subscription as VideoSubscription
@@ -1012,6 +1012,42 @@ def logout_view(request):
     logout(request)
     messages.info(request, 'Sie wurden erfolgreich abgemeldet.')
     return redirect('accounts:login')
+
+
+class CustomPasswordResetView(PasswordResetView):
+    """Passwort zurücksetzen Ansicht"""
+    form_class = CustomPasswordResetForm
+    template_name = 'accounts/password_reset.html'
+    success_url = reverse_lazy('accounts:password_reset_done')
+    email_template_name = 'accounts/password_reset_email.html'
+    subject_template_name = 'accounts/password_reset_subject.txt'
+    
+    def form_valid(self, form):
+        messages.success(self.request, 
+            'Falls ein Konto mit dieser E-Mail-Adresse existiert, haben wir Ihnen '
+            'eine E-Mail mit Anweisungen zum Zurücksetzen des Passworts gesendet.')
+        return super().form_valid(form)
+
+
+class CustomPasswordResetDoneView(PasswordResetDoneView):
+    """Passwort zurücksetzen - E-Mail gesendet Ansicht"""
+    template_name = 'accounts/password_reset_done.html'
+
+
+class CustomPasswordResetConfirmView(PasswordResetConfirmView):
+    """Passwort zurücksetzen bestätigen Ansicht"""
+    form_class = CustomSetPasswordForm
+    template_name = 'accounts/password_reset_confirm.html'
+    success_url = reverse_lazy('accounts:password_reset_complete')
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Ihr Passwort wurde erfolgreich geändert!')
+        return super().form_valid(form)
+
+
+class CustomPasswordResetCompleteView(PasswordResetCompleteView):
+    """Passwort zurücksetzen abgeschlossen Ansicht"""
+    template_name = 'accounts/password_reset_complete.html'
 
 
 @login_required
