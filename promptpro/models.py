@@ -34,6 +34,7 @@ class Prompt(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     content = models.TextField(help_text="Speichere hier deinen KI-Prompt")
+    link_url = models.URLField(blank=True, verbose_name="Link", help_text="Optionaler Link, der mit diesem Prompt verknüpft ist")
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name="prompts")
     visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default="private")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -46,4 +47,3 @@ class Prompt(models.Model):
 
     def __str__(self):
         return f"{self.title}"
-

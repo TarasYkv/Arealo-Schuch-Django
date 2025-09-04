@@ -10,6 +10,12 @@ urlpatterns = [
     path('verify-email/<str:token>/', views.verify_email, name='verify_email'),
     path('resend-verification/', views.resend_verification, name='resend_verification'),
     path('logout/', views.logout_view, name='logout'),
+    
+    # Password reset URLs
+    path('password-reset/', views.CustomPasswordResetView.as_view(), name='password_reset'),
+    path('password-reset/done/', views.CustomPasswordResetDoneView.as_view(), name='password_reset_done'),
+    path('password-reset-confirm/<uidb64>/<token>/', views.CustomPasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+    path('password-reset/complete/', views.CustomPasswordResetCompleteView.as_view(), name='password_reset_complete'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('toggle-dark-mode/', views.toggle_dark_mode, name='toggle_dark_mode'),
     path('toggle-desktop-view/', views.toggle_desktop_view, name='toggle_desktop_view'),
