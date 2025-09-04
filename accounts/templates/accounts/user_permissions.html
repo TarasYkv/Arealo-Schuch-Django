@@ -130,6 +130,12 @@
                                         </td>
                                         <td>
                                             <div class="btn-group" role="group">
+                                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                        onclick="showPasswordModal({{ user.id }}, '{{ user.username|escapejs }}')"
+                                                        title="Passwort ändern">
+                                                    <i class="fas fa-key"></i>
+                                                </button>
+                                                
                                                 <form method="post" class="d-inline">
                                                     {% csrf_token %}
                                                     <input type="hidden" name="user_id" value="{{ user.id }}">
@@ -248,6 +254,63 @@
     </div>
 </div>
 
+<!-- Modal für Passwort ändern -->
+<div class="modal fade" id="passwordModal" tabindex="-1" aria-labelledby="passwordModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="passwordModalLabel">
+                    <i class="fas fa-key"></i> Passwort ändern für <span id="passwordModalUserName"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" id="passwordChangeForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" name="user_id" id="passwordUserId">
+                    <input type="hidden" name="action" value="set_password">
+                    
+                    <div class="mb-3">
+                        <label for="newPassword" class="form-label">Neues Passwort</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="newPassword" name="new_password" 
+                                   required minlength="8" placeholder="Mindestens 8 Zeichen">
+                            <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        <div class="form-text">Das Passwort sollte mindestens 8 Zeichen lang sein.</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="confirmPassword" class="form-label">Passwort bestätigen</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="confirmPassword" 
+                                   required minlength="8" placeholder="Passwort wiederholen">
+                            <button class="btn btn-outline-secondary" type="button" id="toggleConfirmPassword">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        <div class="invalid-feedback">
+                            Die Passwörter stimmen nicht überein.
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-warning d-none" id="passwordAlert" role="alert">
+                        <i class="fas fa-exclamation-triangle"></i> <span id="passwordAlertMessage"></span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-danger" id="savePasswordBtn">
+                        <i class="fas fa-save"></i> Passwort ändern
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Modal für App-Nutzungsstatistiken -->
 <div class="modal fade" id="appUsageModal" tabindex="-1" aria-labelledby="appUsageModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl">
@@ -293,6 +356,125 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+function showPasswordModal(userId, username) {
+    document.getElementById('passwordModalUserName').textContent = username;
+    document.getElementById('passwordUserId').value = userId;
+    
+    // Reset form
+    document.getElementById('newPassword').value = '';
+    document.getElementById('confirmPassword').value = '';
+    const confirmPasswordField = document.getElementById('confirmPassword');
+    if (confirmPasswordField) {
+        confirmPasswordField.classList.remove('is-invalid');
+    }
+    const passwordAlert = document.getElementById('passwordAlert');
+    if (passwordAlert) {
+        passwordAlert.classList.add('d-none');
+    }
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('passwordModal'));
+    modal.show();
+}
+
+// Add event listeners when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle password visibility
+    const togglePassword = document.getElementById('togglePassword');
+    if (togglePassword) {
+        togglePassword.addEventListener('click', function() {
+            const passwordField = document.getElementById('newPassword');
+            const icon = this.querySelector('i');
+            
+            if (passwordField && passwordField.type === 'password') {
+                passwordField.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else if (passwordField) {
+                passwordField.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        });
+    }
+
+    const toggleConfirmPassword = document.getElementById('toggleConfirmPassword');
+    if (toggleConfirmPassword) {
+        toggleConfirmPassword.addEventListener('click', function() {
+            const passwordField = document.getElementById('confirmPassword');
+            const icon = this.querySelector('i');
+            
+            if (passwordField && passwordField.type === 'password') {
+                passwordField.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else if (passwordField) {
+                passwordField.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        });
+    }
+
+    // Validate password confirmation
+    const confirmPasswordField = document.getElementById('confirmPassword');
+    if (confirmPasswordField) {
+        confirmPasswordField.addEventListener('input', function() {
+            const password = document.getElementById('newPassword').value;
+            const confirmPassword = this.value;
+            
+            if (confirmPassword && password !== confirmPassword) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+        });
+    }
+
+    // Form submission validation
+    const passwordChangeForm = document.getElementById('passwordChangeForm');
+    if (passwordChangeForm) {
+        passwordChangeForm.addEventListener('submit', function(e) {
+            const password = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            if (password !== confirmPassword) {
+                e.preventDefault();
+                const confirmField = document.getElementById('confirmPassword');
+                if (confirmField) confirmField.classList.add('is-invalid');
+                const alert = document.getElementById('passwordAlert');
+                if (alert) {
+                    alert.classList.remove('d-none');
+                    const alertMessage = document.getElementById('passwordAlertMessage');
+                    if (alertMessage) alertMessage.textContent = 'Die Passwörter stimmen nicht überein.';
+                }
+                return false;
+            }
+            
+            if (password.length < 8) {
+                e.preventDefault();
+                const alert = document.getElementById('passwordAlert');
+                if (alert) {
+                    alert.classList.remove('d-none');
+                    const alertMessage = document.getElementById('passwordAlertMessage');
+                    if (alertMessage) alertMessage.textContent = 'Das Passwort muss mindestens 8 Zeichen lang sein.';
+                }
+                return false;
+            }
+        });
+    }
+    
+    // Event Listener für Zeitraum-Buttons
+    const dayButtons = document.querySelectorAll('input[name="appUsageDays"]');
+    dayButtons.forEach(button => {
+        button.addEventListener('change', function() {
+            if (this.checked && currentAppUsageUserId) {
+                loadAppUsageStats(currentAppUsageUserId, this.value);
+            }
+        });
+    });
+});
+
 function showOnlineTimes(userId, username) {
     document.getElementById('modalUserName').textContent = username;
     document.getElementById('onlineTimesContent').innerHTML = `
@@ -745,18 +927,6 @@ function renderAppUsageStats(data) {
         }
     });
 }
-
-// Event Listener für Zeitraum-Buttons
-document.addEventListener('DOMContentLoaded', function() {
-    const dayButtons = document.querySelectorAll('input[name="appUsageDays"]');
-    dayButtons.forEach(button => {
-        button.addEventListener('change', function() {
-            if (this.checked && currentAppUsageUserId) {
-                loadAppUsageStats(currentAppUsageUserId, this.value);
-            }
-        });
-    });
-});
 </script>
 
 <!-- Individual permissions modal moved to company info page -->

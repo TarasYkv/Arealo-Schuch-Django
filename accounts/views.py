@@ -1768,6 +1768,15 @@ def user_permissions(request):
                     user.save()
                     status = "aktiviert" if user.is_superuser else "deaktiviert"
                     messages.success(request, f'Superuser-Status für {user.username} {status}.')
+            
+            elif action == 'set_password':
+                new_password = request.POST.get('new_password')
+                if new_password:
+                    user.set_password(new_password)
+                    user.save()
+                    messages.success(request, f'Passwort für {user.username} wurde erfolgreich geändert.')
+                else:
+                    messages.error(request, 'Bitte geben Sie ein neues Passwort ein.')
                 
         except CustomUser.DoesNotExist:
             messages.error(request, 'Benutzer nicht gefunden.')
