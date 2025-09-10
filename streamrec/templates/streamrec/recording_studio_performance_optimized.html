@@ -453,83 +453,6 @@
                             </button>
                         </div>
                         <small id="cameraStatus" class="text-muted d-block mt-2">Status: Nicht aktiv</small>
-                        
-                        <!-- Background Effects -->
-                        <div class="mt-3 border-top pt-3" id="backgroundEffectsSection" style="display: none;">
-                            <h6 class="mb-2">
-                                <i class="fas fa-magic text-info me-2"></i>Hintergrund-Effekte
-                                <span class="badge bg-success ms-2" id="effectsActiveBadge" style="display: none;">AKTIV</span>
-                            </h6>
-                            
-                            <!-- Versteckter Toggle für Kompatibilität -->
-                            <input class="form-check-input" type="checkbox" id="enableBackgroundEffects" style="display: none;">
-                            
-                            <!-- DEBUG: Canvas Vorschau -->
-                            <div class="mb-3 p-2 border rounded bg-light">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <strong class="text-muted">Debug: MediaPipe Canvas</strong>
-                                    <span class="badge bg-info" id="debugCanvasStatus">Nicht aktiv</span>
-                                </div>
-                                <canvas id="debugCanvas" width="320" height="180" class="border" style="background: #f0f0f0; max-width: 100%;"></canvas>
-                                <small class="text-muted d-block mt-1">Dieser Canvas zeigt, was MediaPipe wirklich verarbeitet</small>
-                            </div>
-
-                            <div id="backgroundEffectOptions">
-                                <div class="btn-group btn-group-sm w-100 mb-2" role="group">
-                                    <input type="radio" class="btn-check" name="bgEffect" id="bgEffectNone" value="none" checked>
-                                    <label class="btn btn-outline-secondary" for="bgEffectNone">
-                                        <i class="fas fa-ban"></i> Aus
-                                    </label>
-                                    
-                                    <input type="radio" class="btn-check" name="bgEffect" id="bgEffectRemove" value="remove">
-                                    <label class="btn btn-outline-secondary" for="bgEffectRemove">
-                                        <i class="fas fa-eraser"></i> Entfernen
-                                    </label>
-                                    
-                                    <input type="radio" class="btn-check" name="bgEffect" id="bgEffectBlur" value="blur">
-                                    <label class="btn btn-outline-secondary" for="bgEffectBlur">
-                                        <i class="fas fa-blur"></i> Blur
-                                    </label>
-                                    
-                                    <input type="radio" class="btn-check" name="bgEffect" id="bgEffectImage" value="image">
-                                    <label class="btn btn-outline-secondary" for="bgEffectImage">
-                                        <i class="fas fa-image"></i> Bild
-                                    </label>
-                                </div>
-                                
-                                <!-- Test Mode Button -->
-                                <div class="mt-2">
-                                    <button type="button" class="btn btn-outline-warning btn-sm w-100" id="testBackgroundEffects">
-                                        <i class="fas fa-bug"></i> Test-Modus (Debug)
-                                    </button>
-                                </div>
-                                
-                                <!-- Blur Strength Slider -->
-                                <div id="blurControls" style="display: none;" class="mb-2">
-                                    <label class="form-label">
-                                        Blur-Stärke: <span id="blurStrengthValue">15</span>px
-                                    </label>
-                                    <input type="range" class="form-range" id="blurStrength" min="5" max="30" value="15">
-                                </div>
-                                
-                                <!-- Background Image Upload -->
-                                <div id="imageControls" style="display: none;" class="mb-2">
-                                    <input type="file" class="form-control form-control-sm" id="backgroundImageUpload" accept="image/*">
-                                    <small class="text-muted">JPG, PNG, GIF (max. 5MB)</small>
-                                    <div id="backgroundImagePreview" class="mt-2" style="display: none;">
-                                        <img src="" alt="Hintergrund" class="img-thumbnail w-100" style="max-height: 100px; object-fit: cover;">
-                                    </div>
-                                </div>
-                                
-                                <!-- Performance Indicator -->
-                                <div class="alert alert-info py-1 px-2 small mb-0">
-                                    <i class="fas fa-tachometer-alt me-1"></i>
-                                    <span id="segmentationFPS">0</span> FPS
-                                    <span class="ms-2">|</span>
-                                    <span class="ms-2" id="segmentationStatus">Bereit</span>
-                                </div>
-                            </div>
-                        </div>
                     </div>
 
                     <!-- Screen Section -->
@@ -1376,8 +1299,6 @@ class StreamRecorderOptimized {
         // PIP Controls
         this.setupPIPControls();
         
-        // Background Effects
-        this.setupBackgroundEffects();
         
         // Recording controls
         document.getElementById('recordBtn')?.addEventListener('click', () => this.startRecordingWithCountdown());
@@ -3733,16 +3654,6 @@ class StreamRecorderOptimized {
             this.activeStreams.add('camera');
             this.streamDisplayModes.set('camera', 'cover'); // Default for camera
             
-            // Show background effects section
-            const bgEffectsSection = document.getElementById('backgroundEffectsSection');
-            if (bgEffectsSection) {
-                bgEffectsSection.style.display = 'block';
-            }
-            
-            // Start background processing if enabled
-            if (this.backgroundEffects.enabled && this.segmentationReady) {
-                this.startBackgroundProcessing();
-            }
             this.updateStatus('camera', 'Aktiv', 'success');
             this.updateButtons('camera', true);
             this.updateStatusBadge('camera', 'success');
