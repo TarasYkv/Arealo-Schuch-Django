@@ -419,6 +419,39 @@
         <div class="row">
             <!-- Left Column: All Controls -->
             <div class="col-12 col-lg-4 col-xl-3">
+                <!-- Output Settings -->
+                <div class="control-panel">
+                    <h5 class="mb-4">
+                        <i class="fas fa-cog me-2 text-primary"></i>
+                        Ausgabe-Einstellungen
+                    </h5>
+                    
+                    <!-- Stream Merge Option -->
+                    <div class="mb-4">
+                        <h6 class="mb-3">
+                            <i class="fas fa-layer-group text-info me-2"></i>Video-Ausgabe
+                        </h6>
+                        
+                        <div class="btn-group btn-group-sm w-100 mb-3" role="group" aria-label="Output Mode">
+                            <input type="radio" class="btn-check" name="outputMode" id="outputMerged" value="merged" checked>
+                            <label class="btn btn-outline-primary" for="outputMerged">
+                                <i class="fas fa-compress-alt me-2"></i>Zusammengefügt
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="outputMode" id="outputSeparate" value="separate">
+                            <label class="btn btn-outline-secondary" for="outputSeparate">
+                                <i class="fas fa-copy me-2"></i>Einzelne Dateien
+                            </label>
+                        </div>
+                        
+                        <!-- Output Mode Info -->
+                        <div id="outputModeInfo" class="bg-light border rounded py-2 px-3 small text-muted">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Zusammengefügt:</strong> Ein kombiniertes Video mit allen Streams
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Stream Controls -->
                 <div class="control-panel">
                     <h5 class="mb-4">
@@ -947,6 +980,12 @@ class StreamRecorderOptimized {
         this.mediaRecorder = null;
         this.recordedChunks = [];
         this.isRecording = false;
+        this.outputMode = 'merged'; // 'merged' or 'separate'
+        this.separateFiles = null; // Store separate file data for bulk download
+        this.separateRecorders = new Map(); // Store individual MediaRecorders for each stream
+        this.separateChunks = new Map(); // Store recorded chunks for each stream
+        this.processingRecordings = false; // Flag to prevent duplicate processing
+        this.stoppedRecorderCount = 0; // Count of stopped recorders
         
         // PIP Settings
         this.pipSettings = {
@@ -1305,6 +1344,11 @@ class StreamRecorderOptimized {
         document.getElementById('stopRecordBtn')?.addEventListener('click', () => this.stopRecording());
         document.getElementById('pauseBtn')?.addEventListener('click', () => this.togglePauseRecording());
 
+        // Output mode controls
+        document.querySelectorAll('input[name="outputMode"]').forEach(radio => {
+            radio.addEventListener('change', (e) => this.updateOutputMode(e.target.value));
+        });
+
         // Performance controls
         document.getElementById('fpsSelect')?.addEventListener('change', (e) => {
             this.targetFPS = parseInt(e.target.value);
@@ -1363,6 +1407,279 @@ class StreamRecorderOptimized {
         });
 
         // Layout Manager event handler removed - section no longer exists
+    }
+
+    updateOutputMode(mode) {
+        this.outputMode = mode;
+        console.log('🎬 Output mode changed to:', mode);
+        
+        // Update the info text
+        const infoElement = document.getElementById('outputModeInfo');
+        if (infoElement) {
+            if (mode === 'merged') {
+                infoElement.innerHTML = `
+                    <i class="fas fa-info-circle me-2 text-info"></i>
+                    <strong>Zusammengefügt:</strong> Ein kombiniertes Video mit allen Streams
+                `;
+                infoElement.className = 'bg-light border rounded py-2 px-3 small text-muted';
+            } else {
+                infoElement.innerHTML = `
+                    <i class="fas fa-info-circle me-2 text-success"></i>
+                    <strong>Einzelne Dateien:</strong> Separate Datei für jeden Stream (Kamera, Bildschirm, etc.)
+                `;
+                infoElement.className = 'bg-light border rounded py-2 px-3 small text-muted';
+            }
+        }
+    }
+
+    startSeparateStreamRecording() {
+        console.log('🎬 Starting separate stream recordings...');
+        console.log('📊 Available streams:', Array.from(this.streams.keys()));
+        console.log('✅ Active streams:', Array.from(this.activeStreams));
+        
+        try {
+            this.processingRecordings = false; // Reset flag before starting
+            this.stoppedRecorderCount = 0; // Reset counter
+            this.separateRecorders.clear();
+            this.separateChunks.clear();
+            
+            const targetFPS = this.getBrowserOptimalFPS();
+            let recordersStarted = 0;
+            
+            // Debug: Check streams and activeStreams state
+            if (this.streams.size === 0) {
+                alert('Keine Streams verfügbar. Bitte starten Sie zuerst Ihre Kamera oder Bildschirmfreigabe.');
+                return;
+            }
+            
+            // Create separate MediaRecorder for each available stream
+            for (const [streamType, stream] of this.streams.entries()) {
+                console.log(`🔍 Checking stream: ${streamType}, stream exists: ${!!stream}`);
+                
+                if (stream) {
+                    try {
+                        console.log(`📹 Setting up recorder for ${streamType}`);
+                        
+                        // Get optimal recording options
+                        const options = this.getOptimalRecorderOptions();
+                        
+                        // Fallback for unsupported codecs
+                        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                            options.mimeType = 'video/webm';
+                        }
+                        
+                        const recorder = new MediaRecorder(stream, options);
+                        const chunks = [];
+                        
+                        recorder.ondataavailable = (event) => {
+                            if (event.data.size > 0) {
+                                chunks.push(event.data);
+                            }
+                        };
+                        
+                        recorder.onstop = () => {
+                            console.log(`📹 ${streamType} recording stopped`);
+                            const blob = new Blob(chunks, { type: 'video/webm' });
+                            this.separateChunks.set(streamType, blob);
+                            
+                            this.stoppedRecorderCount++;
+                            console.log(`📊 Stopped recorders: ${this.stoppedRecorderCount}/${this.separateRecorders.size}`);
+                            
+                            // Check if all recorders are done
+                            if (this.stoppedRecorderCount >= this.separateRecorders.size && !this.processingRecordings) {
+                                this.processingRecordings = true;
+                                this.processSeparateRecordings();
+                            }
+                        };
+                        
+                        this.separateRecorders.set(streamType, recorder);
+                        this.separateChunks.set(streamType, chunks);
+                        
+                        recorder.start();
+                        recordersStarted++;
+                        console.log(`✅ Started recording for ${streamType}`);
+                        
+                    } catch (error) {
+                        console.error(`❌ Failed to start recorder for ${streamType}:`, error);
+                    }
+                }
+            }
+            
+            if (recordersStarted === 0) {
+                console.error('❌ No recorders started');
+                console.log('🔍 Debug Info:');
+                console.log('  - Available streams:', this.streams.size);
+                console.log('  - Stream types:', Array.from(this.streams.keys()));
+                
+                let errorMessage = 'Keine Streams zum Aufzeichnen gefunden.\n\n';
+                errorMessage += `Verfügbare Streams: ${Array.from(this.streams.keys()).join(', ') || 'Keine'}\n\n`;
+                errorMessage += 'Mögliche Lösungen:\n1. Starten Sie Kamera oder Bildschirmfreigabe\n2. Überprüfen Sie Browser-Berechtigungen\n3. Versuchen Sie es erneut';
+                
+                alert(errorMessage);
+                return;
+            }
+            
+            // Update UI
+            this.isRecording = true;
+            this.recordingStartTime = Date.now();
+            
+            document.getElementById('recordBtn').disabled = true;
+            document.getElementById('stopRecordBtn').disabled = false;
+            document.getElementById('pauseBtn').disabled = false;
+            document.getElementById('recordingStatus').textContent = `Status: ${recordersStarted} Streams werden aufgezeichnet`;
+            document.getElementById('recordingIndicator').style.display = 'block';
+            
+            this.startRecordingTimer();
+            console.log(`🎬 Started recording ${recordersStarted} separate streams`);
+            
+        } catch (error) {
+            console.error('❌ Failed to start separate stream recording:', error);
+            alert('Fehler beim Starten der getrennten Aufnahme: ' + error.message);
+        }
+    }
+    
+    checkAllSeparateRecordingsComplete() {
+        // Prevent multiple calls
+        if (this.processingRecordings) {
+            return;
+        }
+        
+        // Check if all recorders have finished
+        let allComplete = true;
+        let inactiveCount = 0;
+        const totalRecorders = this.separateRecorders.size;
+        
+        for (const [streamType, recorder] of this.separateRecorders.entries()) {
+            if (recorder.state === 'inactive') {
+                inactiveCount++;
+            } else {
+                allComplete = false;
+            }
+        }
+        
+        console.log(`📊 Recorder status: ${inactiveCount}/${totalRecorders} inactive`);
+        
+        if (allComplete && totalRecorders > 0) {
+            this.processingRecordings = true;
+            this.processSeparateRecordings();
+        }
+    }
+    
+    processSeparateRecordings() {
+        console.log('🎬 Processing separate recordings...');
+        
+        const separateFiles = [];
+        const timestamp = Date.now();
+        
+        for (const [streamType, blob] of this.separateChunks.entries()) {
+            if (blob instanceof Blob && blob.size > 0) {
+                const url = URL.createObjectURL(blob);
+                separateFiles.push({
+                    type: streamType,
+                    url: url,
+                    blob: blob,
+                    filename: `${streamType}-${timestamp}.webm`
+                });
+            }
+        }
+        
+        if (separateFiles.length > 0) {
+            this.showSeparateFilesModal(separateFiles);
+        } else {
+            alert('Keine Aufnahmen erstellt.');
+        }
+        
+        this.resetRecordingUI();
+        this.processingRecordings = false; // Reset flag
+    }
+
+    showSeparateFilesModal(files) {
+        console.log('📁 Showing separate files modal with', files.length, 'files');
+        
+        const modalHtml = `
+            <div class="modal fade" id="separateFilesModal" tabindex="-1" style="z-index: 9999;">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="fas fa-copy me-2"></i>Einzelne Stream-Dateien
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="mb-3">
+                                <i class="fas fa-info-circle text-info me-2"></i>
+                                Es wurden ${files.length} separate Dateien für Ihre Streams erstellt.
+                            </p>
+                            
+                            <div class="row">
+                                ${files.map(file => `
+                                    <div class="col-md-6 mb-3">
+                                        <div class="card">
+                                            <div class="card-body text-center">
+                                                <i class="fas fa-video fs-1 text-success mb-2"></i>
+                                                <h6 class="card-title">${this.getStreamDisplayName(file.type)}</h6>
+                                                <p class="text-muted small">${file.filename}</p>
+                                                <a href="${file.url}" download="${file.filename}" class="btn btn-primary btn-sm">
+                                                    <i class="fas fa-download me-1"></i>Download
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                            <button type="button" class="btn btn-success" onclick="window.streamRecorder.downloadAllSeparateFiles()">
+                                <i class="fas fa-download me-2"></i>Alle herunterladen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal
+        const existingModal = document.getElementById('separateFilesModal');
+        if (existingModal) existingModal.remove();
+        
+        // Add to DOM and show
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('separateFilesModal'));
+        modal.show();
+        
+        // Store files for bulk download
+        this.separateFiles = files;
+    }
+
+    getStreamDisplayName(streamType) {
+        const names = {
+            'camera': 'Kamera',
+            'screen': 'Bildschirm',
+            'screen_1': 'Bildschirm 1',
+            'screen_2': 'Bildschirm 2',
+            'audio': 'Audio'
+        };
+        return names[streamType] || streamType.charAt(0).toUpperCase() + streamType.slice(1);
+    }
+
+    downloadAllSeparateFiles() {
+        if (!this.separateFiles) return;
+        
+        this.separateFiles.forEach(file => {
+            const a = document.createElement('a');
+            a.href = file.url;
+            a.download = file.filename;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+        
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('separateFilesModal'));
+        if (modal) modal.hide();
     }
 
     selectLayout(layout) {
@@ -4499,6 +4816,15 @@ class StreamRecorderOptimized {
             return;
         }
 
+        // Choose recording method based on output mode
+        if (this.outputMode === 'separate') {
+            this.startSeparateStreamRecording();
+        } else {
+            this.startMergedRecording();
+        }
+    }
+
+    startMergedRecording() {
         try {
             // 🎯 OPTIMIZED: Adaptive frame rate based on browser
             const targetFPS = this.getBrowserOptimalFPS();
@@ -4550,6 +4876,7 @@ class StreamRecorderOptimized {
             };
 
             this.mediaRecorder.onstop = () => {
+                // Default merged recording
                 const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
                 const url = URL.createObjectURL(blob);
                 this.showPreviewModal(url);
@@ -4576,33 +4903,87 @@ class StreamRecorderOptimized {
     }
 
     stopRecording() {
-        if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
-            this.mediaRecorder.stop();
-            this.isRecording = false;
-            this.stopRecordingTimer();
-            console.log('📹 Recording gestoppt');
+        if (this.outputMode === 'separate') {
+            // Stop all separate recorders
+            let stoppedCount = 0;
+            for (const [streamType, recorder] of this.separateRecorders.entries()) {
+                if (recorder && recorder.state === 'recording') {
+                    recorder.stop();
+                    stoppedCount++;
+                }
+            }
+            console.log(`📹 Stopped ${stoppedCount} separate recordings`);
+        } else {
+            // Stop merged recording
+            if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+                this.mediaRecorder.stop();
+                console.log('📹 Merged recording stopped');
+            }
         }
+        
+        this.isRecording = false;
+        this.stopRecordingTimer();
     }
 
     togglePauseRecording() {
-        if (!this.mediaRecorder) return;
-        
         const btn = document.getElementById('pauseBtn');
-        if (this.mediaRecorder.state === 'recording') {
-            this.mediaRecorder.pause();
-            this.pauseStart = Date.now();
-            this.stopRecordingTimer();
-            btn.innerHTML = '<i class="fas fa-play me-2"></i>Fortsetzen';
-            document.getElementById('recordingStatus').textContent = 'Status: Aufnahme pausiert';
-        } else if (this.mediaRecorder.state === 'paused') {
-            this.mediaRecorder.resume();
-            if (this.pauseStart) {
-                this.pausedAccum += Date.now() - this.pauseStart;
-                this.pauseStart = null;
+        
+        if (this.outputMode === 'separate') {
+            // Handle pausing for separate recorders
+            let anyRecording = false;
+            let anyPaused = false;
+            
+            for (const [streamType, recorder] of this.separateRecorders.entries()) {
+                if (recorder.state === 'recording') anyRecording = true;
+                if (recorder.state === 'paused') anyPaused = true;
             }
-            this.startRecordingTimer();
-            btn.innerHTML = '<i class="fas fa-pause me-2"></i>Pausieren';
-            document.getElementById('recordingStatus').textContent = 'Status: Aufnahme läuft';
+            
+            if (anyRecording) {
+                // Pause all recording recorders
+                for (const [streamType, recorder] of this.separateRecorders.entries()) {
+                    if (recorder.state === 'recording') {
+                        recorder.pause();
+                    }
+                }
+                this.pauseStart = Date.now();
+                this.stopRecordingTimer();
+                btn.innerHTML = '<i class="fas fa-play me-2"></i>Fortsetzen';
+                document.getElementById('recordingStatus').textContent = 'Status: Aufnahme pausiert';
+            } else if (anyPaused) {
+                // Resume all paused recorders
+                for (const [streamType, recorder] of this.separateRecorders.entries()) {
+                    if (recorder.state === 'paused') {
+                        recorder.resume();
+                    }
+                }
+                if (this.pauseStart) {
+                    this.pausedAccum += Date.now() - this.pauseStart;
+                    this.pauseStart = null;
+                }
+                this.startRecordingTimer();
+                btn.innerHTML = '<i class="fas fa-pause me-2"></i>Pausieren';
+                document.getElementById('recordingStatus').textContent = 'Status: Aufnahme läuft';
+            }
+        } else {
+            // Handle merged recording pause
+            if (!this.mediaRecorder) return;
+            
+            if (this.mediaRecorder.state === 'recording') {
+                this.mediaRecorder.pause();
+                this.pauseStart = Date.now();
+                this.stopRecordingTimer();
+                btn.innerHTML = '<i class="fas fa-play me-2"></i>Fortsetzen';
+                document.getElementById('recordingStatus').textContent = 'Status: Aufnahme pausiert';
+            } else if (this.mediaRecorder.state === 'paused') {
+                this.mediaRecorder.resume();
+                if (this.pauseStart) {
+                    this.pausedAccum += Date.now() - this.pauseStart;
+                    this.pauseStart = null;
+                }
+                this.startRecordingTimer();
+                btn.innerHTML = '<i class="fas fa-pause me-2"></i>Pausieren';
+                document.getElementById('recordingStatus').textContent = 'Status: Aufnahme läuft';
+            }
         }
     }
 
