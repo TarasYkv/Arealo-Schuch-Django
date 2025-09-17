@@ -79,6 +79,7 @@
             padding: 0.75rem 0 !important;
             z-index: 1050 !important;
             position: relative !important;
+            overflow: visible !important;
         }
 
         /* Brand Styling */
@@ -239,29 +240,38 @@
         }
 
         /* Chat Notification Badge */
-        #chat-notification-badge {
+        #user-chat-notification-badge {
             background: linear-gradient(135deg, #ff6b6b, #ee5a24) !important;
-            box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
             animation: pulse-glow 2s infinite;
         }
 
         @keyframes pulse-glow {
-            0%, 100% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3); }
-            50% { transform: translate(-50%, -50%) scale(1.1); box-shadow: 0 4px 16px rgba(255, 107, 107, 0.5); }
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 2px 8px rgba(255, 107, 107, 0.4), 0 0 0 0 rgba(255, 107, 107, 0.7);
+            }
+            50% {
+                transform: scale(1.1);
+                box-shadow: 0 4px 16px rgba(255, 107, 107, 0.6), 0 0 0 4px rgba(255, 107, 107, 0.3);
+            }
         }
 
         /* Modern Responsive Design */
         @media (min-width: 992px) {
+            .navbar-nav {
+                overflow: visible !important;
+            }
+
             .navbar-nav .nav-link {
                 white-space: nowrap;
                 display: inline-flex !important;
                 align-items: center;
             }
-            
+
             .navbar-nav > * {
                 margin-right: 0.25rem;
             }
-            
+
             .navbar-nav > *:last-child {
                 margin-right: 0;
             }
@@ -1415,7 +1425,7 @@
     }
     </style>
 </head>
-<body class="{% if user.is_authenticated and user.dark_mode %}bg-dark text-light{% else %}bg-light{% endif %}{% if user.is_authenticated and user.desktop_view %} force-desktop-view{% endif %}">
+<body class="{% if user.is_authenticated and user.dark_mode %}bg-dark text-light{% else %}bg-light{% endif %}{% if user.is_authenticated and user.desktop_view %} force-desktop-view{% endif %}" data-user-authenticated="{% if user.is_authenticated %}true{% else %}false{% endif %}">
 
     <!-- LoomAds Header Banner Zone -->
     {% if user.is_authenticated %}
@@ -1639,9 +1649,7 @@
                         <a class="nav-link dropdown-toggle position-relative" href="#" id="kommunikationDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-chat-dots"></i> Kommunikation
                             {% if user.is_authenticated and user|can_see_app_in_frontend:"chat" %}
-                                <span id="chat-notification-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display: none;">
-                                    <span id="chat-notification-count">0</span>
-                                </span>
+                                <!-- Badge wird jetzt nur im User-Dropdown angezeigt -->
                             {% endif %}
                         </a>
                         <ul class="dropdown-menu" aria-labelledby="kommunikationDropdown">
@@ -1662,17 +1670,27 @@
                     
                     
                     <!-- User Menu Dropdown -->
-                    <div class="nav-item dropdown">
+                    <div class="nav-item dropdown" style="position: relative; overflow: visible; margin-right: 15px;">
                         {% if user.is_authenticated %}
-                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <a class="nav-link dropdown-toggle position-relative" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="padding-right: 1.5rem; overflow: visible;">
                                 {% if user.profile_picture %}
                                     <img src="{{ user.profile_picture.url }}" alt="Profilbild" class="rounded-circle me-1" style="width: 24px; height: 24px; object-fit: cover;">
                                 {% else %}
                                     <i class="bi bi-person-circle text-success"></i>
                                 {% endif %}
                                 {{ user.username }}
+                                <!-- Chat Notification Badge -->
+                                <span id="user-chat-notification-badge" class="position-absolute badge rounded-circle bg-danger border border-light" style="display: none; top: -8px; right: -15px; width: 22px; height: 22px; font-size: 12px; line-height: 22px; text-align: center; z-index: 1050; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">
+                                    <i class="bi bi-envelope-fill"></i>
+                                    <span class="visually-hidden">ungelesene Nachrichten</span>
+                                </span>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                                <li><div class="dropdown-item-text d-flex align-items-center" style="font-size: 0.9em; color: #28a745; font-weight: 500; padding: 0.5rem 1rem;">
+                                    <i class="bi bi-circle-fill me-2" style="font-size: 8px;"></i>
+                                    Eingeloggt
+                                </div></li>
+                                <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="{% url 'accounts:dashboard' %}">
                                     <i class="bi bi-speedometer2"></i> Dashboard
                                 </a></li>
@@ -2265,7 +2283,7 @@
             })
             .then(response => response.json())
             .then(data => {
-                const badge = document.getElementById('chat-notification-badge');
+                const badge = document.getElementById('user-chat-notification-badge');
                 const count = document.getElementById('chat-notification-count');
                 
                 if (data.unread_count > 0) {
@@ -3347,7 +3365,7 @@
             fetch('/chat/unread-count/')
                 .then(response => response.json())
                 .then(data => {
-                    const badge = document.getElementById('chat-notification-badge');
+                    const badge = document.getElementById('user-chat-notification-badge');
                     const count = document.getElementById('chat-notification-count');
                     
                     if (data.unread_count > 0) {
@@ -4171,6 +4189,47 @@
 
     <!-- Apply Visual Editor Changes -->
     {% apply_visual_edits_simple %}
+
+    <!-- Global Chat Notifications - Simple Implementation -->
+    {% if user.is_authenticated %}
+    <script>
+    // Simple chat notification system
+    function updateChatNotificationBadge() {
+        fetch('/chat/unread-count/')
+            .then(response => response.json())
+            .then(data => {
+                const badge = document.getElementById('user-chat-notification-badge');
+                if (badge) {
+                    if (data.unread_count > 0) {
+                        badge.style.display = 'inline-block';
+                        // Optional: Update badge with count if you want to show number instead of just icon
+                        // badge.innerHTML = `<span style="font-size: 9px;">${data.unread_count}</span>`;
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                }
+            })
+            .catch(error => {
+                console.log('Chat notification check failed:', error);
+            });
+    }
+
+    // Check for notifications on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        updateChatNotificationBadge();
+
+        // Check every 30 seconds
+        setInterval(updateChatNotificationBadge, 30000);
+    });
+
+    // Check when user returns to page
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            updateChatNotificationBadge();
+        }
+    });
+    </script>
+    {% endif %}
 
 </body>
 </html>

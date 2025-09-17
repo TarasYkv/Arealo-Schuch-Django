@@ -9,6 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.conf import settings
+from datetime import timedelta
 import json
 
 from .models import ChatRoom, ChatMessage, ChatRoomParticipant, ChatMessageRead, ChatMessageAttachment
@@ -16,6 +17,14 @@ from .agora_utils import generate_agora_token
 from accounts.decorators import require_app_permission
 
 User = get_user_model()
+
+
+def is_user_logged_in(user):
+    """Check if user is considered 'logged in' based on recent activity (30 minutes)"""
+    return (
+        user.last_activity and
+        timezone.now() - user.last_activity < timedelta(minutes=30)
+    )
 
 
 @login_required
@@ -105,10 +114,10 @@ def chat_home(request):
                     else:
                         room.avatar_text = other_user.username[:2].upper()
                 
-                # Set online status
-                if other_user.is_currently_online():
+                # Set online status - show "Eingeloggt" if user has recent activity (within 30 minutes)
+                if is_user_logged_in(other_user):
                     room.online_status = "online"
-                    room.online_status_text = "Online"
+                    room.online_status_text = "Eingeloggt"
                     room.online_status_class = "text-success"
                 else:
                     room.online_status = "offline"
@@ -336,6 +345,118 @@ def send_message(request, room_id):
             }
         })
         
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_http_methods(["POST"])
+def batch_update(request, room_id):
+    """
+    Optimized batch endpoint that combines multiple updates in one request.
+    Reduces polling overhead by fetching all necessary data at once.
+    """
+    try:
+        chat_room = get_object_or_404(ChatRoom, id=room_id)
+
+        # Check if user is participant
+        if not chat_room.participants.filter(id=request.user.id).exists():
+            return JsonResponse({'success': False, 'error': 'Zugriff verweigert'})
+
+        # Parse request data
+        data = json.loads(request.body) if request.body else {}
+        last_message_id = data.get('last_message_id')
+        include_room_info = data.get('include_room_info', False)
+        include_participants = data.get('include_participants', False)
+
+        response_data = {'success': True}
+
+        # Get new messages (if any)
+        if last_message_id:
+            messages_queryset = chat_room.messages.filter(
+                id__gt=last_message_id
+            ).select_related('sender').prefetch_related('attachments').order_by('created_at')[:50]
+        else:
+            messages_queryset = chat_room.messages.select_related(
+                'sender'
+            ).prefetch_related('attachments').order_by('-created_at')[:50]
+            messages_queryset = reversed(list(messages_queryset))
+
+        messages_list = list(messages_queryset)
+
+        if messages_list:
+            messages_data = []
+            for message in messages_list:
+                if message.sender:
+                    sender_name = message.sender.get_full_name() or message.sender.username
+                    sender_id = message.sender.id
+                else:
+                    sender_name = message.sender_name or "System"
+                    sender_id = None
+
+                messages_data.append({
+                    'id': message.id,
+                    'content': message.content,
+                    'sender': sender_name,
+                    'sender_id': sender_id,
+                    'is_own': message.sender == request.user if message.sender else False,
+                    'formatted_time': message.created_at.strftime('%H:%M'),
+                    'message_type': message.message_type
+                })
+
+            response_data['messages'] = messages_data
+            response_data['last_message_id'] = messages_list[-1].id
+
+            # Mark messages as read
+            unread_messages = chat_room.messages.exclude(
+                read_by__user=request.user
+            ).exclude(sender=request.user).filter(id__in=[m.id for m in messages_list])
+
+            for message in unread_messages:
+                ChatMessageRead.objects.get_or_create(
+                    message=message,
+                    user=request.user
+                )
+
+        # Include room info if requested
+        if include_room_info:
+            room_info = {
+                'id': chat_room.id,
+                'name': str(chat_room),
+                'is_group_chat': chat_room.is_group_chat,
+            }
+
+            if not chat_room.is_group_chat:
+                other_user = chat_room.get_other_participant(request.user)
+                if other_user:
+                    room_info['is_online'] = other_user.is_currently_online()
+                    room_info['profile_picture_url'] = other_user.profile_picture.url if other_user.profile_picture else None
+                    if other_user.first_name and other_user.last_name:
+                        room_info['avatar_text'] = (other_user.first_name[:1] + other_user.last_name[:1]).upper()
+                    else:
+                        room_info['avatar_text'] = other_user.username[:2].upper()
+
+            response_data['room_info'] = room_info
+
+        # Get unread counts for all user's chats
+        user_rooms = ChatRoom.objects.filter(participants=request.user)
+        unread_counts = {}
+        for room in user_rooms:
+            count = room.get_unread_count(request.user)
+            # Only include if there are unread messages or if this is the current room
+            if count > 0 or str(room.id) == str(room_id):
+                unread_counts[str(room.id)] = count
+        response_data['unread_counts'] = unread_counts
+
+        # Get online status for participants
+        if include_participants:
+            online_status = {}
+            for participant in chat_room.participants.exclude(id=request.user.id):
+                online_status[str(participant.id)] = is_user_logged_in(participant)
+            response_data['online_status'] = online_status
+
+        return JsonResponse(response_data)
+
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
 

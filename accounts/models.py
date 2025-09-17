@@ -36,11 +36,11 @@ class CustomUser(AbstractUser):
     last_activity = models.DateTimeField(auto_now=True, verbose_name="Letzte Aktivität")
     is_online = models.BooleanField(default=False, verbose_name="Online")
     
-    # Call-Berechtigungen
-    can_make_audio_calls = models.BooleanField(default=True, verbose_name="Darf Audioanrufe tätigen")
-    can_make_video_calls = models.BooleanField(default=True, verbose_name="Darf Videoanrufe tätigen")
-    can_receive_audio_calls = models.BooleanField(default=True, verbose_name="Darf Audioanrufe empfangen")
-    can_receive_video_calls = models.BooleanField(default=True, verbose_name="Darf Videoanrufe empfangen")
+    # Call-Berechtigungen (standardmäßig deaktiviert)
+    can_make_audio_calls = models.BooleanField(default=False, verbose_name="Darf Audioanrufe tätigen")
+    can_make_video_calls = models.BooleanField(default=False, verbose_name="Darf Videoanrufe tätigen")
+    can_receive_audio_calls = models.BooleanField(default=False, verbose_name="Darf Audioanrufe empfangen")
+    can_receive_video_calls = models.BooleanField(default=False, verbose_name="Darf Videoanrufe empfangen")
     
     # App-Freigabe Berechtigung
     can_manage_app_permissions = models.BooleanField(default=False, verbose_name="Darf App-Freigaben verwalten",
