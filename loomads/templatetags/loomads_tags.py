@@ -202,7 +202,7 @@ def ad_zone_placeholder(context, zone_code, width=None, height=None):
         width = width or 300
         height = height or 250
     
-    placeholder_html = '<div id="loomads-zone-{}" class="loomads-zone" style="width: {}px; height: {}px; background: #f8f9fa; border: 1px dashed #dee2e6; display: flex; align-items: center; justify-content: center; color: #6c757d; font-size: 12px; display: none;">Werbung wird geladen...</div>'.format(
+    placeholder_html = '<div id="loomads-zone-{}" class="loomads-zone" style="width: {}px; height: {}px; background: #f8f9fa; border: 1px dashed #dee2e6; display: flex; align-items: center; justify-content: center; color: #6c757d; font-size: 12px; display: none;">Hier kann Deine Werbung stehen!</div>'.format(
         zone_code, width, height
     )
     
