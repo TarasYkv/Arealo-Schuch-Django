@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Automatische Kampagnen - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-0">
+                <i class="bi bi-robot text-success me-2"></i>
+                Automatische Kampagnen
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'loomads:dashboard' %}">LoomAds</a></li>
+                    <li class="breadcrumb-item active">Auto-Kampagnen</li>
+                </ol>
+            </nav>
+        </div>
+        <a href="{% url 'loomads:auto_campaign_create' %}" class="btn btn-success">
+            <i class="bi bi-plus-lg me-2"></i>Neue Auto-Kampagne
+        </a>
+    </div>
+
+    <!-- Info Box -->
+    <div class="alert alert-info mb-4">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-info-circle me-3 fs-4"></i>
+            <div>
+                <strong>Automatische Kampagnen</strong><br>
+                <small>Gruppieren ähnliche Zonen automatisch und erstellen optimierte Anzeigen für alle passenden Bereiche gleichzeitig.</small>
+            </div>
+        </div>
+    </div>
+
+    {% if auto_campaigns %}
+        <!-- Campaign Cards -->
+        <div class="row">
+            {% for campaign in auto_campaigns %}
+            <div class="col-lg-6 col-xl-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">{{ campaign.name }}</h5>
+                        <span class="badge {% if campaign.status == 'active' %}bg-success{% elif campaign.status == 'draft' %}bg-secondary{% elif campaign.status == 'paused' %}bg-warning{% else %}bg-info{% endif %}">
+                            {{ campaign.get_status_display }}
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <div class="text-center p-2 bg-light rounded">
+                                    <div class="h4 mb-0 text-primary">{{ campaign.target_format.get_zone_count }}</div>
+                                    <small class="text-muted">Zielzonen</small>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="text-center p-2 bg-light rounded">
+                                    <div class="h4 mb-0 text-success">{{ campaign.auto_created_ads_count }}</div>
+                                    <small class="text-muted">Auto-Ads</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p class="text-muted small mb-2">
+                            <strong>Format:</strong> {{ campaign.target_format.name }}
+                        </p>
+
+                        {% if campaign.description %}
+                        <p class="text-muted mb-3">{{ campaign.description|truncatechars:100 }}</p>
+                        {% endif %}
+
+                        <div class="row g-2 text-small text-muted">
+                            <div class="col-12">
+                                <i class="bi bi-calendar-range me-1"></i>
+                                {{ campaign.start_date|date:"d.m.Y" }} - {{ campaign.end_date|date:"d.m.Y" }}
+                            </div>
+                            <div class="col-12">
+                                <i class="bi bi-gear me-1"></i>
+                                {{ campaign.get_content_strategy_display }}
+                            </div>
+                            {% if campaign.performance_score > 0 %}
+                            <div class="col-12">
+                                <i class="bi bi-graph-up me-1"></i>
+                                Performance: {{ campaign.performance_score|floatformat:1 }}%
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'loomads:auto_campaign_detail' campaign.id %}" 
+                               class="btn btn-sm btn-outline-primary flex-fill">
+                                <i class="bi bi-eye me-1"></i>Details
+                            </a>
+                            <a href="{% url 'loomads:auto_campaign_edit' campaign.id %}" 
+                               class="btn btn-sm btn-outline-secondary flex-fill">
+                                <i class="bi bi-pencil me-1"></i>Bearbeiten
+                            </a>
+                        </div>
+                        <small class="text-muted mt-2 d-block">
+                            Erstellt am {{ campaign.created_at|date:"d.m.Y H:i" }}
+                        </small>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <!-- Empty State -->
+        <div class="text-center py-5">
+            <div class="mb-4">
+                <i class="bi bi-robot" style="font-size: 4rem; color: #dee2e6;"></i>
+            </div>
+            <h4 class="text-muted">Keine automatischen Kampagnen</h4>
+            <p class="text-muted mb-4">
+                Erstellen Sie Ihre erste automatische Kampagne, um ähnliche Zonen intelligent zu gruppieren.
+            </p>
+            <a href="{% url 'loomads:auto_campaign_create' %}" class="btn btn-success">
+                <i class="bi bi-plus-lg me-2"></i>Erste Auto-Kampagne erstellen
+            </a>
+        </div>
+    {% endif %}
+
+    <!-- Quick Links -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="bi bi-collection me-2"></i>Formate verwalten
+                    </h6>
+                    <p class="card-text small text-muted">
+                        Definieren Sie Format-Gruppen für automatische Kampagnen.
+                    </p>
+                    <a href="{% url 'loomads:auto_format_list' %}" class="btn btn-sm btn-outline-primary">
+                        Zu den Formaten
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="bi bi-list-task me-2"></i>Standard Kampagnen
+                    </h6>
+                    <p class="card-text small text-muted">
+                        Verwalten Sie normale Kampagnen für spezifische Zonen.
+                    </p>
+                    <a href="{% url 'loomads:campaign_list' %}" class="btn btn-sm btn-outline-primary">
+                        Zu den Kampagnen
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

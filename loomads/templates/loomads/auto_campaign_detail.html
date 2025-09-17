@@ -1,0 +1,339 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ campaign.name }} - Auto-Kampagne - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-0">
+                <i class="bi bi-robot text-success me-2"></i>
+                {{ campaign.name }}
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'loomads:dashboard' %}">LoomAds</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'loomads:auto_campaign_list' %}">Auto-Kampagnen</a></li>
+                    <li class="breadcrumb-item active">{{ campaign.name }}</li>
+                </ol>
+            </nav>
+        </div>
+        <div class="btn-group">
+            <a href="{% url 'loomads:auto_campaign_edit' campaign.id %}" class="btn btn-outline-primary">
+                <i class="bi bi-pencil me-2"></i>Bearbeiten
+            </a>
+            <a href="{% url 'loomads:auto_campaign_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-2"></i>Zurück
+            </a>
+        </div>
+    </div>
+
+    <!-- Status & Metrics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="h2 mb-2">
+                        <span class="badge {% if campaign.status == 'active' %}bg-success{% elif campaign.status == 'draft' %}bg-secondary{% elif campaign.status == 'paused' %}bg-warning{% else %}bg-info{% endif %} fs-6">
+                            {{ campaign.get_status_display }}
+                        </span>
+                    </div>
+                    <h6 class="card-title">Status</h6>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="h2 mb-2 text-primary">{{ matching_zones.count }}</div>
+                    <h6 class="card-title">Zielzonen</h6>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="h2 mb-2 text-success">{{ campaign.auto_created_ads_count }}</div>
+                    <h6 class="card-title">Auto-Ads</h6>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="h2 mb-2 text-info">
+                        {% if campaign.performance_score > 0 %}
+                            {{ campaign.performance_score|floatformat:1 }}%
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                    <h6 class="card-title">Performance</h6>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Campaign Details -->
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Basic Information -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-info-circle me-2"></i>Kampagnen-Details
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Name:</strong><br>
+                            <span class="text-muted">{{ campaign.name }}</span>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Erstellt von:</strong><br>
+                            <span class="text-muted">{{ campaign.created_by.username }}</span>
+                        </div>
+                    </div>
+                    <hr>
+                    {% if campaign.description %}
+                    <div class="row">
+                        <div class="col-12">
+                            <strong>Beschreibung:</strong><br>
+                            <span class="text-muted">{{ campaign.description }}</span>
+                        </div>
+                    </div>
+                    <hr>
+                    {% endif %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Laufzeit:</strong><br>
+                            <span class="text-muted">
+                                {{ campaign.start_date|date:"d.m.Y H:i" }} - {{ campaign.end_date|date:"d.m.Y H:i" }}
+                            </span>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Content-Strategie:</strong><br>
+                            <span class="text-muted">{{ campaign.get_content_strategy_display }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Target Zones -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-bullseye me-2"></i>Zielzonen ({{ matching_zones.count }})
+                    </h5>
+                    <span class="badge bg-primary">{{ campaign.target_format.name }}</span>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for zone in matching_zones %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card border">
+                                <div class="card-body p-3">
+                                    <h6 class="card-title mb-2">{{ zone.name }}</h6>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-muted">{{ zone.code }}</small>
+                                        <span class="badge bg-light text-dark">{{ zone.width }}×{{ zone.height }}</span>
+                                    </div>
+                                    <div class="mt-2">
+                                        <span class="badge bg-secondary">{{ zone.zone_type }}</span>
+                                        {% if not zone.is_active %}
+                                        <span class="badge bg-warning">Inaktiv</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12">
+                            <p class="text-muted text-center">Keine passenden Zonen gefunden.</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Auto Advertisements -->
+            {% if auto_ads %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-gear-fill me-2"></i>Automatische Anzeigen ({{ auto_ads.count }})
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Zielzone</th>
+                                    <th>Strategie</th>
+                                    <th>Performance</th>
+                                    <th>Status</th>
+                                    <th>Erstellt</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for auto_ad in auto_ads %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ auto_ad.name }}</strong>
+                                    </td>
+                                    <td>
+                                        {{ auto_ad.target_zone.name }}<br>
+                                        <small class="text-muted">{{ auto_ad.target_zone.code }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ auto_ad.get_generation_strategy_display }}</span>
+                                    </td>
+                                    <td>
+                                        {% if auto_ad.performance_score > 0 %}
+                                            {{ auto_ad.performance_score|floatformat:1 }}%
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if auto_ad.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                            {% if auto_ad.is_active %}Aktiv{% else %}Inaktiv{% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ auto_ad.created_at|date:"d.m.Y H:i" }}</small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Format Information -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-collection me-2"></i>Format-Details
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <h6>{{ campaign.target_format.name }}</h6>
+                    <p class="text-muted small">{{ campaign.target_format.description }}</p>
+                    
+                    <div class="mb-2">
+                        <small class="text-muted">Gruppierungsstrategie:</small><br>
+                        <span class="badge bg-primary">{{ campaign.target_format.get_grouping_strategy_display }}</span>
+                    </div>
+                    
+                    {% if campaign.target_format.target_zone_types %}
+                    <div class="mb-2">
+                        <small class="text-muted">Zone-Typen:</small><br>
+                        {% for zone_type in campaign.target_format.target_zone_types %}
+                            <span class="badge bg-secondary me-1">{{ zone_type }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    {% if campaign.target_format.target_dimensions %}
+                    <div class="mb-2">
+                        <small class="text-muted">Ziel-Dimensionen:</small><br>
+                        {% for dimension in campaign.target_format.target_dimensions %}
+                            <span class="badge bg-info me-1">{{ dimension }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    <div>
+                        <small class="text-muted">Priorität:</small> {{ campaign.target_format.priority }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-lightning me-2"></i>Aktionen
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        {% if campaign.status == 'draft' %}
+                        <button class="btn btn-success btn-sm">
+                            <i class="bi bi-play me-2"></i>Kampagne starten
+                        </button>
+                        {% elif campaign.status == 'active' %}
+                        <button class="btn btn-warning btn-sm">
+                            <i class="bi bi-pause me-2"></i>Kampagne pausieren
+                        </button>
+                        {% elif campaign.status == 'paused' %}
+                        <button class="btn btn-success btn-sm">
+                            <i class="bi bi-play me-2"></i>Kampagne fortsetzen
+                        </button>
+                        {% endif %}
+                        
+                        <button class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-gear me-2"></i>Performance optimieren
+                        </button>
+                        
+                        <button class="btn btn-outline-info btn-sm">
+                            <i class="bi bi-plus-square me-2"></i>Auto-Ads erstellen
+                        </button>
+                        
+                        <hr class="my-3">
+                        
+                        <a href="{% url 'loomads:auto_campaign_edit' campaign.id %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-pencil me-2"></i>Bearbeiten
+                        </a>
+                        
+                        <a href="{% url 'loomads:auto_campaign_delete' campaign.id %}" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-trash me-2"></i>Löschen
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Meta Information -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-info-square me-2"></i>Meta-Informationen
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="small">
+                        <div class="mb-2">
+                            <strong>ID:</strong> {{ campaign.id }}
+                        </div>
+                        <div class="mb-2">
+                            <strong>Erstellt:</strong><br>
+                            {{ campaign.created_at|date:"d.m.Y H:i" }}
+                        </div>
+                        <div class="mb-2">
+                            <strong>Aktualisiert:</strong><br>
+                            {{ campaign.updated_at|date:"d.m.Y H:i" }}
+                        </div>
+                        {% if campaign.last_optimization_run %}
+                        <div>
+                            <strong>Letzte Optimierung:</strong><br>
+                            {{ campaign.last_optimization_run|date:"d.m.Y H:i" }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
