@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ title }} - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-0">
+                <i class="bi bi-robot text-success me-2"></i>
+                {{ title }}
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'loomads:dashboard' %}">LoomAds</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'loomads:auto_campaign_list' %}">Auto-Kampagnen</a></li>
+                    <li class="breadcrumb-item active">{{ campaign.name|default:"Neu" }}</li>
+                </ol>
+            </nav>
+        </div>
+        <a href="{% url 'loomads:auto_campaign_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i>Zurück zur Liste
+        </a>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="row">
+            <!-- Main Form -->
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Kampagnen-Details</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Name -->
+                        <div class="mb-3">
+                            <label for="name" class="form-label">
+                                Kampagnen-Name <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="name" name="name" 
+                                   value="{{ campaign.name|default:'' }}" required>
+                            <div class="form-text">Ein eindeutiger Name für Ihre Auto-Kampagne</div>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Beschreibung</label>
+                            <textarea class="form-control" id="description" name="description" rows="3">{{ campaign.description|default:'' }}</textarea>
+                            <div class="form-text">Optionale Beschreibung der Kampagne</div>
+                        </div>
+
+                        <!-- Target Format -->
+                        <div class="mb-3">
+                            <label for="target_format" class="form-label">
+                                Ziel-Format <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" id="target_format" name="target_format" required {% if campaign %}disabled{% endif %}>
+                                <option value="">Format auswählen...</option>
+                                {% for format in formats %}
+                                <option value="{{ format.id }}" 
+                                        {% if campaign and campaign.target_format_id == format.id %}selected{% endif %}
+                                        data-zones="{{ format.get_zone_count }}"
+                                        data-strategy="{{ format.grouping_strategy }}">
+                                    {{ format.name }} ({{ format.get_zone_count }} Zonen)
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if campaign %}
+                                <input type="hidden" name="target_format" value="{{ campaign.target_format_id }}">
+                                <div class="form-text text-info">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Das Format kann nach der Erstellung nicht mehr geändert werden.
+                                </div>
+                            {% else %}
+                                <div class="form-text">Wählen Sie das Format, das die Zonen für diese Kampagne definiert</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Content Strategy -->
+                        <div class="mb-3">
+                            <label for="content_strategy" class="form-label">Content-Strategie</label>
+                            <select class="form-select" id="content_strategy" name="content_strategy">
+                                {% for value, label in content_strategies %}
+                                <option value="{{ value }}" {% if campaign and campaign.content_strategy == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Wie sollen Inhalte für verschiedene Zonen angepasst werden?</div>
+                        </div>
+
+                        <!-- Time Range -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="start_date" class="form-label">
+                                        Startdatum <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="datetime-local" class="form-control" id="start_date" name="start_date" 
+                                           value="{% if campaign.start_date %}{{ campaign.start_date|date:'Y-m-d\TH:i' }}{% endif %}" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="end_date" class="form-label">
+                                        Enddatum <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="datetime-local" class="form-control" id="end_date" name="end_date" 
+                                           value="{% if campaign.end_date %}{{ campaign.end_date|date:'Y-m-d\TH:i' }}{% endif %}" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Status -->
+                        <div class="mb-3">
+                            <label for="status" class="form-label">Status</label>
+                            <select class="form-select" id="status" name="status">
+                                <option value="draft" {% if not campaign or campaign.status == 'draft' %}selected{% endif %}>
+                                    Entwurf
+                                </option>
+                                <option value="active" {% if campaign and campaign.status == 'active' %}selected{% endif %}>
+                                    Aktiv
+                                </option>
+                                <option value="paused" {% if campaign and campaign.status == 'paused' %}selected{% endif %}>
+                                    Pausiert
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-lg me-2"></i>
+                        {% if campaign %}Kampagne aktualisieren{% else %}Kampagne erstellen{% endif %}
+                    </button>
+                    <a href="{% url 'loomads:auto_campaign_list' %}" class="btn btn-outline-secondary ms-2">
+                        Abbrechen
+                    </a>
+                    {% if campaign %}
+                    <a href="{% url 'loomads:auto_campaign_delete' campaign.id %}" class="btn btn-outline-danger ms-2">
+                        <i class="bi bi-trash me-2"></i>Löschen
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <!-- Format Preview -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="bi bi-eye me-2"></i>Format-Vorschau
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="format-preview">
+                            {% if campaign %}
+                                <div class="alert alert-info">
+                                    <strong>{{ campaign.target_format.name }}</strong><br>
+                                    <small>{{ campaign.target_format.description }}</small>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">Zielzonen:</small><br>
+                                    <span class="badge bg-primary">{{ campaign.target_format.get_zone_count }} Zonen</span>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">Gruppierung:</small><br>
+                                    <small>{{ campaign.target_format.get_grouping_strategy_display }}</small>
+                                </div>
+                                {% if campaign.target_format.target_zone_types %}
+                                <div class="mb-2">
+                                    <small class="text-muted">Zone-Typen:</small><br>
+                                    {% for zone_type in campaign.target_format.target_zone_types %}
+                                        <span class="badge bg-secondary me-1">{{ zone_type }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                {% if campaign.target_format.target_dimensions %}
+                                <div>
+                                    <small class="text-muted">Dimensionen:</small><br>
+                                    {% for dimension in campaign.target_format.target_dimensions %}
+                                        <span class="badge bg-info me-1">{{ dimension }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            {% else %}
+                                <p class="text-muted">Wählen Sie ein Format aus, um eine Vorschau zu sehen.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Help -->
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="bi bi-question-circle me-2"></i>Hilfe
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <h6>Auto-Kampagnen</h6>
+                        <ul class="small mb-3">
+                            <li><strong>Format-optimiert:</strong> Passt Inhalte an jedes Format an</li>
+                            <li><strong>Einzelkreativ:</strong> Verwendet ein Kreativ für alle Zonen</li>
+                            <li><strong>Zonenspezifisch:</strong> Individuelle Anpassung pro Zone</li>
+                        </ul>
+                        
+                        <h6>Tipps</h6>
+                        <ul class="small">
+                            <li>Beginnen Sie mit Status "Entwurf" zum Testen</li>
+                            <li>Verwenden Sie aussagekräftige Namen</li>
+                            <li>Prüfen Sie die Format-Vorschau vor dem Erstellen</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const formatSelect = document.getElementById('target_format');
+    const previewDiv = document.getElementById('format-preview');
+    
+    if (formatSelect && !formatSelect.disabled) {
+        formatSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            
+            if (selectedOption.value) {
+                const zones = selectedOption.dataset.zones;
+                const strategy = selectedOption.dataset.strategy;
+                
+                previewDiv.innerHTML = `
+                    <div class="alert alert-info">
+                        <strong>${selectedOption.textContent}</strong>
+                    </div>
+                    <div class="mb-2">
+                        <small class="text-muted">Zielzonen:</small><br>
+                        <span class="badge bg-primary">${zones} Zonen</span>
+                    </div>
+                    <div class="mb-2">
+                        <small class="text-muted">Strategie:</small><br>
+                        <small>${strategy}</small>
+                    </div>
+                `;
+            } else {
+                previewDiv.innerHTML = '<p class="text-muted">Wählen Sie ein Format aus, um eine Vorschau zu sehen.</p>';
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
