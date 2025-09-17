@@ -12,18 +12,18 @@
                 <i class="fas fa-plus"></i> Neuer Chat
             </button>
         </div>
-        
+
         <div class="search-container">
             <div class="input-group">
                 <span class="input-group-text"><i class="fas fa-search"></i></span>
                 <input type="text" class="form-control" id="chatSearch" placeholder="Chats durchsuchen...">
             </div>
         </div>
-        
+
         <div class="chat-list-container">
             {% for room in chat_rooms %}
             <div class="chat-item" data-room-id="{{ room.id }}">
-                <div class="chat-item-content" onclick="loadStableChat({{ room.id }})">
+                <div class="chat-item-content" onclick="chatManager.loadChat({{ room.id }})">
                 <div class="chat-avatar">
                     {% if room.is_group_chat %}
                         <i class="fas fa-users"></i>
@@ -53,7 +53,7 @@
                 </div>
                 </div>
                 <div class="chat-item-actions">
-                    <button class="btn-delete-chat" onclick="deleteStableChat({{ room.id }}, event)" title="Chat löschen">
+                    <button class="btn-delete-chat" onclick="deleteChat({{ room.id }}, event)" title="Chat löschen">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -83,12 +83,6 @@
                     </div>
                 </div>
                 <div class="chat-actions">
-                    <button class="btn btn-outline-primary btn-sm" onclick="initiateStableCall('audio')" title="Sprachanruf">
-                        <i class="fas fa-phone"></i>
-                    </button>
-                    <button class="btn btn-outline-primary btn-sm" onclick="initiateStableCall('video')" title="Videoanruf">
-                        <i class="fas fa-video"></i>
-                    </button>
                     <button class="btn btn-outline-secondary btn-sm" onclick="showChatInfo()" title="Benutzerinformationen">
                         <i class="fas fa-info-circle"></i>
                     </button>
@@ -110,9 +104,9 @@
                         <button class="btn btn-outline-secondary" type="button">
                             <i class="fas fa-paperclip"></i>
                         </button>
-                        <input type="text" class="form-control" id="messageInput" 
-                               placeholder="Nachricht eingeben..." onkeypress="handleStableKeyPress(event)">
-                        <button class="btn btn-primary" onclick="sendStableMessage()">
+                        <input type="text" class="form-control" id="messageInput"
+                               placeholder="Nachricht eingeben..." onkeypress="handleKeyPress(event)">
+                        <button class="btn btn-primary" onclick="chatManager.sendMessage()">
                             <i class="fas fa-paper-plane"></i>
                         </button>
                     </div>
@@ -193,60 +187,19 @@
 
 .chat-list-container {
     flex: 1;
-    overflow-y: overlay;
+    overflow-y: auto;
     overflow-x: hidden;
     min-height: 0;
 }
 
+/* Chat item styles */
 .chat-item {
     display: flex;
     padding: 15px 20px;
+    cursor: pointer;
     border-bottom: 1px solid var(--chat-border);
-    transition: background-color 0.2s ease;
-    background: var(--chat-bg-tertiary);
-    color: var(--chat-text-primary);
+    transition: background-color 0.2s;
     position: relative;
-}
-
-.chat-item-content {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-    min-width: 0;
-    overflow: hidden;
-}
-
-.chat-item-actions {
-    opacity: 0;
-    transition: opacity 0.2s ease;
-    display: flex;
-    align-items: center;
-    margin-left: 10px;
-}
-
-.chat-item:hover .chat-item-actions {
-    opacity: 1;
-}
-
-.btn-delete-chat {
-    background: none;
-    border: none;
-    color: #dc3545;
-    padding: 8px;
-    border-radius: 50%;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-}
-
-.btn-delete-chat:hover {
-    background: rgba(220, 53, 69, 0.1);
-    transform: scale(1.1);
 }
 
 .chat-item:hover {
@@ -255,105 +208,55 @@
 
 .chat-item.active {
     background: var(--chat-hover);
-    border-left: 3px solid #2196f3;
+}
+
+.chat-item-content {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    min-width: 0;
 }
 
 .chat-avatar {
-    width: 45px;
-    height: 45px;
+    width: 50px;
+    height: 50px;
     border-radius: 50%;
-    background: #2196f3;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
     font-weight: bold;
-    margin-right: 15px;
     flex-shrink: 0;
-}
-
-.avatar-text {
-    font-size: 16px;
-}
-
-.profile-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 50%;
+    margin-right: 15px;
 }
 
 .chat-info {
     flex: 1;
     min-width: 0;
-    margin-right: 10px;
 }
 
 .chat-name {
     font-weight: 600;
     color: var(--chat-text-primary);
-    margin-bottom: 4px;
-}
-
-.chat-meta-line {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.online-status {
-    font-size: 11px;
-    font-weight: 500;
-    margin-bottom: 2px;
-}
-
-.online-status .fa-circle {
-    margin-right: 4px;
-}
-
-.text-success .fa-circle {
-    color: #28a745;
-}
-
-.text-muted .fa-circle {
-    color: #6c757d;
+    margin-bottom: 5px;
 }
 
 .chat-preview {
-    font-size: 13px;
     color: var(--chat-text-secondary);
+    font-size: 0.875rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-
-.chat-meta {
-    flex-shrink: 0;
-    text-align: right;
-    min-width: 60px;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-}
-
-.chat-time {
-    font-size: 12px;
-    color: var(--chat-text-secondary);
-    margin-bottom: 4px;
-    white-space: nowrap;
-    min-width: 50px;
 }
 
 .unread-badge {
     background: #dc3545;
     color: white;
     border-radius: 10px;
-    padding: 2px 7px;
-    font-size: 11px;
+    padding: 2px 8px;
+    font-size: 0.75rem;
     font-weight: 600;
-    display: inline-block;
-    min-width: 18px;
-    text-align: center;
 }
 
 /* Main chat area */
@@ -361,10 +264,7 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    position: relative;
     background: var(--chat-bg-primary);
-    color: var(--chat-text-primary);
 }
 
 .chat-welcome {
@@ -372,1909 +272,588 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--chat-bg-secondary);
-}
-
-.welcome-content {
-    text-align: center;
-    color: var(--chat-text-secondary);
 }
 
 .active-chat {
-    flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    height: 100%;
 }
 
 .chat-header-main {
     padding: 20px;
     border-bottom: 1px solid var(--chat-border);
     background: var(--chat-bg-tertiary);
-    color: var(--chat-text-primary);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-shrink: 0;
 }
 
-.chat-info-main {
-    display: flex;
-    align-items: center;
-}
-
-.chat-avatar-main {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: #2196f3;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    margin-right: 15px;
-}
-
-.chat-details h5 {
-    margin: 0;
-    font-size: 16px;
-}
-
-.chat-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: nowrap;
-}
-
-.chat-actions .btn {
-    min-width: 40px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-/* Messages area with stable scrolling */
 .messages-area {
     flex: 1;
-    position: relative;
-    overflow: hidden;
-    background: var(--chat-bg-secondary);
-}
-
-.messages-content {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    overflow-y: overlay;
-    overflow-x: hidden;
+    overflow-y: auto;
     padding: 20px;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    background: var(--chat-bg-primary);
-    color: var(--chat-text-primary);
 }
 
-.messages-content::-webkit-scrollbar {
-    display: none;
-}
-
-/* Message input */
 .message-input-area {
     padding: 20px;
-    background: var(--chat-bg-tertiary);
-    color: var(--chat-text-primary);
     border-top: 1px solid var(--chat-border);
-    flex-shrink: 0;
-}
-
-.input-container {
-    max-width: 100%;
-}
-
-.input-group .btn {
-    border: 1px solid #ced4da;
-}
-
-.input-group .form-control {
-    border: 1px solid #ced4da;
-}
-
-.input-group .form-control:focus {
-    border-color: #2196f3;
-    box-shadow: 0 0 0 0.2rem rgba(33, 150, 243, 0.25);
+    background: var(--chat-bg-tertiary);
 }
 
 /* Message styles */
-.message-item {
+.message {
     display: flex;
     margin-bottom: 15px;
-    align-items: flex-end;
 }
 
-.message-item.own {
-    justify-content: flex-end;
+.message.own {
+    flex-direction: row-reverse;
 }
 
-.message-bubble {
+.message-content {
     max-width: 70%;
-    padding: 12px 16px;
+    padding: 10px 15px;
     border-radius: 18px;
-    position: relative;
-    word-wrap: break-word;
-}
-
-.message-item:not(.own) .message-bubble {
-    background: var(--chat-bg-tertiary);
+    background: var(--chat-bg-secondary);
     color: var(--chat-text-primary);
-    border-bottom-left-radius: 6px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
-.message-item.own .message-bubble {
-    background: #2196f3;
+.message.own .message-content {
+    background: #007bff;
     color: white;
-    border-bottom-right-radius: 6px;
 }
 
 .message-time {
-    font-size: 11px;
-    opacity: 0.7;
-    margin-top: 4px;
-    text-align: right;
+    font-size: 0.75rem;
+    color: var(--chat-text-secondary);
+    margin-top: 5px;
 }
-
-.message-item:not(.own) .message-time {
-    text-align: left;
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-    .chat-sidebar {
-        width: 100%;
-        position: absolute;
-        left: -100%;
-        transition: left 0.3s ease;
-        z-index: 1000;
-    }
-    
-    .chat-sidebar.mobile-show {
-        left: 0;
-    }
-    
-    .chat-app {
-        height: calc(100vh - 80px);
-    }
-}
-
-/* Hide scrollbars but keep functionality */
-.chat-list-container {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-}
-
-.chat-list-container::-webkit-scrollbar {
-    display: none;
-}
-
-/* Smooth animations */
-.chat-item {
-    transition: all 0.2s ease;
-}
-
-.message-bubble {
-    animation: messageIn 0.3s ease-out;
-}
-
-@keyframes messageIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Loading states */
-.loading {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-    color: #666;
-}
-
-.typing-indicator {
-    display: flex;
-    align-items: center;
-    padding: 10px 16px;
-    background: white;
-    border-radius: 18px;
-    margin-bottom: 15px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-}
-
-.typing-dots {
-    display: flex;
-    gap: 4px;
-}
-
-.typing-dot {
-    width: 6px;
-    height: 6px;
-    background: #666;
-    border-radius: 50%;
-    animation: typingBounce 1.4s infinite;
-}
-
-.typing-dot:nth-child(1) { animation-delay: 0ms; }
-.typing-dot:nth-child(2) { animation-delay: 160ms; }
-.typing-dot:nth-child(3) { animation-delay: 320ms; }
-
-@keyframes typingBounce {
-    0%, 60%, 100% {
-        transform: translateY(0);
-        opacity: 0.5;
-    }
-    30% {
-        transform: translateY(-10px);
-        opacity: 1;
-    }
-}
-
-/* Dark Mode Input and Form Styles */
-{% if user.is_authenticated and user.dark_mode %}
-.form-control, .input-group-text {
-    background-color: var(--chat-bg-tertiary) !important;
-    border-color: var(--chat-border) !important;
-    color: var(--chat-text-primary) !important;
-}
-
-.form-control:focus {
-    background-color: var(--chat-bg-tertiary) !important;
-    border-color: #0d6efd !important;
-    color: var(--chat-text-primary) !important;
-    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
-}
-
-.btn-outline-primary {
-    color: #6ea8fe !important;
-    border-color: #6ea8fe !important;
-}
-
-.btn-outline-primary:hover {
-    background-color: #6ea8fe !important;
-    color: #000000 !important;
-    border-color: #6ea8fe !important;
-}
-
-/* Chat specific elements */
-.online-status.text-success {
-    color: #75b798 !important;
-}
-
-.online-status.text-muted {
-    color: var(--chat-text-secondary) !important;
-}
-
-.text-success {
-    color: #75b798 !important;
-}
-
-/* Messages Content Area */
-.messages-content {
-    background-color: var(--chat-bg-primary) !important;
-    color: var(--chat-text-primary) !important;
-}
-
-.messages-container {
-    background-color: var(--chat-bg-primary) !important;
-    color: var(--chat-text-primary) !important;
-}
-
-/* Additional Chat Elements */
-#messagesContainer {
-    background-color: var(--chat-bg-primary) !important;
-    color: var(--chat-text-primary) !important;
-}
-
-#chatMessages {
-    background-color: var(--chat-bg-primary) !important;
-    color: var(--chat-text-primary) !important;
-}
-
-.chat-messages {
-    background-color: var(--chat-bg-primary) !important;
-    color: var(--chat-text-primary) !important;
-}
-
-/* Message Input Area */
-.message-input-area {
-    background-color: var(--chat-bg-tertiary) !important;
-    color: var(--chat-text-primary) !important;
-    border-top-color: var(--chat-border) !important;
-}
-{% endif %}
 </style>
 
-<!-- Agora Web SDK - Using stable LTS version for better compatibility -->
-<script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.19.0.js"></script>
-
+<!-- Optimized Chat JavaScript -->
 <script>
-// Global variables
-let currentStableRoomId = null;
-let stableMessagesPolling = null;
+// Advanced Chat Manager with Adaptive Polling
+class ChatManager {
+    constructor() {
+        this.currentRoomId = null;
+        this.pollingInterval = null;
+        this.onlineStatusInterval = null;
+        this.lastMessageId = null;
+        this.lastActivity = Date.now();
+        this.isTabVisible = true;
+        this.requestQueue = [];
+        this.abortController = null;
+        this.notificationPermission = false;
 
-// Initialize the stable chat system
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🔄 Stable chat system initializing...');
-    
-    // Initialize search functionality
-    initializeStableSearch();
-    
-    // Update chat list periodically
-    updateStableChatList();
-    setInterval(updateStableChatList, 30000); // Every 30 seconds
-    
-    // Check URL parameters for auto-answering calls
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('answerCall')) {
-        const callId = urlParams.get('answerCall');
-        const callType = urlParams.get('callType') || 'audio';
-        const roomId = urlParams.get('room');
-        
-        console.log('🔔 Auto-answering call:', { callId, callType, roomId });
-        
-        // Load the chat first
-        if (roomId) {
-            loadStableChat(parseInt(roomId));
-        }
-        
-        // Then auto-answer the call
-        setTimeout(() => {
-            autoAnswerCall(callId, callType);
-        }, 1000);
+        // Adaptive polling intervals (milliseconds)
+        this.intervals = {
+            active: 3000,     // 3 seconds when actively chatting
+            normal: 8000,     // 8 seconds for normal activity
+            idle: 20000,      // 20 seconds when idle
+            background: 60000 // 60 seconds when tab is hidden
+        };
+
+        // Initialize visibility API
+        this.initVisibilityHandlers();
+
+        // Initialize notifications
+        this.initNotifications();
+
+        // Start online status updates
+        this.startOnlineStatusUpdates();
+
+        // Initialize performance monitoring
+        this.performanceMetrics = {
+            avgResponseTime: 0,
+            requestCount: 0,
+            errorCount: 0
+        };
     }
-});
 
-// Load a chat room
-function loadStableChat(roomId) {
-    console.log('📱 Loading stable chat for room:', roomId);
-    
-    if (currentStableRoomId === roomId) {
-        return; // Already loaded
-    }
-    
-    // Update UI
-    document.getElementById('chatWelcome').style.display = 'none';
-    document.getElementById('activeChat').style.display = 'flex';
-    
-    // Update active state
-    document.querySelectorAll('.chat-item').forEach(item => {
-        item.classList.remove('active');
-    });
-    document.querySelector(`[data-room-id="${roomId}"]`).classList.add('active');
-    
-    currentStableRoomId = roomId;
-    
-    // Load room info and messages
-    loadStableRoomInfo(roomId);
-    loadStableMessages(roomId);
-    
-    // Mark messages as read
-    markStableMessagesAsRead(roomId);
-    
-    // Start polling for new messages
-    startStableMessagesPolling(roomId);
-}
+    initVisibilityHandlers() {
+        // Handle tab visibility changes
+        document.addEventListener('visibilitychange', () => {
+            this.isTabVisible = !document.hidden;
+            this.adjustPollingFrequency();
 
-// Load room information
-function loadStableRoomInfo(roomId) {
-    fetch(`/chat/api/room/${roomId}/info/`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const room = data.room;
-                document.getElementById('activeChatName').textContent = room.name;
-                
-                // Set avatar with profile picture support
-                const avatarElement = document.getElementById('activeChatAvatar');
-                if (room.profile_picture_url) {
-                    avatarElement.innerHTML = `<img src="${room.profile_picture_url}" alt="Profilbild" class="profile-image">`;
-                } else {
-                    avatarElement.textContent = room.avatar_text || '👤';
-                }
-                
-                // Update online status
-                const statusElement = document.getElementById('activeChatStatus');
-                if (room.participants_detailed) {
-                    const otherUser = room.participants_detailed.find(p => !p.is_current_user);
-                    if (otherUser) {
-                        statusElement.textContent = otherUser.is_online ? '🟢 Online' : '⚪ Offline';
-                    }
-                }
+            if (this.isTabVisible && this.currentRoomId) {
+                // Tab became visible, do an immediate update
+                this.checkForUpdates();
+                this.sendOnlineStatusToServer();
             }
-        })
-        .catch(error => {
-            console.error('Error loading room info:', error);
         });
-}
 
-// Load messages
-function loadStableMessages(roomId) {
-    const messagesContent = document.getElementById('messagesContent');
-    messagesContent.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin me-2"></i>Nachrichten werden geladen...</div>';
-    
-    fetch(`/chat/api/room/${roomId}/messages/`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                displayStableMessages(data.messages);
-                
-                // Set last message ID to prevent unnecessary updates
-                if (data.messages.length > 0) {
-                    lastMessageId = data.messages[data.messages.length - 1].id;
-                }
-                
-                scrollToBottom();
-            } else {
-                messagesContent.innerHTML = '<div class="text-center text-muted p-3">Fehler beim Laden der Nachrichten</div>';
-            }
-        })
-        .catch(error => {
-            console.error('Error loading messages:', error);
-            messagesContent.innerHTML = '<div class="text-center text-muted p-3">Netzwerkfehler</div>';
+        // Handle window focus/blur
+        window.addEventListener('focus', () => {
+            this.isTabVisible = true;
+            this.adjustPollingFrequency();
+            this.sendOnlineStatusToServer();
         });
-}
 
-// Display messages
-function displayStableMessages(messages) {
-    const messagesContent = document.getElementById('messagesContent');
-    messagesContent.innerHTML = '';
-    
-    if (!messages || messages.length === 0) {
-        messagesContent.innerHTML = `
-            <div class="text-center text-muted p-4">
-                <i class="fas fa-comments fa-3x mb-3"></i>
-                <p>Noch keine Nachrichten</p>
-                <p>Senden Sie die erste Nachricht!</p>
-            </div>
-        `;
-        return;
+        window.addEventListener('blur', () => {
+            this.isTabVisible = false;
+            this.adjustPollingFrequency();
+        });
     }
-    
-    messages.forEach(message => {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message-item ${message.is_own ? 'own' : ''}`;
-        
-        // Use formatted_time from backend if available, otherwise parse timestamp
-        let timeString = '';
-        
-        if (message.formatted_time) {
-            // Backend already provides formatted time
-            timeString = message.formatted_time;
-        } else if (message.timestamp || message.created_at) {
-            const timestamp = message.timestamp || message.created_at;
-            
-            // Try different parsing methods
-            let messageTime;
-            if (timestamp.includes('T')) {
-                messageTime = new Date(timestamp);
-            } else if (timestamp.includes('-') && timestamp.includes(' ')) {
-                // Format: YYYY-MM-DD HH:MM:SS
-                messageTime = new Date(timestamp.replace(' ', 'T'));
-            } else {
-                messageTime = new Date(timestamp);
+
+    initNotifications() {
+        // Request permission for notifications
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission().then(permission => {
+                this.notificationPermission = permission === 'granted';
+            });
+        } else if ('Notification' in window && Notification.permission === 'granted') {
+            this.notificationPermission = true;
+        }
+    }
+
+    startOnlineStatusUpdates() {
+        // Update online status every 30 seconds
+        this.sendOnlineStatusToServer();
+        this.onlineStatusInterval = setInterval(() => {
+            this.sendOnlineStatusToServer();
+        }, 30000);
+    }
+
+    sendOnlineStatusToServer() {
+        // Send online status update to server
+        fetch('/chat/update-online-status/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
             }
-            
-            // Check if date is valid
-            if (!isNaN(messageTime.getTime())) {
-                timeString = messageTime.toLocaleTimeString('de-DE', {
-                    hour: '2-digit', 
-                    minute: '2-digit'
-                });
+        });
+    }
+
+    adjustPollingFrequency() {
+        if (!this.currentRoomId) return;
+
+        // Clear existing interval
+        if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
+        }
+
+        // Determine appropriate interval
+        let interval;
+        const timeSinceActivity = Date.now() - this.lastActivity;
+
+        if (!this.isTabVisible) {
+            interval = this.intervals.background;
+        } else if (timeSinceActivity < 60000) { // Active in last minute
+            interval = this.intervals.active;
+        } else if (timeSinceActivity < 300000) { // Active in last 5 minutes
+            interval = this.intervals.normal;
+        } else {
+            interval = this.intervals.idle;
+        }
+
+        console.log(`Polling interval adjusted to ${interval}ms`);
+
+        // Set new interval
+        this.pollingInterval = setInterval(() => {
+            this.checkForUpdates();
+        }, interval);
+    }
+
+    async makeRequest(url, options = {}) {
+        // Cancel any pending request
+        if (this.abortController) {
+            this.abortController.abort();
+        }
+
+        this.abortController = new AbortController();
+        const startTime = performance.now();
+
+        try {
+            const response = await fetch(url, {
+                ...options,
+                signal: this.abortController.signal
+            });
+
+            const responseTime = performance.now() - startTime;
+            this.updatePerformanceMetrics(responseTime);
+
+            return response;
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log('Request aborted');
             } else {
-                // Fallback - try to extract time from timestamp string
-                const timeMatch = timestamp.match(/(\d{1,2}):(\d{2})/);
-                if (timeMatch) {
-                    timeString = `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`;
-                } else {
-                    timeString = 'Jetzt';
-                }
+                this.performanceMetrics.errorCount++;
+                throw error;
             }
-        } else {
-            timeString = 'Jetzt';
         }
-        
-        messageDiv.innerHTML = `
-            <div class="message-bubble">
-                <div class="message-content">${escapeHtml(message.content)}</div>
-                <div class="message-time">${timeString}</div>
-            </div>
-        `;
-        
-        messagesContent.appendChild(messageDiv);
-    });
-}
-
-// Send message
-function sendStableMessage() {
-    const messageInput = document.getElementById('messageInput');
-    const messageText = messageInput.value.trim();
-    
-    if (!messageText || !currentStableRoomId) {
-        return;
     }
-    
-    const formData = new FormData();
-    formData.append('content', messageText);
-    
-    fetch(`/chat/api/room/${currentStableRoomId}/send/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-        },
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            messageInput.value = '';
-            // Reload messages to show new message
-            loadStableMessages(currentStableRoomId);
-        } else {
-            alert('Fehler beim Senden: ' + data.error);
-        }
-    })
-    .catch(error => {
-        console.error('Error sending message:', error);
-        alert('Netzwerkfehler beim Senden');
-    });
-}
 
-// Handle key press
-function handleStableKeyPress(event) {
-    if (event.key === 'Enter') {
-        sendStableMessage();
+    updatePerformanceMetrics(responseTime) {
+        this.performanceMetrics.requestCount++;
+        this.performanceMetrics.avgResponseTime =
+            (this.performanceMetrics.avgResponseTime * (this.performanceMetrics.requestCount - 1) + responseTime)
+            / this.performanceMetrics.requestCount;
+
+        // Auto-adjust if response times are too slow
+        if (this.performanceMetrics.avgResponseTime > 3000 && this.intervals.active < 10000) {
+            this.intervals.active = Math.min(this.intervals.active * 1.5, 10000);
+            this.intervals.normal = Math.min(this.intervals.normal * 1.5, 20000);
+        }
     }
-}
 
-// Mark messages as read
-function markStableMessagesAsRead(roomId) {
-    fetch(`/chat/api/room/${roomId}/mark_read/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json'
-        }
-    }).then(response => response.json()).then(data => {
-        if (data.success) {
-            // Update unread badge
-            const roomElement = document.querySelector(`[data-room-id="${roomId}"]`);
-            if (roomElement) {
-                const badge = roomElement.querySelector('.unread-badge');
+    async loadChat(roomId) {
+        if (this.currentRoomId === roomId) return;
+
+        this.currentRoomId = roomId;
+        this.lastActivity = Date.now();
+        this.lastMessageId = null; // Reset to load all messages
+
+        // Update UI
+        document.getElementById('chatWelcome').style.display = 'none';
+        document.getElementById('activeChat').style.display = 'flex';
+
+        // Clear messages area for fresh load
+        document.getElementById('messagesContent').innerHTML = '';
+
+        // Update active state and clear unread badge
+        document.querySelectorAll('.chat-item').forEach(item => {
+            const isActive = item.dataset.roomId == roomId;
+            item.classList.toggle('active', isActive);
+
+            // Clear unread badge for selected room
+            if (isActive) {
+                const badge = item.querySelector('.unread-badge');
                 if (badge) {
                     badge.style.display = 'none';
                 }
             }
-        }
-    }).catch(error => {
-        console.error('Error marking messages as read:', error);
-    });
-}
-
-// Start polling for new messages
-let lastMessageId = null;
-function startStableMessagesPolling(roomId) {
-    if (stableMessagesPolling) {
-        clearInterval(stableMessagesPolling);
-    }
-    
-    stableMessagesPolling = setInterval(() => {
-        if (currentStableRoomId === roomId) {
-            checkForNewMessages(roomId);
-        }
-    }, 5000); // Poll every 5 seconds instead of 3
-}
-
-// Check for new messages without full reload
-function checkForNewMessages(roomId) {
-    fetch(`/chat/api/room/${roomId}/messages/`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.messages.length > 0) {
-                const latestMessage = data.messages[data.messages.length - 1];
-                
-                // Only update if there are new messages
-                if (!lastMessageId || latestMessage.id !== lastMessageId) {
-                    lastMessageId = latestMessage.id;
-                    displayStableMessages(data.messages);
-                    scrollToBottom();
-                }
-            }
-        })
-        .catch(error => {
-            console.error('Error checking for new messages:', error);
         });
-}
 
-// Update chat list
-function updateStableChatList() {
-    // This would reload the chat list periodically
-    // For now, we'll just update unread counts
-    console.log('🔄 Updating chat list...');
-}
+        // Load chat data
+        await this.batchUpdate();
 
-// Search functionality
-function initializeStableSearch() {
-    const searchInput = document.getElementById('chatSearch');
-    if (searchInput) {
-        searchInput.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            document.querySelectorAll('.chat-item').forEach(item => {
-                const chatName = item.querySelector('.chat-name').textContent.toLowerCase();
-                const chatPreview = item.querySelector('.chat-preview').textContent.toLowerCase();
-                
-                if (chatName.includes(searchTerm) || chatPreview.includes(searchTerm)) {
-                    item.style.display = 'flex';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-        });
-    }
-}
-
-// Utility functions
-function scrollToBottom() {
-    const messagesContent = document.getElementById('messagesContent');
-    if (messagesContent) {
-        messagesContent.scrollTop = messagesContent.scrollHeight;
-    }
-}
-
-function escapeHtml(unsafe) {
-    return unsafe
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
-// Call functionality - integrated with backend
-function initiateStableCall(callType) {
-    console.log(`🔔 Initiating ${callType} call for room:`, currentStableRoomId);
-    
-    if (!currentStableRoomId) {
-        alert('Kein Chat ausgewählt');
-        return;
-    }
-    
-    // Call the backend to initiate call
-    fetch(`/chat/api/room/${currentStableRoomId}/call/initiate/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            call_type: callType
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            console.log('✅ Call initiated successfully:', data);
-            
-            // Store call ID for later use
-            if (data.call_id) {
-                window.currentCallId = data.call_id;
+        // Mark messages as read
+        fetch(`/chat/api/room/${roomId}/mark_read/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
             }
-            
-            // Get Agora token and start call UI
-            return fetch('/chat/get-agora-token/', {
+        });
+
+        // Start adaptive polling
+        this.adjustPollingFrequency();
+    }
+
+    async batchUpdate() {
+        if (!this.currentRoomId) return;
+
+        try {
+            const response = await this.makeRequest(`/chat/api/batch/${this.currentRoomId}/`, {
                 method: 'POST',
                 headers: {
                     'X-CSRFToken': getCookie('csrftoken'),
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    channel: `room_${currentStableRoomId}`,
-                    uid: 0
+                    last_message_id: this.lastMessageId,
+                    include_room_info: true,  // Always include to get online status
+                    include_participants: true  // Always include for status updates
                 })
             });
-        } else {
-            throw new Error(data.error || 'Failed to initiate call');
+
+            if (!response || !response.ok) return;
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Update room info if provided
+                if (data.room_info) {
+                    this.updateRoomInfo(data.room_info);
+                }
+
+                // Update messages if new ones exist
+                if (data.messages && data.messages.length > 0) {
+                    this.displayMessages(data.messages);
+                    this.lastMessageId = data.last_message_id;
+
+                    // Show notification for new messages (not from self)
+                    const newMessages = data.messages.filter(msg => !msg.is_own);
+                    if (newMessages.length > 0 && !this.isTabVisible) {
+                        this.showNotification(newMessages[newMessages.length - 1]);
+                    }
+                }
+
+                // Update unread counts
+                if (data.unread_counts) {
+                    this.updateUnreadCounts(data.unread_counts);
+                }
+
+                // Update online status
+                if (data.online_status) {
+                    this.updateOnlineStatus(data.online_status);
+                }
+            }
+        } catch (error) {
+            console.error('Batch update error:', error);
         }
-    })
-    .then(response => response.json())
-    .then(tokenData => {
-        if (tokenData.success) {
-            console.log('✅ Agora token received:', tokenData);
-            
-            console.log('🚀 Using real Agora token for video call');
-            
-            // Show call interface
-            showStableCallInterface(callType, tokenData);
+    }
+
+    async checkForUpdates() {
+        if (document.hidden && !this.isTabVisible) return;
+
+        // Use requestIdleCallback for non-critical updates
+        if ('requestIdleCallback' in window) {
+            requestIdleCallback(() => this.batchUpdate(), { timeout: 2000 });
         } else {
-            throw new Error(tokenData.error || 'Failed to get Agora token');
+            await this.batchUpdate();
         }
-    })
-    .catch(error => {
-        console.error('❌ Call initiation failed:', error);
-        
-        // If there's already a call running, offer to clean up and retry
-        if (error.message.includes('bereits ein Anruf')) {
-            const retry = confirm('Es läuft bereits ein Anruf in diesem Chat. Möchten Sie alte Anrufe bereinigen und erneut versuchen?');
-            if (retry) {
-                cleanupStaleCallsAndRetry(callType);
-                return;
+    }
+
+    updateRoomInfo(roomInfo) {
+        document.getElementById('activeChatName').textContent = roomInfo.name || 'Chat';
+
+        const avatarElement = document.getElementById('activeChatAvatar');
+        if (roomInfo.profile_picture_url) {
+            avatarElement.innerHTML = `<img src="${roomInfo.profile_picture_url}" alt="Profile" class="profile-image">`;
+        } else {
+            avatarElement.textContent = roomInfo.avatar_text || '👤';
+        }
+
+        const statusElement = document.getElementById('activeChatStatus');
+        if (roomInfo.is_online !== undefined) {
+            statusElement.innerHTML = roomInfo.is_online ?
+                '<i class="fas fa-circle text-success" style="font-size: 0.6rem;"></i> Online' :
+                '<i class="fas fa-circle text-muted" style="font-size: 0.6rem;"></i> Offline';
+        } else if (roomInfo.is_group_chat) {
+            statusElement.innerHTML = '<i class="fas fa-users text-info" style="font-size: 0.6rem;"></i> Gruppenchat';
+        } else {
+            statusElement.innerHTML = '<i class="fas fa-circle text-muted" style="font-size: 0.6rem;"></i> Status unbekannt';
+        }
+    }
+
+    displayMessages(messages) {
+        const messagesContent = document.getElementById('messagesContent');
+        const shouldScroll = this.isNearBottom();
+
+        // Use DocumentFragment for better performance
+        const fragment = document.createDocumentFragment();
+
+        messages.forEach(message => {
+            if (document.querySelector(`[data-message-id="${message.id}"]`)) {
+                return; // Message already displayed
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${message.is_own ? 'own' : ''}`;
+            messageDiv.dataset.messageId = message.id;
+
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    <div class="message-text">${this.escapeHtml(message.content)}</div>
+                    <div class="message-time">${message.formatted_time}</div>
+                </div>
+            `;
+
+            fragment.appendChild(messageDiv);
+        });
+
+        messagesContent.appendChild(fragment);
+
+        if (shouldScroll) {
+            this.scrollToBottom();
+        }
+    }
+
+    async sendMessage() {
+        const input = document.getElementById('messageInput');
+        const content = input.value.trim();
+
+        if (!content || !this.currentRoomId) return;
+
+        this.lastActivity = Date.now();
+        input.value = '';
+
+        try {
+            const response = await this.makeRequest(`/chat/api/room/${this.currentRoomId}/send/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: `content=${encodeURIComponent(content)}`
+            });
+
+            if (!response || !response.ok) return;
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Display message immediately
+                this.displayMessages([data.message]);
+                this.lastMessageId = data.message.id;
+
+                // Adjust polling to active mode
+                this.adjustPollingFrequency();
+            }
+        } catch (error) {
+            console.error('Send message error:', error);
+            input.value = content; // Restore message on error
+        }
+    }
+
+    updateUnreadCounts(counts) {
+        // Update all room badges
+        document.querySelectorAll('.chat-item').forEach(item => {
+            const roomId = item.dataset.roomId;
+            const badge = item.querySelector('.unread-badge');
+            if (badge) {
+                const count = counts[roomId] || 0;
+                if (count > 0) {
+                    badge.textContent = count;
+                    badge.style.display = 'inline-block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+        });
+
+        // Clear badge for current room
+        if (this.currentRoomId) {
+            const currentBadge = document.querySelector(`[data-room-id="${this.currentRoomId}"] .unread-badge`);
+            if (currentBadge) {
+                currentBadge.style.display = 'none';
             }
         }
-        
-        alert('Fehler beim Starten des Anrufs: ' + error.message);
-    });
+    }
+
+    updateOnlineStatus(statuses) {
+        if (!statuses || typeof statuses !== 'object') return;
+
+        Object.entries(statuses).forEach(([userId, isOnline]) => {
+            const statusElements = document.querySelectorAll(`[data-user-id="${userId}"] .online-status`);
+            statusElements.forEach(element => {
+                element.innerHTML = isOnline ?
+                    '<i class="fas fa-circle text-success" style="font-size: 0.6rem;"></i> Online' :
+                    '<i class="fas fa-circle text-muted" style="font-size: 0.6rem;"></i> Offline';
+            });
+        });
+    }
+
+    isNearBottom() {
+        const messagesArea = document.getElementById('messagesArea');
+        return messagesArea.scrollHeight - messagesArea.scrollTop - messagesArea.clientHeight < 100;
+    }
+
+    scrollToBottom() {
+        const messagesArea = document.getElementById('messagesArea');
+        messagesArea.scrollTop = messagesArea.scrollHeight;
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    showNotification(message) {
+        if (this.notificationPermission && 'Notification' in window) {
+            const notification = new Notification('Neue Nachricht', {
+                body: `${message.sender}: ${message.content.substring(0, 100)}`,
+                icon: '/static/images/chat-icon.png',
+                tag: 'chat-message',
+                requireInteraction: false
+            });
+
+            notification.onclick = () => {
+                window.focus();
+                if (this.currentRoomId) {
+                    this.checkForUpdates();
+                }
+                notification.close();
+            };
+
+            // Auto-close after 5 seconds
+            setTimeout(() => notification.close(), 5000);
+        }
+    }
+
+    cleanup() {
+        if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
+        }
+        if (this.onlineStatusInterval) {
+            clearInterval(this.onlineStatusInterval);
+        }
+        if (this.abortController) {
+            this.abortController.abort();
+        }
+
+        // Set offline status
+        navigator.sendBeacon('/chat/set-offline/', new FormData());
+    }
+}
+
+// Initialize chat manager
+const chatManager = new ChatManager();
+
+// Stop global chat notifications if they exist (we handle it locally)
+if (window.globalChatNotifications) {
+    try {
+        window.globalChatNotifications.cleanup();
+        window.globalChatNotifications = null;
+    } catch (error) {
+        console.warn('Error stopping global notifications:', error);
+    }
+}
+
+// Helper functions
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function handleKeyPress(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        chatManager.sendMessage();
+    }
 }
 
 function showChatInfo() {
-    console.log('ℹ️ Showing chat info for room:', currentStableRoomId);
-    
-    if (!currentStableRoomId) {
-        console.warn('⚠️ No active chat to show info for');
-        return;
-    }
-    
-    // Get chat info to find the other participant
-    fetch(`/chat/api/room/${currentStableRoomId}/info/`)
+    if (!chatManager.currentRoomId) return;
+
+    fetch(`/chat/api/room/${chatManager.currentRoomId}/info/`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                console.log('✅ Chat info loaded:', data.room);
-                
-                // For direct chats (not group chats), show other user's profile
-                if (!data.room.is_group_chat) {
-                    // For private chats, use the pre-calculated other_user info
-                    if (data.room.other_user) {
-                        console.log('🔗 Showing info for other user:', data.room.other_user);
-                        showUserInfoModal(data.room.other_user);
-                    } else if (data.room.participants_detailed && data.room.participants_detailed.length > 0) {
-                        // Fallback: find the other participant from detailed list
-                        const currentUserId = {{ user.id|default:0 }};
-                        const otherParticipant = data.room.participants_detailed.find(p => p.id !== currentUserId);
-                        
-                        if (otherParticipant) {
-                            console.log('🔗 Showing info for participant:', otherParticipant);
-                            showUserInfoModal(otherParticipant);
-                        } else {
-                            console.warn('⚠️ Could not find other participant');
-                            alert('Informationen des anderen Teilnehmers konnten nicht gefunden werden.');
-                        }
-                    } else {
-                        console.warn('⚠️ No participant data available');
-                        alert('Teilnehmer-Informationen sind nicht verfügbar.');
-                    }
-                } else {
-                    // For group chats, show a modal with group info instead
-                    console.log('ℹ️ This is a group chat, showing group info');
-                    showGroupChatInfo(data.room);
-                }
-            } else {
-                console.error('❌ Failed to load chat info:', data.error);
-                alert('Chat-Informationen konnten nicht geladen werden: ' + data.error);
+                // Show chat info modal or sidebar
+                alert(`Chat Info:\n${JSON.stringify(data.room, null, 2)}`);
             }
-        })
-        .catch(error => {
-            console.error('❌ Error loading chat info:', error);
-            alert('Fehler beim Laden der Chat-Informationen: ' + error.message);
         });
-}
-
-function showUserInfoModal(user) {
-    console.log('👤 Showing user info modal for:', user);
-    console.log('📊 User data keys:', Object.keys(user));
-    console.log('📊 User data values:', user);
-    
-    // Create modal HTML
-    const modalHtml = `
-        <div class="modal fade" id="userInfoModal" tabindex="-1" aria-labelledby="userInfoModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="userInfoModalLabel">
-                            <i class="fas fa-user me-2"></i>Benutzerinformationen
-                        </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="text-center mb-3">
-                            ${user.profile_picture ? 
-                                `<img src="${user.profile_picture}" alt="Profilbild" class="rounded-circle mb-3" style="width: 80px; height: 80px; object-fit: cover;">` :
-                                `<div class="bg-primary rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
-                                    <i class="fas fa-user fa-2x text-white"></i>
-                                </div>`
-                            }
-                        </div>
-                        <div class="row mb-2">
-                            <div class="col-sm-4"><strong>Name:</strong></div>
-                            <div class="col-sm-8">${user.name || (user.first_name + ' ' + user.last_name).trim() || user.username || 'Unbekannt'}</div>
-                        </div>
-                        ${user.email ? `
-                        <div class="row mb-2">
-                            <div class="col-sm-4"><strong>E-Mail:</strong></div>
-                            <div class="col-sm-8">${user.email}</div>
-                        </div>` : ''}
-                        <div class="row mb-2">
-                            <div class="col-sm-4"><strong>Benutzername:</strong></div>
-                            <div class="col-sm-8">${user.username || 'Nicht verfügbar'}</div>
-                        </div>
-                        <div class="row mb-2">
-                            <div class="col-sm-4"><strong>Status:</strong></div>
-                            <div class="col-sm-8">
-                                <span class="badge bg-${user.is_online ? 'success' : 'secondary'}">
-                                    <i class="fas fa-circle me-1"></i>
-                                    ${user.is_online ? 'Online' : 'Offline'}
-                                </span>
-                            </div>
-                        </div>
-                        ${user.last_activity ? `
-                        <div class="row mb-2">
-                            <div class="col-sm-4"><strong>Letzte Aktivität:</strong></div>
-                            <div class="col-sm-8">${user.last_activity}</div>
-                        </div>` : ''}
-                        ${user.date_joined ? `
-                        <div class="row mb-2">
-                            <div class="col-sm-4"><strong>Mitglied seit:</strong></div>
-                            <div class="col-sm-8">${user.date_joined}</div>
-                        </div>` : ''}
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Remove existing modal if any
-    const existingModal = document.getElementById('userInfoModal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-    
-    // Add modal to page
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    
-    // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('userInfoModal'));
-    modal.show();
-    
-    // Clean up modal after it's hidden
-    document.getElementById('userInfoModal').addEventListener('hidden.bs.modal', function() {
-        this.remove();
-    });
-}
-
-function showGroupChatInfo(roomData) {
-    console.log('📝 Showing group chat info:', roomData);
-    // For now, just show an alert with basic info
-    // TODO: Implement proper group chat info modal
-    alert(`Gruppen-Chat: ${roomData.name}\nTeilnehmer: ${roomData.participants.length}\nErstellt: ${roomData.created_at}`);
-}
-
-function createNewChat() {
-    console.log('➕ Creating new chat');
-    // Show new chat creation modal
 }
 
 function deleteCurrentChat() {
-    if (!currentStableRoomId) {
-        console.warn('⚠️ No active chat to delete');
-        alert('Kein aktiver Chat zum Löschen ausgewählt.');
-        return;
+    if (!chatManager.currentRoomId) return;
+
+    if (confirm('Möchten Sie diesen Chat wirklich löschen?')) {
+        deleteChat(chatManager.currentRoomId);
     }
-    
-    deleteStableChat(currentStableRoomId, { stopPropagation: () => {} });
 }
 
-function deleteStableChat(roomId, event) {
-    if (event && event.stopPropagation) {
-        event.stopPropagation(); // Prevent chat from opening
+function deleteChat(roomId, event) {
+    if (event) {
+        event.stopPropagation();
     }
-    
-    if (!confirm('Sind Sie sicher, dass Sie diesen Chat löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.')) {
-        return;
-    }
-    
-    console.log('🗑️ Deleting chat:', roomId);
-    
+
     fetch(`/chat/api/room/${roomId}/delete/`, {
-        method: 'DELETE',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            console.log('✅ Chat deleted successfully');
-            
-            // Remove chat from UI
-            const chatItem = document.querySelector(`[data-room-id="${roomId}"]`);
-            if (chatItem) {
-                chatItem.style.transition = 'opacity 0.3s ease';
-                chatItem.style.opacity = '0';
-                setTimeout(() => {
-                    chatItem.remove();
-                }, 300);
-            }
-            
-            // If this was the active chat, hide it
-            if (currentStableRoomId == roomId) {
-                currentStableRoomId = null;
-                document.getElementById('activeChat').style.display = 'none';
-                document.getElementById('chatWelcome').style.display = 'flex';
-            }
-            
-            // Show success message (simplified for now)
-            console.log('✅ Chat successfully deleted');
-            
-        } else {
-            console.error('❌ Failed to delete chat:', data.error);
-            alert('Fehler beim Löschen des Chats: ' + data.error);
-        }
-    })
-    .catch(error => {
-        console.error('❌ Error deleting chat:', error);
-        alert('Fehler beim Löschen des Chats: ' + error.message);
-    });
-}
-
-// Call interface functions
-function showStableCallInterface(callType, tokenData, mode = 'initiating') {
-    console.log('📱 Showing call interface:', callType, tokenData, 'mode:', mode);
-    
-    // Create call modal HTML
-    const callModalHTML = `
-        <div class="modal fade" id="stableCallModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
-            <div class="modal-dialog modal-xl modal-dialog-centered">
-                <div class="modal-content bg-dark text-white border-0">
-                    <div class="modal-header bg-dark border-0 pb-1">
-                        <h5 class="modal-title d-flex align-items-center">
-                            <div class="call-type-icon me-2">
-                                <i class="fas fa-${callType === 'video' ? 'video' : 'phone'}"></i>
-                            </div>
-                            <span>${callType === 'video' ? 'Video' : 'Audio'}-Anruf</span>
-                        </h5>
-                    </div>
-                    <div class="modal-body bg-dark text-white p-4">
-                        <div class="call-interface">
-                            <div class="call-status text-center mb-3">
-                                <h4 id="stableCallStatus">${mode === 'receiving' ? 'Verbunden...' : 'Verbinde...'}</h4>
-                            </div>
-                            
-                            ${callType === 'video' ? `
-                                <div class="video-container mb-3">
-                                    <div class="remote-video position-relative">
-                                        <div id="stableRemoteVideo" class="video-placeholder">
-                                            <i class="fas fa-user fa-3x text-white"></i>
-                                            <p class="text-white">Warte auf anderen Teilnehmer...</p>
-                                        </div>
-                                    </div>
-                                    <div class="local-video position-absolute">
-                                        <div id="stableLocalVideo" class="video-placeholder-small bg-dark">
-                                            <i class="fas fa-video fa-2x text-white"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            ` : `
-                                <div class="audio-interface text-center">
-                                    <div class="audio-avatar mb-4">
-                                        <div class="audio-avatar-circle bg-primary d-inline-flex align-items-center justify-content-center" style="width: 120px; height: 120px; border-radius: 50%;">
-                                            <i class="fas fa-microphone fa-3x text-white"></i>
-                                        </div>
-                                        <p class="mt-3 mb-0">Audio-Anruf aktiv</p>
-                                    </div>
-                                </div>
-                            `}
-                            
-                            <div class="call-controls">
-                                <div class="d-flex justify-content-center align-items-center">
-                                    <!-- Mikrofon Mute/Unmute -->
-                                    <button class="btn btn-outline-light btn-call-control" id="stableMuteAudio" data-muted="false" title="Mikrofon stumm schalten">
-                                        <i class="fas fa-microphone fa-lg"></i>
-                                    </button>
-                                    
-                                    ${callType === 'video' ? `
-                                        <!-- Kamera Ein/Aus -->
-                                        <button class="btn btn-outline-light btn-call-control" id="stableMuteVideo" data-muted="false" title="Kamera ausschalten">
-                                            <i class="fas fa-video fa-lg"></i>
-                                        </button>
-                                    ` : ''}
-                                    
-                                    <!-- Anruf beenden -->
-                                    <button class="btn btn-danger btn-call-control btn-end-call" id="stableEndCall" title="Anruf beenden">
-                                        <i class="fas fa-phone-slash fa-lg"></i>
-                                    </button>
-                                </div>
-                                
-                                <div class="mt-3">
-                                    <small class="text-muted">
-                                        <i class="fas fa-microphone me-1"></i> Mikrofon  
-                                        ${callType === 'video' ? '<i class="fas fa-video me-1"></i> Kamera  ' : ''}
-                                        <i class="fas fa-phone-slash me-1"></i> Auflegen
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Remove existing modal if present
-    const existingModal = document.getElementById('stableCallModal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-    
-    // Add modal to body
-    document.body.insertAdjacentHTML('beforeend', callModalHTML);
-    
-    // Initialize modal and show it
-    const modal = new bootstrap.Modal(document.getElementById('stableCallModal'), {
-        backdrop: 'static',
-        keyboard: false
-    });
-    
-    modal.show();
-    
-    // Setup event listeners
-    document.getElementById('stableEndCall').addEventListener('click', endStableCall);
-    
-    // Mute audio button
-    const muteAudioBtn = document.getElementById('stableMuteAudio');
-    if (muteAudioBtn) {
-        muteAudioBtn.addEventListener('click', toggleAudioMute);
-    }
-    
-    // Mute video button
-    const muteVideoBtn = document.getElementById('stableMuteVideo');
-    if (muteVideoBtn) {
-        muteVideoBtn.addEventListener('click', toggleVideoMute);
-    }
-    
-    // Store call info globally
-    window.currentStableCall = {
-        callType,
-        tokenData,
-        mode,
-        audioMuted: false,
-        videoMuted: false,
-        callId: window.currentCallId || null
-    };
-    
-    // Initialize Agora client
-    initializeStableAgoraCall(callType, tokenData, mode);
-}
-
-// Initialize Agora call
-function initializeStableAgoraCall(callType, tokenData, mode = 'initiating') {
-    console.log('🎬 Initializing Agora call:', callType, tokenData, mode);
-    
-    const statusElement = document.getElementById('stableCallStatus');
-    if (statusElement) {
-        statusElement.textContent = mode === 'receiving' ? 
-            'Verbunden - Anruf angenommen' : 
-            'Verbunden - Warte auf anderen Teilnehmer';
-    }
-    
-    // Initialize real Agora connection
-    console.log('🚀 Starting real Agora video call');
-    if (typeof AgoraRTC !== 'undefined') {
-        initializeFullAgoraSDK(callType, tokenData, mode);
-    } else {
-        console.error('❌ Agora SDK not loaded');
-        alert('Agora SDK konnte nicht geladen werden. Bitte Seite neu laden.');
-    }
-}
-
-async function initializeFullAgoraSDK(callType, tokenData, mode) {
-    try {
-        console.log('🚀 Initializing full Agora SDK with token:', tokenData);
-        
-        // Create Agora client
-        window.agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-        
-        // Use the channel name format that matches the token generation
-        const channelName = `room_${currentStableRoomId}`;
-        // Use the exact UID returned from token generation
-        // For Agora SDK, uid=0 should be passed as null for auto-assignment
-        const uid = (tokenData.uid === 0) ? null : tokenData.uid;
-        const token = tokenData.token;
-        
-        console.log('🔗 Agora connection details:', {
-            channelName,
-            uid,
-            tokenLength: token ? token.length : 0,
-            tokenStart: token ? token.substring(0, 20) : 'none',
-            mode
-        });
-        
-        // Validate token format
-        if (!token || token.length === 0) {
-            throw new Error('Empty or missing token');
-        }
-        
-        if (token.length > 2047) {
-            throw new Error(`Token too long: ${token.length} characters (max 2047)`);
-        }
-        
-        // Check for non-ASCII characters
-        if (!/^[\x00-\x7F]*$/.test(token)) {
-            throw new Error('Token contains non-ASCII characters');
-        }
-        
-        console.log('🔗 Connecting to channel:', { channelName, uid, callType, mode });
-        
-        // Enable dual stream for better performance
-        if (callType === 'video') {
-            await window.agoraClient.enableDualStream();
-        }
-        
-        // Debug token details before joining
-        console.log('🔍 Token details:', {
-            tokenLength: token.length,
-            tokenType: typeof token,
-            tokenStart: token.substring(0, 20),
-            tokenEnd: token.substring(token.length - 20),
-            channelName: channelName,
-            channelType: typeof channelName,
-            uid: uid,
-            uidType: typeof uid
-        });
-        
-        // Join channel - ensure parameters are in correct order: (appId, channel, token, uid)
-        // Actually for Agora SDK 4.x, the order is: (token, channel, uid)
-        const joinedUid = await window.agoraClient.join(token, channelName, uid);
-        console.log('✅ Joined Agora channel with UID:', joinedUid);
-        
-        // Create local tracks
-        let audioTrack = null;
-        let videoTrack = null;
-        
-        try {
-            if (callType === 'video') {
-                [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
-                    {},  // audio config
-                    { encoderConfig: "720p_1" }  // video config
-                );
-                console.log('📹 Created video tracks');
-            } else {
-                audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-                console.log('🎤 Created audio track');
-            }
-            
-            // Store tracks globally
-            window.localAudioTrack = audioTrack;
-            window.localVideoTrack = videoTrack;
-            
-            // Play local video if available
-            if (videoTrack) {
-                const localVideoElement = document.getElementById('stableLocalVideo');
-                if (localVideoElement) {
-                    localVideoElement.innerHTML = ''; // Clear placeholder
-                    videoTrack.play(localVideoElement);
-                    console.log('📺 Local video playing');
-                }
-            }
-            
-            // Publish tracks
-            const tracksToPublish = audioTrack ? [audioTrack] : [];
-            if (videoTrack) {
-                tracksToPublish.push(videoTrack);
-            }
-            
-            if (tracksToPublish.length > 0) {
-                await window.agoraClient.publish(tracksToPublish);
-                console.log('✅ Published local tracks:', tracksToPublish.map(t => t.trackMediaType));
-            }
-            
-        } catch (trackError) {
-            console.error('❌ Failed to create/publish tracks:', trackError);
-            alert('⚠️ Kamera/Mikrofon-Zugriff verweigert. Bitte Berechtigungen prüfen.');
-        }
-        
-        // Update initial status
-        const statusElement = document.getElementById('stableCallStatus');
-        if (statusElement) {
-            if (mode === 'receiving') {
-                statusElement.textContent = 'Anruf angenommen - verbinde...';
-            } else {
-                statusElement.textContent = 'Anruf gestartet - warte auf anderen Teilnehmer';
-            }
-        }
-        
-        // Handle remote users joining and publishing media
-        window.agoraClient.on("user-published", async (user, mediaType) => {
-            console.log('🎯 Remote user published event:', {
-                uid: user.uid, 
-                mediaType: mediaType, 
-                hasVideoTrack: !!user.videoTrack,
-                hasAudioTrack: !!user.audioTrack
-            });
-            
-            try {
-                // Subscribe to the remote user
-                await window.agoraClient.subscribe(user, mediaType);
-                console.log('✅ Successfully subscribed to user:', user.uid, mediaType);
-                
-                if (mediaType === "video" && user.videoTrack) {
-                    console.log('📺 Processing remote video...');
-                    
-                    // Find remote video container
-                    let remoteVideoElement = document.getElementById('stableRemoteVideo');
-                    
-                    // If not found, try to create one
-                    if (!remoteVideoElement) {
-                        console.log('📺 Creating remote video element...');
-                        const videoContainer = document.querySelector('.video-container');
-                        if (videoContainer) {
-                            remoteVideoElement = document.createElement('div');
-                            remoteVideoElement.id = 'stableRemoteVideo';
-                            remoteVideoElement.style.cssText = 'width: 100%; height: 100%; background: black; border-radius: 8px;';
-                            videoContainer.appendChild(remoteVideoElement);
-                        }
-                    }
-                    
-                    if (remoteVideoElement) {
-                        // Clear any existing content
-                        remoteVideoElement.innerHTML = '';
-                        
-                        try {
-                            // Play remote video
-                            user.videoTrack.play(remoteVideoElement);
-                            console.log('✅ Remote video playing successfully in element:', remoteVideoElement.id);
-                            
-                            // Update status to show successful connection
-                            const statusElement = document.getElementById('stableCallStatus');
-                            if (statusElement) {
-                                statusElement.textContent = 'Verbunden - Videochat aktiv';
-                            }
-                            
-                        } catch (playError) {
-                            console.error('❌ Error playing remote video:', playError);
-                        }
-                    } else {
-                        console.error('❌ Could not find or create remote video element');
-                    }
-                }
-                
-                if (mediaType === "audio" && user.audioTrack) {
-                    try {
-                        user.audioTrack.play();
-                        console.log('✅ Remote audio playing');
-                        
-                        // Update status if this is audio-only connection
-                        const statusElement = document.getElementById('stableCallStatus');
-                        if (statusElement && !user.videoTrack) {
-                            statusElement.textContent = 'Verbunden - Audiochat aktiv';
-                        }
-                    } catch (audioError) {
-                        console.error('❌ Error playing remote audio:', audioError);
-                    }
-                }
-                
-            } catch (subscribeError) {
-                console.error('❌ Failed to subscribe to remote user:', subscribeError);
-            }
-        });
-        
-        window.agoraClient.on("user-unpublished", (user, mediaType) => {
-            console.log('📡 Remote user unpublished:', user.uid, mediaType);
-            if (mediaType === "video") {
-                const remoteVideoElement = document.getElementById('stableRemoteVideo');
-                if (remoteVideoElement) {
-                    remoteVideoElement.innerHTML = '<div class="d-flex align-items-center justify-content-center h-100 text-white"><i class="fas fa-video-slash fa-2x"></i><br>Video getrennt</div>';
-                }
-            }
-        });
-        
-        // Handle users already in channel
-        window.agoraClient.on("user-joined", (user) => {
-            console.log('👋 Remote user joined channel:', user.uid);
-            
-            // Update status immediately when someone joins
-            const statusElement = document.getElementById('stableCallStatus');
-            if (statusElement) {
-                statusElement.textContent = 'Teilnehmer verbunden - warte auf Video/Audio...';
-            }
-        });
-        
-        // Handle user leaving
-        window.agoraClient.on("user-left", (user, reason) => {
-            console.log('👋 Remote user left channel:', user.uid, reason);
-            // Clean up remote video display
-            const remoteVideoElement = document.getElementById('stableRemoteVideo');
-            if (remoteVideoElement) {
-                remoteVideoElement.innerHTML = '<div class="d-flex align-items-center justify-content-center h-100 text-white"><i class="fas fa-user-slash fa-2x"></i><br>Teilnehmer getrennt</div>';
-            }
-        });
-        
-        
-        // Check for users already in channel after joining
-        setTimeout(async () => {
-            const remoteUsers = window.agoraClient.remoteUsers;
-            console.log('🔍 Checking for existing users in channel:', remoteUsers.length);
-            
-            // Update status immediately if users are found
-            if (remoteUsers.length > 0) {
-                const statusElement = document.getElementById('stableCallStatus');
-                if (statusElement) {
-                    statusElement.textContent = 'Verbunden - Lade Video/Audio...';
-                }
-            }
-            
-            for (let user of remoteUsers) {
-                console.log('👤 Found existing user:', user.uid);
-                if (user.hasVideo) {
-                    console.log('📺 User has video, subscribing...');
-                    try {
-                        await window.agoraClient.subscribe(user, "video");
-                        const remoteVideoElement = document.getElementById('stableRemoteVideo');
-                        if (remoteVideoElement && user.videoTrack) {
-                            user.videoTrack.play(remoteVideoElement);
-                            console.log('✅ Playing existing user video');
-                            
-                            // Update status when existing user video starts
-                            const statusElement = document.getElementById('stableCallStatus');
-                            if (statusElement) {
-                                statusElement.textContent = 'Verbunden - Videochat aktiv';
-                            }
-                        }
-                    } catch (error) {
-                        console.error('❌ Failed to subscribe to existing video:', error);
-                    }
-                }
-                if (user.hasAudio) {
-                    console.log('🔊 User has audio, subscribing...');
-                    try {
-                        await window.agoraClient.subscribe(user, "audio");
-                        if (user.audioTrack) {
-                            user.audioTrack.play();
-                            console.log('✅ Playing existing user audio');
-                            
-                            // Update status for audio connection if no video
-                            const statusElement = document.getElementById('stableCallStatus');
-                            if (statusElement && !user.hasVideo) {
-                                statusElement.textContent = 'Verbunden - Audiochat aktiv';
-                            }
-                        }
-                    } catch (error) {
-                        console.error('❌ Failed to subscribe to existing audio:', error);
-                    }
-                }
-            }
-        }, 1000); // Wait 1 second for other users to publish
-        
-        // Handle connection state changes
-        window.agoraClient.on("connection-state-change", (curState, revState) => {
-            console.log('🔄 Connection state changed:', revState, '->', curState);
-            
-            // Update status based on connection state
-            const statusElement = document.getElementById('stableCallStatus');
-            if (statusElement && curState === 'CONNECTED') {
-                // If we just connected and there are remote users, update status
-                setTimeout(() => {
-                    const remoteUsers = window.agoraClient.remoteUsers;
-                    if (remoteUsers.length > 0) {
-                        const hasVideo = remoteUsers.some(u => u.hasVideo);
-                        const hasAudio = remoteUsers.some(u => u.hasAudio);
-                        
-                        if (hasVideo) {
-                            statusElement.textContent = 'Verbunden - Videochat aktiv';
-                        } else if (hasAudio) {
-                            statusElement.textContent = 'Verbunden - Audiochat aktiv';
-                        } else {
-                            statusElement.textContent = 'Verbunden - warte auf Video/Audio...';
-                        }
-                    } else if (mode === 'receiving') {
-                        statusElement.textContent = 'Verbunden - warte auf anderen Teilnehmer...';
-                    }
-                }, 500);
-            }
-        });
-        
-    } catch (error) {
-        console.error('❌ Full Agora SDK error:', error);
-        alert('Fehler bei der Anrufverbindung: ' + error.message);
-        // Fallback to basic simulation
-        initializeCallFallback(callType, tokenData, mode);
-    }
-}
-
-function initializeAdvancedCallSimulation(callType, tokenData, mode) {
-    console.log('🎬 Using advanced call simulation');
-    
-    const statusElement = document.getElementById('stableCallStatus');
-    const localVideoElement = document.getElementById('stableLocalVideo');
-    const remoteVideoElement = document.getElementById('stableRemoteVideo');
-    
-    // Simulate local video/audio setup
-    if (callType === 'video' && localVideoElement) {
-        // Simulate getting local camera feed
-        setTimeout(() => {
-            localVideoElement.innerHTML = `
-                <div class="simulated-video bg-primary d-flex align-items-center justify-content-center h-100">
-                    <div class="text-center text-white">
-                        <i class="fas fa-user fa-2x"></i>
-                        <p class="small mt-2 mb-0">Sie (Simulation)</p>
-                    </div>
-                </div>
-            `;
-            console.log('📹 Simulated local video feed');
-        }, 1000);
-    }
-    
-    // Simulate connection process
-    let connectionStep = 0;
-    const connectionSteps = [
-        { text: mode === 'receiving' ? 'Anruf angenommen - verbinde...' : 'Anruf gestartet - verbinde...', delay: 500 },
-        { text: 'Verbindung wird aufgebaut...', delay: 1500 },
-        { text: mode === 'receiving' ? 'Warte auf anderen Teilnehmer...' : 'Warte auf Annahme...', delay: 2000 }
-    ];
-    
-    function simulateConnectionStep() {
-        if (connectionStep < connectionSteps.length && statusElement) {
-            const step = connectionSteps[connectionStep];
-            statusElement.textContent = step.text;
-            connectionStep++;
-            setTimeout(simulateConnectionStep, step.delay);
-        } else if (statusElement) {
-            // Simulate successful connection after steps
-            setTimeout(() => {
-                if (statusElement) {
-                    statusElement.textContent = 'Anruf aktiv (Simulation Mode)';
-                }
-                
-                // Simulate remote participant joining
-                if (mode === 'initiating') {
-                    setTimeout(() => {
-                        simulateRemoteParticipant();
-                    }, 3000);
-                } else {
-                    simulateRemoteParticipant();
-                }
-            }, 1000);
-        }
-    }
-    
-    function simulateRemoteParticipant() {
-        if (callType === 'video' && remoteVideoElement) {
-            remoteVideoElement.innerHTML = `
-                <div class="simulated-video bg-success d-flex align-items-center justify-content-center h-100">
-                    <div class="text-center text-white">
-                        <i class="fas fa-user fa-4x mb-3"></i>
-                        <p class="mb-1">Anderer Teilnehmer</p>
-                        <p class="small opacity-75">(Simulation)</p>
-                        <div class="mt-3">
-                            <span class="badge bg-light text-dark">
-                                <i class="fas fa-signal me-1"></i>Verbunden
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        if (statusElement) {
-            statusElement.textContent = 'Verbunden mit anderem Teilnehmer (Simulation)';
-        }
-        
-        console.log('👥 Simulated remote participant joined');
-        
-        // Add some visual feedback
-        addSimulationIndicators();
-    }
-    
-    function addSimulationIndicators() {
-        // Add simulation badge to modal header
-        const modalTitle = document.querySelector('#stableCallModal .modal-title');
-        if (modalTitle) {
-            const badge = document.createElement('span');
-            badge.className = 'badge bg-warning text-dark ms-2';
-            badge.innerHTML = '<i class="fas fa-flask me-1"></i>Demo Modus';
-            modalTitle.appendChild(badge);
-        }
-        
-        // Add info text
-        const modalBody = document.querySelector('#stableCallModal .modal-body');
-        if (modalBody) {
-            const infoDiv = document.createElement('div');
-            infoDiv.className = 'alert alert-info mt-3';
-            infoDiv.innerHTML = `
-                <i class="fas fa-info-circle me-2"></i>
-                <strong>Demo Modus:</strong> Dies ist eine Simulation. 
-                Für echte Video/Audio-Anrufe konfigurieren Sie die Agora-Credentials in den Einstellungen.
-            `;
-            modalBody.appendChild(infoDiv);
-        }
-    }
-    
-    // Start simulation
-    simulateConnectionStep();
-}
-
-// Toggle audio mute
-function toggleAudioMute() {
-    const btn = document.getElementById('stableMuteAudio');
-    if (!btn) return;
-    
-    const isMuted = btn.dataset.muted === 'true';
-    
-    if (isMuted) {
-        // Unmute
-        btn.dataset.muted = 'false';
-        btn.classList.remove('muted');
-        btn.innerHTML = '<i class="fas fa-microphone fa-lg"></i>';
-        btn.title = 'Mikrofon stumm schalten';
-        console.log('🔊 Audio unmuted');
-        
-        // Unmute Agora audio track or simulate
-        if (window.localAudioTrack) {
-            window.localAudioTrack.setEnabled(true);
-        } else {
-            console.log('🔊 Simulated audio unmute');
-        }
-    } else {
-        // Mute
-        btn.dataset.muted = 'true';
-        btn.classList.add('muted');
-        btn.innerHTML = '<i class="fas fa-microphone-slash fa-lg"></i>';
-        btn.title = 'Mikrofon aktivieren';
-        console.log('🔇 Audio muted');
-        
-        // Mute Agora audio track or simulate
-        if (window.localAudioTrack) {
-            window.localAudioTrack.setEnabled(false);
-        } else {
-            console.log('🔇 Simulated audio mute');
-        }
-    }
-    
-    // Update global state
-    if (window.currentStableCall) {
-        window.currentStableCall.audioMuted = !isMuted;
-    }
-}
-
-// Toggle video mute
-function toggleVideoMute() {
-    const btn = document.getElementById('stableMuteVideo');
-    if (!btn) return;
-    
-    const isMuted = btn.dataset.muted === 'true';
-    
-    if (isMuted) {
-        // Enable video
-        btn.dataset.muted = 'false';
-        btn.classList.remove('muted');
-        btn.innerHTML = '<i class="fas fa-video fa-lg"></i>';
-        btn.title = 'Kamera ausschalten';
-        console.log('📹 Video enabled');
-        
-        // Enable Agora video track or simulate
-        if (window.localVideoTrack) {
-            window.localVideoTrack.setEnabled(true);
-        } else {
-            console.log('📹 Simulated video enable');
-            // Visual feedback in simulation
-            const localVideo = document.getElementById('stableLocalVideo');
-            if (localVideo) {
-                localVideo.style.filter = '';
-            }
-        }
-    } else {
-        // Disable video
-        btn.dataset.muted = 'true';
-        btn.classList.add('muted');
-        btn.innerHTML = '<i class="fas fa-video-slash fa-lg"></i>';
-        btn.title = 'Kamera aktivieren';
-        console.log('🚫 Video disabled');
-        
-        // Disable Agora video track or simulate
-        if (window.localVideoTrack) {
-            window.localVideoTrack.setEnabled(false);
-        } else {
-            console.log('🚫 Simulated video disable');
-            // Visual feedback in simulation
-            const localVideo = document.getElementById('stableLocalVideo');
-            if (localVideo) {
-                localVideo.style.filter = 'grayscale(100%) brightness(0.5)';
-            }
-        }
-    }
-    
-    // Update global state
-    if (window.currentStableCall) {
-        window.currentStableCall.videoMuted = !isMuted;
-    }
-}
-
-// End call function
-function endStableCall() {
-    console.log('📞 Ending stable call');
-    
-    if (!window.currentStableCall) {
-        console.log('No active call to end');
-        return;
-    }
-    
-    // Determine the call ID to end
-    let callId = null;
-    const urlParams = new URLSearchParams(window.location.search);
-    callId = urlParams.get('answerCall');
-    
-    // If no URL parameter, try to get from recent call data
-    if (!callId && window.currentStableCall && window.currentStableCall.callId) {
-        callId = window.currentStableCall.callId;
-    }
-    
-    // End call in backend if we have a call ID
-    if (callId && currentStableRoomId) {
-        fetch(`/chat/api/call/${callId}/end/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                console.log('✅ Call ended in backend');
-            } else {
-                console.error('❌ Failed to end call in backend:', data.error);
-            }
-        })
-        .catch(error => {
-            console.error('❌ Error ending call:', error);
-        });
-        
-        // Also send end call notification to other participants
-        fetch('/chat/end-call-notification/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify({
-                call_id: callId,
-                room_id: currentStableRoomId
-            })
-        })
-        .catch(error => {
-            console.error('Error sending end call notification:', error);
-        });
-    }
-    
-    // Close modal
-    const modal = bootstrap.Modal.getInstance(document.getElementById('stableCallModal'));
-    if (modal) {
-        modal.hide();
-    }
-    
-    // Clean up call state
-    window.currentStableCall = null;
-    
-    // Clean up Agora connection
-    if (window.agoraClient) {
-        try {
-            console.log('🧽 Cleaning up Agora connection');
-            
-            // Close local tracks
-            if (window.localAudioTrack) {
-                window.localAudioTrack.close();
-                window.localAudioTrack = null;
-                console.log('✅ Local audio track closed');
-            }
-            if (window.localVideoTrack) {
-                window.localVideoTrack.close();
-                window.localVideoTrack = null;
-                console.log('✅ Local video track closed');
-            }
-            
-            // Leave channel
-            window.agoraClient.leave().then(() => {
-                console.log('✅ Left Agora channel successfully');
-                window.agoraClient = null;
-            }).catch(error => {
-                console.error('❌ Error leaving Agora channel:', error);
-                window.agoraClient = null;
-            });
-        } catch (error) {
-            console.error('❌ Error cleaning up Agora client:', error);
-            window.agoraClient = null;
-        }
-    } else {
-        console.log('ℹ️ No Agora client to clean up');
-    }
-    
-    // Remove URL parameters to prevent auto-answering again
-    const newUrl = window.location.pathname + (window.location.search.includes('room=') 
-        ? '?room=' + currentStableRoomId 
-        : '');
-    window.history.replaceState({}, '', newUrl);
-    
-    // Remove modal from DOM
-    setTimeout(() => {
-        const modalElement = document.getElementById('stableCallModal');
-        if (modalElement) {
-            modalElement.remove();
-        }
-    }, 500);
-    
-    console.log('📞 Call ended and cleaned up');
-}
-
-// Auto answer call function for URL parameters
-function autoAnswerCall(callId, callType) {
-    console.log('🔔 Auto-answering call:', callId, callType);
-    
-    // Accept the call in the backend
-    fetch('/chat/accept-call/', {
         method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            call_id: callId
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            console.log('✅ Call accepted in backend (auto-answer)');
-        } else if (data.error && (data.error.includes('no longer active') || data.error.includes('connected'))) {
-            console.log('📋 Call was already accepted - proceeding with call interface');
-        } else {
-            console.warn('⚠️ Call accept returned error, but proceeding:', data.error);
-        }
-        
-        // Store call ID for ending the call
-        window.currentCallId = callId;
-        
-        // Get Agora token and show call interface regardless of accept result
-        return fetch('/chat/get-agora-token/', {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                channel: `room_${currentStableRoomId}`,
-                uid: 0
-            })
-        });
-    })
-    .then(response => response.json())
-    .then(tokenData => {
-        if (tokenData.success) {
-            // Show call interface for receiving
-            showStableCallInterface(callType, tokenData, 'receiving');
-            
-            // Clean URL parameters
-            const url = new URL(window.location);
-            url.searchParams.delete('answerCall');
-            url.searchParams.delete('callType');
-            window.history.replaceState({}, document.title, url);
-        } else {
-            throw new Error(tokenData.error || 'Failed to get Agora token');
-        }
-    })
-    .catch(error => {
-        console.error('❌ Auto-answer failed:', error);
-        
-        // Don't show error if it's just a timing issue with already accepted call
-        if (error.message && (error.message.includes('no longer active') || error.message.includes('connected'))) {
-            console.log('📋 Call timing issue resolved - continuing with call interface');
-            
-            // Still try to show call interface
-            window.currentCallId = callId;
-            fetch('/chat/get-agora-token/', {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    channel: `room_${currentStableRoomId}`,
-                    uid: 0
-                })
-            })
-            .then(response => response.json())
-            .then(tokenData => {
-                if (tokenData.success) {
-                    console.log('✅ Agora token received for already-accepted call');
-                    showStableCallInterface(callType, tokenData, 'receiving');
-                    
-                    // Clean URL parameters
-                    const url = new URL(window.location);
-                    url.searchParams.delete('answerCall');
-                    url.searchParams.delete('callType');
-                    window.history.replaceState({}, document.title, url);
-                } else {
-                    console.error('❌ Failed to get token for accepted call:', tokenData.error);
-                }
-            })
-            .catch(tokenError => {
-                console.error('❌ Token fetch failed:', tokenError);
-            });
-        } else {
-            alert('Fehler beim Annehmen des Anrufs: ' + error.message);
-        }
-    });
-}
-
-// Global function for compatibility with base.html
-function acceptIncomingCall(callData = null) {
-    console.log('📞 acceptIncomingCall called from base.html', callData ? 'with call data' : 'without call data');
-    
-    // Use directly passed call data first
-    if (callData) {
-        console.log('✅ Using directly passed call data:', callData);
-        autoAnswerCall(callData.call_id, callData.call_type || 'audio');
-        return;
-    }
-    
-    // Try to get call data from parent window global variables
-    if (window.parent && window.parent.globalIncomingCallData) {
-        console.log('✅ Using parent global incoming call data:', window.parent.globalIncomingCallData);
-        const parentCallData = window.parent.globalIncomingCallData;
-        autoAnswerCall(parentCallData.call_id, parentCallData.call_type || 'audio');
-        return;
-    }
-    
-    // Try to get from current window
-    if (window.globalIncomingCallData) {
-        console.log('✅ Using global incoming call data:', window.globalIncomingCallData);
-        const windowCallData = window.globalIncomingCallData;
-        autoAnswerCall(windowCallData.call_id, windowCallData.call_type || 'audio');
-        return;
-    }
-    
-    // Check for call data stored in sessionStorage as backup
-    const storedCallData = sessionStorage.getItem('currentIncomingCall');
-    if (storedCallData) {
-        console.log('✅ Using stored incoming call data');
-        const parsedCallData = JSON.parse(storedCallData);
-        autoAnswerCall(parsedCallData.call_id, parsedCallData.call_type || 'audio');
-        return;
-    }
-    
-    // Fallback to URL parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    const callId = urlParams.get('answerCall');
-    const callType = urlParams.get('callType') || 'audio';
-    
-    if (callId) {
-        autoAnswerCall(callId, callType);
-    } else {
-        console.error('❌ No call ID found for accepting call');
-    }
-}
-
-// Debug function to see all calls in database
-function debugCalls() {
-    fetch('/chat/debug-calls/', {
-        method: 'GET',
         headers: {
             'X-CSRFToken': getCookie('csrftoken')
         }
@@ -2282,568 +861,75 @@ function debugCalls() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            console.log('🔍 All calls in database:', data.all_calls);
-            console.log('🔴 Active calls:', data.active_calls);
-            console.log(`📊 Active call count: ${data.active_call_count}`);
-        } else {
-            console.error('❌ Debug calls failed:', data.error);
+            // Remove from list
+            document.querySelector(`[data-room-id="${roomId}"]`).remove();
+
+            // If this was the active chat, show welcome
+            if (chatManager.currentRoomId === roomId) {
+                chatManager.currentRoomId = null;
+                document.getElementById('chatWelcome').style.display = 'flex';
+                document.getElementById('activeChat').style.display = 'none';
+            }
         }
-    })
-    .catch(error => {
-        console.error('❌ Debug calls error:', error);
     });
 }
 
-// Function to cleanup stale calls and retry
-function cleanupStaleCallsAndRetry(callType) {
-    console.log('🧽 Cleaning up stale calls and retrying...');
-    
-    // First debug what calls exist
-    debugCalls();
-    
-    fetch('/chat/cleanup-all-calls/', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            console.log(`✅ Cleaned up ${data.cleaned_up_count} stale calls`);
-            if (data.all_active_calls_before) {
-                console.log('📊 Active calls before cleanup:', data.all_active_calls_before);
+function createNewChat() {
+    window.location.href = '/chat/search/';
+}
+
+// Global function to update chat list
+function updateChatList() {
+    fetch('/chat/unread-count/')
+        .then(response => response.json())
+        .then(data => {
+            // Update total unread count if you have a global badge
+            const totalUnread = data.unread_count || 0;
+
+            // Update document title with unread count
+            if (totalUnread > 0) {
+                document.title = `(${totalUnread}) Chat System`;
+            } else {
+                document.title = 'Chat System';
             }
-            
-            // Wait a moment then retry the call
-            setTimeout(() => {
-                initiateStableCall(callType);
-            }, 1000);
-        } else {
-            console.error('❌ Failed to cleanup calls:', data.error);
-            if (data.traceback) {
-                console.error('Traceback:', data.traceback);
-            }
-            alert('Fehler beim Bereinigen der Anrufe: ' + data.error);
-        }
-    })
-    .catch(error => {
-        console.error('❌ Error during cleanup:', error);
-        alert('Fehler beim Bereinigen der Anrufe: ' + error.message);
-    });
+        });
 }
 
-// Add debug calls function to global scope for manual testing
-window.debugCalls = debugCalls;
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize search
+    const searchInput = document.getElementById('chatSearch');
+    if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            const query = this.value.toLowerCase();
 
-// WebRTC Implementation
-let localStream = null;
-let remoteStream = null;
-let peerConnection = null;
-let signalingSocket = null;
-
-// WebRTC configuration
-const rtcConfiguration = {
-    iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-    ]
-};
-
-function initializeWebRTCCall(callType, tokenData, mode) {
-    console.log('📡 Initializing WebRTC call:', { callType, mode });
-    
-    const statusElement = document.getElementById('stableCallStatus');
-    if (statusElement) {
-        statusElement.textContent = mode === 'receiving' ? 'Anruf angenommen - starte Kamera...' : 'Anruf gestartet - starte Kamera...';
-    }
-    
-    // Initialize WebSocket for signaling
-    initializeSignalingSocket();
-    
-    // Get user media (camera/microphone)
-    getUserMediaForCall(callType, mode);
-}
-
-function initializeSignalingSocket() {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/call/${currentStableRoomId}/`;
-    
-    console.log('🔗 Connecting to WebSocket:', wsUrl);
-    
-    signalingSocket = new WebSocket(wsUrl);
-    
-    signalingSocket.onopen = function() {
-        console.log('✅ WebSocket connected');
-    };
-    
-    signalingSocket.onmessage = function(event) {
-        const message = JSON.parse(event.data);
-        handleSignalingMessage(message);
-    };
-    
-    signalingSocket.onclose = function() {
-        console.log('🔌 WebSocket disconnected');
-    };
-    
-    signalingSocket.onerror = function(error) {
-        console.error('❌ WebSocket error:', error);
-    };
-}
-
-async function getUserMediaForCall(callType, mode) {
-    try {
-        const constraints = {
-            audio: true,
-            video: callType === 'video' ? { width: 640, height: 480 } : false
-        };
-        
-        console.log('🎥 Requesting user media:', constraints);
-        localStream = await navigator.mediaDevices.getUserMedia(constraints);
-        
-        console.log('✅ Got local stream');
-        
-        // Display local video
-        const localVideoElement = document.getElementById('stableLocalVideo');
-        if (localVideoElement && callType === 'video') {
-            localVideoElement.innerHTML = '<video id="localVideoStream" autoplay muted playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>';
-            const videoElement = document.getElementById('localVideoStream');
-            videoElement.srcObject = localStream;
-        }
-        
-        // Store tracks globally for mute/unmute
-        window.localAudioTrack = localStream.getAudioTracks()[0];
-        window.localVideoTrack = callType === 'video' ? localStream.getVideoTracks()[0] : null;
-        
-        // Initialize peer connection
-        await initializePeerConnection(mode);
-        
-        const statusElement = document.getElementById('stableCallStatus');
-        if (statusElement) {
-            statusElement.textContent = mode === 'receiving' ? 'Bereit - warte auf Verbindung...' : 'Bereit - warte auf anderen Teilnehmer...';
-        }
-        
-    } catch (error) {
-        console.error('❌ Failed to get user media:', error);
-        alert('Fehler beim Zugriff auf Kamera/Mikrofon. Bitte Berechtigungen prüfen und erneut versuchen.');
-        
-        const statusElement = document.getElementById('stableCallStatus');
-        if (statusElement) {
-            statusElement.textContent = 'Fehler beim Kamera-Zugriff';
-        }
-    }
-}
-
-async function initializePeerConnection(mode) {
-    console.log('🔗 Initializing peer connection');
-    
-    peerConnection = new RTCPeerConnection(rtcConfiguration);
-    
-    // Add local stream to peer connection
-    if (localStream) {
-        localStream.getTracks().forEach(track => {
-            peerConnection.addTrack(track, localStream);
+            searchTimeout = setTimeout(() => {
+                document.querySelectorAll('.chat-item').forEach(item => {
+                    const name = item.querySelector('.chat-name').textContent.toLowerCase();
+                    const preview = item.querySelector('.chat-preview').textContent.toLowerCase();
+                    item.style.display = (name.includes(query) || preview.includes(query)) ? 'flex' : 'none';
+                });
+            }, 300);
         });
     }
-    
-    // Handle remote stream
-    peerConnection.ontrack = function(event) {
-        console.log('📡 Received remote stream');
-        remoteStream = event.streams[0];
-        
-        const remoteVideoElement = document.getElementById('stableRemoteVideo');
-        if (remoteVideoElement) {
-            remoteVideoElement.innerHTML = '<video id="remoteVideoStream" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>';
-            const videoElement = document.getElementById('remoteVideoStream');
-            videoElement.srcObject = remoteStream;
-            
-            const statusElement = document.getElementById('stableCallStatus');
-            if (statusElement) {
-                statusElement.textContent = 'Verbunden - Anruf aktiv';
-            }
-        }
-    };
-    
-    // Handle ICE candidates
-    peerConnection.onicecandidate = function(event) {
-        if (event.candidate) {
-            sendSignalingMessage({
-                type: 'ice-candidate',
-                candidate: event.candidate
-            });
-        }
-    };
-    
-    // Handle connection state changes
-    peerConnection.onconnectionstatechange = function() {
-        console.log('🔄 Connection state:', peerConnection.connectionState);
-        
-        const statusElement = document.getElementById('stableCallStatus');
-        if (statusElement) {
-            switch (peerConnection.connectionState) {
-                case 'connecting':
-                    statusElement.textContent = 'Verbindung wird aufgebaut...';
-                    break;
-                case 'connected':
-                    statusElement.textContent = 'Anruf aktiv - verbunden';
-                    break;
-                case 'disconnected':
-                    statusElement.textContent = 'Verbindung getrennt';
-                    break;
-                case 'failed':
-                    statusElement.textContent = 'Verbindungsfehler';
-                    break;
-            }
-        }
-    };
-    
-    // Create offer if initiating
-    if (mode === 'initiating') {
-        setTimeout(async () => {
-            await createAndSendOffer();
-        }, 1000);
-    }
-}
 
-async function createAndSendOffer() {
-    try {
-        console.log('📬 Creating offer');
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        
-        sendSignalingMessage({
-            type: 'offer',
-            offer: offer
-        });
-        
-        console.log('✅ Offer sent');
-    } catch (error) {
-        console.error('❌ Failed to create offer:', error);
+    // Check URL for auto-load room
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get('room');
+    if (roomId) {
+        chatManager.loadChat(parseInt(roomId));
     }
-}
 
-async function handleSignalingMessage(message) {
-    console.log('📬 Received signaling message:', message.type);
-    
-    try {
-        switch (message.type) {
-            case 'offer':
-                await handleOffer(message.offer);
-                break;
-            case 'answer':
-                await handleAnswer(message.answer);
-                break;
-            case 'ice-candidate':
-                await handleIceCandidate(message.candidate);
-                break;
-        }
-    } catch (error) {
-        console.error('❌ Error handling signaling message:', error);
-    }
-}
+    // Start global chat list updates
+    updateChatList();
+    setInterval(updateChatList, 30000); // Every 30 seconds
+});
 
-async function handleOffer(offer) {
-    console.log('📬 Handling offer');
-    await peerConnection.setRemoteDescription(offer);
-    
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-    
-    sendSignalingMessage({
-        type: 'answer',
-        answer: answer
-    });
-    
-    console.log('✅ Answer sent');
-}
-
-async function handleAnswer(answer) {
-    console.log('📬 Handling answer');
-    await peerConnection.setRemoteDescription(answer);
-}
-
-async function handleIceCandidate(candidate) {
-    console.log('📬 Adding ICE candidate');
-    await peerConnection.addIceCandidate(candidate);
-}
-
-function sendSignalingMessage(message) {
-    if (signalingSocket && signalingSocket.readyState === WebSocket.OPEN) {
-        signalingSocket.send(JSON.stringify(message));
-    } else {
-        console.error('❌ Cannot send signaling message - WebSocket not connected');
-    }
-}
-
-// Clean up function for ending calls
-function cleanupWebRTCCall() {
-    console.log('🧽 Cleaning up WebRTC call');
-    
-    // Stop local tracks
-    if (localStream) {
-        localStream.getTracks().forEach(track => {
-            track.stop();
-        });
-        localStream = null;
-    }
-    
-    // Close peer connection
-    if (peerConnection) {
-        peerConnection.close();
-        peerConnection = null;
-    }
-    
-    // Close WebSocket
-    if (signalingSocket) {
-        signalingSocket.close();
-        signalingSocket = null;
-    }
-    
-    // Clear global track references
-    window.localAudioTrack = null;
-    window.localVideoTrack = null;
-    
-    console.log('✅ WebRTC cleanup complete');
-}
-
-// Fallback function for when Agora fails
-function initializeCallFallback(callType, tokenData, mode) {
-    console.log('🔄 Using fallback call interface');
-    
-    const statusElement = document.getElementById('stableCallStatus');
-    const localVideoElement = document.getElementById('stableLocalVideo');
-    const remoteVideoElement = document.getElementById('stableRemoteVideo');
-    
-    if (statusElement) {
-        statusElement.textContent = 'Verbindungsfehler - bitte erneut versuchen';
-    }
-    
-    // Show error in video areas
-    if (localVideoElement) {
-        localVideoElement.innerHTML = `
-            <div class="d-flex align-items-center justify-content-center h-100 bg-danger text-white">
-                <div class="text-center">
-                    <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
-                    <p class="small mb-0">Verbindungsfehler</p>
-                </div>
-            </div>
-        `;
-    }
-    
-    if (remoteVideoElement) {
-        remoteVideoElement.innerHTML = `
-            <div class="d-flex align-items-center justify-content-center h-100 bg-warning text-dark">
-                <div class="text-center">
-                    <i class="fas fa-wifi fa-3x mb-3"></i>
-                    <h5>Verbindungsproblem</h5>
-                    <p>Bitte Anruf beenden und erneut versuchen</p>
-                </div>
-            </div>
-        `;
-    }
-}
-
-console.log('✅ Stable chat system loaded');
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    chatManager.cleanup();
+});
 </script>
-
-<!-- Call Modal CSS -->
-<style>
-.call-interface {
-    min-height: 300px;
-}
-
-.video-container {
-    position: relative;
-    height: 300px;
-    background: #000;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.remote-video {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    text-align: center;
-}
-
-.video-placeholder {
-    color: rgba(255, 255, 255, 0.7);
-}
-
-.local-video {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 120px;
-    height: 90px;
-    background: #333;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.video-placeholder-small {
-    color: rgba(255, 255, 255, 0.7);
-}
-
-.audio-interface {
-    padding: 2rem;
-}
-
-.audio-avatar {
-    color: #007bff;
-}
-
-.call-controls {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 1000;
-    width: auto;
-    background: rgba(0, 0, 0, 0.7);
-    border-radius: 50px;
-    padding: 15px 25px;
-    backdrop-filter: blur(10px);
-}
-
-.btn-call-control {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    transition: all 0.3s ease;
-    margin: 0 8px;
-    color: white;
-}
-
-.btn-call-control:hover {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.5);
-    transform: scale(1.1);
-}
-
-.btn-call-control.btn-danger {
-    background: rgba(220, 53, 69, 0.8);
-    border-color: #dc3545;
-}
-
-.btn-call-control.btn-danger:hover {
-    background: #dc3545;
-    transform: scale(1.1);
-}
-
-.btn-call-control.muted {
-    background: rgba(255, 193, 7, 0.8);
-    border-color: #ffc107;
-}
-
-.btn-end-call {
-    width: 70px;
-    height: 70px;
-    margin: 0 12px;
-    background: rgba(220, 53, 69, 0.9) !important;
-    border-color: #dc3545 !important;
-}
-
-.call-controls .d-flex {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 0;
-}
-
-.call-controls .btn i {
-    font-size: 1.2rem;
-    color: white;
-}
-
-.video-container {
-    position: relative;
-    height: 400px;
-    background: #000;
-    border-radius: 12px;
-    overflow: hidden;
-    margin-bottom: 1rem;
-}
-
-.remote-video {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #1a1a1a;
-}
-
-.local-video {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-    width: 150px;
-    height: 100px;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    z-index: 10;
-}
-
-.video-placeholder {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    color: #ffffff;
-    background: #2a2a2a;
-}
-
-.video-placeholder-small {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #ffffff;
-    background: #333;
-}
-
-/* Audio interface styles */
-.audio-interface {
-    padding: 2rem 0;
-}
-
-.audio-avatar-circle {
-    animation: pulse 2s infinite;
-    box-shadow: 0 0 20px rgba(0, 123, 255, 0.3);
-}
-
-@keyframes pulse {
-    0% {
-        transform: scale(1);
-        box-shadow: 0 0 20px rgba(0, 123, 255, 0.3);
-    }
-    50% {
-        transform: scale(1.05);
-        box-shadow: 0 0 30px rgba(0, 123, 255, 0.5);
-    }
-    100% {
-        transform: scale(1);
-        box-shadow: 0 0 20px rgba(0, 123, 255, 0.3);
-    }
-}
-</style>
-
 {% endblock %}
