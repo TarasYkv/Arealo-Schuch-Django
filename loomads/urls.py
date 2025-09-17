@@ -28,6 +28,16 @@ urlpatterns = [
     path('zones/<int:zone_id>/edit/', views.zone_edit, name='zone_edit'),
     path('zones/<int:zone_id>/delete/', views.zone_delete, name='zone_delete'),
     
+    # Auto-Kampagnen
+    path('auto-campaigns/', views_frontend.auto_campaign_list, name='auto_campaign_list'),
+    path('auto-campaigns/create/', views_frontend.auto_campaign_create, name='auto_campaign_create'),
+    path('auto-campaigns/<uuid:campaign_id>/', views_frontend.auto_campaign_detail, name='auto_campaign_detail'),
+    path('auto-campaigns/<uuid:campaign_id>/edit/', views_frontend.auto_campaign_edit, name='auto_campaign_edit'),
+    path('auto-campaigns/<uuid:campaign_id>/delete/', views_frontend.auto_campaign_delete, name='auto_campaign_delete'),
+    
+    # Auto-Campaign Formate
+    path('auto-formats/', views_frontend.auto_format_list, name='auto_format_list'),
+    
     # Zone Integrations
     path('integrations/create/', views_frontend.integration_create, name='integration_create'),
     path('integrations/<int:integration_id>/edit/', views_frontend.integration_edit, name='integration_edit'),

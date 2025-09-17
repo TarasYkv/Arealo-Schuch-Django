@@ -8,7 +8,7 @@ import json
 from django.urls import reverse
 from django.utils import timezone
 from datetime import datetime, timedelta
-from .models import Campaign, AdZone, Advertisement, AdTargeting, LoomAdsSettings, ZoneIntegration
+from .models import Campaign, AdZone, Advertisement, AdTargeting, LoomAdsSettings, ZoneIntegration, AutoCampaignFormat, AutoCampaign, AutoAdvertisement
 from .forms import CampaignForm, AdvertisementForm, AdZoneForm, ZoneIntegrationForm
 import uuid
 
@@ -679,3 +679,165 @@ def integration_delete(request, integration_id):
         'integration': integration
     }
     return render(request, 'loomads/integration_confirm_delete.html', context)
+
+
+# ========== AUTO CAMPAIGN MANAGEMENT ==========
+
+@login_required
+@user_passes_test(is_superuser)
+def auto_campaign_list(request):
+    """List all auto campaigns"""
+    auto_campaigns = AutoCampaign.objects.all().select_related('target_format', 'created_by').order_by('-created_at')
+    
+    context = {
+        'auto_campaigns': auto_campaigns,
+        'title': 'Automatische Kampagnen'
+    }
+    return render(request, 'loomads/auto_campaign_list.html', context)
+
+
+@login_required
+@user_passes_test(is_superuser)
+def auto_campaign_detail(request, campaign_id):
+    """Show auto campaign details"""
+    campaign = get_object_or_404(AutoCampaign, id=campaign_id)
+    
+    # Get matching zones for this campaign's format
+    matching_zones = campaign.target_format.get_matching_zones()
+    
+    # Get auto advertisements
+    auto_ads = campaign.auto_advertisements.all().select_related('target_zone')
+    
+    context = {
+        'campaign': campaign,
+        'matching_zones': matching_zones,
+        'auto_ads': auto_ads,
+        'title': f'Auto-Kampagne: {campaign.name}'
+    }
+    return render(request, 'loomads/auto_campaign_detail.html', context)
+
+
+@login_required
+@user_passes_test(is_superuser)
+def auto_campaign_create(request):
+    """Create new auto campaign"""
+    if request.method == 'POST':
+        # Get form data
+        name = request.POST.get('name')
+        description = request.POST.get('description')
+        target_format_id = request.POST.get('target_format')
+        content_strategy = request.POST.get('content_strategy')
+        start_date = request.POST.get('start_date')
+        end_date = request.POST.get('end_date')
+        status = request.POST.get('status', 'draft')
+        
+        # Validation
+        if not all([name, target_format_id, start_date, end_date]):
+            messages.error(request, 'Bitte füllen Sie alle Pflichtfelder aus!')
+        else:
+            try:
+                target_format = AutoCampaignFormat.objects.get(id=target_format_id)
+                
+                # Create auto campaign
+                auto_campaign = AutoCampaign.objects.create(
+                    name=name,
+                    description=description,
+                    target_format=target_format,
+                    content_strategy=content_strategy,
+                    start_date=datetime.fromisoformat(start_date.replace('Z', '+00:00')),
+                    end_date=datetime.fromisoformat(end_date.replace('Z', '+00:00')),
+                    status=status,
+                    created_by=request.user
+                )
+                
+                messages.success(request, f'Auto-Kampagne "{auto_campaign.name}" wurde erfolgreich erstellt!')
+                return redirect('loomads:auto_campaign_detail', campaign_id=auto_campaign.id)
+                
+            except AutoCampaignFormat.DoesNotExist:
+                messages.error(request, 'Ungültiges Format ausgewählt!')
+            except Exception as e:
+                messages.error(request, f'Fehler beim Erstellen: {str(e)}')
+    
+    # Get available formats
+    formats = AutoCampaignFormat.objects.filter(is_active=True).order_by('-priority')
+    
+    context = {
+        'formats': formats,
+        'title': 'Neue Auto-Kampagne erstellen',
+        'content_strategies': AutoCampaign.CONTENT_STRATEGIES
+    }
+    return render(request, 'loomads/auto_campaign_form.html', context)
+
+
+@login_required
+@user_passes_test(is_superuser)
+def auto_campaign_edit(request, campaign_id):
+    """Edit existing auto campaign"""
+    campaign = get_object_or_404(AutoCampaign, id=campaign_id)
+    
+    if request.method == 'POST':
+        # Update campaign
+        campaign.name = request.POST.get('name')
+        campaign.description = request.POST.get('description')
+        campaign.content_strategy = request.POST.get('content_strategy')
+        campaign.status = request.POST.get('status')
+        
+        start_date = request.POST.get('start_date')
+        end_date = request.POST.get('end_date')
+        
+        if start_date:
+            campaign.start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+        if end_date:
+            campaign.end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+        
+        campaign.save()
+        messages.success(request, f'Auto-Kampagne "{campaign.name}" wurde aktualisiert!')
+        return redirect('loomads:auto_campaign_detail', campaign_id=campaign.id)
+    
+    # Get available formats
+    formats = AutoCampaignFormat.objects.filter(is_active=True).order_by('-priority')
+    
+    context = {
+        'campaign': campaign,
+        'formats': formats,
+        'title': f'Auto-Kampagne "{campaign.name}" bearbeiten',
+        'content_strategies': AutoCampaign.CONTENT_STRATEGIES
+    }
+    return render(request, 'loomads/auto_campaign_form.html', context)
+
+
+@login_required
+@user_passes_test(is_superuser)
+def auto_campaign_delete(request, campaign_id):
+    """Delete auto campaign"""
+    campaign = get_object_or_404(AutoCampaign, id=campaign_id)
+    
+    if request.method == 'POST':
+        campaign_name = campaign.name
+        campaign.delete()
+        messages.success(request, f'Auto-Kampagne "{campaign_name}" wurde gelöscht!')
+        return redirect('loomads:auto_campaign_list')
+    
+    context = {
+        'campaign': campaign
+    }
+    return render(request, 'loomads/auto_campaign_confirm_delete.html', context)
+
+
+# ========== AUTO CAMPAIGN FORMAT MANAGEMENT ==========
+
+@login_required
+@user_passes_test(is_superuser)
+def auto_format_list(request):
+    """List all auto campaign formats"""
+    formats = AutoCampaignFormat.objects.all().order_by('-priority', 'name')
+    
+    # Add zone count for each format
+    for fmt in formats:
+        fmt.zone_count = fmt.get_zone_count()
+    
+    context = {
+        'formats': formats,
+        'title': 'Auto-Kampagnen-Formate'
+    }
+    return render(request, 'loomads/auto_format_list.html', context)

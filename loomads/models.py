@@ -545,3 +545,457 @@ class ZoneIntegration(models.Model):
             'deprecated': 'bg-danger',
         }
         return status_classes.get(self.status, 'bg-secondary')
+
+
+class AutoCampaignFormat(models.Model):
+    """Automatische Kampagnenformat-Definitionen für gleiche Zonen-Typen und -Größen"""
+    
+    FORMAT_TYPES = [
+        ('banner_728x90', 'Banner 728x90 (Header/Footer)'),
+        ('sidebar_300x250', 'Sidebar 300x250'),
+        ('content_card_350x200', 'Content Card 350x200'),
+        ('content_card_350x250', 'Content Card 350x250'), 
+        ('video_overlay_300x100', 'Video Overlay 300x100'),
+        ('video_preroll_640x360', 'Video Pre-Roll 640x360'),
+        ('modal_400x300', 'Modal 400x300'),
+        ('notification_300x80', 'Benachrichtigung 300x80'),
+        ('custom', 'Benutzerdefiniert'),
+    ]
+    
+    GROUPING_STRATEGIES = [
+        ('by_type', 'Nach Zone-Typ gruppieren'),
+        ('by_dimensions', 'Nach Dimensionen gruppieren'),
+        ('by_type_and_dimensions', 'Nach Typ UND Dimensionen gruppieren'),
+        ('by_app', 'Nach App gruppieren'),
+        ('mixed', 'Gemischte Strategie'),
+    ]
+    
+    name = models.CharField(max_length=200, verbose_name='Format-Name')
+    format_type = models.CharField(max_length=50, choices=FORMAT_TYPES, default='custom')
+    description = models.TextField(blank=True, verbose_name='Beschreibung')
+    
+    # Format-Spezifikationen
+    target_zone_types = models.JSONField(
+        default=list,
+        verbose_name='Ziel-Zone-Typen', 
+        help_text='Liste der Zone-Typen, z.B. ["header", "footer"]'
+    )
+    target_dimensions = models.JSONField(
+        default=list,
+        verbose_name='Ziel-Dimensionen',
+        help_text='Liste der Dimensionen, z.B. ["728x90", "320x50"]'
+    )
+    excluded_zones = models.JSONField(
+        default=list,
+        verbose_name='Ausgeschlossene Zonen',
+        help_text='Zone-Codes die ausgeschlossen werden sollen'
+    )
+    
+    # Automatische Gruppierung
+    grouping_strategy = models.CharField(
+        max_length=30,
+        choices=GROUPING_STRATEGIES,
+        default='by_type_and_dimensions'
+    )
+    auto_assign_similar_zones = models.BooleanField(
+        default=True,
+        verbose_name='Ähnliche Zonen automatisch zuweisen'
+    )
+    
+    # Einstellungen
+    is_active = models.BooleanField(default=True, verbose_name='Aktiv')
+    priority = models.IntegerField(
+        default=1,
+        verbose_name='Priorität',
+        help_text='Höhere Priorität = bevorzugte Verwendung'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Auto-Kampagnenformat'
+        verbose_name_plural = 'Auto-Kampagnenformate'
+        ordering = ['-priority', 'name']
+    
+    def __str__(self):
+        return f"{self.name} ({self.format_type})"
+    
+    def get_matching_zones(self):
+        """Ermittelt alle Zonen, die diesem Format entsprechen"""
+        from django.db.models import Q
+        
+        zones = AdZone.objects.filter(is_active=True)
+        
+        # Nach Zone-Typen filtern
+        if self.target_zone_types:
+            zones = zones.filter(zone_type__in=self.target_zone_types)
+        
+        # Nach Dimensionen filtern  
+        if self.target_dimensions:
+            dimension_q = Q()
+            for dim in self.target_dimensions:
+                if 'x' in dim:
+                    width, height = dim.split('x')
+                    dimension_q |= Q(width=int(width), height=int(height))
+            if dimension_q:
+                zones = zones.filter(dimension_q)
+        
+        # Ausgeschlossene Zonen entfernen
+        if self.excluded_zones:
+            zones = zones.exclude(code__in=self.excluded_zones)
+        
+        return zones
+    
+    def get_zone_count(self):
+        """Anzahl der passenden Zonen"""
+        return self.get_matching_zones().count()
+    
+    def create_format_key(self):
+        """Erstellt einen eindeutigen Format-Key"""
+        if self.target_zone_types and self.target_dimensions:
+            types = "_".join(sorted(self.target_zone_types))
+            dims = "_".join(sorted(self.target_dimensions))
+            return f"{types}_{dims}"
+        return f"custom_{self.id}"
+
+
+class AutoCampaign(models.Model):
+    """Automatische Kampagnen die gleiche Formate intelligent zusammenfassen"""
+    
+    STATUS_CHOICES = [
+        ('draft', 'Entwurf'),
+        ('active', 'Aktiv'),
+        ('paused', 'Pausiert'),
+        ('completed', 'Abgeschlossen'),
+        ('auto_paused', 'Automatisch pausiert'),
+    ]
+    
+    CONTENT_STRATEGIES = [
+        ('single_creative', 'Ein Kreativ für alle Zonen'),
+        ('format_optimized', 'Pro Format optimiert'),
+        ('zone_specific', 'Zonenspezifisch angepasst'),
+        ('a_b_testing', 'A/B Testing'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=200, verbose_name='Kampagnen-Name')
+    description = models.TextField(blank=True, verbose_name='Beschreibung')
+    
+    # Format-Zuordnung
+    target_format = models.ForeignKey(
+        AutoCampaignFormat,
+        on_delete=models.CASCADE,
+        related_name='campaigns',
+        verbose_name='Ziel-Format'
+    )
+    
+    # Automatische Einstellungen
+    content_strategy = models.CharField(
+        max_length=30,
+        choices=CONTENT_STRATEGIES,
+        default='format_optimized'
+    )
+    auto_optimize_performance = models.BooleanField(
+        default=True,
+        verbose_name='Performance automatisch optimieren'
+    )
+    auto_pause_low_performers = models.BooleanField(
+        default=False,
+        verbose_name='Schwache Performer automatisch pausieren'
+    )
+    performance_threshold_ctr = models.FloatField(
+        default=0.5,
+        verbose_name='CTR-Schwellenwert (%)',
+        help_text='Unter diesem CTR werden Ads automatisch pausiert'
+    )
+    
+    # Standard Kampagnen-Felder
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='auto_campaigns')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    start_date = models.DateTimeField(verbose_name='Startdatum')
+    end_date = models.DateTimeField(verbose_name='Enddatum')
+    
+    # Budget & Limits
+    daily_impression_limit = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Tägliches Impression-Limit pro Zone'
+    )
+    total_impression_limit = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Gesamt Impression-Limit'
+    )
+    
+    # Automatische Verwaltung
+    last_optimization_run = models.DateTimeField(null=True, blank=True)
+    auto_created_ads_count = models.IntegerField(default=0)
+    performance_score = models.FloatField(
+        default=0.0,
+        verbose_name='Performance-Score',
+        help_text='Automatisch berechneter Performance-Score (0-100)'
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Automatische Kampagne'
+        verbose_name_plural = 'Automatische Kampagnen'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.name} (Auto: {self.target_format.name})"
+    
+    @property
+    def is_active(self):
+        """Prüft ob die Kampagne aktiv ist"""
+        now = timezone.now()
+        return (
+            self.status == 'active' and
+            self.start_date <= now <= self.end_date
+        )
+    
+    def get_target_zones(self):
+        """Ermittelt alle Ziel-Zonen basierend auf dem Format"""
+        return self.target_format.get_matching_zones()
+    
+    def get_auto_ads(self):
+        """Alle automatisch erstellten Ads für diese Kampagne"""
+        return self.auto_advertisements.filter(is_active=True)
+    
+    def calculate_performance_score(self):
+        """Berechnet den Performance-Score basierend auf den Ads"""
+        ads = self.get_auto_ads()
+        if not ads.exists():
+            return 0.0
+        
+        total_impressions = sum(ad.impressions_count for ad in ads)
+        total_clicks = sum(ad.clicks_count for ad in ads)
+        
+        if total_impressions == 0:
+            return 0.0
+        
+        # CTR-basierter Score
+        ctr = (total_clicks / total_impressions) * 100
+        
+        # Zone-Abdeckung Score
+        target_zones_count = self.get_target_zones().count()
+        covered_zones_count = ads.values('zones').distinct().count()
+        coverage_score = (covered_zones_count / max(target_zones_count, 1)) * 100
+        
+        # Gewichteter Gesamtscore
+        performance_score = (ctr * 0.7) + (coverage_score * 0.3)
+        return min(performance_score, 100.0)
+    
+    def update_performance_score(self):
+        """Aktualisiert den Performance-Score"""
+        self.performance_score = self.calculate_performance_score()
+        self.save(update_fields=['performance_score'])
+        return self.performance_score
+    
+    def auto_create_ads_for_format(self, base_creative):
+        """Erstellt automatisch Ads für alle passenden Zonen des Formats"""
+        target_zones = self.get_target_zones()
+        created_ads = []
+        
+        for zone in target_zones:
+            # Prüfe ob bereits eine Ad für diese Zone existiert
+            existing_ad = self.auto_advertisements.filter(zones=zone).first()
+            if existing_ad:
+                continue
+            
+            # Erstelle neue Auto-Advertisement
+            auto_ad = AutoAdvertisement.objects.create(
+                auto_campaign=self,
+                base_creative=base_creative,
+                target_zone=zone,
+                name=f"{self.name} - {zone.code}",
+                is_active=True
+            )
+            created_ads.append(auto_ad)
+        
+        self.auto_created_ads_count = self.auto_advertisements.count()
+        self.save(update_fields=['auto_created_ads_count'])
+        return created_ads
+    
+    def optimize_performance(self):
+        """Führt automatische Performance-Optimierung durch"""
+        if not self.auto_optimize_performance:
+            return
+        
+        results = {
+            'paused_ads': [],
+            'optimized_ads': [],
+            'total_score': 0
+        }
+        
+        # Performance-Score aktualisieren
+        results['total_score'] = self.update_performance_score()
+        
+        # Schwache Performer pausieren
+        if self.auto_pause_low_performers:
+            threshold_ctr = self.performance_threshold_ctr
+            auto_ads = self.get_auto_ads()
+            
+            for auto_ad in auto_ads:
+                if auto_ad.advertisement and auto_ad.advertisement.ctr < threshold_ctr:
+                    auto_ad.advertisement.is_active = False
+                    auto_ad.advertisement.save()
+                    results['paused_ads'].append(auto_ad.advertisement.name)
+        
+        self.last_optimization_run = timezone.now()
+        self.save(update_fields=['last_optimization_run'])
+        return results
+
+
+class AutoAdvertisement(models.Model):
+    """Automatisch generierte Advertisements für Auto-Kampagnen"""
+    
+    GENERATION_STRATEGIES = [
+        ('direct_copy', 'Direkte Kopie'),
+        ('dimension_adapted', 'An Dimensionen angepasst'),
+        ('format_optimized', 'Format-optimiert'),
+        ('ai_generated', 'KI-generiert'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    auto_campaign = models.ForeignKey(
+        AutoCampaign,
+        on_delete=models.CASCADE,
+        related_name='auto_advertisements'
+    )
+    
+    # Referenz-Creative
+    base_creative = models.TextField(
+        verbose_name='Basis-Creative',
+        help_text='JSON mit Creative-Daten (Bild-URL, Text, etc.)'
+    )
+    
+    # Automatisch generierte Advertisement
+    advertisement = models.OneToOneField(
+        Advertisement,
+        on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='auto_generated_from'
+    )
+    
+    # Ziel-Zone
+    target_zone = models.ForeignKey(
+        AdZone,
+        on_delete=models.CASCADE,
+        verbose_name='Ziel-Zone'
+    )
+    
+    # Generation-Details
+    generation_strategy = models.CharField(
+        max_length=30,
+        choices=GENERATION_STRATEGIES,
+        default='format_optimized'
+    )
+    generation_metadata = models.JSONField(
+        default=dict,
+        verbose_name='Generierungs-Metadaten'
+    )
+    
+    # Status
+    name = models.CharField(max_length=200, verbose_name='Name')
+    is_active = models.BooleanField(default=True, verbose_name='Aktiv')
+    performance_score = models.FloatField(default=0.0)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Automatische Anzeige'
+        verbose_name_plural = 'Automatische Anzeigen'
+        ordering = ['-created_at']
+        unique_together = ('auto_campaign', 'target_zone')
+    
+    def __str__(self):
+        return f"{self.name} → {self.target_zone.code}"
+    
+    def generate_advertisement(self):
+        """Generiert die tatsächliche Advertisement basierend auf dem Base-Creative"""
+        import json
+        
+        try:
+            creative_data = json.loads(self.base_creative) if isinstance(self.base_creative, str) else self.base_creative
+        except (json.JSONDecodeError, TypeError):
+            creative_data = {}
+        
+        # Advertisement erstellen oder aktualisieren
+        if not self.advertisement:
+            self.advertisement = Advertisement.objects.create(
+                campaign_id=None,  # Wird durch Auto-Campaign verwaltet
+                name=self.name,
+                ad_type=creative_data.get('type', 'image'),
+                title=creative_data.get('title', ''),
+                description=creative_data.get('description', ''),
+                target_url=creative_data.get('target_url', '#'),
+                target_type=creative_data.get('target_type', '_blank'),
+                weight=creative_data.get('weight', 5),
+                is_active=self.is_active
+            )
+            
+            # Zone zuweisen
+            self.advertisement.zones.add(self.target_zone)
+            
+            # Format-spezifische Anpassungen
+            self.apply_format_optimizations(creative_data)
+            
+            self.save()
+        
+        return self.advertisement
+    
+    def apply_format_optimizations(self, creative_data):
+        """Wendet format-spezifische Optimierungen an"""
+        if not self.advertisement:
+            return
+        
+        zone = self.target_zone
+        ad = self.advertisement
+        
+        # Dimensionsbasierte Anpassungen
+        if zone.width == 728 and zone.height == 90:
+            # Banner-Format
+            self.generation_metadata['optimized_for'] = 'banner_728x90'
+        elif zone.width == 300 and zone.height == 250:
+            # Sidebar-Format
+            self.generation_metadata['optimized_for'] = 'sidebar_300x250'
+        
+        # Zone-Typ basierte Anpassungen
+        if zone.zone_type in ['header', 'footer']:
+            # Weniger aggressiver Text für Header/Footer
+            self.generation_metadata['tone'] = 'subtle'
+        elif zone.zone_type == 'video_overlay':
+            # Transparenter Hintergrund für Video-Overlays
+            self.generation_metadata['background'] = 'transparent'
+        
+        self.save(update_fields=['generation_metadata'])
+    
+    def calculate_performance_score(self):
+        """Berechnet Performance-Score für diese Auto-Ad"""
+        if not self.advertisement:
+            return 0.0
+        
+        ad = self.advertisement
+        if ad.impressions_count == 0:
+            return 0.0
+        
+        # CTR als Hauptmetrik
+        ctr = (ad.clicks_count / ad.impressions_count) * 100
+        
+        # Zone-spezifische Gewichtung
+        zone_multiplier = 1.0
+        if self.target_zone.zone_type == 'header':
+            zone_multiplier = 1.2  # Header-Ads sind wertvoller
+        elif self.target_zone.zone_type == 'footer':
+            zone_multiplier = 0.8  # Footer-Ads weniger wertvoll
+        
+        score = ctr * zone_multiplier
+        return min(score, 100.0)
+    
+    def update_performance_score(self):
+        """Aktualisiert den Performance-Score"""
+        self.performance_score = self.calculate_performance_score()
+        self.save(update_fields=['performance_score'])
+        return self.performance_score
