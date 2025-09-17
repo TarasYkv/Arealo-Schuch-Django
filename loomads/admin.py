@@ -211,6 +211,10 @@ class AdImpressionAdmin(admin.ModelAdmin):
         return False
 
 
+# Import Auto-Campaign Admin Classes
+from .admin_auto import *
+
+
 @admin.register(AdClick)
 class AdClickAdmin(admin.ModelAdmin):
     list_display = ['advertisement', 'zone', 'user', 'ip_address', 'timestamp']
@@ -221,3 +225,7 @@ class AdClickAdmin(admin.ModelAdmin):
     
     def has_add_permission(self, request):
         return False
+
+
+# Import Auto-Campaign Admin Classes
+from .admin_auto import *
