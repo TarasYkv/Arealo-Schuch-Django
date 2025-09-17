@@ -843,11 +843,15 @@ def get_multiple_ads_for_zone(request, zone_code, count=3):
     
     # Limit count to reasonable number
     count = min(max(1, count), 10)
-    
-    # Get multiple ads
+
+    # Get multiple ads - with proper campaign status and date filtering
+    now = timezone.now()
     active_ads = Advertisement.objects.filter(
         zones=zone,
-        is_active=True
+        is_active=True,
+        campaign__status='active',  # Only active campaigns
+        campaign__start_date__lte=now,
+        campaign__end_date__gte=now
     ).select_related().order_by('?')[:count]
     
     if not active_ads:
