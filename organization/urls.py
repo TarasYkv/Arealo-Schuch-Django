@@ -30,7 +30,13 @@ urlpatterns = [
     path('boards/<int:pk>/elements/<int:element_id>/delete/', views.board_delete_element, name='board_delete_element'),
     path('boards/<int:pk>/invite-collaborators/', views.board_invite_collaborators, name='board_invite_collaborators'),
     path('boards/<int:pk>/remove-collaborator/', views.board_remove_collaborator, name='board_remove_collaborator'),
-    
+
+    # Board Audio
+    path('boards/<int:pk>/audio/join/', views.board_audio_join, name='board_audio_join'),
+    path('boards/<int:pk>/audio/leave/', views.board_audio_leave, name='board_audio_leave'),
+    path('boards/<int:pk>/audio/token/', views.board_audio_token, name='board_audio_token'),
+    path('boards/<int:pk>/audio/status/', views.board_audio_status, name='board_audio_status'),
+
     # Video/Audio Calls
     path('calls/', views.call_start_page, name='call_start_page'),
     path('calls/start/', views.call_start, name='call_start'),
