@@ -394,6 +394,20 @@ def batch_update(request, room_id):
                     sender_name = message.sender_name or "System"
                     sender_id = None
 
+                # Get attachments
+                attachments = []
+                for attachment in message.attachments.all():
+                    attachments.append({
+                        'id': attachment.id,
+                        'filename': attachment.filename,
+                        'file_size': attachment.get_file_size_display(),
+                        'file_type': attachment.file_type,
+                        'file_url': attachment.file.url,
+                        'is_image': attachment.is_image(),
+                        'is_video': attachment.is_video(),
+                        'is_audio': attachment.is_audio()
+                    })
+
                 messages_data.append({
                     'id': message.id,
                     'content': message.content,
@@ -401,7 +415,9 @@ def batch_update(request, room_id):
                     'sender_id': sender_id,
                     'is_own': message.sender == request.user if message.sender else False,
                     'formatted_time': message.created_at.strftime('%H:%M'),
-                    'message_type': message.message_type
+                    'message_type': message.message_type,
+                    'reply_to': message.reply_to.id if message.reply_to else None,
+                    'attachments': attachments
                 })
 
             response_data['messages'] = messages_data
@@ -1639,3 +1655,177 @@ def get_agora_token(request):
             'success': False,
             'error': str(e)
         })
+
+
+@login_required
+def export_chat_pdf(request, room_id):
+    """
+    Export chat messages to PDF
+    """
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, Image
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from io import BytesIO
+    from django.http import HttpResponse
+    import os
+
+    try:
+        # Get chat room
+        chat_room = get_object_or_404(ChatRoom, id=room_id)
+
+        # Check if user is participant
+        if not chat_room.participants.filter(id=request.user.id).exists():
+            return JsonResponse({'success': False, 'error': 'Nicht berechtigt'}, status=403)
+
+        # Create PDF buffer
+        buffer = BytesIO()
+
+        # Create the PDF document
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=72,
+            leftMargin=72,
+            topMargin=72,
+            bottomMargin=18,
+        )
+
+        # Container for the 'Flowable' objects
+        elements = []
+
+        # Define styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=colors.HexColor('#2C3E50'),
+            spaceAfter=30,
+            alignment=TA_CENTER,
+        )
+
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=14,
+            textColor=colors.HexColor('#34495E'),
+            spaceAfter=12,
+            spaceBefore=12,
+        )
+
+        message_style = ParagraphStyle(
+            'MessageStyle',
+            parent=styles['Normal'],
+            fontSize=10,
+            leading=14,
+            spaceAfter=6,
+        )
+
+        sender_style = ParagraphStyle(
+            'SenderStyle',
+            parent=styles['Normal'],
+            fontSize=11,
+            textColor=colors.HexColor('#3498DB'),
+            fontName='Helvetica-Bold',
+            spaceAfter=3,
+        )
+
+        time_style = ParagraphStyle(
+            'TimeStyle',
+            parent=styles['Normal'],
+            fontSize=9,
+            textColor=colors.HexColor('#7F8C8D'),
+            spaceAfter=3,
+        )
+
+        # Add title
+        title = Paragraph(f"Chat-Export: {chat_room.name or 'Privater Chat'}", title_style)
+        elements.append(title)
+
+        # Add chat info
+        info_data = []
+        info_data.append(['Chat-Information', ''])
+        info_data.append(['Erstellt am:', chat_room.created_at.strftime('%d.%m.%Y %H:%M')])
+        info_data.append(['Teilnehmer:', ', '.join([p.username for p in chat_room.participants.all()])])
+        info_data.append(['Anzahl Nachrichten:', str(chat_room.messages.count())])
+
+        info_table = Table(info_data, colWidths=[3*inch, 3*inch])
+        info_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#ECF0F1')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#2C3E50')),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#BDC3C7')),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ]))
+
+        elements.append(info_table)
+        elements.append(Spacer(1, 0.5*inch))
+
+        # Add messages header
+        messages_header = Paragraph("Chat-Verlauf", heading_style)
+        elements.append(messages_header)
+        elements.append(Spacer(1, 0.2*inch))
+
+        # Get all messages
+        messages = chat_room.messages.order_by('created_at')
+
+        for message in messages:
+            # Message container
+            msg_data = []
+
+            # Sender and time
+            sender_name = message.get_sender_name()
+            time_str = message.created_at.strftime('%d.%m.%Y %H:%M')
+
+            sender_para = Paragraph(sender_name, sender_style)
+            time_para = Paragraph(time_str, time_style)
+
+            # Message content
+            # Escape HTML characters in message content
+            content = message.content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            content = content.replace('\n', '<br/>')
+            message_para = Paragraph(content, message_style)
+
+            # Create message table
+            msg_table_data = [
+                [sender_para, time_para],
+                [message_para, '']
+            ]
+
+            msg_table = Table(msg_table_data, colWidths=[4*inch, 2*inch])
+            msg_table.setStyle(TableStyle([
+                ('SPAN', (0, 1), (1, 1)),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8F9FA')),
+                ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#DEE2E6')),
+            ]))
+
+            elements.append(msg_table)
+            elements.append(Spacer(1, 0.1*inch))
+
+        # Build PDF
+        doc.build(elements)
+
+        # Get the value of the BytesIO buffer
+        pdf = buffer.getvalue()
+        buffer.close()
+
+        # Create response
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="chat_export_{room_id}.pdf"'
+        response.write(pdf)
+
+        return response
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
