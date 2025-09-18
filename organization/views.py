@@ -621,6 +621,15 @@ def board_update_element(request, pk):
             element.position_x = data.get('position_x', element.position_x)
             element.position_y = data.get('position_y', element.position_y)
             element.rotation = data.get('rotation', element.rotation)
+
+            # Update style properties if provided
+            if 'color' in data:
+                element.color = data.get('color')
+            if 'stroke_width' in data:
+                element.stroke_width = data.get('stroke_width')
+            if 'opacity' in data:
+                element.opacity = data.get('opacity')
+
             element.save()
             
             # Update board's updated_at timestamp for polling
@@ -1221,3 +1230,46 @@ def board_audio_status(request, pk):
             'participant_count': 0,
             'user_is_participant': False
         })
+
+
+@login_required
+@csrf_exempt
+def board_update_notes(request, pk):
+    """Notizen für ein Board aktualisieren."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Nur POST-Requests erlaubt'}, status=405)
+
+    board = get_object_or_404(IdeaBoard, pk=pk)
+
+    # Zugriffsberechtigung prüfen
+    if not (board.creator == request.user or request.user in board.collaborators.all() or board.is_public):
+        return JsonResponse({'error': 'Keine Berechtigung'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+        notes = data.get('notes', '')
+
+        board.notes = notes
+        board.save(update_fields=['notes', 'updated_at'])
+
+        return JsonResponse({'success': True})
+
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Ungültige JSON-Daten'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def board_get_notes(request, pk):
+    """Notizen für ein Board abrufen."""
+    board = get_object_or_404(IdeaBoard, pk=pk)
+
+    # Zugriffsberechtigung prüfen
+    if not (board.creator == request.user or request.user in board.collaborators.all() or board.is_public):
+        return JsonResponse({'error': 'Keine Berechtigung'}, status=403)
+
+    return JsonResponse({
+        'success': True,
+        'notes': board.notes or ''
+    })
