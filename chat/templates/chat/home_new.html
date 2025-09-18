@@ -85,6 +85,7 @@
                 <div class="chat-actions">
                     <button class="btn btn-outline-secondary btn-sm" onclick="showChatInfo()" title="Benutzerinformationen">
                         <i class="fas fa-info-circle"></i>
+                        <span class="ms-1">Info</span>
                     </button>
                     <button class="btn btn-outline-danger btn-sm" onclick="deleteCurrentChat()" title="Chat löschen">
                         <i class="fas fa-trash"></i>
@@ -101,8 +102,12 @@
             <div class="message-input-area">
                 <div class="input-container">
                     <div class="input-group">
-                        <button class="btn btn-outline-secondary" type="button">
+                        <input type="file" id="fileInput" multiple style="display: none;" accept="*/*">
+                        <button class="btn btn-outline-secondary" type="button" onclick="openFileDialog()" title="Datei anhängen">
                             <i class="fas fa-paperclip"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary" type="button" onclick="toggleEmojiPicker()" title="Emojis">
+                            <i class="fas fa-smile"></i>
                         </button>
                         <input type="text" class="form-control" id="messageInput"
                                placeholder="Nachricht eingeben..." onkeypress="handleKeyPress(event)">
@@ -110,7 +115,53 @@
                             <i class="fas fa-paper-plane"></i>
                         </button>
                     </div>
+                    <!-- Emoji Picker -->
+                    <div id="emojiPicker" class="emoji-picker" style="display: none;">
+                        <div class="emoji-picker-header">
+                            <i class="fas fa-smile me-2"></i>
+                            <span>Emojis auswählen</span>
+                            <button type="button" class="btn-close btn-sm" onclick="toggleEmojiPicker()"></button>
+                        </div>
+                        <div class="emoji-picker-tabs">
+                            <button class="emoji-tab active" onclick="showEmojiCategory('smileys')" title="Smileys & Emotionen">😀</button>
+                            <button class="emoji-tab" onclick="showEmojiCategory('gestures')" title="Gesten">👋</button>
+                            <button class="emoji-tab" onclick="showEmojiCategory('hearts')" title="Herzen">❤️</button>
+                            <button class="emoji-tab" onclick="showEmojiCategory('symbols')" title="Symbole">⭐</button>
+                        </div>
+                        <div class="emoji-picker-content">
+                            <!-- Emojis will be added here -->
+                        </div>
+                    </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chat Info Modal -->
+<div class="modal fade" id="chatInfoModal" tabindex="-1" aria-labelledby="chatInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="chatInfoModalLabel">
+                    <i class="fas fa-info-circle me-2"></i>Chat-Informationen
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button>
+            </div>
+            <div class="modal-body">
+                <div id="chatInfoContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Laden...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="exportChatToPDF()" id="exportChatBtn">
+                    <i class="fas fa-file-pdf me-2"></i>Als PDF exportieren
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
             </div>
         </div>
     </div>
@@ -299,6 +350,212 @@
     padding: 20px;
     border-top: 1px solid var(--chat-border);
     background: var(--chat-bg-tertiary);
+    position: relative;
+}
+
+/* Emoji Picker Styles */
+.emoji-picker {
+    position: absolute;
+    bottom: 100%;
+    left: 50px;
+    width: 320px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 1px solid #e1e4e8;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08);
+    z-index: 1000;
+    margin-bottom: 10px;
+    animation: slideUp 0.2s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.emoji-picker-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e1e4e8;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 11px 11px 0 0;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.emoji-picker-header .btn-close {
+    filter: brightness(0) invert(1);
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+.emoji-picker-header .btn-close:hover {
+    opacity: 1;
+}
+
+.emoji-picker-tabs {
+    display: flex;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e1e4e8;
+    gap: 4px;
+}
+
+.emoji-tab {
+    background: transparent;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    opacity: 0.6;
+}
+
+.emoji-tab:hover {
+    opacity: 1;
+    background: rgba(102, 126, 234, 0.1);
+}
+
+.emoji-tab.active {
+    opacity: 1;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    transform: scale(1.05);
+}
+
+.emoji-picker-content {
+    padding: 12px;
+    max-height: 280px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+/* Custom scrollbar */
+.emoji-picker-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.emoji-picker-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.emoji-picker-content::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.emoji-picker-content::-webkit-scrollbar-thumb:hover {
+    background: #a1a1a1;
+}
+
+.emoji-btn {
+    background: transparent;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1;
+}
+
+.emoji-btn:hover {
+    background: linear-gradient(135deg, #f0f3ff 0%, #e8ebff 100%);
+    transform: scale(1.15);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+/* Attachment Styles */
+.message-attachments {
+    margin: 8px 0;
+    min-height: 40px;
+}
+
+.attachment-item {
+    margin: 4px 0;
+    padding: 8px;
+    border: 1px solid #e1e4e8;
+    border-radius: 8px;
+    background: #f8f9fa;
+}
+
+.attachment-item.image {
+    display: inline-block;
+    max-width: 250px;
+}
+
+.attachment-image {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.attachment-image:hover {
+    transform: scale(1.02);
+}
+
+.attachment-link {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: #333 !important;
+}
+
+.attachment-link:hover {
+    color: #007bff !important;
+    text-decoration: none;
+}
+
+.attachment-link:hover .attachment-name {
+    color: #007bff !important;
+}
+
+.attachment-icon {
+    margin-right: 10px;
+    font-size: 24px;
+    color: #007bff;
+    min-width: 30px;
+}
+
+.attachment-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.attachment-name {
+    font-weight: 500;
+    margin-bottom: 2px;
+    color: #333 !important;
+}
+
+.attachment-size {
+    font-size: 0.85em;
+    color: #6c757d;
+}
+
+.emoji-btn:active {
+    transform: scale(0.95);
 }
 
 /* Message styles */
@@ -644,9 +901,43 @@ class ChatManager {
             messageDiv.className = `message ${message.is_own ? 'own' : ''}`;
             messageDiv.dataset.messageId = message.id;
 
+            let attachmentsHtml = '';
+            if (message.attachments && message.attachments.length > 0) {
+                attachmentsHtml = '<div class="message-attachments">';
+                message.attachments.forEach(attachment => {
+                    if (attachment.is_image) {
+                        attachmentsHtml += `
+                            <div class="attachment-item image">
+                                <img src="${attachment.file_url}" alt="${attachment.filename}"
+                                     class="attachment-image" onclick="openImageModal('${attachment.file_url}', '${attachment.filename}')">
+                                <div class="attachment-info">
+                                    <span class="attachment-name">${attachment.filename}</span>
+                                    <span class="attachment-size">${attachment.file_size}</span>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        const icon = this.getFileIcon(attachment.file_type);
+                        attachmentsHtml += `
+                            <div class="attachment-item file">
+                                <a href="${attachment.file_url}" download="${attachment.filename}" class="attachment-link">
+                                    <div class="attachment-icon">${icon}</div>
+                                    <div class="attachment-info">
+                                        <span class="attachment-name">${attachment.filename}</span>
+                                        <span class="attachment-size">${attachment.file_size}</span>
+                                    </div>
+                                </a>
+                            </div>
+                        `;
+                    }
+                });
+                attachmentsHtml += '</div>';
+            }
+
             messageDiv.innerHTML = `
                 <div class="message-content">
-                    <div class="message-text">${this.escapeHtml(message.content)}</div>
+                    ${message.content ? `<div class="message-text">${this.escapeHtml(message.content)}</div>` : ''}
+                    ${attachmentsHtml}
                     <div class="message-time">${message.formatted_time}</div>
                 </div>
             `;
@@ -752,6 +1043,19 @@ class ChatManager {
         return div.innerHTML;
     }
 
+    getFileIcon(fileType) {
+        if (fileType.startsWith('image/')) return '<i class="fas fa-image"></i>';
+        if (fileType.startsWith('video/')) return '<i class="fas fa-video"></i>';
+        if (fileType.startsWith('audio/')) return '<i class="fas fa-music"></i>';
+        if (fileType.includes('pdf')) return '<i class="fas fa-file-pdf"></i>';
+        if (fileType.includes('word') || fileType.includes('document')) return '<i class="fas fa-file-word"></i>';
+        if (fileType.includes('excel') || fileType.includes('spreadsheet')) return '<i class="fas fa-file-excel"></i>';
+        if (fileType.includes('powerpoint') || fileType.includes('presentation')) return '<i class="fas fa-file-powerpoint"></i>';
+        if (fileType.includes('zip') || fileType.includes('rar') || fileType.includes('7z')) return '<i class="fas fa-file-archive"></i>';
+        if (fileType.includes('text')) return '<i class="fas fa-file-alt"></i>';
+        return '<i class="fas fa-file"></i>';
+    }
+
     showNotification(message) {
         if (this.notificationPermission && 'Notification' in window) {
             const notification = new Notification('Neue Nachricht', {
@@ -829,13 +1133,123 @@ function handleKeyPress(event) {
 function showChatInfo() {
     if (!chatManager.currentRoomId) return;
 
+    // Show modal with loading spinner
+    const modal = new bootstrap.Modal(document.getElementById('chatInfoModal'));
+    modal.show();
+
+    // Reset content
+    document.getElementById('chatInfoContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Laden...</span>
+            </div>
+        </div>
+    `;
+
     fetch(`/chat/api/room/${chatManager.currentRoomId}/info/`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Show chat info modal or sidebar
-                alert(`Chat Info:\n${JSON.stringify(data.room, null, 2)}`);
+                const room = data.room;
+                let htmlContent = `
+                    <div class="chat-info-details">
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="rounded-circle bg-primary bg-opacity-10 p-3 me-3">
+                                        <i class="fas fa-comments text-primary fs-4"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-0">${room.name || 'Privater Chat'}</h6>
+                                        <small class="text-muted">${room.is_group_chat ? 'Gruppenchat' : 'Einzelchat'}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="info-item mb-3">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-users text-primary me-3" style="width: 20px;"></i>
+                                <div class="flex-grow-1">
+                                    <small class="text-muted d-block">Teilnehmer</small>
+                                    <div class="fw-semibold">
+                                        ${room.participants ? room.participants.map(p => `
+                                            <span class="badge bg-secondary me-1">${p}</span>
+                                        `).join('') : 'Keine Teilnehmer'}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="info-item mb-3">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-calendar text-primary me-3" style="width: 20px;"></i>
+                                <div class="flex-grow-1">
+                                    <small class="text-muted d-block">Erstellt am</small>
+                                    <div class="fw-semibold">
+                                        ${room.created_at ? new Date(room.created_at).toLocaleDateString('de-DE', {
+                                            weekday: 'long',
+                                            year: 'numeric',
+                                            month: 'long',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        }) : 'Unbekannt'}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="info-item mb-3">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-envelope text-primary me-3" style="width: 20px;"></i>
+                                <div class="flex-grow-1">
+                                    <small class="text-muted d-block">Nachrichten</small>
+                                    <div class="fw-semibold">${room.message_count || 0} Nachrichten</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        ${room.last_message_at ? `
+                        <div class="info-item">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-clock text-primary me-3" style="width: 20px;"></i>
+                                <div class="flex-grow-1">
+                                    <small class="text-muted d-block">Letzte Aktivität</small>
+                                    <div class="fw-semibold">
+                                        ${new Date(room.last_message_at).toLocaleDateString('de-DE', {
+                                            weekday: 'long',
+                                            year: 'numeric',
+                                            month: 'long',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+
+                document.getElementById('chatInfoContent').innerHTML = htmlContent;
+            } else {
+                document.getElementById('chatInfoContent').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Fehler beim Laden der Chat-Informationen
+                    </div>
+                `;
             }
+        })
+        .catch(error => {
+            document.getElementById('chatInfoContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Ein Fehler ist aufgetreten: ${error.message}
+                </div>
+            `;
         });
 }
 
@@ -895,8 +1309,273 @@ function updateChatList() {
         });
 }
 
+// Export chat to PDF
+function exportChatToPDF() {
+    if (!chatManager.currentRoomId) return;
+
+    // Show loading state
+    const exportBtn = document.getElementById('exportChatBtn');
+    const originalText = exportBtn.innerHTML;
+    exportBtn.disabled = true;
+    exportBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Exportiere...';
+
+    fetch(`/chat/api/room/${chatManager.currentRoomId}/export-pdf/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.blob();
+        } else {
+            throw new Error('Export fehlgeschlagen');
+        }
+    })
+    .then(blob => {
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `chat_export_${chatManager.currentRoomId}_${new Date().toISOString().split('T')[0]}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        // Show success message
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3';
+        alertDiv.style.zIndex = '9999';
+        alertDiv.innerHTML = `
+            <i class="fas fa-check-circle me-2"></i>
+            Chat wurde erfolgreich als PDF exportiert!
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(alertDiv);
+
+        // Remove alert after 5 seconds
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    })
+    .catch(error => {
+        console.error('Export error:', error);
+        alert('Fehler beim Exportieren des Chats: ' + error.message);
+    })
+    .finally(() => {
+        // Reset button state
+        exportBtn.disabled = false;
+        exportBtn.innerHTML = originalText;
+    });
+}
+
+// Emoji Picker Functions
+function toggleEmojiPicker() {
+    const picker = document.getElementById('emojiPicker');
+    if (picker.style.display === 'none') {
+        picker.style.display = 'block';
+        if (!picker.dataset.initialized) {
+            initializeEmojiPicker();
+            picker.dataset.initialized = 'true';
+        }
+    } else {
+        picker.style.display = 'none';
+    }
+}
+
+function openFileDialog() {
+    document.getElementById('fileInput').click();
+}
+
+function sendFilesAsAttachments(files) {
+    if (!chatManager.currentRoomId) {
+        alert('Bitte wählen Sie zuerst einen Chat aus.');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('content', ''); // Empty content since we're only sending files
+
+    files.forEach(file => {
+        formData.append('attachments', file);
+    });
+
+    fetch(`/chat/api/room/${chatManager.currentRoomId}/send/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Reset file input
+            document.getElementById('fileInput').value = '';
+
+            // Add message to chat
+            if (data.message) {
+                chatManager.displayMessages([data.message]);
+                updateChatList();
+            }
+        } else {
+            alert('Fehler beim Senden der Datei: ' + (data.error || 'Unbekannter Fehler'));
+        }
+    })
+    .catch(error => {
+        console.error('Fehler beim Senden der Datei:', error);
+        alert('Fehler beim Senden der Datei.');
+    });
+}
+
+// Emoji categories
+const emojiCategories = {
+    smileys: [
+        '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃',
+        '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙',
+        '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔',
+        '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥',
+        '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮',
+        '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '😎', '🤓',
+        '🧐', '😕', '😟', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺',
+        '😦', '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣',
+        '😞', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈',
+        '👿', '💀', '☠️', '💩', '🤡', '👹', '👺', '👻', '👽', '👾',
+        '🤖', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾'
+    ],
+    gestures: [
+        '👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤌', '🤏', '✌️', '🤞',
+        '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍',
+        '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝',
+        '🙏', '💪', '🦾', '🦿', '🦵', '🦶', '👂', '🦻', '👃', '🧠',
+        '🫀', '🫁', '🦷', '🦴', '👀', '👁️', '👅', '👄', '💋', '🩸'
+    ],
+    hearts: [
+        '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔',
+        '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '💌',
+        '💐', '🌹', '🥀', '🌷', '🌺', '🌸', '🌻', '🌼', '💍', '💎'
+    ],
+    symbols: [
+        '⭐', '🌟', '✨', '⚡', '🔥', '💫', '🌈', '☀️', '⛅', '🌤️',
+        '⛈️', '🌩️', '❄️', '☃️', '⛄', '🎉', '🎊', '🎈', '🎁', '🏆',
+        '🥇', '🥈', '🥉', '🏅', '🎖️', '🎗️', '🎯', '🎲', '🎮', '🕹️',
+        '🎰', '🎳', '🎯', '🚀', '🛸', '🌍', '🌎', '🌏', '🗺️', '⭐',
+        '☮️', '✝️', '☪️', '🕉️', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️'
+    ]
+};
+
+function initializeEmojiPicker() {
+    // Start with smileys category
+    showEmojiCategory('smileys');
+}
+
+function showEmojiCategory(category) {
+    const emojiContent = document.querySelector('.emoji-picker-content');
+    const tabs = document.querySelectorAll('.emoji-tab');
+
+    // Clear content
+    emojiContent.innerHTML = '';
+
+    // Update active tab
+    tabs.forEach((tab, index) => {
+        tab.classList.remove('active');
+        if ((category === 'smileys' && index === 0) ||
+            (category === 'gestures' && index === 1) ||
+            (category === 'hearts' && index === 2) ||
+            (category === 'symbols' && index === 3)) {
+            tab.classList.add('active');
+        }
+    });
+
+    // Add emojis for selected category
+    const emojis = emojiCategories[category] || emojiCategories.smileys;
+
+    emojis.forEach(emoji => {
+        const btn = document.createElement('button');
+        btn.className = 'emoji-btn';
+        btn.textContent = emoji;
+        btn.onclick = () => insertEmoji(emoji);
+        emojiContent.appendChild(btn);
+    });
+}
+
+function insertEmoji(emoji) {
+    const input = document.getElementById('messageInput');
+    const cursorPos = input.selectionStart;
+    const textBefore = input.value.substring(0, cursorPos);
+    const textAfter = input.value.substring(cursorPos);
+
+    input.value = textBefore + emoji + textAfter;
+    input.focus();
+    input.selectionStart = input.selectionEnd = cursorPos + emoji.length;
+}
+
+function openImageModal(imageUrl, filename) {
+    // Create modal HTML
+    const modalHtml = `
+        <div class="modal fade" id="imageModal" tabindex="-1">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">${filename}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <img src="${imageUrl}" alt="${filename}" style="max-width: 100%; height: auto;">
+                    </div>
+                    <div class="modal-footer">
+                        <a href="${imageUrl}" download="${filename}" class="btn btn-primary">
+                            <i class="fas fa-download me-2"></i>Herunterladen
+                        </a>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Remove existing modal if any
+    const existingModal = document.getElementById('imageModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    // Add new modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('imageModal'));
+    modal.show();
+
+    // Remove modal from DOM when closed
+    document.getElementById('imageModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+}
+
+// Close emoji picker when clicking outside
+document.addEventListener('click', function(event) {
+    const picker = document.getElementById('emojiPicker');
+    const button = event.target.closest('button[onclick="toggleEmojiPicker()"]');
+
+    if (!picker.contains(event.target) && !button) {
+        picker.style.display = 'none';
+    }
+});
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize file input handler
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+        const files = Array.from(e.target.files);
+        if (files.length > 0) {
+            sendFilesAsAttachments(files);
+        }
+    });
+
     // Initialize search
     const searchInput = document.getElementById('chatSearch');
     if (searchInput) {

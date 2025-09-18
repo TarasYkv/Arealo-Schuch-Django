@@ -118,6 +118,13 @@
             backdrop-filter: blur(5px);
         }
 
+        /* Specific styling for user dropdown to prevent hover interference */
+        .navbar-nav .nav-item:last-child .nav-link {
+            margin-right: 0 !important;
+            position: relative;
+            z-index: 10;
+        }
+
         .navbar-nav .nav-link::before {
             content: '';
             position: absolute;
@@ -127,10 +134,18 @@
             height: 100%;
             background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
             transition: left 0.5s;
+            pointer-events: none; /* Prevent interference with other elements */
+            z-index: 0; /* Keep below content */
         }
 
         .navbar-nav .nav-link:hover::before {
             left: 100%;
+        }
+
+        /* Disable the ::before animation for communication and user dropdowns to prevent overlap */
+        #kommunikationDropdown::before,
+        #userDropdown::before {
+            display: none !important;
         }
 
         .navbar-nav .nav-link:hover {
@@ -138,6 +153,38 @@
             color: #ffffff !important;
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        /* Prevent hover bleed between adjacent nav items */
+        .navbar-nav .nav-item {
+            position: relative;
+            z-index: 1;
+        }
+
+        .navbar-nav .nav-item:hover {
+            z-index: 2;
+        }
+
+        /* Specific isolation for communication and user dropdowns */
+        .communication-dropdown .nav-link {
+            display: inline-block;
+            width: auto;
+        }
+
+        #userDropdown {
+            display: inline-block;
+            width: auto;
+        }
+
+        /* Prevent hover overlap */
+        .navbar-nav .dropdown + .dropdown {
+            margin-left: 0.5rem;
+        }
+
+        /* Ensure dropdowns don't affect each other on hover */
+        .navbar-nav .dropdown {
+            display: inline-block;
+            vertical-align: top;
         }
 
         .navbar-nav .nav-link.active {
@@ -1645,8 +1692,8 @@
                     
                     <!-- Kommunikation Dropdown Menu -->
                     {% if user|can_see_app_in_frontend:"chat" or user|can_see_app_in_frontend:"mail" %}
-                    <div class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle position-relative" href="#" id="kommunikationDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <div class="nav-item dropdown communication-dropdown">
+                        <a class="nav-link dropdown-toggle position-relative" href="#" id="kommunikationDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="margin-right: 0.5rem;">
                             <i class="bi bi-chat-dots"></i> Kommunikation
                             {% if user.is_authenticated and user|can_see_app_in_frontend:"chat" %}
                                 <!-- Badge wird jetzt nur im User-Dropdown angezeigt -->
@@ -1670,9 +1717,9 @@
                     
                     
                     <!-- User Menu Dropdown -->
-                    <div class="nav-item dropdown" style="position: relative; overflow: visible; margin-right: 15px;">
+                    <div class="nav-item dropdown ms-2" style="position: relative; overflow: visible; isolation: isolate;">
                         {% if user.is_authenticated %}
-                            <a class="nav-link dropdown-toggle position-relative" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="padding-right: 1.5rem; overflow: visible;">
+                            <a class="nav-link dropdown-toggle position-relative" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="padding-right: 2rem; overflow: visible; pointer-events: auto;">
                                 {% if user.profile_picture %}
                                     <img src="{{ user.profile_picture.url }}" alt="Profilbild" class="rounded-circle me-1" style="width: 24px; height: 24px; object-fit: cover;">
                                 {% else %}

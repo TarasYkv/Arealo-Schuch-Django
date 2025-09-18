@@ -22,6 +22,7 @@ urlpatterns = [
     path('set-offline/', views.set_offline, name='set_offline'),
     path('api/room/<int:room_id>/delete/', views.delete_chat, name='delete_chat'),
     path('api/room/<int:room_id>/info/', views.get_chat_info, name='get_chat_info'),
+    path('api/room/<int:room_id>/export-pdf/', views.export_chat_pdf, name='export_chat_pdf'),
 
     # Call-related endpoints (disabled - no video/audio calls)
     # path('api/room/<int:room_id>/call/initiate/', views.initiate_call, name='initiate_call'),
