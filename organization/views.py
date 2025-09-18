@@ -663,7 +663,7 @@ def board_clear_elements(request, pk):
 @csrf_exempt
 def board_delete_element(request, pk, element_id):
     """Lösche ein Element vom Ideenboard."""
-    if request.method == 'DELETE':
+    if request.method in ['DELETE', 'POST']:
         board = get_object_or_404(IdeaBoard, pk=pk)
         
         # Zugriffsberechtigung prüfen
@@ -682,8 +682,8 @@ def board_delete_element(request, pk, element_id):
             
         except BoardElement.DoesNotExist:
             return JsonResponse({'error': 'Element nicht gefunden'}, status=404)
-    
-    return JsonResponse({'error': 'Nur DELETE erlaubt'}, status=405)
+
+    return JsonResponse({'error': 'Nur DELETE oder POST erlaubt'}, status=405)
 
 
 @login_required
