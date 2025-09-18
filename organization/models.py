@@ -134,6 +134,7 @@ class IdeaBoard(models.Model):
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_boards', verbose_name="Ersteller")
     collaborators = models.ManyToManyField(User, blank=True, related_name='collaborated_boards', verbose_name="Mitarbeiter")
     canvas_data = models.JSONField(default=dict, verbose_name="Canvas-Daten")
+    notes = models.TextField(blank=True, verbose_name="Gemeinsame Notizen")
     width = models.IntegerField(default=1200, verbose_name="Breite")
     height = models.IntegerField(default=800, verbose_name="Höhe")
     background_color = models.CharField(max_length=7, default='#ffffff', verbose_name="Hintergrundfarbe")
@@ -167,6 +168,7 @@ class BoardElement(models.Model):
         ('text', 'Text'),
         ('image', 'Bild'),
         ('freehand', 'Freihand'),
+        ('brush', 'Pinsel'),
     ]
     
     board = models.ForeignKey(IdeaBoard, on_delete=models.CASCADE, related_name='elements', verbose_name="Board")

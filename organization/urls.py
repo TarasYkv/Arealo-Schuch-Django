@@ -37,6 +37,10 @@ urlpatterns = [
     path('boards/<int:pk>/audio/token/', views.board_audio_token, name='board_audio_token'),
     path('boards/<int:pk>/audio/status/', views.board_audio_status, name='board_audio_status'),
 
+    # Board Notes
+    path('boards/<int:pk>/update-notes/', views.board_update_notes, name='board_update_notes'),
+    path('boards/<int:pk>/get-notes/', views.board_get_notes, name='board_get_notes'),
+
     # Video/Audio Calls
     path('calls/', views.call_start_page, name='call_start_page'),
     path('calls/start/', views.call_start, name='call_start'),

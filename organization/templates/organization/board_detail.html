@@ -15,6 +15,11 @@
                         <span id="audio-participants" class="badge bg-secondary ms-1" style="display: none;">0</span>
                     </button>
 
+                    <!-- Mute Button (only visible when audio is active) -->
+                    <button type="button" id="mute-toggle-btn" class="btn btn-outline-warning me-2" style="display: none;">
+                        🔇 <span id="mute-text">Stumm schalten</span>
+                    </button>
+
                     {% if board.creator == request.user %}
                         <button type="button" class="btn btn-info me-2" data-bs-toggle="modal" data-bs-target="#inviteModal">
                             👥 Personen einladen
@@ -91,22 +96,21 @@
                     </div>
                     
                     <hr>
-                    
-                    <!-- Drag & Drop Lösch-Bereich -->
-                    <div id="drop-delete-zone" class="mb-3 p-3 text-center border-2 border-dashed border-warning rounded" style="background: #fff3cd; transition: all 0.3s;">
-                        <div class="text-warning">
-                            <i class="display-6">🗑️</i><br>
-                            <small><strong>Hierher ziehen zum Löschen</strong></small>
-                        </div>
+
+                    <div class="d-grid gap-2 my-3">
+                        <button type="button" class="btn btn-warning btn-sm" id="clear-canvas" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
+                            🗑️ Canvas löschen
+                        </button>
+
+                        <button type="button" class="btn btn-success btn-sm" id="save-board" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
+                            💾 Speichern
+                        </button>
+
+                        <button type="button" class="btn btn-info btn-sm" id="download-board" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
+                            📥 Download JPG
+                        </button>
                     </div>
 
-                    <button type="button" class="btn btn-warning btn-sm mb-2" id="clear-canvas">
-                        🗑️ Canvas löschen
-                    </button>
-
-                    <button type="button" class="btn btn-success btn-sm" id="save-board">
-                        💾 Speichern
-                    </button>
                 </div>
             </div>
         </div>
@@ -192,7 +196,70 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Shared Notes Section - Below Canvas -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">📝 Gemeinsame Notizen</h6>
+                </div>
+                <div class="card-body">
+                    <!-- Rich Text Editor Toolbar -->
+                    <div id="notes-toolbar">
+                        <span class="ql-formats">
+                            <button class="ql-bold" title="Fett"></button>
+                            <button class="ql-italic" title="Kursiv"></button>
+                            <button class="ql-underline" title="Unterstrichen"></button>
+                        </span>
+                        <span class="ql-formats">
+                            <button class="ql-list" value="ordered" title="Nummerierte Liste"></button>
+                            <button class="ql-list" value="bullet" title="Aufzählung"></button>
+                        </span>
+                        <span class="ql-formats">
+                            <select class="ql-color" title="Textfarbe">
+                                <option selected></option>
+                                <option value="red"></option>
+                                <option value="orange"></option>
+                                <option value="yellow"></option>
+                                <option value="green"></option>
+                                <option value="blue"></option>
+                                <option value="purple"></option>
+                            </select>
+                            <select class="ql-background" title="Hintergrundfarbe">
+                                <option selected></option>
+                                <option value="red"></option>
+                                <option value="orange"></option>
+                                <option value="yellow"></option>
+                                <option value="green"></option>
+                                <option value="blue"></option>
+                                <option value="purple"></option>
+                            </select>
+                        </span>
+                        <span class="ql-formats">
+                            <select class="ql-size" title="Schriftgröße">
+                                <option value="small">Klein</option>
+                                <option selected>Normal</option>
+                                <option value="large">Groß</option>
+                                <option value="huge">Sehr groß</option>
+                            </select>
+                        </span>
+                    </div>
+
+                    <!-- Rich Text Editor Content -->
+                    <div id="board-notes-editor" style="height: 150px;"></div>
+
+                    <!-- Hidden textarea for form compatibility -->
+                    <textarea id="board-notes" style="display: none;">{{ board.notes }}</textarea>
+
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <small class="text-muted" id="notes-status">Automatisch gespeichert</small>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="save-notes-btn">
+                            💾 Notizen speichern
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
+
     </div>
 </div>
 
@@ -319,6 +386,69 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
                 <button type="button" class="btn btn-primary" id="addTextButton">Text hinzufügen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Shape Properties Modal -->
+<div class="modal fade" id="shapePropertiesModal" tabindex="-1" aria-labelledby="shapePropertiesModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="shapePropertiesModalLabel">🎨 Eigenschaften bearbeiten</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Live-Vorschau -->
+                <div class="mb-3">
+                    <label class="form-label">👁️ Vorschau</label>
+                    <div id="shapePreview" style="border: 1px solid #ddd; padding: 15px; height: 100px; background: #f9f9f9; border-radius: 5px; display: flex; align-items: center; justify-content: center;">
+                        <div id="shapePreviewElement" style="width: 60px; height: 60px; background: #000000; border: 2px solid #000000;"></div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="shapeColor" class="form-label">🎨 Farbe</label>
+                            <input type="color" class="form-control form-control-color" id="shapeColor" value="#000000">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="shapeStrokeWidth" class="form-label">📏 Strichstärke</label>
+                            <input type="range" class="form-range" id="shapeStrokeWidth" min="1" max="20" value="2">
+                            <div class="text-center"><span id="shapeStrokeWidthValue">2</span>px</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="shapeOpacity" class="form-label">🔍 Transparenz</label>
+                            <input type="range" class="form-range" id="shapeOpacity" min="0" max="100" value="100">
+                            <div class="text-center"><span id="shapeOpacityValue">100</span>%</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <!-- Fill option for geometric shapes - 2x2 grid position -->
+                        <div class="mb-3" id="shapeFillOption" style="display: none;">
+                            <label class="form-label">🎨 Füllung</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="shapeFilled">
+                                <label class="form-check-label" for="shapeFilled">
+                                    Form ausfüllen
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="updateShapeButton">Eigenschaften aktualisieren</button>
             </div>
         </div>
     </div>
@@ -507,6 +637,11 @@ class IdeaBoard {
         document.getElementById('save-board').addEventListener('click', () => {
             this.saveBoard();
         });
+
+        // Download Board as JPG
+        document.getElementById('download-board').addEventListener('click', () => {
+            this.downloadBoard();
+        });
         
         // Zoom controls
         document.getElementById('zoom-in').addEventListener('click', () => {
@@ -554,6 +689,17 @@ class IdeaBoard {
         document.getElementById('textBold').addEventListener('change', () => this.updateTextPreview());
         document.getElementById('textItalic').addEventListener('change', () => this.updateTextPreview());
         document.getElementById('textColor').addEventListener('change', () => this.updateTextPreview());
+
+        // Shape Properties Modal Event Listeners
+        document.getElementById('updateShapeButton').addEventListener('click', () => {
+            this.handleShapePropertiesSubmit();
+        });
+
+        // Shape Preview Event Listeners
+        document.getElementById('shapeColor').addEventListener('change', () => this.updateShapePreview());
+        document.getElementById('shapeStrokeWidth').addEventListener('input', () => this.updateShapePreview());
+        document.getElementById('shapeOpacity').addEventListener('input', () => this.updateShapePreview());
+        document.getElementById('shapeFilled').addEventListener('change', () => this.updateShapePreview());
     }
     
     getCanvasCoordinates(e) {
@@ -679,11 +825,18 @@ class IdeaBoard {
 
         switch (this.currentTool) {
             case 'pen':
-            case 'brush':
                 this.ctx.beginPath();
                 this.ctx.moveTo(this.startX, this.startY);
                 this.ctx.lineTo(currentX, currentY);
                 this.ctx.stroke();
+                this.currentPath.push({x: currentX, y: currentY});
+                this.startX = currentX;
+                this.startY = currentY;
+                break;
+
+            case 'brush':
+                // Live brush effect during drawing
+                this.drawLiveBrushStroke(this.startX, this.startY, currentX, currentY);
                 this.currentPath.push({x: currentX, y: currentY});
                 this.startX = currentX;
                 this.startY = currentY;
@@ -767,7 +920,86 @@ class IdeaBoard {
         this.ctx.lineTo(toX - headLen * Math.cos(angle + Math.PI / 6), toY - headLen * Math.sin(angle + Math.PI / 6));
         this.ctx.stroke();
     }
-    
+
+    drawBrushStroke(path, strokeWidth) {
+        // Pinsel-Effekt: unregelmäßige, texturierte Striche
+        this.ctx.save();
+        this.ctx.lineCap = 'round';
+        this.ctx.lineJoin = 'round';
+
+        for (let i = 0; i < path.length - 1; i++) {
+            const currentPoint = path[i];
+            const nextPoint = path[i + 1];
+
+            // Variiere die Strichstärke für natürlichen Effekt
+            const variance = strokeWidth * 0.3;
+            const currentWidth = strokeWidth + (Math.random() - 0.5) * variance;
+            this.ctx.lineWidth = Math.max(1, currentWidth);
+
+            // Zeichne mehrere parallele Linien mit leichten Versätzen für Textur
+            const numStrokes = Math.max(2, Math.floor(strokeWidth / 2));
+
+            for (let j = 0; j < numStrokes; j++) {
+                this.ctx.beginPath();
+
+                // Füge zufällige Versätze hinzu für unregelmäßigen Effekt
+                const offset = (Math.random() - 0.5) * strokeWidth * 0.4;
+                const perpAngle = Math.atan2(nextPoint.y - currentPoint.y, nextPoint.x - currentPoint.x) + Math.PI / 2;
+
+                const startX = currentPoint.x + Math.cos(perpAngle) * offset;
+                const startY = currentPoint.y + Math.sin(perpAngle) * offset;
+                const endX = nextPoint.x + Math.cos(perpAngle) * offset;
+                const endY = nextPoint.y + Math.sin(perpAngle) * offset;
+
+                this.ctx.moveTo(startX, startY);
+                this.ctx.lineTo(endX, endY);
+
+                // Variiere die Transparenz für unregelmäßigen Effekt
+                const alpha = 0.3 + Math.random() * 0.4;
+                this.ctx.globalAlpha = alpha;
+                this.ctx.stroke();
+            }
+        }
+
+        this.ctx.restore();
+    }
+
+    drawLiveBrushStroke(startX, startY, endX, endY) {
+        // Live brush effect during drawing - simpler version for real-time performance
+        this.ctx.save();
+        this.ctx.lineCap = 'round';
+        this.ctx.lineJoin = 'round';
+
+        // Create multiple slightly offset strokes for texture effect
+        const numStrokes = Math.max(2, Math.floor(this.currentStrokeWidth / 3));
+
+        for (let i = 0; i < numStrokes; i++) {
+            this.ctx.beginPath();
+
+            // Add random offset for irregular effect
+            const offset = (Math.random() - 0.5) * this.currentStrokeWidth * 0.3;
+            const angle = Math.atan2(endY - startY, endX - startX) + Math.PI / 2;
+
+            const offsetStartX = startX + Math.cos(angle) * offset;
+            const offsetStartY = startY + Math.sin(angle) * offset;
+            const offsetEndX = endX + Math.cos(angle) * offset;
+            const offsetEndY = endY + Math.sin(angle) * offset;
+
+            this.ctx.moveTo(offsetStartX, offsetStartY);
+            this.ctx.lineTo(offsetEndX, offsetEndY);
+
+            // Vary line width slightly
+            this.ctx.lineWidth = this.currentStrokeWidth + (Math.random() - 0.5) * this.currentStrokeWidth * 0.2;
+
+            // Vary opacity for texture
+            this.ctx.globalAlpha = (this.currentOpacity || 1) * (0.4 + Math.random() * 0.4);
+
+            this.ctx.stroke();
+        }
+
+        this.ctx.restore();
+    }
+
     redrawCanvas() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
@@ -808,22 +1040,43 @@ class IdeaBoard {
         
         switch (element.element_type) {
             case 'rectangle':
-                this.ctx.strokeRect(data.x, data.y, data.width, data.height);
+                if (data.filled === true) {
+                    // Filled rectangle (default behavior)
+                    this.ctx.fillRect(data.x, data.y, data.width, data.height);
+                    this.ctx.strokeRect(data.x, data.y, data.width, data.height);
+                } else {
+                    // Hollow rectangle
+                    this.ctx.strokeRect(data.x, data.y, data.width, data.height);
+                }
                 break;
-                
+
             case 'circle':
                 this.ctx.beginPath();
                 this.ctx.arc(data.x, data.y, data.radius, 0, 2 * Math.PI);
-                this.ctx.stroke();
+                if (data.filled === true) {
+                    // Filled circle (default behavior)
+                    this.ctx.fill();
+                    this.ctx.stroke();
+                } else {
+                    // Hollow circle
+                    this.ctx.stroke();
+                }
                 break;
-                
+
             case 'triangle':
                 this.ctx.beginPath();
                 this.ctx.moveTo(data.x1, data.y1);
                 this.ctx.lineTo(data.x2, data.y2);
                 this.ctx.lineTo(data.x3, data.y3);
                 this.ctx.closePath();
-                this.ctx.stroke();
+                if (data.filled === true) {
+                    // Filled triangle (default behavior)
+                    this.ctx.fill();
+                    this.ctx.stroke();
+                } else {
+                    // Hollow triangle
+                    this.ctx.stroke();
+                }
                 break;
                 
             case 'line':
@@ -845,6 +1098,12 @@ class IdeaBoard {
                         this.ctx.lineTo(data.path[i].x, data.path[i].y);
                     }
                     this.ctx.stroke();
+                }
+                break;
+
+            case 'brush':
+                if (data.path && data.path.length > 1) {
+                    this.drawBrushStroke(data.path, element.stroke_width || 2);
                 }
                 break;
                 
@@ -991,8 +1250,16 @@ class IdeaBoard {
         
         switch (this.currentTool) {
             case 'pen':
-            case 'brush':
                 this.saveElement('freehand', {
+                    path: this.currentPath,
+                    color: this.currentColor,
+                    strokeWidth: this.currentStrokeWidth,
+                    opacity: this.currentOpacity
+                });
+                break;
+
+            case 'brush':
+                this.saveElement('brush', {
                     path: this.currentPath,
                     color: this.currentColor,
                     strokeWidth: this.currentStrokeWidth,
@@ -1006,7 +1273,8 @@ class IdeaBoard {
                         x: this.startX,
                         y: this.startY,
                         width: width,
-                        height: height
+                        height: height,
+                        filled: false // Default to hollow for new shapes
                     });
                 }
                 break;
@@ -1017,7 +1285,8 @@ class IdeaBoard {
                     this.saveElement('circle', {
                         x: this.startX,
                         y: this.startY,
-                        radius: radius
+                        radius: radius,
+                        filled: false // Default to hollow for new shapes
                     });
                 }
                 break;
@@ -1030,7 +1299,8 @@ class IdeaBoard {
                         x2: endX,
                         y2: endY,
                         x3: this.startX - width,
-                        y3: endY
+                        y3: endY,
+                        filled: false // Default to hollow for new shapes
                     });
                 }
                 break;
@@ -1155,10 +1425,15 @@ class IdeaBoard {
         const x = coords.x;
         const y = coords.y;
 
-        // Check if double-clicking on a text element
+        // Check if double-clicking on an element
         const clickedElement = this.getElementAt(x, y);
-        if (clickedElement && clickedElement.element_type === 'text') {
-            this.editText(clickedElement);
+        if (clickedElement) {
+            if (clickedElement.element_type === 'text') {
+                this.editText(clickedElement);
+            } else {
+                // For other shapes, open properties modal
+                this.editShapeProperties(clickedElement);
+            }
         }
     }
 
@@ -1253,7 +1528,249 @@ class IdeaBoard {
         const modal = bootstrap.Modal.getInstance(document.getElementById('textInputModal'));
         modal.hide();
     }
-    
+
+    editShapeProperties(element) {
+        // Store reference to element being edited
+        this.editingElement = element;
+
+        // Open modal with current property values
+        const modal = new bootstrap.Modal(document.getElementById('shapePropertiesModal'));
+
+        // Fill form with current values
+        document.getElementById('shapeColor').value = element.color || '#000000';
+        document.getElementById('shapeStrokeWidth').value = element.stroke_width || 2;
+        document.getElementById('shapeOpacity').value = Math.round((element.opacity || 1) * 100);
+
+        // Update display values
+        document.getElementById('shapeStrokeWidthValue').textContent = element.stroke_width || 2;
+        document.getElementById('shapeOpacityValue').textContent = Math.round((element.opacity || 1) * 100);
+
+        // Show/hide fill option for geometric shapes
+        const shapeFillOption = document.getElementById('shapeFillOption');
+        const geometricShapes = ['circle', 'rectangle', 'triangle'];
+        if (geometricShapes.includes(element.element_type)) {
+            shapeFillOption.style.display = 'block';
+            // Set the filled state based on element data or default to false (hollow)
+            document.getElementById('shapeFilled').checked = element.data?.filled === true;
+        } else {
+            shapeFillOption.style.display = 'none';
+        }
+
+        // Set modal title based on shape type
+        const titleMap = {
+            'rectangle': '📐 Rechteck bearbeiten',
+            'circle': '⭕ Kreis bearbeiten',
+            'triangle': '🔺 Dreieck bearbeiten',
+            'line': '📏 Linie bearbeiten',
+            'arrow': '➡️ Pfeil bearbeiten',
+            'pen': '✏️ Stift bearbeiten',
+            'brush': '🖌️ Pinsel bearbeiten'
+        };
+
+        const title = titleMap[element.element_type] || '🎨 Eigenschaften bearbeiten';
+        document.getElementById('shapePropertiesModalLabel').textContent = title;
+
+        modal.show();
+
+        // Update preview
+        this.updateShapePreview();
+    }
+
+    updateShapePreview() {
+        const color = document.getElementById('shapeColor').value;
+        const strokeWidth = parseInt(document.getElementById('shapeStrokeWidth').value);
+        const opacity = parseInt(document.getElementById('shapeOpacity').value) / 100;
+
+        // Get filled state for geometric shapes
+        const shapeFilled = document.getElementById('shapeFilled').checked;
+
+        // Update display values
+        document.getElementById('shapeStrokeWidthValue').textContent = strokeWidth;
+        document.getElementById('shapeOpacityValue').textContent = Math.round(opacity * 100);
+
+        const previewElement = document.getElementById('shapePreviewElement');
+
+        // Reset all styles first
+        previewElement.style.borderRadius = '';
+        previewElement.style.background = '';
+        previewElement.style.backgroundColor = '';
+        previewElement.style.border = '';
+        previewElement.style.borderLeft = '';
+        previewElement.style.borderRight = '';
+        previewElement.style.borderBottom = '';
+        previewElement.style.borderTop = '';
+        previewElement.style.height = '60px';
+        previewElement.style.width = '60px';
+        previewElement.innerHTML = '';
+
+        // Update preview element based on editing element type
+        if (this.editingElement) {
+            const elementType = this.editingElement.element_type;
+            console.log('Updating preview for element type:', elementType, 'filled:', shapeFilled);
+
+            switch (elementType) {
+                case 'circle':
+                    previewElement.style.borderRadius = '50%';
+                    if (shapeFilled) {
+                        previewElement.style.backgroundColor = color;
+                        previewElement.style.border = `${strokeWidth}px solid ${color}`;
+                    } else {
+                        previewElement.style.backgroundColor = 'transparent';
+                        previewElement.style.border = `${strokeWidth}px solid ${color}`;
+                    }
+                    break;
+
+                case 'rectangle':
+                    previewElement.style.borderRadius = '4px';
+                    if (shapeFilled) {
+                        previewElement.style.backgroundColor = color;
+                        previewElement.style.border = `${strokeWidth}px solid ${color}`;
+                    } else {
+                        previewElement.style.backgroundColor = 'transparent';
+                        previewElement.style.border = `${strokeWidth}px solid ${color}`;
+                    }
+                    break;
+
+                case 'triangle':
+                    previewElement.style.backgroundColor = 'transparent';
+                    previewElement.style.border = 'none';
+                    previewElement.style.width = '60px';
+                    previewElement.style.height = '60px';
+
+                    // Use SVG for better triangle preview
+                    if (shapeFilled) {
+                        previewElement.innerHTML = `
+                            <svg width="60" height="60" viewBox="0 0 60 60">
+                                <polygon points="30,10 50,50 10,50"
+                                         fill="${color}"
+                                         stroke="${color}"
+                                         stroke-width="${strokeWidth}"/>
+                            </svg>`;
+                    } else {
+                        previewElement.innerHTML = `
+                            <svg width="60" height="60" viewBox="0 0 60 60">
+                                <polygon points="30,10 50,50 10,50"
+                                         fill="none"
+                                         stroke="${color}"
+                                         stroke-width="${strokeWidth}"/>
+                            </svg>`;
+                    }
+                    break;
+
+                case 'line':
+                    previewElement.style.backgroundColor = color;
+                    previewElement.style.height = `${strokeWidth}px`;
+                    previewElement.style.width = '60px';
+                    previewElement.style.borderRadius = `${strokeWidth/2}px`;
+                    break;
+
+                case 'arrow':
+                    // Create arrow shape with CSS
+                    previewElement.style.backgroundColor = color;
+                    previewElement.style.height = `${strokeWidth}px`;
+                    previewElement.style.width = '50px';
+                    previewElement.style.position = 'relative';
+                    previewElement.style.borderRadius = `${strokeWidth/2}px`;
+
+                    // Add arrow head using pseudo-element or create a simple representation
+                    previewElement.innerHTML = `<div style="position: absolute; right: -${strokeWidth*2}px; top: -${strokeWidth*2}px; width: 0; height: 0; border-left: ${strokeWidth*3}px solid ${color}; border-top: ${strokeWidth*2}px solid transparent; border-bottom: ${strokeWidth*2}px solid transparent;"></div>`;
+                    break;
+
+                case 'pen':
+                case 'brush':
+                case 'freehand':
+                    // Show a wavy line to represent freehand drawing
+                    previewElement.style.backgroundColor = 'transparent';
+                    previewElement.style.border = 'none';
+                    previewElement.innerHTML = `
+                        <svg width="60" height="60" viewBox="0 0 60 60">
+                            <path d="M10,30 Q20,10 30,30 T50,30"
+                                  stroke="${color}"
+                                  stroke-width="${strokeWidth}"
+                                  fill="none"
+                                  stroke-linecap="round"/>
+                        </svg>`;
+                    break;
+
+                default:
+                    // Default to rectangle-like shape
+                    previewElement.style.borderRadius = '4px';
+                    previewElement.style.backgroundColor = color;
+                    previewElement.style.border = `${strokeWidth}px solid ${color}`;
+            }
+        }
+
+        previewElement.style.opacity = opacity;
+    }
+
+    handleShapePropertiesSubmit() {
+        if (!this.editingElement) return;
+
+        const color = document.getElementById('shapeColor').value;
+        const strokeWidth = parseInt(document.getElementById('shapeStrokeWidth').value);
+        const opacity = parseInt(document.getElementById('shapeOpacity').value) / 100;
+
+        // Update element properties
+        this.editingElement.color = color;
+        this.editingElement.stroke_width = strokeWidth;
+        this.editingElement.opacity = opacity;
+
+        // Update filled state for geometric shapes
+        const geometricShapes = ['circle', 'rectangle', 'triangle'];
+        if (geometricShapes.includes(this.editingElement.element_type)) {
+            const shapeFilled = document.getElementById('shapeFilled').checked;
+            if (!this.editingElement.data) {
+                this.editingElement.data = {};
+            }
+            this.editingElement.data.filled = shapeFilled;
+        }
+
+        // Update element on server
+        if (this.editingElement.id) {
+            const updateData = {
+                color: color,
+                stroke_width: strokeWidth,
+                opacity: opacity
+            };
+
+            // Add filled state to data if it's a geometric shape
+            if (geometricShapes.includes(this.editingElement.element_type)) {
+                updateData.data = this.editingElement.data;
+            }
+
+            fetch(`/organization/boards/{{ board.pk }}/update-element/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    element_id: this.editingElement.id,
+                    ...updateData
+                })
+            }).then(response => {
+                if (response.ok) {
+                    console.log('Shape properties updated successfully');
+                    this.scheduleRedraw();
+                } else {
+                    console.error('Failed to update shape properties');
+                }
+            }).catch(error => {
+                console.error('Error updating shape properties:', error);
+            });
+        }
+
+        // Clear editing element
+        this.editingElement = null;
+
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('shapePropertiesModal'));
+        modal.hide();
+
+        // Schedule redraw to show changes
+        this.scheduleRedraw();
+    }
+
     saveElement(type, data) {
         const element = {
             element_type: type,
@@ -1347,6 +1864,35 @@ class IdeaBoard {
     
     saveBoard() {
         alert('Board gespeichert!');
+    }
+
+    downloadBoard() {
+        // Create a temporary canvas with white background
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+
+        // Set canvas size to match the original
+        tempCanvas.width = this.canvas.width;
+        tempCanvas.height = this.canvas.height;
+
+        // Fill with white background (JPG doesn't support transparency)
+        tempCtx.fillStyle = 'white';
+        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+        // Draw the original canvas content on top
+        tempCtx.drawImage(this.canvas, 0, 0);
+
+        // Create download link
+        tempCanvas.toBlob((blob) => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `board_${new Date().getTime()}.jpg`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 'image/jpeg', 0.9); // 90% quality JPG
     }
     
     loadExistingElements() {
@@ -1466,9 +2012,10 @@ class IdeaBoard {
             
             case 'line':
             case 'arrow':
-                // Check if point is near line (within stroke width)
+                // Check if point is near line with improved hit area
                 const dist = this.distanceToLine(x, y, data.x1, data.y1, data.x2, data.y2);
-                return dist <= (element.stroke_width || 2) + 5;
+                const lineHitRadius = Math.max(8, (element.stroke_width || 2) + 6); // Minimum 8px hit radius
+                return dist <= lineHitRadius;
             
             case 'text':
                 // Simple bounding box for text
@@ -1482,12 +2029,27 @@ class IdeaBoard {
                        y >= data.y - fontSize && y <= data.y;
             
             case 'freehand':
-                // Check if point is near any point in the path
-                for (let point of data.path) {
-                    const dx = x - point.x;
-                    const dy = y - point.y;
-                    if (Math.sqrt(dx * dx + dy * dy) <= (element.stroke_width || 2) + 3) {
-                        return true;
+            case 'brush':
+                // Check if point is near any point in the path with improved hit area
+                const hitRadius = Math.max(10, (element.stroke_width || 2) + 8); // Minimum 10px hit radius
+
+                // Also check line segments between points, not just individual points
+                for (let i = 0; i < data.path.length; i++) {
+                    if (i === 0) {
+                        // Check distance to first point
+                        const dx = x - data.path[i].x;
+                        const dy = y - data.path[i].y;
+                        if (Math.sqrt(dx * dx + dy * dy) <= hitRadius) {
+                            return true;
+                        }
+                    } else {
+                        // Check distance to line segment between previous and current point
+                        const distance = this.distanceToLine(x, y,
+                            data.path[i-1].x, data.path[i-1].y,
+                            data.path[i].x, data.path[i].y);
+                        if (distance <= hitRadius) {
+                            return true;
+                        }
                     }
                 }
                 return false;
@@ -1570,6 +2132,7 @@ class IdeaBoard {
                 data.y3 += deltaY;
                 break;
             case 'freehand':
+            case 'brush':
                 // Move all points in the path
                 if (data.path) {
                     for (let point of data.path) {
@@ -1974,6 +2537,7 @@ class IdeaBoard {
                 break;
                 
             case 'freehand':
+            case 'brush':
                 if (data.path && data.path.length > 0) {
                     const pathMinX = Math.min(...data.path.map(p => p.x));
                     const pathMinY = Math.min(...data.path.map(p => p.y));
@@ -2367,6 +2931,10 @@ function saveInvitations() {
 <!-- Agora SDK -->
 <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.18.0.js"></script>
 
+<!-- Quill Rich Text Editor -->
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+
 <script>
 // ========================================
 // Board Audio Manager
@@ -2393,6 +2961,13 @@ class BoardAudioManager {
                 } else {
                     this.joinAudio();
                 }
+            });
+        }
+
+        const muteBtn = document.getElementById('mute-toggle-btn');
+        if (muteBtn) {
+            muteBtn.addEventListener('click', () => {
+                this.toggleMute();
             });
         }
 
@@ -2429,12 +3004,26 @@ class BoardAudioManager {
             audioParticipants.style.display = 'none';
         }
 
+        const muteBtn = document.getElementById('mute-toggle-btn');
+
         if (audioStatus.user_is_participant) {
             audioBtn.className = 'btn btn-success me-2';
-            audioBtn.innerHTML = `${this.isMuted ? '🔇' : '🎤'} <span id="audio-text">Audio verlassen</span><span id="audio-participants" class="badge bg-secondary ms-1" style="display: ${audioStatus.participant_count > 0 ? 'inline' : 'none'};">${audioStatus.participant_count || 0}</span>`;
+            audioBtn.innerHTML = `🎤 <span id="audio-text">Audio verlassen</span><span id="audio-participants" class="badge bg-secondary ms-1" style="display: ${audioStatus.participant_count > 0 ? 'inline' : 'none'};">${audioStatus.participant_count || 0}</span>`;
+
+            // Show mute button when user is in audio
+            if (muteBtn) {
+                muteBtn.style.display = 'inline-block';
+                muteBtn.className = this.isMuted ? 'btn btn-warning me-2' : 'btn btn-outline-warning me-2';
+                muteBtn.innerHTML = `${this.isMuted ? '🔇' : '🎤'} <span id="mute-text">${this.isMuted ? 'Mikro aktivieren' : 'Stumm schalten'}</span>`;
+            }
         } else {
             audioBtn.className = 'btn btn-outline-success me-2';
             audioBtn.innerHTML = `🎤 <span id="audio-text">Audio beitreten</span><span id="audio-participants" class="badge bg-secondary ms-1" style="display: ${audioStatus.participant_count > 0 ? 'inline' : 'none'};">${audioStatus.participant_count || 0}</span>`;
+
+            // Hide mute button when user is not in audio
+            if (muteBtn) {
+                muteBtn.style.display = 'none';
+            }
         }
     }
 
@@ -2590,26 +3179,206 @@ window.addEventListener('beforeunload', function() {
     }
 });
 
-// Tastenkürzel für Mute/Unmute (Leertaste gedrückt halten)
+// Push-to-Talk mit Leertaste (gedrückt halten zum Sprechen)
+let wasSpacePressed = false;
+
 document.addEventListener('keydown', function(e) {
-    if (e.code === 'Space' && boardAudioManager && boardAudioManager.isAudioActive) {
+    if (e.code === 'Space' && boardAudioManager && boardAudioManager.isAudioActive && !wasSpacePressed) {
         e.preventDefault();
-        boardAudioManager.toggleMute();
+        wasSpacePressed = true;
+        // Temporarily unmute when space is pressed
+        if (boardAudioManager.isMuted) {
+            boardAudioManager.localAudioTrack.setMuted(false);
+        }
     }
 });
 
 document.addEventListener('keyup', function(e) {
-    if (e.code === 'Space' && boardAudioManager && boardAudioManager.isAudioActive) {
+    if (e.code === 'Space' && boardAudioManager && boardAudioManager.isAudioActive && wasSpacePressed) {
         e.preventDefault();
-        boardAudioManager.toggleMute();
+        wasSpacePressed = false;
+        // Mute again when space is released (if was muted before)
+        if (boardAudioManager.isMuted) {
+            boardAudioManager.localAudioTrack.setMuted(true);
+        }
     }
 });
+</script>
+
+<script>
+// ========================================
+// Board Notes Manager (Rich Text Editor)
+// ========================================
+class BoardNotesManager {
+    constructor() {
+        this.notesTextarea = document.getElementById('board-notes');
+        this.saveButton = document.getElementById('save-notes-btn');
+        this.statusText = document.getElementById('notes-status');
+        this.saveTimeout = null;
+        this.lastInputTime = null;
+
+        this.initQuillEditor();
+        this.initEventListeners();
+        this.checkForUpdates();
+    }
+
+    initQuillEditor() {
+        // Initialize Quill rich text editor
+        this.quill = new Quill('#board-notes-editor', {
+            theme: 'snow',
+            modules: {
+                toolbar: '#notes-toolbar'
+            },
+            placeholder: 'Hier können alle Teilnehmer gemeinsam Notizen zum Board hinzufügen...'
+        });
+
+        // Set initial content from textarea
+        if (this.notesTextarea.value) {
+            this.quill.root.innerHTML = this.notesTextarea.value;
+        }
+
+        this.lastSavedContent = this.quill.root.innerHTML;
+    }
+
+    initEventListeners() {
+        // Auto-save on content changes with debouncing
+        this.quill.on('text-change', () => {
+            this.lastInputTime = Date.now();
+            this.showStatus('Änderungen erkannt...', 'text-warning');
+
+            // Clear existing timeout
+            if (this.saveTimeout) {
+                clearTimeout(this.saveTimeout);
+            }
+
+            // Set new timeout for auto-save (2 seconds after last change)
+            this.saveTimeout = setTimeout(() => {
+                this.saveNotes(false);
+            }, 2000);
+        });
+
+        // Manual save button
+        this.saveButton.addEventListener('click', () => {
+            this.saveNotes(true);
+        });
+    }
+
+    async saveNotes(isManual = false) {
+        const currentContent = this.quill.root.innerHTML;
+
+        // Skip if content hasn't changed
+        if (currentContent === this.lastSavedContent) {
+            this.showStatus('Keine Änderungen', 'text-muted');
+            return;
+        }
+
+        try {
+            this.showStatus('Speichern...', 'text-info');
+
+            // Update hidden textarea for form compatibility
+            this.notesTextarea.value = currentContent;
+
+            const response = await fetch(`/organization/boards/{{ board.pk }}/update-notes/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    notes: currentContent
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.lastSavedContent = currentContent;
+                this.showStatus(isManual ? 'Manuell gespeichert ✓' : 'Automatisch gespeichert ✓', 'text-success');
+            } else {
+                this.showStatus('Fehler beim Speichern', 'text-danger');
+            }
+        } catch (error) {
+            console.error('Error saving notes:', error);
+            this.showStatus('Fehler beim Speichern', 'text-danger');
+        }
+    }
+
+    showStatus(message, className) {
+        this.statusText.textContent = message;
+        this.statusText.className = `text-muted ${className}`;
+    }
+
+    async checkForUpdates() {
+        try {
+            const response = await fetch(`/organization/boards/{{ board.pk }}/get-notes/`);
+            const data = await response.json();
+
+            const currentContent = this.quill.root.innerHTML;
+
+            if (data.success && data.notes !== currentContent) {
+                // Update only if user hasn't been actively typing
+                const now = Date.now();
+                if (!this.lastInputTime || now - this.lastInputTime > 5000) {
+                    this.quill.root.innerHTML = data.notes || '';
+                    this.notesTextarea.value = data.notes || '';
+                    this.lastSavedContent = data.notes || '';
+                    this.showStatus('Notizen aktualisiert', 'text-info');
+                }
+            }
+        } catch (error) {
+            console.error('Error checking for updates:', error);
+        }
+
+        // Check again in 10 seconds
+        setTimeout(() => this.checkForUpdates(), 10000);
+    }
+}
+
+// Initialize Notes Manager
+let boardNotesManager;
+
+function initializeBoardNotes() {
+    boardNotesManager = new BoardNotesManager();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeBoardNotes);
+} else {
+    initializeBoardNotes();
+}
 </script>
 
 <style>
 .tool-btn.active {
     background-color: #0d6efd;
     color: white;
+}
+
+/* Rich Text Editor Styling */
+#notes-toolbar {
+    border: 1px solid #ccc;
+    border-bottom: none;
+    background-color: #f8f9fa;
+    border-radius: 0.375rem 0.375rem 0 0;
+}
+
+#board-notes-editor {
+    border: 1px solid #ccc;
+    border-top: none;
+    border-radius: 0 0 0.375rem 0.375rem;
+}
+
+.ql-editor {
+    min-height: 120px;
+}
+
+.ql-toolbar.ql-snow {
+    border: none;
+    padding: 8px;
+}
+
+.ql-container.ql-snow {
+    border: none;
 }
 
 #canvas-container {
