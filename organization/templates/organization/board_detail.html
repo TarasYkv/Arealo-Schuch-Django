@@ -75,25 +75,6 @@
                     
                     <hr>
                     
-                    <!-- Farben -->
-                    <div class="mb-3">
-                        <label class="form-label">🎨 Farbe</label>
-                        <input type="color" class="form-control form-control-color" id="color-picker" value="#000000">
-                    </div>
-
-                    <!-- Strichstärke -->
-                    <div class="mb-3">
-                        <label class="form-label">📏 Strichstärke</label>
-                        <input type="range" class="form-range" id="stroke-width" min="1" max="20" value="2">
-                        <span id="stroke-width-value">2</span>px
-                    </div>
-
-                    <!-- Transparenz -->
-                    <div class="mb-3">
-                        <label class="form-label">🔍 Transparenz</label>
-                        <input type="range" class="form-range" id="opacity" min="0" max="100" value="100">
-                        <span id="opacity-value">100</span>%
-                    </div>
                     
                     <hr>
 
@@ -136,36 +117,15 @@
                                 <button type="button" class="btn btn-outline-secondary btn-sm" id="hand-tool" title="Board verschieben">
                                     ✋
                                 </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="nav-center" title="Zentrieren">
+                                    🎯
+                                </button>
                                 <button type="button" class="btn btn-outline-secondary btn-sm" id="zoom-out" title="Herauszoomen">
                                     🔍-
                                 </button>
                             </div>
                         </div>
                         
-                        <!-- Navigation Controls - Bottom Right -->
-                        <div style="position: absolute; bottom: 10px; right: 20px; z-index: 10;">
-                            <div class="d-grid" style="grid-template-columns: repeat(3, 1fr); gap: 2px; width: 120px;">
-                                <div></div>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="nav-up" title="Nach oben">
-                                    ⬆️
-                                </button>
-                                <div></div>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="nav-left" title="Nach links">
-                                    ⬅️
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="nav-center" title="Zentrieren">
-                                    🎯
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="nav-right" title="Nach rechts">
-                                    ➡️
-                                </button>
-                                <div></div>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="nav-down" title="Nach unten">
-                                    ⬇️
-                                </button>
-                                <div></div>
-                            </div>
-                        </div>
                         
                         <div style="position: relative;">
                             <canvas id="drawing-canvas"
@@ -173,6 +133,38 @@
                                     height="{{ board.height }}"
                                     style="border: 1px solid #dee2e6; background-color: {{ board.background_color }}; max-width: 100%; height: auto; cursor: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTMgM0w5IDE5TDEyIDE1TDE5IDEySjMgM1oiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIxIi8+Cjwvc3ZnPg==) 3 3, pointer;">
                             </canvas>
+
+                            <!-- Tool Controls Popup -->
+                            <div id="tool-controls-popup" style="display: none; position: absolute; z-index: 9999; background: white; border: 1px solid #ccc; border-radius: 4px; padding: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.15); top: 10px; left: 50%; transform: translateX(-50%);">
+                                <div class="d-flex align-items-center gap-3">
+                                    <!-- Farben -->
+                                    <div class="d-flex align-items-center">
+                                        <label class="small me-2 mb-0">🎨</label>
+                                        <input type="color" id="color-picker" value="#000000" style="width: 30px; height: 25px; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;">
+                                    </div>
+
+                                    <!-- Strichstärke -->
+                                    <div class="d-flex align-items-center" id="stroke-width-control">
+                                        <label class="small me-2 mb-0">📏</label>
+                                        <input type="range" class="form-range" id="stroke-width" min="1" max="20" value="2" style="width: 80px; height: 15px;">
+                                        <span class="small ms-1"><span id="stroke-width-value">2</span>px</span>
+                                    </div>
+
+                                    <!-- Schriftgröße (nur für Text) -->
+                                    <div class="d-flex align-items-center" id="font-size-control" style="display: none;">
+                                        <label class="small me-2 mb-0">📝</label>
+                                        <input type="range" class="form-range" id="font-size" min="8" max="72" value="16" style="width: 80px; height: 15px;">
+                                        <span class="small ms-1"><span id="font-size-value">16</span>px</span>
+                                    </div>
+
+                                    <!-- Transparenz -->
+                                    <div class="d-flex align-items-center">
+                                        <label class="small me-2 mb-0">🔍</label>
+                                        <input type="range" class="form-range" id="opacity" min="0" max="100" value="100" style="width: 80px; height: 15px;">
+                                        <span class="small ms-1"><span id="opacity-value">100</span>%</span>
+                                    </div>
+                                </div>
+                            </div>
 
                             <!-- Floating Trash Can on Canvas -->
                             <div id="canvas-trash-zone"
@@ -251,7 +243,12 @@
                     <textarea id="board-notes" style="display: none;">{{ board.notes }}</textarea>
 
                     <div class="d-flex justify-content-between align-items-center mt-2">
-                        <small class="text-muted" id="notes-status">Automatisch gespeichert</small>
+                        <div class="d-flex flex-column">
+                            <small class="text-muted" id="notes-status">Automatisch gespeichert</small>
+                            <small class="text-info" id="notes-author" style="display: none;">
+                                👤 <span id="notes-author-name"></span> bearbeitet...
+                            </small>
+                        </div>
                         <button type="button" class="btn btn-sm btn-outline-primary" id="save-notes-btn">
                             💾 Notizen speichern
                         </button>
@@ -314,15 +311,15 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div class="mb-3">
-                    <label for="textInput" class="form-label">Text eingeben</label>
-                    <textarea class="form-control" id="textInput" rows="3" placeholder="Geben Sie hier Ihren Text ein..."></textarea>
+                <div class="mb-2">
+                    <label for="textInput" class="form-label small mb-1">Text eingeben</label>
+                    <textarea class="form-control" id="textInput" rows="2" placeholder="Geben Sie hier Ihren Text ein..."></textarea>
                 </div>
 
                 <!-- Live-Vorschau -->
-                <div class="mb-3">
-                    <label class="form-label">👁️ Vorschau</label>
-                    <div id="textPreview" style="border: 1px solid #ddd; padding: 15px; min-height: 60px; background: #f9f9f9; border-radius: 5px; font-size: 16px; font-family: Arial, sans-serif; color: #000000;">
+                <div class="mb-2">
+                    <label class="form-label small mb-1">👁️ Vorschau</label>
+                    <div id="textPreview" style="border: 1px solid #ddd; padding: 8px; min-height: 40px; background: #f9f9f9; border-radius: 4px; font-size: 14px; font-family: Arial, sans-serif; color: #000000;">
                         Vorschau des Textes...
                     </div>
                 </div>
@@ -378,9 +375,17 @@
                     </div>
                 </div>
 
-                <div class="mb-3">
-                    <label for="textColor" class="form-label">🎨 Textfarbe</label>
-                    <input type="color" class="form-control form-control-color" id="textColor" value="#000000">
+                <!-- Color and Author in one row -->
+                <div class="row mb-2">
+                    <div class="col-md-6">
+                        <label for="textColor" class="form-label small mb-1">🎨 Textfarbe</label>
+                        <input type="color" class="form-control form-control-color" id="textColor" value="#000000">
+                    </div>
+                    <!-- Author information (only shown when editing existing text) -->
+                    <div class="col-md-6" id="textAuthorInfo" style="display: none;">
+                        <label class="form-label small mb-1">👤 Erstellt von</label>
+                        <p class="form-control-plaintext text-muted small mb-0" id="textAuthorName">-</p>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -442,6 +447,16 @@
                                     Form ausfüllen
                                 </label>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Author information -->
+                <div class="row" id="shapeAuthorInfo" style="display: none;">
+                    <div class="col-12">
+                        <div class="mb-2">
+                            <label class="form-label small mb-1">👤 Erstellt von</label>
+                            <p class="form-control-plaintext text-muted small mb-0" id="shapeAuthorName">-</p>
                         </div>
                     </div>
                 </div>
@@ -590,7 +605,10 @@ class IdeaBoard {
                 
                 // Set the tool
                 this.currentTool = newBtn.getAttribute('data-tool');
-                
+
+                // Show/hide tool controls based on selected tool
+                this.toggleToolControls();
+
                 // Deactivate hand tool when any drawing tool is selected
                 if (this.handToolActive) {
                     this.deactivateHandTool();
@@ -605,20 +623,60 @@ class IdeaBoard {
         });
         
         // Color Picker
-        document.getElementById('color-picker').addEventListener('change', (e) => {
+        const colorPicker = document.getElementById('color-picker');
+
+        // Use both 'input' and 'change' events for better browser compatibility
+        const handleColorChange = (e) => {
             this.currentColor = e.target.value;
-        });
-        
+            // Apply to selected element if any (only if not currently editing)
+            if (this.selectedElement && !this.editingElement) {
+                this.selectedElement.color = e.target.value;
+                // For text elements, also update the textColor in data
+                if (this.selectedElement.element_type === 'text') {
+                    this.selectedElement.data.textColor = e.target.value;
+                }
+                this.scheduleRedraw();
+                this.scheduleServerUpdate(this.selectedElement);
+            }
+        };
+
+        colorPicker.addEventListener('input', handleColorChange);
+        colorPicker.addEventListener('change', handleColorChange);
+
         // Stroke Width
         document.getElementById('stroke-width').addEventListener('input', (e) => {
             this.currentStrokeWidth = parseInt(e.target.value);
             document.getElementById('stroke-width-value').textContent = e.target.value;
+            // Apply to selected element if any (but not text elements, and not while editing)
+            if (this.selectedElement && this.selectedElement.element_type !== 'text' && !this.editingElement) {
+                this.selectedElement.stroke_width = parseInt(e.target.value);
+                this.scheduleRedraw();
+                this.scheduleServerUpdate(this.selectedElement);
+            }
         });
         
         // Opacity
         document.getElementById('opacity').addEventListener('input', (e) => {
             this.currentOpacity = parseFloat(e.target.value) / 100;
             document.getElementById('opacity-value').textContent = e.target.value;
+            // Apply to selected element if any (only if not currently editing)
+            if (this.selectedElement && !this.editingElement) {
+                this.selectedElement.opacity = parseFloat(e.target.value) / 100;
+                this.scheduleRedraw();
+                this.scheduleServerUpdate(this.selectedElement);
+            }
+        });
+
+        // Font Size (for text elements)
+        document.getElementById('font-size').addEventListener('input', (e) => {
+            const fontSize = parseInt(e.target.value);
+            document.getElementById('font-size-value').textContent = e.target.value;
+            // Apply to selected text element if any (only if not currently editing)
+            if (this.selectedElement && this.selectedElement.element_type === 'text' && !this.editingElement) {
+                this.selectedElement.data.fontSize = fontSize;
+                this.scheduleRedraw();
+                this.scheduleServerUpdate(this.selectedElement);
+            }
         });
         
         // Undo Button
@@ -656,23 +714,7 @@ class IdeaBoard {
             this.zoomOut();
         });
         
-        // Navigation controls
-        document.getElementById('nav-up').addEventListener('click', () => {
-            this.panCanvas(0, -50);
-        });
-        
-        document.getElementById('nav-down').addEventListener('click', () => {
-            this.panCanvas(0, 50);
-        });
-        
-        document.getElementById('nav-left').addEventListener('click', () => {
-            this.panCanvas(-50, 0);
-        });
-        
-        document.getElementById('nav-right').addEventListener('click', () => {
-            this.panCanvas(50, 0);
-        });
-        
+        // Center button
         document.getElementById('nav-center').addEventListener('click', () => {
             this.resetCanvasView();
         });
@@ -1114,6 +1156,7 @@ class IdeaBoard {
                 const fontStyle = data.fontStyle || 'normal';
                 const textColor = data.textColor || element.color || this.currentColor;
 
+                // Draw main text
                 this.ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
                 this.ctx.fillStyle = textColor;
                 this.ctx.fillText(data.text, data.x, data.y);
@@ -1124,6 +1167,79 @@ class IdeaBoard {
         if (element.rotation && element.rotation !== 0) {
             this.ctx.restore();
         }
+
+        // Author info is now only shown in edit modals, not on selection
+        // this.drawAuthorInfo(element);
+    }
+
+    drawAuthorInfo(element) {
+        // Only show author info if this element is selected and has a creator
+        if (!element.created_by || !this.selectedElement || this.selectedElement.id !== element.id) {
+            return;
+        }
+
+        const bounds = this.getElementBounds(element);
+        const data = element.data;
+
+        // Determine position for author text based on element type
+        let authorX = bounds.x;
+        let authorY = bounds.y + bounds.height + 15; // 15px below the element
+
+        // Special positioning for different element types
+        switch (element.element_type) {
+            case 'text':
+                // For text, position it at top-right within text bounds
+                const fontSize = data.fontSize || 16;
+
+                // Measure the main text width to position author within bounds
+                this.ctx.font = `${data.fontStyle || 'normal'} ${data.fontWeight || 'normal'} ${fontSize}px ${data.fontFamily || 'Arial, sans-serif'}`;
+                const textWidth = this.ctx.measureText(data.text).width;
+
+                // Calculate author font size (larger, but reasonable)
+                const authorFontSize = Math.max(10, fontSize * 0.6); // 60% of main text, minimum 10px
+
+                // Measure author text width to ensure it fits within bounds
+                this.ctx.font = `italic ${authorFontSize}px Arial, sans-serif`;
+                const authorTextWidth = this.ctx.measureText(element.created_by).width;
+
+                // Position author at top-right, but ensure it stays within text bounds
+                authorX = data.x + textWidth - authorTextWidth - 2; // 2px margin from right edge
+                authorY = data.y - 4; // Just above the main text baseline
+                break;
+            case 'line':
+            case 'arrow':
+                // For lines/arrows, position at the end point
+                authorX = Math.max(data.x1, data.x2);
+                authorY = Math.max(data.y1, data.y2) + 15;
+                break;
+            default:
+                // For shapes (rectangles, circles, etc.), position below
+                authorY = bounds.y + bounds.height + 15;
+                authorX = bounds.x;
+                break;
+        }
+
+        // Draw author info with special styling for text elements
+        let authorFontSize = 10; // Fixed small size for most elements
+        let authorText = `by ${element.created_by}`;
+
+        if (element.element_type === 'text') {
+            // For text elements, use the pre-calculated font size from positioning
+            const mainFontSize = data.fontSize || 16;
+            authorFontSize = Math.max(10, mainFontSize * 0.6); // Larger for text: 60% of main text
+            authorText = element.created_by; // Just the name, no "by"
+        }
+
+        this.ctx.font = `italic ${authorFontSize}px Arial, sans-serif`;
+
+        // Use different opacity for text vs other elements
+        if (element.element_type === 'text') {
+            this.ctx.fillStyle = 'rgba(100, 100, 100, 0.6)'; // More visible for text
+        } else {
+            this.ctx.fillStyle = 'rgba(120, 120, 120, 0.4)'; // Subtle for other elements
+        }
+
+        this.ctx.fillText(authorText, authorX, authorY);
     }
     
     stopDrawing(event) {
@@ -1338,6 +1454,10 @@ class IdeaBoard {
         this.pendingTextX = x;
         this.pendingTextY = y;
 
+        // Hide popup when opening text modal
+        const popup = document.getElementById('tool-controls-popup');
+        popup.style.display = 'none';
+
         // Modal öffnen
         const modal = new bootstrap.Modal(document.getElementById('textInputModal'));
 
@@ -1428,6 +1548,10 @@ class IdeaBoard {
         // Check if double-clicking on an element
         const clickedElement = this.getElementAt(x, y);
         if (clickedElement) {
+            // Hide popup when opening edit modal
+            const popup = document.getElementById('tool-controls-popup');
+            popup.style.display = 'none';
+
             if (clickedElement.element_type === 'text') {
                 this.editText(clickedElement);
             } else {
@@ -1446,8 +1570,14 @@ class IdeaBoard {
 
         // Fill form with current values
         const data = textElement.data;
+        console.log('editText - textElement:', textElement);
+        console.log('editText - data:', data);
+        console.log('editText - fontSize in data:', data.fontSize);
         document.getElementById('textInput').value = data.text || '';
-        document.getElementById('textFontSize').value = data.fontSize || 16;
+        const fontSizeValue = data.fontSize || 16;
+        document.getElementById('textFontSize').value = fontSizeValue;
+        console.log('Setting textFontSize input to:', fontSizeValue);
+        console.log('Input value after setting:', document.getElementById('textFontSize').value);
         document.getElementById('textFontFamily').value = data.fontFamily || 'Arial, sans-serif';
         document.getElementById('textBold').checked = data.fontWeight === 'bold';
         document.getElementById('textItalic').checked = data.fontStyle === 'italic';
@@ -1456,6 +1586,14 @@ class IdeaBoard {
         // Change modal title and button text
         document.getElementById('textInputModalLabel').textContent = '📝 Text bearbeiten';
         document.getElementById('addTextButton').textContent = 'Text aktualisieren';
+
+        // Show author information
+        if (textElement.created_by) {
+            document.getElementById('textAuthorInfo').style.display = 'block';
+            document.getElementById('textAuthorName').textContent = textElement.created_by;
+        } else {
+            document.getElementById('textAuthorInfo').style.display = 'none';
+        }
 
         modal.show();
 
@@ -1524,6 +1662,9 @@ class IdeaBoard {
         document.getElementById('textInputModalLabel').textContent = '📝 Text hinzufügen';
         document.getElementById('addTextButton').textContent = 'Text hinzufügen';
 
+        // Hide author info for new texts
+        document.getElementById('textAuthorInfo').style.display = 'none';
+
         // Modal schließen
         const modal = bootstrap.Modal.getInstance(document.getElementById('textInputModal'));
         modal.hide();
@@ -1569,6 +1710,14 @@ class IdeaBoard {
 
         const title = titleMap[element.element_type] || '🎨 Eigenschaften bearbeiten';
         document.getElementById('shapePropertiesModalLabel').textContent = title;
+
+        // Show author information
+        if (element.created_by) {
+            document.getElementById('shapeAuthorInfo').style.display = 'block';
+            document.getElementById('shapeAuthorName').textContent = element.created_by;
+        } else {
+            document.getElementById('shapeAuthorInfo').style.display = 'none';
+        }
 
         modal.show();
 
@@ -1867,6 +2016,17 @@ class IdeaBoard {
     }
 
     downloadBoard() {
+        // Ask user what to download
+        const choice = confirm('Möchten Sie Board + Notizen als ZIP herunterladen?\n\nOK = ZIP mit Board (JPG) + Notizen (TXT)\nAbbrechen = Nur Board als JPG');
+
+        if (choice) {
+            this.downloadBoardWithNotes();
+        } else {
+            this.downloadBoardOnly();
+        }
+    }
+
+    downloadBoardOnly() {
         // Create a temporary canvas with white background
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
@@ -1893,6 +2053,84 @@ class IdeaBoard {
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         }, 'image/jpeg', 0.9); // 90% quality JPG
+    }
+
+    async downloadBoardWithNotes() {
+        try {
+            // Get notes content from Quill editor
+            const notesContent = boardNotesManager ? boardNotesManager.quill.root.innerHTML : '';
+            const plainTextNotes = boardNotesManager ? boardNotesManager.quill.getText() : '';
+
+            // Create board image
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = this.canvas.width;
+            tempCanvas.height = this.canvas.height;
+
+            // Fill with white background
+            tempCtx.fillStyle = 'white';
+            tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+            tempCtx.drawImage(this.canvas, 0, 0);
+
+            // Convert canvas to blob
+            tempCanvas.toBlob(async (imageBlob) => {
+                // Create JSZip instance
+                const zip = new JSZip();
+
+                // Add board image to ZIP
+                zip.file(`board_${new Date().getTime()}.jpg`, imageBlob);
+
+                // Add notes as text file if there are any
+                if (plainTextNotes.trim()) {
+                    const notesText = `Board Notizen\n=============\n\nErstellt: ${new Date().toLocaleString('de-DE')}\nBoard: {{ board.title }}\n\n${plainTextNotes}`;
+                    zip.file(`notizen_${new Date().getTime()}.txt`, notesText);
+                }
+
+                // Add notes as HTML file for formatting preservation
+                if (notesContent.trim() && notesContent !== '<p><br></p>') {
+                    const htmlContent = `<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Board Notizen - {{ board.title }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .header { border-bottom: 2px solid #ccc; margin-bottom: 20px; padding-bottom: 10px; }
+        .notes-content { line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Board Notizen</h1>
+        <p><strong>Board:</strong> {{ board.title }}</p>
+        <p><strong>Erstellt:</strong> ${new Date().toLocaleString('de-DE')}</p>
+    </div>
+    <div class="notes-content">
+        ${notesContent}
+    </div>
+</body>
+</html>`;
+                    zip.file(`notizen_formatiert_${new Date().getTime()}.html`, htmlContent);
+                }
+
+                // Generate and download ZIP
+                const zipBlob = await zip.generateAsync({type: 'blob'});
+                const url = URL.createObjectURL(zipBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `board_komplett_${new Date().getTime()}.zip`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+            }, 'image/jpeg', 0.9);
+
+        } catch (error) {
+            console.error('Error creating download:', error);
+            alert('Fehler beim Erstellen des Downloads: ' + error.message);
+        }
     }
     
     loadExistingElements() {
@@ -1944,6 +2182,8 @@ class IdeaBoard {
             if (this.selectedElement !== clickedElement) {
                 this.selectedElement = clickedElement;
                 this.scheduleRedraw();
+                // Show tool controls popup when element is selected
+                this.showToolControlsPopup();
             }
             this.isDragging = true;
             this.isDragActive = true;
@@ -1965,6 +2205,9 @@ class IdeaBoard {
             // Clicked on empty space - deselect
             this.selectedElement = null;
             this.scheduleRedraw();
+            // Hide tool controls popup when deselecting
+            const popup = document.getElementById('tool-controls-popup');
+            popup.style.display = 'none';
         }
     }
     
@@ -2018,13 +2261,14 @@ class IdeaBoard {
                 return dist <= lineHitRadius;
             
             case 'text':
-                // Simple bounding box for text
+                // Simple bounding box for text (author text is only shown when selected)
                 const fontSize = data.fontSize || 16;
                 const fontFamily = data.fontFamily || 'Arial, sans-serif';
                 const fontWeight = data.fontWeight || 'normal';
                 const fontStyle = data.fontStyle || 'normal';
                 this.ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
                 const textWidth = this.ctx.measureText(data.text).width;
+
                 return x >= data.x && x <= data.x + textWidth &&
                        y >= data.y - fontSize && y <= data.y;
             
@@ -2220,6 +2464,7 @@ class IdeaBoard {
                 const fontStyle = data.fontStyle || 'normal';
                 this.ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
                 const textWidth = this.ctx.measureText(data.text).width;
+
                 return {
                     x: data.x,
                     y: data.y - fontSize,
@@ -2729,6 +2974,13 @@ class IdeaBoard {
         handButton.classList.remove('btn-outline-secondary');
         handButton.classList.add('btn-secondary');
         this.canvas.style.cursor = 'grab';
+
+        // Hide popup when hand tool is activated
+        const popup = document.getElementById('tool-controls-popup');
+        popup.style.display = 'none';
+
+        // Remove active class from all tool buttons
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
     }
     
     deactivateHandTool() {
@@ -2764,6 +3016,159 @@ class IdeaBoard {
                 this.canvas.style.cursor = 'url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGxpbmUgeDE9IjEyIiB5MT0iMyIgeDI9IjEyIiB5Mj0iMjEiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxsaW5lIHgxPSIzIiB5MT0iMTIiIHgyPSIyMSIgeTI9IjEyIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMiIvPgo8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIyIiBmaWxsPSIjZmZmIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMSIvPgo8L3N2Zz4=) 12 12, crosshair';
         }
     }
+
+    toggleToolControls() {
+        const popup = document.getElementById('tool-controls-popup');
+        const toolsWithControls = ['pen', 'brush', 'line', 'arrow', 'rectangle', 'circle', 'triangle', 'text'];
+
+        if (toolsWithControls.includes(this.currentTool)) {
+            this.showToolControlsPopup();
+        } else {
+            popup.style.display = 'none';
+        }
+    }
+
+    showToolControlsPopup() {
+        const popup = document.getElementById('tool-controls-popup');
+        const strokeControl = document.getElementById('stroke-width-control');
+        const fontSizeControl = document.getElementById('font-size-control');
+
+        console.log('showToolControlsPopup called');
+        console.log('currentTool:', this.currentTool);
+        console.log('selectedElement:', this.selectedElement?.element_type);
+
+        // Determine what controls to show based on current tool AND selected element
+        let showStrokeWidth = false;
+        let showFontSize = false;
+
+        // Check current tool for controls
+        if (this.currentTool !== 'select') {
+            switch (this.currentTool) {
+                case 'text':
+                    showFontSize = true;
+                    break;
+                case 'pen':
+                case 'brush':
+                case 'line':
+                case 'arrow':
+                case 'rectangle':
+                case 'circle':
+                case 'triangle':
+                    showStrokeWidth = true;
+                    break;
+            }
+        }
+
+        // Also check selected element for controls (show both if relevant)
+        if (this.selectedElement) {
+            const elementType = this.selectedElement.element_type;
+            switch (elementType) {
+                case 'text':
+                    showFontSize = true;
+                    break;
+                case 'pen':
+                case 'brush':
+                case 'line':
+                case 'arrow':
+                case 'rectangle':
+                case 'circle':
+                case 'triangle':
+                case 'freehand':
+                    showStrokeWidth = true;
+                    break;
+            }
+        }
+
+        // Apply visibility with !important to override Bootstrap
+        if (showStrokeWidth) {
+            strokeControl.style.setProperty('display', 'flex', 'important');
+        } else {
+            strokeControl.style.setProperty('display', 'none', 'important');
+        }
+
+        if (showFontSize) {
+            fontSizeControl.style.setProperty('display', 'flex', 'important');
+        } else {
+            fontSizeControl.style.setProperty('display', 'none', 'important');
+        }
+
+        console.log('Popup controls - showStrokeWidth:', showStrokeWidth, 'showFontSize:', showFontSize);
+
+        // Update popup values based on selected element or current tool settings
+        if (this.selectedElement) {
+            // Set values from selected element
+            let elementColor = this.selectedElement.color || '#000000';
+            // For text elements, use textColor from data if available
+            if (this.selectedElement.element_type === 'text' && this.selectedElement.data.textColor) {
+                elementColor = this.selectedElement.data.textColor;
+            }
+            document.getElementById('color-picker').value = elementColor;
+
+            if (showStrokeWidth) {
+                document.getElementById('stroke-width').value = this.selectedElement.stroke_width || 2;
+                document.getElementById('stroke-width-value').textContent = this.selectedElement.stroke_width || 2;
+            }
+
+            if (showFontSize) {
+                const fontSize = this.selectedElement.data.fontSize || 16;
+                document.getElementById('font-size').value = fontSize;
+                document.getElementById('font-size-value').textContent = fontSize;
+            }
+
+            const opacityPercent = Math.round((this.selectedElement.opacity || 1.0) * 100);
+            document.getElementById('opacity').value = opacityPercent;
+            document.getElementById('opacity-value').textContent = opacityPercent;
+        } else {
+            // Set values from current tool settings
+            document.getElementById('color-picker').value = this.currentColor;
+
+            if (showStrokeWidth) {
+                document.getElementById('stroke-width').value = this.currentStrokeWidth;
+                document.getElementById('stroke-width-value').textContent = this.currentStrokeWidth;
+            }
+
+            if (showFontSize) {
+                // For text tool, set default font size
+                document.getElementById('font-size').value = 16;
+                document.getElementById('font-size-value').textContent = 16;
+            }
+
+            const opacityPercent = Math.round(this.currentOpacity * 100);
+            document.getElementById('opacity').value = opacityPercent;
+            document.getElementById('opacity-value').textContent = opacityPercent;
+        }
+
+        // Simple display - popup is already positioned at top center of canvas
+        popup.style.display = 'block';
+    }
+
+    closePopupOnClickOutside(event) {
+        const popup = document.getElementById('tool-controls-popup');
+        const activeButton = document.querySelector('.tool-btn.active');
+        const canvas = document.getElementById('drawing-canvas');
+
+        // Don't close if clicking on popup, active button, popup controls, or if we have a selected element
+        if (popup.contains(event.target) ||
+            (activeButton && activeButton.contains(event.target)) ||
+            event.target.closest('#tool-controls-popup') ||
+            this.selectedElement) {
+            // Re-add the listener for next click
+            setTimeout(() => {
+                document.addEventListener('click', this.closePopupOnClickOutside.bind(this), { once: true });
+            }, 100);
+            return;
+        }
+
+        // Only close if clicking outside canvas area or on empty canvas space
+        if (!canvas.contains(event.target)) {
+            popup.style.display = 'none';
+        } else {
+            // Re-add the listener for next click
+            setTimeout(() => {
+                document.addEventListener('click', this.closePopupOnClickOutside.bind(this), { once: true });
+            }, 100);
+        }
+    }
 }
 
 // Initialisiere das Board wenn die Seite geladen ist
@@ -2773,6 +3178,32 @@ function initializeBoard() {
     console.log('Initializing IdeaBoard...');
     ideaBoard = new IdeaBoard();
     console.log('IdeaBoard initialized:', ideaBoard);
+
+    // Add event listeners for modal close events to show popup again
+    const textModal = document.getElementById('textInputModal');
+    const shapeModal = document.getElementById('shapePropertiesModal');
+
+    if (textModal) {
+        textModal.addEventListener('hidden.bs.modal', function () {
+            // Clear editing element reference
+            ideaBoard.editingElement = null;
+            // Show popup again if we have a selected element
+            if (ideaBoard.selectedElement) {
+                ideaBoard.showToolControlsPopup();
+            }
+        });
+    }
+
+    if (shapeModal) {
+        shapeModal.addEventListener('hidden.bs.modal', function () {
+            // Clear editing element reference
+            ideaBoard.editingElement = null;
+            // Show popup again if we have a selected element
+            if (ideaBoard.selectedElement) {
+                ideaBoard.showToolControlsPopup();
+            }
+        });
+    }
 }
 
 if (document.readyState === 'loading') {
@@ -2934,6 +3365,9 @@ function saveInvitations() {
 <!-- Quill Rich Text Editor -->
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+
+<!-- JSZip for creating ZIP downloads -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <script>
 // ========================================
@@ -3245,6 +3679,7 @@ class BoardNotesManager {
         this.quill.on('text-change', () => {
             this.lastInputTime = Date.now();
             this.showStatus('Änderungen erkannt...', 'text-warning');
+            this.showAuthorInfo('{{ user.username }}');
 
             // Clear existing timeout
             if (this.saveTimeout) {
@@ -3294,6 +3729,7 @@ class BoardNotesManager {
             if (data.success) {
                 this.lastSavedContent = currentContent;
                 this.showStatus(isManual ? 'Manuell gespeichert ✓' : 'Automatisch gespeichert ✓', 'text-success');
+                this.hideAuthorInfo();
             } else {
                 this.showStatus('Fehler beim Speichern', 'text-danger');
             }
@@ -3306,6 +3742,25 @@ class BoardNotesManager {
     showStatus(message, className) {
         this.statusText.textContent = message;
         this.statusText.className = `text-muted ${className}`;
+    }
+
+    showAuthorInfo(username) {
+        const authorElement = document.getElementById('notes-author');
+        const authorNameElement = document.getElementById('notes-author-name');
+
+        authorNameElement.textContent = username;
+        authorElement.style.display = 'block';
+
+        // Hide author info after 3 seconds of no activity
+        clearTimeout(this.authorTimeout);
+        this.authorTimeout = setTimeout(() => {
+            this.hideAuthorInfo();
+        }, 3000);
+    }
+
+    hideAuthorInfo() {
+        const authorElement = document.getElementById('notes-author');
+        authorElement.style.display = 'none';
     }
 
     async checkForUpdates() {
@@ -3352,6 +3807,15 @@ if (document.readyState === 'loading') {
 .tool-btn.active {
     background-color: #0d6efd;
     color: white;
+}
+
+.tool-btn {
+    min-width: 110px;
+    min-height: 40px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* Rich Text Editor Styling */
