@@ -9,6 +9,13 @@
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1>{{ board.title }}</h1>
                 <div>
+                    <!-- Board Audio Button -->
+                    <button type="button" id="audio-toggle-btn" class="btn btn-outline-success me-2">
+                        <i class="fas fa-microphone-slash" id="audio-icon"></i>
+                        <span id="audio-text">Audio beitreten</span>
+                        <span id="audio-participants" class="badge bg-secondary ms-1" style="display: none;">0</span>
+                    </button>
+
                     {% if board.creator == request.user %}
                         <button type="button" class="btn btn-info me-2" data-bs-toggle="modal" data-bs-target="#inviteModal">
                             <i class="fas fa-user-plus"></i> Personen einladen
@@ -1885,6 +1892,251 @@ function saveInvitations() {
         alert('Fehler beim Senden der Einladungen');
     });
 }
+</script>
+
+<!-- Agora SDK -->
+<script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.18.0.js"></script>
+
+<script>
+// ========================================
+// Board Audio Manager
+// ========================================
+class BoardAudioManager {
+    constructor() {
+        this.isAudioActive = false;
+        this.isMuted = false;
+        this.agoraClient = null;
+        this.localAudioTrack = null;
+        this.audioConfig = null;
+        this.participantCount = 0;
+
+        this.initEventListeners();
+        this.checkAudioStatus();
+    }
+
+    initEventListeners() {
+        const audioBtn = document.getElementById('audio-toggle-btn');
+        if (audioBtn) {
+            audioBtn.addEventListener('click', () => {
+                if (this.isAudioActive) {
+                    this.leaveAudio();
+                } else {
+                    this.joinAudio();
+                }
+            });
+        }
+
+        // Status alle 5 Sekunden prüfen
+        setInterval(() => {
+            if (!this.isAudioActive) {
+                this.checkAudioStatus();
+            }
+        }, 5000);
+    }
+
+    async checkAudioStatus() {
+        try {
+            const response = await fetch(`/organization/boards/{{ board.pk }}/audio/status/`);
+            const data = await response.json();
+
+            this.updateUI(data);
+        } catch (error) {
+            console.error('Error checking audio status:', error);
+        }
+    }
+
+    updateUI(audioStatus) {
+        const audioBtn = document.getElementById('audio-toggle-btn');
+        const audioIcon = document.getElementById('audio-icon');
+        const audioText = document.getElementById('audio-text');
+        const audioParticipants = document.getElementById('audio-participants');
+
+        if (!audioBtn) return;
+
+        if (audioStatus.has_active_session && audioStatus.participant_count > 0) {
+            audioParticipants.style.display = 'inline';
+            audioParticipants.textContent = audioStatus.participant_count;
+        } else {
+            audioParticipants.style.display = 'none';
+        }
+
+        if (audioStatus.user_is_participant) {
+            audioBtn.className = 'btn btn-success me-2';
+            audioIcon.className = this.isMuted ? 'fas fa-microphone-slash' : 'fas fa-microphone';
+            audioText.textContent = 'Audio verlassen';
+        } else {
+            audioBtn.className = 'btn btn-outline-success me-2';
+            audioIcon.className = 'fas fa-microphone-slash';
+            audioText.textContent = 'Audio beitreten';
+        }
+    }
+
+    async joinAudio() {
+        try {
+            // Backend: Audio-Session beitreten
+            const joinResponse = await fetch(`/organization/boards/{{ board.pk }}/audio/join/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+
+            if (!joinResponse.ok) {
+                const errorData = await joinResponse.json();
+                console.error('Join audio response error:', errorData);
+                throw new Error(errorData.error || 'Failed to join audio session');
+            }
+
+            // Agora Token holen
+            const tokenResponse = await fetch(`/organization/boards/{{ board.pk }}/audio/token/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+
+            if (!tokenResponse.ok) {
+                const errorData = await tokenResponse.json();
+                console.error('Token response error:', errorData);
+                throw new Error(errorData.error || 'Failed to get audio token');
+            }
+
+            this.audioConfig = await tokenResponse.json();
+            console.log('Audio config received:', this.audioConfig);
+
+            // Agora Client initialisieren
+            this.agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+
+            // Event Listener für Agora
+            this.agoraClient.on("user-published", async (user, mediaType) => {
+                await this.agoraClient.subscribe(user, mediaType);
+                if (mediaType === 'audio') {
+                    user.audioTrack.play();
+                }
+            });
+
+            this.agoraClient.on("user-unpublished", (user) => {
+                console.log('User left audio:', user.uid);
+            });
+
+            // Channel beitreten
+            await this.agoraClient.join(
+                this.audioConfig.app_id,
+                this.audioConfig.channel_name,
+                this.audioConfig.token,
+                this.audioConfig.uid
+            );
+
+            // Mikrofon aktivieren
+            this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+            await this.agoraClient.publish([this.localAudioTrack]);
+
+            this.isAudioActive = true;
+            this.checkAudioStatus();
+
+            console.log('Successfully joined board audio');
+
+        } catch (error) {
+            console.error('Error joining audio:', error);
+            alert('Fehler beim Beitreten zum Audio: ' + error.message);
+        }
+    }
+
+    async leaveAudio() {
+        try {
+            // Agora Client cleanup
+            if (this.localAudioTrack) {
+                this.localAudioTrack.stop();
+                this.localAudioTrack.close();
+                this.localAudioTrack = null;
+            }
+
+            if (this.agoraClient) {
+                await this.agoraClient.leave();
+                this.agoraClient = null;
+            }
+
+            // Backend: Audio-Session verlassen
+            const response = await fetch(`/organization/boards/{{ board.pk }}/audio/leave/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to leave audio session');
+            }
+
+            this.isAudioActive = false;
+            this.checkAudioStatus();
+
+            console.log('Successfully left board audio');
+
+        } catch (error) {
+            console.error('Error leaving audio:', error);
+            alert('Fehler beim Verlassen des Audios: ' + error.message);
+        }
+    }
+
+    async toggleMute() {
+        if (!this.localAudioTrack) return;
+
+        if (this.isMuted) {
+            await this.localAudioTrack.setMuted(false);
+            this.isMuted = false;
+        } else {
+            await this.localAudioTrack.setMuted(true);
+            this.isMuted = true;
+        }
+
+        this.checkAudioStatus();
+    }
+
+    cleanup() {
+        if (this.isAudioActive) {
+            this.leaveAudio();
+        }
+    }
+}
+
+// Initialisiere Board Audio Manager
+let boardAudioManager;
+
+function initializeBoardAudio() {
+    boardAudioManager = new BoardAudioManager();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeBoardAudio);
+} else {
+    initializeBoardAudio();
+}
+
+// Cleanup when page is unloaded
+window.addEventListener('beforeunload', function() {
+    if (boardAudioManager) {
+        boardAudioManager.cleanup();
+    }
+});
+
+// Tastenkürzel für Mute/Unmute (Leertaste gedrückt halten)
+document.addEventListener('keydown', function(e) {
+    if (e.code === 'Space' && boardAudioManager && boardAudioManager.isAudioActive) {
+        e.preventDefault();
+        boardAudioManager.toggleMute();
+    }
+});
+
+document.addEventListener('keyup', function(e) {
+    if (e.code === 'Space' && boardAudioManager && boardAudioManager.isAudioActive) {
+        e.preventDefault();
+        boardAudioManager.toggleMute();
+    }
+});
 </script>
 
 <style>

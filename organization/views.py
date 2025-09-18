@@ -7,8 +7,8 @@ from django.utils import timezone
 from django.db.models import Q
 from django.core.paginator import Paginator
 from django.contrib.auth import get_user_model
-from .models import Note, Event, EventParticipant, IdeaBoard, BoardElement, EventReminder, VideoCall, CallParticipant
-# from .agora_utils import generate_agora_token, get_agora_config, CallRoles
+from .models import Note, Event, EventParticipant, IdeaBoard, BoardElement, EventReminder, VideoCall, CallParticipant, BoardAudioSession, BoardAudioParticipant
+from .agora_utils import generate_agora_token, get_agora_config, CallRoles
 import json
 import re
 
@@ -1029,5 +1029,195 @@ def user_search(request):
             })
         
         return JsonResponse({'results': results})
-    
+
     return JsonResponse({'results': []})
+
+
+# ========================================
+# Board Audio Views
+# ========================================
+
+@login_required
+@csrf_exempt
+def board_audio_join(request, pk):
+    """Audio-Session für Board beitreten."""
+    if request.method == 'POST':
+        board = get_object_or_404(IdeaBoard, pk=pk)
+
+        # Zugriffsberechtigung prüfen
+        if not (board.creator == request.user or request.user in board.collaborators.all() or board.is_public):
+            return JsonResponse({'error': 'Keine Berechtigung'}, status=403)
+
+        # Aktive Session finden oder erstellen
+        try:
+            # Versuche aktive Session zu finden
+            audio_session = BoardAudioSession.objects.get(board=board, is_active=True)
+        except BoardAudioSession.DoesNotExist:
+            # Keine aktive Session, prüfe ob inaktive existiert
+            try:
+                audio_session = BoardAudioSession.objects.get(board=board)
+                # Reaktiviere die Session
+                audio_session.is_active = True
+                audio_session.ended_at = None
+                audio_session.save()
+            except BoardAudioSession.DoesNotExist:
+                # Erstelle neue Session
+                audio_session = BoardAudioSession.objects.create(
+                    board=board,
+                    channel_name=f'board_audio_{board.id}',
+                    is_active=True
+                )
+
+        # Benutzer zur Session hinzufügen
+        participant, created = BoardAudioParticipant.objects.get_or_create(
+            session=audio_session,
+            user=request.user,
+            defaults={'left_at': None}
+        )
+
+        # Falls Benutzer bereits teilgenommen hatte, reaktivieren
+        if not created and participant.left_at:
+            participant.left_at = None
+            participant.joined_at = timezone.now()
+            participant.save()
+
+        return JsonResponse({
+            'success': True,
+            'channel_name': audio_session.channel_name,
+            'session_id': audio_session.id
+        })
+
+    return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
+
+
+@login_required
+@csrf_exempt
+def board_audio_leave(request, pk):
+    """Audio-Session für Board verlassen."""
+    if request.method == 'POST':
+        board = get_object_or_404(IdeaBoard, pk=pk)
+
+        # Zugriffsberechtigung prüfen
+        if not (board.creator == request.user or request.user in board.collaborators.all() or board.is_public):
+            return JsonResponse({'error': 'Keine Berechtigung'}, status=403)
+
+        try:
+            audio_session = BoardAudioSession.objects.get(board=board, is_active=True)
+            participant = BoardAudioParticipant.objects.get(session=audio_session, user=request.user)
+
+            # Teilnehmer als verlassen markieren
+            participant.left_at = timezone.now()
+            participant.save()
+
+            # Prüfen ob noch andere aktive Teilnehmer da sind
+            active_participants = BoardAudioParticipant.objects.filter(
+                session=audio_session,
+                left_at__isnull=True
+            ).count()
+
+            # Wenn keine aktiven Teilnehmer mehr da sind, Session beenden
+            if active_participants == 0:
+                audio_session.is_active = False
+                audio_session.ended_at = timezone.now()
+                audio_session.save()
+
+            return JsonResponse({'success': True})
+
+        except (BoardAudioSession.DoesNotExist, BoardAudioParticipant.DoesNotExist):
+            return JsonResponse({'error': 'Keine aktive Audio-Session gefunden'}, status=404)
+
+    return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
+
+
+@login_required
+@csrf_exempt
+def board_audio_token(request, pk):
+    """Agora Token für Board Audio-Session generieren."""
+    if request.method == 'POST':
+        board = get_object_or_404(IdeaBoard, pk=pk)
+
+        # Zugriffsberechtigung prüfen
+        if not (board.creator == request.user or request.user in board.collaborators.all() or board.is_public):
+            return JsonResponse({'error': 'Keine Berechtigung'}, status=403)
+
+        try:
+            audio_session = BoardAudioSession.objects.get(board=board, is_active=True)
+
+            # Prüfen ob Benutzer aktiver Teilnehmer ist
+            participant = BoardAudioParticipant.objects.get(
+                session=audio_session,
+                user=request.user,
+                left_at__isnull=True
+            )
+
+            # Agora Token generieren
+            channel_name = audio_session.channel_name
+            uid = request.user.id
+            role = CallRoles.PUBLISHER  # Alle können sprechen und hören
+
+            token = generate_agora_token(channel_name, uid, role)
+            agora_config = get_agora_config()
+
+            return JsonResponse({
+                'success': True,
+                'token': token,
+                'channel_name': channel_name,
+                'uid': uid,
+                'app_id': agora_config['app_id']
+            })
+
+        except BoardAudioSession.DoesNotExist:
+            return JsonResponse({'error': 'Keine aktive Audio-Session gefunden'}, status=404)
+        except BoardAudioParticipant.DoesNotExist:
+            return JsonResponse({'error': 'Sie sind kein aktiver Teilnehmer'}, status=403)
+        except Exception as e:
+            return JsonResponse({'error': f'Token-Generierung fehlgeschlagen: {str(e)}'}, status=500)
+
+    return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
+
+
+@login_required
+def board_audio_status(request, pk):
+    """Status der Board Audio-Session abrufen."""
+    board = get_object_or_404(IdeaBoard, pk=pk)
+
+    # Zugriffsberechtigung prüfen
+    if not (board.creator == request.user or request.user in board.collaborators.all() or board.is_public):
+        return JsonResponse({'error': 'Keine Berechtigung'}, status=403)
+
+    try:
+        audio_session = BoardAudioSession.objects.get(board=board, is_active=True)
+
+        # Aktive Teilnehmer abrufen
+        active_participants = BoardAudioParticipant.objects.filter(
+            session=audio_session,
+            left_at__isnull=True
+        ).select_related('user')
+
+        participants_data = []
+        for participant in active_participants:
+            participants_data.append({
+                'user_id': participant.user.id,
+                'username': participant.user.username,
+                'is_muted': participant.is_muted,
+                'joined_at': participant.joined_at.isoformat()
+            })
+
+        user_is_participant = active_participants.filter(user=request.user).exists()
+
+        return JsonResponse({
+            'has_active_session': True,
+            'session_id': audio_session.id,
+            'channel_name': audio_session.channel_name,
+            'participants': participants_data,
+            'participant_count': len(participants_data),
+            'user_is_participant': user_is_participant
+        })
+
+    except BoardAudioSession.DoesNotExist:
+        return JsonResponse({
+            'has_active_session': False,
+            'participants': [],
+            'participant_count': 0,
+            'user_is_participant': False
+        })

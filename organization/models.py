@@ -263,17 +263,64 @@ class CallParticipant(models.Model):
         ('left', 'Left'),
         ('rejected', 'Rejected'),
     ]
-    
+
     call = models.ForeignKey(VideoCall, on_delete=models.CASCADE, related_name='call_participants', verbose_name="Anruf")
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='org_call_participations', verbose_name="Benutzer")
     status = models.CharField(max_length=20, choices=PARTICIPANT_STATUS, default='invited', verbose_name="Status")
     joined_at = models.DateTimeField(null=True, blank=True, verbose_name="Beigetreten um")
     left_at = models.DateTimeField(null=True, blank=True, verbose_name="Verlassen um")
-    
+
     class Meta:
         verbose_name = "Anruf-Teilnehmer"
         verbose_name_plural = "Anruf-Teilnehmer"
         unique_together = ('call', 'user')
-    
+
     def __str__(self):
         return f"{self.user.username} in Call {self.call.id} ({self.status})"
+
+
+class BoardAudioSession(models.Model):
+    """Audio-Session für Board-Zusammenarbeit."""
+    board = models.OneToOneField(IdeaBoard, on_delete=models.CASCADE, related_name='audio_session', verbose_name="Board")
+    channel_name = models.CharField(max_length=200, verbose_name="Channel Name")
+    is_active = models.BooleanField(default=True, verbose_name="Aktiv")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Erstellt am")
+    ended_at = models.DateTimeField(null=True, blank=True, verbose_name="Beendet am")
+
+    class Meta:
+        verbose_name = "Board Audio-Session"
+        verbose_name_plural = "Board Audio-Sessions"
+
+    def __str__(self):
+        return f"Audio Session für {self.board.title}"
+
+    def get_channel_name(self):
+        """Generiert einen eindeutigen Channel-Namen für das Board."""
+        return f"board_audio_{self.board.id}"
+
+    def save(self, *args, **kwargs):
+        if not self.channel_name:
+            self.channel_name = self.get_channel_name()
+        super().save(*args, **kwargs)
+
+
+class BoardAudioParticipant(models.Model):
+    """Teilnehmer einer Board Audio-Session."""
+    session = models.ForeignKey(BoardAudioSession, on_delete=models.CASCADE, related_name='participants', verbose_name="Session")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Benutzer")
+    joined_at = models.DateTimeField(auto_now_add=True, verbose_name="Beigetreten um")
+    left_at = models.DateTimeField(null=True, blank=True, verbose_name="Verlassen um")
+    is_muted = models.BooleanField(default=False, verbose_name="Stumm geschaltet")
+
+    class Meta:
+        verbose_name = "Board Audio-Teilnehmer"
+        verbose_name_plural = "Board Audio-Teilnehmer"
+        unique_together = ('session', 'user')
+
+    def __str__(self):
+        return f"{self.user.username} in Audio Session für {self.session.board.title}"
+
+    @property
+    def is_active(self):
+        """Prüft ob der Teilnehmer aktuell in der Session ist."""
+        return self.left_at is None
