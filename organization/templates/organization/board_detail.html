@@ -11,14 +11,13 @@
                 <div>
                     <!-- Board Audio Button -->
                     <button type="button" id="audio-toggle-btn" class="btn btn-outline-success me-2">
-                        <i class="fas fa-microphone-slash" id="audio-icon"></i>
-                        <span id="audio-text">Audio beitreten</span>
+                        🎤 <span id="audio-text">Audio beitreten</span>
                         <span id="audio-participants" class="badge bg-secondary ms-1" style="display: none;">0</span>
                     </button>
 
                     {% if board.creator == request.user %}
                         <button type="button" class="btn btn-info me-2" data-bs-toggle="modal" data-bs-target="#inviteModal">
-                            <i class="fas fa-user-plus"></i> Personen einladen
+                            👥 Personen einladen
                         </button>
                     {% endif %}
                     <a href="{% url 'organization:board_list' %}" class="btn btn-secondary">Zurück zur Liste</a>
@@ -36,36 +35,36 @@
             <!-- Werkzeuge -->
             <div class="card">
                 <div class="card-header d-lg-block d-none">
-                    <h5>Werkzeuge</h5>
+                    <h5>🎨 Werkzeuge</h5>
                 </div>
                 <div class="card-body p-2">
                     <div class="btn-group-vertical btn-group-horizontal-mobile w-100" role="group">
                         <button type="button" class="btn btn-outline-primary tool-btn active" data-tool="select">
-                            <i class="fas fa-mouse-pointer"></i> Auswählen
+                            👆 Auswählen
                         </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="pen">
-                            <i class="fas fa-pen"></i> Stift
+                            ✏️ Stift
                         </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="brush">
-                            <i class="fas fa-brush"></i> Pinsel
+                            🖌️ Pinsel
                         </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="text">
-                            <i class="fas fa-font"></i> Text
+                            📝 Text
                         </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="rectangle">
-                            <i class="fas fa-square"></i> Rechteck
+                            ⬜ Rechteck
                         </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="circle">
-                            <i class="fas fa-circle"></i> Kreis
+                            ⭕ Kreis
                         </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="triangle">
-                            <i class="fas fa-play"></i> Dreieck
+                            🔺 Dreieck
                         </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="line">
-                            <i class="fas fa-minus"></i> Linie
+                            ➖ Linie
                         </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="arrow">
-                            <i class="fas fa-arrow-right"></i> Pfeil
+                            ➡️ Pfeil
                         </button>
                     </div>
                     
@@ -73,32 +72,40 @@
                     
                     <!-- Farben -->
                     <div class="mb-3">
-                        <label class="form-label">Farbe</label>
+                        <label class="form-label">🎨 Farbe</label>
                         <input type="color" class="form-control form-control-color" id="color-picker" value="#000000">
                     </div>
-                    
+
                     <!-- Strichstärke -->
                     <div class="mb-3">
-                        <label class="form-label">Strichstärke</label>
+                        <label class="form-label">📏 Strichstärke</label>
                         <input type="range" class="form-range" id="stroke-width" min="1" max="20" value="2">
                         <span id="stroke-width-value">2</span>px
                     </div>
-                    
+
                     <!-- Transparenz -->
                     <div class="mb-3">
-                        <label class="form-label">Transparenz</label>
+                        <label class="form-label">🔍 Transparenz</label>
                         <input type="range" class="form-range" id="opacity" min="0" max="100" value="100">
                         <span id="opacity-value">100</span>%
                     </div>
                     
                     <hr>
                     
+                    <!-- Drag & Drop Lösch-Bereich -->
+                    <div id="drop-delete-zone" class="mb-3 p-3 text-center border-2 border-dashed border-warning rounded" style="background: #fff3cd; transition: all 0.3s;">
+                        <div class="text-warning">
+                            <i class="display-6">🗑️</i><br>
+                            <small><strong>Hierher ziehen zum Löschen</strong></small>
+                        </div>
+                    </div>
+
                     <button type="button" class="btn btn-warning btn-sm mb-2" id="clear-canvas">
-                        <i class="fas fa-trash"></i> Canvas löschen
+                        🗑️ Canvas löschen
                     </button>
-                    
+
                     <button type="button" class="btn btn-success btn-sm" id="save-board">
-                        <i class="fas fa-save"></i> Speichern
+                        💾 Speichern
                     </button>
                 </div>
             </div>
@@ -112,55 +119,76 @@
                         <!-- Undo Button - Top Right -->
                         <div style="position: absolute; top: 10px; right: 10px; z-index: 10;">
                             <button type="button" class="btn btn-secondary btn-sm" id="undo-action">
-                                <i class="fas fa-undo"></i> Rückgängig
+                                ↩️ Rückgängig
                             </button>
                         </div>
                         
                         <!-- Zoom Controls - Top Left -->
                         <div style="position: absolute; top: 10px; left: 10px; z-index: 10;">
                             <div class="btn-group-vertical" role="group">
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="zoom-in">
-                                    <i class="fas fa-plus"></i>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="zoom-in" title="Hineinzoomen">
+                                    🔍+
                                 </button>
                                 <button type="button" class="btn btn-outline-secondary btn-sm" id="hand-tool" title="Board verschieben">
-                                    <i class="fas fa-hand-paper"></i>
+                                    ✋
                                 </button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="zoom-out">
-                                    <i class="fas fa-minus"></i>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="zoom-out" title="Herauszoomen">
+                                    🔍-
                                 </button>
                             </div>
                         </div>
                         
                         <!-- Navigation Controls - Bottom Right -->
-                        <div style="position: absolute; bottom: 10px; right: 10px; z-index: 10;">
-                            <div class="d-grid" style="grid-template-columns: repeat(3, 1fr); gap: 2px; width: 90px;">
+                        <div style="position: absolute; bottom: 10px; right: 20px; z-index: 10;">
+                            <div class="d-grid" style="grid-template-columns: repeat(3, 1fr); gap: 2px; width: 120px;">
                                 <div></div>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="nav-up">
-                                    <i class="fas fa-arrow-up"></i>
-                                </button>
-                                <div></div>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="nav-left">
-                                    <i class="fas fa-arrow-left"></i>
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="nav-center">
-                                    <i class="fas fa-dot-circle"></i>
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="nav-right">
-                                    <i class="fas fa-arrow-right"></i>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="nav-up" title="Nach oben">
+                                    ⬆️
                                 </button>
                                 <div></div>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="nav-down">
-                                    <i class="fas fa-arrow-down"></i>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="nav-left" title="Nach links">
+                                    ⬅️
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="nav-center" title="Zentrieren">
+                                    🎯
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="nav-right" title="Nach rechts">
+                                    ➡️
+                                </button>
+                                <div></div>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="nav-down" title="Nach unten">
+                                    ⬇️
                                 </button>
                                 <div></div>
                             </div>
                         </div>
                         
-                        <canvas id="drawing-canvas" 
-                                width="{{ board.width }}" 
-                                height="{{ board.height }}" 
-                                style="border: 1px solid #dee2e6; background-color: {{ board.background_color }}; max-width: 100%; height: auto; cursor: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTMgM0w5IDE5TDEyIDE1TDE5IDEySjMgM1oiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIxIi8+Cjwvc3ZnPg==) 3 3, pointer;">
-                        </canvas>
+                        <div style="position: relative;">
+                            <canvas id="drawing-canvas"
+                                    width="{{ board.width }}"
+                                    height="{{ board.height }}"
+                                    style="border: 1px solid #dee2e6; background-color: {{ board.background_color }}; max-width: 100%; height: auto; cursor: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTMgM0w5IDE5TDEyIDE1TDE5IDEySjMgM1oiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIxIi8+Cjwvc3ZnPg==) 3 3, pointer;">
+                            </canvas>
+
+                            <!-- Floating Trash Can on Canvas -->
+                            <div id="canvas-trash-zone"
+                                 style="position: absolute; bottom: 20px; left: 20px;
+                                        width: 60px; height: 60px;
+                                        background: rgba(255, 193, 7, 0.8);
+                                        border: 2px dashed #ffc107;
+                                        border-radius: 12px;
+                                        display: flex; align-items: center; justify-content: center;
+                                        transition: all 0.3s ease;
+                                        cursor: pointer;
+                                        z-index: 1000;
+                                        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+                                        pointer-events: none;">
+                                <div style="text-align: center; color: #856404; font-weight: bold;">
+                                    <div style="font-size: 20px;">🗑️</div>
+                                    <div style="font-size: 8px; line-height: 1;">LÖSCHEN</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -210,6 +238,92 @@
     </div>
 </div>
 
+<!-- Modal für Text-Eingabe -->
+<div class="modal fade" id="textInputModal" tabindex="-1" aria-labelledby="textInputModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="textInputModalLabel">📝 Text hinzufügen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="textInput" class="form-label">Text eingeben</label>
+                    <textarea class="form-control" id="textInput" rows="3" placeholder="Geben Sie hier Ihren Text ein..."></textarea>
+                </div>
+
+                <!-- Live-Vorschau -->
+                <div class="mb-3">
+                    <label class="form-label">👁️ Vorschau</label>
+                    <div id="textPreview" style="border: 1px solid #ddd; padding: 15px; min-height: 60px; background: #f9f9f9; border-radius: 5px; font-size: 16px; font-family: Arial, sans-serif; color: #000000;">
+                        Vorschau des Textes...
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="textFontSize" class="form-label">📏 Schriftgröße</label>
+                            <select class="form-select" id="textFontSize">
+                                <option value="12">12px</option>
+                                <option value="14">14px</option>
+                                <option value="16" selected>16px</option>
+                                <option value="18">18px</option>
+                                <option value="20">20px</option>
+                                <option value="24">24px</option>
+                                <option value="28">28px</option>
+                                <option value="32">32px</option>
+                                <option value="36">36px</option>
+                                <option value="48">48px</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="textFontFamily" class="form-label">🔤 Schriftart</label>
+                            <select class="form-select" id="textFontFamily">
+                                <option value="Arial, sans-serif" selected>Arial</option>
+                                <option value="'Times New Roman', serif">Times New Roman</option>
+                                <option value="'Courier New', monospace">Courier New</option>
+                                <option value="Georgia, serif">Georgia</option>
+                                <option value="'Comic Sans MS', cursive">Comic Sans MS</option>
+                                <option value="Impact, sans-serif">Impact</option>
+                                <option value="'Trebuchet MS', sans-serif">Trebuchet MS</option>
+                                <option value="Verdana, sans-serif">Verdana</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">🎨 Text-Formatierung</label>
+                    <div class="btn-group" role="group" aria-label="Text formatting">
+                        <input type="checkbox" class="btn-check" id="textBold" autocomplete="off">
+                        <label class="btn btn-outline-secondary" for="textBold">
+                            <strong>B</strong> Fett
+                        </label>
+
+                        <input type="checkbox" class="btn-check" id="textItalic" autocomplete="off">
+                        <label class="btn btn-outline-secondary" for="textItalic">
+                            <em>I</em> Kursiv
+                        </label>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="textColor" class="form-label">🎨 Textfarbe</label>
+                    <input type="color" class="form-control form-control-color" id="textColor" value="#000000">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="addTextButton">Text hinzufügen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 class IdeaBoard {
     constructor() {
@@ -245,6 +359,10 @@ class IdeaBoard {
         this.pollingPaused = false;
         this.redrawScheduled = false;
 
+        // Trash zone tracking
+        this.isOverTrashZone = false;
+        this.justDeleted = false;
+
         // Zoom and pan variables
         this.zoomLevel = 1;
         this.panX = 0;
@@ -275,9 +393,24 @@ class IdeaBoard {
         // Canvas Events - Mouse
         this.canvas.addEventListener('mousedown', (e) => this.startDrawing(e));
         this.canvas.addEventListener('mousemove', (e) => this.draw(e));
-        this.canvas.addEventListener('mouseup', (e) => this.stopDrawing(e));
-        this.canvas.addEventListener('mouseout', (e) => this.stopDrawing(e));
+        this.canvas.addEventListener('mouseup', (e) => {
+            this.stopDrawing(e);
+        });
+        this.canvas.addEventListener('mouseout', (e) => {
+            // Don't stop dragging on mouseout - only stop drawing/creating new elements
+            if (this.isDrawing && !this.isDragging) {
+                this.stopDrawing(e);
+            }
+        });
+        this.canvas.addEventListener('dblclick', (e) => this.handleDoubleClick(e));
         
+        // Global mouse events to handle dragging outside canvas
+        document.addEventListener('mouseup', (e) => {
+            if (this.isDragging) {
+                this.stopDrawing(e);
+            }
+        });
+
         // Canvas Events - Touch (for mobile)
         this.canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
@@ -408,6 +541,19 @@ class IdeaBoard {
         document.getElementById('nav-center').addEventListener('click', () => {
             this.resetCanvasView();
         });
+
+        // Text Modal Button
+        document.getElementById('addTextButton').addEventListener('click', () => {
+            this.handleTextSubmit();
+        });
+
+        // Text Preview Event Listeners
+        document.getElementById('textInput').addEventListener('input', () => this.updateTextPreview());
+        document.getElementById('textFontSize').addEventListener('change', () => this.updateTextPreview());
+        document.getElementById('textFontFamily').addEventListener('change', () => this.updateTextPreview());
+        document.getElementById('textBold').addEventListener('change', () => this.updateTextPreview());
+        document.getElementById('textItalic').addEventListener('change', () => this.updateTextPreview());
+        document.getElementById('textColor').addEventListener('change', () => this.updateTextPreview());
     }
     
     getCanvasCoordinates(e) {
@@ -467,6 +613,51 @@ class IdeaBoard {
         }
         
         if (this.currentTool === 'select') {
+            // Check if dragging element over trash can for visual feedback
+            if (this.isDragging && this.selectedElement && e) {
+                const canvasTrash = document.getElementById('canvas-trash-zone');
+
+                if (canvasTrash) {
+                    // Check if mouse position is over the trash area
+                    const canvasRect = this.canvas.getBoundingClientRect();
+                    const trashRect = canvasTrash.getBoundingClientRect();
+
+                    const isOverTrash = (
+                        e.clientX >= trashRect.left &&
+                        e.clientX <= trashRect.right &&
+                        e.clientY >= trashRect.top &&
+                        e.clientY <= trashRect.bottom
+                    );
+
+                    if (isOverTrash) {
+                        // Highlight when hovering with dragged element
+                        canvasTrash.style.background = 'rgba(220, 53, 69, 0.9)';
+                        canvasTrash.style.borderColor = '#dc3545';
+                        canvasTrash.style.transform = 'scale(1.2)';
+                        canvasTrash.innerHTML = `
+                            <div style="text-align: center; color: white; font-weight: bold;">
+                                <div style="font-size: 20px;">🗑️</div>
+                                <div style="font-size: 8px; line-height: 1;">LOSLASSEN!</div>
+                            </div>`;
+
+                        // Store that we're over trash for the drop check
+                        this.isOverTrashZone = true;
+                    } else {
+                        // Reset when not hovering
+                        canvasTrash.style.background = 'rgba(255, 193, 7, 0.8)';
+                        canvasTrash.style.borderColor = '#ffc107';
+                        canvasTrash.style.transform = 'scale(1)';
+                        canvasTrash.innerHTML = `
+                            <div style="text-align: center; color: #856404; font-weight: bold;">
+                                <div style="font-size: 20px;">🗑️</div>
+                                <div style="font-size: 8px; line-height: 1;">LÖSCHEN</div>
+                            </div>`;
+
+                        this.isOverTrashZone = false;
+                    }
+                }
+            }
+
             this.handleDragOrResize(currentX, currentY);
             return;
         }
@@ -658,7 +849,14 @@ class IdeaBoard {
                 break;
                 
             case 'text':
-                this.ctx.font = `${data.fontSize || 16}px Arial`;
+                const fontSize = data.fontSize || 16;
+                const fontFamily = data.fontFamily || 'Arial, sans-serif';
+                const fontWeight = data.fontWeight || 'normal';
+                const fontStyle = data.fontStyle || 'normal';
+                const textColor = data.textColor || element.color || this.currentColor;
+
+                this.ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+                this.ctx.fillStyle = textColor;
                 this.ctx.fillText(data.text, data.x, data.y);
                 break;
         }
@@ -670,6 +868,8 @@ class IdeaBoard {
     }
     
     stopDrawing(event) {
+        console.log('STOPDRAWING - Tool:', this.currentTool, 'Dragging:', this.isDragging, 'Event:', event?.type);
+
         // Handle hand tool panning
         if (this.isPanning && this.handToolActive) {
             this.isPanning = false;
@@ -678,6 +878,73 @@ class IdeaBoard {
         }
 
         if (this.currentTool === 'select') {
+            // Check for deletion on mouseup events
+            if (this.isDragging && this.selectedElement && event && event.type === 'mouseup') {
+                const canvasTrash = document.getElementById('canvas-trash-zone');
+
+                if (canvasTrash) {
+                    // Check current mouse position over trash at the moment of mouseup
+                    const trashRect = canvasTrash.getBoundingClientRect();
+
+                    const isOverTrashNow = (
+                        event.clientX >= trashRect.left &&
+                        event.clientX <= trashRect.right &&
+                        event.clientY >= trashRect.top &&
+                        event.clientY <= trashRect.bottom
+                    );
+
+                    console.log('TRASH CHECK: Over trash =', isOverTrashNow, 'Element ID =', this.selectedElement?.id);
+
+                    if (isOverTrashNow) {
+                        console.log('DELETING ELEMENT:', this.selectedElement);
+
+                        // Store element reference before clearing selection
+                        const elementToDelete = this.selectedElement;
+
+                        // Stop dragging immediately to prevent further position updates
+                        this.isDragging = false;
+                        this.isDragActive = false;
+
+                        // Clear selection immediately to remove selection frame
+                        this.selectedElement = null;
+
+                        // Delete element using existing method
+                        this.deleteElement(elementToDelete);
+
+                        // Redraw canvas immediately
+                        this.scheduleRedraw();
+
+                        // Show deletion feedback
+                        canvasTrash.style.background = 'rgba(40, 167, 69, 0.9)';
+                        canvasTrash.style.borderColor = '#28a745';
+                        canvasTrash.innerHTML = `
+                            <div style="text-align: center; color: white; font-weight: bold;">
+                                <div style="font-size: 20px;">✓</div>
+                                <div style="font-size: 8px; line-height: 1;">GELÖSCHT!</div>
+                            </div>`;
+
+                        // Reset after short delay
+                        setTimeout(() => {
+                            canvasTrash.style.background = 'rgba(255, 193, 7, 0.8)';
+                            canvasTrash.style.borderColor = '#ffc107';
+                            canvasTrash.style.transform = 'scale(1)';
+                            canvasTrash.innerHTML = `
+                                <div style="text-align: center; color: #856404; font-weight: bold;">
+                                    <div style="font-size: 20px;">🗑️</div>
+                                    <div style="font-size: 8px; line-height: 1;">LÖSCHEN</div>
+                                </div>`;
+                        }, 1000);
+
+                        // Resume polling immediately
+                        this.resumePolling();
+
+                        // Mark that we handled deletion and return to avoid normal processing
+                        this.justDeleted = true;
+                        return;
+                    }
+                }
+            }
+
             // End drag operation and resume polling
             if (this.isDragActive) {
                 this.isDragActive = false;
@@ -689,6 +956,26 @@ class IdeaBoard {
             this.isResizing = false;
             this.isRotating = false;
             this.resizeHandle = null;
+
+            // Reset canvas trash when stopping drag (if not deleted)
+            if (!this.justDeleted) {
+                const canvasTrash = document.getElementById('canvas-trash-zone');
+                if (canvasTrash) {
+                    canvasTrash.style.background = 'rgba(255, 193, 7, 0.8)';
+                    canvasTrash.style.borderColor = '#ffc107';
+                    canvasTrash.style.transform = 'scale(1)';
+                    canvasTrash.innerHTML = `
+                        <div style="text-align: center; color: #856404; font-weight: bold;">
+                            <div style="font-size: 20px;">🗑️</div>
+                            <div style="font-size: 8px; line-height: 1;">LÖSCHEN</div>
+                        </div>`;
+                }
+            }
+
+            // Reset flags
+            this.isOverTrashZone = false;
+            this.justDeleted = false;
+
             return;
         }
         
@@ -777,21 +1064,194 @@ class IdeaBoard {
     }
     
     addText(x, y) {
-        const text = prompt('Text eingeben:');
-        if (text && text.trim()) {
-            this.saveElement('text', {
-                text: text.trim(),
-                x: x,
-                y: y,
-                fontSize: 16
+        // Position für später speichern
+        this.pendingTextX = x;
+        this.pendingTextY = y;
+
+        // Modal öffnen
+        const modal = new bootstrap.Modal(document.getElementById('textInputModal'));
+
+        // Felder zurücksetzen
+        document.getElementById('textInput').value = '';
+        document.getElementById('textFontSize').value = '16';
+        document.getElementById('textFontFamily').value = 'Arial, sans-serif';
+        document.getElementById('textBold').checked = false;
+        document.getElementById('textItalic').checked = false;
+        document.getElementById('textColor').value = this.currentColor;
+
+        modal.show();
+
+        // Vorschau aktualisieren
+        this.updateTextPreview();
+    }
+
+    updateTextPreview() {
+        const textInput = document.getElementById('textInput').value || 'Vorschau des Textes...';
+        const fontSize = document.getElementById('textFontSize').value;
+        const fontFamily = document.getElementById('textFontFamily').value;
+        const isBold = document.getElementById('textBold').checked;
+        const isItalic = document.getElementById('textItalic').checked;
+        const textColor = document.getElementById('textColor').value;
+
+        const preview = document.getElementById('textPreview');
+        preview.innerText = textInput;
+        preview.style.fontSize = fontSize + 'px';
+        preview.style.fontFamily = fontFamily;
+        preview.style.fontWeight = isBold ? 'bold' : 'normal';
+        preview.style.fontStyle = isItalic ? 'italic' : 'normal';
+        preview.style.color = textColor;
+    }
+
+    isMouseOverElement(event, element) {
+        const rect = element.getBoundingClientRect();
+        return (
+            event.clientX >= rect.left &&
+            event.clientX <= rect.right &&
+            event.clientY >= rect.top &&
+            event.clientY <= rect.bottom
+        );
+    }
+
+    deleteElement(element) {
+        console.log('DELETING ELEMENT ID:', element?.id);
+
+        // Remove from elements array immediately for visual feedback
+        this.elements = this.elements.filter(el => el !== element);
+
+        // Delete from server
+        if (element.id) {
+            console.log('SENDING DELETE REQUEST for ID:', element.id);
+            fetch(`/organization/boards/{{ board.pk }}/elements/${element.id}/delete/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json',
+                }
+            }).then(response => {
+                console.log('Delete response:', response.status, response.statusText);
+                if (!response.ok) {
+                    console.error('Failed to delete element from server:', response.status);
+                    // Re-add element to local array if server delete failed
+                    this.elements.push(element);
+                    this.scheduleRedraw();
+                } else {
+                    console.log('Element successfully deleted from server');
+                }
+            }).catch(error => {
+                console.error('Error deleting element:', error);
+                // Re-add element to local array on error
+                this.elements.push(element);
+                this.scheduleRedraw();
             });
-            
+        } else {
+            console.log('Element has no ID, only removing locally');
+        }
+    }
+
+    handleDoubleClick(e) {
+        if (this.currentTool !== 'select') return;
+
+        const coords = this.getCanvasCoordinates(e);
+        const x = coords.x;
+        const y = coords.y;
+
+        // Check if double-clicking on a text element
+        const clickedElement = this.getElementAt(x, y);
+        if (clickedElement && clickedElement.element_type === 'text') {
+            this.editText(clickedElement);
+        }
+    }
+
+    editText(textElement) {
+        // Store reference to element being edited
+        this.editingElement = textElement;
+
+        // Open modal with current text values
+        const modal = new bootstrap.Modal(document.getElementById('textInputModal'));
+
+        // Fill form with current values
+        const data = textElement.data;
+        document.getElementById('textInput').value = data.text || '';
+        document.getElementById('textFontSize').value = data.fontSize || 16;
+        document.getElementById('textFontFamily').value = data.fontFamily || 'Arial, sans-serif';
+        document.getElementById('textBold').checked = data.fontWeight === 'bold';
+        document.getElementById('textItalic').checked = data.fontStyle === 'italic';
+        document.getElementById('textColor').value = data.textColor || textElement.color || '#000000';
+
+        // Change modal title and button text
+        document.getElementById('textInputModalLabel').textContent = '📝 Text bearbeiten';
+        document.getElementById('addTextButton').textContent = 'Text aktualisieren';
+
+        modal.show();
+
+        // Update preview
+        this.updateTextPreview();
+    }
+
+    handleTextSubmit() {
+        const textInput = document.getElementById('textInput').value.trim();
+        if (!textInput) return;
+
+        const fontSize = parseInt(document.getElementById('textFontSize').value);
+        const fontFamily = document.getElementById('textFontFamily').value;
+        const isBold = document.getElementById('textBold').checked;
+        const isItalic = document.getElementById('textItalic').checked;
+        const textColor = document.getElementById('textColor').value;
+
+        // Font style zusammenstellen
+        let fontWeight = isBold ? 'bold' : 'normal';
+        let fontStyle = isItalic ? 'italic' : 'normal';
+
+        if (this.editingElement) {
+            // Updating existing text element
+            this.editingElement.data = {
+                ...this.editingElement.data,
+                text: textInput,
+                fontSize: fontSize,
+                fontFamily: fontFamily,
+                fontWeight: fontWeight,
+                fontStyle: fontStyle,
+                textColor: textColor
+            };
+
+            // Update element color as well
+            this.editingElement.color = textColor;
+
+            // Schedule server update
+            this.scheduleServerUpdate(this.editingElement);
+
+            // Redraw canvas
+            this.scheduleRedraw();
+
+            // Clear editing reference
+            this.editingElement = null;
+        } else {
+            // Creating new text element
+            this.saveElement('text', {
+                text: textInput,
+                x: this.pendingTextX,
+                y: this.pendingTextY,
+                fontSize: fontSize,
+                fontFamily: fontFamily,
+                fontWeight: fontWeight,
+                fontStyle: fontStyle,
+                textColor: textColor
+            });
+
             // Sofort zeichnen
             this.ctx.globalAlpha = this.currentOpacity;
-            this.ctx.fillStyle = this.currentColor;
-            this.ctx.font = '16px Arial';
-            this.ctx.fillText(text.trim(), x, y);
+            this.ctx.fillStyle = textColor;
+            this.ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+            this.ctx.fillText(textInput, this.pendingTextX, this.pendingTextY);
         }
+
+        // Reset modal title and button text for next use
+        document.getElementById('textInputModalLabel').textContent = '📝 Text hinzufügen';
+        document.getElementById('addTextButton').textContent = 'Text hinzufügen';
+
+        // Modal schließen
+        const modal = bootstrap.Modal.getInstance(document.getElementById('textInputModal'));
+        modal.hide();
     }
     
     saveElement(type, data) {
@@ -942,6 +1402,10 @@ class IdeaBoard {
             this.isDragging = true;
             this.isDragActive = true;
             this.pausePolling();
+            console.log('=== DRAG STARTED ===');
+            console.log('Element:', clickedElement);
+            console.log('Element ID:', clickedElement.id);
+            console.log('Element position:', clickedElement.position_x, clickedElement.position_y);
 
             // Ensure position_x and position_y exist and are correct
             this.ensureElementPosition(clickedElement);
@@ -1009,7 +1473,10 @@ class IdeaBoard {
             case 'text':
                 // Simple bounding box for text
                 const fontSize = data.fontSize || 16;
-                this.ctx.font = `${fontSize}px Arial`;
+                const fontFamily = data.fontFamily || 'Arial, sans-serif';
+                const fontWeight = data.fontWeight || 'normal';
+                const fontStyle = data.fontStyle || 'normal';
+                this.ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
                 const textWidth = this.ctx.measureText(data.text).width;
                 return x >= data.x && x <= data.x + textWidth &&
                        y >= data.y - fontSize && y <= data.y;
@@ -1185,7 +1652,10 @@ class IdeaBoard {
                 };
             case 'text':
                 const fontSize = data.fontSize || 16;
-                this.ctx.font = `${fontSize}px Arial`;
+                const fontFamily = data.fontFamily || 'Arial, sans-serif';
+                const fontWeight = data.fontWeight || 'normal';
+                const fontStyle = data.fontStyle || 'normal';
+                this.ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
                 const textWidth = this.ctx.measureText(data.text).width;
                 return {
                     x: data.x,
@@ -1947,7 +2417,6 @@ class BoardAudioManager {
 
     updateUI(audioStatus) {
         const audioBtn = document.getElementById('audio-toggle-btn');
-        const audioIcon = document.getElementById('audio-icon');
         const audioText = document.getElementById('audio-text');
         const audioParticipants = document.getElementById('audio-participants');
 
@@ -1962,12 +2431,10 @@ class BoardAudioManager {
 
         if (audioStatus.user_is_participant) {
             audioBtn.className = 'btn btn-success me-2';
-            audioIcon.className = this.isMuted ? 'fas fa-microphone-slash' : 'fas fa-microphone';
-            audioText.textContent = 'Audio verlassen';
+            audioBtn.innerHTML = `${this.isMuted ? '🔇' : '🎤'} <span id="audio-text">Audio verlassen</span><span id="audio-participants" class="badge bg-secondary ms-1" style="display: ${audioStatus.participant_count > 0 ? 'inline' : 'none'};">${audioStatus.participant_count || 0}</span>`;
         } else {
             audioBtn.className = 'btn btn-outline-success me-2';
-            audioIcon.className = 'fas fa-microphone-slash';
-            audioText.textContent = 'Audio beitreten';
+            audioBtn.innerHTML = `🎤 <span id="audio-text">Audio beitreten</span><span id="audio-participants" class="badge bg-secondary ms-1" style="display: ${audioStatus.participant_count > 0 ? 'inline' : 'none'};">${audioStatus.participant_count || 0}</span>`;
         }
     }
 
