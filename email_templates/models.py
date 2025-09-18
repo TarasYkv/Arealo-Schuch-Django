@@ -215,6 +215,9 @@ class EmailTemplate(models.Model):
         ('announcement', 'Ankündigung'),
         ('seasonal_greeting', 'Saisonale Grüße'),
         ('birthday_wish', 'Geburtstagsgruß'),
+
+        # Chat & Communication
+        ('chat_notification', 'Chat-Benachrichtigung'),
         ('anniversary', 'Jubiläum'),
         ('loyalty_reward', 'Treuebonus'),
         ('referral_invitation', 'Empfehlungs-Einladung'),

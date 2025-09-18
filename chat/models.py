@@ -230,15 +230,46 @@ class CallParticipant(models.Model):
         ('left', 'Left'),
         ('rejected', 'Rejected'),
     ]
-    
+
     call = models.ForeignKey(Call, on_delete=models.CASCADE, related_name='participants')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='call_participations')
     status = models.CharField(max_length=20, choices=PARTICIPANT_STATUS, default='invited')
     joined_at = models.DateTimeField(null=True, blank=True)
     left_at = models.DateTimeField(null=True, blank=True)
-    
+
     class Meta:
         unique_together = ('call', 'user')
-    
+
     def __str__(self):
         return f"{self.user.username} in Call {self.call.id} ({self.status})"
+
+
+class ChatEmailNotificationTracker(models.Model):
+    """
+    Tracks when email notifications should be sent for unread messages
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chat_email_trackers')
+    message = models.ForeignKey(ChatMessage, on_delete=models.CASCADE, related_name='email_trackers')
+
+    # Scheduling
+    created_at = models.DateTimeField(auto_now_add=True)
+    scheduled_send_at = models.DateTimeField(verbose_name="Geplanter Versand")
+    notification_sent = models.BooleanField(default=False, verbose_name="Benachrichtigung gesendet")
+    sent_at = models.DateTimeField(null=True, blank=True, verbose_name="Gesendet am")
+
+    # Cancel conditions
+    is_cancelled = models.BooleanField(default=False, verbose_name="Abgebrochen")
+    cancelled_reason = models.CharField(max_length=100, blank=True,
+                                       verbose_name="Grund für Abbruch")
+
+    class Meta:
+        verbose_name = "Chat E-Mail-Benachrichtigung Tracker"
+        verbose_name_plural = "Chat E-Mail-Benachrichtigung Tracker"
+        unique_together = ('user', 'message')
+        indexes = [
+            models.Index(fields=['scheduled_send_at', 'notification_sent']),
+            models.Index(fields=['user', 'notification_sent']),
+        ]
+
+    def __str__(self):
+        return f"E-Mail-Benachrichtigung für {self.user.username} - Nachricht {self.message.id}"

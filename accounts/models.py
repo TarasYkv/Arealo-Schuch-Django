@@ -48,6 +48,10 @@ class CustomUser(AbstractUser):
     
     # Design-Einstellungen
     dark_mode = models.BooleanField(default=False, verbose_name="Dunkles Design aktivieren")
+
+    # Chat E-Mail-Benachrichtigungen
+    enable_chat_email_notifications = models.BooleanField(default=True, verbose_name="Chat E-Mail-Benachrichtigungen",
+                                                         help_text="E-Mail erhalten bei ungelesenen Nachrichten nach 5 Minuten")
     desktop_view = models.BooleanField(default=False, verbose_name="Desktop-Ansicht erzwingen",
                                       help_text="Zeigt immer die Desktop-Version an, unabhängig vom Gerät")
     
