@@ -563,6 +563,8 @@ def board_get_elements(request, pk):
             'opacity': element.opacity,
             'rotation': element.rotation if element.rotation is not None else 0,
             'layer_index': element.layer_index,
+            'created_by': element.created_by.username,
+            'created_by_id': element.created_by.id,
         })
     
     return JsonResponse({'elements': elements_data, 'updated': True})
