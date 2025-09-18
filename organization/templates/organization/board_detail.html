@@ -207,13 +207,13 @@
 class IdeaBoard {
     constructor() {
         console.log('IdeaBoard constructor starting...');
-        
+
         this.canvas = document.getElementById('drawing-canvas');
         if (!this.canvas) {
             console.error('Canvas not found!');
             return;
         }
-        
+
         this.ctx = this.canvas.getContext('2d');
         this.isDrawing = false;
         this.currentTool = 'select';
@@ -229,7 +229,15 @@ class IdeaBoard {
         this.isResizing = false;
         this.resizeHandle = null;
         this.dragOffset = {x: 0, y: 0};
-        
+
+        // Performance optimization variables
+        this.isDragActive = false;
+        this.pendingUpdate = null;
+        this.updateTimeout = null;
+        this.debouncedUpdateDelay = 150; // ms
+        this.pollingPaused = false;
+        this.redrawScheduled = false;
+
         // Zoom and pan variables
         this.zoomLevel = 1;
         this.panX = 0;
@@ -470,7 +478,7 @@ class IdeaBoard {
             this.drawShapePreview(currentX, currentY);
             return;
         }
-        
+
         switch (this.currentTool) {
             case 'pen':
             case 'brush':
@@ -482,14 +490,14 @@ class IdeaBoard {
                 this.startX = currentX;
                 this.startY = currentY;
                 break;
-                
-                
+
+
             case 'text':
                 // Text wird beim Klick hinzugefügt
                 break;
         }
     }
-    
+
     drawShapePreview(currentX, currentY) {
         // Redraw canvas
         this.redrawCanvas();
@@ -661,8 +669,15 @@ class IdeaBoard {
             this.canvas.style.cursor = 'grab';
             return;
         }
-        
+
         if (this.currentTool === 'select') {
+            // End drag operation and resume polling
+            if (this.isDragActive) {
+                this.isDragActive = false;
+                this.resumePolling();
+                this.finalizePendingUpdate();
+            }
+
             this.isDragging = false;
             this.isResizing = false;
             this.isRotating = false;
@@ -823,7 +838,7 @@ class IdeaBoard {
             if (response.ok) {
                 // Remove from local array
                 this.elements.pop();
-                this.redrawCanvas();
+                this.scheduleRedraw();
                 // Force update check
                 setTimeout(() => this.checkForUpdates(), 100);
             } else {
@@ -876,7 +891,7 @@ class IdeaBoard {
                 this.elements.forEach(element => {
                     this.ensureElementPosition(element);
                 });
-                this.redrawCanvas();
+                this.scheduleRedraw();
             })
             .catch(error => {
                 console.error('Error loading elements:', error);
@@ -890,6 +905,8 @@ class IdeaBoard {
             if (handle) {
                 if (handle === 'rotate') {
                     this.isRotating = true;
+                    this.isDragActive = true;
+                    this.pausePolling();
                     const bounds = this.getElementBounds(this.selectedElement);
                     this.rotationCenter = {
                         x: bounds.x + bounds.width / 2,
@@ -899,34 +916,38 @@ class IdeaBoard {
                     this.selectedElement.rotation = this.selectedElement.rotation || 0;
                 } else {
                     this.isResizing = true;
+                    this.isDragActive = true;
+                    this.pausePolling();
                     this.resizeHandle = handle;
                 }
                 return;
             }
         }
-        
+
         // Check if clicking on existing element
         const clickedElement = this.getElementAt(x, y);
-        
+
         if (clickedElement) {
             if (this.selectedElement !== clickedElement) {
                 this.selectedElement = clickedElement;
-                this.redrawCanvas();
+                this.scheduleRedraw();
             }
             this.isDragging = true;
-            
+            this.isDragActive = true;
+            this.pausePolling();
+
             // Ensure position_x and position_y exist and are correct
             this.ensureElementPosition(clickedElement);
-            
+
             this.dragOffset = {
                 x: x - clickedElement.position_x,
                 y: y - clickedElement.position_y
             };
-            
+
         } else {
             // Clicked on empty space - deselect
             this.selectedElement = null;
-            this.redrawCanvas();
+            this.scheduleRedraw();
         }
     }
     
@@ -1032,20 +1053,20 @@ class IdeaBoard {
     
     dragElement(x, y) {
         if (!this.selectedElement) return;
-        
+
         const newX = x - this.dragOffset.x;
         const newY = y - this.dragOffset.y;
-        
+
         // Calculate delta before updating position
         const deltaX = newX - this.selectedElement.position_x;
         const deltaY = newY - this.selectedElement.position_y;
-        
+
         this.selectedElement.position_x = newX;
         this.selectedElement.position_y = newY;
-        
+
         // Update data based on element type
         const data = this.selectedElement.data;
-        
+
         switch (this.selectedElement.element_type) {
             case 'rectangle':
                 data.x = newX;
@@ -1084,25 +1105,24 @@ class IdeaBoard {
                 }
                 break;
         }
-        
-        this.redrawCanvas();
-        this.updateElementOnServer(this.selectedElement);
+
+        this.scheduleRedraw();
+        this.scheduleServerUpdate(this.selectedElement);
     }
     
     rotateElement(x, y) {
         if (!this.selectedElement) return;
-        
+
         const currentAngle = Math.atan2(y - this.rotationCenter.y, x - this.rotationCenter.x);
         const angleDiff = currentAngle - this.initialAngle;
-        
+
         // Update rotation (convert to degrees for easier handling)
         const oldRotation = this.selectedElement.rotation || 0;
         this.selectedElement.rotation = (oldRotation + angleDiff * (180 / Math.PI)) % 360;
-        
-        
+
         this.initialAngle = currentAngle;
-        this.redrawCanvas();
-        this.updateElementOnServer(this.selectedElement);
+        this.scheduleRedraw();
+        this.scheduleServerUpdate(this.selectedElement);
     }
     
     getResizeHandle(x, y) {
@@ -1284,8 +1304,8 @@ class IdeaBoard {
             this.selectedElement.position_y = data.y;
         }
         
-        this.redrawCanvas();
-        this.updateElementOnServer(this.selectedElement);
+        this.scheduleRedraw();
+        this.scheduleServerUpdate(this.selectedElement);
     }
     
     drawSelectionHandles() {
@@ -1400,20 +1420,25 @@ class IdeaBoard {
         this.lastUpdate = Date.now();
         this.pollingInterval = setInterval(() => {
             this.checkForUpdates();
-        }, 1000); // Check every 1 second for faster synchronization
+        }, 1500); // Check every 1.5 seconds - reduced frequency for better performance
     }
     
     checkForUpdates() {
+        // Don't check for updates while actively dragging
+        if (this.pollingPaused) {
+            return;
+        }
+
         fetch(`/organization/boards/{{ board.pk }}/elements/?since=${this.lastUpdate}`)
             .then(response => response.json())
             .then(data => {
                 if (data.updated && data.elements) {
-                    // Only update if there are actual changes
-                    if (this.hasElementsChanged(data.elements)) {
+                    // Only update if there are actual changes and we're not actively dragging
+                    if (!this.pollingPaused && this.hasElementsChanged(data.elements)) {
                         this.elements = data.elements;
                         // Ensure all elements have correct position values
                         this.elements.forEach(element => this.ensureElementPosition(element));
-                        this.redrawCanvas();
+                        this.scheduleRedraw();
                     }
                     this.lastUpdate = Date.now();
                 }
@@ -1481,10 +1506,142 @@ class IdeaBoard {
                 break;
         }
     }
-    
+
+    // Performance optimization methods
+    scheduleRedraw() {
+        if (this.redrawScheduled) return;
+
+        this.redrawScheduled = true;
+        requestAnimationFrame(() => {
+            this.redrawCanvas();
+            this.redrawScheduled = false;
+        });
+    }
+
+    scheduleServerUpdate(element) {
+        // Clear any existing timeout
+        if (this.updateTimeout) {
+            clearTimeout(this.updateTimeout);
+        }
+
+        // Store the pending update
+        this.pendingUpdate = {
+            element_id: element.id,
+            data: element.data,
+            position_x: element.position_x,
+            position_y: element.position_y,
+            rotation: element.rotation || 0
+        };
+
+        // Schedule the debounced update
+        this.updateTimeout = setTimeout(() => {
+            this.finalizePendingUpdate();
+        }, this.debouncedUpdateDelay);
+    }
+
+    finalizePendingUpdate() {
+        if (!this.pendingUpdate) return;
+
+        const updateData = this.pendingUpdate;
+        this.pendingUpdate = null;
+
+        if (this.updateTimeout) {
+            clearTimeout(this.updateTimeout);
+            this.updateTimeout = null;
+        }
+
+        // Store original state for potential rollback
+        const elementToUpdate = this.elements.find(el => el.id === updateData.element_id);
+        const originalState = elementToUpdate ? {
+            data: JSON.parse(JSON.stringify(elementToUpdate.data)),
+            position_x: elementToUpdate.position_x,
+            position_y: elementToUpdate.position_y,
+            rotation: elementToUpdate.rotation
+        } : null;
+
+        // Send the update to server
+        fetch(`/organization/boards/{{ board.pk }}/update-element/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(updateData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                this.lastUpdate = Date.now();
+                console.log('Element successfully updated on server');
+            } else {
+                console.error('Failed to update element on server:', data);
+                this.rollbackElement(updateData.element_id, originalState);
+            }
+        })
+        .catch(error => {
+            console.error('Error updating element:', error);
+            this.rollbackElement(updateData.element_id, originalState);
+        });
+    }
+
+    rollbackElement(elementId, originalState) {
+        if (!originalState) {
+            console.warn('Cannot rollback element - no original state available');
+            return;
+        }
+
+        // Find and restore the element
+        const element = this.elements.find(el => el.id === elementId);
+        if (element) {
+            element.data = originalState.data;
+            element.position_x = originalState.position_x;
+            element.position_y = originalState.position_y;
+            element.rotation = originalState.rotation;
+
+            this.scheduleRedraw();
+            console.log('Element rolled back to previous state');
+
+            // Show a brief user notification
+            this.showNotification('Update failed - changes reverted', 'error');
+        }
+    }
+
+    showNotification(message, type = 'info') {
+        // Create a simple notification
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type === 'error' ? 'danger' : 'info'} alert-dismissible`;
+        notification.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 1000; min-width: 300px;';
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+        `;
+
+        document.body.appendChild(notification);
+
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 3000);
+    }
+
+    pausePolling() {
+        this.pollingPaused = true;
+    }
+
+    resumePolling() {
+        this.pollingPaused = false;
+        // Immediately check for updates when resuming
+        setTimeout(() => this.checkForUpdates(), 100);
+    }
+
     cleanup() {
         if (this.pollingInterval) {
             clearInterval(this.pollingInterval);
+        }
+        if (this.updateTimeout) {
+            clearTimeout(this.updateTimeout);
         }
     }
     
