@@ -13,6 +13,7 @@ from datetime import timedelta
 import json
 
 from .models import ChatRoom, ChatMessage, ChatRoomParticipant, ChatMessageRead, ChatMessageAttachment
+from .email_service import ChatEmailNotificationService
 from .agora_utils import generate_agora_token
 from accounts.decorators import require_app_permission
 
@@ -328,7 +329,10 @@ def send_message(request, room_id):
             message=message,
             user=request.user
         )
-        
+
+        # Schedule email notifications for other participants
+        ChatEmailNotificationService.schedule_notification_for_message(message)
+
         return JsonResponse({
             'success': True,
             'message': {
@@ -682,7 +686,12 @@ def mark_messages_read(request, room_id):
         )
         participant.last_read_at = timezone.now()
         participant.save()
-        
+
+        # Cancel pending email notifications for this user in this room
+        ChatEmailNotificationService.cancel_notifications_for_user_in_room(
+            request.user, chat_room
+        )
+
         return JsonResponse({'success': True})
         
     except Exception as e:

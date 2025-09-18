@@ -120,13 +120,20 @@ class UserProfileForm(forms.ModelForm):
     """Formular für Benutzer-Profil bearbeiten"""
     class Meta:
         model = CustomUser
-        fields = ['username', 'email', 'first_name', 'last_name', 'profile_picture']
+        fields = ['username', 'email', 'first_name', 'last_name', 'profile_picture', 'enable_chat_email_notifications']
         widgets = {
             'username': forms.TextInput(attrs={'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
             'first_name': forms.TextInput(attrs={'class': 'form-control'}),
             'last_name': forms.TextInput(attrs={'class': 'form-control'}),
             'profile_picture': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+            'enable_chat_email_notifications': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+        labels = {
+            'enable_chat_email_notifications': 'Chat E-Mail-Benachrichtigungen',
+        }
+        help_texts = {
+            'enable_chat_email_notifications': 'E-Mail erhalten bei ungelesenen Nachrichten nach 5 Minuten',
         }
     
     def clean_profile_picture(self):
