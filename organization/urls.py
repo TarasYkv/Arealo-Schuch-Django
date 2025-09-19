@@ -36,6 +36,7 @@ urlpatterns = [
     path('boards/<int:pk>/audio/leave/', views.board_audio_leave, name='board_audio_leave'),
     path('boards/<int:pk>/audio/token/', views.board_audio_token, name='board_audio_token'),
     path('boards/<int:pk>/audio/status/', views.board_audio_status, name='board_audio_status'),
+    path('boards/<int:pk>/audio/mute/', views.board_audio_mute, name='board_audio_mute'),
 
     # Board Notes
     path('boards/<int:pk>/update-notes/', views.board_update_notes, name='board_update_notes'),
@@ -53,4 +54,5 @@ urlpatterns = [
     path('api/user-search/', views.user_search, name='user_search'),
     path('api/check-incoming-calls/', views.check_incoming_calls, name='check_incoming_calls'),
     path('api/get-agora-token/', views.get_agora_token, name='get_agora_token'),
+    path('api/user/<int:user_id>/username/', views.get_username, name='get_username'),
 ]

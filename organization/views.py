@@ -1207,11 +1207,15 @@ def board_audio_status(request, pk):
 
         participants_data = []
         for participant in active_participants:
+            # Generate Agora UID based on user ID (similar to frontend)
+            agora_uid = int(f"1{participant.user.id:06d}")
+
             participants_data.append({
                 'user_id': participant.user.id,
                 'username': participant.user.username,
                 'is_muted': participant.is_muted,
-                'joined_at': participant.joined_at.isoformat()
+                'joined_at': participant.joined_at.isoformat(),
+                'agora_uid': agora_uid
             })
 
         user_is_participant = active_participants.filter(user=request.user).exists()
@@ -1232,6 +1236,59 @@ def board_audio_status(request, pk):
             'participant_count': 0,
             'user_is_participant': False
         })
+
+
+@login_required
+@csrf_exempt
+def board_audio_mute(request, pk):
+    """Mute-Status eines Teilnehmers aktualisieren."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
+
+    board = get_object_or_404(IdeaBoard, pk=pk)
+
+    # Zugriffsberechtigung prüfen
+    if not (board.creator == request.user or request.user in board.collaborators.all() or board.is_public):
+        return JsonResponse({'error': 'Keine Berechtigung'}, status=403)
+
+    try:
+        import json
+        data = json.loads(request.body)
+        is_muted = data.get('is_muted', False)
+
+        # Audio Session suchen
+        audio_session = BoardAudioSession.objects.get(board=board, is_active=True)
+
+        # Teilnehmer suchen und Mute-Status aktualisieren
+        participant = BoardAudioParticipant.objects.get(
+            session=audio_session,
+            user=request.user,
+            left_at__isnull=True
+        )
+
+        participant.is_muted = is_muted
+        participant.save()
+
+        return JsonResponse({'success': True, 'is_muted': is_muted})
+
+    except BoardAudioSession.DoesNotExist:
+        return JsonResponse({'error': 'Keine aktive Audio-Session'}, status=404)
+    except BoardAudioParticipant.DoesNotExist:
+        return JsonResponse({'error': 'Benutzer ist kein Teilnehmer'}, status=404)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Ungültige JSON-Daten'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def get_username(request, user_id):
+    """Get username for a specific user ID."""
+    try:
+        user = User.objects.get(id=user_id)
+        return JsonResponse({'username': user.username})
+    except User.DoesNotExist:
+        return JsonResponse({'error': 'User not found'}, status=404)
 
 
 @login_required

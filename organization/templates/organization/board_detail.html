@@ -8,24 +8,38 @@
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1>{{ board.title }}</h1>
-                <div>
+                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
                     <!-- Board Audio Button -->
-                    <button type="button" id="audio-toggle-btn" class="btn btn-outline-success me-2">
-                        🎤 <span id="audio-text">Audio beitreten</span>
-                        <span id="audio-participants" class="badge bg-secondary ms-1" style="display: none;">0</span>
+                    <button type="button" id="audio-toggle-btn" class="btn btn-sm btn-outline-success me-1" style="width: 120px; height: 38px; display: flex; align-items: center; justify-content: center;">
+                        🎤 <span id="audio-text" class="d-none d-sm-inline">Audio</span>
+                        <span id="audio-participants" class="badge bg-secondary ms-1" style="display: none; font-size: 0.65rem;">0</span>
                     </button>
 
                     <!-- Mute Button (only visible when audio is active) -->
-                    <button type="button" id="mute-toggle-btn" class="btn btn-outline-warning me-2" style="display: none;">
-                        🔇 <span id="mute-text">Stumm schalten</span>
+                    <button type="button" id="mute-toggle-btn" class="btn btn-sm btn-outline-warning me-1" style="display: none; width: 120px; height: 38px;">
+                        🔇 <span id="mute-text" class="d-none d-sm-inline">Stumm</span>
                     </button>
 
+                    <!-- Audio Participants List with Speaking Indicator -->
+                    <div id="audio-participants-list" class="d-inline-block me-1" style="display: none;">
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="width: 120px; height: 38px; display: flex; align-items: center; justify-content: center;">
+                                <span id="active-speaker-name">👥 <span class="d-none d-sm-inline">Teiln.</span></span>
+                            </button>
+                            <div class="dropdown-menu" id="participants-dropdown" style="min-width: 200px;">
+                                <!-- Participants will be added here dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
                     {% if board.creator == request.user %}
-                        <button type="button" class="btn btn-info me-2" data-bs-toggle="modal" data-bs-target="#inviteModal">
-                            👥 Personen einladen
+                        <button type="button" class="btn btn-sm btn-info me-1" data-bs-toggle="modal" data-bs-target="#inviteModal" style="width: 120px; height: 38px; display: flex; align-items: center; justify-content: center;">
+                            👥 <span class="d-none d-sm-inline">Einladen</span>
                         </button>
                     {% endif %}
-                    <a href="{% url 'organization:board_list' %}" class="btn btn-secondary">Zurück zur Liste</a>
+                    <a href="{% url 'organization:board_list' %}" class="btn btn-sm btn-secondary" style="width: 120px; height: 38px; display: flex; align-items: center; justify-content: center;">
+                        ↩️ <span class="d-none d-sm-inline">Zurück</span>
+                    </a>
                 </div>
             </div>
             
@@ -101,11 +115,24 @@
             <div class="card">
                 <div class="card-body p-0">
                     <div id="canvas-container" style="position: relative; overflow: hidden;">
-                        <!-- Undo Button - Top Right -->
+                        <!-- Undo Button and Speaking Indicator - Top Right -->
                         <div style="position: absolute; top: 10px; right: 10px; z-index: 10;">
                             <button type="button" class="btn btn-secondary btn-sm" id="undo-action">
                                 ↩️ Rückgängig
                             </button>
+                            <!-- Speaking Indicator -->
+                            <div id="speaking-indicator-top" style="display: none; margin-top: 10px; padding: 8px 12px; background: rgba(40, 167, 69, 0.15); border: 1px solid #28a745; border-radius: 6px; text-align: center;">
+                                <span style="color: #28a745; font-weight: 600; font-size: 14px;">
+                                    🗣️ <span id="speaking-name-top">-</span>
+                                </span>
+                            </div>
+
+                            <!-- Audio Join Notification -->
+                            <div id="audio-join-notification" style="display: none; margin-top: 10px; padding: 8px 12px; background: rgba(0, 123, 255, 0.15); border: 1px solid #007bff; border-radius: 6px; text-align: center; min-width: 200px;">
+                                <span style="color: #007bff; font-weight: 600; font-size: 13px;">
+                                    🎤 <span id="join-notification-text">-</span>
+                                </span>
+                            </div>
                         </div>
                         
                         <!-- Zoom Controls - Top Left -->
@@ -3381,6 +3408,11 @@ class BoardAudioManager {
         this.localAudioTrack = null;
         this.audioConfig = null;
         this.participantCount = 0;
+        this.participants = {};  // Store participant info
+        this.activeSpeakers = new Set();  // Track who is speaking
+        this.volumeIndicatorInterval = null;
+        this.knownParticipants = new Set(); // Track known participants to detect new joins
+        this.periodicUpdateInterval = null; // For periodic participant list updates
 
         this.initEventListeners();
         this.checkAudioStatus();
@@ -3428,31 +3460,59 @@ class BoardAudioManager {
         const audioBtn = document.getElementById('audio-toggle-btn');
         const audioText = document.getElementById('audio-text');
         const audioParticipants = document.getElementById('audio-participants');
+        const participantsList = document.getElementById('audio-participants-list');
 
         if (!audioBtn) return;
+
+        // Update participants information
+        if (audioStatus.participants) {
+            this.updateParticipantsList(audioStatus.participants);
+        }
 
         if (audioStatus.has_active_session && audioStatus.participant_count > 0) {
             audioParticipants.style.display = 'inline';
             audioParticipants.textContent = audioStatus.participant_count;
+
+            // Show participants list when audio is active
+            if (participantsList) {
+                participantsList.style.display = this.isAudioActive ? 'inline-block' : 'none';
+            }
         } else {
             audioParticipants.style.display = 'none';
+            if (participantsList) {
+                participantsList.style.display = 'none';
+            }
         }
 
         const muteBtn = document.getElementById('mute-toggle-btn');
 
         if (audioStatus.user_is_participant) {
-            audioBtn.className = 'btn btn-success me-2';
-            audioBtn.innerHTML = `🎤 <span id="audio-text">Audio verlassen</span><span id="audio-participants" class="badge bg-secondary ms-1" style="display: ${audioStatus.participant_count > 0 ? 'inline' : 'none'};">${audioStatus.participant_count || 0}</span>`;
+            audioBtn.className = 'btn btn-sm btn-success me-1';
+            audioBtn.style.width = '120px';
+            audioBtn.style.height = '38px';
+            audioBtn.style.display = 'flex';
+            audioBtn.style.alignItems = 'center';
+            audioBtn.style.justifyContent = 'center';
+            audioBtn.innerHTML = `🎤 <span id="audio-text" class="d-none d-sm-inline">Verlassen</span><span id="audio-participants" class="badge bg-secondary ms-1" style="display: ${audioStatus.participant_count > 0 ? 'inline' : 'none'}; font-size: 0.65rem;">${audioStatus.participant_count || 0}</span>`;
 
             // Show mute button when user is in audio
             if (muteBtn) {
-                muteBtn.style.display = 'inline-block';
-                muteBtn.className = this.isMuted ? 'btn btn-warning me-2' : 'btn btn-outline-warning me-2';
-                muteBtn.innerHTML = `${this.isMuted ? '🔇' : '🎤'} <span id="mute-text">${this.isMuted ? 'Mikro aktivieren' : 'Stumm schalten'}</span>`;
+                muteBtn.style.display = 'flex';
+                muteBtn.style.width = '120px';
+                muteBtn.style.height = '38px';
+                muteBtn.style.alignItems = 'center';
+                muteBtn.style.justifyContent = 'center';
+                muteBtn.className = this.isMuted ? 'btn btn-sm btn-warning me-1' : 'btn btn-sm btn-outline-warning me-1';
+                muteBtn.innerHTML = `${this.isMuted ? '🔇' : '🎤'} <span id="mute-text" class="d-none d-sm-inline">${this.isMuted ? 'Aktivieren' : 'Stumm'}</span>`;
             }
         } else {
-            audioBtn.className = 'btn btn-outline-success me-2';
-            audioBtn.innerHTML = `🎤 <span id="audio-text">Audio beitreten</span><span id="audio-participants" class="badge bg-secondary ms-1" style="display: ${audioStatus.participant_count > 0 ? 'inline' : 'none'};">${audioStatus.participant_count || 0}</span>`;
+            audioBtn.className = 'btn btn-sm btn-outline-success me-1';
+            audioBtn.style.width = '120px';
+            audioBtn.style.height = '38px';
+            audioBtn.style.display = 'flex';
+            audioBtn.style.alignItems = 'center';
+            audioBtn.style.justifyContent = 'center';
+            audioBtn.innerHTML = `🎤 <span id="audio-text" class="d-none d-sm-inline">Audio</span><span id="audio-participants" class="badge bg-secondary ms-1" style="display: ${audioStatus.participant_count > 0 ? 'inline' : 'none'}; font-size: 0.65rem;">${audioStatus.participant_count || 0}</span>`;
 
             // Hide mute button when user is not in audio
             if (muteBtn) {
@@ -3501,14 +3561,41 @@ class BoardAudioManager {
 
             // Event Listener für Agora
             this.agoraClient.on("user-published", async (user, mediaType) => {
+                console.log('User published:', user.uid, 'mediaType:', mediaType);
                 await this.agoraClient.subscribe(user, mediaType);
                 if (mediaType === 'audio') {
                     user.audioTrack.play();
+
+                    // Always refresh participant list when someone joins
+                    await this.checkAudioStatus();
+
+                    // Check if this is a new participant
+                    if (!this.knownParticipants.has(user.uid)) {
+                        console.log('New participant detected:', user.uid);
+                        this.knownParticipants.add(user.uid);
+
+                        // Try multiple approaches to get the username
+                        this.tryToGetUsernameAndNotify(user.uid);
+                    }
                 }
             });
 
-            this.agoraClient.on("user-unpublished", (user) => {
+            this.agoraClient.on("user-unpublished", async (user) => {
                 console.log('User left audio:', user.uid);
+                // Remove user from participants and known participants
+                delete this.participants[user.uid];
+                this.knownParticipants.delete(user.uid);
+
+                // Refresh participant list from backend
+                await this.checkAudioStatus();
+            });
+
+            // Enable volume indicator for speaking detection
+            this.agoraClient.enableAudioVolumeIndicator();
+
+            // Listen for volume indicator events
+            this.agoraClient.on("volume-indicator", (volumes) => {
+                this.handleVolumeIndicator(volumes);
             });
 
             // Channel beitreten
@@ -3526,6 +3613,9 @@ class BoardAudioManager {
             this.isAudioActive = true;
             this.checkAudioStatus();
 
+            // Start periodic status updates to keep participant list in sync
+            this.startPeriodicUpdates();
+
             console.log('Successfully joined board audio');
 
         } catch (error) {
@@ -3534,8 +3624,293 @@ class BoardAudioManager {
         }
     }
 
+    handleVolumeIndicator(volumes) {
+        // volumes is an array of {uid, level} objects
+        // level ranges from 0 to 100
+        const SPEAKING_THRESHOLD = 10; // Adjust as needed
+
+        // Clear previous speakers
+        this.activeSpeakers.clear();
+
+        volumes.forEach(volume => {
+            if (volume.level > SPEAKING_THRESHOLD) {
+                this.activeSpeakers.add(volume.uid);
+            }
+        });
+
+        this.updateSpeakingIndicators();
+    }
+
+    updateParticipantsList(participantsData) {
+        const dropdown = document.getElementById('participants-dropdown');
+        const activeSpeakerName = document.getElementById('active-speaker-name');
+
+        if (!dropdown) return;
+
+        // Store participants data if provided
+        if (participantsData) {
+            console.log('Updating participants list with data:', participantsData);
+            // Clear old participants first
+            this.participants = {};
+            participantsData.forEach(p => {
+                console.log('Processing participant:', p);
+                // Don't add current user to participants list (avoid duplicate)
+                if (p.username !== '{{ request.user.username }}') {
+                    this.participants[p.user_id] = p;
+                    console.log('Added participant to list:', p.username);
+                }
+
+                // Add to known participants to avoid duplicate notifications
+                if (p.agora_uid) {
+                    this.knownParticipants.add(p.agora_uid);
+                }
+            });
+            console.log('Final participants object:', this.participants);
+        }
+
+        // Clear dropdown
+        dropdown.innerHTML = '';
+
+        // Add current user (local)
+        const currentUserItem = document.createElement('div');
+        currentUserItem.className = 'participant-item';
+        currentUserItem.dataset.uid = this.audioConfig ? this.audioConfig.uid : 'local';
+        currentUserItem.innerHTML = `
+            <span class="participant-name">{{ request.user.username }} (Du)</span>
+            <span class="participant-status">${this.isMuted ? '🔇' : '🎤'}</span>
+        `;
+        dropdown.appendChild(currentUserItem);
+
+        // Add other participants (already filtered to exclude current user)
+        Object.values(this.participants).forEach(participant => {
+            const item = document.createElement('div');
+            item.className = 'participant-item';
+            // Use agora_uid for consistent mapping
+            item.dataset.uid = participant.agora_uid || participant.user_id;
+            item.innerHTML = `
+                <span class="participant-name">${participant.username}</span>
+                <span class="participant-status">${participant.is_muted ? '🔇' : '🎤'}</span>
+            `;
+            dropdown.appendChild(item);
+        });
+
+        // Update active speaker display
+        if (this.activeSpeakers.size > 0) {
+            const speakerNames = Array.from(this.activeSpeakers)
+                .map(uid => {
+                    if (uid == (this.audioConfig ? this.audioConfig.uid : 'local')) {
+                        return '{{ request.user.username }}';
+                    }
+                    // First try to find by agora_uid, then by user_id
+                    let participant = Object.values(this.participants).find(p => p.agora_uid == uid);
+                    if (!participant) {
+                        participant = Object.values(this.participants).find(p => p.user_id == uid);
+                    }
+                    return participant ? participant.username : 'Unbekannt';
+                })
+                .filter(name => name);
+
+            if (speakerNames.length > 0) {
+                activeSpeakerName.innerHTML = `🗣️ <span class="d-none d-sm-inline">${speakerNames[0]}</span>`;
+            } else {
+                activeSpeakerName.innerHTML = '👥 <span class="d-none d-sm-inline">Teiln.</span>';
+            }
+        } else {
+            activeSpeakerName.innerHTML = '👥 <span class="d-none d-sm-inline">Teiln.</span>';
+        }
+
+        // Show participants list if in audio
+        const participantsList = document.getElementById('audio-participants-list');
+        if (participantsList && this.isAudioActive) {
+            participantsList.style.display = 'inline-block';
+        }
+    }
+
+    showJoinNotification(username) {
+        const notification = document.getElementById('audio-join-notification');
+        const notificationText = document.getElementById('join-notification-text');
+
+        if (notification && notificationText) {
+            notificationText.textContent = `${username} ist Audio beigetreten`;
+            notification.style.display = 'block';
+
+            // Hide after 6 seconds (longer display)
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 6000);
+        }
+    }
+
+    async tryToGetUsernameAndNotify(agoraUid) {
+        console.log(`Trying to get username for Agora UID: ${agoraUid}`);
+
+        // First try: Extract user ID from Agora UID pattern
+        let userId = null;
+        const agoraUidStr = agoraUid.toString();
+        console.log(`Raw Agora UID: ${agoraUidStr}, length: ${agoraUidStr.length}`);
+
+        // Try two patterns:
+        // 1. Direct user ID (just the user ID number)
+        // 2. Prefixed format (1XXXXXX where XXXXXX is user_id)
+
+        if (agoraUidStr.startsWith('1') && agoraUidStr.length >= 2) {
+            // Pattern: 1XXXXXX - extract the user ID part (remove leading '1')
+            const userIdStr = agoraUidStr.substring(1);
+            userId = parseInt(userIdStr);
+            if (!isNaN(userId) && userId > 0) {
+                console.log(`Extracted user ID from prefixed Agora UID: ${userId} (from ${userIdStr})`);
+            } else {
+                console.log(`Invalid user ID extracted from prefixed format: ${userIdStr}`);
+                userId = null;
+            }
+        } else {
+            // Pattern: Direct user ID
+            userId = parseInt(agoraUidStr);
+            if (!isNaN(userId) && userId > 0) {
+                console.log(`Using direct Agora UID as user ID: ${userId}`);
+            } else {
+                console.log(`Invalid direct Agora UID: ${agoraUidStr}`);
+                userId = null;
+            }
+        }
+
+        // If we have a user ID, try to get username directly
+        if (userId) {
+            try {
+                const response = await fetch(`/organization/api/user/${userId}/username/`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.username) {
+                        console.log(`Found username via direct lookup: ${data.username}`);
+                        this.showJoinNotification(data.username);
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.log('Direct username lookup failed, trying participant list approach');
+            }
+        }
+
+        // Fallback: Try participant list approach with multiple attempts
+        let foundUsername = null;
+        let attempts = 0;
+        const maxAttempts = 3;
+
+        while (!foundUsername && attempts < maxAttempts) {
+            attempts++;
+            console.log(`Participant list attempt ${attempts} for UID ${agoraUid}`);
+
+            try {
+                const response = await fetch(`/organization/boards/{{ board.pk }}/audio/status/`);
+                const data = await response.json();
+                console.log('Participants data:', data.participants);
+
+                // Look for participant by agora_uid
+                const newParticipant = data.participants.find(p => p.agora_uid == agoraUid);
+
+                if (newParticipant) {
+                    foundUsername = newParticipant.username;
+                    console.log(`Found username in participant list: ${foundUsername}`);
+                    break;
+                } else {
+                    console.log(`Participant not found in attempt ${attempts}, waiting...`);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            } catch (error) {
+                console.error(`Error in attempt ${attempts}:`, error);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+
+        // Show notification with found username or fallback
+        if (foundUsername) {
+            this.showJoinNotification(foundUsername);
+        } else {
+            console.log('Could not find username after all attempts, using fallback');
+            this.showJoinNotification('Ein neuer Teilnehmer');
+        }
+    }
+
+    startPeriodicUpdates() {
+        // Update participant list every 3 seconds to keep it in sync (faster for mute status)
+        this.periodicUpdateInterval = setInterval(async () => {
+            if (this.isAudioActive) {
+                console.log('Periodic update: refreshing participant list');
+                await this.checkAudioStatus();
+            }
+        }, 3000);
+    }
+
+    stopPeriodicUpdates() {
+        if (this.periodicUpdateInterval) {
+            clearInterval(this.periodicUpdateInterval);
+            this.periodicUpdateInterval = null;
+        }
+    }
+
+    updateSpeakingIndicators() {
+        // Update visual indicators for speaking participants
+        const participantItems = document.querySelectorAll('.participant-item');
+
+        participantItems.forEach(item => {
+            const uid = item.dataset.uid;
+            const numericUid = parseInt(uid);
+            const isSpeaking = this.activeSpeakers.has(numericUid) ||
+                             (uid === 'local' && this.activeSpeakers.has(this.audioConfig?.uid)) ||
+                             this.activeSpeakers.has(uid);
+
+            if (isSpeaking) {
+                item.classList.add('speaking');
+                // Add speaking indicator if not present
+                if (!item.querySelector('.speaking-indicator')) {
+                    const indicator = document.createElement('span');
+                    indicator.className = 'speaking-indicator';
+                    item.appendChild(indicator);
+                }
+            } else {
+                item.classList.remove('speaking');
+                // Remove speaking indicator
+                const indicator = item.querySelector('.speaking-indicator');
+                if (indicator) {
+                    indicator.remove();
+                }
+            }
+        });
+
+        // Update top-right speaking indicator
+        const topIndicator = document.getElementById('speaking-indicator-top');
+        const topSpeakerName = document.getElementById('speaking-name-top');
+
+        if (this.activeSpeakers.size > 0 && this.isAudioActive) {
+            const speakerName = Array.from(this.activeSpeakers)
+                .map(uid => {
+                    if (uid == (this.audioConfig ? this.audioConfig.uid : 'local')) {
+                        return '{{ request.user.username }}';
+                    }
+                    const participant = Object.values(this.participants).find(p => p.user_id == uid);
+                    return participant ? participant.username : null;
+                })
+                .filter(name => name)[0]; // Get first speaking person
+
+            if (speakerName && topIndicator && topSpeakerName) {
+                topIndicator.style.display = 'block';
+                topSpeakerName.textContent = speakerName;
+            }
+        } else {
+            if (topIndicator) {
+                topIndicator.style.display = 'none';
+            }
+        }
+
+        // Update main button text with active speaker
+        this.updateParticipantsList();
+    }
+
     async leaveAudio() {
         try {
+            // Stop periodic updates
+            this.stopPeriodicUpdates();
+
             // Agora Client cleanup
             if (this.localAudioTrack) {
                 this.localAudioTrack.stop();
@@ -3562,6 +3937,22 @@ class BoardAudioManager {
             }
 
             this.isAudioActive = false;
+
+            // Clear participants and speakers
+            this.participants = {};
+            this.activeSpeakers.clear();
+
+            // Hide participants list and speaking indicator
+            const participantsList = document.getElementById('audio-participants-list');
+            if (participantsList) {
+                participantsList.style.display = 'none';
+            }
+
+            const topIndicator = document.getElementById('speaking-indicator-top');
+            if (topIndicator) {
+                topIndicator.style.display = 'none';
+            }
+
             this.checkAudioStatus();
 
             console.log('Successfully left board audio');
@@ -3575,15 +3966,49 @@ class BoardAudioManager {
     async toggleMute() {
         if (!this.localAudioTrack) return;
 
-        if (this.isMuted) {
-            await this.localAudioTrack.setMuted(false);
-            this.isMuted = false;
-        } else {
-            await this.localAudioTrack.setMuted(true);
-            this.isMuted = true;
-        }
+        try {
+            if (this.isMuted) {
+                await this.localAudioTrack.setMuted(false);
+                this.isMuted = false;
+            } else {
+                await this.localAudioTrack.setMuted(true);
+                this.isMuted = true;
+            }
 
-        this.checkAudioStatus();
+            // Update backend with mute status
+            await this.updateMuteStatus(this.isMuted);
+
+            // Immediately update UI and trigger refresh for other users
+            this.checkAudioStatus();
+
+            // Force a quick refresh for other participants to see the change
+            setTimeout(() => {
+                this.checkAudioStatus();
+            }, 1000);
+        } catch (error) {
+            console.error('Error toggling mute:', error);
+        }
+    }
+
+    async updateMuteStatus(isMuted) {
+        try {
+            const response = await fetch(`/organization/boards/{{ board.pk }}/audio/mute/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    is_muted: isMuted
+                })
+            });
+
+            if (!response.ok) {
+                console.error('Failed to update mute status');
+            }
+        } catch (error) {
+            console.error('Error updating mute status:', error);
+        }
     }
 
     cleanup() {
@@ -3807,6 +4232,52 @@ if (document.readyState === 'loading') {
 .tool-btn.active {
     background-color: #0d6efd;
     color: white;
+}
+
+/* Speaking Indicator Styles */
+.participant-item {
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.3s ease;
+}
+
+.participant-item.speaking {
+    background: linear-gradient(90deg, rgba(40, 167, 69, 0.1) 0%, rgba(40, 167, 69, 0.2) 100%);
+    border-left: 3px solid #28a745;
+}
+
+.speaking-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #28a745;
+    margin-left: 8px;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
+    }
+}
+
+.participant-name {
+    font-weight: 500;
+    flex: 1;
+}
+
+.participant-status {
+    font-size: 0.8rem;
+    color: #6c757d;
 }
 
 .tool-btn {
