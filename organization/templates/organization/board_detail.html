@@ -64,9 +64,6 @@
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="pen">
                             ✏️ Stift
                         </button>
-                        <button type="button" class="btn btn-outline-primary tool-btn" data-tool="brush">
-                            🖌️ Pinsel
-                        </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="text">
                             📝 Text
                         </button>
@@ -79,11 +76,8 @@
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="triangle">
                             🔺 Dreieck
                         </button>
-                        <button type="button" class="btn btn-outline-primary tool-btn" data-tool="line">
-                            ➖ Linie
-                        </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="arrow">
-                            ➡️ Pfeil
+                            ➡️ Linie/Pfeil
                         </button>
                     </div>
                     
@@ -182,6 +176,17 @@
                                         <label class="small me-2 mb-0">📝</label>
                                         <input type="range" class="form-range" id="font-size" min="8" max="72" value="16" style="width: 80px; height: 15px;">
                                         <span class="small ms-1"><span id="font-size-value">16</span>px</span>
+                                    </div>
+
+                                    <!-- Pfeilrichtung (nur für Pfeile) -->
+                                    <div class="d-flex align-items-center" id="arrow-direction-control" style="display: none;">
+                                        <label class="small me-2 mb-0">↗️</label>
+                                        <select id="arrow-direction" class="form-select form-select-sm" style="width: 90px; font-size: 11px;">
+                                            <option value="none" selected>— Linie</option>
+                                            <option value="end">→ Ende</option>
+                                            <option value="start">← Anfang</option>
+                                            <option value="both">↔ Beide</option>
+                                        </select>
                                     </div>
 
                                     <!-- Transparenz -->
@@ -475,6 +480,17 @@
                                 </label>
                             </div>
                         </div>
+
+                        <!-- Arrow direction option for arrows -->
+                        <div class="mb-3" id="shapeArrowDirection" style="display: none;">
+                            <label for="shapeArrowDirectionSelect" class="form-label">↗️ Pfeilrichtung</label>
+                            <select id="shapeArrowDirectionSelect" class="form-select">
+                                <option value="none">— Linie</option>
+                                <option value="end">→ Ende</option>
+                                <option value="start">← Anfang</option>
+                                <option value="both">↔ Beide</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
@@ -513,6 +529,7 @@ class IdeaBoard {
         this.currentColor = '#000000';
         this.currentStrokeWidth = 2;
         this.currentOpacity = 1.0;
+        this.currentArrowDirection = 'none';
         this.startX = 0;
         this.startY = 0;
         this.elements = [];
@@ -635,6 +652,11 @@ class IdeaBoard {
 
                 // Show/hide tool controls based on selected tool
                 this.toggleToolControls();
+
+                // Update arrow direction control visibility
+                if (window.updateArrowDirectionVisibility) {
+                    window.updateArrowDirectionVisibility();
+                }
 
                 // Deactivate hand tool when any drawing tool is selected
                 if (this.handToolActive) {
@@ -769,6 +791,7 @@ class IdeaBoard {
         document.getElementById('shapeStrokeWidth').addEventListener('input', () => this.updateShapePreview());
         document.getElementById('shapeOpacity').addEventListener('input', () => this.updateShapePreview());
         document.getElementById('shapeFilled').addEventListener('change', () => this.updateShapePreview());
+        document.getElementById('shapeArrowDirectionSelect').addEventListener('change', () => this.updateShapePreview());
     }
     
     getCanvasCoordinates(e) {
@@ -803,7 +826,7 @@ class IdeaBoard {
         
         this.isDrawing = true;
         
-        if (this.currentTool === 'pen' || this.currentTool === 'brush') {
+        if (this.currentTool === 'pen') {
             this.currentPath = [{x: this.startX, y: this.startY}];
         }
     }
@@ -903,13 +926,6 @@ class IdeaBoard {
                 this.startY = currentY;
                 break;
 
-            case 'brush':
-                // Live brush effect during drawing
-                this.drawLiveBrushStroke(this.startX, this.startY, currentX, currentY);
-                this.currentPath.push({x: currentX, y: currentY});
-                this.startX = currentX;
-                this.startY = currentY;
-                break;
 
 
             case 'text':
@@ -956,118 +972,52 @@ class IdeaBoard {
                 this.ctx.stroke();
                 break;
                 
-            case 'line':
-                this.ctx.beginPath();
-                this.ctx.moveTo(this.startX, this.startY);
-                this.ctx.lineTo(currentX, currentY);
-                this.ctx.stroke();
-                break;
                 
             case 'arrow':
-                this.drawArrow(this.startX, this.startY, currentX, currentY);
+                this.drawArrow(this.startX, this.startY, currentX, currentY, this.currentArrowDirection);
                 break;
         }
     }
     
-    drawArrow(fromX, fromY, toX, toY) {
+    drawArrow(fromX, fromY, toX, toY, direction = null) {
         const headLen = 10; // length of head in pixels
         const dx = toX - fromX;
         const dy = toY - fromY;
         const angle = Math.atan2(dy, dx);
-        
+
+        // Use passed direction or current arrow direction
+        const arrowDirection = direction || this.currentArrowDirection || 'none';
+
         // Draw the line
         this.ctx.beginPath();
         this.ctx.moveTo(fromX, fromY);
         this.ctx.lineTo(toX, toY);
         this.ctx.stroke();
-        
-        // Draw the arrow head
-        this.ctx.beginPath();
-        this.ctx.moveTo(toX, toY);
-        this.ctx.lineTo(toX - headLen * Math.cos(angle - Math.PI / 6), toY - headLen * Math.sin(angle - Math.PI / 6));
-        this.ctx.moveTo(toX, toY);
-        this.ctx.lineTo(toX - headLen * Math.cos(angle + Math.PI / 6), toY - headLen * Math.sin(angle + Math.PI / 6));
-        this.ctx.stroke();
-    }
 
-    drawBrushStroke(path, strokeWidth) {
-        // Pinsel-Effekt: unregelmäßige, texturierte Striche
-        this.ctx.save();
-        this.ctx.lineCap = 'round';
-        this.ctx.lineJoin = 'round';
-
-        for (let i = 0; i < path.length - 1; i++) {
-            const currentPoint = path[i];
-            const nextPoint = path[i + 1];
-
-            // Variiere die Strichstärke für natürlichen Effekt
-            const variance = strokeWidth * 0.3;
-            const currentWidth = strokeWidth + (Math.random() - 0.5) * variance;
-            this.ctx.lineWidth = Math.max(1, currentWidth);
-
-            // Zeichne mehrere parallele Linien mit leichten Versätzen für Textur
-            const numStrokes = Math.max(2, Math.floor(strokeWidth / 2));
-
-            for (let j = 0; j < numStrokes; j++) {
-                this.ctx.beginPath();
-
-                // Füge zufällige Versätze hinzu für unregelmäßigen Effekt
-                const offset = (Math.random() - 0.5) * strokeWidth * 0.4;
-                const perpAngle = Math.atan2(nextPoint.y - currentPoint.y, nextPoint.x - currentPoint.x) + Math.PI / 2;
-
-                const startX = currentPoint.x + Math.cos(perpAngle) * offset;
-                const startY = currentPoint.y + Math.sin(perpAngle) * offset;
-                const endX = nextPoint.x + Math.cos(perpAngle) * offset;
-                const endY = nextPoint.y + Math.sin(perpAngle) * offset;
-
-                this.ctx.moveTo(startX, startY);
-                this.ctx.lineTo(endX, endY);
-
-                // Variiere die Transparenz für unregelmäßigen Effekt
-                const alpha = 0.3 + Math.random() * 0.4;
-                this.ctx.globalAlpha = alpha;
-                this.ctx.stroke();
-            }
-        }
-
-        this.ctx.restore();
-    }
-
-    drawLiveBrushStroke(startX, startY, endX, endY) {
-        // Live brush effect during drawing - simpler version for real-time performance
-        this.ctx.save();
-        this.ctx.lineCap = 'round';
-        this.ctx.lineJoin = 'round';
-
-        // Create multiple slightly offset strokes for texture effect
-        const numStrokes = Math.max(2, Math.floor(this.currentStrokeWidth / 3));
-
-        for (let i = 0; i < numStrokes; i++) {
+        // Draw arrow heads based on direction (skip if 'none' for simple line)
+        if (arrowDirection === 'end' || arrowDirection === 'both') {
+            // Draw arrow head at the end (toX, toY)
             this.ctx.beginPath();
-
-            // Add random offset for irregular effect
-            const offset = (Math.random() - 0.5) * this.currentStrokeWidth * 0.3;
-            const angle = Math.atan2(endY - startY, endX - startX) + Math.PI / 2;
-
-            const offsetStartX = startX + Math.cos(angle) * offset;
-            const offsetStartY = startY + Math.sin(angle) * offset;
-            const offsetEndX = endX + Math.cos(angle) * offset;
-            const offsetEndY = endY + Math.sin(angle) * offset;
-
-            this.ctx.moveTo(offsetStartX, offsetStartY);
-            this.ctx.lineTo(offsetEndX, offsetEndY);
-
-            // Vary line width slightly
-            this.ctx.lineWidth = this.currentStrokeWidth + (Math.random() - 0.5) * this.currentStrokeWidth * 0.2;
-
-            // Vary opacity for texture
-            this.ctx.globalAlpha = (this.currentOpacity || 1) * (0.4 + Math.random() * 0.4);
-
+            this.ctx.moveTo(toX, toY);
+            this.ctx.lineTo(toX - headLen * Math.cos(angle - Math.PI / 6), toY - headLen * Math.sin(angle - Math.PI / 6));
+            this.ctx.moveTo(toX, toY);
+            this.ctx.lineTo(toX - headLen * Math.cos(angle + Math.PI / 6), toY - headLen * Math.sin(angle + Math.PI / 6));
             this.ctx.stroke();
         }
 
-        this.ctx.restore();
+        if (arrowDirection === 'start' || arrowDirection === 'both') {
+            // Draw arrow head at the start (fromX, fromY) - pointing in opposite direction
+            this.ctx.beginPath();
+            this.ctx.moveTo(fromX, fromY);
+            this.ctx.lineTo(fromX + headLen * Math.cos(angle - Math.PI / 6), fromY + headLen * Math.sin(angle - Math.PI / 6));
+            this.ctx.moveTo(fromX, fromY);
+            this.ctx.lineTo(fromX + headLen * Math.cos(angle + Math.PI / 6), fromY + headLen * Math.sin(angle + Math.PI / 6));
+            this.ctx.stroke();
+        }
     }
+
+
+
 
     redrawCanvas() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -1148,15 +1098,11 @@ class IdeaBoard {
                 }
                 break;
                 
-            case 'line':
-                this.ctx.beginPath();
-                this.ctx.moveTo(data.x1, data.y1);
-                this.ctx.lineTo(data.x2, data.y2);
-                this.ctx.stroke();
-                break;
                 
             case 'arrow':
-                this.drawArrow(data.x1, data.y1, data.x2, data.y2);
+                // Get arrow direction from element data or use default
+                const arrowDirection = element.data && element.data.direction ? element.data.direction : 'none';
+                this.drawArrow(data.x1, data.y1, data.x2, data.y2, arrowDirection);
                 break;
                 
             case 'freehand':
@@ -1170,11 +1116,6 @@ class IdeaBoard {
                 }
                 break;
 
-            case 'brush':
-                if (data.path && data.path.length > 1) {
-                    this.drawBrushStroke(data.path, element.stroke_width || 2);
-                }
-                break;
                 
             case 'text':
                 const fontSize = data.fontSize || 16;
@@ -1233,7 +1174,6 @@ class IdeaBoard {
                 authorX = data.x + textWidth - authorTextWidth - 2; // 2px margin from right edge
                 authorY = data.y - 4; // Just above the main text baseline
                 break;
-            case 'line':
             case 'arrow':
                 // For lines/arrows, position at the end point
                 authorX = Math.max(data.x1, data.x2);
@@ -1401,14 +1341,6 @@ class IdeaBoard {
                 });
                 break;
 
-            case 'brush':
-                this.saveElement('brush', {
-                    path: this.currentPath,
-                    color: this.currentColor,
-                    strokeWidth: this.currentStrokeWidth,
-                    opacity: this.currentOpacity
-                });
-                break;
                 
             case 'rectangle':
                 if (Math.abs(width) > 5 && Math.abs(height) > 5) {
@@ -1448,16 +1380,6 @@ class IdeaBoard {
                 }
                 break;
                 
-            case 'line':
-                if (Math.abs(width) > 5 || Math.abs(height) > 5) {
-                    this.saveElement('line', {
-                        x1: this.startX,
-                        y1: this.startY,
-                        x2: endX,
-                        y2: endY
-                    });
-                }
-                break;
                 
             case 'arrow':
                 if (Math.abs(width) > 5 || Math.abs(height) > 5) {
@@ -1465,7 +1387,8 @@ class IdeaBoard {
                         x1: this.startX,
                         y1: this.startY,
                         x2: endX,
-                        y2: endY
+                        y2: endY,
+                        direction: this.currentArrowDirection || 'none'
                     });
                 }
                 break;
@@ -1724,6 +1647,17 @@ class IdeaBoard {
             shapeFillOption.style.display = 'none';
         }
 
+        // Show/hide arrow direction option for arrows
+        const shapeArrowDirection = document.getElementById('shapeArrowDirection');
+        if (element.element_type === 'arrow') {
+            shapeArrowDirection.style.display = 'block';
+            // Set the arrow direction based on element data or default to 'none'
+            const currentDirection = element.data?.direction || 'none';
+            document.getElementById('shapeArrowDirectionSelect').value = currentDirection;
+        } else {
+            shapeArrowDirection.style.display = 'none';
+        }
+
         // Set modal title based on shape type
         const titleMap = {
             'rectangle': '📐 Rechteck bearbeiten',
@@ -1833,29 +1767,47 @@ class IdeaBoard {
                     }
                     break;
 
-                case 'line':
-                    previewElement.style.backgroundColor = color;
-                    previewElement.style.height = `${strokeWidth}px`;
-                    previewElement.style.width = '60px';
-                    previewElement.style.borderRadius = `${strokeWidth/2}px`;
-                    break;
 
                 case 'arrow':
-                    // Create arrow shape with CSS
-                    previewElement.style.backgroundColor = color;
-                    previewElement.style.height = `${strokeWidth}px`;
-                    previewElement.style.width = '50px';
-                    previewElement.style.position = 'relative';
-                    previewElement.style.borderRadius = `${strokeWidth/2}px`;
+                    // Create arrow shape with direction support
+                    previewElement.style.backgroundColor = 'transparent';
+                    previewElement.style.border = 'none';
+                    // Get direction from modal dropdown if available, otherwise from element data
+                    const arrowDirectionSelect = document.getElementById('shapeArrowDirectionSelect');
+                    const arrowPreviewDirection = arrowDirectionSelect ? arrowDirectionSelect.value : (this.editingElement.data && this.editingElement.data.direction ? this.editingElement.data.direction : 'none');
 
-                    // Add arrow head using pseudo-element or create a simple representation
-                    previewElement.innerHTML = `<div style="position: absolute; right: -${strokeWidth*2}px; top: -${strokeWidth*2}px; width: 0; height: 0; border-left: ${strokeWidth*3}px solid ${color}; border-top: ${strokeWidth*2}px solid transparent; border-bottom: ${strokeWidth*2}px solid transparent;"></div>`;
+                    let arrowSvg = '';
+                    if (arrowPreviewDirection === 'none') {
+                        arrowSvg = `
+                            <svg width="60" height="60" viewBox="0 0 60 60">
+                                <line x1="10" y1="30" x2="50" y2="30" stroke="${color}" stroke-width="${strokeWidth}"/>
+                            </svg>`;
+                    } else if (arrowPreviewDirection === 'end') {
+                        arrowSvg = `
+                            <svg width="60" height="60" viewBox="0 0 60 60">
+                                <line x1="10" y1="30" x2="45" y2="30" stroke="${color}" stroke-width="${strokeWidth}"/>
+                                <polygon points="45,30 37,24 37,36" fill="${color}"/>
+                            </svg>`;
+                    } else if (arrowPreviewDirection === 'start') {
+                        arrowSvg = `
+                            <svg width="60" height="60" viewBox="0 0 60 60">
+                                <line x1="15" y1="30" x2="50" y2="30" stroke="${color}" stroke-width="${strokeWidth}"/>
+                                <polygon points="15,30 23,24 23,36" fill="${color}"/>
+                            </svg>`;
+                    } else if (arrowPreviewDirection === 'both') {
+                        arrowSvg = `
+                            <svg width="60" height="60" viewBox="0 0 60 60">
+                                <line x1="15" y1="30" x2="45" y2="30" stroke="${color}" stroke-width="${strokeWidth}"/>
+                                <polygon points="45,30 37,24 37,36" fill="${color}"/>
+                                <polygon points="15,30 23,24 23,36" fill="${color}"/>
+                            </svg>`;
+                    }
+                    previewElement.innerHTML = arrowSvg;
                     break;
 
                 case 'pen':
-                case 'brush':
                 case 'freehand':
-                    // Show a wavy line to represent freehand drawing
+                    // Show a clean wavy line for pen/freehand
                     previewElement.style.backgroundColor = 'transparent';
                     previewElement.style.border = 'none';
                     previewElement.innerHTML = `
@@ -1867,6 +1819,7 @@ class IdeaBoard {
                                   stroke-linecap="round"/>
                         </svg>`;
                     break;
+
 
                 default:
                     // Default to rectangle-like shape
@@ -1901,6 +1854,15 @@ class IdeaBoard {
             this.editingElement.data.filled = shapeFilled;
         }
 
+        // Update arrow direction for arrows
+        if (this.editingElement.element_type === 'arrow') {
+            const arrowDirection = document.getElementById('shapeArrowDirectionSelect').value;
+            if (!this.editingElement.data) {
+                this.editingElement.data = {};
+            }
+            this.editingElement.data.direction = arrowDirection;
+        }
+
         // Update element on server
         if (this.editingElement.id) {
             const updateData = {
@@ -1909,8 +1871,8 @@ class IdeaBoard {
                 opacity: opacity
             };
 
-            // Add filled state to data if it's a geometric shape
-            if (geometricShapes.includes(this.editingElement.element_type)) {
+            // Add filled state to data if it's a geometric shape or arrow direction for arrows
+            if (geometricShapes.includes(this.editingElement.element_type) || this.editingElement.element_type === 'arrow') {
                 updateData.data = this.editingElement.data;
             }
 
@@ -2280,7 +2242,6 @@ class IdeaBoard {
                 const maxY = Math.max(data.y1, data.y2, data.y3);
                 return x >= minX && x <= maxX && y >= minY && y <= maxY;
             
-            case 'line':
             case 'arrow':
                 // Check if point is near line with improved hit area
                 const dist = this.distanceToLine(x, y, data.x1, data.y1, data.x2, data.y2);
@@ -2300,30 +2261,6 @@ class IdeaBoard {
                        y >= data.y - fontSize && y <= data.y;
             
             case 'freehand':
-            case 'brush':
-                // Check if point is near any point in the path with improved hit area
-                const hitRadius = Math.max(10, (element.stroke_width || 2) + 8); // Minimum 10px hit radius
-
-                // Also check line segments between points, not just individual points
-                for (let i = 0; i < data.path.length; i++) {
-                    if (i === 0) {
-                        // Check distance to first point
-                        const dx = x - data.path[i].x;
-                        const dy = y - data.path[i].y;
-                        if (Math.sqrt(dx * dx + dy * dy) <= hitRadius) {
-                            return true;
-                        }
-                    } else {
-                        // Check distance to line segment between previous and current point
-                        const distance = this.distanceToLine(x, y,
-                            data.path[i-1].x, data.path[i-1].y,
-                            data.path[i].x, data.path[i].y);
-                        if (distance <= hitRadius) {
-                            return true;
-                        }
-                    }
-                }
-                return false;
         }
         return false;
     }
@@ -2387,7 +2324,6 @@ class IdeaBoard {
                 data.x = newX;
                 data.y = newY;
                 break;
-            case 'line':
             case 'arrow':
                 data.x1 += deltaX;
                 data.y1 += deltaY;
@@ -2403,15 +2339,6 @@ class IdeaBoard {
                 data.y3 += deltaY;
                 break;
             case 'freehand':
-            case 'brush':
-                // Move all points in the path
-                if (data.path) {
-                    for (let point of data.path) {
-                        point.x += deltaX;
-                        point.y += deltaY;
-                    }
-                }
-                break;
         }
 
         this.scheduleRedraw();
@@ -2498,7 +2425,6 @@ class IdeaBoard {
                     width: textWidth,
                     height: fontSize
                 };
-            case 'line':
             case 'arrow':
                 const minX = Math.min(data.x1, data.x2);
                 const maxX = Math.max(data.x1, data.x2);
@@ -2556,7 +2482,6 @@ class IdeaBoard {
                 data.radius = Math.max(5, Math.sqrt(dx * dx + dy * dy)); // Minimum radius of 5px
                 break;
                 
-            case 'line':
             case 'arrow':
                 // Resize by changing the end point
                 if (this.resizeHandle.includes('e') || this.resizeHandle.includes('s')) {
@@ -2793,7 +2718,6 @@ class IdeaBoard {
                 if (element.position_y === undefined) element.position_y = data.y || 0;
                 break;
                 
-            case 'line':
             case 'arrow':
                 const minX = Math.min(data.x1, data.x2);
                 const minY = Math.min(data.y1, data.y2);
@@ -2809,14 +2733,6 @@ class IdeaBoard {
                 break;
                 
             case 'freehand':
-            case 'brush':
-                if (data.path && data.path.length > 0) {
-                    const pathMinX = Math.min(...data.path.map(p => p.x));
-                    const pathMinY = Math.min(...data.path.map(p => p.y));
-                    if (element.position_x === undefined) element.position_x = pathMinX;
-                    if (element.position_y === undefined) element.position_y = pathMinY;
-                }
-                break;
         }
     }
 
@@ -3026,8 +2942,7 @@ class IdeaBoard {
                 this.canvas.style.cursor = 'url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTMgM0w5IDE5TDEyIDE1TDE5IDEySjMgM1oiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIxIi8+Cjwvc3ZnPg==) 3 3, pointer';
                 break;
             case 'pen':
-            case 'brush':
-                // Dark crosshair for better visibility
+                // Dark crosshair for pen
                 this.canvas.style.cursor = 'url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGxpbmUgeDE9IjEyIiB5MT0iMyIgeDI9IjEyIiB5Mj0iMjEiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxsaW5lIHgxPSIzIiB5MT0iMTIiIHgyPSIyMSIgeTI9IjEyIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMiIvPgo8Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIyIiBmaWxsPSIjZmZmIiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMSIvPgo8L3N2Zz4=) 12 12, crosshair';
                 break;
             case 'text':
@@ -3075,8 +2990,6 @@ class IdeaBoard {
                     showFontSize = true;
                     break;
                 case 'pen':
-                case 'brush':
-                case 'line':
                 case 'arrow':
                 case 'rectangle':
                 case 'circle':
@@ -3094,8 +3007,6 @@ class IdeaBoard {
                     showFontSize = true;
                     break;
                 case 'pen':
-                case 'brush':
-                case 'line':
                 case 'arrow':
                 case 'rectangle':
                 case 'circle':
@@ -3204,6 +3115,7 @@ let ideaBoard;
 function initializeBoard() {
     console.log('Initializing IdeaBoard...');
     ideaBoard = new IdeaBoard();
+    window.drawingCanvas = ideaBoard; // Make it globally available for arrow direction management
     console.log('IdeaBoard initialized:', ideaBoard);
 
     // Add event listeners for modal close events to show popup again
@@ -3413,6 +3325,13 @@ class BoardAudioManager {
         this.volumeIndicatorInterval = null;
         this.knownParticipants = new Set(); // Track known participants to detect new joins
         this.periodicUpdateInterval = null; // For periodic participant list updates
+        this.lastJoinNotifications = new Map(); // Track last notification time per user to prevent spam
+
+        // Adaptive interval properties
+        this.lastAudioActivity = Date.now();
+        this.lastSpeechActivity = Date.now();
+        this.currentUpdateDelay = 3000; // Start with 3 seconds
+        this.adaptiveUpdateMode = false;
 
         this.initEventListeners();
         this.checkAudioStatus();
@@ -3569,25 +3488,33 @@ class BoardAudioManager {
                     // Always refresh participant list when someone joins
                     await this.checkAudioStatus();
 
-                    // Check if this is a new participant
+                    // Check if this is a truly new participant
                     if (!this.knownParticipants.has(user.uid)) {
                         console.log('New participant detected:', user.uid);
                         this.knownParticipants.add(user.uid);
 
-                        // Try multiple approaches to get the username
+                        // Show join notification (cooldown mechanism prevents spam)
                         this.tryToGetUsernameAndNotify(user.uid);
+
+                        // Trigger immediate update for all other clients to see this new participant
+                        // We do this by making all other clients refresh their participant list soon
+                        console.log('Broadcasting join event to trigger updates on other clients');
+                        this.broadcastParticipantListUpdate();
+                    } else {
+                        console.log('Known participant reconnected/unmuted:', user.uid);
                     }
                 }
             });
 
             this.agoraClient.on("user-unpublished", async (user) => {
-                console.log('User left audio:', user.uid);
-                // Remove user from participants and known participants
-                delete this.participants[user.uid];
-                this.knownParticipants.delete(user.uid);
+                console.log('User unpublished audio:', user.uid);
 
-                // Refresh participant list from backend
+                // Only update UI - DO NOT send leave notifications from Agora events
+                // Leave notifications will be handled by backend participant list changes
+                delete this.participants[user.uid];
                 await this.checkAudioStatus();
+
+                console.log('user-unpublished: UI updated, no leave notification (handled by backend)');
             });
 
             // Enable volume indicator for speaking detection
@@ -3611,6 +3538,12 @@ class BoardAudioManager {
             await this.agoraClient.publish([this.localAudioTrack]);
 
             this.isAudioActive = true;
+            this.isMuted = false; // Reset mute status when joining audio
+            this.lastAudioActivity = Date.now();
+
+            // Update backend with unmuted status immediately after joining
+            await this.updateMuteStatus(false);
+
             this.checkAudioStatus();
 
             // Start periodic status updates to keep participant list in sync
@@ -3632,11 +3565,19 @@ class BoardAudioManager {
         // Clear previous speakers
         this.activeSpeakers.clear();
 
+        let anyoneSpeaking = false;
+
         volumes.forEach(volume => {
             if (volume.level > SPEAKING_THRESHOLD) {
                 this.activeSpeakers.add(volume.uid);
+                anyoneSpeaking = true;
             }
         });
+
+        // Update speech activity timestamp if anyone is speaking
+        if (anyoneSpeaking) {
+            this.lastSpeechActivity = Date.now();
+        }
 
         this.updateSpeakingIndicators();
     }
@@ -3650,11 +3591,27 @@ class BoardAudioManager {
         // Store participants data if provided
         if (participantsData) {
             console.log('Updating participants list with data:', participantsData);
+
+            // Check for NEW participants (join detection via backend)
+            const currentUids = new Set(participantsData.map(p => p.agora_uid).filter(uid => uid));
+            const newParticipants = [...currentUids].filter(uid => !this.knownParticipants.has(uid));
+
+            // Show join notifications for new users (but not on first load)
+            if (this.knownParticipants.size > 0) {
+                newParticipants.forEach(uid => {
+                    console.log(`New participant detected via backend: ${uid}`);
+                    this.lastAudioActivity = Date.now(); // Trigger faster updates for all clients when someone joins
+                    this.tryToGetUsernameAndNotify(uid);
+                });
+            } else {
+                console.log('First load - not showing join notifications for existing participants');
+            }
+
             // Clear old participants first
             this.participants = {};
             participantsData.forEach(p => {
                 console.log('Processing participant:', p);
-                // Don't add current user to participants list (avoid duplicate)
+                // Don't add current user to participants list (will be added separately if in audio)
                 if (p.username !== '{{ request.user.username }}') {
                     this.participants[p.user_id] = p;
                     console.log('Added participant to list:', p.username);
@@ -3671,17 +3628,19 @@ class BoardAudioManager {
         // Clear dropdown
         dropdown.innerHTML = '';
 
-        // Add current user (local)
-        const currentUserItem = document.createElement('div');
-        currentUserItem.className = 'participant-item';
-        currentUserItem.dataset.uid = this.audioConfig ? this.audioConfig.uid : 'local';
-        currentUserItem.innerHTML = `
-            <span class="participant-name">{{ request.user.username }} (Du)</span>
-            <span class="participant-status">${this.isMuted ? '🔇' : '🎤'}</span>
-        `;
-        dropdown.appendChild(currentUserItem);
+        // Add current user only if they are in audio session
+        if (this.isAudioActive) {
+            const currentUserItem = document.createElement('div');
+            currentUserItem.className = 'participant-item';
+            currentUserItem.dataset.uid = this.audioConfig ? this.audioConfig.uid : 'local';
+            currentUserItem.innerHTML = `
+                <span class="participant-name">{{ request.user.username }} (Du)</span>
+                <span class="participant-status">${this.isMuted ? '🔇' : '🎤'}</span>
+            `;
+            dropdown.appendChild(currentUserItem);
+        }
 
-        // Add other participants (already filtered to exclude current user)
+        // Add other participants
         Object.values(this.participants).forEach(participant => {
             const item = document.createElement('div');
             item.className = 'participant-item';
@@ -3727,6 +3686,17 @@ class BoardAudioManager {
     }
 
     showJoinNotification(username) {
+        // Prevent spam notifications for the same user within 30 seconds
+        const now = Date.now();
+        const lastNotification = this.lastJoinNotifications.get(username);
+
+        if (lastNotification && now - lastNotification < 30000) {
+            console.log(`Skipping join notification for ${username} - too recent (${now - lastNotification}ms ago)`);
+            return;
+        }
+
+        this.lastJoinNotifications.set(username, now);
+
         const notification = document.getElementById('audio-join-notification');
         const notificationText = document.getElementById('join-notification-text');
 
@@ -3738,6 +3708,61 @@ class BoardAudioManager {
             setTimeout(() => {
                 notification.style.display = 'none';
             }, 6000);
+        }
+    }
+
+    showLeaveNotification(username) {
+        const notification = document.getElementById('audio-join-notification');
+        const notificationText = document.getElementById('join-notification-text');
+
+        if (notification && notificationText) {
+            notificationText.textContent = `${username} hat Audio verlassen`;
+            notification.style.display = 'block';
+            notification.className = 'alert alert-warning'; // Different color for leave
+
+            // Hide after 4 seconds
+            setTimeout(() => {
+                notification.style.display = 'none';
+                notification.className = 'alert alert-info'; // Reset to default
+            }, 4000);
+        }
+    }
+
+    async tryToGetUsernameAndNotifyLeave(agoraUid) {
+        console.log(`Trying to get username for leaving user with Agora UID: ${agoraUid}`);
+
+        // Try the same username extraction methods as for join
+        let userId = null;
+        const agoraUidStr = agoraUid.toString();
+
+        // Extract user ID from Agora UID pattern
+        if (agoraUidStr.startsWith('1') && agoraUidStr.length === 8) {
+            userId = parseInt(agoraUidStr.substring(1));
+        } else {
+            userId = parseInt(agoraUidStr);
+        }
+
+        if (userId && !isNaN(userId)) {
+            try {
+                const response = await fetch(`/organization/api/user/${userId}/username/`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.username) {
+                        this.showLeaveNotification(data.username);
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.log('Username lookup for leave notification failed:', error);
+            }
+        }
+
+        // Fallback: check if we have the username in participants
+        const participant = Object.values(this.participants).find(p => p.agora_uid == agoraUid);
+        if (participant && participant.username) {
+            this.showLeaveNotification(participant.username);
+        } else {
+            this.showLeaveNotification('Ein Teilnehmer');
         }
     }
 
@@ -3832,18 +3857,75 @@ class BoardAudioManager {
     }
 
     startPeriodicUpdates() {
-        // Update participant list every 3 seconds to keep it in sync (faster for mute status)
-        this.periodicUpdateInterval = setInterval(async () => {
+        this.adaptiveUpdateMode = true;
+        this.scheduleNextAudioUpdate();
+    }
+
+    broadcastParticipantListUpdate() {
+        // Force immediate participant list updates by setting a temporary fast refresh flag
+        // This helps other clients detect the new participant quickly
+        this.lastAudioActivity = Date.now(); // Triggers adaptive audio update to use 3s interval for next minute
+
+        // Also trigger a couple of quick updates to ensure other clients pick up changes
+        setTimeout(() => {
             if (this.isAudioActive) {
-                console.log('Periodic update: refreshing participant list');
-                await this.checkAudioStatus();
+                console.log('Quick update 1: checking for new participants');
+                this.checkAudioStatus();
+            }
+        }, 1000);
+
+        setTimeout(() => {
+            if (this.isAudioActive) {
+                console.log('Quick update 2: checking for new participants');
+                this.checkAudioStatus();
             }
         }, 3000);
     }
 
+    scheduleNextAudioUpdate() {
+        if (!this.adaptiveUpdateMode || !this.isAudioActive) {
+            return;
+        }
+
+        const delay = this.getAdaptiveAudioUpdateDelay();
+
+        this.periodicUpdateInterval = setTimeout(async () => {
+            if (this.isAudioActive) {
+                console.log(`Adaptive audio update (${delay}ms interval): refreshing participant list`);
+                await this.checkAudioStatus();
+                this.scheduleNextAudioUpdate(); // Schedule next update
+            }
+        }, delay);
+    }
+
+    getAdaptiveAudioUpdateDelay() {
+        const now = Date.now();
+        const timeSinceSpeech = now - this.lastSpeechActivity;
+        const timeSinceAudioActivity = now - this.lastAudioActivity;
+
+        // Someone is actively speaking - fastest updates
+        if (timeSinceSpeech < 10000) { // 10 seconds
+            return 2000; // 2 seconds
+        }
+
+        // Very recent audio activity (join/leave/mute) - stay responsive for join notifications
+        if (timeSinceAudioActivity < 60000) { // 1 minute - increased from 30s for better join detection
+            return 3000; // 3 seconds - more responsive for join notifications
+        }
+
+        // Audio is active but quiet
+        if (this.participantCount > 1) {
+            return 6000; // 6 seconds - reduced from 8s for better responsiveness
+        }
+
+        // Minimal activity
+        return 12000; // 12 seconds - reduced from 15s for better responsiveness
+    }
+
     stopPeriodicUpdates() {
+        this.adaptiveUpdateMode = false;
         if (this.periodicUpdateInterval) {
-            clearInterval(this.periodicUpdateInterval);
+            clearTimeout(this.periodicUpdateInterval);
             this.periodicUpdateInterval = null;
         }
     }
@@ -3941,6 +4023,8 @@ class BoardAudioManager {
             // Clear participants and speakers
             this.participants = {};
             this.activeSpeakers.clear();
+            this.knownParticipants.clear(); // Reset known participants when leaving
+            this.lastJoinNotifications.clear(); // Reset notification cooldowns
 
             // Hide participants list and speaking indicator
             const participantsList = document.getElementById('audio-participants-list');
@@ -3974,6 +4058,10 @@ class BoardAudioManager {
                 await this.localAudioTrack.setMuted(true);
                 this.isMuted = true;
             }
+
+            // Track audio activity
+            this.lastAudioActivity = Date.now();
+
 
             // Update backend with mute status
             await this.updateMuteStatus(this.isMuted);
@@ -4023,6 +4111,8 @@ let boardAudioManager;
 
 function initializeBoardAudio() {
     boardAudioManager = new BoardAudioManager();
+    // Make audio manager globally available for cross-manager activity tracking
+    window.boardAudioManager = boardAudioManager;
 }
 
 if (document.readyState === 'loading') {
@@ -4075,10 +4165,14 @@ class BoardNotesManager {
         this.statusText = document.getElementById('notes-status');
         this.saveTimeout = null;
         this.lastInputTime = null;
+        this.lastActivityTime = Date.now();
+        this.updateInterval = null;
+        this.currentUpdateDelay = 3000; // Start with 3 seconds
 
         this.initQuillEditor();
         this.initEventListeners();
-        this.checkForUpdates();
+        this.initActivityTracking();
+        this.startAdaptiveUpdates();
     }
 
     initQuillEditor() {
@@ -4086,7 +4180,19 @@ class BoardNotesManager {
         this.quill = new Quill('#board-notes-editor', {
             theme: 'snow',
             modules: {
-                toolbar: '#notes-toolbar'
+                toolbar: '#notes-toolbar',
+                keyboard: {
+                    bindings: {
+                        // Ensure space key works properly
+                        space: {
+                            key: ' ',
+                            handler: function(range, context) {
+                                this.quill.insertText(range.index, ' ');
+                                return false;
+                            }
+                        }
+                    }
+                }
             },
             placeholder: 'Hier können alle Teilnehmer gemeinsam Notizen zum Board hinzufügen...'
         });
@@ -4097,6 +4203,15 @@ class BoardNotesManager {
         }
 
         this.lastSavedContent = this.quill.root.innerHTML;
+
+        // Prevent event conflicts with canvas
+        this.quill.root.addEventListener('keydown', (e) => {
+            e.stopPropagation();
+        });
+
+        this.quill.root.addEventListener('keyup', (e) => {
+            e.stopPropagation();
+        });
     }
 
     initEventListeners() {
@@ -4111,10 +4226,10 @@ class BoardNotesManager {
                 clearTimeout(this.saveTimeout);
             }
 
-            // Set new timeout for auto-save (2 seconds after last change)
+            // Set new timeout for auto-save (1 second after last change)
             this.saveTimeout = setTimeout(() => {
                 this.saveNotes(false);
-            }, 2000);
+            }, 1000);
         });
 
         // Manual save button
@@ -4198,10 +4313,24 @@ class BoardNotesManager {
             if (data.success && data.notes !== currentContent) {
                 // Update only if user hasn't been actively typing
                 const now = Date.now();
-                if (!this.lastInputTime || now - this.lastInputTime > 5000) {
+                if (!this.lastInputTime || now - this.lastInputTime > 3000) {
+                    // Store current cursor position
+                    const selection = this.quill.getSelection();
+
                     this.quill.root.innerHTML = data.notes || '';
                     this.notesTextarea.value = data.notes || '';
                     this.lastSavedContent = data.notes || '';
+
+                    // Restore cursor position if possible
+                    if (selection && data.notes) {
+                        try {
+                            this.quill.setSelection(selection.index, selection.length);
+                        } catch (e) {
+                            // If position is invalid, place cursor at end
+                            this.quill.setSelection(this.quill.getLength() - 1);
+                        }
+                    }
+
                     this.showStatus('Notizen aktualisiert', 'text-info');
                 }
             }
@@ -4209,8 +4338,140 @@ class BoardNotesManager {
             console.error('Error checking for updates:', error);
         }
 
-        // Check again in 10 seconds
-        setTimeout(() => this.checkForUpdates(), 10000);
+        // Adaptive updates are handled by startAdaptiveUpdates()
+    }
+
+    initActivityTracking() {
+        // Track activity for adaptive intervals
+        const trackActivity = () => {
+            this.lastActivityTime = Date.now();
+            // Also track audio activity if audio manager exists
+            if (window.boardAudioManager) {
+                window.boardAudioManager.lastAudioActivity = Date.now();
+            }
+        };
+
+        // Track editor activity
+        this.quill.root.addEventListener('keydown', trackActivity);
+        this.quill.root.addEventListener('mousedown', trackActivity);
+        this.quill.root.addEventListener('focus', trackActivity);
+
+        // Track canvas/board interactions
+        const canvas = document.getElementById('ideaboard-canvas');
+        if (canvas) {
+            canvas.addEventListener('mousedown', trackActivity);
+            canvas.addEventListener('touchstart', trackActivity);
+            canvas.addEventListener('wheel', trackActivity); // Zoom/scroll
+        }
+
+        // Track tool selections and board controls
+        const toolButtons = document.querySelectorAll('.tool-btn');
+        toolButtons.forEach(btn => {
+            btn.addEventListener('click', trackActivity);
+        });
+
+        // Track board-specific interactions
+        const boardControls = [
+            '#undo-btn', '#redo-btn', '#clear-btn', '#save-btn',
+            '#zoom-in', '#zoom-out', '#fit-to-screen',
+            '#color-picker', '#stroke-width-slider', '#opacity-slider'
+        ];
+
+        boardControls.forEach(selector => {
+            const element = document.querySelector(selector);
+            if (element) {
+                element.addEventListener('click', trackActivity);
+                element.addEventListener('change', trackActivity);
+                element.addEventListener('input', trackActivity);
+            }
+        });
+
+        // Track general board activity
+        document.addEventListener('keydown', trackActivity);
+        document.addEventListener('mousedown', trackActivity);
+        document.addEventListener('touchstart', trackActivity);
+    }
+
+    getAdaptiveUpdateDelay() {
+        const now = Date.now();
+        const timeSinceActivity = now - this.lastActivityTime;
+        const timeSinceInput = this.lastInputTime ? now - this.lastInputTime : Infinity;
+
+        // Active editing (recent input activity)
+        if (timeSinceInput < 30000) {
+            return 3000; // 3 seconds
+        }
+
+        // Recent general activity
+        if (timeSinceActivity < 30000) {
+            return 5000; // 5 seconds
+        }
+
+        // Moderate inactivity
+        if (timeSinceActivity < 300000) { // 5 minutes
+            return 8000; // 8 seconds
+        }
+
+        // High inactivity
+        return 20000; // 20 seconds
+    }
+
+    startAdaptiveUpdates() {
+        const scheduleNextUpdate = () => {
+            const delay = this.getAdaptiveUpdateDelay();
+
+            // Only update delay if it changed significantly to avoid constant rescheduling
+            if (Math.abs(delay - this.currentUpdateDelay) > 1000) {
+                this.currentUpdateDelay = delay;
+            }
+
+            this.updateInterval = setTimeout(() => {
+                this.checkForUpdates();
+                scheduleNextUpdate(); // Schedule next update
+            }, this.currentUpdateDelay);
+        };
+
+        scheduleNextUpdate();
+    }
+
+    checkForUpdates() {
+        this.performUpdateCheck();
+    }
+
+    async performUpdateCheck() {
+        try {
+            const response = await fetch(`/organization/boards/{{ board.pk }}/get-notes/`);
+            const data = await response.json();
+
+            const currentContent = this.quill.root.innerHTML;
+
+            if (data.success && data.notes !== currentContent) {
+                // Update only if user hasn't been actively typing
+                const now = Date.now();
+                if (!this.lastInputTime || now - this.lastInputTime > 3000) {
+                    // Store current cursor position
+                    const selection = this.quill.getSelection();
+
+                    this.quill.root.innerHTML = data.notes || '';
+                    this.notesTextarea.value = data.notes || '';
+                    this.lastSavedContent = data.notes || '';
+
+                    // Restore cursor position if possible
+                    if (selection && data.notes) {
+                        try {
+                            this.quill.setSelection(selection.index, selection.length);
+                        } catch (e) {
+                            // If position is invalid, place cursor at end
+                            this.quill.setSelection(this.quill.getLength() - 1);
+                        }
+                    }
+
+                    this.showStatus('Notizen aktualisiert', 'text-info');
+                }
+            }
+        } catch (error) {
+            console.error('Error checking for updates:', error);
+        }
     }
 }
 
@@ -4407,4 +4668,53 @@ if (document.readyState === 'loading') {
     }
 }
 </style>
+
+<script>
+// Arrow Direction Management
+let currentArrowDirection = 'none'; // 'none', 'end', 'start', 'both'
+
+// Arrow Direction Control Event Listener
+document.addEventListener('DOMContentLoaded', function() {
+    const arrowDirectionSelect = document.getElementById('arrow-direction');
+    if (arrowDirectionSelect) {
+        arrowDirectionSelect.addEventListener('change', function() {
+            const newDirection = this.value;
+
+            // Update drawing canvas if it exists
+            if (window.drawingCanvas) {
+                drawingCanvas.currentArrowDirection = newDirection;
+            }
+        });
+
+        // Set initial value to ensure sync - use a delay to ensure canvas is ready
+        setTimeout(() => {
+            if (window.drawingCanvas) {
+                drawingCanvas.currentArrowDirection = arrowDirectionSelect.value;
+            }
+        }, 100);
+    }
+
+    // Show/hide arrow direction control based on selected tool
+    function updateArrowDirectionVisibility() {
+        const arrowDirectionControl = document.getElementById('arrow-direction-control');
+        const arrowDirectionSelect = document.getElementById('arrow-direction');
+        const currentTool = window.drawingCanvas ? drawingCanvas.currentTool : 'select';
+
+        if (arrowDirectionControl) {
+            if (currentTool === 'arrow') {
+                arrowDirectionControl.style.display = 'flex';
+                // Ensure the drawing canvas has the current direction
+                if (window.drawingCanvas && arrowDirectionSelect) {
+                    drawingCanvas.currentArrowDirection = arrowDirectionSelect.value;
+                }
+            } else {
+                arrowDirectionControl.style.display = 'none';
+            }
+        }
+    }
+
+    // Call this function whenever a tool is selected
+    window.updateArrowDirectionVisibility = updateArrowDirectionVisibility;
+});
+</script>
 {% endblock %}
