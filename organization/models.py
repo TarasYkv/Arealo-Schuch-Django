@@ -166,6 +166,7 @@ class BoardElement(models.Model):
         ('circle', 'Kreis'),
         ('triangle', 'Dreieck'),
         ('text', 'Text'),
+        ('emoji', 'Emoji'),
         ('image', 'Bild'),
         ('freehand', 'Freihand'),
         ('brush', 'Pinsel'),
