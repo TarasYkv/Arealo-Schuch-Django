@@ -1083,13 +1083,18 @@ def board_audio_join(request, pk):
         participant, created = BoardAudioParticipant.objects.get_or_create(
             session=audio_session,
             user=request.user,
-            defaults={'left_at': None}
+            defaults={'left_at': None, 'is_muted': False}  # Explicitly set is_muted to False for new participants
         )
 
         # Falls Benutzer bereits teilgenommen hatte, reaktivieren
         if not created and participant.left_at:
             participant.left_at = None
             participant.joined_at = timezone.now()
+            participant.is_muted = False  # Reset mute status when rejoining
+            participant.save()
+        elif not created:
+            # Even if the user was already active, reset mute status to ensure clean state
+            participant.is_muted = False
             participant.save()
 
         return JsonResponse({
