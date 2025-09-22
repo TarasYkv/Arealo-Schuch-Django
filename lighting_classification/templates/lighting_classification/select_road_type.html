@@ -1,0 +1,410 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}DIN EN 13201 - Straßentyp auswählen{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* CSS mit hoher Spezifität und !important für road type selection - v2.0 */
+    #lighting-classification-app .lighting-step-indicator {
+        display: flex !important;
+        justify-content: center !important;
+        margin-bottom: 2rem !important;
+    }
+
+    #lighting-classification-app .lighting-step {
+        display: flex !important;
+        align-items: center !important;
+        padding: 0.5rem 1rem !important;
+        border-radius: 2rem !important;
+        margin: 0 0.5rem !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
+    }
+
+    #lighting-classification-app .lighting-step.active {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+        color: white !important;
+        transform: scale(1.05) !important;
+    }
+
+    #lighting-classification-app .lighting-step.completed {
+        background: #28a745 !important;
+        color: white !important;
+    }
+
+    #lighting-classification-app .lighting-step.inactive {
+        background: #f8f9fa !important;
+        color: #6c757d !important;
+    }
+
+    #lighting-classification-app .lighting-road-type-card {
+        border: 2px solid #e9ecef !important;
+        border-radius: 8px !important;
+        padding: 1.25rem !important;
+        cursor: pointer !important;
+        transition: all 0.3s ease !important;
+        background: white !important;
+        margin-bottom: 1rem !important;
+        position: relative !important;
+    }
+
+    .lighting-road-type-card::before {
+        content: 'Klicken zum Auswählen';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 123, 255, 0.9);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+        z-index: 10;
+    }
+
+    .lighting-road-type-card:hover::before {
+        opacity: 1;
+    }
+
+    .lighting-road-type-card.selected::before {
+        content: 'Ausgewählt ✓';
+        opacity: 1;
+        background: rgba(40, 167, 69, 0.9);
+    }
+
+    #lighting-classification-app .lighting-road-type-card:hover {
+        border-color: #007bff !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 15px rgba(0, 123, 255, 0.15) !important;
+    }
+
+    #lighting-classification-app .lighting-road-type-card.selected {
+        border-color: #007bff !important;
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+        color: white !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 20px rgba(0, 123, 255, 0.3) !important;
+    }
+
+    #lighting-classification-app .lighting-road-type-code {
+        font-weight: bold !important;
+        font-size: 1.1rem !important;
+        color: #007bff !important;
+        margin-bottom: 0.5rem !important;
+    }
+
+    #lighting-classification-app .lighting-road-type-card.selected .lighting-road-type-code {
+        color: white !important;
+    }
+
+    #lighting-classification-app .lighting-road-type-name {
+        font-weight: 600 !important;
+        margin-bottom: 0.5rem !important;
+        font-size: 1rem !important;
+    }
+
+    #lighting-classification-app .lighting-road-type-card.selected .lighting-road-type-name {
+        color: white !important;
+    }
+
+    .lighting-road-type-description {
+        font-size: 0.9rem;
+        color: #6c757d;
+        line-height: 1.4;
+    }
+
+    .lighting-road-type-card.selected .lighting-road-type-description {
+        color: rgba(255, 255, 255, 0.9) !important;
+    }
+
+    #lighting-classification-app .lighting-type-badge {
+        position: absolute !important;
+        top: 0.75rem !important;
+        right: 0.75rem !important;
+        background: rgba(0, 123, 255, 0.1) !important;
+        color: #007bff !important;
+        padding: 0.25rem 0.5rem !important;
+        border-radius: 12px !important;
+        font-size: 0.75rem !important;
+        font-weight: 500 !important;
+    }
+
+    #lighting-classification-app .lighting-road-type-card.selected .lighting-type-badge {
+        background: rgba(255, 255, 255, 0.2) !important;
+        color: white !important;
+    }
+
+    #lighting-classification-app .btn-lighting-primary {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+        border: none !important;
+        color: white !important;
+        padding: 0.75rem 2rem !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3) !important;
+    }
+
+    #lighting-classification-app .btn-lighting-primary:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4) !important;
+        background: linear-gradient(135deg, #0056b3 0%, #004085 100%) !important;
+        color: white !important;
+    }
+
+    #lighting-classification-app .lighting-page-title {
+        font-size: 2.5rem !important;
+        font-weight: 700 !important;
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        background-clip: text !important;
+        margin-bottom: 0.5rem !important;
+    }
+
+    /* Bootstrap Card System mit hoher Spezifität */
+    #lighting-classification-app .card {
+        background: white !important;
+        border: 1px solid #e9ecef !important;
+        border-radius: 8px !important;
+        margin-bottom: 2rem !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    #lighting-classification-app .card-header {
+        background: #f8f9fa !important;
+        border-bottom: 1px solid #dee2e6 !important;
+        padding: 1rem 1.5rem !important;
+        border-radius: 8px 8px 0 0 !important;
+    }
+
+    #lighting-classification-app .card-body {
+        padding: 1.5rem !important;
+    }
+
+    #lighting-classification-app .row {
+        margin-left: -0.75rem !important;
+        margin-right: -0.75rem !important;
+    }
+
+    #lighting-classification-app .col-md-6,
+    #lighting-classification-app .col-lg-4 {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+        margin-bottom: 1rem !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="lighting-classification-app" class="container-fluid px-4">
+    <!-- Page Header -->
+    <div class="text-center mb-4">
+        <h1 class="lighting-page-title">
+            <i class="fas fa-lightbulb me-2"></i>
+            DIN EN 13201 Klassifizierung
+        </h1>
+        <p class="text-muted">Normgerechte Beleuchtungsklassifizierung für Straßen und Wege</p>
+    </div>
+
+    <!-- Step Indicator -->
+    <div class="lighting-step-indicator">
+        <div class="lighting-step active">
+            <i class="fas fa-road me-2"></i>
+            1. Straßentyp
+        </div>
+        <div class="lighting-step inactive">
+            <i class="fas fa-sliders-h me-2"></i>
+            2. Parameter
+        </div>
+        <div class="lighting-step inactive">
+            <i class="fas fa-lightbulb me-2"></i>
+            3. Beleuchtungsklasse
+        </div>
+    </div>
+
+    <!-- Project Setup -->
+    <div class="card mb-4" style="background: white; border: 1px solid #e9ecef; border-radius: 8px; margin-bottom: 2rem; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
+        <div class="card-header" style="background: #f8f9fa; border-bottom: 1px solid #dee2e6; padding: 1rem 1.5rem; border-radius: 8px 8px 0 0;">
+            <h3 class="mb-0"><i class="fas fa-project-diagram me-2"></i>Neues Projekt erstellen</h3>
+        </div>
+        <div class="card-body" style="padding: 1.5rem;">
+            <form id="classificationForm" method="post" action="{% url 'lighting_classification:start_classification' %}">
+                {% csrf_token %}
+                <div class="row" style="margin-left: -0.75rem; margin-right: -0.75rem;">
+                    <div class="col-md-6" style="padding-left: 0.75rem; padding-right: 0.75rem;">
+                        <label for="project_name" class="form-label">Projektname *</label>
+                        <input type="text" class="form-control" id="project_name" name="project_name"
+                               placeholder="z.B. Hauptstraße Musterstadt" required>
+                    </div>
+                    <div class="col-md-6" style="padding-left: 0.75rem; padding-right: 0.75rem;">
+                        <label class="form-label">Ausgewählter Straßentyp</label>
+                        <input type="text" class="form-control" id="selected_road_type_display"
+                               placeholder="Klicken Sie auf eine Karte unten" readonly>
+                        <small class="form-text text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Wählen Sie einen Straßentyp durch Klick auf die Karten aus
+                        </small>
+                        <input type="hidden" id="road_type_id" name="road_type_id">
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Road Types by Category -->
+    {% for category_name, road_types in road_types_by_category.items %}
+    <div style="background: white; border: 2px solid #007bff; border-radius: 12px; margin-bottom: 2rem; box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2); overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; padding: 1rem 1.5rem; font-weight: 600; font-size: 1.1rem;">
+            <i class="{{ category_icons|default_if_none:'' }}{{ category_name|default:'fas fa-road' }}" style="margin-right: 0.5rem;"></i>
+            {{ category_name }}
+        </div>
+        <div style="padding: 1.5rem;">
+            <div style="display: flex; flex-wrap: wrap; margin: -0.75rem;">
+                {% for road_type in road_types %}
+                <div style="flex: 0 0 33.333333%; max-width: 33.333333%; padding: 0.75rem;">
+                    <div class="lighting-road-type-card"
+                         data-road-type-id="{{ road_type.id }}"
+                         data-road-type-name="{{ road_type.code }} - {{ road_type.name }}"
+                         style="border: 2px solid #e9ecef; border-radius: 8px; padding: 1.25rem; cursor: pointer; transition: all 0.3s ease; background: white; position: relative; min-height: 140px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
+                         onmouseover="this.style.borderColor='#007bff'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(0, 123, 255, 0.15)';"
+                         onmouseout="this.style.borderColor='#e9ecef'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)';">
+                        <div style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(0, 123, 255, 0.1); color: #007bff; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 500;">{{ road_type.lighting_type }}-Klassen</div>
+                        <div style="font-weight: bold; font-size: 1.1rem; color: #007bff; margin-bottom: 0.5rem;">{{ road_type.code }}</div>
+                        <div style="font-weight: 600; margin-bottom: 0.5rem; font-size: 1rem; color: #333;">{{ road_type.name }}</div>
+                        <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">{{ road_type.description }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        Keine Straßentypen verfügbar. Bitte wenden Sie sich an einen Administrator.
+    </div>
+    {% endfor %}
+
+    <!-- Action Buttons -->
+    <div class="text-center mb-4">
+        <button type="submit" form="classificationForm" class="btn btn-lighting-primary btn-lg" id="continueBtn" disabled
+                style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); border: none; color: white; padding: 0.75rem 2rem; border-radius: 8px; font-weight: 600; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);">
+            <i class="fas fa-arrow-right me-2"></i>
+            Weiter zu den Parametern
+        </button>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const roadTypeCards = document.querySelectorAll('.lighting-road-type-card');
+    const roadTypeIdInput = document.getElementById('road_type_id');
+    const roadTypeDisplay = document.getElementById('selected_road_type_display');
+    const continueBtn = document.getElementById('continueBtn');
+
+    console.log('DIN EN 13201 Tool loaded');
+    console.log('Found road type cards:', roadTypeCards.length);
+
+    roadTypeCards.forEach((card, index) => {
+        console.log(`Card ${index}:`, card.dataset);
+
+        card.addEventListener('click', function() {
+            console.log('Card clicked:', this.dataset);
+
+            // Remove selection from all cards
+            roadTypeCards.forEach(c => {
+                c.classList.remove('selected');
+                // Reset inline styles to unselected state
+                c.style.borderColor = '#e9ecef';
+                c.style.background = 'white';
+                c.style.color = 'inherit';
+                c.style.transform = 'translateY(0)';
+                c.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+
+                // Reset child elements
+                const code = c.querySelector('div:nth-child(2)');
+                const name = c.querySelector('div:nth-child(3)');
+                const badge = c.querySelector('div:first-child');
+
+                if (code) code.style.color = '#007bff';
+                if (name) name.style.color = '#333';
+                if (badge) {
+                    badge.style.background = 'rgba(0, 123, 255, 0.1)';
+                    badge.style.color = '#007bff';
+                }
+            });
+
+            // Add selection to clicked card with inline styles
+            this.classList.add('selected');
+            this.style.borderColor = '#007bff';
+            this.style.background = 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)';
+            this.style.color = 'white';
+            this.style.transform = 'translateY(-2px)';
+            this.style.boxShadow = '0 8px 20px rgba(0, 123, 255, 0.3)';
+
+            // Update child elements for selected state
+            const code = this.querySelector('div:nth-child(2)');
+            const name = this.querySelector('div:nth-child(3)');
+            const desc = this.querySelector('div:nth-child(4)');
+            const badge = this.querySelector('div:first-child');
+
+            if (code) code.style.color = 'white';
+            if (name) name.style.color = 'white';
+            if (desc) desc.style.color = 'rgba(255, 255, 255, 0.9)';
+            if (badge) {
+                badge.style.background = 'rgba(255, 255, 255, 0.2)';
+                badge.style.color = 'white';
+            }
+
+            // Update form fields
+            const roadTypeId = this.dataset.roadTypeId;
+            const roadTypeName = this.dataset.roadTypeName;
+
+            console.log('Selected:', roadTypeId, roadTypeName);
+
+            roadTypeIdInput.value = roadTypeId;
+            roadTypeDisplay.value = roadTypeName;
+
+            // Enable continue button
+            continueBtn.disabled = false;
+
+            // Visual feedback
+            roadTypeDisplay.style.backgroundColor = '#d4edda';
+            setTimeout(() => {
+                roadTypeDisplay.style.backgroundColor = '';
+            }, 1000);
+
+            // Smooth scroll to continue button
+            continueBtn.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center'
+            });
+        });
+    });
+
+    // Form validation
+    document.getElementById('classificationForm').addEventListener('submit', function(e) {
+        const projectName = document.getElementById('project_name').value.trim();
+        const roadTypeId = roadTypeIdInput.value;
+
+        if (!projectName) {
+            e.preventDefault();
+            alert('Bitte geben Sie einen Projektnamen an.');
+            document.getElementById('project_name').focus();
+            return;
+        }
+
+        if (!roadTypeId) {
+            e.preventDefault();
+            alert('Bitte wählen Sie einen Straßentyp aus.');
+            return;
+        }
+    });
+});
+</script>
+{% endblock %}
