@@ -2451,90 +2451,36 @@ function showEvenDistributionResults(evenLampCount) {
         }
         console.log('✓ evenDistributionValues element found');
 
-        // Debug bestätigt - Function wird korrekt aufgerufen
-        console.log('✓ Function called correctly, proceeding with calculation...');
+        // WICHTIG: Verwende die aktuellen Berechnungswerte aus der Hauptberechnung
+        // für konsistente Ergebnisse (besonders wichtig bei EULUMDAT-Daten)
+        const currentLampCountFromMain = parseFloat(document.getElementById('lampCountRounded')?.textContent) || 0;
+        const currentActualLuxFromMain = parseFloat(document.getElementById('actualLux')?.textContent) || 0;
+        const currentTotalPowerFromMain = parseFloat(document.getElementById('totalPower')?.textContent) || 0;
 
-    // Sichere Abfrage aller Eingabefelder
-    const roomWidthEl = document.getElementById('roomWidth');
-    const roomLengthEl = document.getElementById('roomLength');
-    const roomHeightEl = document.getElementById('roomHeight');
-    const workPlaneHeightEl = document.getElementById('workPlaneHeight');
-    const mountingHeightEl = document.getElementById('mountingHeight');
-    const targetLuxEl = document.getElementById('targetLux');
-    const reflectionGradeEl = document.getElementById('reflectionFactor');
-    const maintenanceFactorEl = document.getElementById('maintenanceFactor');
+        if (currentLampCountFromMain === 0 || currentActualLuxFromMain === 0) {
+            console.error('Keine gültigen Berechnungswerte gefunden');
+            return;
+        }
 
-    if (!roomWidthEl || !roomLengthEl || !roomHeightEl || !workPlaneHeightEl ||
-        !mountingHeightEl || !targetLuxEl || !reflectionGradeEl || !maintenanceFactorEl) {
-        console.error('Missing elements:', {
-            roomWidth: !!roomWidthEl,
-            roomLength: !!roomLengthEl,
-            roomHeight: !!roomHeightEl,
-            workPlaneHeight: !!workPlaneHeightEl,
-            mountingHeight: !!mountingHeightEl,
-            targetLux: !!targetLuxEl,
-            reflectionGrade: !!reflectionGradeEl,
-            maintenanceFactor: !!maintenanceFactorEl
-        });
-        return;
-    }
+        // Proportionale Berechnung basierend auf den aktuellen Werten
+        // Dies stellt sicher, dass dieselben Faktoren (utilizationFactor, maintenanceFactor, etc.) verwendet werden
+        const actualLuxEven = (evenLampCount / currentLampCountFromMain) * currentActualLuxFromMain;
+        const totalPowerEven = (evenLampCount / currentLampCountFromMain) * currentTotalPowerFromMain;
 
-    const roomWidth = parseFloat(roomWidthEl.value);
-    const roomLength = parseFloat(roomLengthEl.value);
-    const roomHeight = parseFloat(roomHeightEl.value);
-    const workPlaneHeight = parseFloat(workPlaneHeightEl.value);
-    const mountingHeight = parseFloat(mountingHeightEl.value);
-    const targetLux = parseFloat(targetLuxEl.value);
-    const reflectionGrade = parseFloat(reflectionGradeEl.value);
-    const maintenanceFactor = parseFloat(maintenanceFactorEl.value);
+        // Raumfläche für spezifische Leistung
+        const roomWidth = parseFloat(document.getElementById('roomWidth')?.value) || 0;
+        const roomLength = parseFloat(document.getElementById('roomLength')?.value) || 0;
+        const roomArea = roomWidth * roomLength;
 
-    const lampSelect = document.getElementById('selectedLamp');
-    if (!lampSelect || !lampSelect.value) {
-        console.error('Lamp select element not found or no lamp selected');
-        return;
-    }
-    const lamp = lampDatabase.find(l => l.id == lampSelect.value);
-    if (!lamp) {
-        console.error('Selected lamp not found in database');
-        return;
-    }
+        // Leuchte für zusätzliche Informationen
+        const lampSelect = document.getElementById('selectedLamp');
+        const lamp = lampDatabase.find(l => l.id == lampSelect?.value);
+        if (!lamp) {
+            console.error('Selected lamp not found');
+            return;
+        }
 
-    // Berechnungen für gleichmäßige Verteilung
-    const roomArea = roomWidth * roomLength;
-    const h = mountingHeight - workPlaneHeight;
-    const k = (roomWidth * roomLength) / (h * (roomWidth + roomLength));
-
-    // Raumwirkungsgrad nach EN 13032-2 Standard (Trilux-Methodik)
-    let utilizationFactor;
-    const reflectionFactor = reflectionGrade;
-
-    // Erweiterte Raumwirkungsgrad-Berechnung mit Reflexionsgrad-Abhängigkeit
-    let baseUtilization;
-    if (k <= 0.6) baseUtilization = 0.30;
-    else if (k <= 0.8) baseUtilization = 0.40;
-    else if (k <= 1.0) baseUtilization = 0.50;
-    else if (k <= 1.25) baseUtilization = 0.58;
-    else if (k <= 1.5) baseUtilization = 0.64;
-    else if (k <= 2.0) baseUtilization = 0.70;
-    else if (k <= 2.5) baseUtilization = 0.74;
-    else if (k <= 3.0) baseUtilization = 0.78;
-    else if (k <= 4.0) baseUtilization = 0.82;
-    else if (k <= 5.0) baseUtilization = 0.85;
-    else baseUtilization = 0.88;
-
-    // Reflexionsgrad-Korrektur nach EN 13032-2
-    const reflectionCorrection = 0.6 + 0.4 * reflectionFactor;
-    utilizationFactor = baseUtilization * reflectionCorrection;
-
-    // Leuchtenbetriebswirkungsgrad für LED-Feuchtraumleuchten
-    const luminaireEfficiency = 0.95; // Typischer Wert für moderne LED-Leuchten
-    utilizationFactor *= luminaireEfficiency;
-
-    // Tatsächliche Beleuchtungsstärke mit gleichmäßiger Anzahl
-    const actualLuxEven = (evenLampCount * lamp.lumen * utilizationFactor * maintenanceFactor) / roomArea;
-
-    // Anschlusswerte
-    const totalPowerEven = evenLampCount * lamp.watt;
+    // Anschlusswerte - auch diese proportional berechnen für Konsistenz
     const specificPowerEven = totalPowerEven / roomArea;
     const specificPowerPer100lxEven = (specificPowerEven / actualLuxEven) * 100;
 
