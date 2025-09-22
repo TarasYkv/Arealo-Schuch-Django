@@ -197,6 +197,7 @@ class AppPermission(models.Model):
         ('schuch', 'Schuch'),
         ('schuch_dashboard', 'Schuch Dashboard'),
         ('wirtschaftlichkeitsrechner', 'Wirtschaftlichkeitsrechner'),
+        ('beleuchtungsrechner', 'Beleuchtungsrechner'),
         ('sportplatz_konfigurator', 'Sportplatz-Konfigurator'),
         ('pdf_suche', 'PDF-Suche'),
         ('ki_zusammenfassung', 'KI-Zusammenfassung'),

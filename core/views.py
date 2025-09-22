@@ -3,9 +3,10 @@ from django.shortcuts import render, get_object_or_404
 from django.http import Http404
 from django.contrib.auth.decorators import login_required
 from accounts.models import CustomPage, EditableContent
+from accounts.decorators import require_app_permission
 from core.page_registry import get_system_page_info
 
-@login_required
+@require_app_permission('beleuchtungsrechner')
 def beleuchtungsrechner(request):
     """Beleuchtungsrechner Tool für Schuch"""
     return render(request, 'core/beleuchtungsrechner.html')
