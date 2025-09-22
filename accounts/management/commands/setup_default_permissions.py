@@ -20,6 +20,7 @@ class Command(BaseCommand):
             
             # Schuch Tools
             ('wirtschaftlichkeitsrechner', 'authenticated'),
+            ('beleuchtungsrechner', 'authenticated'),
             ('sportplatz_konfigurator', 'authenticated'),
             ('pdf_suche', 'authenticated'),
             ('ki_zusammenfassung', 'authenticated'),

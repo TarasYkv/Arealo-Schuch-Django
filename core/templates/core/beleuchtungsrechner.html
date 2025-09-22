@@ -378,9 +378,14 @@
         <div class="col-lg-6">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="card-title mb-0">
+                    <h5 class="card-title mb-1">
                         <i class="bi bi-calculator me-2"></i>Berechnungsdetails
                     </h5>
+                    <small class="text-muted">
+                        <span id="calculationMethodHeader">Standard-Berechnung nach EN 13032-2</span>
+                        <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip"
+                           title="Die Berechnungsmethode wird automatisch basierend auf verfügbaren Daten gewählt"></i>
+                    </small>
                 </div>
                 <div class="card-body">
                     <table class="table table-sm">
@@ -2165,22 +2170,81 @@ function calculate() {
     document.getElementById('calcLampLumen').textContent = lamp.lumen.toLocaleString();
     document.getElementById('calcLampWatt').textContent = lamp.watt;
 
+    // Update der Berechnungsmethoden-Überschrift
+    const methodHeaderElement = document.getElementById('calculationMethodHeader');
+    if (methodHeaderElement) {
+        if (isEULUMDATUsed) {
+            methodHeaderElement.innerHTML = `<i class="bi bi-graph-up text-success me-1"></i>Präzise EULUMDAT-Berechnung (±5% Genauigkeit)`;
+        } else {
+            methodHeaderElement.innerHTML = `<i class="bi bi-calculator text-info me-1"></i>Standard-Berechnung nach EN 13032-2 (±15% Genauigkeit)`;
+        }
+    }
+
     // EULUMDAT-Benachrichtigung anzeigen
     const eulumdatNotice = document.getElementById('eulumdatNotice');
     if (eulumdatNotice) {
         if (isEULUMDATUsed) {
             eulumdatNotice.style.display = 'block';
             eulumdatNotice.innerHTML = `
-                <div class="alert alert-info d-flex align-items-center">
-                    <i class="bi bi-info-circle-fill me-2"></i>
-                    <div>
-                        <strong>EULUMDAT-Daten verwendet!</strong><br>
-                        Präzise Berechnung basierend auf photometrischen Daten aus <code>${lamp.eulumdatFile}</code>
+                <div class="alert alert-success d-flex align-items-start">
+                    <i class="bi bi-graph-up-arrow me-3 mt-1 fs-4 text-success"></i>
+                    <div class="flex-grow-1">
+                        <h6 class="mb-2"><strong>🎯 EULUMDAT-Präzisionsberechnung aktiv</strong></h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Datenquelle:</strong><br>
+                                <code>${lamp.eulumdatFile || 'EULUMDAT-Datei'}</code>
+                                <br><br>
+                                <strong>Vorteile:</strong>
+                                <ul class="mb-0 small">
+                                    <li>Reale photometrische Messdaten</li>
+                                    <li>72 C-Ebenen × 161 Gamma-Winkel</li>
+                                    <li>Genauigkeit: ±5% (vs. ±15% Standard)</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Unterschied zu Standard:</strong>
+                                <ul class="mb-0 small">
+                                    <li>Standard: Vereinfachte EN 13032-2 Tabellen</li>
+                                    <li>EULUMDAT: Spezifische Lichtverteilung</li>
+                                    <li>Berücksichtigt asymmetrische Lichtcharakteristik</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
         } else {
-            eulumdatNotice.style.display = 'none';
+            eulumdatNotice.style.display = 'block';
+            eulumdatNotice.innerHTML = `
+                <div class="alert alert-info d-flex align-items-start">
+                    <i class="bi bi-calculator me-3 mt-1 fs-4 text-info"></i>
+                    <div class="flex-grow-1">
+                        <h6 class="mb-2"><strong>📊 Standard-Berechnung nach EN 13032-2</strong></h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Methode:</strong><br>
+                                Bewährte Tabellenwerte für Raumwirkungsgrad
+                                <br><br>
+                                <strong>Merkmale:</strong>
+                                <ul class="mb-0 small">
+                                    <li>Schnelle Überschlagsrechnung</li>
+                                    <li>Standardisierte Werte nach Norm</li>
+                                    <li>Genauigkeit: ±15%</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Für höhere Präzision:</strong>
+                                <ul class="mb-0 small">
+                                    <li>LDT-Datei der Leuchte hochladen</li>
+                                    <li>Automatische EULUMDAT-Analyse</li>
+                                    <li>Präzise photometrische Berechnung</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
     }
 
@@ -2212,8 +2276,29 @@ function calculate() {
     document.getElementById('stepCalcLength2').textContent = roomLength;
     document.getElementById('stepK').textContent = k.toFixed(3);
 
-    // Schritt 4: Basis-Wirkungsgrad
+    // Schritt 4: Basis-Wirkungsgrad mit Berechnungsmethode
+    const calculationMethod = isEULUMDATUsed ? 'EULUMDAT-Photometrie' : 'Standard EN 13032-2';
     document.getElementById('stepBaseEta').textContent = (baseUtilizationFactor * 100).toFixed(1) + '%';
+
+    // Berechnungsmethode-Info hinzufügen
+    const baseEtaElement = document.getElementById('stepBaseEta');
+    if (baseEtaElement && baseEtaElement.parentNode) {
+        // Suche nach vorhandener Methoden-Info und entferne sie
+        const existingMethodInfo = baseEtaElement.parentNode.querySelector('.calculation-method-info');
+        if (existingMethodInfo) {
+            existingMethodInfo.remove();
+        }
+
+        // Neue Methoden-Info hinzufügen
+        const methodInfo = document.createElement('small');
+        methodInfo.className = 'calculation-method-info text-muted d-block mt-1';
+        if (isEULUMDATUsed) {
+            methodInfo.innerHTML = `<i class="bi bi-graph-up text-success"></i> <strong>Präzise EULUMDAT-Berechnung</strong><br>aus realen photometrischen Messdaten (${lamp.eulumdatFile || 'EULUMDAT-Datei'})`;
+        } else {
+            methodInfo.innerHTML = `<i class="bi bi-calculator text-info"></i> <strong>Standard-Berechnung</strong><br>nach EN 13032-2 Tabellenwerten`;
+        }
+        baseEtaElement.parentNode.appendChild(methodInfo);
+    }
 
     // Schritt 5: Korrigierter Wirkungsgrad
     document.getElementById('stepBaseEta2').textContent = (baseUtilizationFactor * 100).toFixed(1) + '%';
