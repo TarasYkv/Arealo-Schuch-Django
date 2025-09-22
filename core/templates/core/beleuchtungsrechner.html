@@ -244,6 +244,165 @@
                             Berechnungsanleitung (PDF)
                         </button>
                     </div>
+
+                    <!-- Berechnungsdetails - direkt in der linken Spalte -->
+                    <div class="mt-4" id="calculations" style="display: none;">
+                        <h6 class="text-primary border-bottom pb-2 mb-3">
+                            <i class="bi bi-calculator me-2"></i>Berechnungsdetails
+                            <small class="text-muted ms-2">
+                                <span id="calculationMethodHeader">Standard-Berechnung nach EN 13032-2</span>
+                                <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip"
+                                   title="Die Berechnungsmethode wird automatisch basierend auf verfügbaren Daten gewählt"></i>
+                            </small>
+                        </h6>
+                    <table class="table table-sm">
+                        <tr>
+                            <td><strong>Raumfläche (A):</strong>
+                                <i class="bi bi-info-circle ms-1 text-muted" data-bs-toggle="tooltip"
+                                   title="Länge × Breite des zu beleuchtenden Raumes"></i>
+                            </td>
+                            <td><span id="calcRoomArea">-</span> m²</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Raumindex (k):</strong>
+                                <i class="bi bi-info-circle ms-1 text-muted" data-bs-toggle="tooltip"
+                                   title="k = (L × B) / (h × (L + B))"></i>
+                            </td>
+                            <td><span id="calcRoomIndex">-</span> (<span id="calcRoomIndexClass">-</span>)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Basis-Wirkungsgrad (η₀):</strong>
+                                <i class="bi bi-info-circle ms-1 text-muted" data-bs-toggle="tooltip"
+                                   title="Grundwirkungsgrad basierend auf Raumindex nach EN 13032-2"></i>
+                            </td>
+                            <td><span id="calcBaseUtilization">-</span> %</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Reflexionsfaktor:</strong>
+                                <i class="bi bi-info-circle ms-1 text-muted" data-bs-toggle="tooltip"
+                                   title="Korrektur basierend auf Oberflächenreflexion"></i>
+                            </td>
+                            <td><span id="calcReflectionFactor">-</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Raumwirkungsgrad (η):</strong>
+                                <i class="bi bi-info-circle ms-1 text-muted" data-bs-toggle="tooltip"
+                                   title="η = η₀ × Reflexionsfaktor"></i>
+                            </td>
+                            <td><span id="calcUtilizationFactor">-</span> %</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Wartungsfaktor (W):</strong>
+                                <i class="bi bi-info-circle ms-1 text-muted" data-bs-toggle="tooltip"
+                                   title="Berücksichtigt Verschmutzung und Alterung"></i>
+                            </td>
+                            <td><span id="calcMaintenanceFactor">-</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Lichtstrom gesamt:</strong>
+                                <i class="bi bi-info-circle ms-1 text-muted" data-bs-toggle="tooltip"
+                                   title="Φ = (E × A) / (η × W)"></i>
+                            </td>
+                            <td><span id="calcTotalLumen">-</span> lm</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Leuchten-Lichtstrom:</strong>
+                                <i class="bi bi-info-circle ms-1 text-muted" data-bs-toggle="tooltip"
+                                   title="Nominaler Lichtstrom pro Leuchte"></i>
+                            </td>
+                            <td><span id="calcLampLumen">-</span> lm</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Leuchten-Leistung:</strong>
+                                <i class="bi bi-info-circle ms-1 text-muted" data-bs-toggle="tooltip"
+                                   title="Elektrische Leistungsaufnahme pro Leuchte"></i>
+                            </td>
+                            <td><span id="calcLampWatt">-</span> W</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Lichtausbeute:</strong>
+                                <i class="bi bi-info-circle ms-1 text-muted" data-bs-toggle="tooltip"
+                                   title="Effizienz: Lichtstrom pro Watt"></i>
+                            </td>
+                            <td><span id="calcLampEfficiency">-</span> lm/W</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Spez. Leistung:</strong>
+                                <i class="bi bi-info-circle ms-1 text-muted" data-bs-toggle="tooltip"
+                                   title="Installierte Leistung pro Quadratmeter"></i>
+                            </td>
+                            <td><span id="calcSpecificPower">-</span> W/m²</td>
+                        </tr>
+                    </table>
+
+                    <!-- Gesamtberechnung Schritt für Schritt -->
+                    <div class="mt-4">
+                        <h6><i class="bi bi-list-ol me-2"></i>Detaillierte Berechnung nach EN 13032-2</h6>
+                        <div class="border rounded p-3 bg-light">
+                            <div class="mb-3">
+                                <h6 class="text-primary mb-2"><i class="bi bi-1-circle me-1"></i> Raumabmessungen</h6>
+                                <div style="font-size: 0.9em;">
+                                    <code>A = L × B = <span id="stepRoomWidth">-</span> m × <span id="stepRoomLength">-</span> m = <span id="stepRoomArea">-</span> m²</code><br>
+                                    <code>h = h_montage - h_arbeitsebene = <span id="stepMountingHeight">-</span> m - <span id="stepWorkPlaneHeight">-</span> m = <span id="stepH">-</span> m</code>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <h6 class="text-info mb-2"><i class="bi bi-2-circle me-1"></i> Raumindex berechnen</h6>
+                                <div style="font-size: 0.9em;">
+                                    <code>k = (L × B) / (h × (L + B))</code><br>
+                                    <code>k = (<span id="stepCalcWidth">-</span> × <span id="stepCalcLength">-</span>) / (<span id="stepCalcH">-</span> × (<span id="stepCalcWidth2">-</span> + <span id="stepCalcLength2">-</span>))</code><br>
+                                    <code>k = <span id="stepK">-</span> → <span id="stepRoomType">-</span> (k = <span id="stepKValue">-</span>)</code>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <h6 class="text-warning mb-2"><i class="bi bi-3-circle me-1"></i> Raumwirkungsgrad bestimmen</h6>
+                                <div style="font-size: 0.9em;">
+                                    <code>η₀ = <span id="stepBaseEta">-</span> (aus Tabelle für k = <span id="stepKValue">-</span>)</code><br>
+                                    <code>Reflexionskorrektur = 0.7 + 0.3 × <span id="stepReflection">-</span> = <span id="stepReflectionFactor">-</span></code><br>
+                                    <code>η = <span id="stepBaseEta2">-</span> × <span id="stepReflectionFactor2">-</span> = <span id="stepFinalEta">-</span></code>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <h6 class="text-success mb-2"><i class="bi bi-4-circle me-1"></i> Erforderlicher Lichtstrom</h6>
+                                <div style="font-size: 0.9em;">
+                                    <code>Φ_gesamt = (E × A) / (η × W)</code><br>
+                                    <code>Φ_gesamt = (<span id="stepTargetLux">-</span> lx × <span id="stepAreaCalc">-</span> m²) / (<span id="stepEtaCalc">-</span> × <span id="stepMaintenance">-</span>)</code><br>
+                                    <code>Φ_gesamt = <span id="stepLumenNumerator">-</span> / <span id="stepLumenDenominator">-</span> = <span id="stepTotalLumen">-</span> lm</code>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <h6 class="text-info mb-2"><i class="bi bi-5-circle me-1"></i> Anzahl Leuchten</h6>
+                                <div style="font-size: 0.9em;">
+                                    <code>n = Φ_gesamt / Φ_leuchte</code><br>
+                                    <code>n = <span id="stepTotalLumen2">-</span> lm / <span id="stepLampLumen">-</span> lm = <span id="stepExactCount">-</span></code><br>
+                                    <code>Aufgerundet: <span id="stepRoundedCount">-</span> Leuchten</code>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <h6 class="text-warning mb-2"><i class="bi bi-6-circle me-1"></i> Tatsächliche Beleuchtungsstärke</h6>
+                                <div style="font-size: 0.9em;">
+                                    <code>E_real = (n × Φ_leuchte × η × W) / A</code><br>
+                                    <code>E_real = (<span id="stepFinalCount">-</span> × <span id="stepFinalLampLumen">-</span> × <span id="stepFinalEta">-</span> × <span id="stepFinalMaintenance">-</span>) / <span id="stepFinalArea">-</span></code><br>
+                                    <code>E_real = <span id="stepActualLux">-</span> lx (Abweichung: <span id="stepLuxDifference">-</span>%)</code>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h6 class="text-secondary mb-2"><i class="bi bi-7-circle me-1"></i> Gesamtleistung</h6>
+                                <div style="font-size: 0.9em;">
+                                    <code>P_gesamt = n × P_leuchte</code><br>
+                                    <code>P_gesamt = <span id="stepFinalCount2">-</span> × <span id="stepLampWatt">-</span> W = <span id="stepTotalPower">-</span> W</code><br>
+                                    <code>Spez. Leistung = <span id="stepTotalPower2">-</span> W / <span id="stepFinalArea2">-</span> m² = <span id="stepSpecificPower">-</span> W/m²</code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -374,186 +533,9 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Berechnungsdetails und Erklärungen -->
-    <div class="row mt-4" id="calculations" style="display: none;">
-        <div class="col-lg-6">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-1">
-                        <i class="bi bi-calculator me-2"></i>Berechnungsdetails
-                    </h5>
-                    <small class="text-muted">
-                        <span id="calculationMethodHeader">Standard-Berechnung nach EN 13032-2</span>
-                        <i class="bi bi-info-circle ms-1" data-bs-toggle="tooltip"
-                           title="Die Berechnungsmethode wird automatisch basierend auf verfügbaren Daten gewählt"></i>
-                    </small>
-                </div>
-                <div class="card-body">
-                    <table class="table table-sm">
-                        <tr>
-                            <td><strong>Raumfläche (A):</strong>
-                                <i class="bi bi-info-circle ms-1 text-muted" data-bs-toggle="tooltip"
-                                   title="Länge × Breite des zu beleuchtenden Raumes"></i>
-                            </td>
-                            <td><span id="calcRoomArea">-</span> m²</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Raumindex (k):</strong>
-                                <i class="bi bi-info-circle ms-1 text-muted" data-bs-toggle="tooltip"
-                                   title="Charakteristische Raumgröße: k = (L×B)/(h×(L+B)). Kleine k-Werte = hohe Räume, große k-Werte = flache Räume"></i>
-                            </td>
-                            <td><span id="calcRoomIndex">-</span> <small class="text-muted">(<span id="calcRoomIndexClass">-</span>)</small></td>
-                        </tr>
-                        <tr>
-                            <td><strong>Basis-Wirkungsgrad (η₀):</strong>
-                                <i class="bi bi-info-circle ms-1 text-muted" data-bs-toggle="tooltip"
-                                   title="Grundwirkungsgrad basierend auf Raumindex nach EN 13032-2"></i>
-                            </td>
-                            <td><span id="calcBaseUtilization">-</span> %</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Reflexionskorrektur:</strong>
-                                <i class="bi bi-info-circle ms-1 text-muted" data-bs-toggle="tooltip"
-                                   title="Korrektur basierend auf Reflexionsgrad: (0.7 + 0.3 × Reflexion)"></i>
-                            </td>
-                            <td>× <span id="calcReflectionFactor">-</span> = <span id="calcUtilizationFactor">-</span> %</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Wartungsfaktor (W):</strong>
-                                <i class="bi bi-info-circle ms-1 text-muted" data-bs-toggle="tooltip"
-                                   title="Berücksichtigt Lichtverluste durch Verschmutzung und Alterung (0.6-0.9)"></i>
-                            </td>
-                            <td><span id="calcMaintenanceFactor">-</span></td>
-                        </tr>
-                        <tr class="table-warning">
-                            <td><strong>Benötigter Lichtstrom:</strong>
-                                <i class="bi bi-info-circle ms-1 text-muted" data-bs-toggle="tooltip"
-                                   title="Φ = (E × A) / (η × W) - Gesamtlichtstrom aller Leuchten"></i>
-                            </td>
-                            <td><span id="calcTotalLumen">-</span> lm</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Lichtstrom pro Leuchte:</strong>
-                                <i class="bi bi-info-circle ms-1 text-muted" data-bs-toggle="tooltip"
-                                   title="Nennlichtstrom der gewählten Leuchte aus Datenblatt oder LDT-Datei"></i>
-                            </td>
-                            <td><span id="calcLampLumen">-</span> lm</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Leistung pro Leuchte:</strong>
-                                <i class="bi bi-info-circle ms-1 text-muted" data-bs-toggle="tooltip"
-                                   title="Elektrische Nennleistung der gewählten Leuchte"></i>
-                            </td>
-                            <td><span id="calcLampWatt">-</span> W</td>
-                        </tr>
-                        <tr class="table-success">
-                            <td><strong>Lichtausbeute:</strong>
-                                <i class="bi bi-info-circle ms-1 text-muted" data-bs-toggle="tooltip"
-                                   title="Effizienz der Leuchte: Lichtstrom/Leistung [lm/W]"></i>
-                            </td>
-                            <td><span id="calcLampEfficiency">-</span> lm/W</td>
-                        </tr>
-                        <tr class="table-info">
-                            <td><strong>Spezifische Leistung:</strong>
-                                <i class="bi bi-info-circle ms-1 text-muted" data-bs-toggle="tooltip"
-                                   title="Installierte Leistung pro m² Raumfläche"></i>
-                            </td>
-                            <td><span id="calcSpecificPower">-</span> W/m²</td>
-                        </tr>
-                    </table>
-
-                    <!-- Gesamtberechnung Schritt für Schritt -->
-                    <div class="mt-4">
-                        <h6><i class="bi bi-list-ol me-2"></i>Detaillierte Berechnung nach EN 13032-2</h6>
-                        <div class="border rounded p-3 bg-light">
-                            <div class="mb-3">
-                                <h6 class="text-primary mb-2"><i class="bi bi-1-circle me-1"></i> Geometrische Parameter</h6>
-                                <div style="font-size: 0.9em;">
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <strong>Raumfläche:</strong><br>
-                                            A = L × B = <span id="stepRoomWidth">-</span> × <span id="stepRoomLength">-</span> = <span id="stepRoomArea">-</span> m²
-                                        </div>
-                                        <div class="col-md-6">
-                                            <strong>Lichte Höhe:</strong><br>
-                                            h = <span id="stepMountingHeight">-</span> - <span id="stepWorkPlaneHeight">-</span> = <span id="stepH">-</span> m
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <h6 class="text-primary mb-2"><i class="bi bi-2-circle me-1"></i> Raumindex und Wirkungsgrad</h6>
-                                <div style="font-size: 0.9em;">
-                                    <strong>Raumindex:</strong><br>
-                                    k = (L × B) / (h × (L + B)) = (<span id="stepCalcWidth">-</span> × <span id="stepCalcLength">-</span>) / (<span id="stepCalcH">-</span> × (<span id="stepCalcWidth2">-</span> + <span id="stepCalcLength2">-</span>)) = <span id="stepK">-</span><br>
-                                    <small class="text-muted">→ <span id="stepRoomType">-</span></small><br><br>
-
-                                    <strong>Basis-Wirkungsgrad (nach Tabelle):</strong><br>
-                                    η₀ = <span id="stepBaseEta">-</span> % <small class="text-muted">(für k = <span id="stepKValue">-</span>)</small><br><br>
-
-                                    <strong>Reflexionskorrektur:</strong><br>
-                                    Faktor = 0.7 + 0.3 × <span id="stepReflection">-</span> = <span id="stepReflectionFactor">-</span><br>
-                                    η = <span id="stepBaseEta2">-</span> % × <span id="stepReflectionFactor2">-</span> = <span id="stepFinalEta">-</span> %
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <h6 class="text-primary mb-2"><i class="bi bi-3-circle me-1"></i> Lichtstrombedarf</h6>
-                                <div style="font-size: 0.9em;">
-                                    <strong>Grundformel:</strong> Φ = (E × A) / (η × W)<br>
-                                    Φ = (<span id="stepTargetLux">-</span> lx × <span id="stepAreaCalc">-</span> m²) / (<span id="stepEtaCalc">-</span> × <span id="stepMaintenance">-</span>)<br>
-                                    Φ = <span id="stepLumenNumerator">-</span> / <span id="stepLumenDenominator">-</span> = <span id="stepTotalLumen">-</span> lm
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <h6 class="text-primary mb-2"><i class="bi bi-4-circle me-1"></i> Leuchtenanzahl</h6>
-                                <div style="font-size: 0.9em;">
-                                    <strong>Exakte Anzahl:</strong><br>
-                                    n = Φ_gesamt / Φ_Leuchte = <span id="stepTotalLumen2">-</span> lm / <span id="stepLampLumen">-</span> lm = <span id="stepExactCount">-</span><br><br>
-
-                                    <strong>Aufgerundet:</strong><br>
-                                    n = <span id="stepRoundedCount">-</span> Stück <small class="text-muted">(mindestens benötigt)</small>
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <h6 class="text-success mb-2"><i class="bi bi-5-circle me-1"></i> Ergebnis-Kontrolle</h6>
-                                <div style="font-size: 0.9em;">
-                                    <strong>Tatsächliche Beleuchtungsstärke:</strong><br>
-                                    E = (n × Φ_Leuchte × η × W) / A<br>
-                                    E = (<span id="stepFinalCount">-</span> × <span id="stepFinalLampLumen">-</span> × <span id="stepFinalEta">-</span> × <span id="stepFinalMaintenance">-</span>) / <span id="stepFinalArea">-</span><br>
-                                    E = <span id="stepActualLux">-</span> lx <small class="text-muted">(<span id="stepLuxDifference">-</span>% über Zielwert)</small><br><br>
-
-                                    <strong>Gesamtleistung:</strong><br>
-                                    P_gesamt = n × P_Leuchte = <span id="stepFinalCount2">-</span> × <span id="stepLampWatt">-</span> W = <span id="stepTotalPower">-</span> W<br>
-                                    P_spezifisch = <span id="stepTotalPower2">-</span> W / <span id="stepFinalArea2">-</span> m² = <span id="stepSpecificPower">-</span> W/m²
-                                </div>
-                            </div>
-
-                            <!-- Zusätzliche Analyse bei extremen Geometrien -->
-                            <div id="geometryAnalysis" class="alert alert-warning" style="display: none; font-size: 0.9em;">
-                                <h6 class="alert-heading"><i class="bi bi-exclamation-triangle me-1"></i> Geometrie-Analyse</h6>
-                                <div id="geometryWarnings"></div>
-                                <div id="overlapInfo" style="display: none;">
-                                    <strong>Überlappungskorrektur:</strong><br>
-                                    Lichtkreisradius: r = h × tan(α/2) = <span id="stepLightRadius">-</span> m<br>
-                                    Leuchtenabstand: d = <span id="stepLampSpacing">-</span> m<br>
-                                    Überlappungsfaktor: <span id="stepOverlapFactor">-</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-6">
-            <div class="card">
+            <!-- Erklärungen -->
+            <div class="card mt-3">
                 <div class="card-header">
                     <h5 class="card-title mb-0">
                         <i class="bi bi-info-circle me-2"></i>Erklärungen
@@ -760,6 +742,10 @@
             </div>
         </div>
     </div>
+
+
+<!-- Toast Notification Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer" style="z-index: 11;">
 </div>
 
 <!-- Leuchten-Verwaltung Modal -->
@@ -801,6 +787,71 @@ let scene, camera, renderer;
 let room, workPlane, lamps = [];
 let gridHelper;
 let lampDatabase = [];
+
+// ===== MODERNE NOTIFICATION SYSTEM =====
+function showModernNotification(message, type = 'info', duration = 5000) {
+    const toastContainer = document.getElementById('toastContainer');
+
+    // Toast Typen und Icons
+    const types = {
+        success: { bg: 'bg-success', icon: 'bi-check-circle', title: 'Erfolg' },
+        error: { bg: 'bg-danger', icon: 'bi-exclamation-triangle', title: 'Fehler' },
+        warning: { bg: 'bg-warning', icon: 'bi-exclamation-triangle', title: 'Warnung' },
+        info: { bg: 'bg-info', icon: 'bi-info-circle', title: 'Information' }
+    };
+
+    const toastType = types[type] || types.info;
+    const toastId = 'toast-' + Date.now();
+
+    const toastHTML = `
+        <div class="toast align-items-center text-white ${toastType.bg} border-0" role="alert" id="${toastId}" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <div class="d-flex align-items-center">
+                        <i class="bi ${toastType.icon} me-2 fs-5"></i>
+                        <div>
+                            <div class="fw-bold">${toastType.title}</div>
+                            <div class="small">${message}</div>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Schließen"></button>
+            </div>
+        </div>
+    `;
+
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, {
+        delay: duration,
+        autohide: true
+    });
+
+    toast.show();
+
+    // Toast nach dem Verstecken aus dem DOM entfernen
+    toastElement.addEventListener('hidden.bs.toast', () => {
+        toastElement.remove();
+    });
+}
+
+// Kurze Wrapper für häufig verwendete Notifications
+function showSuccess(message, duration = 4000) {
+    showModernNotification(message, 'success', duration);
+}
+
+function showError(message, duration = 6000) {
+    showModernNotification(message, 'error', duration);
+}
+
+function showWarning(message, duration = 5000) {
+    showModernNotification(message, 'warning', duration);
+}
+
+function showInfo(message, duration = 4000) {
+    showModernNotification(message, 'info', duration);
+}
 
 // Bootstrap Tooltips initialisieren
 function initializeTooltips() {
@@ -851,12 +902,12 @@ function uploadLDTFile(forceReview = false) {
     const file = fileInput.files[0];
 
     if (!file) {
-        alert('Bitte wählen Sie eine LDT-Datei aus!');
+        showError('Bitte wählen Sie eine LDT-Datei aus!');
         return;
     }
 
     if (!file.name.toLowerCase().endsWith('.ldt')) {
-        alert('Bitte wählen Sie eine gültige .LDT-Datei aus!');
+        showError('Bitte wählen Sie eine gültige .LDT-Datei aus!');
         return;
     }
 
@@ -896,13 +947,13 @@ function uploadLDTFile(forceReview = false) {
             }
         } catch (error) {
             console.error('Fehler beim Verarbeiten der LDT-Datei:', error);
-            alert('Fehler beim Verarbeiten der LDT-Datei!\n\nBitte stellen Sie sicher, dass es sich um eine gültige EULUMDAT-Datei handelt.');
+            showError('Fehler beim Verarbeiten der LDT-Datei! Bitte stellen Sie sicher, dass es sich um eine gültige EULUMDAT-Datei handelt.');
         }
     };
 
     reader.onerror = function() {
         console.error('Fehler beim Lesen der Datei');
-        alert('Fehler beim Lesen der Datei!');
+        showError('Fehler beim Lesen der Datei!');
     };
 
     reader.readAsText(file);
@@ -960,7 +1011,7 @@ function showLDTDataCompletion(parsedData, filename, missingData, isReviewMode =
 // Vervollständige LDT-Daten und füge Lampe hinzu
 function completeLDTData() {
     if (!tempLDTData) {
-        alert('Fehler: Keine temporären LDT-Daten gefunden!');
+        showError('Fehler: Keine temporären LDT-Daten gefunden!');
         return;
     }
 
@@ -969,13 +1020,13 @@ function completeLDTData() {
     const watt = parseFloat(document.getElementById('ldtCompletionWatt').value);
 
     if (!lumen || lumen <= 0) {
-        alert('Bitte geben Sie einen gültigen Lichtstrom (Lumen) ein!');
+        showWarning('Bitte geben Sie einen gültigen Lichtstrom (Lumen) ein!');
         document.getElementById('ldtCompletionLumen').focus();
         return;
     }
 
     if (!watt || watt <= 0) {
-        alert('Bitte geben Sie eine gültige Leistung (Watt) ein!');
+        showWarning('Bitte geben Sie eine gültige Leistung (Watt) ein!');
         document.getElementById('ldtCompletionWatt').focus();
         return;
     }
@@ -1049,7 +1100,7 @@ function addLampFromLDT(parsedData, filename, lampType = 'EULUMDAT Import') {
     updateLampList(newLamp.id);
 
     // Erfolgsmeldung
-    alert(`LDT-Datei erfolgreich importiert!\n\nLeuchte: ${newLamp.name}\nLichtstrom: ${newLamp.lumen} lm\nLeistung: ${newLamp.watt} W\n\nDie Leuchte wurde automatisch ausgewählt und ist bereit für die Berechnung.`);
+    showSuccess(`LDT-Datei erfolgreich importiert!<br><br><strong>Leuchte:</strong> ${newLamp.name}<br><strong>Lichtstrom:</strong> ${newLamp.lumen} lm<br><strong>Leistung:</strong> ${newLamp.watt} W<br><br>Die Leuchte wurde automatisch ausgewählt und ist bereit für die Berechnung.`);
 
     console.log('LDT-Import erfolgreich:', newLamp);
 }
@@ -1160,7 +1211,7 @@ function addLamp() {
         document.getElementById('lampLumen').value = '';
         document.getElementById('lampWatt').value = '';
     } else {
-        alert('Bitte Name, Lumen und Watt ausfüllen!');
+        showWarning('Bitte Name, Lumen und Watt ausfüllen!');
     }
 }
 
@@ -2328,7 +2379,7 @@ function calculate() {
     console.log('Selected lamp ID:', selectedLampId);
 
     if (!selectedLampId) {
-        alert('Bitte wählen Sie eine Leuchte aus!');
+        showWarning('Bitte wählen Sie eine Leuchte aus!');
         return;
     }
 
@@ -2361,7 +2412,7 @@ function calculate() {
 
     // Validierung: Arbeitsebene muss unter der Montagehöhe liegen
     if (h <= 0) {
-        alert('Die Arbeitsebene muss unter der Montagehöhe der Leuchten liegen!');
+        showError('Die Arbeitsebene muss unter der Montagehöhe der Leuchten liegen!');
         return;
     }
 
@@ -2885,7 +2936,7 @@ function calculate() {
         window.calculationCompleted = false;
 
         // Show error to user
-        alert('Fehler bei der Berechnung: ' + error.message);
+        showError('Fehler bei der Berechnung: ' + error.message);
 
         // Try to show basic results section at least
         try {
@@ -3804,7 +3855,7 @@ async function generatePDF() {
 
     } catch (error) {
         console.error('Fehler beim Laden der PDF-Bibliotheken:', error);
-        alert('Fehler beim Laden der PDF-Bibliotheken: ' + error);
+        showError('Fehler beim Laden der PDF-Bibliotheken: ' + error);
         const pdfButton = document.getElementById('pdfButton');
         pdfButton.disabled = false;
         pdfButton.innerHTML = '<i class="bi bi-file-earmark-pdf me-2"></i>PDF Export';
@@ -4632,7 +4683,7 @@ async function generatePDF() {
 
     } catch (error) {
         console.error('Fehler beim PDF-Export:', error);
-        alert('Fehler beim Erstellen der PDF-Datei!');
+        showError('Fehler beim Erstellen der PDF-Datei!');
     } finally {
         // Button wieder aktivieren
         const pdfButton = document.getElementById('pdfButton');
@@ -4721,7 +4772,7 @@ async function generateCalculationGuidePDF() {
             pdf.setFontSize(fonts.small);
             pdf.setTextColor(...colors.primary);
             pdf.setFont('helvetica', 'bold');
-            pdf.text('SCHUCH', margin + 2, 12);
+            pdf.text('LICHT', margin + 2, 12);
         }
 
         // Moderner Footer für jede Seite
@@ -4740,10 +4791,10 @@ async function generateCalculationGuidePDF() {
             pdf.text(`Seite ${currentPage}`, pageWidth - margin - 15, pageHeight - 8);
 
             // Copyright
-            pdf.text('© Adolf Schuch GmbH - Beleuchtungsrechner', margin, pageHeight - 8);
+            pdf.text('© Beleuchtungsrechner - Professionelle Lichtplanung', margin, pageHeight - 8);
         }
 
-        // Moderner Text mit besserer Formatierung
+        // Moderner Text mit besserer Formatierung und Seitenumbruch
         function addStyledText(pdf, text, x, y, maxWidth, style = {}) {
             const {
                 fontSize = fonts.body,
@@ -4759,18 +4810,29 @@ async function generateCalculationGuidePDF() {
 
             // Bessere Textumbrüche
             const lines = pdf.splitTextToSize(text, maxWidth);
+            const lineHeight = fontSize * lineSpacing * 0.35;
+            const totalHeight = lines.length * lineHeight;
+            const maxContentY = pageHeight - 30; // 30mm Abstand vom Seitenende
+
+            // Prüfe ob Seitenumbruch nötig ist
+            if (y + totalHeight > maxContentY) {
+                addFooter(pdf);
+                pdf.addPage();
+                addHeader(pdf);
+                y = 50; // Neuer Y-Start nach Header
+            }
 
             if (align === 'center') {
                 lines.forEach((line, index) => {
                     const textWidth = pdf.getTextWidth(line);
                     const centeredX = x + (maxWidth - textWidth) / 2;
-                    pdf.text(line, centeredX, y + (index * fontSize * lineSpacing * 0.35));
+                    pdf.text(line, centeredX, y + (index * lineHeight));
                 });
             } else {
                 pdf.text(lines, x, y);
             }
 
-            return y + (lines.length * fontSize * lineSpacing * 0.35);
+            return y + totalHeight;
         }
 
         // Moderne Section Headers
@@ -4944,15 +5006,15 @@ async function generateCalculationGuidePDF() {
         yPosition += 5;
 
         // Moderne Formel-Darstellung
-        addFormulaBox(pdf, 'E = (Φ × η × W) / A', 'Grundformel der Beleuchtungstechnik nach EN 13032-2');
+        addFormulaBox(pdf, 'E = (Phi x Eta x W) / A', 'Grundformel der Beleuchtungstechnik nach EN 13032-2');
 
         // Moderne Parameter-Liste
         addSectionHeader(pdf, '1.2 Parameter-Definitionen', 3);
 
         const parameters = [
             { symbol: 'E', desc: 'Beleuchtungsstärke', unit: '[lx]', detail: 'Gewünschte Helligkeit auf der Arbeitsebene' },
-            { symbol: 'Φ', desc: 'Lichtstrom aller Leuchten', unit: '[lm]', detail: 'Gesamtlichtstrom des Beleuchtungssystems' },
-            { symbol: 'η', desc: 'Raumwirkungsgrad', unit: '[-]', detail: 'Effizienz der Lichtnutzung im Raum' },
+            { symbol: 'Phi', desc: 'Lichtstrom aller Leuchten', unit: '[lm]', detail: 'Gesamtlichtstrom des Beleuchtungssystems' },
+            { symbol: 'Eta', desc: 'Raumwirkungsgrad', unit: '[-]', detail: 'Effizienz der Lichtnutzung im Raum' },
             { symbol: 'W', desc: 'Wartungsfaktor', unit: '[-]', detail: 'Berücksichtigung von Alterung und Verschmutzung' },
             { symbol: 'A', desc: 'Raumfläche', unit: '[m²]', detail: 'Grundfläche des zu beleuchtenden Raumes' }
         ];
@@ -5003,7 +5065,7 @@ async function generateCalculationGuidePDF() {
 
         yPosition += 5;
 
-        addFormulaBox(pdf, 'Φ_gesamt = (E_ziel × A) / (η × W)', 'Praktische Berechnungsformel für den Lichtstrombedarf');
+        addFormulaBox(pdf, 'Phi_gesamt = (E_ziel x A) / (Eta x W)', 'Praktische Berechnungsformel für den Lichtstrombedarf');
 
         // ===== KAPITEL 2: GEOMETRISCHE PARAMETER =====
         addSectionHeader(pdf, '2. GEOMETRISCHE PARAMETER ERFASSEN', 1);
@@ -5065,7 +5127,7 @@ async function generateCalculationGuidePDF() {
         yPosition += 6;
 
         yPosition = addStyledText(pdf,
-            'Für k = 2.18 (Bereich 2.0-2.5): η₀ = 55%',
+            'Für k = 2.18 (Bereich 2.0-2.5): Eta_0 = 55%',
             margin + 10, yPosition, contentWidth - 10, {
                 fontSize: fonts.body,
                 color: colors.dark
@@ -5081,7 +5143,7 @@ async function generateCalculationGuidePDF() {
         yPosition += lineHeight;
         pdf.text('Faktor = 0.7 + 0.3 × 0.5 = 0.85', margin + 10, yPosition);
         yPosition += lineHeight;
-        pdf.text('η_final = 0.55 × 0.85 = 0.468 (46.8%)', margin + 10, yPosition);
+        pdf.text('Eta_final = 0.55 x 0.85 = 0.468 (46.8%)', margin + 10, yPosition);
         yPosition += sectionSpacing;
 
         // 4. Lichtstrombedarf
@@ -5109,7 +5171,7 @@ async function generateCalculationGuidePDF() {
         yPosition += 6;
 
         pdf.setFont('courier', 'normal');
-        pdf.text('Φ = (500 lx × 96.0 m²) / (0.468 × 0.8) = 48.000 / 0.374 = 128.342 lm', margin + 10, yPosition);
+        pdf.text('Phi = (500 lx x 96.0 m²) / (0.468 x 0.8) = 48.000 / 0.374 = 128.342 lm', margin + 10, yPosition);
         yPosition += sectionSpacing;
 
         // 5. Leuchtenanzahl
@@ -5224,7 +5286,7 @@ async function generateCalculationGuidePDF() {
         pdf.setFontSize(9);
         pdf.setFont(undefined, 'bold');
         pdf.text('k-Bereich', margin, yPosition);
-        pdf.text('η₀ [%]', margin + 40, yPosition);
+        pdf.text('Eta_0 [%]', margin + 40, yPosition);
         pdf.text('Raumtyp', margin + 70, yPosition);
         yPosition += 6;
 
@@ -5272,7 +5334,7 @@ async function generateCalculationGuidePDF() {
             align: 'center'
         });
 
-        yPosition = addStyledText(pdf, 'für die Nutzung der Adolf Schuch GmbH Beleuchtungsberechnung', margin, yPosition + 5, contentWidth, {
+        yPosition = addStyledText(pdf, 'für die professionelle Beleuchtungsplanung', margin, yPosition + 5, contentWidth, {
             fontSize: fonts.body,
             color: [255, 255, 255],
             align: 'center'
@@ -5307,12 +5369,12 @@ async function generateCalculationGuidePDF() {
 
         // PDF speichern mit modernem Dateinamen
         const currentDate = new Date().toISOString().split('T')[0];
-        const fileName = `Schuch_Beleuchtungsanleitung_${currentDate}.pdf`;
+        const fileName = `Beleuchtungsanleitung_${currentDate}.pdf`;
         pdf.save(fileName);
 
     } catch (error) {
         console.error('Fehler beim Erstellen der Anleitung:', error);
-        alert('Fehler beim Erstellen der Berechnungsanleitung!');
+        showError('Fehler beim Erstellen der Berechnungsanleitung!');
     }
 }
 
