@@ -76,6 +76,7 @@ INSTALLED_APPS = [
     'codelib',
     'promptpro',
     'loomads',
+    'lighting_classification',
 ]
 
 
