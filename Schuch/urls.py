@@ -17,6 +17,9 @@ urlpatterns = [
     path('apps/', core_views.public_app_list, name='public_app_list'),
     path('app/<str:app_name>/', core_views.public_app_info, name='public_app_info'),
 
+    # Schuch Tools
+    path('beleuchtungsrechner/', core_views.beleuchtungsrechner, name='beleuchtungsrechner'),
+
     # Legal pages
     path('impressum/', core_views.impressum_view, name='impressum'),
     path('agb/', core_views.agb_view, name='agb'),

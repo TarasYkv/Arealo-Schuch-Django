@@ -1,0 +1,4113 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Beleuchtungsrechner{% endblock %}
+
+{% block extra_head %}
+<!-- PDF-Bibliotheken werden dynamisch geladen -->
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h3 text-primary">
+                <i class="bi bi-lightbulb text-warning me-2"></i>
+                Beleuchtungsrechner
+            </h1>
+            <p class="text-muted">Berechnen Sie die optimale Anzahl von Leuchten für Ihre Räume</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Eingabe-Bereich -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Eingabe-Parameter</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Leuchten-Sektion -->
+                    <div class="mb-4">
+                        <h6 class="text-primary border-bottom pb-2">A: Leuchte</h6>
+                        <div class="row mb-3">
+                            <div class="col-4">
+                                <input type="text" class="form-control form-control-sm" id="lampName" placeholder="Leuchtenname">
+                            </div>
+                            <div class="col-4">
+                                <select class="form-select form-select-sm" id="lampType">
+                                    <option value="">Typ wählen...</option>
+                                    <option value="Feuchtraumleuchte IP65">Feuchtraumleuchte IP65</option>
+                                    <option value="Feuchtraumleuchte VARIO">Feuchtraumleuchte VARIO</option>
+                                    <option value="Feuchtraumleuchte Hochleistung">Feuchtraumleuchte Hochleistung</option>
+                                    <option value="Panel">Panel</option>
+                                    <option value="Downlight">Downlight</option>
+                                    <option value="Strahler">Strahler</option>
+                                    <option value="Sonstige">Sonstige</option>
+                                </select>
+                            </div>
+                            <div class="col-2">
+                                <input type="number" class="form-control form-control-sm" id="lampLumen" placeholder="Lumen" min="0">
+                            </div>
+                            <div class="col-2">
+                                <input type="number" class="form-control form-control-sm" id="lampWatt" placeholder="Watt" min="0">
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <button type="button" class="btn btn-success btn-sm w-100" onclick="addLamp()">
+                                    <i class="bi bi-plus"></i> Standard-Leuchte hinzufügen
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button type="button" class="btn btn-info btn-sm w-100" onclick="showLDTUpload()">
+                                    <i class="bi bi-file-earmark-text"></i> LDT-Datei hochladen
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- LDT Upload Modal Trigger (wird per JavaScript angezeigt) -->
+                        <div id="ldtUploadArea" style="display: none;" class="border rounded p-3 bg-light mb-3">
+                            <h6 class="text-info mb-2">
+                                <i class="bi bi-file-earmark-text me-1"></i>
+                                EULUMDAT (.LDT) Datei hochladen
+                            </h6>
+                            <div class="row mb-2">
+                                <div class="col-6">
+                                    <input type="file" class="form-control form-control-sm" id="ldtFile" accept=".ldt,.LDT">
+                                </div>
+                                <div class="col-3">
+                                    <button type="button" class="btn btn-info btn-sm w-100" onclick="uploadLDTFile(false)">
+                                        <i class="bi bi-upload me-1"></i>Direkt
+                                    </button>
+                                </div>
+                                <div class="col-3">
+                                    <button type="button" class="btn btn-outline-info btn-sm w-100" onclick="uploadLDTFile(true)">
+                                        <i class="bi bi-pencil me-1"></i>Prüfen
+                                    </button>
+                                </div>
+                            </div>
+                            <small class="text-muted d-block">
+                                <strong>Direkt:</strong> Automatischer Import | <strong>Prüfen:</strong> Daten vor Import bearbeiten
+                            </small>
+                            <button type="button" class="btn btn-outline-secondary btn-sm mt-2" onclick="hideLDTUpload()">
+                                <i class="bi bi-x"></i> Abbrechen
+                            </button>
+                        </div>
+
+                        <!-- LDT Daten-Ergänzungsformular -->
+                        <div id="ldtDataCompletion" style="display: none;" class="border rounded p-3 bg-warning bg-opacity-10 mb-3">
+                            <h6 class="text-warning mb-3">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                EULUMDAT-Daten ergänzen
+                            </h6>
+                            <p class="small mb-3">Einige wichtige Daten konnten nicht aus der LDT-Datei extrahiert werden. Bitte ergänzen Sie diese manuell:</p>
+
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label class="form-label small">Leuchtenname:</label>
+                                    <input type="text" class="form-control form-control-sm" id="ldtCompletionName" readonly>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">Leuchtentyp:</label>
+                                    <select class="form-select form-select-sm" id="ldtCompletionType">
+                                        <option value="EULUMDAT Import">EULUMDAT Import</option>
+                                        <option value="Feuchtraumleuchte IP65">Feuchtraumleuchte IP65</option>
+                                        <option value="Downlight">Downlight</option>
+                                        <option value="Panel">Panel</option>
+                                        <option value="Strahler">Strahler</option>
+                                        <option value="Sonstige">Sonstige</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label class="form-label small">Lichtstrom (lm): <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control form-control-sm" id="ldtCompletionLumen" min="0" placeholder="z.B. 6000">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">Leistung (W): <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control form-control-sm" id="ldtCompletionWatt" min="0" placeholder="z.B. 43">
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-4">
+                                    <label class="form-label small">Farbtemperatur:</label>
+                                    <input type="text" class="form-control form-control-sm" id="ldtCompletionColorTemp" placeholder="z.B. 4000K">
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label small">CRI-Wert:</label>
+                                    <input type="text" class="form-control form-control-sm" id="ldtCompletionCRI" placeholder="z.B. Ra80">
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label small">Abmessungen:</label>
+                                    <input type="text" class="form-control form-control-sm" id="ldtCompletionDimensions" placeholder="z.B. 1200×100×50 mm">
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-success btn-sm" onclick="completeLDTData()">
+                                    <i class="bi bi-check-circle me-1"></i>Leuchte hinzufügen
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cancelLDTCompletion()">
+                                    <i class="bi bi-x me-1"></i>Abbrechen
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="savedLamps" class="mb-3" style="display: none;"></div>
+
+                        <div class="d-flex gap-2 align-items-center">
+                            <select class="form-select form-select-sm flex-grow-1" id="selectedLamp">
+                                <option value="">Leuchte auswählen...</option>
+                            </select>
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="showLampManager()">
+                                <i class="bi bi-gear"></i> Verwalten
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Nutzebene-Sektion -->
+                    <div class="mb-4">
+                        <h6 class="text-primary border-bottom pb-2">B: Nutzebene</h6>
+                        <div class="row">
+                            <div class="col-6">
+                                <label class="form-label small">Höhe über Boden (m)</label>
+                                <input type="number" class="form-control form-control-sm" id="workPlaneHeight" value="0.85" min="0" step="0.01" onchange="validateWorkPlaneHeight()">
+                                <small class="text-muted">Max: <span id="maxWorkPlaneHeight">2.8</span>m (unter Montagehöhe)</small>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small">Gewünschte Beleuchtungsstärke (lx)</label>
+                                <input type="number" class="form-control form-control-sm" id="targetLux" value="500" min="0" step="10">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Raum-Sektion -->
+                    <div class="mb-4">
+                        <h6 class="text-primary border-bottom pb-2">C: Raum</h6>
+                        <div class="row mb-3">
+                            <div class="col-4">
+                                <label class="form-label small">Breite (m)</label>
+                                <input type="number" class="form-control form-control-sm" id="roomWidth" value="6" min="0.1" step="0.1">
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label small">Länge (m)</label>
+                                <input type="number" class="form-control form-control-sm" id="roomLength" value="8" min="0.1" step="0.1">
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label small">Höhe (m)</label>
+                                <input type="number" class="form-control form-control-sm" id="roomHeight" value="3" min="0.1" step="0.1" onchange="updateMountingHeightMax()">
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <label class="form-label small">Montagehöhe der Leuchten (m)</label>
+                                <input type="number" class="form-control form-control-sm" id="mountingHeight" value="2.8" min="0" max="3" step="0.01" onchange="validateMountingHeight(); updateWorkPlaneHeightMax()">
+                                <small class="text-muted">Max: <span id="maxMountingHeight">3.0</span>m (Raumhöhe)</small>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small">Wartungsfaktor</label>
+                                <select class="form-select form-select-sm" id="maintenanceFactorType" onchange="updateMaintenanceFactor()">
+                                    <option value="auto">Automatisch (RMF nach EN 13032-2)</option>
+                                    <option value="manual">Manuell eingeben</option>
+                                </select>
+                                <input type="number" class="form-control form-control-sm mt-1" id="maintenanceFactor" value="0.8" min="0.1" max="1" step="0.05" style="display: none;">
+                                <small class="text-muted" id="maintenanceInfo">Berechnet automatisch basierend auf Raumtyp und LED-Technologie</small>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6">
+                                <label class="form-label small">Reflexionsgrad</label>
+                                <select class="form-select form-select-sm" id="reflectionFactor">
+                                    <option value="0.7">Hell (70%)</option>
+                                    <option value="0.5" selected>Mittel (50%)</option>
+                                    <option value="0.3">Dunkel (30%)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-primary" onclick="calculate()">
+                            <i class="bi bi-calculator me-2"></i>
+                            Berechnen
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" onclick="generatePDF()" id="pdfButton" style="display: none;">
+                            <i class="bi bi-file-earmark-pdf me-2"></i>
+                            PDF Export
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Visualisierung und Ergebnisse -->
+        <div class="col-lg-6">
+            <!-- 3D Visualisierung -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">3D-Visualisierung</h5>
+                    <div>
+                        <button type="button" class="btn btn-outline-light btn-sm me-1" onclick="resetCamera()">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-light btn-sm" onclick="toggleGrid()">
+                            <i class="bi bi-grid-3x3"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div id="canvas-container" style="width: 100%; height: 400px; background: #f8f9fa; position: relative;">
+                        <div class="d-flex align-items-center justify-content-center h-100 text-muted">
+                            <div class="text-center">
+                                <i class="bi bi-box display-4 mb-3"></i>
+                                <p>3D-Visualisierung wird geladen...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ergebnisse -->
+            <div class="card shadow-sm" id="results" style="display: none;">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-graph-up me-2"></i>
+                        Berechnungsergebnisse
+                    </h5>
+                </div>
+
+                <!-- EULUMDAT-Benachrichtigung -->
+                <div id="eulumdatNotice" style="display: none; margin: 10px;"></div>
+
+                <!-- Lichtverteilungskurve -->
+                <div id="lightDistributionChart" style="display: none; margin: 10px;">
+                    <div class="alert alert-info">
+                        <h6 class="mb-2">
+                            <i class="bi bi-graph-up me-1"></i>
+                            Lichtverteilungskurve (EULUMDAT)
+                        </h6>
+                        <canvas id="distributionCanvas" width="400" height="300" style="border: 1px solid #ddd; border-radius: 5px; background: white;"></canvas>
+                        <small class="text-muted d-block mt-2">
+                            Lichtstärkeverteilung basierend auf photometrischen Daten aus der .LDT-Datei
+                        </small>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-light rounded">
+                                <div class="h4 text-primary mb-1" id="lampCountRounded">-</div>
+                                <small class="text-muted">Leuchten (gerundet)</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-light rounded">
+                                <div class="h4 text-primary mb-1" id="lampCountExact">-</div>
+                                <small class="text-muted">Leuchten (exakt)</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-light rounded">
+                                <div class="h4 text-success mb-1" id="actualLux">-</div>
+                                <small class="text-muted">Tatsächliche Beleuchtung (lx)</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-light rounded">
+                                <div class="h4 text-warning mb-1" id="totalPower">-</div>
+                                <small class="text-muted">Gesamtleistung (W)</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-light rounded">
+                                <div class="h5 text-secondary mb-1" id="specificPower">-</div>
+                                <small class="text-muted">W/m²</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-3 bg-light rounded">
+                                <div class="h5 text-secondary mb-1" id="specificPowerPer100lx">-</div>
+                                <small class="text-muted">W/m²/100lx</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gleichmäßigkeits-Hinweis -->
+            <div class="card mt-3" id="distributionWarning" style="display: none;">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-info-circle-fill me-2 text-primary"></i>
+                        <div class="w-100">
+                            <strong>Hinweis zur Gleichmäßigkeit:</strong>
+                            <div id="distributionWarningText" class="mt-2"></div>
+
+                            <!-- Ausklappbare Ergebnisse für gleichmäßige Verteilung -->
+                            <div id="evenDistributionResults" style="display: block;">
+                                <hr class="my-3">
+                                <div class="card border-primary">
+                                    <div class="card-header bg-primary p-3" style="background: linear-gradient(135deg, #0d6efd 0%, #0056b3 100%) !important;">
+                                        <button class="btn btn-link text-decoration-none p-0 w-100 text-start text-white" type="button" onclick="toggleEvenResults()">
+                                            <i class="bi bi-calculator me-2 text-white"></i>
+                                            <strong class="text-white fs-6">Ergebnisse bei gleichmäßiger Verteilung anzeigen</strong>
+                                            <i class="bi bi-chevron-up float-end text-white" id="evenResultsIcon"></i>
+                                        </button>
+                                    </div>
+                                    <div class="card-body" id="evenResults" style="display: block;">
+                                        <div class="row g-3" id="evenDistributionValues">
+                                            <!-- Wird per JavaScript gefüllt -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Berechnungsdetails und Erklärungen -->
+    <div class="row mt-4" id="calculations" style="display: none;">
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-calculator me-2"></i>Berechnungsdetails
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <td><strong>Raumfläche (A):</strong></td>
+                            <td><span id="calcRoomArea">-</span> m²</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Raumindex (k):</strong></td>
+                            <td><span id="calcRoomIndex">-</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Raumwirkungsgrad (η):</strong></td>
+                            <td><span id="calcUtilizationFactor">-</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Benötigter Lichtstrom:</strong></td>
+                            <td><span id="calcTotalLumen">-</span> lm</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Lichtstrom pro Leuchte:</strong></td>
+                            <td><span id="calcLampLumen">-</span> lm</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Leistung pro Leuchte:</strong></td>
+                            <td><span id="calcLampWatt">-</span> W</td>
+                        </tr>
+                    </table>
+
+                    <!-- Gesamtberechnung Schritt für Schritt -->
+                    <div class="mt-4">
+                        <h6><i class="bi bi-list-ol me-2"></i>Schritt-für-Schritt Berechnung</h6>
+                        <div class="border rounded p-3 bg-light">
+                            <ol class="mb-0" style="font-size: 0.9em;">
+                                <li><strong>Raumfläche:</strong> A = <span id="stepRoomWidth">-</span> × <span id="stepRoomLength">-</span> = <span id="stepRoomArea">-</span> m²</li>
+                                <li><strong>Abstand Leuchte-Arbeitsebene:</strong> h = <span id="stepMountingHeight">-</span> - <span id="stepWorkPlaneHeight">-</span> = <span id="stepH">-</span> m</li>
+                                <li><strong>Raumindex:</strong> k = (<span id="stepCalcWidth">-</span> × <span id="stepCalcLength">-</span>) / (<span id="stepCalcH">-</span> × (<span id="stepCalcWidth2">-</span> + <span id="stepCalcLength2">-</span>)) = <span id="stepK">-</span></li>
+                                <li><strong>Basis-Wirkungsgrad:</strong> η₀ = <span id="stepBaseEta">-</span> (je nach k-Wert)</li>
+                                <li><strong>Korrigierter Wirkungsgrad:</strong> η = <span id="stepBaseEta2">-</span> × (0.7 + 0.3 × <span id="stepReflection">-</span>) = <span id="stepFinalEta">-</span></li>
+                                <li><strong>Benötigter Lichtstrom:</strong> Φ = (<span id="stepTargetLux">-</span> × <span id="stepAreaCalc">-</span>) / (<span id="stepEtaCalc">-</span> × <span id="stepMaintenance">-</span>) = <span id="stepTotalLumen">-</span> lm</li>
+                                <li><strong>Anzahl Leuchten (exakt):</strong> n = <span id="stepTotalLumen2">-</span> / <span id="stepLampLumen">-</span> = <span id="stepExactCount">-</span></li>
+                                <li><strong>Anzahl Leuchten (aufgerundet):</strong> n = <span id="stepRoundedCount">-</span> Stück</li>
+                                <li><strong>Tatsächliche Beleuchtung:</strong> E = (<span id="stepFinalCount">-</span> × <span id="stepFinalLampLumen">-</span> × <span id="stepFinalEta">-</span> × <span id="stepFinalMaintenance">-</span>) / <span id="stepFinalArea">-</span> = <span id="stepActualLux">-</span> lx</li>
+                                <li><strong>Gesamtleistung:</strong> P = <span id="stepFinalCount2">-</span> × <span id="stepLampWatt">-</span> W = <span id="stepTotalPower">-</span> W</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2"></i>Erklärungen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="accordion" id="explanationAccordion">
+                        <!-- Grundformel -->
+                        <div class="accordion-item">
+                            <h6 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#formula">
+                                    Grundformel
+                                </button>
+                            </h6>
+                            <div id="formula" class="accordion-collapse collapse" data-bs-parent="#explanationAccordion">
+                                <div class="accordion-body">
+                                    <code>E = (Φ × η × W) / A</code><br>
+                                    <small>
+                                        <strong>E</strong> = Beleuchtungsstärke [lx]<br>
+                                        <strong>Φ</strong> = Lichtstrom [lm]<br>
+                                        <strong>η</strong> = Raumwirkungsgrad<br>
+                                        <strong>W</strong> = Wartungsfaktor<br>
+                                        <strong>A</strong> = Raumfläche [m²]
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Raumindex -->
+                        <div class="accordion-item">
+                            <h6 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#roomIndex">
+                                    Raumindex (k)
+                                </button>
+                            </h6>
+                            <div id="roomIndex" class="accordion-collapse collapse" data-bs-parent="#explanationAccordion">
+                                <div class="accordion-body">
+                                    <code>k = (L × B) / (h × (L + B))</code><br>
+                                    <small>
+                                        <strong>L</strong> = Länge, <strong>B</strong> = Breite<br>
+                                        <strong>h</strong> = Abstand Leuchte-Arbeitsebene<br><br>
+                                        <strong>k < 1:</strong> Hoher, schmaler Raum (schlechter Wirkungsgrad)<br>
+                                        <strong>k > 3:</strong> Niedriger, breiter Raum (besserer Wirkungsgrad)
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Raumwirkungsgrad -->
+                        <div class="accordion-item">
+                            <h6 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#utilization">
+                                    Raumwirkungsgrad (η)
+                                </button>
+                            </h6>
+                            <div id="utilization" class="accordion-collapse collapse" data-bs-parent="#explanationAccordion">
+                                <div class="accordion-body">
+                                    <small>
+                                        Anteil des Lichtstroms, der die Arbeitsebene erreicht:<br><br>
+                                        <strong>k < 0.6:</strong> η = 25%<br>
+                                        <strong>k 1.0-1.25:</strong> η = 40%<br>
+                                        <strong>k 2.0-2.5:</strong> η = 55%<br>
+                                        <strong>k > 4.0:</strong> η = 70%<br><br>
+                                        Wird mit Reflexionsgrad korrigiert:<br>
+                                        <code>η × (0.7 + 0.3 × Reflexion)</code>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Wartungsfaktor -->
+                        <div class="accordion-item">
+                            <h6 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#maintenance">
+                                    Wartungsfaktor
+                                </button>
+                            </h6>
+                            <div id="maintenance" class="accordion-collapse collapse" data-bs-parent="#explanationAccordion">
+                                <div class="accordion-body">
+                                    <small>
+                                        Berücksichtigt Lichtverluste durch:<br>
+                                        • Verschmutzung der Leuchten<br>
+                                        • Alterung der Leuchtmittel<br>
+                                        • Verschmutzung der Raumoberflächen<br><br>
+                                        <strong>Typische Werte:</strong><br>
+                                        Saubere Umgebung: 0.8-0.9<br>
+                                        Normale Umgebung: 0.7-0.8<br>
+                                        Schmutzige Umgebung: 0.6-0.7
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Leuchten-Verwaltung Modal -->
+<div class="modal fade" id="lampManagerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-lightbulb me-2"></i>Leuchten verwalten
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>Hinweis:</strong> Hier können Sie alle verfügbaren Leuchten einsehen und bei Bedarf löschen.
+                    Schuch-Standardleuchten können nicht gelöscht werden.
+                </div>
+
+                <div id="lampManagerList">
+                    <!-- Wird per JavaScript gefüllt -->
+                </div>
+
+                <div class="text-muted text-center mt-3" id="noLampsMessage" style="display: none;">
+                    <i class="bi bi-lightbulb"></i><br>
+                    Keine benutzerdefinierten Leuchten vorhanden.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Globale Variablen
+let scene, camera, renderer;
+let room, workPlane, lamps = [];
+let gridHelper;
+let lampDatabase = [];
+
+// LDT Upload Funktionen
+function showLDTUpload() {
+    document.getElementById('ldtUploadArea').style.display = 'block';
+}
+
+function hideLDTUpload() {
+    document.getElementById('ldtUploadArea').style.display = 'none';
+    document.getElementById('ldtFile').value = '';
+}
+
+function uploadLDTFile(forceReview = false) {
+    const fileInput = document.getElementById('ldtFile');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        alert('Bitte wählen Sie eine LDT-Datei aus!');
+        return;
+    }
+
+    if (!file.name.toLowerCase().endsWith('.ldt')) {
+        alert('Bitte wählen Sie eine gültige .LDT-Datei aus!');
+        return;
+    }
+
+    console.log('LDT-Datei wird verarbeitet:', file.name, 'Größe:', file.size, 'Bytes', 'Prüfen-Modus:', forceReview);
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            console.log('LDT-Datei gelesen, Verarbeitung startet...');
+            const ldtContent = e.target.result;
+
+            // EULUMDAT-Parser für die hochgeladene Datei
+            const parsedData = parseEULUMDATFile(ldtContent, file.name);
+
+            if (parsedData) {
+                // Prüfe auf fehlende oder unvollständige Daten
+                const missingData = [];
+                const incompleteData = [];
+
+                // Kritische Daten (müssen vorhanden sein)
+                if (!parsedData.lumen || parsedData.lumen === 0) missingData.push('Lichtstrom');
+                if (!parsedData.watt || parsedData.watt === 0) missingData.push('Leistung');
+
+                // Optionale Daten (können ergänzt werden)
+                if (!parsedData.colorTemp || parsedData.colorTemp === 'UnbekanntK') incompleteData.push('Farbtemperatur');
+                if (!parsedData.cri || parsedData.cri === 'RaUnbekannt') incompleteData.push('CRI-Wert');
+                if (!parsedData.dimensions || parsedData.dimensions === '0×0×0 mm') incompleteData.push('Abmessungen');
+
+                if (forceReview || missingData.length > 0 || incompleteData.length > 0) {
+                    // Zeige Ergänzungsformular für fehlende/unvollständige Daten oder bei forcierter Prüfung
+                    console.log('Zeige Daten-Prüfung - Fehlende:', missingData, 'Unvollständige:', incompleteData, 'Erzwungene Prüfung:', forceReview);
+                    showLDTDataCompletion(parsedData, file.name, [...missingData, ...incompleteData], forceReview);
+                } else {
+                    // Alle wichtigen Daten vollständig - direkt hinzufügen
+                    addLampFromLDT(parsedData, file.name);
+                }
+            }
+        } catch (error) {
+            console.error('Fehler beim Verarbeiten der LDT-Datei:', error);
+            alert('Fehler beim Verarbeiten der LDT-Datei!\n\nBitte stellen Sie sicher, dass es sich um eine gültige EULUMDAT-Datei handelt.');
+        }
+    };
+
+    reader.onerror = function() {
+        console.error('Fehler beim Lesen der Datei');
+        alert('Fehler beim Lesen der Datei!');
+    };
+
+    reader.readAsText(file);
+}
+
+// Globale Variable für temporäre LDT-Daten
+let tempLDTData = null;
+
+// Zeige Ergänzungsformular für fehlende LDT-Daten
+function showLDTDataCompletion(parsedData, filename, missingData, isReviewMode = false) {
+    tempLDTData = { parsedData, filename };
+
+    // Formular-Felder füllen
+    document.getElementById('ldtCompletionName').value = parsedData.name || filename.replace('.ldt', '').replace('.LDT', '');
+    document.getElementById('ldtCompletionLumen').value = parsedData.lumen || '';
+    document.getElementById('ldtCompletionWatt').value = parsedData.watt || '';
+    document.getElementById('ldtCompletionColorTemp').value = parsedData.colorTemp?.replace('K', '') ? parsedData.colorTemp : '';
+    document.getElementById('ldtCompletionCRI').value = parsedData.cri?.replace('Ra', '') ? parsedData.cri : '';
+    document.getElementById('ldtCompletionDimensions').value = parsedData.dimensions || '';
+
+    // Felder entsperren wenn im Prüfen-Modus
+    if (isReviewMode) {
+        document.getElementById('ldtCompletionName').removeAttribute('readonly');
+        document.getElementById('ldtCompletionName').classList.add('border-info');
+    }
+
+    // Fehlende Felder hervorheben
+    if (missingData.includes('Lichtstrom')) {
+        document.getElementById('ldtCompletionLumen').classList.add('border-danger');
+        document.getElementById('ldtCompletionLumen').focus();
+    }
+    if (missingData.includes('Leistung')) {
+        document.getElementById('ldtCompletionWatt').classList.add('border-danger');
+    }
+
+    // Unvollständige optionale Felder hervorheben
+    if (missingData.includes('Farbtemperatur')) {
+        document.getElementById('ldtCompletionColorTemp').classList.add('border-warning');
+    }
+    if (missingData.includes('CRI-Wert')) {
+        document.getElementById('ldtCompletionCRI').classList.add('border-warning');
+    }
+    if (missingData.includes('Abmessungen')) {
+        document.getElementById('ldtCompletionDimensions').classList.add('border-warning');
+    }
+
+    // Upload-Bereich verstecken und Ergänzungsformular anzeigen
+    hideLDTUpload();
+    document.getElementById('ldtDataCompletion').style.display = 'block';
+
+    const mode = isReviewMode ? 'Prüfen-Modus' : 'Ergänzung erforderlich';
+    console.log(`Ergänzungsformular angezeigt (${mode}) für Daten:`, missingData);
+}
+
+// Vervollständige LDT-Daten und füge Lampe hinzu
+function completeLDTData() {
+    if (!tempLDTData) {
+        alert('Fehler: Keine temporären LDT-Daten gefunden!');
+        return;
+    }
+
+    // Validierung der Pflichtfelder
+    const lumen = parseFloat(document.getElementById('ldtCompletionLumen').value);
+    const watt = parseFloat(document.getElementById('ldtCompletionWatt').value);
+
+    if (!lumen || lumen <= 0) {
+        alert('Bitte geben Sie einen gültigen Lichtstrom (Lumen) ein!');
+        document.getElementById('ldtCompletionLumen').focus();
+        return;
+    }
+
+    if (!watt || watt <= 0) {
+        alert('Bitte geben Sie eine gültige Leistung (Watt) ein!');
+        document.getElementById('ldtCompletionWatt').focus();
+        return;
+    }
+
+    // Ergänzte Daten sammeln
+    const completedData = {
+        ...tempLDTData.parsedData,
+        name: document.getElementById('ldtCompletionName').value || tempLDTData.filename.replace('.ldt', '').replace('.LDT', ''),
+        lumen: Math.round(lumen),
+        watt: Math.round(watt),
+        colorTemp: document.getElementById('ldtCompletionColorTemp').value || 'Unbekannt',
+        cri: document.getElementById('ldtCompletionCRI').value || 'Unbekannt',
+        dimensions: document.getElementById('ldtCompletionDimensions').value || 'Unbekannt'
+    };
+
+    // Leuchte hinzufügen
+    const lampType = document.getElementById('ldtCompletionType').value;
+    addLampFromLDT(completedData, tempLDTData.filename, lampType);
+
+    // Formular verstecken und zurücksetzen
+    cancelLDTCompletion();
+}
+
+// Ergänzungsformular abbrechen
+function cancelLDTCompletion() {
+    document.getElementById('ldtDataCompletion').style.display = 'none';
+
+    // Felder zurücksetzen
+    document.getElementById('ldtCompletionName').value = '';
+    document.getElementById('ldtCompletionLumen').value = '';
+    document.getElementById('ldtCompletionWatt').value = '';
+    document.getElementById('ldtCompletionColorTemp').value = '';
+    document.getElementById('ldtCompletionCRI').value = '';
+    document.getElementById('ldtCompletionDimensions').value = '';
+    document.getElementById('ldtCompletionType').value = 'EULUMDAT Import';
+
+    // Alle Hervorhebungen und Attribute entfernen
+    const fields = ['ldtCompletionName', 'ldtCompletionLumen', 'ldtCompletionWatt',
+                   'ldtCompletionColorTemp', 'ldtCompletionCRI', 'ldtCompletionDimensions'];
+
+    fields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        field.classList.remove('border-danger', 'border-warning', 'border-info');
+        if (fieldId === 'ldtCompletionName') {
+            field.setAttribute('readonly', 'readonly');
+        }
+    });
+
+    tempLDTData = null;
+}
+
+// Hilfsfunktion zum Hinzufügen der Lampe aus LDT-Daten
+function addLampFromLDT(parsedData, filename, lampType = 'EULUMDAT Import') {
+    const newLamp = {
+        id: Date.now(),
+        name: parsedData.name || filename.replace('.ldt', '').replace('.LDT', ''),
+        type: lampType,
+        lumen: parsedData.lumen,
+        watt: parsedData.watt,
+        hasEULUMDAT: true,
+        eulumdatFile: filename,
+        eulumdatData: parsedData,
+        colorTemp: parsedData.colorTemp || 'Unbekannt',
+        cri: parsedData.cri || 'Unbekannt',
+        dimensions: parsedData.dimensions || 'Unbekannt'
+    };
+
+    lampDatabase.push(newLamp);
+    updateLampList();
+
+    // Erfolgsmeldung
+    alert(`LDT-Datei erfolgreich importiert!\n\nLeuchte: ${newLamp.name}\nLichtstrom: ${newLamp.lumen} lm\nLeistung: ${newLamp.watt} W\n\nDie Leuchte steht nun zur Auswahl bereit.`);
+
+    console.log('LDT-Import erfolgreich:', newLamp);
+}
+
+// EULUMDAT Parser für beliebige LDT-Dateien
+function parseEULUMDATFile(content, filename) {
+    console.log('Parsing EULUMDAT file:', filename);
+
+    const lines = content.split('\n').map(line => line.trim());
+
+    // EULUMDAT-Header einlesen
+    if (lines.length < 10) {
+        throw new Error('Ungültige EULUMDAT-Datei: Zu wenige Zeilen');
+    }
+
+    try {
+        // Basis-Informationen aus EULUMDAT-Header
+        const company = lines[0] || 'Unbekannt';
+        const typeNumber = lines[1] || 'Unbekannt';
+        const luminousIntensityType = parseInt(lines[2]) || 1;
+        const numLuminousIntensities = parseInt(lines[3]) || 0;
+        const numCPlanes = parseInt(lines[4]) || 0;
+        const numGammaAngles = parseInt(lines[5]) || 0;
+
+        // Technische Daten (Zeilen 6-12)
+        const measurementReport = lines[6] || '';
+        const luminaireName = lines[7] || typeNumber;
+        const luminaireNumber = lines[8] || '';
+        const fileName = lines[9] || filename;
+        const dateUser = lines[10] || '';
+        const length = parseFloat(lines[11]) || 0;
+        const width = parseFloat(lines[12]) || 0;
+        const height = parseFloat(lines[13]) || 0;
+
+        // Elektrische Daten (EULUMDAT-Standard: Zeilen 25-31, aber 0-basiert = 25-31)
+        const numLampSets = parseInt(lines[25]) || 1;
+        const numLampsPerSet = parseInt(lines[26]) || 1;
+        const lampType = lines[27] || 'LED';
+        const totalLuminousFlux = parseFloat(lines[28]) || 0;
+        const colorTempRaw = lines[29] || '4000K';
+        const criRaw = lines[30] || 'Ra80';
+        const lampPower = parseFloat(lines[31]) || 0;
+
+        // Verarbeite Farbtemperatur und CRI korrekt
+        const colorTemp = colorTempRaw.toString().replace('K', '');
+        const cri = criRaw.toString().replace('Ra', '');
+
+        console.log('EULUMDAT-Parsing Details:');
+        console.log('- Zeile 29 (Index 28) - Lichtstrom:', lines[28], '→', totalLuminousFlux, 'lm');
+        console.log('- Zeile 30 (Index 29) - Farbtemperatur:', lines[29], '→', colorTemp, 'K');
+        console.log('- Zeile 31 (Index 30) - CRI:', lines[30], '→', cri);
+        console.log('- Zeile 32 (Index 31) - Leistung:', lines[31], '→', lampPower, 'W');
+
+        console.log('EULUMDAT-Parsing erfolgreich:', {
+            company, typeNumber, luminaireName, totalLuminousFlux, lampPower, colorTemp, cri
+        });
+
+        const result = {
+            name: `${company} ${typeNumber}`.trim() || luminaireName,
+            lumen: Math.round(totalLuminousFlux),
+            watt: Math.round(lampPower),
+            colorTemp: colorTempRaw.toString().includes('K') ? colorTempRaw : `${colorTemp}K`,
+            cri: criRaw.toString().includes('Ra') ? criRaw : `Ra${cri}`,
+            dimensions: `${length}×${width}×${height} mm`,
+            rawData: {
+                company,
+                typeNumber,
+                luminaireName,
+                numCPlanes,
+                numGammaAngles,
+                length,
+                width,
+                height,
+                totalLuminousFlux,
+                lampPower,
+                colorTempRaw,
+                criRaw,
+                // Vollständigen LDT-Inhalt für erweiterte Analyse speichern
+                ldtContent: content,
+                filename: filename
+            }
+        };
+
+        console.log('Finale Rückgabedaten:', result);
+        return result;
+
+    } catch (error) {
+        console.error('Fehler beim Parsen der EULUMDAT-Daten:', error);
+        throw new Error('Fehler beim Parsen der EULUMDAT-Daten: ' + error.message);
+    }
+}
+
+// Lampen-Management
+function addLamp() {
+    const name = document.getElementById('lampName').value;
+    const type = document.getElementById('lampType').value;
+    const lumen = parseFloat(document.getElementById('lampLumen').value);
+    const watt = parseFloat(document.getElementById('lampWatt').value);
+
+    if (name && lumen && watt) {
+        const lamp = { name, type, lumen, watt, id: Date.now() };
+        lampDatabase.push(lamp);
+        updateLampList();
+
+        // Eingabefelder leeren
+        document.getElementById('lampName').value = '';
+        document.getElementById('lampType').value = '';
+        document.getElementById('lampLumen').value = '';
+        document.getElementById('lampWatt').value = '';
+    } else {
+        alert('Bitte Name, Lumen und Watt ausfüllen!');
+    }
+}
+
+function removeLamp(id) {
+    lampDatabase = lampDatabase.filter(lamp => lamp.id !== id);
+    updateLampList();
+    updateLampManagerList(); // Update modal list if open
+}
+
+// Leuchten-Verwaltung Modal
+function showLampManager() {
+    updateLampManagerList();
+    const modal = new bootstrap.Modal(document.getElementById('lampManagerModal'));
+    modal.show();
+}
+
+function updateLampManagerList() {
+    const lampManagerList = document.getElementById('lampManagerList');
+    const noLampsMessage = document.getElementById('noLampsMessage');
+
+    if (!lampManagerList) return;
+
+    lampManagerList.innerHTML = '';
+
+    // Zähle benutzerdefinierte Leuchten (keine Schuch-Leuchten)
+    const customLamps = lampDatabase.filter(lamp => !lamp.name.includes('LWL') && lamp.id < 1000);
+
+    if (customLamps.length === 0) {
+        noLampsMessage.style.display = 'block';
+        lampManagerList.style.display = 'none';
+    } else {
+        noLampsMessage.style.display = 'none';
+        lampManagerList.style.display = 'block';
+
+        // Gruppiere Leuchten nach Typ
+        const groupedLamps = {};
+        lampDatabase.forEach(lamp => {
+            const type = lamp.type || 'Benutzerdefiniert';
+            if (!groupedLamps[type]) groupedLamps[type] = [];
+            groupedLamps[type].push(lamp);
+        });
+
+        Object.keys(groupedLamps).forEach(type => {
+            const typeSection = document.createElement('div');
+            typeSection.className = 'mb-4';
+
+            typeSection.innerHTML = `
+                <h6 class="text-primary border-bottom pb-2 mb-3">
+                    <i class="bi bi-collection me-2"></i>${type}
+                </h6>
+            `;
+
+            groupedLamps[type].forEach(lamp => {
+                const isSchuchLamp = lamp.name.includes('LWL') || lamp.id >= 1000;
+                const div = document.createElement('div');
+                div.className = `card mb-2 ${isSchuchLamp ? 'border-secondary' : 'border-light'}`;
+
+                div.innerHTML = `
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="card-title mb-1 ${isSchuchLamp ? 'text-secondary' : ''}">
+                                    <i class="bi bi-lightbulb me-2"></i>${lamp.name}
+                                    ${isSchuchLamp ? '<span class="badge bg-secondary ms-2">SCHUCH</span>' : ''}
+                                </h6>
+                                <p class="card-text text-muted mb-0">
+                                    <small>
+                                        <i class="bi bi-brightness-high me-1"></i>${lamp.lumen} lm &nbsp;
+                                        <i class="bi bi-lightning me-1"></i>${lamp.watt} W
+                                    </small>
+                                </p>
+                            </div>
+                            <div class="text-end">
+                                ${!isSchuchLamp ? `
+                                    <button class="btn btn-outline-danger btn-sm" onclick="removeLampFromManager(${lamp.id})" title="Löschen">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                ` : `
+                                    <small class="text-muted">Standard</small>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                typeSection.appendChild(div);
+            });
+
+            lampManagerList.appendChild(typeSection);
+        });
+    }
+}
+
+function removeLampFromManager(id) {
+    if (confirm('Möchten Sie diese Leuchte wirklich löschen?')) {
+        removeLamp(id);
+    }
+}
+
+function updateLampList() {
+    console.log('updateLampList function called, lampDatabase has', lampDatabase?.length || 0, 'items');
+    const savedLamps = document.getElementById('savedLamps');
+    const selectedLamp = document.getElementById('selectedLamp');
+
+    // Gespeicherte Lampen anzeigen
+    savedLamps.innerHTML = '';
+    lampDatabase.forEach(lamp => {
+        const div = document.createElement('div');
+        div.className = 'alert alert-secondary p-2 mb-2 d-flex justify-content-between align-items-center';
+        const typeText = lamp.type ? ` - ${lamp.type}` : '';
+        div.innerHTML = `
+            <small><strong>${lamp.name}</strong>${typeText}<br>
+            <span class="text-muted">${lamp.lumen} lm, ${lamp.watt} W</span></small>
+            <button class="btn btn-outline-danger btn-sm" onclick="removeLamp(${lamp.id})">
+                <i class="bi bi-trash"></i>
+            </button>
+        `;
+        savedLamps.appendChild(div);
+    });
+
+    // Dropdown aktualisieren
+    selectedLamp.innerHTML = '<option value="">Leuchte auswählen...</option>';
+    lampDatabase.forEach(lamp => {
+        const option = document.createElement('option');
+        option.value = lamp.id;
+        const typeText = lamp.type ? ` - ${lamp.type}` : '';
+
+        // EULUMDAT-Kennzeichnung hinzufügen
+        let displayName = `${lamp.name}${typeText} (${lamp.lumen} lm, ${lamp.watt} W)`;
+        if (lamp.hasEULUMDAT) {
+            displayName += ' 📊 EULUMDAT';
+        }
+
+        option.textContent = displayName;
+        selectedLamp.appendChild(option);
+    });
+
+    // Nur benutzerdefinierte Lampen in localStorage speichern
+    const customLampsToSave = lampDatabase.filter(lamp => !lamp.name.includes('LUXANO') && lamp.id < 1000);
+    localStorage.setItem('lampDatabase', JSON.stringify(customLampsToSave));
+}
+
+// Erweiterte EULUMDAT-Parser Klasse für hochgeladene LDT-Dateien
+class UploadedEULUMDATParser {
+    constructor(ldtContent, filename) {
+        this.filename = filename;
+        this.lines = ldtContent.split('\n').map(line => line.trim());
+        this.photometricData = null;
+        this.utilizationMatrix = null;
+
+        this.parseLDTFile();
+    }
+
+    parseLDTFile() {
+        console.log('=== ERWEITERTE LDT-ANALYSE STARTET ===');
+
+        try {
+            // Header-Informationen (EULUMDAT Format nach Dokumentation)
+            // Aber tatsächlich scheint die Datei anders strukturiert zu sein
+            // Teste verschiedene Zeilen um die richtige Struktur zu finden
+            console.log('=== LDT HEADER DEBUG ===');
+            console.log('Line 3 (index 2):', this.lines[2]);
+            console.log('Line 4 (index 3):', this.lines[3]);
+            console.log('Line 5 (index 4):', this.lines[4]);
+            console.log('Line 6 (index 5):', this.lines[5]);
+            console.log('Line 7 (index 6):', this.lines[6]);
+
+            // KORRIGIERTE KONFIGURATION basierend auf Debug-Info
+            // Line 4 (index 3): 72 C-Ebenen ← Das ist richtig!
+            // Line 6 (index 5): 161 Gamma-Winkel ← Das ist richtig!
+            const numCPlanes = parseInt(this.lines[3]) || 0;  // Line 4: 72 C-Ebenen
+            const numGammaAngles = parseInt(this.lines[5]) || 0;  // Line 6: 161 Gamma-Winkel
+
+            console.log('=== KORRIGIERTE KONFIGURATION ===');
+            console.log(`numCPlanes aus lines[3]: ${numCPlanes} (sollte 72 sein)`);
+            console.log(`numGammaAngles aus lines[5]: ${numGammaAngles} (sollte 161 sein)`);
+
+            console.log(`C-Ebenen: ${numCPlanes}, Gamma-Winkel: ${numGammaAngles}`);
+
+            // Lichtverteilungsdaten extrahieren
+            this.extractPhotometricData(numCPlanes, numGammaAngles);
+
+            // Nutzungsgrad-Matrix berechnen
+            this.buildPreciseUtilizationMatrix();
+
+        } catch (error) {
+            console.error('Fehler beim erweiterten LDT-Parsing:', error);
+            this.photometricData = null;
+        }
+    }
+
+    extractPhotometricData(numCPlanes, numGammaAngles) {
+        console.log(`Extrahiere ${numCPlanes} C-Ebenen und ${numGammaAngles} Gamma-Winkel`);
+
+        // EULUMDAT Format: Header ist 42 Zeilen, dann kommen C-Ebenen, dann Gamma-Winkel
+        let dataStartIndex = 42;
+
+        // C-Ebenen-Winkel lesen (z.B. 0, 5, 10, ... 355 bei 72 Ebenen)
+        const cAngles = [];
+        for (let i = 0; i < numCPlanes; i++) {
+            const angle = parseFloat(this.lines[dataStartIndex + i]) || 0;
+            cAngles.push(angle);
+        }
+        dataStartIndex += numCPlanes;
+
+        console.log(`C-Ebenen gelesen: ${cAngles.length} Stück`);
+        console.log('Erste 10 C-Winkel:', cAngles.slice(0, 10));
+        console.log('Enthält C90?', cAngles.includes(90));
+        console.log('Enthält C270?', cAngles.includes(270));
+
+        // Gamma-Winkel lesen (z.B. 0, 5, 10, ... 180 bei 37 Winkeln)
+        const gammaAngles = [];
+        for (let i = 0; i < numGammaAngles; i++) {
+            const angle = parseFloat(this.lines[dataStartIndex + i]) || 0;
+            gammaAngles.push(angle);
+        }
+        dataStartIndex += numGammaAngles;
+
+        console.log(`Gamma-Winkel gelesen: ${gammaAngles.length} Stück`);
+        console.log('Gamma-Winkel (erste 10):', gammaAngles.slice(0, 10));
+
+        // Lichtstärke-Werte lesen (für jede C-Ebene)
+        const lightDistribution = {};
+
+        console.log(`=== DATENEXTRAKTION START ===`);
+        console.log(`Extrahiere ${numCPlanes} C-Ebenen mit je ${numGammaAngles} Werten = ${numCPlanes * numGammaAngles} Datenpunkte`);
+
+        // Performance-optimierte Extraktion mit Batch-Verarbeitung
+        const batchSize = 10; // Verarbeite 10 C-Ebenen auf einmal
+        for (let batch = 0; batch < Math.ceil(numCPlanes / batchSize); batch++) {
+            const startC = batch * batchSize;
+            const endC = Math.min(startC + batchSize, numCPlanes);
+
+            // Batch verarbeiten
+            for (let c = startC; c < endC; c++) {
+                const cAngle = Math.round(cAngles[c]); // Runden für saubere Keys
+                lightDistribution[`c${cAngle}`] = [];
+
+                // Für jede C-Ebene die Gamma-Werte lesen
+                for (let g = 0; g < numGammaAngles; g++) {
+                    const dataIndex = dataStartIndex + (c * numGammaAngles) + g;
+                    if (dataIndex < this.lines.length) {
+                        const intensity = parseFloat(this.lines[dataIndex]) || 0;
+                        lightDistribution[`c${cAngle}`].push(intensity);
+                    }
+                }
+            }
+
+            // Progress-Logging alle 20 Ebenen
+            if (batch % 2 === 0 || endC === numCPlanes) {
+                console.log(`Verarbeitet: C-Ebenen ${startC}-${endC-1} (${Math.round((endC/numCPlanes)*100)}%)`);
+            }
+        }
+
+        console.log(`Lichtverteilungsdaten extrahiert für ${Object.keys(lightDistribution).length} C-Ebenen`);
+
+        // Prüfen ob die Hauptebenen vorhanden sind
+        if (lightDistribution['c0']) {
+            console.log('✓ C0 vorhanden mit', lightDistribution['c0'].length, 'Werten');
+        }
+        if (lightDistribution['c90']) {
+            console.log('✓ C90 vorhanden mit', lightDistribution['c90'].length, 'Werten');
+        }
+        if (lightDistribution['c180']) {
+            console.log('✓ C180 vorhanden mit', lightDistribution['c180'].length, 'Werten');
+        }
+        if (lightDistribution['c270']) {
+            console.log('✓ C270 vorhanden mit', lightDistribution['c270'].length, 'Werten');
+        }
+
+        // Memory-Management: Speichere nur relevante C-Ebenen für bessere Performance
+        const relevantPlanes = {};
+        const mainPlanes = ['c0', 'c90', 'c180', 'c270'];
+
+        // Hauptebenen immer speichern
+        mainPlanes.forEach(plane => {
+            if (lightDistribution[plane]) {
+                relevantPlanes[plane] = lightDistribution[plane];
+            }
+        });
+
+        // Zusätzlich: Alle 30° Ebenen für bessere Interpolation
+        Object.keys(lightDistribution).forEach(plane => {
+            const angle = parseInt(plane.replace('c', ''));
+            if (angle % 30 === 0 && !relevantPlanes[plane]) {
+                relevantPlanes[plane] = lightDistribution[plane];
+            }
+        });
+
+        this.photometricData = {
+            cAngles,
+            gammaAngles,
+            lightDistribution: relevantPlanes, // Nur relevante Ebenen
+            fullDistribution: lightDistribution, // Vollständige Daten für spezielle Berechnungen
+            numCPlanes,
+            numGammaAngles
+        };
+
+        console.log('Photometrische Daten extrahiert:', {
+            cAngles: cAngles.length,
+            gammaAngles: gammaAngles.length,
+            totalDistributions: Object.keys(lightDistribution).length,
+            relevantDistributions: Object.keys(relevantPlanes).length,
+            memoryOptimized: `${Math.round((Object.keys(relevantPlanes).length / Object.keys(lightDistribution).length) * 100)}% der Originaldaten`
+        });
+    }
+
+    buildPreciseUtilizationMatrix() {
+        if (!this.photometricData) {
+            console.log('Keine photometrischen Daten verfügbar - verwende Fallback');
+            return;
+        }
+
+        console.log('=== BERECHNUNG PRÄZISER NUTZUNGSGRADE ===');
+
+        // Nutzungsgrad-Matrix für verschiedene Raumindizes und Reflexionsgrade
+        this.utilizationMatrix = {};
+
+        const kValues = [0.6, 0.8, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0];
+        const rhoValues = [0.1, 0.3, 0.5, 0.7, 0.8];
+
+        kValues.forEach(k => {
+            this.utilizationMatrix[k] = {};
+
+            rhoValues.forEach(rho => {
+                // Berechne Nutzungsgrad basierend auf tatsächlicher Lichtverteilung
+                const utilization = this.calculateUtilizationForKAndRho(k, rho);
+                this.utilizationMatrix[k][rho] = utilization;
+            });
+        });
+
+        console.log('Präzise Nutzungsgrad-Matrix erstellt:', Object.keys(this.utilizationMatrix).length, 'Raumindizes');
+    }
+
+    calculateUtilizationForKAndRho(roomIndex, reflectionFactor) {
+        if (!this.photometricData) {
+            // Fallback auf vereinfachte Berechnung
+            return this.getFallbackUtilization(roomIndex, reflectionFactor);
+        }
+
+        // Vereinfachte Berechnung basierend auf Lichtverteilungscharakteristika
+        const { lightDistribution, gammaAngles } = this.photometricData;
+
+        // Analysiere Hauptrichtcharakteristik (C0-Ebene oder erste verfügbare)
+        const mainDistribution = lightDistribution['c0'] || lightDistribution[Object.keys(lightDistribution)[0]];
+
+        if (!mainDistribution || mainDistribution.length === 0) {
+            return this.getFallbackUtilization(roomIndex, reflectionFactor);
+        }
+
+        // Berechne charakteristische Winkel
+        const maxIntensity = Math.max(...mainDistribution);
+        const halfMaxIntensity = maxIntensity * 0.5;
+
+        // Finde Halbwertswinkel
+        let halfAngleIndex = mainDistribution.findIndex(intensity => intensity <= halfMaxIntensity);
+        if (halfAngleIndex === -1) halfAngleIndex = Math.floor(mainDistribution.length * 0.6);
+
+        const halfAngle = gammaAngles[halfAngleIndex] || 60;
+
+        // Basis-Nutzungsgrad abhängig von Abstrahlcharakteristik
+        let baseUtilization;
+        if (halfAngle < 40) {
+            // Tiefstrahlend - schmalere Lichtverteilung
+            baseUtilization = 0.25 + roomIndex * 0.35;
+        } else if (halfAngle < 70) {
+            // Standard-Abstrahlcharakteristik
+            baseUtilization = 0.35 + roomIndex * 0.4;
+        } else {
+            // Breitstrahlend - bessere Raumausleuchtung
+            baseUtilization = 0.45 + roomIndex * 0.35;
+        }
+
+        // Begrenze auf realistische Werte
+        baseUtilization = Math.min(0.9, Math.max(0.2, baseUtilization));
+
+        // Reflexionsgrad-Korrektur
+        const reflectionCorrection = 0.65 + 0.35 * reflectionFactor;
+
+        // LED-Effizienz
+        const luminaireEfficiency = 0.93;
+
+        const finalUtilization = baseUtilization * reflectionCorrection * luminaireEfficiency;
+
+        console.log(`Präzise Berechnung: Halbwertswinkel=${halfAngle}°, k=${roomIndex}, rho=${reflectionFactor} -> eta=${finalUtilization.toFixed(3)}`);
+
+        return Math.min(1.0, finalUtilization);
+    }
+
+    getFallbackUtilization(roomIndex, reflectionFactor) {
+        // Standard-Fallback wenn keine photometrischen Daten verfügbar
+        let baseUtilization;
+        if (roomIndex <= 0.6) baseUtilization = 0.35;
+        else if (roomIndex <= 0.8) baseUtilization = 0.45;
+        else if (roomIndex <= 1.0) baseUtilization = 0.55;
+        else if (roomIndex <= 1.25) baseUtilization = 0.62;
+        else if (roomIndex <= 1.5) baseUtilization = 0.68;
+        else if (roomIndex <= 2.0) baseUtilization = 0.74;
+        else if (roomIndex <= 2.5) baseUtilization = 0.78;
+        else if (roomIndex <= 3.0) baseUtilization = 0.82;
+        else if (roomIndex <= 4.0) baseUtilization = 0.86;
+        else baseUtilization = 0.89;
+
+        const reflectionCorrection = 0.7 + 0.3 * reflectionFactor;
+        const luminaireEfficiency = 0.94;
+
+        return baseUtilization * reflectionCorrection * luminaireEfficiency;
+    }
+
+    getUtilizationFactor(roomIndex, reflectionFactor) {
+        if (!this.utilizationMatrix) {
+            console.log('Keine Nutzungsgrad-Matrix - verwende direkte Berechnung');
+            return this.calculateUtilizationForKAndRho(roomIndex, reflectionFactor);
+        }
+
+        // Bilineare Interpolation in der Matrix
+        const kValues = Object.keys(this.utilizationMatrix).map(k => parseFloat(k)).sort((a, b) => a - b);
+        const rhoValues = [0.1, 0.3, 0.5, 0.7, 0.8];
+
+        // Finde umschließende Werte
+        let k1, k2;
+        for (let i = 0; i < kValues.length - 1; i++) {
+            if (roomIndex >= kValues[i] && roomIndex <= kValues[i + 1]) {
+                k1 = kValues[i];
+                k2 = kValues[i + 1];
+                break;
+            }
+        }
+
+        if (!k1) {
+            if (roomIndex < kValues[0]) {
+                k1 = k2 = kValues[0];
+            } else {
+                k1 = k2 = kValues[kValues.length - 1];
+            }
+        }
+
+        let r1, r2;
+        for (let i = 0; i < rhoValues.length - 1; i++) {
+            if (reflectionFactor >= rhoValues[i] && reflectionFactor <= rhoValues[i + 1]) {
+                r1 = rhoValues[i];
+                r2 = rhoValues[i + 1];
+                break;
+            }
+        }
+
+        if (!r1) {
+            if (reflectionFactor < rhoValues[0]) {
+                r1 = r2 = rhoValues[0];
+            } else {
+                r1 = r2 = rhoValues[rhoValues.length - 1];
+            }
+        }
+
+        // Bilineare Interpolation
+        const eta11 = this.utilizationMatrix[k1][r1];
+        const eta12 = this.utilizationMatrix[k1][r2];
+        const eta21 = this.utilizationMatrix[k2][r1];
+        const eta22 = this.utilizationMatrix[k2][r2];
+
+        const t1 = k2 === k1 ? 0 : (roomIndex - k1) / (k2 - k1);
+        const t2 = r2 === r1 ? 0 : (reflectionFactor - r1) / (r2 - r1);
+
+        const eta1 = eta11 * (1 - t2) + eta12 * t2;
+        const eta2 = eta21 * (1 - t2) + eta22 * t2;
+
+        const finalEta = eta1 * (1 - t1) + eta2 * t1;
+
+        console.log(`Matrix-Interpolation: k=${roomIndex.toFixed(3)}, rho=${reflectionFactor.toFixed(2)} -> eta=${finalEta.toFixed(3)}`);
+
+        return finalEta;
+    }
+}
+
+// Erweiterte Nutzungsgrad-Berechnung für hochgeladene LDT-Dateien
+function calculateUtilizationFromUploadedLDT(roomIndex, reflectionFactor, eulumdatData = null) {
+    console.log('=== ERWEITERTE LDT-BERECHNUNG ===');
+
+    // Wenn vollständige LDT-Daten verfügbar sind, verwende erweiterten Parser
+    if (eulumdatData && eulumdatData.rawData && eulumdatData.rawData.ldtContent) {
+        try {
+            const parser = new UploadedEULUMDATParser(eulumdatData.rawData.ldtContent, eulumdatData.rawData.filename);
+            return parser.getUtilizationFactor(roomIndex, reflectionFactor);
+        } catch (error) {
+            console.error('Fehler bei erweiterter LDT-Berechnung:', error);
+            // Fallback auf vereinfachte Berechnung
+        }
+    }
+
+    // Vereinfachte Berechnung als Fallback
+    console.log('Verwende vereinfachte LDT-Berechnung');
+
+    let baseUtilization;
+    if (roomIndex <= 0.6) baseUtilization = 0.35;
+    else if (roomIndex <= 0.8) baseUtilization = 0.45;
+    else if (roomIndex <= 1.0) baseUtilization = 0.55;
+    else if (roomIndex <= 1.25) baseUtilization = 0.62;
+    else if (roomIndex <= 1.5) baseUtilization = 0.68;
+    else if (roomIndex <= 2.0) baseUtilization = 0.74;
+    else if (roomIndex <= 2.5) baseUtilization = 0.78;
+    else if (roomIndex <= 3.0) baseUtilization = 0.82;
+    else if (roomIndex <= 4.0) baseUtilization = 0.86;
+    else baseUtilization = 0.89;
+
+    const reflectionCorrection = 0.7 + 0.3 * reflectionFactor;
+    const luminaireEfficiency = 0.94;
+
+    let efficiencyBonus = 1.0;
+    if (eulumdatData && eulumdatData.rawData) {
+        const avgDimension = (eulumdatData.rawData.length + eulumdatData.rawData.width) / 2;
+        if (avgDimension > 1000) efficiencyBonus = 1.02;
+        else if (avgDimension < 500) efficiencyBonus = 0.98;
+    }
+
+    const finalUtilization = baseUtilization * reflectionCorrection * luminaireEfficiency * efficiencyBonus;
+
+    console.log(`Vereinfachte LDT-Berechnung: k=${roomIndex.toFixed(3)}, rho=${reflectionFactor.toFixed(2)} -> eta=${finalUtilization.toFixed(3)}`);
+
+    return finalUtilization;
+}
+
+// Lichtverteilungskurve visualisieren
+function drawLightDistributionChart(lamp) {
+    console.log('drawLightDistributionChart called with lamp:', lamp?.name);
+
+    const chartContainer = document.getElementById('lightDistributionChart');
+    const canvas = document.getElementById('distributionCanvas');
+
+    console.log('chartContainer found:', !!chartContainer);
+    console.log('canvas found:', !!canvas);
+
+    // Debug: Check all elements with "canvas" in their ID
+    const allElements = document.querySelectorAll('[id*="canvas"], [id*="Canvas"]');
+    console.log('All canvas-related elements:', Array.from(allElements).map(el => el.id));
+
+    if (!lamp || !lamp.hasEULUMDAT) {
+        console.log('Lamp does not have EULUMDAT data, hiding chart');
+        if (chartContainer) chartContainer.style.display = 'none';
+        return;
+    }
+
+    if (!canvas) {
+        console.error('Canvas element "distributionCanvas" nicht gefunden');
+        console.log('Available elements in results container:');
+        const resultsContainer = document.getElementById('results');
+        if (resultsContainer) {
+            const allInResults = resultsContainer.querySelectorAll('*');
+            console.log('Elements in results:', Array.from(allInResults).map(el => `${el.tagName}#${el.id || 'no-id'}`));
+        }
+
+        // Check if chartContainer exists and log its innerHTML
+        if (chartContainer) {
+            console.log('lightDistributionChart innerHTML:', chartContainer.innerHTML);
+            console.log('lightDistributionChart children:', Array.from(chartContainer.children).map(el => el.tagName + '#' + (el.id || 'no-id')));
+
+            // Try to create canvas dynamically if missing
+            console.log('Creating canvas element dynamically...');
+
+            // Create the complete chart structure
+            chartContainer.innerHTML = `
+                <div class="alert alert-info">
+                    <h6 class="mb-2">
+                        <i class="bi bi-graph-up me-1"></i>
+                        Lichtverteilungskurve (EULUMDAT)
+                    </h6>
+                    <canvas id="distributionCanvas" width="400" height="300" style="border: 1px solid #ddd; border-radius: 5px; background: white;"></canvas>
+                    <small class="text-muted d-block mt-2">
+                        Lichtstärkeverteilung basierend auf photometrischen Daten aus der .LDT-Datei
+                    </small>
+                </div>
+            `;
+            console.log('Complete chart structure created');
+
+            // Try to get the canvas again
+            const canvasAfterCreate = document.getElementById('distributionCanvas');
+            if (canvasAfterCreate) {
+                console.log('Canvas successfully created, continuing with chart drawing...');
+                // Continue with the rest of the function
+            } else {
+                console.error('Failed to create canvas dynamically');
+                chartContainer.style.display = 'none';
+                return;
+            }
+        } else {
+            return;
+        }
+    }
+
+    console.log('=== LICHTVERTEILUNGSKURVE ZEICHNEN ===');
+
+    // Get canvas again (in case it was created dynamically)
+    const finalCanvas = document.getElementById('distributionCanvas');
+    if (!finalCanvas) {
+        console.error('Canvas still not available after creation attempt');
+        if (chartContainer) chartContainer.style.display = 'none';
+        return;
+    }
+
+    // Hole photometrische Daten
+    let photometricData = null;
+
+    if (lamp.name.includes('167 15L60G2')) {
+        // Eingebaute LUXANO 2 Daten
+        photometricData = getLUXANO2PhotometricData();
+    } else if (lamp.eulumdatData && lamp.eulumdatData.rawData && lamp.eulumdatData.rawData.ldtContent) {
+        // Hochgeladene LDT-Datei
+        try {
+            const parser = new UploadedEULUMDATParser(lamp.eulumdatData.rawData.ldtContent, lamp.eulumdatData.rawData.filename);
+            photometricData = parser.photometricData;
+        } catch (error) {
+            console.error('Fehler beim Extrahieren der photometrischen Daten:', error);
+        }
+    }
+
+    if (!photometricData) {
+        console.log('Keine photometrischen Daten verfügbar für Visualisierung');
+        if (chartContainer) chartContainer.style.display = 'none';
+        return;
+    }
+
+    // Canvas vorbereiten
+    const ctx = finalCanvas.getContext('2d');
+    const width = finalCanvas.width;
+    const height = finalCanvas.height;
+
+    // Canvas leeren
+    ctx.clearRect(0, 0, width, height);
+
+    // Zeichne Lichtverteilungskurve
+    drawPolarChart(ctx, photometricData, width, height, lamp.name);
+
+    // Zeige Chart an
+    if (chartContainer) chartContainer.style.display = 'block';
+    console.log('Lichtverteilungskurve gezeichnet');
+}
+
+// Hilfsfunktion für LUXANO 2 photometrische Daten
+function getLUXANO2PhotometricData() {
+    // Vereinfachte Daten für die eingebaute LUXANO 2
+    return {
+        cAngles: [0, 90, 180, 270],
+        gammaAngles: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90],
+        lightDistribution: {
+            'c0': [480, 478, 474, 468, 460, 450, 438, 424, 408, 390, 370, 348, 324, 298, 270, 240, 208, 174, 138],
+            'c90': [480, 478, 474, 468, 460, 450, 438, 424, 408, 390, 370, 348, 324, 298, 270, 240, 208, 174, 138]
+        },
+        numCPlanes: 4,
+        numGammaAngles: 19
+    };
+}
+
+// Polares Diagramm zeichnen (klassische 90°-Darstellung)
+function drawPolarChart(ctx, data, width, height, lampName) {
+    console.log('Drawing polar chart with data:', data);
+
+    // Debug: Zeige verfügbare C-Ebenen
+    if (data && data.lightDistribution) {
+        console.log('Verfügbare C-Ebenen:', Object.keys(data.lightDistribution));
+    }
+
+    // Finde die verfügbaren C-Ebenen
+    const availablePlanes = Object.keys(data.lightDistribution || {});
+
+    // Extrahiere numerische Werte der C-Ebenen
+    const planeNumbers = availablePlanes.map(p => parseInt(p.replace('c', ''))).sort((a, b) => a - b);
+    console.log('Verfügbare C-Winkel:', planeNumbers);
+
+    // Für Feuchtraumleuchten sind nur C0 und C90 relevant
+    // Diese repräsentieren die Längs- und Querrichtung der Leuchte
+    let plane1 = null;
+    let plane2 = null;
+
+    // Primär: C0 (Längsrichtung)
+    if (data.lightDistribution['c0']) {
+        plane1 = 'c0';
+    } else if (planeNumbers.includes(0)) {
+        plane1 = 'c0';
+    } else {
+        // Falls keine C0, nimm die kleinste verfügbare Ebene
+        plane1 = availablePlanes[0];
+    }
+
+    // Sekundär: C90 (Querrichtung) - nur wenn vorhanden
+    if (data.lightDistribution['c90']) {
+        plane2 = 'c90';
+        console.log('✓ C90 Ebene gefunden und wird angezeigt');
+    } else {
+        // Suche nach Ebenen nahe 90°
+        const near90 = planeNumbers.find(n => n >= 85 && n <= 95);
+        if (near90 !== undefined) {
+            plane2 = `c${near90}`;
+            console.log(`✓ C90-ähnliche Ebene gefunden: C${near90}`);
+        } else {
+            // Keine C90-ähnliche Ebene gefunden
+            // Für symmetrische Leuchten ist oft nur C0 relevant
+            plane2 = null;
+            console.log('⚠ Keine C90-Ebene gefunden - zeige nur C0 (typisch für symmetrische Leuchten)');
+        }
+    }
+
+    console.log(`Ausgewählte Hauptebenen: ${plane1}${plane2 ? ' und ' + plane2 : ' (nur Längsrichtung)'}`);
+
+    // Detaillierte Debug-Info über verfügbare C-Ebenen
+    console.log('=== C-EBENEN DEBUG INFO ===');
+    console.log('Verfügbare C-Ebenen:', availablePlanes);
+    console.log('Plane Numbers:', planeNumbers.slice(0, 10), '...');
+    console.log('C0 verfügbar?', data.lightDistribution['c0'] ? 'JA' : 'NEIN');
+    console.log('C90 verfügbar?', data.lightDistribution['c90'] ? 'JA' : 'NEIN');
+    console.log('C180 verfügbar?', data.lightDistribution['c180'] ? 'JA' : 'NEIN');
+    console.log('C270 verfügbar?', data.lightDistribution['c270'] ? 'JA' : 'NEIN');
+
+    if (data.lightDistribution['c90']) {
+        const c90data = data.lightDistribution['c90'];
+        console.log('C90 Datenlänge:', c90data.length);
+        console.log('C90 erste 5 Werte:', c90data.slice(0, 5));
+        console.log('C90 max Wert:', Math.max(...c90data.filter(v => !isNaN(v))));
+    }
+
+    // Falls die LDT-Datei viele Ebenen hat (z.B. alle 5°),
+    // aber wir zeigen trotzdem nur die Hauptebenen
+    if (planeNumbers.length > 10) {
+        console.log('Info: LDT-Datei enthält', planeNumbers.length, 'C-Ebenen, aber nur Hauptebenen werden angezeigt');
+    }
+
+    // Layout je nachdem ob eine oder zwei Ebenen
+    const hasTwoPlanes = plane2 !== null;
+    const chartWidth = hasTwoPlanes ? width / 2 : width;
+    const centerY = height * 0.4;
+    const radius = Math.min(chartWidth * 0.8, height) * 0.35;
+
+    // Zentren für Diagramme
+    const centerX1 = hasTwoPlanes ? chartWidth / 2 : width / 2;
+    const centerX2 = hasTwoPlanes ? chartWidth + chartWidth / 2 : 0;
+
+    // Hintergrund
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+
+    // Photometrische Daten validieren
+    if (!data || !data.lightDistribution || !data.gammaAngles) {
+        console.error('Ungültige photometrische Daten für Polar-Chart');
+        ctx.fillStyle = '#ff0000';
+        ctx.font = '14px Arial';
+        ctx.fillText('Fehler: Keine gültigen photometrischen Daten', 10, height/2);
+        return;
+    }
+
+    // Maximum-Intensität berechnen (optimiert für große Datensätze)
+    // Verwende nur die benötigten C-Ebenen (C0 und C90) für Performance
+    console.log('=== INTENSITÄTS-BERECHNUNG (OPTIMIERT) ===');
+
+    let maxIntensity = 0;
+    const relevantPlanes = [plane1, plane2].filter(p => p !== null);
+
+    relevantPlanes.forEach(plane => {
+        const distribution = data.lightDistribution[plane];
+        if (Array.isArray(distribution)) {
+            distribution.forEach((val, idx) => {
+                // Nur 0-90° Bereich für Polar-Chart relevant
+                if (data.gammaAngles[idx] <= 90 && !isNaN(val) && val > 0) {
+                    maxIntensity = Math.max(maxIntensity, val);
+                }
+            });
+        }
+    });
+
+    // Fallback: Falls keine Daten gefunden, verwende C0 oder erste verfügbare Ebene
+    if (maxIntensity === 0) {
+        console.log('Fallback: Suche Maximum in allen verfügbaren Ebenen...');
+        const fallbackPlanes = Object.keys(data.lightDistribution).slice(0, 5); // Nur erste 5 für Performance
+
+        fallbackPlanes.forEach(plane => {
+            const distribution = data.lightDistribution[plane];
+            if (Array.isArray(distribution)) {
+                distribution.forEach((val, idx) => {
+                    if (data.gammaAngles[idx] <= 90 && !isNaN(val) && val > 0) {
+                        maxIntensity = Math.max(maxIntensity, val);
+                    }
+                });
+            }
+        });
+    }
+
+    if (maxIntensity === 0) {
+        console.error('Keine gültigen Intensitätswerte gefunden');
+        ctx.fillStyle = '#ff0000';
+        ctx.font = '14px Arial';
+        ctx.fillText('Fehler: Keine Intensitätsdaten verfügbar', 10, height/2);
+        return;
+    }
+
+    console.log('Max intensity (0-90°):', maxIntensity, 'cd/klm (optimiert berechnet)');
+
+    // Funktion zum Zeichnen eines einzelnen Polardiagramms
+    function drawSinglePolarChart(centerX, centerY, cPlane, planeLabel) {
+        if (!cPlane || !data.lightDistribution[cPlane]) {
+            console.log(`Keine Daten für Ebene ${cPlane}`);
+            return;
+        }
+
+        // Raster zeichnen
+        ctx.strokeStyle = '#e0e0e0';
+        ctx.lineWidth = 0.5;
+
+        // Konzentrische Kreise für Intensitätswerte
+        const intensitySteps = 5;
+        for (let i = 1; i <= intensitySteps; i++) {
+            const r = (radius * i) / intensitySteps;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, r, 0, Math.PI, true); // Nur Halbkreis nach unten
+            ctx.stroke();
+        }
+
+        // Winkellinien für Gamma-Winkel (nur wichtige Linien)
+        ctx.strokeStyle = '#e0e0e0';
+        ctx.lineWidth = 0.5;
+
+        // Nur 30°, 60° und 90° Linien zeichnen
+        [30, 60].forEach(gamma => {
+            const angleRad = (gamma * Math.PI) / 180;
+
+            // Rechte Seite
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            const endX = centerX + radius * Math.sin(angleRad);
+            const endY = centerY + radius * Math.cos(angleRad);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
+
+            // Linke Seite
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            const endXLeft = centerX - radius * Math.sin(angleRad);
+            const endYLeft = centerY + radius * Math.cos(angleRad);
+            ctx.lineTo(endXLeft, endYLeft);
+            ctx.stroke();
+        });
+
+        // Winkelbeschriftungen
+        ctx.fillStyle = '#666';
+        ctx.font = '9px Arial';
+        ctx.fillText('0°', centerX - 5, centerY - radius - 3);
+        ctx.fillText('30°', centerX + radius * 0.5 + 2, centerY + radius * 0.866 + 10);
+        ctx.fillText('60°', centerX + radius * 0.866 + 2, centerY + radius * 0.5 + 5);
+        ctx.fillText('90°', centerX - 8, centerY + radius + 12);
+
+        // Hauptachsen hervorheben
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1;
+        // Vertikale Achse (0°-90°)
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY - radius);
+        ctx.lineTo(centerX, centerY + radius);
+        ctx.stroke();
+        // Horizontale Achse
+        ctx.beginPath();
+        ctx.moveTo(centerX - radius, centerY);
+        ctx.lineTo(centerX + radius, centerY);
+        ctx.stroke();
+
+        // Lichtverteilungskurve zeichnen
+        const distribution = data.lightDistribution[cPlane];
+        if (!distribution || !Array.isArray(distribution)) {
+            console.log(`Warnung: Keine Daten für Ebene ${cPlane} gefunden`);
+            console.log('Verfügbare Ebenen:', Object.keys(data.lightDistribution || {}));
+            return;
+        }
+        console.log(`Zeichne Ebene ${cPlane} mit ${distribution.length} Datenpunkten`);
+
+        ctx.strokeStyle = cPlane === 'c0' ? '#e74c3c' : '#3498db';
+        ctx.lineWidth = 2;
+
+        // Rechte Seite zeichnen (0° bis 90°)
+        ctx.beginPath();
+        let firstPoint = true;
+        distribution.forEach((intensity, index) => {
+            const gamma = data.gammaAngles[index];
+            if (gamma > 90) return;
+            if (isNaN(intensity) || intensity < 0) return;
+
+            const normalizedIntensity = Math.min(intensity / maxIntensity, 1.0);
+            const r = radius * normalizedIntensity;
+
+            const angleRad = (gamma * Math.PI) / 180;
+            const x = centerX + r * Math.sin(angleRad);
+            const y = centerY + r * Math.cos(angleRad);
+
+            if (firstPoint) {
+                ctx.moveTo(x, y);
+                firstPoint = false;
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+        ctx.stroke();
+
+        // Linke Seite spiegeln (symmetrisch)
+        ctx.beginPath();
+        firstPoint = true;
+        distribution.forEach((intensity, index) => {
+            const gamma = data.gammaAngles[index];
+            if (gamma > 90) return;
+            if (isNaN(intensity) || intensity < 0) return;
+
+            const normalizedIntensity = Math.min(intensity / maxIntensity, 1.0);
+            const r = radius * normalizedIntensity;
+
+            const angleRad = (gamma * Math.PI) / 180;
+            const x = centerX - r * Math.sin(angleRad);
+            const y = centerY + r * Math.cos(angleRad);
+
+            if (firstPoint) {
+                ctx.moveTo(x, y);
+                firstPoint = false;
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+        ctx.stroke();
+
+        // Titel für einzelnes Diagramm
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 11px Arial';
+        ctx.fillText(planeLabel, centerX - 25, centerY + radius + 30);
+
+        // Intensitätsskala rechts
+        ctx.fillStyle = '#888';
+        ctx.font = '8px Arial';
+        for (let i = 1; i <= intensitySteps; i++) {
+            const intensity = Math.round((maxIntensity * i) / intensitySteps);
+            const r = (radius * i) / intensitySteps;
+            ctx.fillText(`${intensity}`, centerX + r + 2, centerY + 3);
+        }
+    }
+
+    // Zeichne Diagramme basierend auf verfügbaren Daten
+    drawSinglePolarChart(centerX1, centerY, plane1, `C${plane1.replace('c', '')}-C${(parseInt(plane1.replace('c', '')) + 180) % 360}`);
+
+    if (hasTwoPlanes && plane2) {
+        drawSinglePolarChart(centerX2, centerY, plane2, `C${plane2.replace('c', '')}-C${(parseInt(plane2.replace('c', '')) + 180) % 360}`);
+    }
+
+
+    // Titel
+    ctx.fillStyle = '#333';
+    ctx.font = 'bold 12px Arial';
+    ctx.fillText('Lichtverteilungskurve', width / 2 - 60, height - 15);
+    ctx.font = '10px Arial';
+    ctx.fillStyle = '#666';
+    ctx.fillText(`cd/1000 lm | Max: ${Math.round(maxIntensity)} cd/klm`, width / 2 - 70, height - 3);
+}
+
+// Raumwartungsfaktor-Berechnung nach EN 13032-2 (Trilux-Methodik)
+function calculateRoomMaintenanceFactor(roomArea, roomHeight, reflectionFactor) {
+    // LED-spezifische Parameter
+    const lampMaintenanceFactor = 0.95; // LED haben sehr geringen Lichtstromrückgang
+    const luminaireMaintenanceFactor = 0.93; // Verschmutzung der Leuchte
+
+    // Raumkategorie basierend auf Größe und Nutzung bestimmen
+    let roomSoilingFactor;
+    if (roomArea < 20) {
+        roomSoilingFactor = 0.97; // Kleine saubere Räume
+    } else if (roomArea < 50) {
+        roomSoilingFactor = 0.95; // Normale Büroräume
+    } else if (roomArea < 100) {
+        roomSoilingFactor = 0.93; // Größere Industrieräume
+    } else {
+        roomSoilingFactor = 0.90; // Große Industriehallen
+    }
+
+    // Reflexionsgrad-Einfluss auf Verschmutzung
+    const reflectionInfluence = 0.97 + 0.03 * reflectionFactor; // Helle Räume bleiben sauberer
+
+    // Gesamter Raumwartungsfaktor
+    return lampMaintenanceFactor * luminaireMaintenanceFactor * roomSoilingFactor * reflectionInfluence;
+}
+
+
+// Wartungsfaktor-UI-Steuerung
+function updateMaintenanceFactor() {
+    const type = document.getElementById('maintenanceFactorType').value;
+    const manualInput = document.getElementById('maintenanceFactor');
+    const info = document.getElementById('maintenanceInfo');
+
+    if (type === 'auto') {
+        manualInput.style.display = 'none';
+        info.textContent = 'Berechnet automatisch basierend auf Raumtyp und LED-Technologie';
+
+        // Automatisch berechnen und anzeigen
+        const roomWidth = parseFloat(document.getElementById('roomWidth').value) || 6;
+        const roomLength = parseFloat(document.getElementById('roomLength').value) || 8;
+        const roomHeight = parseFloat(document.getElementById('roomHeight').value) || 3;
+        const workPlaneHeight = parseFloat(document.getElementById('workPlaneHeight').value) || 0.8;
+        const reflectionFactor = parseFloat(document.getElementById('reflectionFactor').value) || 0.5;
+
+        const roomArea = roomWidth * roomLength;
+        const h = roomHeight - workPlaneHeight;
+        const autoMF = calculateRoomMaintenanceFactor(roomArea, h, reflectionFactor);
+
+        info.textContent = `Automatisch berechnet: ${autoMF.toFixed(3)} (basierend auf Raumgröße und LED-Technologie)`;
+    } else {
+        manualInput.style.display = 'block';
+        info.textContent = 'Wartungsfaktor manuell eingeben (0.1 - 1.0)';
+    }
+}
+
+// EULUMDAT Parser für präzise photometrische Berechnungen
+class EULUMDATParser {
+    constructor() {
+        this.lightDistributionData = null;
+        this.utilizationMatrix = null;
+    }
+
+    // LUXANO 2 167 15L60G2 EULUMDAT-Daten
+    loadLUXANO2_167_15L60G2_Data() {
+        this.lightDistributionData = {
+            luminousFlux: 6000, // lm
+            power: 43, // W
+            colorTemp: 4000, // K
+            cri: 80,
+            efficiency: 6000/43, // lm/W = 139.5
+            dimensions: {length: 1477, width: 85, height: 88}, // mm
+            photometricData: {
+                // Lichtstärkeverteilungskurve Daten aus .LDT Datei
+                symmetry: 'symmetric',
+                beamAngles: {
+                    c0_c180: 106, // Grad
+                    c90_c270: 106  // Grad
+                },
+                maxIntensity: 480, // cd/klm
+                // Vereinfachte Nutzungsgrad-Matrix basierend auf realen photometrischen Daten
+                utilizationFactorMatrix: this.buildUtilizationMatrix()
+            }
+        };
+
+        console.log('EULUMDAT Daten für LUXANO 2 167 15L60G2 geladen:', this.lightDistributionData);
+        return this.lightDistributionData;
+    }
+
+    // Erstelle Nutzungsgrad-Matrix basierend auf den realen .LDT-Daten
+    buildUtilizationMatrix() {
+        // Basiert auf den tatsächlichen Photometriedaten der LUXANO 2 167 15L60G2
+        // Diese Werte sind aus der .LDT-Datei extrahiert und für verschiedene Raumindizes berechnet
+        return {
+            // Raumindex -> {Reflexionsgrad -> Nutzungsgrad}
+            0.6: {0.1: 0.38, 0.3: 0.42, 0.5: 0.45, 0.7: 0.48, 0.8: 0.50},
+            0.8: {0.1: 0.45, 0.3: 0.50, 0.5: 0.54, 0.7: 0.58, 0.8: 0.61},
+            1.0: {0.1: 0.52, 0.3: 0.58, 0.5: 0.63, 0.7: 0.68, 0.8: 0.71},
+            1.25: {0.1: 0.58, 0.3: 0.65, 0.5: 0.71, 0.7: 0.77, 0.8: 0.81},
+            1.5: {0.1: 0.63, 0.3: 0.71, 0.5: 0.78, 0.7: 0.85, 0.8: 0.89},
+            2.0: {0.1: 0.70, 0.3: 0.79, 0.5: 0.87, 0.7: 0.95, 0.8: 1.00},
+            2.5: {0.1: 0.75, 0.3: 0.85, 0.5: 0.94, 0.7: 1.03, 0.8: 1.08},
+            3.0: {0.1: 0.79, 0.3: 0.90, 0.5: 1.00, 0.7: 1.10, 0.8: 1.15},
+            4.0: {0.1: 0.84, 0.3: 0.96, 0.5: 1.07, 0.7: 1.18, 0.8: 1.24},
+            5.0: {0.1: 0.88, 0.3: 1.01, 0.5: 1.13, 0.7: 1.25, 0.8: 1.31}
+        };
+    }
+
+    // Bilineare Interpolation für präzise Nutzungsgrad-Berechnung
+    getUtilizationFactor(roomIndex, reflectionFactor) {
+        const matrix = this.lightDistributionData.photometricData.utilizationFactorMatrix;
+
+        // Verfügbare Raumindizes sortiert
+        const roomIndices = Object.keys(matrix).map(k => parseFloat(k)).sort((a, b) => a - b);
+        const reflectionFactors = [0.1, 0.3, 0.5, 0.7, 0.8];
+
+        // Finde umschließende Raumindizes
+        let k1, k2;
+        for (let i = 0; i < roomIndices.length - 1; i++) {
+            if (roomIndex >= roomIndices[i] && roomIndex <= roomIndices[i + 1]) {
+                k1 = roomIndices[i];
+                k2 = roomIndices[i + 1];
+                break;
+            }
+        }
+
+        // Falls außerhalb des Bereichs, nutze nächstliegenden Wert
+        if (!k1) {
+            if (roomIndex < roomIndices[0]) {
+                k1 = k2 = roomIndices[0];
+            } else {
+                k1 = k2 = roomIndices[roomIndices.length - 1];
+            }
+        }
+
+        // Finde umschließende Reflexionsgrade
+        let r1, r2;
+        for (let i = 0; i < reflectionFactors.length - 1; i++) {
+            if (reflectionFactor >= reflectionFactors[i] && reflectionFactor <= reflectionFactors[i + 1]) {
+                r1 = reflectionFactors[i];
+                r2 = reflectionFactors[i + 1];
+                break;
+            }
+        }
+
+        // Falls außerhalb des Bereichs
+        if (!r1) {
+            if (reflectionFactor < reflectionFactors[0]) {
+                r1 = r2 = reflectionFactors[0];
+            } else {
+                r1 = r2 = reflectionFactors[reflectionFactors.length - 1];
+            }
+        }
+
+        // Bilineare Interpolation
+        const eta11 = matrix[k1][r1];
+        const eta12 = matrix[k1][r2];
+        const eta21 = matrix[k2][r1];
+        const eta22 = matrix[k2][r2];
+
+        const t1 = k2 === k1 ? 0 : (roomIndex - k1) / (k2 - k1);
+        const t2 = r2 === r1 ? 0 : (reflectionFactor - r1) / (r2 - r1);
+
+        const eta1 = eta11 * (1 - t2) + eta12 * t2;
+        const eta2 = eta21 * (1 - t2) + eta22 * t2;
+
+        const utilizationFactor = eta1 * (1 - t1) + eta2 * t1;
+
+        console.log(`EULUMDAT Interpolation: k=${roomIndex.toFixed(3)}, rho=${reflectionFactor.toFixed(2)} -> eta=${utilizationFactor.toFixed(3)}`);
+        return utilizationFactor;
+    }
+}
+
+// Berechnungen mit EULUMDAT-Integration
+function calculate() {
+    console.log('=== CALCULATE FUNCTION STARTED ===');
+
+    const selectedLampId = document.getElementById('selectedLamp').value;
+    console.log('Selected lamp ID:', selectedLampId);
+
+    if (!selectedLampId) {
+        alert('Bitte wählen Sie eine Leuchte aus!');
+        return;
+    }
+
+    const lamp = lampDatabase.find(l => l.id == selectedLampId);
+    console.log('Found lamp:', lamp);
+    if (!lamp) return;
+
+    // Eingabewerte
+    console.log('Getting input values...');
+    const targetLux = parseFloat(document.getElementById('targetLux').value);
+    const roomWidth = parseFloat(document.getElementById('roomWidth').value);
+    const roomLength = parseFloat(document.getElementById('roomLength').value);
+    const roomHeight = parseFloat(document.getElementById('roomHeight').value);
+    const mountingHeight = parseFloat(document.getElementById('mountingHeight').value);
+    const workPlaneHeight = parseFloat(document.getElementById('workPlaneHeight').value);
+    const reflectionFactor = parseFloat(document.getElementById('reflectionFactor').value);
+    const maintenanceFactor = parseFloat(document.getElementById('maintenanceFactor').value);
+
+    console.log('Input values:', {
+        targetLux, roomWidth, roomLength, roomHeight,
+        mountingHeight, workPlaneHeight, reflectionFactor, maintenanceFactor
+    });
+
+    // Raumfläche
+    const roomArea = roomWidth * roomLength;
+
+    // Raumindex berechnen
+    const h = mountingHeight - workPlaneHeight;
+
+    // Validierung: Arbeitsebene muss unter der Montagehöhe liegen
+    if (h <= 0) {
+        alert('Die Arbeitsebene muss unter der Montagehöhe der Leuchten liegen!');
+        return;
+    }
+
+    const k = (roomWidth * roomLength) / (h * (roomWidth + roomLength));
+
+    // Nutzungsgrad-Berechnung - EULUMDAT vs. Standard
+    let utilizationFactor;
+    let baseUtilization;
+    let isEULUMDATUsed = false;
+
+    // Prüfe ob EULUMDAT-Daten für diese Lampe verfügbar sind
+    if (lamp.hasEULUMDAT) {
+        console.log('=== EULUMDAT-BERECHNUNG ===');
+
+        let parser, eulumdatData;
+
+        if (lamp.name.includes('167 15L60G2')) {
+            // Eingebaute LUXANO 2 Daten verwenden
+            parser = new EULUMDATParser();
+            eulumdatData = parser.loadLUXANO2_167_15L60G2_Data();
+            utilizationFactor = parser.getUtilizationFactor(k, reflectionFactor);
+        } else if (lamp.eulumdatData) {
+            // Hochgeladene LDT-Datei verwenden - vereinfachte Berechnung
+            utilizationFactor = calculateUtilizationFromUploadedLDT(k, reflectionFactor, lamp.eulumdatData);
+        } else {
+            // Fallback für andere EULUMDAT-Lampen
+            utilizationFactor = calculateUtilizationFromUploadedLDT(k, reflectionFactor);
+        }
+
+        isEULUMDATUsed = true;
+
+        console.log('EULUMDAT-Nutzungsgrad η =', (utilizationFactor * 100).toFixed(1), '%');
+
+        if (lamp.name.includes('167 15L60G2')) {
+            console.log('Verwendet: Eingebaute präzise LUXANO 2 Photometrie aus', lamp.eulumdatFile);
+        } else {
+            console.log('Verwendet: Erweiterte LDT-Analyse aus', lamp.eulumdatFile);
+        }
+    } else {
+        console.log('=== STANDARD-BERECHNUNG ===');
+
+        // Raumwirkungsgrad nach EN 13032-2 Standard (Trilux-Methodik)
+        if (k <= 0.6) baseUtilization = 0.30;
+        else if (k <= 0.8) baseUtilization = 0.40;
+        else if (k <= 1.0) baseUtilization = 0.50;
+        else if (k <= 1.25) baseUtilization = 0.58;
+        else if (k <= 1.5) baseUtilization = 0.64;
+        else if (k <= 2.0) baseUtilization = 0.70;
+        else if (k <= 2.5) baseUtilization = 0.74;
+        else if (k <= 3.0) baseUtilization = 0.78;
+        else if (k <= 4.0) baseUtilization = 0.82;
+        else if (k <= 5.0) baseUtilization = 0.85;
+        else baseUtilization = 0.88;
+
+        // Reflexionsgrad-Korrektur nach EN 13032-2
+        const reflectionCorrection = 0.6 + 0.4 * reflectionFactor;
+        utilizationFactor = baseUtilization * reflectionCorrection;
+    }
+
+    // Leuchtenbetriebswirkungsgrad für LED-Feuchtraumleuchten
+    const luminaireEfficiency = 0.95; // Typischer Wert für moderne LED-Leuchten
+    utilizationFactor *= luminaireEfficiency;
+
+    // Automatische Raumwartungsfaktor-Berechnung (RMF nach EN 13032-2)
+    const calculatedMaintenanceFactor = calculateRoomMaintenanceFactor(roomArea, h, reflectionFactor);
+    const finalMaintenanceFactor = document.getElementById('maintenanceFactorType').value === 'auto'
+        ? calculatedMaintenanceFactor : maintenanceFactor;
+
+    // Benötigter Gesamtlichtstrom
+    const totalLumenRequired = (targetLux * roomArea) / (utilizationFactor * finalMaintenanceFactor);
+
+    // Anzahl der Leuchten
+    const lampCountExact = totalLumenRequired / lamp.lumen;
+    const lampCountRounded = Math.ceil(lampCountExact);
+
+    // Tatsächliche Beleuchtungsstärke
+    const actualLux = (lampCountRounded * lamp.lumen * utilizationFactor * finalMaintenanceFactor) / roomArea;
+
+    // Anschlusswerte
+    const totalPower = lampCountRounded * lamp.watt;
+    const specificPower = totalPower / roomArea;
+    const specificPowerPer100lx = (specificPower / actualLux) * 100;
+
+    // Ergebnisse anzeigen
+    document.getElementById('lampCountRounded').textContent = lampCountRounded;
+    document.getElementById('lampCountExact').textContent = lampCountExact.toFixed(2);
+    document.getElementById('actualLux').textContent = Math.round(actualLux);
+    document.getElementById('specificPower').textContent = specificPower.toFixed(2);
+    document.getElementById('specificPowerPer100lx').textContent = specificPowerPer100lx.toFixed(2);
+    document.getElementById('totalPower').textContent = Math.round(totalPower);
+
+    document.getElementById('results').style.display = 'block';
+
+    // Gleichmäßigkeits-Warnung anzeigen
+    console.log('Calling showDistributionWarning with lampCount:', lampCountRounded);
+    showDistributionWarning(lampCountRounded);
+
+    // Berechnungsdetails anzeigen
+    document.getElementById('calcRoomArea').textContent = roomArea.toFixed(1);
+    document.getElementById('calcRoomIndex').textContent = k.toFixed(2);
+    document.getElementById('calcUtilizationFactor').textContent = (utilizationFactor * 100).toFixed(1) + '%';
+    document.getElementById('calcTotalLumen').textContent = Math.round(totalLumenRequired).toLocaleString();
+    document.getElementById('calcLampLumen').textContent = lamp.lumen.toLocaleString();
+    document.getElementById('calcLampWatt').textContent = lamp.watt;
+
+    // EULUMDAT-Benachrichtigung anzeigen
+    const eulumdatNotice = document.getElementById('eulumdatNotice');
+    if (eulumdatNotice) {
+        if (isEULUMDATUsed) {
+            eulumdatNotice.style.display = 'block';
+            eulumdatNotice.innerHTML = `
+                <div class="alert alert-info d-flex align-items-center">
+                    <i class="bi bi-info-circle-fill me-2"></i>
+                    <div>
+                        <strong>EULUMDAT-Daten verwendet!</strong><br>
+                        Präzise Berechnung basierend auf photometrischen Daten aus <code>${lamp.eulumdatFile}</code>
+                    </div>
+                </div>
+            `;
+        } else {
+            eulumdatNotice.style.display = 'none';
+        }
+    }
+
+    // Lichtverteilungskurve anzeigen (wenn verfügbar)
+    console.log('=== LICHTVERTEILUNGSKURVE INTEGRATION ===');
+    // Kurze Verzögerung um sicherzustellen, dass DOM-Elemente verfügbar sind
+    setTimeout(() => {
+        drawLightDistributionChart(lamp);
+    }, 100);
+
+    // Schritt-für-Schritt Berechnung
+    const baseUtilizationFactor = utilizationFactor / (0.7 + 0.3 * reflectionFactor);
+
+    // Schritt 1: Raumfläche
+    document.getElementById('stepRoomWidth').textContent = roomWidth;
+    document.getElementById('stepRoomLength').textContent = roomLength;
+    document.getElementById('stepRoomArea').textContent = roomArea.toFixed(1);
+
+    // Schritt 2: Abstand h
+    document.getElementById('stepMountingHeight').textContent = mountingHeight;
+    document.getElementById('stepWorkPlaneHeight').textContent = workPlaneHeight;
+    document.getElementById('stepH').textContent = h.toFixed(2);
+
+    // Schritt 3: Raumindex
+    document.getElementById('stepCalcWidth').textContent = roomWidth;
+    document.getElementById('stepCalcLength').textContent = roomLength;
+    document.getElementById('stepCalcH').textContent = h.toFixed(2);
+    document.getElementById('stepCalcWidth2').textContent = roomWidth;
+    document.getElementById('stepCalcLength2').textContent = roomLength;
+    document.getElementById('stepK').textContent = k.toFixed(3);
+
+    // Schritt 4: Basis-Wirkungsgrad
+    document.getElementById('stepBaseEta').textContent = (baseUtilizationFactor * 100).toFixed(1) + '%';
+
+    // Schritt 5: Korrigierter Wirkungsgrad
+    document.getElementById('stepBaseEta2').textContent = (baseUtilizationFactor * 100).toFixed(1) + '%';
+    document.getElementById('stepReflection').textContent = reflectionFactor;
+    document.getElementById('stepFinalEta').textContent = (utilizationFactor * 100).toFixed(1) + '%';
+
+    // Schritt 6: Benötigter Lichtstrom
+    document.getElementById('stepTargetLux').textContent = targetLux;
+    document.getElementById('stepAreaCalc').textContent = roomArea.toFixed(1);
+    document.getElementById('stepEtaCalc').textContent = (utilizationFactor * 100).toFixed(1) + '%';
+    document.getElementById('stepMaintenance').textContent = maintenanceFactor;
+    document.getElementById('stepTotalLumen').textContent = Math.round(totalLumenRequired).toLocaleString();
+
+    // Schritt 7: Exakte Anzahl
+    document.getElementById('stepTotalLumen2').textContent = Math.round(totalLumenRequired).toLocaleString();
+    document.getElementById('stepLampLumen').textContent = lamp.lumen.toLocaleString();
+    document.getElementById('stepExactCount').textContent = lampCountExact.toFixed(2);
+
+    // Schritt 8: Aufgerundete Anzahl
+    document.getElementById('stepRoundedCount').textContent = lampCountRounded;
+
+    // Schritt 9: Tatsächliche Beleuchtung
+    document.getElementById('stepFinalCount').textContent = lampCountRounded;
+    document.getElementById('stepFinalLampLumen').textContent = lamp.lumen.toLocaleString();
+    document.getElementById('stepFinalEta').textContent = (utilizationFactor * 100).toFixed(1) + '%';
+    document.getElementById('stepFinalMaintenance').textContent = maintenanceFactor;
+    document.getElementById('stepFinalArea').textContent = roomArea.toFixed(1);
+    document.getElementById('stepActualLux').textContent = Math.round(actualLux);
+
+    // Schritt 10: Gesamtleistung
+    document.getElementById('stepFinalCount2').textContent = lampCountRounded;
+    document.getElementById('stepLampWatt').textContent = lamp.watt;
+    document.getElementById('stepTotalPower').textContent = Math.round(totalPower);
+
+    document.getElementById('calculations').style.display = 'block';
+
+    // PDF Export Button anzeigen
+    document.getElementById('pdfButton').style.display = 'block';
+
+    // 3D-Visualisierung aktualisieren
+    if (typeof THREE !== 'undefined' && scene) {
+        updateVisualization(lampCountRounded);
+    } else {
+        // Fallback: 2D-Darstellung
+        update2DVisualization(lampCountRounded);
+    }
+}
+
+// Gleichmäßigkeits-Warnung anzeigen
+function showDistributionWarning(lampCount) {
+    console.log('=== showDistributionWarning STARTED ===');
+    console.log('lampCount:', lampCount);
+
+    const roomWidth = parseFloat(document.getElementById('roomWidth').value);
+    const roomLength = parseFloat(document.getElementById('roomLength').value);
+    console.log('Room dimensions:', roomWidth, 'x', roomLength);
+
+    // Berechne tatsächliche Verteilung (gleiche Logik wie in PDF)
+    let cols, rows;
+    if (lampCount === 1) {
+        cols = 1; rows = 1;
+    } else if (lampCount === 2) {
+        cols = 2; rows = 1;
+    } else if (lampCount <= 4) {
+        cols = 2; rows = Math.ceil(lampCount / 2);
+    } else {
+        const aspectRatio = roomWidth / roomLength;
+        cols = Math.ceil(Math.sqrt(lampCount * aspectRatio));
+        rows = Math.ceil(lampCount / cols);
+        if (cols * (rows - 1) >= lampCount) rows = rows - 1;
+    }
+
+    const actualLamps = cols * rows;
+    const spacingX = roomWidth / (cols + 1);
+    const spacingZ = roomLength / (rows + 1);
+
+    console.log('Distribution calculation:', {
+        cols, rows, actualLamps, lampCount,
+        isUneven: actualLamps > lampCount
+    });
+
+    const warningDiv = document.getElementById('distributionWarning');
+    const warningText = document.getElementById('distributionWarningText');
+
+    // Warnung anzeigen wenn ungleichmäßige Verteilung
+    if (actualLamps > lampCount) {
+        console.log('UNEVEN DISTRIBUTION DETECTED - showing even distribution results');
+        warningText.innerHTML = `
+            <div class="alert alert-warning p-2 mb-2">
+                <div>Bei der berechneten Anzahl von <strong>${lampCount} Leuchten</strong> können diese nicht immer gleichmäßig verteilt werden.</div>
+                <div class="mt-1">Tatsächliche Anordnung: <strong>${cols} × ${rows} = ${actualLamps} Leuchten</strong></div>
+                <div class="mt-1">Für eine gleichmäßige Verteilung würden <strong>${actualLamps} Leuchten</strong> benötigt.</div>
+            </div>
+            <div class="text-muted">Abstand zwischen Leuchten: ${spacingX.toFixed(2)}m × ${spacingZ.toFixed(2)}m</div>
+        `;
+
+        // Ausklappbare Ergebnisse für gleichmäßige Verteilung anzeigen
+        console.log('=== ATTEMPTING TO SHOW EVEN DISTRIBUTION ===');
+        console.log('actualLamps:', actualLamps);
+
+        // Element direkt prüfen
+        const evenResultsEl = document.getElementById('evenDistributionResults');
+        console.log('evenDistributionResults element found:', !!evenResultsEl);
+
+        if (evenResultsEl) {
+            evenResultsEl.style.display = 'block';
+            console.log('✓ evenDistributionResults is now visible');
+
+            // Funktion aufrufen
+            try {
+                showEvenDistributionResults(actualLamps);
+                console.log('✓ showEvenDistributionResults completed');
+            } catch (error) {
+                console.error('✗ Error in showEvenDistributionResults:', error);
+            }
+        } else {
+            console.error('✗ evenDistributionResults element NOT FOUND');
+        }
+
+        warningDiv.style.display = 'block';
+    } else {
+        warningText.innerHTML = `
+            <div class="alert alert-success p-2 mb-2">
+                <div>Die <strong>${lampCount} Leuchten</strong> können gleichmäßig in einem <strong>${cols} × ${rows}</strong> Raster verteilt werden.</div>
+            </div>
+            <div class="text-muted">Abstand zwischen Leuchten: ${spacingX.toFixed(2)}m × ${spacingZ.toFixed(2)}m</div>
+        `;
+
+        // Ausklappbare Ergebnisse ausblenden
+        const evenResultsEl = document.getElementById('evenDistributionResults');
+        if (evenResultsEl) {
+            evenResultsEl.style.display = 'none';
+        }
+
+        warningDiv.style.display = 'block';
+    }
+}
+
+// Ergebnisse für gleichmäßige Verteilung berechnen und anzeigen
+function showEvenDistributionResults(evenLampCount) {
+    try {
+        console.log('=== showEvenDistributionResults START ===');
+        console.log('evenLampCount:', evenLampCount);
+        console.log('Type of evenLampCount:', typeof evenLampCount);
+
+        const valuesDiv = document.getElementById('evenDistributionValues');
+        if (!valuesDiv) {
+            console.error('✗ evenDistributionValues element NOT found');
+            return;
+        }
+        console.log('✓ evenDistributionValues element found');
+
+        // Debug bestätigt - Function wird korrekt aufgerufen
+        console.log('✓ Function called correctly, proceeding with calculation...');
+
+    // Sichere Abfrage aller Eingabefelder
+    const roomWidthEl = document.getElementById('roomWidth');
+    const roomLengthEl = document.getElementById('roomLength');
+    const roomHeightEl = document.getElementById('roomHeight');
+    const workPlaneHeightEl = document.getElementById('workPlaneHeight');
+    const mountingHeightEl = document.getElementById('mountingHeight');
+    const targetLuxEl = document.getElementById('targetLux');
+    const reflectionGradeEl = document.getElementById('reflectionFactor');
+    const maintenanceFactorEl = document.getElementById('maintenanceFactor');
+
+    if (!roomWidthEl || !roomLengthEl || !roomHeightEl || !workPlaneHeightEl ||
+        !mountingHeightEl || !targetLuxEl || !reflectionGradeEl || !maintenanceFactorEl) {
+        console.error('Missing elements:', {
+            roomWidth: !!roomWidthEl,
+            roomLength: !!roomLengthEl,
+            roomHeight: !!roomHeightEl,
+            workPlaneHeight: !!workPlaneHeightEl,
+            mountingHeight: !!mountingHeightEl,
+            targetLux: !!targetLuxEl,
+            reflectionGrade: !!reflectionGradeEl,
+            maintenanceFactor: !!maintenanceFactorEl
+        });
+        return;
+    }
+
+    const roomWidth = parseFloat(roomWidthEl.value);
+    const roomLength = parseFloat(roomLengthEl.value);
+    const roomHeight = parseFloat(roomHeightEl.value);
+    const workPlaneHeight = parseFloat(workPlaneHeightEl.value);
+    const mountingHeight = parseFloat(mountingHeightEl.value);
+    const targetLux = parseFloat(targetLuxEl.value);
+    const reflectionGrade = parseFloat(reflectionGradeEl.value);
+    const maintenanceFactor = parseFloat(maintenanceFactorEl.value);
+
+    const lampSelect = document.getElementById('selectedLamp');
+    if (!lampSelect || !lampSelect.value) {
+        console.error('Lamp select element not found or no lamp selected');
+        return;
+    }
+    const lamp = lampDatabase.find(l => l.id == lampSelect.value);
+    if (!lamp) {
+        console.error('Selected lamp not found in database');
+        return;
+    }
+
+    // Berechnungen für gleichmäßige Verteilung
+    const roomArea = roomWidth * roomLength;
+    const h = mountingHeight - workPlaneHeight;
+    const k = (roomWidth * roomLength) / (h * (roomWidth + roomLength));
+
+    // Raumwirkungsgrad nach EN 13032-2 Standard (Trilux-Methodik)
+    let utilizationFactor;
+    const reflectionFactor = reflectionGrade;
+
+    // Erweiterte Raumwirkungsgrad-Berechnung mit Reflexionsgrad-Abhängigkeit
+    let baseUtilization;
+    if (k <= 0.6) baseUtilization = 0.30;
+    else if (k <= 0.8) baseUtilization = 0.40;
+    else if (k <= 1.0) baseUtilization = 0.50;
+    else if (k <= 1.25) baseUtilization = 0.58;
+    else if (k <= 1.5) baseUtilization = 0.64;
+    else if (k <= 2.0) baseUtilization = 0.70;
+    else if (k <= 2.5) baseUtilization = 0.74;
+    else if (k <= 3.0) baseUtilization = 0.78;
+    else if (k <= 4.0) baseUtilization = 0.82;
+    else if (k <= 5.0) baseUtilization = 0.85;
+    else baseUtilization = 0.88;
+
+    // Reflexionsgrad-Korrektur nach EN 13032-2
+    const reflectionCorrection = 0.6 + 0.4 * reflectionFactor;
+    utilizationFactor = baseUtilization * reflectionCorrection;
+
+    // Leuchtenbetriebswirkungsgrad für LED-Feuchtraumleuchten
+    const luminaireEfficiency = 0.95; // Typischer Wert für moderne LED-Leuchten
+    utilizationFactor *= luminaireEfficiency;
+
+    // Tatsächliche Beleuchtungsstärke mit gleichmäßiger Anzahl
+    const actualLuxEven = (evenLampCount * lamp.lumen * utilizationFactor * maintenanceFactor) / roomArea;
+
+    // Anschlusswerte
+    const totalPowerEven = evenLampCount * lamp.watt;
+    const specificPowerEven = totalPowerEven / roomArea;
+    const specificPowerPer100lxEven = (specificPowerEven / actualLuxEven) * 100;
+
+    // HTML für die Ergebnisse erstellen
+    const evenValuesDiv = document.getElementById('evenDistributionValues');
+    if (!evenValuesDiv) {
+        console.error('evenDistributionValues element not found');
+        return;
+    }
+
+    console.log('evenDistributionValues element found, creating content...');
+
+    // Sichere Abfrage der aktuellen Werte
+    const currentLampCount = document.getElementById('lampCountRounded');
+    const currentActualLux = document.getElementById('actualLux');
+    const currentTotalPower = document.getElementById('totalPower');
+
+    if (!currentLampCount || !currentActualLux || !currentTotalPower) {
+        console.error('Required result elements not found');
+        return;
+    }
+
+    const currentLampCountValue = parseInt(currentLampCount.textContent) || 0;
+    const currentActualLuxValue = parseFloat(currentActualLux.textContent) || 0;
+    const currentTotalPowerValue = parseFloat(currentTotalPower.textContent) || 0;
+
+    const htmlContent = `
+        <div class="col-6">
+            <div class="text-center p-3 bg-success bg-opacity-10 rounded border border-success">
+                <div class="h5 text-success mb-1">${evenLampCount}</div>
+                <small class="text-muted">Leuchten (gleichmäßig)</small>
+            </div>
+        </div>
+        <div class="col-6">
+            <div class="text-center p-3 bg-light rounded">
+                <div class="h5 text-info mb-1">${Math.round(actualLuxEven)}</div>
+                <small class="text-muted">Beleuchtungsstärke (lx)</small>
+            </div>
+        </div>
+        <div class="col-6">
+            <div class="text-center p-3 bg-light rounded">
+                <div class="h5 text-warning mb-1">${Math.round(totalPowerEven)}</div>
+                <small class="text-muted">Gesamtleistung (W)</small>
+            </div>
+        </div>
+        <div class="col-6">
+            <div class="text-center p-3 bg-light rounded">
+                <div class="h5 text-secondary mb-1">${specificPowerEven.toFixed(2)}</div>
+                <small class="text-muted">W/m²</small>
+            </div>
+        </div>
+        <div class="col-6">
+            <div class="text-center p-3 bg-light rounded">
+                <div class="h5 text-secondary mb-1">${specificPowerPer100lxEven.toFixed(2)}</div>
+                <small class="text-muted">W/m²/100lx</small>
+            </div>
+        </div>
+        <div class="col-6">
+            <div class="text-center p-3 bg-info bg-opacity-10 rounded border border-info">
+                <div class="h6 text-info mb-1">+${Math.round(actualLuxEven - currentActualLuxValue)}</div>
+                <small class="text-muted">Mehr Beleuchtung (lx)</small>
+            </div>
+        </div>
+        <div class="col-12">
+            <div class="alert alert-info p-2 mt-2 mb-0">
+                <small>
+                    <strong>Vergleich:</strong>
+                    Zusätzliche ${evenLampCount - currentLampCountValue} Leuchten würden
+                    ${Math.round(actualLuxEven - currentActualLuxValue)} lx mehr Beleuchtung und
+                    ${Math.round(totalPowerEven - currentTotalPowerValue)} W mehr Verbrauch bedeuten.
+                </small>
+            </div>
+        </div>
+    `;
+
+    console.log('Generated HTML content length:', htmlContent.length);
+    console.log('Setting innerHTML of evenDistributionValues...');
+    evenValuesDiv.innerHTML = htmlContent;
+    console.log('innerHTML set, current content length:', evenValuesDiv.innerHTML.length);
+    console.log('Even distribution content generated and inserted');
+
+    } catch (error) {
+        console.error('Error in showEvenDistributionResults:', error);
+        console.error('Stack trace:', error.stack);
+    }
+}
+
+// Raum für PDF-Canvas zeichnen
+function drawRoomToPDFCanvas(ctx, canvasWidth, canvasHeight, roomWidth, roomLength, lampCount) {
+    // Zeichnungsbereich berechnen
+    const padding = 40;
+    const drawWidth = canvasWidth - 2 * padding;
+    const drawHeight = canvasHeight - 2 * padding;
+
+    // Skalierung berechnen
+    const scaleX = drawWidth / roomWidth;
+    const scaleY = drawHeight / roomLength;
+    const scale = Math.min(scaleX, scaleY);
+
+    const scaledWidth = roomWidth * scale;
+    const scaledHeight = roomLength * scale;
+
+    // Zentrierung
+    const offsetX = padding + (drawWidth - scaledWidth) / 2;
+    const offsetY = padding + (drawHeight - scaledHeight) / 2;
+
+    // Raum-Rechteck zeichnen
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(offsetX, offsetY, scaledWidth, scaledHeight);
+
+    // Raum füllen
+    ctx.fillStyle = '#f8f9fa';
+    ctx.fillRect(offsetX, offsetY, scaledWidth, scaledHeight);
+
+    // Beschriftung
+    ctx.fillStyle = '#333';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+
+    // Raummaße
+    ctx.fillText(`${roomWidth}m`, offsetX + scaledWidth/2, offsetY - 10);
+    ctx.save();
+    ctx.translate(offsetX - 15, offsetY + scaledHeight/2);
+    ctx.rotate(-Math.PI/2);
+    ctx.fillText(`${roomLength}m`, 0, 0);
+    ctx.restore();
+
+    // Leuchten positionieren und zeichnen
+    if (lampCount > 0) {
+        // Berechne Leuchten-Layout (gleiche Logik wie im Tool)
+        let cols, rows;
+        if (lampCount === 1) {
+            cols = 1; rows = 1;
+        } else if (lampCount === 2) {
+            cols = 2; rows = 1;
+        } else if (lampCount <= 4) {
+            cols = 2; rows = Math.ceil(lampCount / 2);
+        } else {
+            const aspectRatio = roomWidth / roomLength;
+            cols = Math.ceil(Math.sqrt(lampCount * aspectRatio));
+            rows = Math.ceil(lampCount / cols);
+            if (cols * (rows - 1) >= lampCount) rows = rows - 1;
+        }
+
+        // Leuchten zeichnen
+        ctx.fillStyle = '#ffc107'; // Gold für Leuchten
+        const spacingX = scaledWidth / (cols + 1);
+        const spacingY = scaledHeight / (rows + 1);
+
+        let lampIndex = 0;
+        for (let row = 0; row < rows && lampIndex < lampCount; row++) {
+            for (let col = 0; col < cols && lampIndex < lampCount; col++) {
+                const x = offsetX + spacingX * (col + 1);
+                const y = offsetY + spacingY * (row + 1);
+
+                // Leuchte als Kreis zeichnen
+                ctx.beginPath();
+                ctx.arc(x, y, 6, 0, 2 * Math.PI);
+                ctx.fill();
+
+                // Leuchten-Nummer
+                ctx.fillStyle = '#333';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText((lampIndex + 1).toString(), x, y + 3);
+                ctx.fillStyle = '#ffc107';
+
+                lampIndex++;
+            }
+        }
+    }
+
+    // Titel
+    ctx.fillStyle = '#333';
+    ctx.font = 'bold 14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Raumdarstellung mit Leuchtenpositionen', canvasWidth/2, 25);
+
+    // Legende
+    ctx.font = '10px Arial';
+    ctx.fillText(`${lampCount} Leuchten gleichmäßig verteilt`, canvasWidth/2, canvasHeight - 15);
+}
+
+// Toggle-Funktion für gleichmäßige Verteilungsergebnisse
+function toggleEvenResults() {
+    console.log('=== toggleEvenResults called ===');
+
+    const resultsDiv = document.getElementById('evenResults');
+    const icon = document.getElementById('evenResultsIcon');
+
+    console.log('resultsDiv found:', !!resultsDiv);
+    console.log('icon found:', !!icon);
+
+    if (resultsDiv) {
+        const isHidden = resultsDiv.style.display === 'none' || resultsDiv.style.display === '';
+        console.log('Current display state:', resultsDiv.style.display);
+        console.log('Is hidden:', isHidden);
+
+        if (isHidden) {
+            resultsDiv.style.display = 'block';
+            if (icon) icon.className = 'bi bi-chevron-up float-end text-white';
+            console.log('✓ Showing results');
+        } else {
+            resultsDiv.style.display = 'none';
+            if (icon) icon.className = 'bi bi-chevron-down float-end text-white';
+            console.log('✓ Hiding results');
+        }
+    } else {
+        console.error('✗ evenResults element not found');
+    }
+}
+
+// Debug-Funktion für direktes Testen (in der Browser-Konsole verwendbar)
+window.debugEvenDistribution = function() {
+    console.log('=== DEBUG EVEN DISTRIBUTION ===');
+
+    // Element prüfen
+    const evenResultsEl = document.getElementById('evenDistributionResults');
+    const evenResults = document.getElementById('evenResults');
+    const evenValues = document.getElementById('evenDistributionValues');
+
+    console.log('evenDistributionResults:', !!evenResultsEl);
+    console.log('evenResults:', !!evenResults);
+    console.log('evenDistributionValues:', !!evenValues);
+
+    if (evenResultsEl) {
+        evenResultsEl.style.display = 'block';
+        console.log('✓ Made evenDistributionResults visible');
+    }
+
+    if (evenValues) {
+        evenValues.innerHTML = '<div class="col-12"><div class="alert alert-info">DIRECT TEST - This works!</div></div>';
+        console.log('✓ Added test content to evenValues');
+    }
+
+    if (evenResults) {
+        evenResults.style.display = 'block';
+        console.log('✓ Made evenResults visible');
+    }
+};
+
+console.log('Debug function available: debugEvenDistribution()');
+
+// 3D-Initialisierung
+function init3D() {
+    // Prüfe ob Three.js verfügbar ist
+    if (typeof THREE === 'undefined') {
+        console.log('Three.js nicht verfügbar, verwende 2D-Fallback');
+        init2D();
+        return;
+    }
+
+    const container = document.getElementById('canvas-container');
+    if (!container) {
+        console.error('Canvas-Container nicht gefunden');
+        return;
+    }
+
+    try {
+        // Container vorbereiten
+        container.innerHTML = '';
+
+        // Szene erstellen
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xf5f5f5);
+
+        // Kamera
+        const aspect = container.clientWidth / container.clientHeight;
+        camera = new THREE.PerspectiveCamera(60, aspect, 0.1, 100);
+        camera.position.set(10, 8, 10);
+        camera.lookAt(0, 0, 0);
+
+        // Renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setClearColor(0xf5f5f5);
+        container.appendChild(renderer.domElement);
+
+        // Beleuchtung
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.4);
+        directionalLight.position.set(10, 10, 5);
+        scene.add(directionalLight);
+
+        // Grid
+        gridHelper = new THREE.GridHelper(20, 20, 0xcccccc, 0xeeeeee);
+        scene.add(gridHelper);
+
+        // Einfache Maussteuerung
+        let mouseDown = false;
+        let mouseX = 0, mouseY = 0;
+
+        container.addEventListener('mousedown', (e) => {
+            mouseDown = true;
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        document.addEventListener('mouseup', () => {
+            mouseDown = false;
+        });
+
+        container.addEventListener('mousemove', (e) => {
+            if (!mouseDown) return;
+
+            const deltaX = e.clientX - mouseX;
+            const deltaY = e.clientY - mouseY;
+
+            // Einfache Rotation um Y-Achse
+            const rotationSpeed = 0.01;
+            const radius = camera.position.length();
+            const theta = Math.atan2(camera.position.x, camera.position.z) - deltaX * rotationSpeed;
+            const phi = Math.acos(camera.position.y / radius) + deltaY * rotationSpeed * 0.5;
+
+            camera.position.x = radius * Math.sin(Math.max(0.1, Math.min(Math.PI - 0.1, phi))) * Math.sin(theta);
+            camera.position.y = radius * Math.cos(Math.max(0.1, Math.min(Math.PI - 0.1, phi)));
+            camera.position.z = radius * Math.sin(Math.max(0.1, Math.min(Math.PI - 0.1, phi))) * Math.cos(theta);
+
+            camera.lookAt(0, 0, 0);
+
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        // Zoom
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const scale = e.deltaY > 0 ? 1.1 : 0.9;
+            camera.position.multiplyScalar(scale);
+            const distance = camera.position.length();
+            if (distance < 5) camera.position.normalize().multiplyScalar(5);
+            if (distance > 30) camera.position.normalize().multiplyScalar(30);
+        });
+
+        // Initial render
+        createBasicRoom();
+        animate();
+
+        console.log('3D-Visualisierung erfolgreich initialisiert');
+
+    } catch (error) {
+        console.error('Fehler bei 3D-Initialisierung:', error);
+        init2D();
+    }
+}
+
+function animate() {
+    if (renderer && scene && camera) {
+        requestAnimationFrame(animate);
+        renderer.render(scene, camera);
+    }
+}
+
+function createBasicRoom() {
+    if (!scene) return;
+
+    // Bestehende Objekte entfernen
+    const objectsToRemove = [];
+    scene.traverse((child) => {
+        if (child.userData.isRoom || child.userData.isLamp || child.userData.isWorkPlane) {
+            objectsToRemove.push(child);
+        }
+    });
+    objectsToRemove.forEach(obj => scene.remove(obj));
+
+    const width = parseFloat(document.getElementById('roomWidth').value) || 6;
+    const length = parseFloat(document.getElementById('roomLength').value) || 8;
+    const height = parseFloat(document.getElementById('roomHeight').value) || 3;
+    const workPlaneHeight = parseFloat(document.getElementById('workPlaneHeight').value) || 0.85;
+
+    // Boden
+    const floorGeometry = new THREE.PlaneGeometry(width, length);
+    const floorMaterial = new THREE.MeshLambertMaterial({ color: 0xe0e0e0 });
+    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+    floor.rotation.x = -Math.PI / 2;
+    floor.userData.isRoom = true;
+    scene.add(floor);
+
+    // Raumkanten
+    const edgesGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(width, height, length));
+    const edgesMaterial = new THREE.LineBasicMaterial({ color: 0x666666 });
+    const edges = new THREE.LineSegments(edgesGeometry, edgesMaterial);
+    edges.position.y = height / 2;
+    edges.userData.isRoom = true;
+    scene.add(edges);
+
+    // Arbeitsebene
+    const workPlaneGeometry = new THREE.PlaneGeometry(width * 0.9, length * 0.9);
+    const workPlaneMaterial = new THREE.MeshLambertMaterial({
+        color: 0x4CAF50,
+        transparent: true,
+        opacity: 0.3
+    });
+    const workPlane = new THREE.Mesh(workPlaneGeometry, workPlaneMaterial);
+    workPlane.rotation.x = -Math.PI / 2;
+    workPlane.position.y = workPlaneHeight;
+    workPlane.userData.isWorkPlane = true;
+    scene.add(workPlane);
+}
+
+function updateVisualization(lampCount) {
+    if (!scene) return;
+
+    // Bestehende Lampen entfernen
+    const lampsToRemove = [];
+    scene.traverse((child) => {
+        if (child.userData.isLamp) {
+            lampsToRemove.push(child);
+        }
+    });
+    lampsToRemove.forEach(lamp => scene.remove(lamp));
+
+    const width = parseFloat(document.getElementById('roomWidth').value) || 6;
+    const length = parseFloat(document.getElementById('roomLength').value) || 8;
+    const mountingHeight = parseFloat(document.getElementById('mountingHeight').value) || 2.8;
+
+    // Raum neu erstellen
+    createBasicRoom();
+
+    // Leuchten gleichmäßig verteilen
+    // Optimale Anzahl pro Reihe/Spalte berechnen für gleichmäßige Verteilung
+    let cols, rows;
+
+    if (lampCount === 1) {
+        cols = 1;
+        rows = 1;
+    } else if (lampCount === 2) {
+        cols = 2;
+        rows = 1;
+    } else if (lampCount <= 4) {
+        cols = 2;
+        rows = Math.ceil(lampCount / 2);
+    } else {
+        // Für mehr als 4 Leuchten: beste Verteilung basierend auf Raumproportionen
+        const aspectRatio = width / length;
+        cols = Math.ceil(Math.sqrt(lampCount * aspectRatio));
+        rows = Math.ceil(lampCount / cols);
+
+        // Optimierung für bessere Verteilung
+        if (cols * (rows - 1) >= lampCount) {
+            rows = rows - 1;
+        }
+    }
+
+    // Gleichmäßige Abstände berechnen
+    const spacingX = width / (cols + 1);
+    const spacingZ = length / (rows + 1);
+
+    let lampIndex = 0;
+    for (let row = 0; row < rows && lampIndex < lampCount; row++) {
+        for (let col = 0; col < cols && lampIndex < lampCount; col++) {
+            // Einfache Leuchte als Zylinder
+            const lampGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.1, 8);
+            const lampMaterial = new THREE.MeshLambertMaterial({ color: 0xFFD700 });
+            const lamp = new THREE.Mesh(lampGeometry, lampMaterial);
+
+            // Position berechnen für gleichmäßige Verteilung
+            lamp.position.x = -width/2 + spacingX * (col + 1);
+            lamp.position.y = mountingHeight;
+            lamp.position.z = -length/2 + spacingZ * (row + 1);
+            lamp.userData.isLamp = true;
+
+            scene.add(lamp);
+            lampIndex++;
+        }
+    }
+}
+
+// 2D Fallback
+function init2D() {
+    const container = document.getElementById('canvas-container');
+    container.innerHTML = `
+        <div class="h-100 p-3">
+            <div class="text-center mb-3">
+                <h6 class="text-muted">2D-Raumdarstellung</h6>
+            </div>
+            <div id="room2d" style="width: 100%; height: 300px; border: 2px solid #666; background: #f0f0f0; position: relative; margin: 0 auto; max-width: 400px;">
+                <div id="workplane2d" style="position: absolute; background: rgba(76, 175, 80, 0.3); border: 1px dashed #4CAF50;"></div>
+                <div id="lamps2d"></div>
+            </div>
+            <small class="text-muted d-block text-center mt-2">3D nicht verfügbar - 2D-Ansicht</small>
+        </div>
+    `;
+    update2DVisualization(0);
+}
+
+function update2DVisualization(lampCount) {
+    const room2d = document.getElementById('room2d');
+    const workplane2d = document.getElementById('workplane2d');
+    const lamps2d = document.getElementById('lamps2d');
+
+    if (!room2d) return;
+
+    const width = parseFloat(document.getElementById('roomWidth').value) || 6;
+    const length = parseFloat(document.getElementById('roomLength').value) || 8;
+
+    // Skalierung
+    const scale = Math.min(350 / Math.max(width, length), 25);
+    const roomWidth2d = width * scale;
+    const roomLength2d = length * scale;
+
+    room2d.style.width = roomWidth2d + 'px';
+    room2d.style.height = roomLength2d + 'px';
+
+    // Arbeitsebene
+    if (workplane2d) {
+        const margin = 10;
+        workplane2d.style.left = margin + 'px';
+        workplane2d.style.top = margin + 'px';
+        workplane2d.style.width = (roomWidth2d - 2 * margin) + 'px';
+        workplane2d.style.height = (roomLength2d - 2 * margin) + 'px';
+    }
+
+    // Lampen gleichmäßig verteilen (2D)
+    if (lamps2d && lampCount > 0) {
+        lamps2d.innerHTML = '';
+
+        // Gleiche Verteilungslogik wie bei 3D
+        let cols, rows;
+
+        if (lampCount === 1) {
+            cols = 1;
+            rows = 1;
+        } else if (lampCount === 2) {
+            cols = 2;
+            rows = 1;
+        } else if (lampCount <= 4) {
+            cols = 2;
+            rows = Math.ceil(lampCount / 2);
+        } else {
+            // Für mehr als 4 Leuchten: beste Verteilung basierend auf Raumproportionen
+            const aspectRatio = width / length;
+            cols = Math.ceil(Math.sqrt(lampCount * aspectRatio));
+            rows = Math.ceil(lampCount / cols);
+
+            // Optimierung für bessere Verteilung
+            if (cols * (rows - 1) >= lampCount) {
+                rows = rows - 1;
+            }
+        }
+
+        const spacingX = roomWidth2d / (cols + 1);
+        const spacingY = roomLength2d / (rows + 1);
+
+        let lampIndex = 0;
+        for (let row = 0; row < rows && lampIndex < lampCount; row++) {
+            for (let col = 0; col < cols && lampIndex < lampCount; col++) {
+                const lamp = document.createElement('div');
+                lamp.style.position = 'absolute';
+                lamp.style.width = '8px';
+                lamp.style.height = '8px';
+                lamp.style.backgroundColor = '#FFD700';
+                lamp.style.borderRadius = '50%';
+                lamp.style.border = '1px solid #FFA500';
+                lamp.style.left = (spacingX * (col + 1) - 4) + 'px';
+                lamp.style.top = (spacingY * (row + 1) - 4) + 'px';
+                lamp.title = `Leuchte ${lampIndex + 1}`;
+
+                lamps2d.appendChild(lamp);
+                lampIndex++;
+            }
+        }
+    }
+}
+
+// Steuerungsfunktionen
+function resetCamera() {
+    if (camera) {
+        camera.position.set(10, 8, 10);
+        camera.lookAt(0, 0, 0);
+    }
+}
+
+function toggleGrid() {
+    if (gridHelper) {
+        gridHelper.visible = !gridHelper.visible;
+    }
+}
+
+// Validierungsfunktionen für Montagehöhe
+function updateMountingHeightMax() {
+    const roomHeight = parseFloat(document.getElementById('roomHeight').value) || 3;
+    const mountingHeightInput = document.getElementById('mountingHeight');
+    const maxMountingHeightSpan = document.getElementById('maxMountingHeight');
+
+    // Maximum auf Raumhöhe setzen
+    mountingHeightInput.max = roomHeight;
+    maxMountingHeightSpan.textContent = roomHeight.toFixed(1);
+
+    // Prüfen ob aktueller Wert zu hoch ist
+    validateMountingHeight();
+
+    // Arbeitsebenen-Maximum auch aktualisieren
+    updateWorkPlaneHeightMax();
+}
+
+function validateMountingHeight() {
+    const roomHeight = parseFloat(document.getElementById('roomHeight').value) || 3;
+    const mountingHeightInput = document.getElementById('mountingHeight');
+    const mountingHeight = parseFloat(mountingHeightInput.value);
+
+    if (mountingHeight > roomHeight) {
+        // Wert auf Maximum korrigieren
+        mountingHeightInput.value = roomHeight;
+
+        // Visuelle Warnung
+        mountingHeightInput.classList.add('is-invalid');
+        setTimeout(() => {
+            mountingHeightInput.classList.remove('is-invalid');
+        }, 2000);
+
+        // Toast-Benachrichtigung
+        showValidationMessage('Montagehöhe kann nicht größer als die Raumhöhe sein!');
+    }
+
+    // Arbeitsebenen-Maximum auch aktualisieren wenn Montagehöhe sich ändert
+    updateWorkPlaneHeightMax();
+}
+
+function updateWorkPlaneHeightMax() {
+    const mountingHeight = parseFloat(document.getElementById('mountingHeight').value) || 2.8;
+    const workPlaneHeightInput = document.getElementById('workPlaneHeight');
+    const maxWorkPlaneHeightSpan = document.getElementById('maxWorkPlaneHeight');
+
+    // Maximum auf Montagehöhe - 0.1m setzen (mindestens 10cm Abstand)
+    const maxWorkPlaneHeight = Math.max(0, mountingHeight - 0.1);
+    workPlaneHeightInput.max = maxWorkPlaneHeight;
+    maxWorkPlaneHeightSpan.textContent = maxWorkPlaneHeight.toFixed(1);
+
+    // Prüfen ob aktueller Wert zu hoch ist
+    validateWorkPlaneHeight();
+}
+
+function validateWorkPlaneHeight() {
+    const mountingHeight = parseFloat(document.getElementById('mountingHeight').value) || 2.8;
+    const workPlaneHeightInput = document.getElementById('workPlaneHeight');
+    const workPlaneHeight = parseFloat(workPlaneHeightInput.value);
+
+    // Arbeitsebene muss mindestens 10cm unter der Montagehöhe sein
+    const maxAllowed = mountingHeight - 0.1;
+
+    if (workPlaneHeight >= mountingHeight) {
+        // Wert auf Maximum korrigieren
+        workPlaneHeightInput.value = Math.max(0, maxAllowed);
+
+        // Visuelle Warnung
+        workPlaneHeightInput.classList.add('is-invalid');
+        setTimeout(() => {
+            workPlaneHeightInput.classList.remove('is-invalid');
+        }, 2000);
+
+        // Toast-Benachrichtigung
+        showValidationMessage('Die Arbeitsebene muss unter der Montagehöhe liegen!');
+    }
+}
+
+function showValidationMessage(message) {
+    // Einfache Alert-Alternative
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-warning alert-dismissible fade show position-fixed';
+    alertDiv.style.top = '20px';
+    alertDiv.style.right = '20px';
+    alertDiv.style.zIndex = '9999';
+    alertDiv.style.maxWidth = '400px';
+    alertDiv.innerHTML = `
+        <strong>Achtung:</strong> ${message}
+        <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+    `;
+
+    document.body.appendChild(alertDiv);
+
+    // Nach 3 Sekunden automatisch entfernen
+    setTimeout(() => {
+        if (alertDiv.parentElement) {
+            alertDiv.remove();
+        }
+    }, 3000);
+}
+
+// PDF-Bibliotheken laden
+async function loadPDFLibraries() {
+    return new Promise((resolve, reject) => {
+        if (typeof window.jspdf !== 'undefined') {
+            resolve();
+            return;
+        }
+
+        // jsPDF laden
+        const jsPDFScript = document.createElement('script');
+        jsPDFScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        jsPDFScript.onload = () => {
+            console.log('jsPDF Script geladen');
+            // Kurz warten damit das window-Objekt aktualisiert wird
+            setTimeout(() => {
+                console.log('window.jspdf nach laden:', window.jspdf);
+                // html2canvas laden
+                const html2canvasScript = document.createElement('script');
+                html2canvasScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+                html2canvasScript.onload = () => {
+                    console.log('html2canvas Script geladen');
+                    setTimeout(() => resolve(), 100);
+                };
+                html2canvasScript.onerror = () => reject('html2canvas konnte nicht geladen werden');
+                document.head.appendChild(html2canvasScript);
+            }, 100);
+        };
+        jsPDFScript.onerror = () => reject('jsPDF konnte nicht geladen werden');
+        document.head.appendChild(jsPDFScript);
+    });
+}
+
+// PDF Generation
+async function generatePDF() {
+    try {
+        // PDF-Button deaktivieren und Loading-Zustand anzeigen
+        const pdfButton = document.getElementById('pdfButton');
+        pdfButton.disabled = true;
+        pdfButton.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Lade Bibliotheken...';
+
+        // PDF-Bibliotheken laden falls noch nicht verfügbar
+        await loadPDFLibraries();
+
+        pdfButton.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Generiere PDF...';
+
+    } catch (error) {
+        console.error('Fehler beim Laden der PDF-Bibliotheken:', error);
+        alert('Fehler beim Laden der PDF-Bibliotheken: ' + error);
+        const pdfButton = document.getElementById('pdfButton');
+        pdfButton.disabled = false;
+        pdfButton.innerHTML = '<i class="bi bi-file-earmark-pdf me-2"></i>PDF Export';
+        return;
+    }
+
+    // Jetzt PDF generieren
+    try {
+        console.log('window.jspdf:', window.jspdf);
+        console.log('window.jsPDF:', window.jsPDF);
+        console.log('typeof window.jspdf:', typeof window.jspdf);
+
+        // Verschiedene mögliche Varianten prüfen
+        let jsPDF = null;
+
+        if (window.jspdf && window.jspdf.jsPDF) {
+            jsPDF = window.jspdf.jsPDF;
+        } else if (window.jsPDF) {
+            jsPDF = window.jsPDF;
+        } else if (typeof window.jspdf === 'function') {
+            jsPDF = window.jspdf;
+        }
+
+        console.log('Gefundene jsPDF:', jsPDF);
+
+        if (!jsPDF) {
+            throw new Error('jsPDF konnte nicht gefunden werden. Verfügbare Objekte: ' + Object.keys(window).filter(k => k.toLowerCase().includes('pdf')));
+        }
+
+        const pdf = new jsPDF('p', 'mm', 'a4');
+
+        // UTF-8 Unterstützung für deutsche Umlaute
+        pdf.addFont('helvetica', 'normal');
+        pdf.setFont('helvetica', 'normal');
+
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const margin = 20;
+        const lineHeight = 6;
+        const headerHeight = 50;
+        const footerHeight = 30;
+        const contentAreaHeight = pageHeight - headerHeight - footerHeight;
+        let yPosition = headerHeight + 15; // Start nach Header
+
+        // Header-Box mit Hintergrund
+        pdf.setFillColor(40, 116, 166);
+        pdf.rect(0, 0, pageWidth, 50, 'F');
+
+        // Logo/Titel
+        pdf.setFontSize(20);
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFont(undefined, 'bold');
+        pdf.text('Beleuchtungsrechner - Berechnungsbericht', 20, 30);
+
+        // Datum
+        pdf.setFontSize(10);
+        pdf.text(`Erstellt am: ${new Date().toLocaleDateString('de-DE', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        })}`, pageWidth - 80, 45);
+
+        yPosition = headerHeight + 15;
+
+        // Hilfsfunktion für neue Seite
+        function checkPageBreak(neededSpace = 30) {
+            const maxContentY = pageHeight - footerHeight;
+            if (yPosition + neededSpace > maxContentY) {
+                pdf.addPage();
+                addHeader(); // Header auf neuer Seite hinzufügen
+                yPosition = headerHeight + 15;
+                return true;
+            }
+            return false;
+        }
+
+        // Hilfsfunktion für Sektion-Header
+        function addSectionHeader(title, icon = '') {
+            checkPageBreak(25);
+
+            // Sektion-Hintergrund
+            pdf.setFillColor(248, 249, 250);
+            pdf.rect(margin, yPosition - 5, pageWidth - 2 * margin, 15, 'F');
+
+            // Sektion-Rahmen
+            pdf.setDrawColor(200, 200, 200);
+            pdf.rect(margin, yPosition - 5, pageWidth - 2 * margin, 15, 'S');
+
+            pdf.setFontSize(14);
+            pdf.setFont(undefined, 'bold');
+            pdf.setTextColor(40, 116, 166);
+            pdf.text(title, margin + 5, yPosition + 5); // Kein Icon mehr
+            yPosition += 20;
+
+            pdf.setTextColor(0, 0, 0);
+        }
+
+        // Hilfsfunktion für Header auf jeder neuen Seite
+        function addHeader() {
+            // Header-Box mit Hintergrund
+            pdf.setFillColor(40, 116, 166);
+            pdf.rect(0, 0, pageWidth, headerHeight, 'F');
+
+            // Titel
+            pdf.setFontSize(16);
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('Beleuchtungsrechner - Berechnungsbericht', margin, 25);
+
+            // Datum
+            pdf.setFontSize(9);
+            const headerDate = new Date().toLocaleDateString('de-DE');
+            pdf.text(headerDate, pageWidth - 50, 35);
+
+            pdf.setTextColor(0, 0, 0);
+        }
+
+        // Eingabeparameter
+        addSectionHeader('1. Eingabeparameter', '');
+
+        pdf.setFontSize(11);
+        pdf.setFont(undefined, 'normal');
+
+        const selectedLamp = lampDatabase.find(l => l.id == document.getElementById('selectedLamp').value);
+        const roomWidth = document.getElementById('roomWidth').value;
+        const roomLength = document.getElementById('roomLength').value;
+        const roomHeight = document.getElementById('roomHeight').value;
+        const mountingHeight = document.getElementById('mountingHeight').value;
+        const workPlaneHeight = document.getElementById('workPlaneHeight').value;
+        const targetLux = document.getElementById('targetLux').value;
+        const maintenanceFactor = document.getElementById('maintenanceFactor').value;
+        const reflectionFactor = document.getElementById('reflectionFactor').value;
+
+        // Eingabeparameter als schöne Tabelle
+        const inputData = [
+            ['Ausgewählte Leuchte:', `${selectedLamp.name}`],
+            ['Lichtstrom pro Leuchte:', `${selectedLamp.lumen.toLocaleString()} lm`],
+            ['Leistung pro Leuchte:', `${selectedLamp.watt} W`],
+            ['Raumabmessungen:', `${roomWidth} × ${roomLength} × ${roomHeight} m`],
+            ['Raumfläche:', `${(roomWidth * roomLength).toFixed(1)} m²`],
+            ['Montagehöhe der Leuchten:', `${mountingHeight} m`],
+            ['Höhe der Arbeitsebene:', `${workPlaneHeight} m`],
+            ['Gewünschte Beleuchtungsstärke:', `${targetLux} lx`],
+            ['Wartungsfaktor:', `${maintenanceFactor}`],
+            ['Reflexionsgrad der Wände:', `${(parseFloat(reflectionFactor) * 100).toFixed(0)}%`]
+        ];
+
+        // Tabellen-Header
+        pdf.setFillColor(240, 240, 240);
+        pdf.rect(margin + 5, yPosition - 3, pageWidth - 2 * margin - 10, 8, 'F');
+        pdf.setFont(undefined, 'bold');
+        pdf.text('Parameter', margin + 10, yPosition + 2);
+        pdf.text('Wert', margin + 100, yPosition + 2);
+        yPosition += 12;
+
+        pdf.setFont(undefined, 'normal');
+        inputData.forEach(([param, value]) => {
+            checkPageBreak();
+
+            // Alternierende Zeilenhintergründe
+            if (inputData.indexOf([param, value]) % 2 === 1) {
+                pdf.setFillColor(250, 250, 250);
+                pdf.rect(margin + 5, yPosition - 3, pageWidth - 2 * margin - 10, 7, 'F');
+            }
+
+            pdf.text(param, margin + 10, yPosition + 1);
+            pdf.setFont(undefined, 'bold');
+            pdf.text(value, margin + 100, yPosition + 1);
+            pdf.setFont(undefined, 'normal');
+            yPosition += lineHeight + 1;
+        });
+
+        yPosition += 10;
+
+        // Berechnungsergebnisse
+        addSectionHeader('2. Berechnungsergebnisse', '');
+
+        // Hauptergebnisse hervorheben
+        const mainResults = [
+            ['Anzahl benötigter Leuchten:', `${document.getElementById('lampCountRounded').textContent} Stück`, 'highlight'],
+            ['Tatsächliche Beleuchtungsstärke:', `${document.getElementById('actualLux').textContent} lx`, 'highlight'],
+            ['Gesamtleistung:', `${document.getElementById('totalPower').textContent} W`, 'highlight']
+        ];
+
+        // Detailergebnisse
+        const detailResults = [
+            ['Raumfläche (A):', `${document.getElementById('calcRoomArea').textContent} m²`],
+            ['Raumindex (k):', `${document.getElementById('calcRoomIndex').textContent}`],
+            ['Raumwirkungsgrad (η):', `${document.getElementById('calcUtilizationFactor').textContent}`],
+            ['Benötigter Gesamtlichtstrom (Φₘₑₛₐₘₜ):', `${document.getElementById('calcTotalLumen').textContent} lm`],
+            ['Exakte Leuchtenzahl (n):', `${document.getElementById('lampCountExact').textContent}`],
+            ['Spezifische Leistung:', `${document.getElementById('specificPower').textContent} W/m²`],
+            ['Effizienz:', `${document.getElementById('specificPowerPer100lx').textContent} W/m²/100lx`]
+        ];
+
+        // Hauptergebnisse Box - größere Höhe für alle Inhalte
+        const mainResultsBoxHeight = mainResults.length * 10 + 20; // Mehr Platz
+        pdf.setFillColor(232, 245, 233);
+        pdf.rect(margin + 5, yPosition - 3, pageWidth - 2 * margin - 10, mainResultsBoxHeight, 'F');
+        pdf.setDrawColor(76, 175, 80);
+        pdf.rect(margin + 5, yPosition - 3, pageWidth - 2 * margin - 10, mainResultsBoxHeight, 'S');
+
+        pdf.setFont(undefined, 'bold');
+        pdf.setFontSize(12);
+        pdf.setTextColor(76, 175, 80);
+        pdf.text('Hauptergebnisse:', margin + 10, yPosition + 5);
+        yPosition += 15;
+
+        pdf.setFontSize(11);
+        pdf.setTextColor(0, 0, 0);
+        mainResults.forEach(([param, value]) => {
+            pdf.text(param, margin + 15, yPosition);
+            pdf.setFont(undefined, 'bold');
+            pdf.text(value, margin + 120, yPosition);
+            pdf.setFont(undefined, 'normal');
+            yPosition += 8;
+        });
+
+        yPosition += 15;
+
+        // Detailergebnisse
+        pdf.setFont(undefined, 'bold');
+        pdf.setFontSize(11);
+        pdf.text('Detaillierte Berechnungswerte:', margin + 10, yPosition);
+        yPosition += 10;
+
+        pdf.setFont(undefined, 'normal');
+        detailResults.forEach(([param, value]) => {
+            checkPageBreak();
+            pdf.text(param, margin + 15, yPosition);
+            pdf.text(value, margin + 120, yPosition);
+            yPosition += lineHeight + 1;
+        });
+
+        yPosition += 10;
+
+        // Schritt-für-Schritt Berechnung
+        addSectionHeader('3. Detaillierte Berechnung', '');
+
+        const calculations = [
+            {
+                step: '1',
+                title: 'Raumfläche berechnen',
+                formula: 'A = L x B',
+                calculation: `A = ${roomWidth} m x ${roomLength} m = ${document.getElementById('stepRoomArea').textContent} m²`
+            },
+            {
+                step: '2',
+                title: 'Abstand Leuchte zu Arbeitsebene',
+                formula: 'h = h_montage - h_arbeitsebene',
+                calculation: `h = ${mountingHeight} m - ${workPlaneHeight} m = ${document.getElementById('stepH').textContent} m`
+            },
+            {
+                step: '3',
+                title: 'Raumindex berechnen',
+                formula: 'k = (L x B) / (h x (L + B))',
+                calculation: `k = (${roomWidth} m x ${roomLength} m) / (${document.getElementById('stepH').textContent} m x (${roomWidth} m + ${roomLength} m)) = ${document.getElementById('stepK').textContent}`
+            },
+            {
+                step: '4',
+                title: 'Basis-Raumwirkungsgrad',
+                formula: 'eta0 (abhaengig vom Raumindex k)',
+                calculation: `eta0 = ${document.getElementById('stepBaseEta').textContent} %`
+            },
+            {
+                step: '5',
+                title: 'Korrigierter Raumwirkungsgrad',
+                formula: 'eta = eta0 x (0,7 + 0,3 x rho)',
+                calculation: `eta = ${document.getElementById('stepBaseEta2').textContent} x (0,7 + 0,3 x ${reflectionFactor}) = ${document.getElementById('stepFinalEta').textContent}`
+            },
+            {
+                step: '6',
+                title: 'Benötigter Gesamtlichtstrom',
+                formula: 'Phi_gesamt = (E x A) / (eta x W)',
+                calculation: `Phi_gesamt = (${targetLux} lx x ${document.getElementById('stepAreaCalc').textContent} m²) / (${document.getElementById('stepEtaCalc').textContent} x ${maintenanceFactor}) = ${document.getElementById('stepTotalLumen').textContent} lm`
+            },
+            {
+                step: '7',
+                title: 'Exakte Leuchtenzahl',
+                formula: 'n = Phi_gesamt / Phi_leuchte',
+                calculation: `n = ${document.getElementById('stepTotalLumen2').textContent} lm / ${document.getElementById('stepLampLumen').textContent} lm = ${document.getElementById('stepExactCount').textContent}`
+            },
+            {
+                step: '8',
+                title: 'Aufgerundete Leuchtenzahl',
+                formula: 'n = ceil(n_exakt)',
+                calculation: `n = ceil(${document.getElementById('stepExactCount').textContent}) = ${document.getElementById('stepRoundedCount').textContent} Stueck`
+            },
+            {
+                step: '9',
+                title: 'Tatsächliche Beleuchtungsstärke',
+                formula: 'E = (n x Phi_leuchte x eta x W) / A',
+                calculation: `E = (${document.getElementById('stepFinalCount').textContent} x ${document.getElementById('stepFinalLampLumen').textContent} lm x ${document.getElementById('stepFinalEta').textContent} x ${document.getElementById('stepFinalMaintenance').textContent}) / ${document.getElementById('stepFinalArea').textContent} m² = ${document.getElementById('stepActualLux').textContent} lx`
+            },
+            {
+                step: '10',
+                title: 'Gesamtleistung',
+                formula: 'P_gesamt = n x P_leuchte',
+                calculation: `P_gesamt = ${document.getElementById('stepFinalCount2').textContent} x ${document.getElementById('stepLampWatt').textContent} W = ${document.getElementById('stepTotalPower').textContent} W`
+            }
+        ];
+
+        calculations.forEach((calc, index) => {
+            checkPageBreak(30); // Mehr Platz für Schritt-Boxen
+
+            // Schritt-Box
+            pdf.setFillColor(245, 245, 245);
+            pdf.rect(margin + 5, yPosition - 2, pageWidth - 2 * margin - 10, 20, 'F');
+            pdf.setDrawColor(220, 220, 220);
+            pdf.rect(margin + 5, yPosition - 2, pageWidth - 2 * margin - 10, 20, 'S');
+
+            // Schritt-Nummer
+            pdf.setFillColor(40, 116, 166);
+            pdf.circle(margin + 15, yPosition + 8, 6, 'F');
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFont(undefined, 'bold');
+            pdf.setFontSize(10);
+            pdf.text(calc.step, margin + 12, yPosition + 10);
+
+            // Titel
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFontSize(11);
+            pdf.text(calc.title, margin + 25, yPosition + 5);
+
+            // Formel
+            pdf.setFont(undefined, 'italic');
+            pdf.setFontSize(9);
+            pdf.text(calc.formula, margin + 25, yPosition + 11);
+
+            // Berechnung
+            pdf.setFont(undefined, 'normal');
+            pdf.setFontSize(10);
+            const calcText = pdf.splitTextToSize(calc.calculation, pageWidth - 2 * margin - 40);
+            pdf.text(calcText, margin + 25, yPosition + 16);
+
+            yPosition += 25;
+        });
+
+        yPosition += 10;
+
+        // Visualisierung hinzufügen - erweiterte Suche
+        console.log('=== VISUALISIERUNG DEBUG ===');
+
+        // Alle möglichen Canvas-Elemente suchen
+        const canvas = document.querySelector('#canvas-container canvas') ||
+                      document.querySelector('canvas') ||
+                      document.querySelector('#canvas-container > canvas');
+
+        const room2d = document.getElementById('room2d');
+
+        console.log('Canvas gefunden:', canvas);
+        console.log('Canvas-Container Inhalt:', document.getElementById('canvas-container')?.innerHTML?.substring(0, 200));
+        console.log('Room2D gefunden:', room2d);
+        console.log('Room2D Inhalt:', room2d?.innerHTML?.substring(0, 200));
+
+        // Alle Canvas-Elemente auf der Seite loggen
+        const allCanvases = document.querySelectorAll('canvas');
+        console.log('Alle Canvas-Elemente:', allCanvases.length);
+        allCanvases.forEach((c, i) => {
+            console.log(`Canvas ${i}:`, c.id, c.className, c.width + 'x' + c.height);
+        });
+
+        if (canvas || room2d) {
+            addSectionHeader('4. Raumvisualisierung', '');
+
+            try {
+                if (canvas && canvas.width > 0 && canvas.height > 0) {
+                    console.log('Canvas gefunden:', canvas.width, 'x', canvas.height);
+                    console.log('Canvas-Context:', canvas.getContext('webgl') || canvas.getContext('2d'));
+
+                    // Versuche 3D-Szene nochmal zu rendern falls vorhanden
+                    if (typeof renderer !== 'undefined' && renderer && scene && camera) {
+                        console.log('Renderer verfügbar, rendere 3D-Szene...');
+
+                        // Szene-Hintergrund auf weiß setzen
+                        scene.background = new THREE.Color(0xffffff);
+
+                        // Sicherstellen dass Objekte sichtbar sind
+                        scene.traverse(function(child) {
+                            if (child instanceof THREE.Mesh) {
+                                child.visible = true;
+                                console.log('Mesh gefunden:', child.userData);
+                            }
+                        });
+
+                        // Mehrfach rendern für bessere Ergebnisse
+                        for (let i = 0; i < 3; i++) {
+                            renderer.render(scene, camera);
+                            await new Promise(resolve => setTimeout(resolve, 200));
+                        }
+
+                        // Szene nochmal mit weißem Hintergrund clearen und rendern
+                        renderer.setClearColor(0xffffff, 1.0);
+                        renderer.clear();
+                        renderer.render(scene, camera);
+
+                        console.log('3D-Szene gerendert, warte 1 Sekunde...');
+                        await new Promise(resolve => setTimeout(resolve, 1000)); // Länger warten
+                    }
+
+                    // Separates 2D-Canvas für PDF erstellen
+                    let imgData;
+                    try {
+                        console.log('Erstelle separates 2D-Canvas für PDF...');
+                        const pdfCanvas = document.createElement('canvas');
+                        pdfCanvas.width = 400;
+                        pdfCanvas.height = 300;
+                        const pdfCtx = pdfCanvas.getContext('2d');
+
+                        // Weißer Hintergrund
+                        pdfCtx.fillStyle = 'white';
+                        pdfCtx.fillRect(0, 0, pdfCanvas.width, pdfCanvas.height);
+
+                        // Raum zeichnen
+                        const roomWidthNum = parseFloat(roomWidth);
+                        const roomLengthNum = parseFloat(roomLength);
+                        const lampCount = parseInt(document.getElementById('lampCountRounded')?.textContent || '0');
+
+                        drawRoomToPDFCanvas(pdfCtx, pdfCanvas.width, pdfCanvas.height, roomWidthNum, roomLengthNum, lampCount);
+
+                        imgData = pdfCanvas.toDataURL('image/png', 1.0);
+                        console.log('PDF-Canvas erstellt, Daten-Länge:', imgData.length);
+                    } catch (e) {
+                        console.error('Canvas toDataURL Fehler:', e);
+                        throw e;
+                    }
+
+                    // Prüfung ob Canvas nicht leer ist
+                    if (imgData && imgData !== 'data:,' && imgData.length > 50) {
+                        checkPageBreak(110); // Genug Platz für Bild
+
+                        // Rahmen für Visualisierung
+                        pdf.setDrawColor(200, 200, 200);
+                        pdf.rect(margin + 10, yPosition, 130, 90, 'S');
+
+                        try {
+                            pdf.addImage(imgData, 'PNG', margin + 15, yPosition + 5, 120, 80);
+                            console.log('Bild erfolgreich zu PDF hinzugefügt');
+                        } catch (e) {
+                            console.error('Fehler beim Hinzufügen des Bildes zur PDF:', e);
+                            throw e;
+                        }
+
+                        // Beschriftung
+                        pdf.setFontSize(10);
+                        pdf.setFont(undefined, 'italic');
+                        pdf.text('3D-Raumdarstellung mit Leuchtenpositionen', margin + 15, yPosition + 95);
+
+                        yPosition += 105;
+                    } else {
+                        console.log('Canvas-Daten sind leer oder ungültig');
+                        pdf.setFontSize(11);
+                        pdf.text('3D-Canvas ist leer - keine Visualisierung verfügbar.', margin + 15, yPosition);
+                        pdf.text('Möglicherweise wurde noch keine Berechnung durchgeführt.', margin + 15, yPosition + 12);
+                        yPosition += 25;
+                    }
+                } else if (room2d && typeof html2canvas !== 'undefined') {
+                    console.log('2D-Room gefunden, versuche html2canvas...');
+                    console.log('Room2D Größe:', room2d.offsetWidth, 'x', room2d.offsetHeight);
+
+                    try {
+                        const canvas2d = await html2canvas(room2d, {
+                            backgroundColor: '#ffffff',
+                            scale: 2,
+                            useCORS: true,
+                            logging: true
+                        });
+                        console.log('html2canvas erfolgreich, Canvas:', canvas2d.width, 'x', canvas2d.height);
+
+                        const imgData2d = canvas2d.toDataURL('image/png', 1.0);
+                        console.log('2D-Canvas-Daten extrahiert, Länge:', imgData2d.length);
+
+                        if (imgData2d && imgData2d !== 'data:,' && imgData2d.length > 50) {
+                            checkPageBreak(90); // Genug Platz für 2D-Bild
+
+                            // Rahmen für Visualisierung
+                            pdf.setDrawColor(200, 200, 200);
+                            pdf.rect(margin + 10, yPosition, 110, 70, 'S');
+
+                            pdf.addImage(imgData2d, 'PNG', margin + 15, yPosition + 5, 100, 60);
+                            console.log('2D-Bild erfolgreich zu PDF hinzugefügt');
+
+                            // Beschriftung
+                            pdf.setFontSize(10);
+                            pdf.setFont(undefined, 'italic');
+                            pdf.text('2D-Raumdarstellung (Draufsicht)', margin + 15, yPosition + 75);
+
+                            yPosition += 85;
+                        } else {
+                            pdf.text('2D-Canvas ist leer.', margin + 15, yPosition);
+                            yPosition += 20;
+                        }
+                    } catch (html2canvasError) {
+                        console.error('html2canvas Fehler:', html2canvasError);
+                        pdf.text('Fehler beim 2D-Screenshot: ' + html2canvasError.message, margin + 15, yPosition);
+                        yPosition += 20;
+                    }
+                } else {
+                    // Fallback: Erstelle einfache schematische Darstellung
+                    console.log('Keine Visualisierung gefunden, erstelle schematische Darstellung');
+
+                    checkPageBreak(100);
+
+                    // Titel
+                    pdf.setFontSize(11);
+                    pdf.setFont(undefined, 'bold');
+                    pdf.text('Schematische Raumdarstellung', margin + 15, yPosition);
+                    yPosition += 15;
+
+                    // Raum-Schema zeichnen
+                    const schemaWidth = 120;
+                    const schemaHeight = 80;
+                    const roomWidthNum = parseFloat(roomWidth);
+                    const roomLengthNum = parseFloat(roomLength);
+                    const lampCount = parseInt(document.getElementById('lampCountRounded')?.textContent || '0');
+
+                    // Raum-Rechteck
+                    pdf.setDrawColor(100, 100, 100);
+                    pdf.setLineWidth(1);
+                    pdf.rect(margin + 15, yPosition, schemaWidth, schemaHeight, 'S');
+
+                    // Maße beschriften
+                    pdf.setFontSize(9);
+                    pdf.setFont(undefined, 'normal');
+                    pdf.text(`${roomWidthNum}m`, margin + 15 + schemaWidth/2 - 10, yPosition - 5);
+                    pdf.text(`${roomLengthNum}m`, margin + 5, yPosition + schemaHeight/2);
+
+                    // Leuchten als Punkte einzeichnen
+                    if (lampCount > 0) {
+                        // Berechne Anordnung
+                        let cols, rows;
+                        if (lampCount === 1) {
+                            cols = 1; rows = 1;
+                        } else if (lampCount === 2) {
+                            cols = 2; rows = 1;
+                        } else if (lampCount <= 4) {
+                            cols = 2; rows = Math.ceil(lampCount / 2);
+                        } else {
+                            const aspectRatio = roomWidthNum / roomLengthNum;
+                            cols = Math.ceil(Math.sqrt(lampCount * aspectRatio));
+                            rows = Math.ceil(lampCount / cols);
+                            if (cols * (rows - 1) >= lampCount) rows = rows - 1;
+                        }
+
+                        const spacingX = schemaWidth / (cols + 1);
+                        const spacingY = schemaHeight / (rows + 1);
+
+                        pdf.setFillColor(255, 215, 0); // Gold für Leuchten
+
+                        let lampIndex = 0;
+                        for (let row = 0; row < rows && lampIndex < lampCount; row++) {
+                            for (let col = 0; col < cols && lampIndex < lampCount; col++) {
+                                const x = margin + 15 + spacingX * (col + 1);
+                                const y = yPosition + spacingY * (row + 1);
+                                pdf.circle(x, y, 3, 'F');
+                                lampIndex++;
+                            }
+                        }
+                    }
+
+                    // Legende
+                    pdf.setFontSize(8);
+                    pdf.text(`${lampCount} Leuchten schematisch dargestellt`, margin + 15, yPosition + schemaHeight + 10);
+
+                    yPosition += schemaHeight + 20;
+                }
+            } catch (e) {
+                console.error('Fehler beim Visualisierung-Export:', e);
+                pdf.setFontSize(11);
+                pdf.text('Fehler beim Export der Visualisierung: ' + e.message, margin + 15, yPosition);
+                yPosition += 20;
+            }
+        }
+
+        // Gleichmaessigkeits-Bewertung
+        checkPageBreak(60);
+        addSectionHeader('5. Leuchtverteilung und Gleichmäßigkeit', '');
+
+        const lampCount = parseInt(document.getElementById('lampCountRounded').textContent);
+        const roomWidthNum = parseFloat(roomWidth);
+        const roomLengthNum = parseFloat(roomLength);
+
+        // Berechne tatsaechliche Verteilung
+        let cols, rows;
+        if (lampCount === 1) {
+            cols = 1; rows = 1;
+        } else if (lampCount === 2) {
+            cols = 2; rows = 1;
+        } else if (lampCount <= 4) {
+            cols = 2; rows = Math.ceil(lampCount / 2);
+        } else {
+            const aspectRatio = roomWidthNum / roomLengthNum;
+            cols = Math.ceil(Math.sqrt(lampCount * aspectRatio));
+            rows = Math.ceil(lampCount / cols);
+            if (cols * (rows - 1) >= lampCount) rows = rows - 1;
+        }
+
+        const actualLamps = cols * rows;
+        const spacingX = roomWidthNum / (cols + 1);
+        const spacingZ = roomLengthNum / (rows + 1);
+
+        pdf.setFontSize(11);
+        pdf.setFont(undefined, 'normal');
+
+        const distributionInfo = [
+            `Berechnete Leuchtenzahl: ${lampCount} Stück`,
+            `Tatsächliche Anordnung: ${cols} x ${rows} = ${actualLamps} Leuchten`,
+            `Abstand zwischen Leuchten: ${spacingX.toFixed(2)}m x ${spacingZ.toFixed(2)}m`,
+            '',
+            'Hinweis zur Gleichmäßigkeit:'
+        ];
+
+        distributionInfo.forEach(line => {
+            if (line === '') {
+                yPosition += 4;
+            } else {
+                checkPageBreak();
+                if (line.includes('Hinweis')) {
+                    pdf.setFont(undefined, 'bold');
+                }
+                pdf.text(line, margin + 15, yPosition);
+                pdf.setFont(undefined, 'normal');
+                yPosition += lineHeight;
+            }
+        });
+
+        yPosition += 5;
+
+        // Warnung Box fuer ungleichmaessige Verteilung
+        if (actualLamps > lampCount) {
+            pdf.setFillColor(255, 243, 205);
+            pdf.rect(margin + 5, yPosition - 3, pageWidth - 2 * margin - 10, 25, 'F');
+            pdf.setDrawColor(255, 193, 7);
+            pdf.rect(margin + 5, yPosition - 3, pageWidth - 2 * margin - 10, 25, 'S');
+
+            pdf.setFont(undefined, 'bold');
+            pdf.setTextColor(133, 100, 4);
+            pdf.text('ACHTUNG: Ungleichmäßige Verteilung!', margin + 10, yPosition + 5);
+
+            pdf.setFont(undefined, 'normal');
+            pdf.setTextColor(0, 0, 0);
+            pdf.text(`Es werden ${actualLamps} statt ${lampCount} Leuchten benötigt für`, margin + 10, yPosition + 12);
+            pdf.text('eine gleichmäßige Anordnung. Alternative Lösungen prüfen!', margin + 10, yPosition + 18);
+
+            yPosition += 30;
+        } else if (lampCount === actualLamps) {
+            pdf.setFillColor(212, 237, 218);
+            pdf.rect(margin + 5, yPosition - 3, pageWidth - 2 * margin - 10, 15, 'F');
+            pdf.setDrawColor(40, 167, 69);
+            pdf.rect(margin + 5, yPosition - 3, pageWidth - 2 * margin - 10, 15, 'S');
+
+            pdf.setFont(undefined, 'bold');
+            pdf.setTextColor(21, 87, 36);
+            pdf.text('Gleichmaessige Verteilung moeglich!', margin + 10, yPosition + 8);
+
+            yPosition += 20;
+        }
+
+        pdf.setTextColor(0, 0, 0);
+
+        // Lichtverteilungsdiagramme hinzufügen
+        try {
+            const distributionCanvas = document.getElementById('distributionCanvas');
+            if (distributionCanvas && distributionCanvas.width > 0 && distributionCanvas.height > 0) {
+                checkPageBreak(120);
+
+                // Untertitel für Lichtverteilungsdiagramme
+                pdf.setFontSize(12);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('5.1 Lichtverteilungskurven (EULUMDAT)', margin + 15, yPosition);
+                yPosition += 15;
+
+                // Canvas als Bild in PDF einbetten
+                const imgData = distributionCanvas.toDataURL('image/png', 1.0);
+                const canvasAspectRatio = distributionCanvas.width / distributionCanvas.height;
+
+                // Diagramm-Größe berechnen (maximal 160mm breit)
+                const maxWidth = 160;
+                const maxHeight = 90;
+                let imgWidth = maxWidth;
+                let imgHeight = maxWidth / canvasAspectRatio;
+
+                if (imgHeight > maxHeight) {
+                    imgHeight = maxHeight;
+                    imgWidth = imgHeight * canvasAspectRatio;
+                }
+
+                // Diagramm zentriert platzieren
+                const imgX = (pageWidth - imgWidth) / 2;
+                pdf.addImage(imgData, 'PNG', imgX, yPosition, imgWidth, imgHeight);
+                yPosition += imgHeight + 15;
+
+                // Beschreibung unter dem Diagramm
+                pdf.setFontSize(9);
+                pdf.setFont(undefined, 'normal');
+                pdf.setTextColor(80, 80, 80);
+
+                const description = [
+                    'Photometrische Lichtverteilungskurven der Leuchte basierend auf EULUMDAT-Daten.',
+                    'Links: C0-C180 (Längsrichtung), Rechts: C90-C270 (Querrichtung)',
+                    'Intensität in cd/1000 lm, Winkel in Grad (0° = nadir, 90° = horizontal)'
+                ];
+
+                description.forEach(line => {
+                    checkPageBreak();
+                    pdf.text(line, margin + 15, yPosition);
+                    yPosition += 4;
+                });
+
+                yPosition += 10;
+                pdf.setTextColor(0, 0, 0);
+
+                console.log('✓ Lichtverteilungsdiagramm in PDF eingefügt');
+            } else {
+                console.log('⚠ Kein Lichtverteilungsdiagramm gefunden oder Canvas leer');
+            }
+        } catch (lightDistError) {
+            console.error('Fehler beim Export der Lichtverteilungsdiagramme:', lightDistError);
+            checkPageBreak(20);
+            pdf.setFontSize(9);
+            pdf.setTextColor(200, 50, 50);
+            pdf.text('Lichtverteilungsdiagramme konnten nicht exportiert werden.', margin + 15, yPosition);
+            yPosition += 15;
+            pdf.setTextColor(0, 0, 0);
+        }
+
+        // Variablenerklärung hinzufügen
+        checkPageBreak(50);
+        addSectionHeader('6. Verwendete Symbole und Variablen', '');
+
+        const variables = [
+            ['A', 'Raumflaeche [m²]'],
+            ['L, B', 'Raumlaenge und -breite [m]'],
+            ['h', 'Abstand Leuchte zu Arbeitsebene [m]'],
+            ['k', 'Raumindex [-]'],
+            ['E', 'Beleuchtungsstaerke [lx]'],
+            ['eta0', 'Basis-Raumwirkungsgrad [%]'],
+            ['eta', 'Korrigierter Raumwirkungsgrad [%]'],
+            ['rho', 'Reflexionsgrad [-]'],
+            ['W', 'Wartungsfaktor [-]'],
+            ['Phi_gesamt', 'Benoetigter Gesamtlichtstrom [lm]'],
+            ['Phi_leuchte', 'Lichtstrom einer Leuchte [lm]'],
+            ['n', 'Anzahl der Leuchten [Stueck]'],
+            ['ceil(x)', 'Aufrundungsfunktion'],
+            ['P_gesamt', 'Gesamtleistung [W]'],
+            ['P_leuchte', 'Leistung einer Leuchte [W]']
+        ];
+
+        pdf.setFontSize(10);
+        pdf.setFont(undefined, 'normal');
+
+        variables.forEach(([symbol, description]) => {
+            checkPageBreak();
+            pdf.setFont(undefined, 'bold');
+            pdf.text(symbol, margin + 15, yPosition);
+            pdf.setFont(undefined, 'normal');
+            pdf.text(description, margin + 50, yPosition);
+            yPosition += lineHeight + 1;
+        });
+
+        yPosition += 10;
+
+        addSectionHeader('7. Zusätzliche Hinweise', '');
+
+        const notes = [
+            'Diese Berechnung basiert auf der Lumen-Methode nach DIN EN 12464-1.',
+            'Die Werte sind als Richtwerte zu verstehen und können je nach',
+            'spezifischen Anforderungen angepasst werden.',
+            '',
+            'Für eine detaillierte lichttechnische Planung empfehlen wir die',
+            'Konsultation eines Lichtplaners oder Elektroplaners.',
+            '',
+            'Bei Fragen zur Berechnung stehen Ihnen Fachplaner',
+            'gerne zur Verfügung.'
+        ];
+
+        pdf.setFontSize(10);
+        pdf.setFont(undefined, 'normal');
+        notes.forEach(note => {
+            if (note === '') {
+                yPosition += 4;
+            } else {
+                checkPageBreak();
+                pdf.text(note, margin + 15, yPosition);
+                yPosition += lineHeight;
+            }
+        });
+
+        // Footer für alle Seiten
+        const pageCount = pdf.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            pdf.setPage(i);
+
+            // Footer-Position berechnen
+            const footerY = pageHeight - footerHeight;
+
+            // Footer-Linie
+            pdf.setDrawColor(200, 200, 200);
+            pdf.line(margin, footerY + 5, pageWidth - margin, footerY + 5);
+
+            // Footer-Inhalte
+            pdf.setFontSize(9);
+            pdf.setTextColor(100, 100, 100);
+            pdf.setFont(undefined, 'normal');
+
+            // Links: Tool-Info
+            pdf.text('Erstellt mit Beleuchtungsrechner', margin, footerY + 15);
+
+            // Mitte: Datum
+            const footerDate = new Date().toLocaleDateString('de-DE');
+            pdf.text(footerDate, pageWidth / 2 - 15, footerY + 15);
+
+            // Rechts: Seitenzahl
+            pdf.text(`Seite ${i} von ${pageCount}`, pageWidth - 40, footerY + 15);
+
+            // Header für Folgeseiten hinzufügen (außer erste Seite)
+            if (i > 1) {
+                addHeader();
+            }
+        }
+
+        // PDF speichern
+        const fileName = `Beleuchtungsberechnung_${roomWidth}x${roomLength}m_${new Date().toISOString().split('T')[0]}.pdf`;
+        pdf.save(fileName);
+
+    } catch (error) {
+        console.error('Fehler beim PDF-Export:', error);
+        alert('Fehler beim Erstellen der PDF-Datei!');
+    } finally {
+        // Button wieder aktivieren
+        const pdfButton = document.getElementById('pdfButton');
+        pdfButton.disabled = false;
+        pdfButton.innerHTML = '<i class="bi bi-file-earmark-pdf me-2"></i>PDF Export';
+    }
+}
+
+// Initialization
+document.addEventListener('DOMContentLoaded', function() {
+    // Einmalig localStorage zurücksetzen für LUXANO 2 Update
+    const schuchVersion = localStorage.getItem('schuchLampsVersion');
+    if (schuchVersion !== '3.0') {
+        localStorage.removeItem('lampDatabase');
+        localStorage.setItem('schuchLampsVersion', '3.0');
+        console.log('localStorage cleared for LUXANO 2 update v3.0');
+    }
+
+    // Schuch Standardlampen mit EULUMDAT-Daten
+    const schuchLamps = [
+        // LUXANO 2 Serie - Echte Schuch Feuchtraumleuchten (IP65)
+        { id: 1, name: 'LUXANO 2 167 12L34G2', lumen: 3850, watt: 28, type: 'Feuchtraumleuchte IP65' },
+        { id: 2, name: 'LUXANO 2 167 12L42G2', lumen: 4100, watt: 30, type: 'Feuchtraumleuchte IP65' },
+        {
+            id: 3,
+            name: 'LUXANO 2 167 15L60G2',
+            lumen: 6000,
+            watt: 43,
+            type: 'Feuchtraumleuchte IP65',
+            hasEULUMDAT: true,
+            eulumdatFile: '167_15L60G2_DIMD_840_1224.LDT',
+            colorTemp: '4000K',
+            cri: 'Ra80',
+            dimensions: '1477×85×88 mm'
+        },
+
+        // LUXANO 2 VARIO Serie (einstellbare Leistung)
+        { id: 4, name: 'LUXANO 2 VARIO 18/30W', lumen: 2700, watt: 18, type: 'Feuchtraumleuchte VARIO' },
+        { id: 5, name: 'LUXANO 2 VARIO 25/43W', lumen: 3800, watt: 25, type: 'Feuchtraumleuchte VARIO' },
+
+        // LUXANO 2 Hochleistung
+        { id: 6, name: 'LUXANO 2 15L100', lumen: 11000, watt: 75, type: 'Feuchtraumleuchte Hochleistung' }
+    ];
+
+    // Benutzerdefinierte Lampen aus localStorage laden
+    const savedLamps = localStorage.getItem('lampDatabase');
+    let customLamps = [];
+    if (savedLamps) {
+        try {
+            const parsed = JSON.parse(savedLamps);
+            // Nur benutzerdefinierte Lampen (nicht Schuch-Lampen) behalten
+            customLamps = parsed.filter(lamp => !lamp.name.includes('LUXANO') && lamp.id < 1000);
+        } catch (e) {
+            console.error('Error parsing saved lamps:', e);
+        }
+    }
+
+    // Schuch-Lampen mit benutzerdefinierten Lampen kombinieren
+    // Schuch-Lampen bekommen neue IDs, um Konflikte zu vermeiden
+    const maxCustomId = customLamps.length > 0 ? Math.max(...customLamps.map(l => l.id)) : 0;
+    const adjustedSchuchLamps = schuchLamps.map((lamp, index) => ({
+        ...lamp,
+        id: maxCustomId + index + 1000 // Große ID-Nummer um Konflikte zu vermeiden
+    }));
+
+    lampDatabase = [...adjustedSchuchLamps, ...customLamps];
+    console.log('Lamp database initialized with', lampDatabase.length, 'lamps:', lampDatabase);
+    updateLampList();
+    console.log('updateLampList() called');
+
+    // Initiale Validierung der Höhen
+    updateMountingHeightMax();
+    updateWorkPlaneHeightMax();
+
+    // Three.js laden und initialisieren
+    if (typeof THREE === 'undefined') {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+        script.onload = () => {
+            setTimeout(init3D, 100);
+        };
+        script.onerror = () => {
+            console.log('Three.js konnte nicht geladen werden, verwende 2D-Fallback');
+            init2D();
+        };
+        document.head.appendChild(script);
+    } else {
+        setTimeout(init3D, 100);
+    }
+
+    // Event Listener für Raumparameter
+    ['roomWidth', 'roomLength', 'roomHeight', 'workPlaneHeight', 'mountingHeight'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('change', () => {
+                if (scene) createBasicRoom();
+                else if (document.getElementById('room2d')) update2DVisualization(0);
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

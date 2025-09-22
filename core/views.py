@@ -1,8 +1,14 @@
 # core/views.py
 from django.shortcuts import render, get_object_or_404
 from django.http import Http404
+from django.contrib.auth.decorators import login_required
 from accounts.models import CustomPage, EditableContent
 from core.page_registry import get_system_page_info
+
+@login_required
+def beleuchtungsrechner(request):
+    """Beleuchtungsrechner Tool für Schuch"""
+    return render(request, 'core/beleuchtungsrechner.html')
 
 def startseite_ansicht(request):
     """Diese Ansicht rendert nur die Kachel-Übersicht."""
