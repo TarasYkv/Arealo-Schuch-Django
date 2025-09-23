@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.template.loader import render_to_string
+from accounts.decorators import require_app_permission
 from .models import (
     RoadType, LightingClassification, ClassificationCriteria, ClassificationScoring,
     DINRoadCategory, DINLightingClassification, DINClassificationParameter,
@@ -29,6 +30,7 @@ def index(view):
 
 
 @login_required
+@require_app_permission('din_13201')
 def select_road_type(request):
     """Schritt 1: Straßentyp auswählen (DIN-konform)"""
 
@@ -60,6 +62,7 @@ def select_road_type(request):
 
 
 @login_required
+@require_app_permission('din_13201')
 @require_http_methods(["POST"])
 def start_classification(request):
     """Startet eine neue DIN-konforme Klassifizierung"""
@@ -100,6 +103,7 @@ def start_classification(request):
 
 
 @login_required
+@require_app_permission('din_13201')
 def configure_parameters(request, classification_id):
     """Schritt 2: DIN-konforme Parameter konfigurieren"""
 
@@ -235,6 +239,7 @@ def configure_parameters(request, classification_id):
 
 
 @login_required
+@require_app_permission('din_13201')
 def view_result(request, classification_id):
     """Schritt 3: DIN-konformes Ergebnis anzeigen"""
 
@@ -402,6 +407,7 @@ def get_lighting_class_info(lighting_class):
 
 
 @login_required
+@require_app_permission('din_13201')
 def download_pdf(request, classification_id):
     """PDF-Download der DIN 13201-1 Klassifizierungsergebnisse"""
 
