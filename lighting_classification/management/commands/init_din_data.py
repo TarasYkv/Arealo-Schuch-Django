@@ -62,7 +62,7 @@ class Command(BaseCommand):
                 self.stdout.write(f"Erstellt: {category}")
 
     def create_lighting_class_standards(self):
-        """Beleuchtungsklassen-Standards nach DIN EN 13201-2"""
+        """Beleuchtungsklassen-Standards nach DIN 13201-2:2015-11"""
         standards = [
             # M-Klassen
             {'class_type': 'M', 'class_number': 1, 'maintenance_luminance': 2.0, 'uo': 0.4, 'ul': 0.7, 'ti': 10},

@@ -22,38 +22,38 @@
         const trackUrlTemplate = '{{ track_url }}';
         let adLoaded = false; // Verhindert doppeltes Laden für DIESE spezifische Instanz
         
-        console.log(`[LoomAds] Loading ad for zone: ${zoneCode} (ID: ${uniqueId})`);
-        console.log(`[LoomAds] API URL: ${apiUrl}`);
-        console.log(`[LoomAds] Track URL Template: ${trackUrlTemplate}`);
+        console.log('[LoomAds] Loading ad for zone: ' + zoneCode + ' (ID: ' + uniqueId + ')');
+        console.log('[LoomAds] API URL: ' + apiUrl);
+        console.log('[LoomAds] Track URL Template: ' + trackUrlTemplate);
         
         function loadAd() {
             // Verhindere doppeltes Laden für diese spezifische Instanz
             if (adLoaded) {
-                console.log(`[LoomAds] ${uniqueId}: Ad already loaded, skipping`);
+                console.log('[LoomAds] ' + uniqueId + ': Ad already loaded, skipping');
                 return;
             }
             adLoaded = true;
-            console.log(`[LoomAds] ${uniqueId}: Starting ad fetch from ${apiUrl}`);
+            console.log('[LoomAds] ' + uniqueId + ': Starting ad fetch from ' + apiUrl);
             fetch(apiUrl)
                 .then(response => {
-                    console.log(`[LoomAds] ${uniqueId}: API response status: ${response.status}`);
+                    console.log('[LoomAds] ' + uniqueId + ': API response status: ' + response.status);
                     if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        throw new Error('HTTP ' + response.status + ': ' + response.statusText);
                     }
                     return response.json();
                 })
                 .then(data => {
-                    console.log(`[LoomAds] ${uniqueId}: API response data:`, data);
-                    
+                    console.log('[LoomAds] ' + uniqueId + ': API response data:', data);
+
                     if (data.error) {
-                        console.warn(`[LoomAds] ${uniqueId}: API returned error: ${data.error}`);
+                        console.warn('[LoomAds] ' + uniqueId + ': API returned error: ' + data.error);
                         if (data.debug) {
-                            console.log(`[LoomAds] ${uniqueId}: Debug info: ${data.debug}`);
+                            console.log('[LoomAds] ' + uniqueId + ': Debug info: ' + data.debug);
                         }
                         {% if fallback %}
                         const fallbackContainer = document.getElementById(uniqueId);
                         if (fallbackContainer) {
-                            fallbackContainer.innerHTML = `{{ fallback|escapejs }}`;
+                            fallbackContainer.innerHTML = "{{ fallback|escapejs }}";
                             fallbackContainer.style.display = 'flex';
                             fallbackContainer.style.alignItems = 'center';
                             fallbackContainer.style.justifyContent = 'center';
@@ -65,26 +65,24 @@
                     
                     const adContainer = document.getElementById(uniqueId);
                     if (!adContainer) {
-                        console.error(`[LoomAds] ${uniqueId}: Container element not found`);
+                        console.error('[LoomAds] ' + uniqueId + ': Container element not found');
                         return;
                     }
-                    
-                    console.log(`[LoomAds] ${uniqueId}: Rendering ad type: ${data.type}`);
-                    console.log(`[LoomAds] ${uniqueId}: Ad data:`, data);
+
+                    console.log('[LoomAds] ' + uniqueId + ': Rendering ad type: ' + data.type);
+                    console.log('[LoomAds] ' + uniqueId + ': Ad data:', data);
                     let adHtml = '';
                     const trackUrl = trackUrlTemplate.replace('AD_ID_PLACEHOLDER', data.id);
-                    console.log(`[LoomAds] ${uniqueId}: Track URL: ${trackUrl}`);
+                    console.log('[LoomAds] ' + uniqueId + ': Track URL: ' + trackUrl);
                     
                     if (data.type === 'image' && data.image_url) {
-                        adHtml = `
-                            <a href="${data.target_url}" target="${data.target_type}" 
-                               onclick="trackClick('${data.id}', '${uniqueId}'); return true;" 
-                               class="loomads-link" style="display: block; text-align: center;">
-                                <img src="${data.image_url}" alt="${data.title || ''}" 
-                                     class="loomads-image" 
-                                     style="max-width: {{ width }}px; max-height: {{ height }}px; width: auto; height: auto; display: block; margin: 0 auto;" />
-                            </a>
-                        `;
+                        adHtml = '<a href="' + data.target_url + '" target="' + data.target_type + '" ' +
+                            'onclick="trackClick(\'' + data.id + '\', \'' + uniqueId + '\'); return true;" ' +
+                            'class="loomads-link" style="display: block; text-align: center;">' +
+                            '<img src="' + data.image_url + '" alt="' + (data.title || '') + '" ' +
+                            'class="loomads-image" ' +
+                            'style="max-width: {{ width }}px; max-height: {{ height }}px; width: auto; height: auto; display: block; margin: 0 auto;" />' +
+                            '</a>';
                     } else if (data.type === 'html' && data.html_content) {
                         // Make HTML content responsive
                         let responsiveHtml = data.html_content
@@ -93,36 +91,30 @@
                             .replace(/min-width:\s*\d+px/g, 'min-width: auto')
                             .replace(/box-sizing:\s*border-box/g, 'box-sizing: border-box');
                         
-                        adHtml = `
-                            <div onclick="if(window.trackClick) window.trackClick('${data.id}', '${uniqueId}')" 
-                                 class="loomads-html" style="cursor: pointer; text-align: center; width: 100%; max-width: 100%; box-sizing: border-box;">
-                                ${responsiveHtml}
-                            </div>
-                        `;
+                        adHtml = '<div onclick="if(window.trackClick) window.trackClick(\'' + data.id + '\', \'' + uniqueId + '\')" ' +
+                            'class="loomads-html" style="cursor: pointer; text-align: center; width: 100%; max-width: 100%; box-sizing: border-box;">' +
+                            responsiveHtml +
+                            '</div>';
                     } else if (data.type === 'text') {
-                        adHtml = `
-                            <a href="${data.target_url}" target="${data.target_type}" 
-                               onclick="trackClick('${data.id}', '${uniqueId}'); return true;" 
-                               class="loomads-text" style="display: block; text-align: center; width: 100%; text-decoration: none;">
-                                ${data.title ? `<h4 style="margin: 0 0 8px 0;">${data.title}</h4>` : ''}
-                                ${data.description ? `<p style="margin: 0;">${data.description}</p>` : ''}
-                            </a>
-                        `;
+                        adHtml = '<a href="' + data.target_url + '" target="' + data.target_type + '" ' +
+                            'onclick="trackClick(\'' + data.id + '\', \'' + uniqueId + '\'); return true;" ' +
+                            'class="loomads-text" style="display: block; text-align: center; width: 100%; text-decoration: none;">' +
+                            (data.title ? '<h4 style="margin: 0 0 8px 0;">' + data.title + '</h4>' : '') +
+                            (data.description ? '<p style="margin: 0;">' + data.description + '</p>' : '') +
+                            '</a>';
                     } else if (data.type === 'video' && data.video_url) {
-                        adHtml = `
-                            <video controls 
-                                   ${data.video_with_audio ? '' : 'muted'}
-                                   onclick="trackClick('${data.id}', '${uniqueId}')" 
-                                   class="loomads-video" 
-                                   style="max-width: {{ width }}px; max-height: {{ height }}px; display: block; margin: 0 auto;">
-                                <source src="${data.video_url}" type="video/mp4">
-                                Ihr Browser unterstützt keine Videos.
-                            </video>
-                        `;
+                        adHtml = '<video controls ' +
+                            (data.video_with_audio ? '' : 'muted') +
+                            ' onclick="trackClick(\'' + data.id + '\', \'' + uniqueId + '\')" ' +
+                            'class="loomads-video" ' +
+                            'style="max-width: {{ width }}px; max-height: {{ height }}px; display: block; margin: 0 auto;">' +
+                            '<source src="' + data.video_url + '" type="video/mp4">' +
+                            'Ihr Browser unterstuetzt keine Videos.' +
+                            '</video>';
                     }
                     
                     if (adHtml) {
-                        console.log(`[LoomAds] ${uniqueId}: Setting HTML:`, adHtml.substring(0, 100) + '...');
+                        console.log('[LoomAds] ' + uniqueId + ': Setting HTML:', adHtml.substring(0, 100) + '...');
                         adContainer.innerHTML = adHtml;
                         adContainer.style.display = 'block';
                         adContainer.style.textAlign = 'center';
@@ -133,34 +125,34 @@
                         adContainer.style.width = '100%';
                         adContainer.style.maxWidth = '100%';
                         adContainer.style.boxSizing = 'border-box';
-                        console.log(`[LoomAds] ${uniqueId}: Ad successfully rendered`);
-                        console.log(`[LoomAds] ${uniqueId}: Container dimensions:`, adContainer.offsetWidth + 'x' + adContainer.offsetHeight);
+                        console.log('[LoomAds] ' + uniqueId + ': Ad successfully rendered');
+                        console.log('[LoomAds] ' + uniqueId + ': Container dimensions:', adContainer.offsetWidth + 'x' + adContainer.offsetHeight);
                     } else {
-                        console.warn(`[LoomAds] ${uniqueId}: No ad HTML generated for type: ${data.type}`);
+                        console.warn('[LoomAds] ' + uniqueId + ': No ad HTML generated for type: ' + data.type);
                         adContainer.innerHTML = '<div style="color: #999; font-size: 12px;">Hier kann Deine Werbung stehen!</div>';
                         adContainer.style.display = 'block';
                     }
                 })
                 .catch(error => {
-                    console.error(`[LoomAds] ${uniqueId}: Fetch error:`, error);
+                    console.error('[LoomAds] ' + uniqueId + ': Fetch error:', error);
                     const adContainer = document.getElementById(uniqueId);
                     if (adContainer) {
                         {% if fallback %}
-                        adContainer.innerHTML = `{{ fallback|escapejs }}`;
+                        adContainer.innerHTML = '{{ fallback|escapejs }}';
                         {% else %}
                         adContainer.innerHTML = '<div style="color: #999; font-size: 12px;">Hier kann Deine Werbung stehen!</div>';
                         {% endif %}
                         adContainer.style.display = 'block';
                         adContainer.style.textAlign = 'center';
-                        console.log(`[LoomAds] ${uniqueId}: Error fallback displayed`);
+                        console.log('[LoomAds] ' + uniqueId + ': Error fallback displayed');
                     }
                 });
         }
         
         function trackClick(adId, uniqueContainerId) {
-            console.log(`[LoomAds] ${uniqueContainerId}: Tracking click for ad ${adId}`);
+            console.log('[LoomAds] ' + uniqueContainerId + ': Tracking click for ad ' + adId);
             const trackUrl = trackUrlTemplate.replace('AD_ID_PLACEHOLDER', adId);
-            console.log(`[LoomAds] ${uniqueContainerId}: Track URL: ${trackUrl}`);
+            console.log('[LoomAds] ' + uniqueContainerId + ': Track URL: ' + trackUrl);
             const formData = new FormData();
             formData.append('zone_code', zoneCode);
             
@@ -176,9 +168,9 @@
                 method: 'POST',
                 body: formData
             }).then(() => {
-                console.log(`[LoomAds] ${uniqueContainerId}: Click tracked successfully`);
+                console.log('[LoomAds] ' + uniqueContainerId + ': Click tracked successfully');
             }).catch(error => {
-                console.error(`[LoomAds] ${uniqueContainerId}: Tracking error:`, error);
+                console.error('[LoomAds] ' + uniqueContainerId + ': Tracking error:', error);
             });
         }
         
@@ -186,13 +178,13 @@
         window.trackClick = window.trackClick || trackClick;
         
         // Ad laden wenn DOM bereit ist - mit Schutz vor doppeltem Aufruf
-        console.log(`[LoomAds] ${uniqueId}: DOM ready state: ${document.readyState}`);
+        console.log('[LoomAds] ' + uniqueId + ': DOM ready state: ' + document.readyState);
         if (document.readyState === 'loading') {
-            console.log(`[LoomAds] ${uniqueId}: Waiting for DOMContentLoaded`);
+            console.log('[LoomAds] ' + uniqueId + ': Waiting for DOMContentLoaded');
             document.addEventListener('DOMContentLoaded', loadAd, { once: true });
         } else {
-            console.log(`[LoomAds] ${uniqueId}: DOM already loaded, scheduling ad load`);
-            // Kleine Verzögerung um sicherzustellen, dass nicht doppelt geladen wird
+            console.log('[LoomAds] ' + uniqueId + ': DOM already loaded, scheduling ad load');
+            // Kleine Verzoegerung um sicherzustellen, dass nicht doppelt geladen wird
             setTimeout(loadAd, 100);
         }
     })();

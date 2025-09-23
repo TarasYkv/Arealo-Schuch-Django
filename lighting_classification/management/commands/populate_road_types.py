@@ -3,10 +3,10 @@ from lighting_classification.models import RoadType
 
 
 class Command(BaseCommand):
-    help = 'Fügt die normgerechten Straßentypen nach DIN EN 13201 in die Datenbank ein'
+    help = 'Fügt die normgerechten Straßentypen nach DIN 13201-1:2021-09 in die Datenbank ein'
 
     def handle(self, *args, **options):
-        self.stdout.write('Erstelle Straßentypen nach DIN EN 13201 Teil 1...')
+        self.stdout.write('Erstelle Straßentypen nach DIN 13201-1:2021-09...')
 
         road_types_data = [
             # Autobahnen und Kraftfahrstraßen
@@ -193,4 +193,4 @@ class Command(BaseCommand):
                 f'Abgeschlossen! {created_count} Straßentypen erstellt, {updated_count} aktualisiert.'
             )
         )
-        self.stdout.write('Die Straßentypen sind jetzt nach DIN EN 13201 Teil 1 verfügbar.')
+        self.stdout.write('Die Straßentypen sind jetzt nach DIN 13201-1:2021-09 verfügbar.')

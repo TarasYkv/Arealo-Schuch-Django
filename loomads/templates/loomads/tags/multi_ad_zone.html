@@ -32,36 +32,36 @@
         const trackUrlTemplate = '{{ track_url }}';
         let adsLoaded = false;
         
-        console.log(`[LoomAds Multi] Loading ${adCount} ads for zone: ${zoneCode}`);
-        console.log(`[LoomAds Multi] API URL: ${apiUrl}`);
+        console.log('[LoomAds Multi] Loading ' + adCount + ' ads for zone: ' + zoneCode);
+        console.log('[LoomAds Multi] API URL: ' + apiUrl);
         
         function loadAds() {
             if (adsLoaded) {
-                console.log(`[LoomAds Multi] ${uniqueId}: Ads already loaded, skipping`);
+                console.log('[LoomAds Multi] ' + uniqueId + ': Ads already loaded, skipping');
                 return;
             }
             adsLoaded = true;
-            
-            console.log(`[LoomAds Multi] ${uniqueId}: Starting ads fetch from ${apiUrl}`);
+
+            console.log('[LoomAds Multi] ' + uniqueId + ': Starting ads fetch from ' + apiUrl);
             fetch(apiUrl)
                 .then(response => {
-                    console.log(`[LoomAds Multi] ${uniqueId}: API response status: ${response.status}`);
+                    console.log('[LoomAds Multi] ' + uniqueId + ': API response status: ' + response.status);
                     if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        throw new Error('HTTP ' + response.status + ': ' + response.statusText);
                     }
                     return response.json();
                 })
                 .then(data => {
-                    console.log(`[LoomAds Multi] ${uniqueId}: API response data:`, data);
-                    
+                    console.log('[LoomAds Multi] ' + uniqueId + ': API response data:', data);
+
                     if (data.error) {
-                        console.warn(`[LoomAds Multi] ${uniqueId}: API returned error: ${data.error}`);
+                        console.warn('[LoomAds Multi] ' + uniqueId + ': API returned error: ' + data.error);
                         return;
                     }
                     
                     const container = document.getElementById(uniqueId);
                     if (!container) {
-                        console.error(`[LoomAds Multi] ${uniqueId}: Container element not found`);
+                        console.error('[LoomAds Multi] ' + uniqueId + ': Container element not found');
                         return;
                     }
                     
@@ -69,7 +69,7 @@
                     container.innerHTML = '';
                     
                     const ads = data.ads || [];
-                    console.log(`[LoomAds Multi] ${uniqueId}: Rendering ${ads.length} ads`);
+                    console.log('[LoomAds Multi] ' + uniqueId + ': Rendering ' + ads.length + ' ads');
                     
                     ads.forEach((ad, index) => {
                         const adSlot = document.createElement('div');
@@ -80,15 +80,13 @@
                         const trackUrl = trackUrlTemplate.replace('AD_ID_PLACEHOLDER', ad.id);
                         
                         if (ad.type === 'image' && ad.image_url) {
-                            adHtml = `
-                                <a href="${ad.target_url}" target="${ad.target_type}" 
-                                   onclick="trackClick('${ad.id}', '${uniqueId}-${index}'); return true;" 
-                                   class="loomads-link" style="display: block; text-decoration: none;">
-                                    <img src="${ad.image_url}" alt="${ad.title || ''}" 
-                                         class="loomads-image" 
-                                         style="max-width: 100%; height: auto; border-radius: 6px;" />
-                                </a>
-                            `;
+                            adHtml = '<a href="' + ad.target_url + '" target="' + ad.target_type + '" ' +
+                                'onclick="trackClick(\'' + ad.id + '\', \'' + uniqueId + '-' + index + '\'); return true;" ' +
+                                'class="loomads-link" style="display: block; text-decoration: none;">' +
+                                '<img src="' + ad.image_url + '" alt="' + (ad.title || '') + '" ' +
+                                'class="loomads-image" ' +
+                                'style="max-width: 100%; height: auto; border-radius: 6px;" />' +
+                                '</a>';
                         } else if (ad.type === 'html' && ad.html_content) {
                             // Make HTML content responsive for multi-ad display
                             let responsiveHtml = ad.html_content
@@ -96,27 +94,23 @@
                                 .replace(/width:\s*\d+px/g, 'width: 100%')
                                 .replace(/min-width:\s*\d+px/g, 'min-width: auto');
                             
-                            adHtml = `
-                                <div onclick="if(window.trackClick) window.trackClick('${ad.id}', '${uniqueId}-${index}')" 
-                                     class="loomads-html" style="cursor: pointer; width: 100%;">
-                                    ${responsiveHtml}
-                                </div>
-                            `;
+                            adHtml = '<div onclick="if(window.trackClick) window.trackClick(\'' + ad.id + '\', \'' + uniqueId + '-' + index + '\')" ' +
+                                'class="loomads-html" style="cursor: pointer; width: 100%;">' +
+                                responsiveHtml +
+                                '</div>';
                         } else if (ad.type === 'text') {
-                            adHtml = `
-                                <a href="${ad.target_url}" target="${ad.target_type}" 
-                                   onclick="trackClick('${ad.id}', '${uniqueId}-${index}'); return true;" 
-                                   class="loomads-text" style="display: block; text-decoration: none; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 6px;">
-                                    ${ad.title ? `<h5 style="margin: 0 0 4px 0; font-size: 13px;">${ad.title}</h5>` : ''}
-                                    ${ad.description ? `<p style="margin: 0; font-size: 11px; opacity: 0.9;">${ad.description}</p>` : ''}
-                                </a>
-                            `;
+                            adHtml = '<a href="' + ad.target_url + '" target="' + ad.target_type + '" ' +
+                                'onclick="trackClick(\'' + ad.id + '\', \'' + uniqueId + '-' + index + '\'); return true;" ' +
+                                'class="loomads-text" style="display: block; text-decoration: none; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 6px;">' +
+                                (ad.title ? '<h5 style="margin: 0 0 4px 0; font-size: 13px;">' + ad.title + '</h5>' : '') +
+                                (ad.description ? '<p style="margin: 0; font-size: 11px; opacity: 0.9;">' + ad.description + '</p>' : '') +
+                                '</a>';
                         }
                         
                         if (adHtml) {
                             adSlot.innerHTML = adHtml;
                             container.appendChild(adSlot);
-                            console.log(`[LoomAds Multi] ${uniqueId}: Ad ${index + 1} rendered successfully`);
+                            console.log('[LoomAds Multi] ' + uniqueId + ': Ad ' + (index + 1) + ' rendered successfully');
                         }
                     });
                     
@@ -125,11 +119,11 @@
                     }
                 })
                 .catch(error => {
-                    console.error(`[LoomAds Multi] ${uniqueId}: Fetch error:`, error);
+                    console.error('[LoomAds Multi] ' + uniqueId + ': Fetch error:', error);
                     const container = document.getElementById(uniqueId);
                     if (container) {
                         {% if fallback %}
-                        container.innerHTML = `{{ fallback|escapejs }}`;
+                        container.innerHTML = "{{ fallback|escapejs }}";
                         {% else %}
                         container.innerHTML = '<div style="color: #999; font-size: 12px; text-align: center;">Hier kann Deine Werbung stehen!</div>';
                         {% endif %}
@@ -138,7 +132,7 @@
         }
         
         function trackClick(adId, containerId) {
-            console.log(`[LoomAds Multi] ${containerId}: Tracking click for ad ${adId}`);
+            console.log('[LoomAds Multi] ' + containerId + ': Tracking click for ad ' + adId);
             const trackUrl = trackUrlTemplate.replace('AD_ID_PLACEHOLDER', adId);
             const formData = new FormData();
             formData.append('zone_code', zoneCode);
@@ -154,9 +148,9 @@
                 method: 'POST',
                 body: formData
             }).then(() => {
-                console.log(`[LoomAds Multi] ${containerId}: Click tracked successfully`);
+                console.log('[LoomAds Multi] ' + containerId + ': Click tracked successfully');
             }).catch(error => {
-                console.error(`[LoomAds Multi] ${containerId}: Tracking error:`, error);
+                console.error('[LoomAds Multi] ' + containerId + ': Tracking error:', error);
             });
         }
         
@@ -164,7 +158,7 @@
         window.trackClick = window.trackClick || trackClick;
         
         // Load ads when DOM is ready
-        console.log(`[LoomAds Multi] ${uniqueId}: DOM ready state: ${document.readyState}`);
+        console.log('[LoomAds Multi] ' + uniqueId + ': DOM ready state: ' + document.readyState);
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', loadAds, { once: true });
         } else {
