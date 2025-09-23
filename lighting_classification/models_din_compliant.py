@@ -145,11 +145,11 @@ class DINLightingClassification(models.Model):
     total_weighting_value = models.IntegerField(default=0, help_text="Summe VWS")
     calculated_lighting_class = models.CharField(max_length=10, blank=True, help_text="Berechnete Klasse (M/C/P)")
 
-    # Leuchtdichte/Beleuchtungsstärke nach DIN EN 13201-2
+    # Leuchtdichte/Beleuchtungsstärke nach DIN 13201-2:2015-11
     maintenance_luminance = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Wartungswert Leuchtdichte [cd/m²]")
     maintenance_illuminance = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Wartungswert Beleuchtungsstärke [lx]")
 
-    # Gütemerkmale nach DIN EN 13201-2
+    # Gütemerkmale nach DIN 13201-2:2015-11
     overall_uniformity_uo = models.DecimalField(max_digits=4, decimal_places=3, null=True, blank=True, help_text="Gesamtgleichmäßigkeit Uo")
     longitudinal_uniformity_ul = models.DecimalField(max_digits=4, decimal_places=3, null=True, blank=True, help_text="Längsgleichmäßigkeit Ul")
     threshold_increment_ti = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, help_text="Schwellenwerterhöhung TI [%]")
@@ -193,13 +193,13 @@ class DINLightingClassification(models.Model):
 
         self.calculated_lighting_class = calculated_class
 
-        # Wartungswerte nach DIN EN 13201-2 setzen
+        # Wartungswerte nach DIN 13201-2:2015-11 setzen
         self._set_maintenance_values(calculated_class)
 
         return calculated_class
 
     def _set_maintenance_values(self, lighting_class):
-        """Wartungswerte nach DIN EN 13201-2 Tabelle 1, 2, 3"""
+        """Wartungswerte nach DIN 13201-2:2015-11 Tabelle 1, 2, 3"""
 
         # M-Klassen Wartungswerte [cd/m²]
         m_class_values = {
@@ -318,7 +318,7 @@ class DINAdaptiveLightingSet(models.Model):
 
 
 class DINLightingClassStandard(models.Model):
-    """Referenztabelle für Beleuchtungsklassen nach DIN EN 13201-2"""
+    """Referenztabelle für Beleuchtungsklassen nach DIN 13201-2:2015-11"""
 
     LIGHTING_CLASS_TYPES = [
         ('M', 'M-Klassen'),

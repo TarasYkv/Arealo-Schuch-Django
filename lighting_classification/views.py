@@ -373,32 +373,32 @@ def get_lighting_class_info(lighting_class):
             if class_type == 'M':
                 return {
                     'description': f'Beleuchtungsklasse {lighting_class} für Kraftfahrzeugverkehr',
-                    'application': 'Straßenbeleuchtung nach DIN EN 13201',
-                    'requirements': 'Siehe DIN EN 13201-2 für spezifische Werte'
+                    'application': 'Straßenbeleuchtung nach DIN 13201-1:2021-09',
+                    'requirements': 'Siehe DIN 13201-2:2015-11 für spezifische Werte'
                 }
             elif class_type == 'P':
                 return {
                     'description': f'Beleuchtungsklasse {lighting_class} für Fußgänger/Radfahrer',
                     'application': 'Wege für Fußgänger und Radfahrer',
-                    'requirements': 'Siehe DIN EN 13201-2 für spezifische Werte'
+                    'requirements': 'Siehe DIN 13201-2:2015-11 für spezifische Werte'
                 }
             elif class_type == 'A':
                 return {
                     'description': f'Beleuchtungsklasse {lighting_class} für Konfliktbereiche',
                     'application': 'Kreuzungen und Konfliktpunkte',
-                    'requirements': 'Siehe DIN EN 13201-2 für spezifische Werte'
+                    'requirements': 'Siehe DIN 13201-2:2015-11 für spezifische Werte'
                 }
             elif class_type == 'C':
                 return {
                     'description': f'Beleuchtungsklasse {lighting_class} für Konfliktbereiche',
-                    'application': 'Verkehrskonfliktzonen nach DIN EN 13201',
-                    'requirements': 'Siehe DIN EN 13201-2 für spezifische Werte'
+                    'application': 'Verkehrskonfliktzonen nach DIN 13201-1:2021-09',
+                    'requirements': 'Siehe DIN 13201-2:2015-11 für spezifische Werte'
                 }
 
     return lighting_info_map.get(lighting_class, {
         'description': f'Beleuchtungsklasse {lighting_class}',
-        'application': 'Nach DIN EN 13201 klassifiziert',
-        'requirements': 'Siehe DIN EN 13201-2 für Wartungswerte'
+        'application': 'Nach DIN 13201-1:2021-09 klassifiziert',
+        'requirements': 'Siehe DIN 13201-2:2015-11 für Wartungswerte'
     })
 
 
@@ -491,12 +491,12 @@ def download_pdf(request, classification_id):
 
 def get_maintenance_values(lighting_class):
     """
-    Wartungswerte nach DIN EN 13201-2 basierend auf Beleuchtungsklasse
+    Wartungswerte nach DIN 13201-2:2015-11 basierend auf Beleuchtungsklasse
     """
     if not lighting_class:
         return {}
 
-    # Wartungswerte nach DIN EN 13201-2
+    # Wartungswerte nach DIN 13201-2:2015-11
     maintenance_values = {
         # M-Klassen (Motorisierter Verkehr)
         'M1': {

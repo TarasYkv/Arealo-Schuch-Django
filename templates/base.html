@@ -1560,7 +1560,7 @@
                             {% endif %}
 
                             <li><a class="dropdown-item" href="{% url 'lighting_classification:select_road_type' %}">
-                                <i class="fas fa-road"></i> DIN EN 13201 Klassifizierung
+                                <i class="fas fa-road"></i> DIN 13201-1:2021-09 Klassifizierung
                             </a></li>
                             
                             {% if user|can_see_app_in_frontend:"sportplatz_konfigurator" %}
@@ -1584,7 +1584,31 @@
                     </div>
                     {% endif %}
                     {% endif %}
-                    
+
+                    <!-- LoomLine Dropdown Menu -->
+                    {% if user.is_authenticated %}
+                    <div class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="loomlineDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-list-alt"></i> LoomLine
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="loomlineDropdown">
+                            <li><a class="dropdown-item" href="{% url 'loomline:dashboard' %}">
+                                <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'loomline:project-list' %}">
+                                <i class="fas fa-project-diagram me-2"></i>Projekte
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'loomline:tasks-tiles' %}">
+                                <i class="fas fa-th me-2"></i>Aufgaben-Übersicht
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'loomline:quick-add-task' %}">
+                                <i class="fas fa-plus me-2"></i>Neues eintragen
+                            </a></li>
+                        </ul>
+                    </div>
+                    {% endif %}
+
                     <!-- Media Dropdown Menu -->
                     {% if user|can_see_app_in_frontend:"schulungen" or user|can_see_app_in_frontend:"bilder" or user|can_see_app_in_frontend:"videos" or user.is_authenticated %}
                     <div class="nav-item dropdown">
@@ -2054,7 +2078,7 @@
                     }
                 }).join(' ');
                 
-                consoleLog.push(`[${timestamp}] [${type}] ${message}`);
+                consoleLog.push('[' + timestamp + '] [' + type + '] ' + message);
                 
                 // Behalte nur die letzten maxLogLines Zeilen
                 if (consoleLog.length > maxLogLines) {
@@ -2187,12 +2211,11 @@
                 Array.from(this.files).forEach(function(file) {
                     const fileItem = document.createElement('div');
                     fileItem.className = 'alert alert-info alert-sm d-flex justify-content-between align-items-center';
-                    fileItem.innerHTML = `
-                        <span><i class="fas fa-file me-2"></i>${file.name} (${formatFileSize(file.size)})</span>
-                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(this, '${file.name}')">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    `;
+                    fileItem.innerHTML =
+                        '<span><i class="fas fa-file me-2"></i>' + file.name + ' (' + formatFileSize(file.size) + ')</span>' +
+                        '<button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(this, \'' + file.name + '\')">' +
+                            '<i class="fas fa-times"></i>' +
+                        '</button>';
                     fileList.appendChild(fileItem);
                 });
             });
@@ -2927,7 +2950,7 @@
         function connectGlobalNotifications() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsHost = window.location.hostname + ':' + window.location.port;
-            const wsUrl = `${protocol}//${wsHost}/ws/notifications/`;
+            const wsUrl = protocol + '//' + wsHost + '/ws/notifications/';
             
             console.log('🔌 Attempting to connect to global notifications:', wsUrl);
             globalNotificationSocket = new WebSocket(wsUrl);
@@ -2998,7 +3021,7 @@
             };
             
             for (const [id, element] of Object.entries(elements)) {
-                console.log(`${id}:`, {
+                console.log(id + ':', {
                     exists: !!element,
                     display: element ? element.style.display : 'not found',
                     computedDisplay: element ? window.getComputedStyle(element).display : 'not found'
@@ -3036,7 +3059,7 @@
         function handleMessageNotificationClick() {
             if (currentMessageNotification) {
                 // Open chat in new tab with specific room
-                window.open(`/chat/?room=${currentMessageNotification.roomId}`, '_blank');
+                window.open('/chat/?room=' + currentMessageNotification.roomId, '_blank');
             }
         }
 
@@ -3044,7 +3067,7 @@
         function handleContactChatNotificationClick() {
             if (currentMessageNotification) {
                 // Open chat in new tab with specific room
-                window.open(`/chat/?room=${currentMessageNotification.roomId}`, '_blank');
+                window.open('/chat/?room=' + currentMessageNotification.roomId, '_blank');
                 // Hide the notification badge after clicking
                 document.getElementById('contact-chat-notification').style.display = 'none';
             }
@@ -3276,9 +3299,10 @@
                 // Show call window
                 document.getElementById('globalFloatingCallWindow').style.display = 'block';
                 
-                // Initiate call via API
-                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
-                                document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                // Initiate call via API (avoid optional chaining for compatibility)
+                var csrfInputEl = document.querySelector('[name=csrfmiddlewaretoken]');
+                var csrfMetaEl = document.querySelector('meta[name="csrf-token"]');
+                const csrfToken = (csrfInputEl ? csrfInputEl.value : null) || (csrfMetaEl ? csrfMetaEl.getAttribute('content') : null);
                 
                 console.log('🔐 CSRF Token found:', csrfToken ? 'Yes' : 'No');
                 
@@ -3286,7 +3310,7 @@
                     throw new Error('CSRF-Token nicht gefunden. Bitte laden Sie die Seite neu.');
                 }
                 
-                const response = await fetch(`/chat/api/room/${roomId}/call/initiate/`, {
+                const response = await fetch('/chat/api/room/' + roomId + '/call/initiate/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3300,7 +3324,7 @@
                 if (!response.ok) {
                     const errorText = await response.text();
                     console.error('❌ HTTP Error:', response.status, errorText);
-                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                    throw new Error('HTTP ' + response.status + ': ' + errorText);
                 }
                 
                 const result = await response.json();
@@ -3333,7 +3357,7 @@
             const contactNotification = document.getElementById('contact-chat-notification');
             if (contactNotification) {
                 contactNotification.style.display = 'inline-block';
-                contactNotification.title = `Neue Nachricht von ${senderName}: ${message.substring(0, 50)}${message.length > 50 ? '...' : ''}`;
+                contactNotification.title = 'Neue Nachricht von ' + senderName + ': ' + message.substring(0, 50) + (message.length > 50 ? '...' : '');
             }
             
             // Auto-hide after 10 seconds
@@ -3377,8 +3401,8 @@
             
             iconElement.className = 
                 callType === 'video' ? 'fas fa-video text-white' : 'fas fa-phone text-white';
-            textElement.textContent = 
-                `${callType === 'video' ? 'Video' : 'Audio'}-Anruf von ${callerName}`;
+            textElement.textContent =
+                (callType === 'video' ? 'Video' : 'Audio') + '-Anruf von ' + callerName;
             notificationElement.style.display = 'block';
             
             console.log('✅ Call notification displayed - Element style:', notificationElement.style.display);
@@ -3546,7 +3570,7 @@
             
             // Try to get caller's real profile picture from chat room info
             if (callData.caller_id && callData.room_id) {
-                fetch(`/chat/api/room/${callData.room_id}/info/`)
+                fetch('/chat/api/room/' + callData.room_id + '/info/')
                     .then(response => response.json())
                     .then(data => {
                         if (data.success && data.room.participants_detailed) {
@@ -3578,7 +3602,7 @@
             
             function loadGeneratedAvatar() {
                 // Generate nice avatar from UI-Avatars
-                const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(callerName)}&size=120&background=667eea&color=ffffff&bold=true&rounded=true`;
+                const avatarUrl = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(callerName) + '&size=120&background=667eea&color=ffffff&bold=true&rounded=true';
                 console.log('🎨 Loading generated avatar:', avatarUrl);
                 
                 profilePic.src = avatarUrl;
@@ -3947,7 +3971,7 @@
                 const currentPath = window.location.pathname;
                 const currentSearch = window.location.search;
                 const isOnChatPage = currentPath.includes('/chat/');
-                const isCorrectRoom = currentSearch.includes(`room=${callData.room_id}`);
+                const isCorrectRoom = currentSearch.includes('room=' + callData.room_id);
                 
                 console.log('🔍 Current location check:', { 
                     currentPath, 
@@ -3955,7 +3979,7 @@
                     isOnChatPage, 
                     isCorrectRoom, 
                     targetRoomId: callData.room_id,
-                    expectedParam: `room=${callData.room_id}`,
+                    expectedParam: 'room=' + callData.room_id,
                     willRedirect: !(isOnChatPage && isCorrectRoom)
                 });
                 
@@ -3970,7 +3994,7 @@
                     }
                 } else {
                     // Redirect to chat page with room and auto-accept call
-                    const chatUrl = `/chat/?room=${callData.room_id}&answerCall=${callData.call_id}&callType=${callData.call_type}`;
+                    const chatUrl = '/chat/?room=' + callData.room_id + '&answerCall=' + callData.call_id + '&callType=' + callData.call_type;
                     console.log('🔗 Redirecting to:', chatUrl);
                     window.location.href = chatUrl;
                 }
@@ -4260,7 +4284,7 @@
                     if (data.unread_count > 0) {
                         badge.style.display = 'inline-block';
                         // Optional: Update badge with count if you want to show number instead of just icon
-                        // badge.innerHTML = `<span style="font-size: 9px;">${data.unread_count}</span>`;
+                        // badge.innerHTML = '<span style="font-size: 9px;">' + data.unread_count + '</span>';
                     } else {
                         badge.style.display = 'none';
                     }

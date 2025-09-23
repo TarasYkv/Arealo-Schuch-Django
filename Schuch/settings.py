@@ -77,6 +77,7 @@ INSTALLED_APPS = [
     'promptpro',
     'loomads',
     'lighting_classification',
+    'loomline',
 ]
 
 

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Neue Aufgabe eintragen{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0">
+                    <h3 class="mb-0">✅ Neue Aufgabe eintragen</h3>
+                    <small class="text-muted">Was haben Sie heute erledigt?</small>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <!-- Projekt auswählen -->
+                        <div class="mb-3">
+                            <label for="{{ form.project.id_for_label }}" class="form-label fw-bold">
+                                Projekt
+                            </label>
+                            {{ form.project }}
+                            {% if form.project.errors %}
+                            <div class="text-danger">{{ form.project.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Aufgaben-Titel -->
+                        <div class="mb-3">
+                            <label for="{{ form.title.id_for_label }}" class="form-label fw-bold">
+                                Was wurde erledigt?
+                            </label>
+                            {{ form.title }}
+                            {% if form.title.errors %}
+                            <div class="text-danger">{{ form.title.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Details (optional) -->
+                        <div class="mb-3">
+                            <label for="{{ form.description.id_for_label }}" class="form-label">
+                                Details (optional)
+                            </label>
+                            {{ form.description }}
+                            {% if form.description.errors %}
+                            <div class="text-danger">{{ form.description.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Erledigt am -->
+                        <div class="mb-4">
+                            <label for="{{ form.completed_at.id_for_label }}" class="form-label">
+                                Erledigt am
+                            </label>
+                            {{ form.completed_at }}
+                            <div class="form-text">Leer lassen für "jetzt"</div>
+                            {% if form.completed_at.errors %}
+                            <div class="text-danger">{{ form.completed_at.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success flex-grow-1">
+                                <i class="fas fa-check me-2"></i>Aufgabe eintragen
+                            </button>
+                            <a href="{% url 'loomline:dashboard' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-2"></i>Abbrechen
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Schnellzugriff: Kein Projekt vorhanden? -->
+            {% if not user_projects %}
+            <div class="mt-4">
+                <div class="alert alert-info">
+                    <h6 class="alert-heading">Noch kein Projekt vorhanden?</h6>
+                    <p class="mb-2">Erstellen Sie zuerst ein Projekt, bevor Sie Aufgaben eintragen können.</p>
+                    <a href="{% url 'loomline:project-create' %}" class="btn btn-sm btn-primary">
+                        <i class="fas fa-plus me-1"></i>Neues Projekt erstellen
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

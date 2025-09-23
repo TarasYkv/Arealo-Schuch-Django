@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Meine Projekte{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="h3 mb-0">🎯 Meine Projekte</h1>
+                <a href="{% url 'loomline:project-create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Neues Projekt
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Projekt-Liste -->
+    <div class="row">
+        {% for project in projects %}
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title">{{ project.name }}</h5>
+                    {% if project.domain %}
+                    <p class="card-text text-muted">
+                        <i class="fas fa-globe me-2"></i>{{ project.domain }}
+                    </p>
+                    {% endif %}
+                    {% if project.description %}
+                    <p class="card-text">{{ project.description|truncatechars:100 }}</p>
+                    {% endif %}
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-tasks me-1"></i>{{ project.tasks.count }} Aufgaben
+                        </small>
+                        <small class="text-muted">{{ project.created_at|date:"d.m.Y" }}</small>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-0">
+                    <a href="{% url 'loomline:project-detail' project.pk %}" class="btn btn-outline-primary w-100">
+                        Timeline anzeigen
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="fas fa-folder-open fa-4x text-muted mb-4"></i>
+                <h4 class="text-muted">Noch keine Projekte erstellt</h4>
+                <p class="text-muted mb-4">Erstellen Sie Ihr erstes Projekt um zu beginnen.</p>
+                <a href="{% url 'loomline:project-create' %}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-plus me-2"></i>Erstes Projekt erstellen
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}{{ task.title }} - Aufgaben-Details{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{% url 'loomline:tasks-tiles' %}">Aufgaben-Übersicht</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'loomline:project-detail' task.project.pk %}">{{ task.project.name }}</a></li>
+                            <li class="breadcrumb-item active">{{ task.title|truncatechars:30 }}</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-0">🎯 Aufgaben-Details</h1>
+                </div>
+                <a href="{% url 'loomline:tasks-tiles' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Zurück zur Übersicht
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Detail Card -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0 pb-0">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="task-status">
+                            <span class="badge bg-success fs-6 px-3 py-2">
+                                <i class="fas fa-check-circle me-2"></i>Erledigt
+                            </span>
+                        </div>
+                        <div class="text-end">
+                            <small class="text-muted d-block">Projekt</small>
+                            <span class="badge bg-light text-dark">{{ task.project.name }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <h2 class="h4 mb-4">{{ task.title }}</h2>
+
+                    {% if task.description %}
+                    <div class="mb-4">
+                        <h5 class="text-muted mb-2">Beschreibung</h5>
+                        <div class="description-content p-3 bg-light rounded">
+                            {{ task.description|linebreaks }}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-item mb-3">
+                                <small class="text-muted d-block">Erledigt von</small>
+                                <div class="d-flex align-items-center mt-1">
+                                    <div class="user-avatar me-2">
+                                        <i class="fas fa-user"></i>
+                                    </div>
+                                    <span class="fw-medium">{{ task.completed_by.first_name|default:task.completed_by.username }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-item mb-3">
+                                <small class="text-muted d-block">Erledigt am</small>
+                                <div class="d-flex align-items-center mt-1">
+                                    <i class="fas fa-calendar-check me-2 text-success"></i>
+                                    <span class="fw-medium">{{ task.completed_at|date:"d.m.Y H:i" }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-item">
+                                <small class="text-muted d-block">Erstellt am</small>
+                                <div class="d-flex align-items-center mt-1">
+                                    <i class="fas fa-clock me-2 text-muted"></i>
+                                    <span>{{ task.created_at|date:"d.m.Y H:i" }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-item">
+                                <small class="text-muted d-block">Zuletzt bearbeitet</small>
+                                <div class="d-flex align-items-center mt-1">
+                                    <i class="fas fa-edit me-2 text-muted"></i>
+                                    <span>{{ task.updated_at|date:"d.m.Y H:i" }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Projekt Info -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0">
+                    <h5 class="mb-0">📁 Projekt-Info</h5>
+                </div>
+                <div class="card-body">
+                    <h6 class="fw-bold">{{ task.project.name }}</h6>
+                    {% if task.project.description %}
+                    <p class="text-muted small mb-3">{{ task.project.description|truncatechars:100 }}</p>
+                    {% endif %}
+
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <small class="text-muted">Ersteller:</small>
+                        <span class="small">{{ task.project.owner.username }}</span>
+                    </div>
+
+                    {% if task.project.members.count > 0 %}
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <small class="text-muted">Mitglieder:</small>
+                        <span class="small">{{ task.project.members.count }}</span>
+                    </div>
+                    {% endif %}
+
+                    <a href="{% url 'loomline:project-detail' task.project.pk %}" class="btn btn-outline-primary btn-sm w-100">
+                        <i class="fas fa-eye me-2"></i>Projekt anzeigen
+                    </a>
+                </div>
+            </div>
+
+            <!-- Schnellaktionen -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0">
+                    <h5 class="mb-0">⚡ Schnellaktionen</h5>
+                </div>
+                <div class="card-body">
+                    <a href="{% url 'loomline:quick-add-task' %}" class="btn btn-success btn-sm w-100 mb-2">
+                        <i class="fas fa-plus me-2"></i>Neue Aufgabe eintragen
+                    </a>
+                    <a href="{% url 'loomline:tasks-tiles' %}?project={{ task.project.id }}" class="btn btn-outline-secondary btn-sm w-100">
+                        <i class="fas fa-filter me-2"></i>Aufgaben dieses Projekts
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.description-content {
+    border-left: 4px solid #007bff;
+    font-size: 1.05rem;
+    line-height: 1.6;
+}
+
+.info-item {
+    border-bottom: 1px solid #f8f9fa;
+    padding-bottom: 12px;
+}
+
+.info-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 14px;
+}
+
+.task-status .badge {
+    border-radius: 12px;
+}
+
+.card {
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08) !important;
+}
+
+.breadcrumb {
+    background: none;
+    padding: 0;
+    margin-bottom: 8px;
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+    content: "›";
+    color: #6c757d;
+}
+</style>
+{% endblock %}
