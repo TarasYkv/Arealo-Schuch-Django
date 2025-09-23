@@ -1,10 +1,17 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
-from .models import RoadType, LightingClassification, ClassificationCriteria, ClassificationScoring
+from django.template.loader import render_to_string
+from .models import (
+    RoadType, LightingClassification, ClassificationCriteria, ClassificationScoring,
+    DINRoadCategory, DINLightingClassification, DINClassificationParameter,
+    DINParameterChoice, DINSelectedParameterChoice
+)
 import json
+import weasyprint
+from io import BytesIO
 
 
 @login_required
@@ -23,35 +30,30 @@ def index(view):
 
 @login_required
 def select_road_type(request):
-    """Schritt 1: Straßentyp auswählen"""
+    """Schritt 1: Straßentyp auswählen (DIN-konform)"""
 
-    # Gruppierung der Straßentypen nach Kategorien
-    road_types_by_category = {}
-    road_types = RoadType.objects.filter(is_active=True).order_by('category', 'code')
+    # Verwende DIN-konforme Kategorien
+    din_categories = DINRoadCategory.objects.filter(is_active=True).order_by('table_number')
 
-    for road_type in road_types:
-        category_name = dict(RoadType.CATEGORY_CHOICES).get(road_type.category, road_type.category)
-        if category_name not in road_types_by_category:
-            road_types_by_category[category_name] = []
-        road_types_by_category[category_name].append(road_type)
-
-    # Icons für Kategorien
+    # Icons für DIN-Kategorien
     category_icons = {
-        'Autobahnen und Kraftfahrstraßen': 'fas fa-highway',
-        'Hauptverkehrsstraßen': 'fas fa-road',
-        'Sammelstraßen': 'fas fa-route',
-        'Erschließungsstraßen': 'fas fa-home',
-        'Fußgängerwege': 'fas fa-walking',
-        'Radwege': 'fas fa-bicycle',
-        'Konfliktbereiche': 'fas fa-exclamation-triangle',
+        'AS_3': 'fas fa-highway',
+        'LS_4': 'fas fa-road',
+        'HS_5': 'fas fa-road',
+        'ES_6': 'fas fa-home',
+        'ES_7': 'fas fa-home',
+        'ES_8': 'fas fa-home',
+        'RADWEG_9': 'fas fa-bicycle',
+        'GEHWEG_10': 'fas fa-walking',
+        'PLATZ_11': 'fas fa-square',
     }
 
     context = {
-        'road_types_by_category': road_types_by_category,
+        'din_categories': din_categories,
         'category_icons': category_icons,
         'step': 1,
         'step_title': 'Straßentyp auswählen',
-        'step_description': 'Wählen Sie den Straßentyp gemäß DIN EN 13201 aus',
+        'step_description': 'Wählen Sie den Straßentyp gemäß DIN 13201-1 aus',
     }
 
     return render(request, 'lighting_classification/select_road_type.html', context)
@@ -60,30 +62,36 @@ def select_road_type(request):
 @login_required
 @require_http_methods(["POST"])
 def start_classification(request):
-    """Startet eine neue Klassifizierung mit ausgewähltem Straßentyp"""
+    """Startet eine neue DIN-konforme Klassifizierung"""
 
-    road_type_id = request.POST.get('road_type_id')
+    print(f"POST data: {request.POST}")  # Debug
+    din_category_id = request.POST.get('din_category_id')
     project_name = request.POST.get('project_name', '').strip()
 
-    if not road_type_id:
+    print(f"DIN Category ID: {din_category_id}")  # Debug
+    print(f"Project Name: {project_name}")  # Debug
+
+    if not din_category_id:
         messages.error(request, 'Bitte wählen Sie einen Straßentyp aus.')
+        print("Error: No DIN category ID provided")  # Debug
         return redirect('lighting_classification:select_road_type')
 
     if not project_name:
         messages.error(request, 'Bitte geben Sie einen Projektnamen an.')
+        print("Error: No project name provided")  # Debug
         return redirect('lighting_classification:select_road_type')
 
     try:
-        road_type = RoadType.objects.get(id=road_type_id, is_active=True)
-    except RoadType.DoesNotExist:
+        din_category = DINRoadCategory.objects.get(id=din_category_id, is_active=True)
+    except DINRoadCategory.DoesNotExist:
         messages.error(request, 'Der ausgewählte Straßentyp ist nicht gültig.')
         return redirect('lighting_classification:select_road_type')
 
-    # Neue Klassifizierung erstellen
-    classification = LightingClassification.objects.create(
+    # Neue DIN-konforme Klassifizierung erstellen
+    classification = DINLightingClassification.objects.create(
         user=request.user,
         project_name=project_name,
-        road_type=road_type,
+        road_category=din_category,
         status='draft'
     )
 
@@ -93,88 +101,66 @@ def start_classification(request):
 
 @login_required
 def configure_parameters(request, classification_id):
-    """Schritt 2: Parameter konfigurieren mit Punktetabellen"""
+    """Schritt 2: DIN-konforme Parameter konfigurieren"""
 
     classification = get_object_or_404(
-        LightingClassification,
+        DINLightingClassification,
         id=classification_id,
         user=request.user
     )
 
     if request.method == 'POST':
         try:
-            # Parse selected criteria from JSON
-            selected_criteria_json = request.POST.get('selected_criteria', '[]')
-            selected_criteria_ids = json.loads(selected_criteria_json)
+            # Parse selected parameter choices
+            selected_choices_data = {}
+            for key, value in request.POST.items():
+                if key.startswith('param_'):
+                    param_id = key.replace('param_', '')
+                    choice_id = value
+                    if param_id and choice_id:
+                        selected_choices_data[int(param_id)] = int(choice_id)
 
-            # Create or get scoring object
-            scoring, created = ClassificationScoring.objects.get_or_create(
-                classification=classification
-            )
+            # Clear existing choices
+            DINSelectedParameterChoice.objects.filter(classification=classification).delete()
 
-            # Map criteria IDs to actual point values based on the criteria definitions
-            criteria_points_map = {
-                # Traffic Volume
-                'traffic_very_high': 2,
-                'traffic_high': 1,
-                'traffic_medium': 0,
-                'traffic_low': 0,
+            # Save selected choices
+            total_vws = 0
+            for param_id, choice_id in selected_choices_data.items():
+                try:
+                    parameter = DINClassificationParameter.objects.get(id=param_id)
+                    choice = DINParameterChoice.objects.get(id=choice_id)
 
-                # Speed
-                'speed_very_high': 2,
-                'speed_high': 1,
-                'speed_medium': 0,
-                'speed_low': 0,
+                    DINSelectedParameterChoice.objects.create(
+                        classification=classification,
+                        parameter=parameter,
+                        choice=choice
+                    )
+                    total_vws += choice.weighting_value
+                except (DINClassificationParameter.DoesNotExist, DINParameterChoice.DoesNotExist):
+                    continue
 
-                # Complexity
-                'complexity_very_high': 2,
-                'complexity_high': 1,
-                'complexity_normal': 0,
-
-                # Ambient Light
-                'ambient_e2': 1,
-                'ambient_e1': 0,
-                'ambient_e0': 0,
-            }
-
-            # Calculate total points
-            total_points = sum(criteria_points_map.get(criteria_id, 0) for criteria_id in selected_criteria_ids)
-
-            # Update scoring
-            scoring.total_points = total_points
-            scoring.calculated_class = scoring.determine_lighting_class()
-            scoring.save()
-
-            # Update classification with results
-            classification.recommended_class = scoring.calculated_class
+            # Calculate lighting class using DIN formula
+            calculated_class = classification.calculate_lighting_class()
             classification.status = 'completed'
-
-            # Store the selected criteria for display
-            selected_criteria_data = {}
-            for criteria_id in selected_criteria_ids:
-                if criteria_id in criteria_points_map:
-                    selected_criteria_data[criteria_id] = criteria_points_map[criteria_id]
-
-            classification.notes = json.dumps({
-                'selected_criteria': selected_criteria_data,
-                'total_points': total_points,
-                'calculation_method': 'DIN_EN_13201_point_system'
-            })
-
             classification.save()
 
-            messages.success(request, f'Parameter wurden gespeichert. Erreichte Punktzahl: {total_points} → Beleuchtungsklasse: {scoring.calculated_class}')
+            messages.success(request, f'Parameter wurden gespeichert. VWS: {classification.total_weighting_value} → Beleuchtungsklasse: {classification.calculated_lighting_class}')
             return redirect('lighting_classification:view_result', classification_id=classification.id)
 
-        except (json.JSONDecodeError, ValueError) as e:
-            messages.error(request, 'Fehler beim Verarbeiten der ausgewählten Parameter.')
+        except Exception as e:
+            print(f"Error in configure_parameters: {e}")
+            messages.error(request, f'Fehler beim Speichern der Parameter: {str(e)}')
             return redirect('lighting_classification:configure_parameters', classification_id=classification.id)
+
+    # DIN-konforme Parameter für die gewählte Straßenkategorie laden
+    parameters = classification.road_category.parameters.filter(is_active=True).order_by('order')
 
     context = {
         'classification': classification,
+        'parameters': parameters,
         'step': 2,
         'step_title': 'Parameter konfigurieren',
-        'step_description': f'Bewerten Sie die Parameter für {classification.road_type.name} nach DIN EN 13201',
+        'step_description': f'Bewerten Sie die Parameter für {classification.road_category.name} nach DIN 13201-1',
     }
 
     return render(request, 'lighting_classification/configure_parameters.html', context)
@@ -182,23 +168,27 @@ def configure_parameters(request, classification_id):
 
 @login_required
 def view_result(request, classification_id):
-    """Schritt 3: Ergebnis anzeigen"""
+    """Schritt 3: DIN-konformes Ergebnis anzeigen"""
 
     classification = get_object_or_404(
-        LightingClassification,
+        DINLightingClassification,
         id=classification_id,
         user=request.user
     )
 
     # Zusätzliche Informationen zur Beleuchtungsklasse
-    lighting_info = get_lighting_class_info(classification.recommended_class)
+    lighting_info = get_lighting_class_info(classification.calculated_lighting_class)
+
+    # Ausgewählte Parameter laden
+    selected_choices = classification.selected_choices.all()
 
     context = {
         'classification': classification,
         'lighting_info': lighting_info,
+        'selected_choices': selected_choices,
         'step': 3,
         'step_title': 'Beleuchtungsklasse',
-        'step_description': 'Empfohlene Beleuchtungsklasse nach DIN EN 13201',
+        'step_description': 'Empfohlene Beleuchtungsklasse nach DIN 13201-1',
     }
 
     return render(request, 'lighting_classification/view_result.html', context)
@@ -270,3 +260,60 @@ def get_lighting_class_info(lighting_class):
         'application': 'Siehe DIN EN 13201',
         'requirements': 'Siehe Norm'
     })
+
+
+@login_required
+def download_pdf(request, classification_id):
+    """PDF-Download der Klassifizierungsergebnisse"""
+
+    classification = get_object_or_404(
+        LightingClassification,
+        id=classification_id,
+        user=request.user
+    )
+
+    # Zusätzliche Informationen zur Beleuchtungsklasse
+    lighting_info = get_lighting_class_info(classification.recommended_class)
+
+    # Parse selected criteria from notes
+    selected_criteria = []
+    if classification.notes:
+        try:
+            notes_data = json.loads(classification.notes)
+            selected_criteria = list(notes_data.get('selected_criteria', {}).keys())
+        except (json.JSONDecodeError, AttributeError):
+            selected_criteria = []
+
+    # Context für PDF-Template
+    context = {
+        'classification': classification,
+        'lighting_info': lighting_info,
+        'selected_criteria': selected_criteria,
+    }
+
+    # HTML-Template rendern
+    html_string = render_to_string('lighting_classification/pdf_report.html', context)
+
+    # PDF generieren
+    try:
+        # WeasyPrint HTML zu PDF konvertieren
+        html = weasyprint.HTML(string=html_string)
+        pdf_file = BytesIO()
+        html.write_pdf(pdf_file)
+
+        # PDF als Download-Response zurückgeben
+        pdf_file.seek(0)
+        response = HttpResponse(pdf_file.read(), content_type='application/pdf')
+
+        # Dateiname generieren
+        filename = f'DIN_EN_13201_Klassifizierung_{classification.project_name}_{classification.created_at.strftime("%Y%m%d")}.pdf'
+        # Sonderzeichen für Dateinamen entfernen
+        filename = "".join(c for c in filename if c.isalnum() or c in "._- ").replace(" ", "_")
+
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+        return response
+
+    except Exception as e:
+        messages.error(request, f'Fehler beim Generieren der PDF: {str(e)}')
+        return redirect('lighting_classification:view_result', classification_id=classification.id)

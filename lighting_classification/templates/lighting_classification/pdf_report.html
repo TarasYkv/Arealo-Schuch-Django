@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DIN EN 13201 Klassifizierungsbericht</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2.5cm 2cm 3.5cm 2cm;
+
+            @top-left {
+                content: "DIN EN 13201 Klassifizierung";
+                font-size: 9pt;
+                color: #6c757d;
+                font-family: Arial, sans-serif;
+                padding: 0.5cm 0;
+            }
+
+            @top-right {
+                content: "{{ classification.project_name }}";
+                font-size: 9pt;
+                color: #6c757d;
+                font-family: Arial, sans-serif;
+                padding: 0.5cm 0;
+            }
+
+            @bottom-center {
+                content: "Seite " counter(page) " von " counter(pages);
+                font-size: 8pt;
+                color: #6c757d;
+                font-family: Arial, sans-serif;
+                padding: 0.5cm 0;
+            }
+
+            @bottom-right {
+                content: "{{ classification.created_at|date:'d.m.Y H:i' }}";
+                font-size: 8pt;
+                color: #6c757d;
+                font-family: Arial, sans-serif;
+                padding: 0.5cm 0;
+            }
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            font-size: 11pt;
+            box-sizing: border-box;
+            max-width: 100%;
+            overflow-wrap: break-word;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #007bff;
+        }
+
+        .header h1 {
+            color: #007bff;
+            font-size: 24pt;
+            margin: 0 0 10px 0;
+            font-weight: 700;
+        }
+
+        .header .subtitle {
+            color: #6c757d;
+            font-size: 12pt;
+            margin: 0;
+        }
+
+        .result-box {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            margin: 30px 0;
+            page-break-inside: avoid;
+        }
+
+        .result-class {
+            font-size: 48pt;
+            color: #007bff;
+            font-weight: 700;
+            margin: 0 0 10px 0;
+        }
+
+        .result-description {
+            font-size: 14pt;
+            color: #495057;
+            margin: 0;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 30px 0;
+        }
+
+        .info-card {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            page-break-inside: avoid;
+        }
+
+        .info-card h3 {
+            color: #007bff;
+            margin: 0 0 15px 0;
+            font-size: 14pt;
+            font-weight: 600;
+        }
+
+        .info-row {
+            margin-bottom: 12px;
+        }
+
+        .info-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #495057;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .info-value {
+            color: #6c757d;
+        }
+
+        .criteria-section {
+            margin: 40px 0;
+            page-break-inside: avoid;
+        }
+
+        .criteria-section h3 {
+            color: #007bff;
+            font-size: 16pt;
+            margin: 0 0 20px 0;
+            font-weight: 600;
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 10px;
+        }
+
+        .criteria-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            table-layout: fixed;
+            word-wrap: break-word;
+        }
+
+        .criteria-table th {
+            background: #f8f9fa;
+            color: #495057;
+            font-weight: 600;
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #dee2e6;
+        }
+
+        .criteria-table td {
+            padding: 10px 12px;
+            border: 1px solid #dee2e6;
+            vertical-align: top;
+        }
+
+        .criteria-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .criteria-selected {
+            background: #d4edda !important;
+            color: #155724;
+            font-weight: 600;
+        }
+
+        .points-badge {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10pt;
+            font-weight: 600;
+            text-align: center;
+            min-width: 30px;
+        }
+
+        .summary-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 30px 0;
+            text-align: center;
+            page-break-inside: avoid;
+        }
+
+        .total-points {
+            font-size: 36pt;
+            color: #007bff;
+            font-weight: 700;
+            margin: 0 0 10px 0;
+        }
+
+        .technical-requirements {
+            margin: 30px 0;
+            page-break-inside: avoid;
+        }
+
+        .technical-requirements h3 {
+            color: #007bff;
+            font-size: 14pt;
+            margin: 0 0 15px 0;
+            font-weight: 600;
+        }
+
+        .requirements-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .requirement-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #007bff;
+        }
+
+        .requirement-label {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 5px;
+        }
+
+        .requirement-value {
+            color: #6c757d;
+            font-size: 10pt;
+        }
+
+        .footer-note {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #dee2e6;
+            font-size: 9pt;
+            color: #6c757d;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>DIN EN 13201 Klassifizierungsbericht</h1>
+        <p class="subtitle">Straßenbeleuchtung - Auswahl der Beleuchtungsklassen</p>
+    </div>
+
+    <!-- Result -->
+    <div class="result-box">
+        <div class="result-class">{{ classification.recommended_class }}</div>
+        <div class="result-description">Empfohlene Beleuchtungsklasse</div>
+        {% if lighting_info %}
+        <p style="margin-top: 15px; color: #6c757d;">{{ lighting_info.description }}</p>
+        {% endif %}
+    </div>
+
+    <!-- Project Information -->
+    <div class="info-grid">
+        <div class="info-card">
+            <h3>Projektinformationen</h3>
+            <div class="info-row">
+                <span class="info-label">Projektname:</span>
+                <span class="info-value">{{ classification.project_name }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Straßentyp:</span>
+                <span class="info-value">{{ classification.road_type.code }} - {{ classification.road_type.name }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Klassifiziert am:</span>
+                <span class="info-value">{{ classification.created_at|date:"d.m.Y H:i" }} Uhr</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Status:</span>
+                <span class="info-value">{{ classification.get_status_display }}</span>
+            </div>
+        </div>
+
+        <div class="info-card">
+            <h3>Bewertungsergebnis</h3>
+            {% if classification.scoring %}
+            <div class="info-row">
+                <span class="info-label">Gesamtpunkte:</span>
+                <span class="info-value">{{ classification.scoring.total_points }} Punkte</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Berechnete Klasse:</span>
+                <span class="info-value">{{ classification.scoring.calculated_class }}</span>
+            </div>
+            {% endif %}
+            <div class="info-row">
+                <span class="info-label">Bewertungsverfahren:</span>
+                <span class="info-value">DIN EN 13201 Punktesystem</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Technical Requirements -->
+    {% if lighting_info %}
+    <div class="technical-requirements">
+        <h3>Technische Anforderungen</h3>
+        <div class="requirements-grid">
+            <div class="requirement-item">
+                <div class="requirement-label">Anwendungsbereich</div>
+                <div class="requirement-value">{{ lighting_info.application }}</div>
+            </div>
+            <div class="requirement-item">
+                <div class="requirement-label">Technische Spezifikation</div>
+                <div class="requirement-value">{{ lighting_info.requirements }}</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Assessment Details -->
+    {% if classification.notes %}
+    <div class="criteria-section">
+        <h3>Bewertungsdetails nach DIN EN 13201</h3>
+
+        <div class="summary-box">
+            <div class="total-points">{{ classification.scoring.total_points|default:"0" }}</div>
+            <p style="margin: 0; color: #6c757d;">Gesamtpunkte aus allen Bewertungskriterien</p>
+        </div>
+
+        <table class="criteria-table">
+            <thead>
+                <tr>
+                    <th style="width: 40%;">Bewertungskriterium</th>
+                    <th style="width: 40%;">Beschreibung</th>
+                    <th style="width: 10%; text-align: center;">Punkte</th>
+                    <th style="width: 10%; text-align: center;">Ausgewählt</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Traffic Volume -->
+                <tr style="background: #e3f2fd;">
+                    <td colspan="4" style="font-weight: 600; color: #007bff;">Verkehrsstärke</td>
+                </tr>
+                <tr>
+                    <td>Sehr hoch (> 25.000 Kfz/Tag)</td>
+                    <td>Autobahnen, Hauptverkehrsstraßen in Ballungsräumen</td>
+                    <td style="text-align: center;"><span class="points-badge">2</span></td>
+                    <td style="text-align: center;">{% if 'traffic_very_high' in selected_criteria %}✓{% else %}—{% endif %}</td>
+                </tr>
+                <tr>
+                    <td>Hoch (15.000 - 25.000 Kfz/Tag)</td>
+                    <td>Hauptverkehrsstraßen, überörtliche Verbindungen</td>
+                    <td style="text-align: center;"><span class="points-badge">1</span></td>
+                    <td style="text-align: center;">{% if 'traffic_high' in selected_criteria %}✓{% else %}—{% endif %}</td>
+                </tr>
+                <tr>
+                    <td>Mittel (5.000 - 15.000 Kfz/Tag)</td>
+                    <td>Sammelstraßen, Verbindungsstraßen</td>
+                    <td style="text-align: center;"><span class="points-badge">0</span></td>
+                    <td style="text-align: center;">{% if 'traffic_medium' in selected_criteria %}✓{% else %}—{% endif %}</td>
+                </tr>
+                <tr>
+                    <td>Niedrig (< 5.000 Kfz/Tag)</td>
+                    <td>Erschließungsstraßen, Wohnstraßen</td>
+                    <td style="text-align: center;"><span class="points-badge">0</span></td>
+                    <td style="text-align: center;">{% if 'traffic_low' in selected_criteria %}✓{% else %}—{% endif %}</td>
+                </tr>
+
+                <!-- Speed -->
+                <tr style="background: #e3f2fd;">
+                    <td colspan="4" style="font-weight: 600; color: #007bff;">Geschwindigkeit</td>
+                </tr>
+                <tr>
+                    <td>Sehr hoch (> 80 km/h)</td>
+                    <td>Autobahnen, Kraftfahrstraßen</td>
+                    <td style="text-align: center;"><span class="points-badge">2</span></td>
+                    <td style="text-align: center;">{% if 'speed_very_high' in selected_criteria %}✓{% else %}—{% endif %}</td>
+                </tr>
+                <tr>
+                    <td>Hoch (61 - 80 km/h)</td>
+                    <td>Hauptverkehrsstraßen außerorts</td>
+                    <td style="text-align: center;"><span class="points-badge">1</span></td>
+                    <td style="text-align: center;">{% if 'speed_high' in selected_criteria %}✓{% else %}—{% endif %}</td>
+                </tr>
+                <tr>
+                    <td>Mittel (51 - 60 km/h)</td>
+                    <td>Hauptstraßen in Ortschaften</td>
+                    <td style="text-align: center;"><span class="points-badge">0</span></td>
+                    <td style="text-align: center;">{% if 'speed_medium' in selected_criteria %}✓{% else %}—{% endif %}</td>
+                </tr>
+                <tr>
+                    <td>Niedrig (≤ 50 km/h)</td>
+                    <td>Wohnstraßen, verkehrsberuhigte Bereiche</td>
+                    <td style="text-align: center;"><span class="points-badge">0</span></td>
+                    <td style="text-align: center;">{% if 'speed_low' in selected_criteria %}✓{% else %}—{% endif %}</td>
+                </tr>
+
+                <!-- Complexity -->
+                <tr style="background: #e3f2fd;">
+                    <td colspan="4" style="font-weight: 600; color: #007bff;">Komplexität der Verkehrssituation</td>
+                </tr>
+                <tr>
+                    <td>Sehr hoch</td>
+                    <td>Kreuzungen, Verflechtungsstrecken, komplexe Knotenpunkte</td>
+                    <td style="text-align: center;"><span class="points-badge">2</span></td>
+                    <td style="text-align: center;">{% if 'complexity_very_high' in selected_criteria %}✓{% else %}—{% endif %}</td>
+                </tr>
+                <tr>
+                    <td>Hoch</td>
+                    <td>Einmündungen, Fußgängerüberwege, Bushaltestellen</td>
+                    <td style="text-align: center;"><span class="points-badge">1</span></td>
+                    <td style="text-align: center;">{% if 'complexity_high' in selected_criteria %}✓{% else %}—{% endif %}</td>
+                </tr>
+                <tr>
+                    <td>Normal</td>
+                    <td>Normale Straßenführung ohne besondere Gefährdungen</td>
+                    <td style="text-align: center;"><span class="points-badge">0</span></td>
+                    <td style="text-align: center;">{% if 'complexity_normal' in selected_criteria %}✓{% else %}—{% endif %}</td>
+                </tr>
+
+                <!-- Ambient Light -->
+                <tr style="background: #e3f2fd;">
+                    <td colspan="4" style="font-weight: 600; color: #007bff;">Umgebungshelligkeit</td>
+                </tr>
+                <tr>
+                    <td>E2 - Hell</td>
+                    <td>Geschäftsgebiete, Industriegebiete mit hoher Umgebungshelligkeit</td>
+                    <td style="text-align: center;"><span class="points-badge">1</span></td>
+                    <td style="text-align: center;">{% if 'ambient_e2' in selected_criteria %}✓{% else %}—{% endif %}</td>
+                </tr>
+                <tr>
+                    <td>E1 - Mittel</td>
+                    <td>Wohngebiete, gemischte Gebiete</td>
+                    <td style="text-align: center;"><span class="points-badge">0</span></td>
+                    <td style="text-align: center;">{% if 'ambient_e1' in selected_criteria %}✓{% else %}—{% endif %}</td>
+                </tr>
+                <tr>
+                    <td>E0 - Dunkel</td>
+                    <td>Ländliche Gebiete, Parks mit geringer Umgebungshelligkeit</td>
+                    <td style="text-align: center;"><span class="points-badge">0</span></td>
+                    <td style="text-align: center;">{% if 'ambient_e0' in selected_criteria %}✓{% else %}—{% endif %}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Footer -->
+    <div class="footer-note">
+        Dieser Bericht wurde automatisch generiert basierend auf DIN EN 13201 "Straßenbeleuchtung - Teil 1: Auswahl der Beleuchtungsklassen".
+        <br>Die Klassifizierung erfolgte nach dem normativen Punktesystem der europäischen Norm.
+    </div>
+</body>
+</html>

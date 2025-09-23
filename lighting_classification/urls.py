@@ -9,4 +9,5 @@ urlpatterns = [
     path('start/', views.start_classification, name='start_classification'),
     path('parameter/<int:classification_id>/', views.configure_parameters, name='configure_parameters'),
     path('ergebnis/<int:classification_id>/', views.view_result, name='view_result'),
+    path('pdf/<int:classification_id>/', views.download_pdf, name='download_pdf'),
 ]
