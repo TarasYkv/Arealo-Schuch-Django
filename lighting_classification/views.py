@@ -29,7 +29,6 @@ def index(view):
     return render(view, 'lighting_classification/index.html', context)
 
 
-@login_required
 @require_app_permission('din_13201')
 def select_road_type(request):
     """Schritt 1: Straßentyp auswählen (DIN-konform)"""
@@ -61,7 +60,6 @@ def select_road_type(request):
     return render(request, 'lighting_classification/select_road_type.html', context)
 
 
-@login_required
 @require_app_permission('din_13201')
 @require_http_methods(["POST"])
 def start_classification(request):
@@ -102,7 +100,6 @@ def start_classification(request):
     return redirect('lighting_classification:configure_parameters', classification_id=classification.id)
 
 
-@login_required
 @require_app_permission('din_13201')
 def configure_parameters(request, classification_id):
     """Schritt 2: DIN-konforme Parameter konfigurieren"""
@@ -238,7 +235,6 @@ def configure_parameters(request, classification_id):
     return render(request, 'lighting_classification/configure_parameters.html', context)
 
 
-@login_required
 @require_app_permission('din_13201')
 def view_result(request, classification_id):
     """Schritt 3: DIN-konformes Ergebnis anzeigen"""
@@ -406,7 +402,6 @@ def get_lighting_class_info(lighting_class):
     })
 
 
-@login_required
 @require_app_permission('din_13201')
 def download_pdf(request, classification_id):
     """PDF-Download der DIN 13201-1 Klassifizierungsergebnisse"""

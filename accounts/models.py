@@ -198,6 +198,7 @@ class AppPermission(models.Model):
         ('schuch_dashboard', 'Schuch Dashboard'),
         ('wirtschaftlichkeitsrechner', 'Wirtschaftlichkeitsrechner'),
         ('beleuchtungsrechner', 'Beleuchtungsrechner'),
+        ('din_13201', 'DIN 13201-1 Straßenklassifizierung'),
         ('sportplatz_konfigurator', 'Sportplatz-Konfigurator'),
         ('pdf_suche', 'PDF-Suche'),
         ('ki_zusammenfassung', 'KI-Zusammenfassung'),
