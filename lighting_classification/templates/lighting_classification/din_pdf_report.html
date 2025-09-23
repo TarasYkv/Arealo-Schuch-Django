@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DIN EN 13201-1 Klassifizierungsbericht</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2.5cm 2cm 3.5cm 2cm;
+
+            @top-left {
+                content: "DIN EN 13201-1 Klassifizierung";
+                font-size: 9pt;
+                color: #6c757d;
+                font-family: Arial, sans-serif;
+                padding: 0.5cm 0;
+            }
+
+            @top-right {
+                content: "{{ classification.project_name }}";
+                font-size: 9pt;
+                color: #6c757d;
+                font-family: Arial, sans-serif;
+                padding: 0.5cm 0;
+            }
+
+            @bottom-center {
+                content: "Seite " counter(page) " von " counter(pages);
+                font-size: 8pt;
+                color: #6c757d;
+                font-family: Arial, sans-serif;
+                padding: 0.5cm 0;
+            }
+
+            @bottom-right {
+                content: "{{ classification.created_at|date:'d.m.Y H:i' }}";
+                font-size: 8pt;
+                color: #6c757d;
+                font-family: Arial, sans-serif;
+                padding: 0.5cm 0;
+            }
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            font-size: 11pt;
+            box-sizing: border-box;
+            max-width: 100%;
+            overflow-wrap: break-word;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #007bff;
+        }
+
+        .header h1 {
+            color: #007bff;
+            font-size: 24pt;
+            margin: 0 0 10px 0;
+            font-weight: 700;
+        }
+
+        .header .subtitle {
+            color: #6c757d;
+            font-size: 12pt;
+            margin: 0;
+        }
+
+        .result-box {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            margin: 30px 0;
+            page-break-inside: avoid;
+        }
+
+        .result-class {
+            font-size: 48pt;
+            color: #007bff;
+            font-weight: 700;
+            margin: 0 0 10px 0;
+        }
+
+        .result-description {
+            font-size: 14pt;
+            color: #495057;
+            margin: 0;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 30px 0;
+        }
+
+        .info-card {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            page-break-inside: avoid;
+        }
+
+        .info-card h3 {
+            color: #007bff;
+            margin: 0 0 15px 0;
+            font-size: 14pt;
+            font-weight: 600;
+        }
+
+        .info-row {
+            margin-bottom: 12px;
+        }
+
+        .info-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #495057;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .info-value {
+            color: #6c757d;
+        }
+
+        .section {
+            margin: 40px 0;
+            page-break-inside: avoid;
+        }
+
+        .section h3 {
+            color: #007bff;
+            font-size: 16pt;
+            margin: 0 0 20px 0;
+            font-weight: 600;
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 10px;
+        }
+
+        .parameters-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            table-layout: fixed;
+            word-wrap: break-word;
+            word-break: break-word;
+            hyphens: auto;
+        }
+
+        .parameters-table th {
+            background: #f8f9fa;
+            color: #495057;
+            font-weight: 600;
+            padding: 8px 6px;
+            text-align: left;
+            border: 1px solid #dee2e6;
+            font-size: 10pt;
+            line-height: 1.3;
+        }
+
+        .parameters-table td {
+            padding: 8px 6px;
+            border: 1px solid #dee2e6;
+            vertical-align: top;
+            word-wrap: break-word;
+            word-break: break-word;
+            hyphens: auto;
+            font-size: 9pt;
+            line-height: 1.3;
+        }
+
+        .parameters-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .selected-parameter {
+            background: #d4edda !important;
+            color: #155724;
+            font-weight: 600;
+        }
+
+        .vws-badge {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 9pt;
+            font-weight: 600;
+            text-align: center;
+            min-width: 25px;
+        }
+
+        .time-period-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            page-break-inside: avoid;
+        }
+
+        .time-period-title {
+            font-size: 14pt;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #007bff;
+        }
+
+        .time-period-class {
+            font-size: 36pt;
+            color: #28a745;
+            font-weight: 700;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .adaptive-timeline {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 20px 0;
+            padding: 15px;
+            background: linear-gradient(90deg, #28a745 33%, #ffc107 66%, #6f42c1 100%);
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+        }
+
+        .timeline-item {
+            text-align: center;
+            flex: 1;
+        }
+
+        .maintenance-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .maintenance-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #007bff;
+        }
+
+        .maintenance-label {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 5px;
+        }
+
+        .maintenance-value {
+            color: #6c757d;
+            font-size: 10pt;
+        }
+
+        .energy-savings {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .energy-percentage {
+            font-size: 32pt;
+            color: #28a745;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+
+        .explanation-box {
+            background: #e7f3ff;
+            border: 1px solid #b3d7ff;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 30px 0;
+        }
+
+        .explanation-box h4 {
+            color: #007bff;
+            margin: 0 0 10px 0;
+            font-size: 12pt;
+        }
+
+        .explanation-box p {
+            margin: 10px 0;
+            font-size: 10pt;
+            line-height: 1.5;
+        }
+
+        .footer-note {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #dee2e6;
+            font-size: 9pt;
+            color: #6c757d;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>DIN EN 13201-1 Klassifizierungsbericht</h1>
+        <p class="subtitle">Straßenbeleuchtung - Auswahl der Beleuchtungsklassen nach DIN EN 13201-1</p>
+    </div>
+
+    <!-- Beleuchtungsklassen-Ergebnis -->
+    {% if is_adaptive %}
+    <!-- Adaptive Beleuchtung mit Zeiträumen -->
+    <div class="result-box">
+        <div class="result-description" style="font-size: 18pt; margin-bottom: 20px;">
+            Adaptive Beleuchtungsklassen nach Zeitraum
+        </div>
+
+        <div class="adaptive-timeline">
+            <div class="timeline-item">
+                <div>Δt₀ (Bemessung)</div>
+                <div style="font-size: 24pt; font-weight: bold;">{{ time_period_classifications.dt0.calculated_lighting_class|default:"—" }}</div>
+                <div style="font-size: 10pt;">Hauptverkehrszeit</div>
+            </div>
+            <div class="timeline-item">
+                <div>Δt₁ (Nebenzeit)</div>
+                <div style="font-size: 24pt; font-weight: bold;">{{ time_period_classifications.dt1.calculated_lighting_class|default:"—" }}</div>
+                <div style="font-size: 10pt;">Reduzierte Beleuchtung</div>
+            </div>
+            <div class="timeline-item">
+                <div>Δt₂ (Schwachverkehr)</div>
+                <div style="font-size: 24pt; font-weight: bold;">{{ time_period_classifications.dt2.calculated_lighting_class|default:"—" }}</div>
+                <div style="font-size: 10pt;">Minimale Beleuchtung</div>
+            </div>
+        </div>
+    </div>
+
+    {% if energy_savings %}
+    <div class="energy-savings">
+        <h4 style="margin: 0; color: #28a745;">Geschätzte Energieeinsparung</h4>
+        <div class="energy-percentage">{{ energy_savings }}%</div>
+        <p style="margin: 0; color: #155724;">Durch adaptive Beleuchtung im Vergleich zu konstanter Beleuchtung</p>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- Einzelne Beleuchtungsklasse -->
+    <div class="result-box">
+        <div class="result-class">{{ classification.calculated_lighting_class }}</div>
+        <div class="result-description">Empfohlene Beleuchtungsklasse</div>
+        {% if lighting_info %}
+        <p style="margin-top: 15px; color: #6c757d;">{{ lighting_info.description }}</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Projektinformationen -->
+    <div class="info-grid">
+        <div class="info-card">
+            <h3>Projektinformationen</h3>
+            <div class="info-row">
+                <span class="info-label">Projektname:</span>
+                <span class="info-value">{{ classification.project_name }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Straßenkategorie:</span>
+                <span class="info-value">{{ classification.road_category.code }} - {{ classification.road_category.name }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Klassifiziert am:</span>
+                <span class="info-value">{{ classification.created_at|date:"d.m.Y H:i" }} Uhr</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Status:</span>
+                <span class="info-value">{{ classification.get_status_display }}</span>
+            </div>
+            {% if is_adaptive %}
+            <div class="info-row">
+                <span class="info-label">Beleuchtungstyp:</span>
+                <span class="info-value">Adaptive Beleuchtung (3 Zeiträume)</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="info-card">
+            <h3>Berechnungsergebnis</h3>
+            <div class="info-row">
+                <span class="info-label">Gesamte VWS:</span>
+                <span class="info-value">{{ classification.total_vws|floatformat:2 }}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Berechnungsverfahren:</span>
+                <span class="info-value">DIN EN 13201-1 VWS-Verfahren</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Normkonformität:</span>
+                <span class="info-value">✓ DIN EN 13201-1 konform</span>
+            </div>
+            {% if is_adaptive %}
+            <div class="info-row">
+                <span class="info-label">3-Stufenregel:</span>
+                <span class="info-value">✓ Eingehalten</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Gewählte Parameter -->
+    {% if selected_parameters %}
+    <div class="section">
+        <h3>Gewählte Parameter und VWS-Werte</h3>
+
+        <table class="parameters-table">
+            <thead>
+                <tr>
+                    <th style="width: 25%;">Parameter</th>
+                    <th style="width: 60%;">Gewählte Option</th>
+                    <th style="width: 15%; text-align: center;">VWS</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for param in selected_parameters %}
+                <tr class="selected-parameter">
+                    <td>{{ param.parameter_name }}</td>
+                    <td>{{ param.choice_text }}</td>
+                    <td style="text-align: center;">
+                        <span class="vws-badge">{{ param.weighting_value }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+
+    <!-- Erklärungen -->
+    <div class="explanation-box">
+        <h4>Erklärung der DIN EN 13201-1 Klassifizierung</h4>
+        <p><strong>VWS-Verfahren:</strong> Das Wichtungswerteverfahren (VWS) bewertet verschiedene Verkehrs- und Umgebungsparameter. Die Summe aller VWS-Werte bestimmt die erforderliche Beleuchtungsklasse.</p>
+
+        {% if is_adaptive %}
+        <p><strong>Adaptive Beleuchtung:</strong> Die Beleuchtung passt sich automatisch an das Verkehrsaufkommen zu verschiedenen Tageszeiten an. Dies ermöglicht erhebliche Energieeinsparungen bei gleichbleibender Verkehrssicherheit.</p>
+
+        <p><strong>Zeiträume:</strong> Δt₀ = Bemessungszeit (Hauptverkehr), Δt₁ = Nebenzeit (reduzierter Verkehr), Δt₂ = Schwachverkehrszeit (minimaler Verkehr).</p>
+
+        <p><strong>3-Stufenregel:</strong> Nach DIN EN 13201-1 dürfen benachbarte Beleuchtungsklassen maximal 3 Stufen unterschiedlich sein.</p>
+        {% endif %}
+
+    </div>
+
+    <!-- Zeitraum-Details (wenn adaptive Beleuchtung) -->
+    {% if is_adaptive and time_period_classifications %}
+    <div class="section">
+        <h3>Detailübersicht der Zeiträume</h3>
+
+        {% for period, period_class in time_period_classifications.items %}
+        <div class="time-period-box">
+            <div class="time-period-title">
+                {% if period == 'dt0' %}
+                    Δt₀ - Bemessungszeit (Hauptverkehrszeit)
+                {% elif period == 'dt1' %}
+                    Δt₁ - Nebenzeit (Reduzierter Verkehr)
+                {% else %}
+                    Δt₂ - Schwachverkehrszeit (Minimaler Verkehr)
+                {% endif %}
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div><strong>Beleuchtungsklasse:</strong>
+                        <span class="time-period-class" style="font-size: 24pt; display: inline;">{{ period_class.calculated_lighting_class }}</span>
+                    </div>
+                    <div><strong>VWS-Wert:</strong> {{ period_class.total_vws|floatformat:2 }}</div>
+                    <div><strong>Status:</strong> {{ period_class.get_status_display }}</div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Footer -->
+    <div class="footer-note">
+        Dieser Bericht wurde automatisch generiert basierend auf DIN EN 13201-1 "Straßenbeleuchtung - Teil 1: Auswahl der Beleuchtungsklassen".
+        <br>Die Klassifizierung erfolgte nach dem normativen VWS-Verfahren (Wichtungswerte-Verfahren) der europäischen Norm.
+        {% if is_adaptive %}
+        <br>Die adaptive Beleuchtung berücksichtigt verschiedene Verkehrssituationen und ermöglicht erhebliche Energieeinsparungen.
+        {% endif %}
+    </div>
+</body>
+</html>

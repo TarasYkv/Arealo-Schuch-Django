@@ -39,12 +39,37 @@
                     Beleuchtungsklasse
                 </h3>
 
+                {% if time_period_classifications|length > 1 %}
+                <!-- Adaptive Classification Display -->
+                <div style="margin: 1rem 0;">
+                    {% for period, period_class in time_period_classifications.items %}
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; padding: 1rem; border-radius: 12px; {% if period == 'dt0' %}background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white;{% elif period == 'dt1' %}background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%); color: white;{% else %}background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%); color: white;{% endif %}">
+                        <div>
+                            <div style="font-size: 1.1rem; font-weight: 600;">
+                                {% if period == 'dt0' %}Δt₀ (Bemessung){% elif period == 'dt1' %}Δt₁ (Nebenzeit){% else %}Δt₂ (Schwachverkehr){% endif %}
+                            </div>
+                            <div style="font-size: 0.9rem; opacity: 0.9;">
+                                {% if period == 'dt0' %}Hauptverkehrszeit{% elif period == 'dt1' %}Reduzierte Beleuchtung{% else %}Minimale Beleuchtung{% endif %}
+                            </div>
+                        </div>
+                        <div style="font-size: 1.8rem; font-weight: bold;">
+                            {{ period_class.calculated_lighting_class }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <!-- Single Classification Display -->
                 <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 1rem 2rem; border-radius: 50px; font-size: 2rem; font-weight: bold; text-align: center; margin: 1rem 0; box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);">
                     {{ classification.calculated_lighting_class }}
                 </div>
+                {% endif %}
 
                 <div style="text-align: center; color: #6c757d; margin-bottom: 2rem;">
                     {{ classification.road_category.code }} - {{ classification.road_category.name }}
+                    {% if energy_savings %}
+                    <br><span style="color: #28a745; font-weight: 600;">🌱 Geschätzte Energieeinsparung: {{ energy_savings }}%</span>
+                    {% endif %}
                 </div>
 
                 <!-- Wartungswerte -->
@@ -134,6 +159,68 @@
             </div>
         </div>
     </div>
+
+    <!-- Adaptive Schedule Visualization -->
+    {% if time_period_classifications|length > 1 %}
+    <div style="background: white; border-radius: 12px; padding: 2rem; margin-top: 2rem; box-shadow: 0 4px 8px rgba(0, 123, 255, 0.1); border: 2px solid #e9ecef;">
+        <h3 style="color: #007bff; margin-bottom: 1.5rem; font-weight: 600;">
+            <i class="fas fa-chart-line" style="margin-right: 0.5rem;"></i>
+            Adaptive Beleuchtungssteuerung über den Tag
+        </h3>
+
+        <!-- Time Period Timeline -->
+        <div style="margin: 2rem 0;">
+            <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                <div style="width: 50px; font-size: 0.8rem; color: #6c757d;">00:00</div>
+                <div style="flex: 1; height: 40px; position: relative; background: linear-gradient(90deg, #6f42c1 0%, #6f42c1 25%, #ffc107 25%, #ffc107 75%, #28a745 75%, #28a745 100%); border-radius: 20px; display: flex; align-items: center; justify-content: space-around; color: white; font-weight: bold;">
+                    {% for period, period_class in time_period_classifications.items %}
+                        {% if period == 'dt2' %}
+                            <span>{{ period_class.calculated_lighting_class }}</span>
+                        {% elif period == 'dt1' %}
+                            <span>{{ period_class.calculated_lighting_class }}</span>
+                        {% elif period == 'dt0' %}
+                            <span>{{ period_class.calculated_lighting_class }}</span>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <div style="width: 50px; text-align: right; font-size: 0.8rem; color: #6c757d;">24:00</div>
+            </div>
+
+            <!-- Time Labels -->
+            <div style="display: flex; align-items: center;">
+                <div style="width: 50px;"></div>
+                <div style="flex: 1; display: flex; justify-content: space-between; font-size: 0.8rem; color: #6c757d;">
+                    <span>Nacht</span>
+                    <span>Nebenzeit</span>
+                    <span>Hauptzeit</span>
+                    <span>Abend</span>
+                </div>
+                <div style="width: 50px;"></div>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 2rem;">
+            {% for period, period_class in time_period_classifications.items %}
+            <div style="padding: 1rem; border-radius: 8px; {% if period == 'dt0' %}background: #e8f5e8; border-left: 4px solid #28a745;{% elif period == 'dt1' %}background: #fff3cd; border-left: 4px solid #ffc107;{% else %}background: #f3e5f5; border-left: 4px solid #6f42c1;{% endif %}">
+                <div style="font-weight: 600; margin-bottom: 0.5rem; {% if period == 'dt0' %}color: #28a745;{% elif period == 'dt1' %}color: #ffc107;{% else %}color: #6f42c1;{% endif %}">
+                    {% if period == 'dt0' %}Δt₀ (Bemessung){% elif period == 'dt1' %}Δt₁ (Nebenzeit){% else %}Δt₂ (Schwachverkehr){% endif %} - {{ period_class.calculated_lighting_class }}
+                </div>
+                <div style="font-size: 0.9rem; color: #6c757d;">
+                    VWS: {{ period_class.total_weighting_value }}<br>
+                    Typ: {{ period_class.road_category.lighting_class_type }}-Klasse
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if energy_savings %}
+        <div style="background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 1rem; border-radius: 8px; margin-top: 1.5rem; text-align: center;">
+            <strong><i class="fas fa-leaf" style="margin-right: 0.5rem;"></i>Energieeffizienz-Vorteil</strong><br>
+            Durch adaptive Beleuchtung können bis zu <strong>{{ energy_savings }}% Energie</strong> eingespart werden gegenüber konstanter Beleuchtung auf höchster Stufe.
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
 
     <!-- Zusätzliche Informationen zur Beleuchtungsklasse -->
     {% if lighting_info %}

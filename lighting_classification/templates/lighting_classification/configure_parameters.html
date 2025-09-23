@@ -43,9 +43,77 @@
         </p>
     </div>
 
+    <!-- Time Period Selection -->
+    <div style="background: white; border: 2px solid #ffc107; border-radius: 12px; margin-bottom: 2rem; padding: 1.5rem; box-shadow: 0 4px 8px rgba(255, 193, 7, 0.1);">
+        <h3 style="color: #ffc107; margin-bottom: 1.5rem; font-weight: 600; display: flex; align-items: center;">
+            <i class="fas fa-clock" style="margin-right: 0.75rem;"></i>
+            Zeitraum-Auswahl für adaptive Beleuchtung
+        </h3>
+
+        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; justify-content: center;">
+            <!-- Time Period Tabs -->
+            <div class="time-period-tabs" style="display: flex; gap: 0.5rem;">
+                <button type="button" class="time-period-tab active" data-period="dt0"
+                        style="padding: 0.75rem 1.5rem; border: 2px solid #007bff; border-radius: 25px; background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
+                    <i class="fas fa-sun" style="margin-right: 0.5rem;"></i>
+                    Δt₀ (Bemessung)
+                </button>
+                <button type="button" class="time-period-tab" data-period="dt1"
+                        style="padding: 0.75rem 1.5rem; border: 2px solid #dee2e6; border-radius: 25px; background: white; color: #6c757d; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
+                    <i class="fas fa-moon" style="margin-right: 0.5rem;"></i>
+                    Δt₁ (Nebenzeit)
+                </button>
+                <button type="button" class="time-period-tab" data-period="dt2"
+                        style="padding: 0.75rem 1.5rem; border: 2px solid #dee2e6; border-radius: 25px; background: white; color: #6c757d; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
+                    <i class="fas fa-moon" style="margin-right: 0.5rem;"></i>
+                    Δt₂ (Schwachverkehr)
+                </button>
+            </div>
+        </div>
+
+        <!-- Time Period Descriptions -->
+        <div style="margin-top: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;">
+            <div class="time-period-info active" data-period="dt0" style="padding: 1rem; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #007bff; flex: 1; min-width: 200px;">
+                <strong style="color: #007bff;">Bemessungsbeleuchtungsklasse</strong>
+                <p style="margin: 0.5rem 0 0 0; color: #6c757d; font-size: 0.9rem;">
+                    Höchste Beleuchtungsstufe für Hauptverkehrszeiten
+                </p>
+                <input type="text" placeholder="z.B. 18:00-22:00"
+                       style="width: 100%; margin-top: 0.5rem; padding: 0.5rem; border: 1px solid #dee2e6; border-radius: 4px; font-size: 0.9rem;">
+            </div>
+            <div class="time-period-info" data-period="dt1" style="display: none; padding: 1rem; background: #f3e5f5; border-radius: 8px; border-left: 4px solid #9c27b0; flex: 1; min-width: 200px;">
+                <strong style="color: #9c27b0;">Adaptive Beleuchtung 1</strong>
+                <p style="margin: 0.5rem 0 0 0; color: #6c757d; font-size: 0.9rem;">
+                    Reduzierte Beleuchtung für Nebenverkehrszeiten
+                </p>
+                <input type="text" placeholder="z.B. 22:00-24:00"
+                       style="width: 100%; margin-top: 0.5rem; padding: 0.5rem; border: 1px solid #dee2e6; border-radius: 4px; font-size: 0.9rem;">
+            </div>
+            <div class="time-period-info" data-period="dt2" style="display: none; padding: 1rem; background: #e8f5e8; border-radius: 8px; border-left: 4px solid #4caf50; flex: 1; min-width: 200px;">
+                <strong style="color: #4caf50;">Adaptive Beleuchtung 2</strong>
+                <p style="margin: 0.5rem 0 0 0; color: #6c757d; font-size: 0.9rem;">
+                    Minimale Beleuchtung für Schwachverkehrszeiten
+                </p>
+                <input type="text" placeholder="z.B. 00:00-06:00"
+                       style="width: 100%; margin-top: 0.5rem; padding: 0.5rem; border: 1px solid #dee2e6; border-radius: 4px; font-size: 0.9rem;">
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 1rem;">
+            <p style="color: #6c757d; font-size: 0.9rem; margin: 0;">
+                <i class="fas fa-info-circle" style="margin-right: 0.5rem;"></i>
+                Für variable Parameter können unterschiedliche Bewertungen je Zeitraum eingegeben werden
+            </p>
+        </div>
+    </div>
+
     <!-- Parameters Form -->
     <form method="post" id="dinParameterForm">
         {% csrf_token %}
+
+        <!-- Hidden fields for time period data -->
+        <input type="hidden" id="timePeriodData" name="time_period_data" value="">
+        <input type="hidden" id="currentPeriod" name="current_period" value="dt0">
 
         {% for parameter in parameters %}
         <div style="background: white; border: 2px solid #e9ecef; border-radius: 12px; margin-bottom: 2rem; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); overflow: hidden;">
@@ -130,9 +198,115 @@ document.addEventListener('DOMContentLoaded', function() {
     const calculateBtn = document.getElementById('calculateBtn');
     const form = document.getElementById('dinParameterForm');
     const selectedChoices = {};
+    let currentTimePeriod = 'dt0'; // Default to Δt₀
 
     console.log('DIN Parameter System loaded');
     console.log('Found choice options:', choiceOptions.length);
+
+    // Time Period Tab Handling
+    const timePeriodTabs = document.querySelectorAll('.time-period-tab');
+    const timePeriodInfos = document.querySelectorAll('.time-period-info');
+
+    timePeriodTabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            const period = this.dataset.period;
+            switchTimePeriod(period);
+        });
+    });
+
+    function switchTimePeriod(period) {
+        currentTimePeriod = period;
+        console.log('Switched to time period:', period);
+
+        // Update tab styles
+        timePeriodTabs.forEach(tab => {
+            if (tab.dataset.period === period) {
+                tab.classList.add('active');
+                tab.style.background = 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)';
+                tab.style.color = 'white';
+                tab.style.borderColor = '#007bff';
+            } else {
+                tab.classList.remove('active');
+                tab.style.background = 'white';
+                tab.style.color = '#6c757d';
+                tab.style.borderColor = '#dee2e6';
+            }
+        });
+
+        // Update info panels
+        timePeriodInfos.forEach(info => {
+            if (info.dataset.period === period) {
+                info.style.display = 'block';
+                info.classList.add('active');
+            } else {
+                info.style.display = 'none';
+                info.classList.remove('active');
+            }
+        });
+
+        // Load saved selections for this time period
+        loadSelectionsForPeriod(period);
+    }
+
+    function loadSelectionsForPeriod(period) {
+        // Clear all current selections
+        choiceOptions.forEach(option => {
+            option.classList.remove('selected');
+            resetOptionStyles(option);
+            const radio = option.querySelector('input[type="radio"]');
+            if (radio) radio.checked = false;
+        });
+
+        // Load selections for this period if they exist
+        if (selectedChoices[period]) {
+            for (const [paramId, choiceId] of Object.entries(selectedChoices[period])) {
+                const option = document.querySelector(`[data-param-id="${paramId}"][data-choice-id="${choiceId}"]`);
+                if (option) {
+                    selectOption(option);
+                }
+            }
+        }
+
+        updateCalculateButton();
+    }
+
+    function resetOptionStyles(option) {
+        option.style.borderColor = '#dee2e6';
+        option.style.background = 'white';
+        option.style.color = '#212529';
+        option.style.transform = 'translateY(0)';
+        option.style.boxShadow = 'none';
+
+        const textDiv = option.querySelector('div[style*="flex-grow"]');
+        if (textDiv) textDiv.style.color = '#212529';
+
+        const badge = option.querySelectorAll('div')[option.querySelectorAll('div').length - 1];
+        if (badge && badge.textContent.includes('VW')) {
+            badge.style.background = '#007bff';
+            badge.style.color = 'white';
+        }
+    }
+
+    function selectOption(option) {
+        option.classList.add('selected');
+        option.style.borderColor = '#007bff';
+        option.style.background = 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)';
+        option.style.color = 'white';
+        option.style.transform = 'translateY(-2px)';
+        option.style.boxShadow = '0 8px 20px rgba(0, 123, 255, 0.3)';
+
+        const textDiv = option.querySelector('div[style*="flex-grow"]');
+        if (textDiv) textDiv.style.color = 'white';
+
+        const badge = option.querySelectorAll('div')[option.querySelectorAll('div').length - 1];
+        if (badge && badge.textContent.includes('VW')) {
+            badge.style.background = 'rgba(255, 255, 255, 0.25)';
+            badge.style.color = 'white';
+        }
+
+        const radio = option.querySelector('input[type="radio"]');
+        if (radio) radio.checked = true;
+    }
 
     choiceOptions.forEach(option => {
         // Disable hover effects when selected
@@ -184,84 +358,161 @@ document.addEventListener('DOMContentLoaded', function() {
             const paramId = this.dataset.paramId;
             const choiceId = this.dataset.choiceId;
 
-            console.log('Choice selected:', paramId, choiceId);
+            console.log('Choice selected for', currentTimePeriod, ':', paramId, choiceId);
+
+            // Initialize selectedChoices for current time period if needed
+            if (!selectedChoices[currentTimePeriod]) {
+                selectedChoices[currentTimePeriod] = {};
+            }
 
             // Remove selection from other choices of this parameter
             choiceOptions.forEach(otherOption => {
                 if (otherOption.dataset.paramId === paramId) {
-                    // Reset styles for unselected options
                     otherOption.classList.remove('selected');
-                    otherOption.style.borderColor = '#dee2e6';
-                    otherOption.style.background = 'white';
-                    otherOption.style.color = '#212529';
-                    otherOption.style.transform = 'translateY(0)';
-                    otherOption.style.boxShadow = 'none';
-
-                    // Reset text color
-                    const textDiv = otherOption.querySelector('div[style*="flex-grow"]');
-                    if (textDiv) textDiv.style.color = '#212529';
-
-                    // Reset badge
-                    const badge = otherOption.querySelectorAll('div')[otherOption.querySelectorAll('div').length - 1];
-                    if (badge && badge.textContent.includes('VW')) {
-                        badge.style.background = '#007bff';
-                        badge.style.color = 'white';
-                    }
-
+                    resetOptionStyles(otherOption);
                     const radio = otherOption.querySelector('input[type="radio"]');
                     if (radio) radio.checked = false;
                 }
             });
 
             // Apply selected styles to this choice
-            this.classList.add('selected');
-            this.style.borderColor = '#007bff';
-            this.style.background = 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)';
-            this.style.color = 'white';
-            this.style.transform = 'translateY(-2px)';
-            this.style.boxShadow = '0 8px 20px rgba(0, 123, 255, 0.3)';
+            selectOption(this);
 
-            // Update text color
-            const textDiv = this.querySelector('div[style*="flex-grow"]');
-            if (textDiv) textDiv.style.color = 'white';
-
-            // Update badge style
-            const badge = this.querySelectorAll('div')[this.querySelectorAll('div').length - 1];
-            if (badge && badge.textContent.includes('VW')) {
-                badge.style.background = 'rgba(255, 255, 255, 0.25)';
-                badge.style.color = 'white';
-            }
-
-            const radio = this.querySelector('input[type="radio"]');
-            if (radio) radio.checked = true;
-
-            selectedChoices[paramId] = choiceId;
+            // Save selection for current time period
+            selectedChoices[currentTimePeriod][paramId] = choiceId;
             updateCalculateButton();
         });
     });
 
     function updateCalculateButton() {
         const totalParams = {{ parameters.count }};
-        const selectedParams = Object.keys(selectedChoices).length;
 
-        console.log(`Selected ${selectedParams}/${totalParams} parameters`);
+        // Check if Δt₀ (base classification) is complete
+        const dt0Selections = selectedChoices['dt0'] || {};
+        const dt0SelectedParams = Object.keys(dt0Selections).length;
 
-        if (selectedParams === totalParams && totalParams > 0) {
+        console.log(`Δt₀ Selected ${dt0SelectedParams}/${totalParams} parameters`);
+
+        // Validate 3-step rule if adaptive periods exist
+        const validationResult = validateThreeStepRule();
+
+        // Enable button only if Δt₀ is complete (minimum requirement)
+        if (dt0SelectedParams === totalParams && totalParams > 0) {
             calculateBtn.disabled = false;
             calculateBtn.style.opacity = '1';
             calculateBtn.style.cursor = 'pointer';
             calculateBtn.style.background = 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)';
+
+            // Show adaptive periods info if they exist
+            const hasAdaptivePeriods = selectedChoices['dt1'] || selectedChoices['dt2'];
+            if (hasAdaptivePeriods) {
+                calculateBtn.innerHTML = '<i class="fas fa-calculator" style="margin-right: 0.5rem;"></i>Beleuchtungsklassen berechnen (Adaptiv)';
+
+                // Show warning if 3-step rule is violated
+                if (!validationResult.isValid) {
+                    showValidationWarning(validationResult.message);
+                } else {
+                    hideValidationWarning();
+                }
+            } else {
+                calculateBtn.innerHTML = '<i class="fas fa-calculator" style="margin-right: 0.5rem;"></i>Beleuchtungsklasse berechnen';
+                hideValidationWarning();
+            }
         } else {
             calculateBtn.disabled = true;
             calculateBtn.style.opacity = '0.6';
             calculateBtn.style.cursor = 'not-allowed';
             calculateBtn.style.background = '#6c757d';
+            calculateBtn.innerHTML = '<i class="fas fa-calculator" style="margin-right: 0.5rem;"></i>Beleuchtungsklasse berechnen';
+            hideValidationWarning();
+        }
+    }
+
+    function validateThreeStepRule() {
+        // Calculate VWS for each period that has selections
+        const vwsValues = {};
+
+        for (const [period, selections] of Object.entries(selectedChoices)) {
+            if (!selections || Object.keys(selections).length === 0) continue;
+
+            let totalVws = 0;
+            for (const [paramId, choiceId] of Object.entries(selections)) {
+                const option = document.querySelector(`[data-param-id="${paramId}"][data-choice-id="${choiceId}"]`);
+                if (option) {
+                    const badge = option.querySelector('div[style*="VW"]');
+                    if (badge) {
+                        const vwText = badge.textContent;
+                        const vwMatch = vwText.match(/([+-]?\d+)\s*VW/);
+                        if (vwMatch) {
+                            totalVws += parseInt(vwMatch[1]);
+                        }
+                    }
+                }
+            }
+            vwsValues[period] = totalVws;
+        }
+
+        // Check 3-step rule: each adaptive period can differ by max 3 steps from base
+        if (vwsValues['dt0'] !== undefined) {
+            const baseVws = vwsValues['dt0'];
+            const baseClass = 6 - baseVws; // DIN formula: class = 6 - VWS
+
+            for (const period of ['dt1', 'dt2']) {
+                if (vwsValues[period] !== undefined) {
+                    const periodVws = vwsValues[period];
+                    const periodClass = 6 - periodVws;
+                    const classDifference = Math.abs(periodClass - baseClass);
+
+                    if (classDifference > 3) {
+                        return {
+                            isValid: false,
+                            message: `⚠️ Warnung: ${period.toUpperCase()} Klasse weicht um ${classDifference} Stufen von der Basis ab (max. 3 nach DIN 13201-1)`
+                        };
+                    }
+                }
+            }
+        }
+
+        return { isValid: true, message: '' };
+    }
+
+    function showValidationWarning(message) {
+        let warningDiv = document.getElementById('validationWarning');
+        if (!warningDiv) {
+            warningDiv = document.createElement('div');
+            warningDiv.id = 'validationWarning';
+            warningDiv.style.cssText = 'background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; padding: 1rem; border-radius: 8px; margin: 1rem 0; text-align: center;';
+
+            const timePeroidContainer = document.querySelector('[style*="Time Period Selection"]').parentElement;
+            timePeroidContainer.appendChild(warningDiv);
+        }
+        warningDiv.innerHTML = message;
+        warningDiv.style.display = 'block';
+    }
+
+    function hideValidationWarning() {
+        const warningDiv = document.getElementById('validationWarning');
+        if (warningDiv) {
+            warningDiv.style.display = 'none';
         }
     }
 
     // Form submission
     form.addEventListener('submit', function(e) {
         e.preventDefault();
+
+        // Prepare time period data for submission
+        document.getElementById('timePeriodData').value = JSON.stringify(selectedChoices);
+        document.getElementById('currentPeriod').value = currentTimePeriod;
+
+        // Set radio buttons for current period (for Django form compatibility)
+        const currentSelections = selectedChoices[currentTimePeriod] || {};
+        for (const [paramId, choiceId] of Object.entries(currentSelections)) {
+            const radio = document.querySelector(`input[name="param_${paramId}"][value="${choiceId}"]`);
+            if (radio) radio.checked = true;
+        }
+
+        console.log('Submitting with time period data:', selectedChoices);
 
         // Show loading state
         calculateBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 0.5rem;"></i>Berechnung läuft...';
