@@ -1,0 +1,1120 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}DIN EN 13201 - Parameter konfigurieren{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* CSS mit hoher Spezifität und !important für lighting classification - v2.0 */
+    #lighting-classification-app .lighting-step-indicator {
+        display: flex !important;
+        justify-content: center !important;
+        margin-bottom: 2rem !important;
+    }
+
+    #lighting-classification-app .lighting-step {
+        display: flex !important;
+        align-items: center !important;
+        padding: 0.5rem 1rem !important;
+        border-radius: 2rem !important;
+        margin: 0 0.5rem !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
+    }
+
+    #lighting-classification-app .lighting-step.active {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+        color: white !important;
+        transform: scale(1.05) !important;
+    }
+
+    #lighting-classification-app .lighting-step.completed {
+        background: #28a745 !important;
+        color: white !important;
+    }
+
+    #lighting-classification-app .lighting-step.inactive {
+        background: #f8f9fa !important;
+        color: #6c757d !important;
+    }
+
+    #lighting-classification-app .lighting-header {
+        background: white !important;
+        border-radius: 12px !important;
+        padding: 2rem !important;
+        margin-bottom: 2rem !important;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05) !important;
+        border: 1px solid #e9ecef !important;
+        text-align: center !important;
+    }
+
+    #lighting-classification-app .road-type-info {
+        display: inline-flex !important;
+        align-items: center !important;
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+        color: white !important;
+        padding: 0.75rem 1.5rem !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+    }
+
+    #lighting-classification-app .lighting-criteria-section {
+        background: white !important;
+        border-radius: 12px !important;
+        margin-bottom: 2rem !important;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05) !important;
+        border: 1px solid #e9ecef !important;
+        overflow: hidden !important;
+    }
+
+    #lighting-classification-app .lighting-criteria-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+        padding: 1.25rem 1.5rem !important;
+        border-bottom: 1px solid #dee2e6 !important;
+        font-weight: 600 !important;
+        color: #495057 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+    }
+
+    #lighting-classification-app .lighting-criteria-table {
+        width: 100% !important;
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+    }
+
+    #lighting-classification-app .lighting-criteria-table th {
+        background: #f8f9fa !important;
+        padding: 1rem !important;
+        text-align: left !important;
+        font-weight: 600 !important;
+        color: #495057 !important;
+        border-bottom: 2px solid #dee2e6 !important;
+    }
+
+    .lighting-criteria-table th:first-child {
+        width: 50%;
+    }
+
+    .lighting-criteria-table th:nth-child(2) {
+        width: 30%;
+        text-align: center;
+    }
+
+    .lighting-criteria-table th:last-child {
+        width: 20%;
+        text-align: center;
+    }
+
+    .lighting-criteria-row {
+        transition: all 0.3s ease;
+    }
+
+    .lighting-criteria-row:hover {
+        background: #f8f9fa;
+    }
+
+    .lighting-criteria-row.selected {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    }
+
+    .lighting-criteria-row td {
+        padding: 1rem;
+        border-bottom: 1px solid #e9ecef;
+        vertical-align: middle;
+    }
+
+    .lighting-criteria-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    #lighting-classification-app .lighting-toggle {
+        position: relative !important;
+        width: 60px !important;
+        height: 30px !important;
+        background: #ccc !important;
+        border-radius: 15px !important;
+        cursor: pointer !important;
+        transition: all 0.3s ease !important;
+    }
+
+    #lighting-classification-app .lighting-toggle.active {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+    }
+
+    #lighting-classification-app .lighting-toggle::after {
+        content: '' !important;
+        position: absolute !important;
+        width: 26px !important;
+        height: 26px !important;
+        border-radius: 50% !important;
+        background: white !important;
+        top: 2px !important;
+        left: 2px !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+    }
+
+    #lighting-classification-app .lighting-toggle.active::after {
+        transform: translateX(30px) !important;
+    }
+
+    #lighting-classification-app .lighting-points-badge {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        min-width: 50px !important;
+        padding: 0.5rem 0.75rem !important;
+        background: #e9ecef !important;
+        color: #495057 !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        transition: all 0.3s ease !important;
+    }
+
+    #lighting-classification-app .lighting-points-badge.active {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+        color: white !important;
+        transform: scale(1.1) !important;
+    }
+
+    #lighting-classification-app .lighting-scoring-summary {
+        position: sticky !important;
+        top: 20px !important;
+        background: white !important;
+        border-radius: 12px !important;
+        padding: 2rem !important;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
+        border: 2px solid #e9ecef !important;
+        margin-bottom: 2rem !important;
+    }
+
+    #lighting-classification-app .lighting-total-points {
+        text-align: center !important;
+        padding: 1.5rem !important;
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+        color: white !important;
+        border-radius: 8px !important;
+        margin-bottom: 1rem !important;
+    }
+
+    #lighting-classification-app .lighting-total-points-value {
+        font-size: 3rem !important;
+        font-weight: 700 !important;
+        line-height: 1 !important;
+    }
+
+    #lighting-classification-app .lighting-total-points-label {
+        font-size: 1.1rem !important;
+        opacity: 0.9 !important;
+    }
+
+    .lighting-classification-preview {
+        text-align: center;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 2px dashed #dee2e6;
+    }
+
+    .lighting-classification-preview.has-result {
+        background: linear-gradient(135deg, rgba(40, 167, 69, 0.1) 0%, rgba(25, 135, 84, 0.1) 100%);
+        border-color: #28a745;
+    }
+
+    #lighting-classification-app .btn-lighting-primary {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+        border: none !important;
+        padding: 0.75rem 2rem !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3) !important;
+        color: white !important;
+    }
+
+    #lighting-classification-app .btn-lighting-primary:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4) !important;
+        background: linear-gradient(135deg, #0056b3 0%, #004085 100%) !important;
+        color: white !important;
+    }
+
+    .lighting-criteria-description {
+        font-size: 0.9rem;
+        color: #6c757d;
+        line-height: 1.4;
+    }
+
+    .lighting-page-header {
+        text-align: center;
+        margin-bottom: 3rem;
+        padding: 2rem 0;
+    }
+
+    .lighting-page-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 0.5rem;
+    }
+
+    .lighting-progress-container {
+        margin: 1rem 0;
+        height: 8px;
+        background: #e9ecef;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .lighting-progress-bar {
+        height: 100%;
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        width: 0%;
+        transition: width 0.3s ease;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="lighting-classification-app" class="container-fluid px-4">
+    <!-- Page Header -->
+    <div style="text-align: center; margin-bottom: 3rem; padding: 2rem 0;">
+        <h1 style="font-size: 2.5rem; font-weight: 700; background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem;">
+            <i class="fas fa-lightbulb" style="margin-right: 0.5rem; color: #007bff;"></i>
+            DIN EN 13201 Klassifizierung
+        </h1>
+    </div>
+
+    <!-- Step Indicator -->
+    <div style="display: flex; justify-content: center; margin-bottom: 2rem;">
+        <div style="display: flex; align-items: center; padding: 0.5rem 1rem; border-radius: 2rem; margin: 0 0.5rem; font-weight: 500; transition: all 0.3s ease; background: #28a745; color: white;">
+            <i class="fas fa-check" style="margin-right: 0.5rem;"></i>
+            1. Straßentyp
+        </div>
+        <div style="display: flex; align-items: center; padding: 0.5rem 1rem; border-radius: 2rem; margin: 0 0.5rem; font-weight: 500; transition: all 0.3s ease; background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; transform: scale(1.05);">
+            <i class="fas fa-sliders-h" style="margin-right: 0.5rem;"></i>
+            2. Parameter
+        </div>
+        <div style="display: flex; align-items: center; padding: 0.5rem 1rem; border-radius: 2rem; margin: 0 0.5rem; font-weight: 500; transition: all 0.3s ease; background: #f8f9fa; color: #6c757d;">
+            <i class="fas fa-lightbulb" style="margin-right: 0.5rem;"></i>
+            3. Beleuchtungsklasse
+        </div>
+    </div>
+
+    <!-- Classification Header -->
+    <div style="background: white; border-radius: 12px; padding: 2rem; margin-bottom: 2rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); border: 1px solid #e9ecef; text-align: center;">
+        <h3 style="margin-bottom: 1rem; color: #495057;">Projekt: {{ classification.project_name }}</h3>
+        <div style="display: inline-flex; align-items: center; background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600;">
+            <i class="fas fa-road" style="margin-right: 0.5rem;"></i>
+            {{ classification.road_type.code }} - {{ classification.road_type.name }}
+        </div>
+    </div>
+
+    <div style="width: 100%; overflow: hidden;">
+        <!-- Criteria Tables -->
+        <div style="float: left; width: 65%; padding-right: 2rem; box-sizing: border-box;">
+            <form id="parametersForm" method="post" action="{% url 'lighting_classification:configure_parameters' classification.id %}">
+                {% csrf_token %}
+
+                <!-- Traffic Volume Criteria -->
+                <div style="background: white; border: 2px solid #007bff; border-radius: 12px; margin-bottom: 2rem; box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2); overflow: hidden;">
+                    <div style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; padding: 1rem 1.5rem; font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
+                        <span><i class="fas fa-car" style="margin-right: 0.5rem;"></i>Verkehrsstärke</span>
+                        <span style="background: rgba(255, 255, 255, 0.2); color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem;">nach DIN EN 13201 Tabelle 1</span>
+                    </div>
+                    <table style="width: 100%; border-collapse: separate; border-spacing: 0;">
+                        <thead>
+                            <tr>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 50%;">Verkehrsstärke</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 30%; text-align: center;">Beschreibung</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: center; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 10%;">Punkte</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: center; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 10%;">Auswahl</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr data-criteria-type="traffic_volume" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>Sehr hoch</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">>&nbsp;25.000 Kfz/Tag</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Autobahnen, Hauptverkehrsstraßen in Ballungsräumen</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="2">2</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="traffic_very_high" data-points="2" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr data-criteria-type="traffic_volume" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>Hoch</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">15.000 - 25.000 Kfz/Tag</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Hauptverkehrsstraßen, überörtliche Verbindungen</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="1">1</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="traffic_high" data-points="1" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr data-criteria-type="traffic_volume" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>Mittel</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">5.000 - 15.000 Kfz/Tag</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Sammelstraßen, Verbindungsstraßen</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="0">0</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="traffic_medium" data-points="0" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr data-criteria-type="traffic_volume" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>Niedrig</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">&lt;&nbsp;5.000 Kfz/Tag</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Erschließungsstraßen, Wohnstraßen</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="0">0</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="traffic_low" data-points="0" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Speed Criteria -->
+                <div style="background: white; border: 2px solid #007bff; border-radius: 12px; margin-bottom: 2rem; box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2); overflow: hidden;">
+                    <div style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; padding: 1rem 1.5rem; font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
+                        <span><i class="fas fa-tachometer-alt" style="margin-right: 0.5rem;"></i>Geschwindigkeit</span>
+                        <span style="background: rgba(255, 255, 255, 0.2); color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem;">nach DIN EN 13201 Tabelle 2</span>
+                    </div>
+                    <table style="width: 100%; border-collapse: separate; border-spacing: 0;">
+                        <thead>
+                            <tr>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 50%;">Geschwindigkeit</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 30%; text-align: center;">Beschreibung</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: center; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 10%;">Punkte</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: center; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 10%;">Auswahl</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr data-criteria-type="speed" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>&gt; 80 km/h</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Autobahnen, Kraftfahrstraßen</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Hohe Geschwindigkeiten, erhöhte Sicherheitsanforderungen</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="2">2</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="speed_very_high" data-points="2" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr data-criteria-type="speed" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>61 - 80 km/h</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Hauptverkehrsstraßen außerorts</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Mittlere bis hohe Geschwindigkeiten</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="1">1</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="speed_high" data-points="1" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr data-criteria-type="speed" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>51 - 60 km/h</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Hauptstraßen in Ortschaften</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Normale Geschwindigkeiten im Ortsbereich</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="0">0</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="speed_medium" data-points="0" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr data-criteria-type="speed" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>≤ 50 km/h</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Wohnstraßen, verkehrsberuhigte Bereiche</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Niedrige Geschwindigkeiten, Wohngebiete</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="0">0</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="speed_low" data-points="0" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Complexity Criteria -->
+                <div style="background: white; border: 2px solid #007bff; border-radius: 12px; margin-bottom: 2rem; box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2); overflow: hidden;">
+                    <div style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; padding: 1rem 1.5rem; font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
+                        <span><i class="fas fa-project-diagram" style="margin-right: 0.5rem;"></i>Komplexität der Verkehrssituation</span>
+                        <span style="background: rgba(255, 255, 255, 0.2); color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem;">nach DIN EN 13201 Tabelle 3</span>
+                    </div>
+                    <table style="width: 100%; border-collapse: separate; border-spacing: 0;">
+                        <thead>
+                            <tr>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 50%;">Komplexität</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 30%; text-align: center;">Beschreibung</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: center; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 10%;">Punkte</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: center; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 10%;">Auswahl</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr data-criteria-type="complexity" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>Sehr hoch</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Mehrere Konfliktzonen</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Kreuzungen, Verflechtungsstrecken, komplexe Knotenpunkte</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="2">2</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="complexity_very_high" data-points="2" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr data-criteria-type="complexity" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>Hoch</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Einzelne Konfliktzonen</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Einmündungen, Fußgängerüberwege, Bushaltestellen</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="1">1</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="complexity_high" data-points="1" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr data-criteria-type="complexity" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>Normal</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Keine besonderen Konfliktzonen</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Normale Straßenführung ohne besondere Gefährdungen</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="0">0</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="complexity_normal" data-points="0" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Ambient Light Criteria -->
+                <div style="background: white; border: 2px solid #007bff; border-radius: 12px; margin-bottom: 2rem; box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2); overflow: hidden;">
+                    <div style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; padding: 1rem 1.5rem; font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
+                        <span><i class="fas fa-sun" style="margin-right: 0.5rem;"></i>Umgebungshelligkeit</span>
+                        <span style="background: rgba(255, 255, 255, 0.2); color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem;">nach DIN EN 13201 Tabelle 4</span>
+                    </div>
+                    <table style="width: 100%; border-collapse: separate; border-spacing: 0;">
+                        <thead>
+                            <tr>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 50%;">Umgebung</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 30%; text-align: center;">Beschreibung</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: center; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 10%;">Punkte</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: center; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 10%;">Auswahl</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr data-criteria-type="ambient_light" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>E2 - Hell</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Geschäftsgebiete, Industriegebiete</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Hohe Umgebungshelligkeit durch Beleuchtung und Beschilderung</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="1">1</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="ambient_e2" data-points="1" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr data-criteria-type="ambient_light" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>E1 - Mittel</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Wohngebiete, gemischte Gebiete</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Mittlere Umgebungshelligkeit durch Wohnbebauung</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="0">0</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="ambient_e1" data-points="0" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr data-criteria-type="ambient_light" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>E0 - Dunkel</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Ländliche Gebiete, Parks</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Geringe Umgebungshelligkeit, natürliche Umgebung</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="0">0</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="ambient_e0" data-points="0" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- User Category Criteria -->
+                <div style="background: white; border: 2px solid #007bff; border-radius: 12px; margin-bottom: 2rem; box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2); overflow: hidden;">
+                    <div style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; padding: 1rem 1.5rem; font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
+                        <span><i class="fas fa-users" style="margin-right: 0.5rem;"></i>Nutzer-Kategorie</span>
+                        <span style="background: rgba(255, 255, 255, 0.2); color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem;">nach DIN EN 13201 Tabelle 5</span>
+                    </div>
+                    <table style="width: 100%; border-collapse: separate; border-spacing: 0;">
+                        <thead>
+                            <tr>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 50%;">Nutzer-Typ</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 30%; text-align: center;">Beschreibung</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: center; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 10%;">Punkte</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: center; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 10%;">Auswahl</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr data-criteria-type="user" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>Gemischter Verkehr - Hohe Nutzung</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Hohe Fußgänger-/Radfahrerfrequenz</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Stark frequentierte Bereiche mit gemischtem Verkehr</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="1">1</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="user_mixed_high" data-points="1" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr data-criteria-type="user" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>Gemischter Verkehr - Normal</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Normale Fußgänger-/Radfahrerfrequenz</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Standard gemischte Verkehrssituation</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="0">0</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="user_mixed_normal" data-points="0" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr data-criteria-type="user" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>Nur Kraftfahrzeuge</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Keine oder sehr wenige Fußgänger/Radfahrer</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Autobahnen, Kraftfahrstraßen ohne Querverkehr</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #ffe6e6; color: #dc3545; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="-1">-1</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="user_motorized_only" data-points="-1" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Conflict Frequency Criteria -->
+                <div style="background: white; border: 2px solid #007bff; border-radius: 12px; margin-bottom: 2rem; box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2); overflow: hidden;">
+                    <div style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; padding: 1rem 1.5rem; font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
+                        <span><i class="fas fa-exclamation-triangle" style="margin-right: 0.5rem;"></i>Konflikthäufigkeit</span>
+                        <span style="background: rgba(255, 255, 255, 0.2); color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem;">nach DIN EN 13201 Tabelle 6</span>
+                    </div>
+                    <table style="width: 100%; border-collapse: separate; border-spacing: 0;">
+                        <thead>
+                            <tr>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 50%;">Konfliktintensität</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 30%; text-align: center;">Beschreibung</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: center; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 10%;">Punkte</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: center; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 10%;">Auswahl</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr data-criteria-type="conflict" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>Sehr hoch</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Kritische Verkehrssituationen</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Häufige Unfälle, komplexe Kreuzungen, hohe Abbiegefrequenz</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="2">2</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="conflict_very_high" data-points="2" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr data-criteria-type="conflict" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>Hoch</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Erhöhte Konfliktpotentiale</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Kreuzungen mit mittlerem Verkehrsaufkommen</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="1">1</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="conflict_high" data-points="1" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr data-criteria-type="conflict" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>Normal</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Standard Verkehrssituation</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Normale Straßenführung ohne besondere Konflikte</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="0">0</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="conflict_normal" data-points="0" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr data-criteria-type="conflict" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>Niedrig</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Geringe Konfliktpotentiale</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Gerader Straßenverlauf, wenig Querverkehr</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #ffe6e6; color: #dc3545; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="-1">-1</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="conflict_low" data-points="-1" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Parking Criteria -->
+                <div style="background: white; border: 2px solid #007bff; border-radius: 12px; margin-bottom: 2rem; box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2); overflow: hidden;">
+                    <div style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; padding: 1rem 1.5rem; font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
+                        <span><i class="fas fa-car" style="margin-right: 0.5rem;"></i>Parken am Fahrbahnrand</span>
+                        <span style="background: rgba(255, 255, 255, 0.2); color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem;">nach DIN EN 13201 Tabelle 7</span>
+                    </div>
+                    <table style="width: 100%; border-collapse: separate; border-spacing: 0;">
+                        <thead>
+                            <tr>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 50%;">Parksituation</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 30%; text-align: center;">Beschreibung</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: center; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 10%;">Punkte</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: center; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 10%;">Auswahl</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr data-criteria-type="parking" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>Beidseitiges Parken</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Parkplätze auf beiden Straßenseiten</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Erhöhte Sichthindernisse durch parkende Fahrzeuge</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #ffe6e6; color: #dc3545; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="-1">-1</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="parking_both_sides" data-points="-1" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr data-criteria-type="parking" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>Einseitiges Parken</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Parkplätze nur auf einer Straßenseite</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Geringe Sichthindernisse</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="0">0</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="parking_one_side" data-points="0" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr data-criteria-type="parking" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>Kein Parken</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Parkverbot oder keine Parkplätze</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Keine Sichthindernisse durch parkende Fahrzeuge</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="0">0</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="parking_none" data-points="0" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Intersections Criteria -->
+                <div style="background: white; border: 2px solid #007bff; border-radius: 12px; margin-bottom: 2rem; box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2); overflow: hidden;">
+                    <div style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; padding: 1rem 1.5rem; font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
+                        <span><i class="fas fa-map-signs" style="margin-right: 0.5rem;"></i>Kreuzungen und Einmündungen</span>
+                        <span style="background: rgba(255, 255, 255, 0.2); color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem;">nach DIN EN 13201 Tabelle 8</span>
+                    </div>
+                    <table style="width: 100%; border-collapse: separate; border-spacing: 0;">
+                        <thead>
+                            <tr>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 50%;">Knotenpunkt-Typ</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 30%; text-align: center;">Beschreibung</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: center; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 10%;">Punkte</th>
+                                <th style="background: #f8f9fa; padding: 1rem; text-align: center; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; width: 10%;">Auswahl</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr data-criteria-type="intersection" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>Komplexe Knotenpunkte</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Mehrspurige Kreuzungen, Kreisverkehre</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Komplexe Verkehrsführung mit erhöhten Anforderungen</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="1">1</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="intersection_complex" data-points="1" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr data-criteria-type="intersection" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>Einfache Knotenpunkte</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">T-Kreuzungen, einfache Einmündungen</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Übersichtliche Verkehrsführung</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="0">0</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="intersection_simple" data-points="0" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr data-criteria-type="intersection" style="transition: all 0.3s ease;" onmouseover="this.style.background='#f8f9fa';" onmouseout="this.style.background='white';">
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">
+                                    <strong>Keine Knotenpunkte</strong>
+                                    <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">Freie Strecke ohne Kreuzungen</div>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle;">Gerader Straßenverlauf ohne Abzweigungen</td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <span style="display: inline-flex; align-items: center; justify-content: center; min-width: 50px; padding: 0.5rem 0.75rem; background: #e9ecef; color: #495057; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;" data-points="0">0</span>
+                                </td>
+                                <td style="padding: 1rem; border-bottom: 1px solid #e9ecef; vertical-align: middle; text-align: center;">
+                                    <div style="position: relative; width: 60px; height: 30px; background: #ccc; border-radius: 15px; cursor: pointer; transition: all 0.3s ease; margin: 0 auto;" data-criteria="intersection_none" data-points="0" onclick="toggleCriteria(this)">
+                                        <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <input type="hidden" id="selected_criteria" name="selected_criteria" value="">
+            </form>
+        </div>
+
+        <!-- Scoring Summary -->
+        <div style="float: right; width: 33%; box-sizing: border-box;">
+            <div style="position: sticky; top: 20px; background: white; border: 2px solid #007bff; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2); margin-bottom: 2rem;">
+                <h4 style="text-align: center; margin-bottom: 1.5rem; color: #007bff; font-weight: 600;">
+                    <i class="fas fa-calculator" style="margin-right: 0.5rem;"></i>Punktebewertung
+                </h4>
+
+                <div style="text-align: center; padding: 1.5rem; background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; border-radius: 8px; margin-bottom: 1rem;">
+                    <div style="font-size: 3rem; font-weight: 700; line-height: 1;" id="totalPointsValue">0</div>
+                    <div style="font-size: 1.1rem; opacity: 0.9;">Gesamtpunkte</div>
+                </div>
+
+                <div style="margin: 1rem 0; height: 8px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
+                    <div style="height: 100%; background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); width: 0%; transition: width 0.3s ease; border-radius: 4px;" id="progressBar"></div>
+                </div>
+
+                <div style="text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 8px; border: 2px dashed #dee2e6;" id="classificationPreview">
+                    <div style="color: #6c757d;">
+                        <i class="fas fa-lightbulb" style="margin-right: 0.5rem;"></i>
+                        Wählen Sie Parameter aus<br>
+                        um die Beleuchtungsklasse zu berechnen
+                    </div>
+                </div>
+
+                <div style="margin-top: 1.5rem;">
+                    <h6 style="margin-bottom: 1rem; color: #495057; font-weight: 600;">Punkteverteilung nach DIN EN 13201:</h6>
+                    <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.875rem; color: #6c757d;">
+                        <li style="margin-bottom: 0.5rem;"><strong>≥ 6 Punkte:</strong> M1/P1/A1 (Höchste Klasse)</li>
+                        <li style="margin-bottom: 0.5rem;"><strong>5 Punkte:</strong> M2/P2/A2</li>
+                        <li style="margin-bottom: 0.5rem;"><strong>4 Punkte:</strong> M3/P3/A3</li>
+                        <li style="margin-bottom: 0.5rem;"><strong>3 Punkte:</strong> M4/P4/A4</li>
+                        <li style="margin-bottom: 0.5rem;"><strong>2 Punkte:</strong> M5/P5/A5</li>
+                        <li style="margin-bottom: 0.5rem;"><strong>≤ 1 Punkt:</strong> M6/P6-P7/A6</li>
+                    </ul>
+                </div>
+
+                <div style="text-align: center; margin-top: 1.5rem;">
+                    <button type="submit" form="parametersForm" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); border: none; padding: 0.75rem 2rem; border-radius: 8px; font-weight: 600; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3); color: white; font-size: 1.125rem; cursor: not-allowed; opacity: 0.6;" id="calculateBtn" disabled onmouseover="if(!this.disabled) { this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(0, 123, 255, 0.4)'; this.style.background='linear-gradient(135deg, #0056b3 0%, #004085 100%)'; }" onmouseout="if(!this.disabled) { this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(0, 123, 255, 0.3)'; this.style.background='linear-gradient(135deg, #007bff 0%, #0056b3 100%)'; }">
+                        <i class="fas fa-calculator" style="margin-right: 0.5rem;"></i>
+                        Beleuchtungsklasse berechnen
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedCriteria = new Set();
+let totalPoints = 0;
+
+function toggleCriteria(toggle) {
+    const criteriaType = toggle.closest('tr').dataset.criteriaType;
+    const points = parseInt(toggle.dataset.points);
+    const criteriaId = toggle.dataset.criteria;
+    const row = toggle.closest('tr');
+    const pointsBadge = row.querySelector('span[data-points]');
+
+    // Remove any existing selection from this criteria type and track removed points
+    let removedPoints = 0;
+    const existingToggles = document.querySelectorAll(`[data-criteria-type="${criteriaType}"] div[data-criteria]`);
+    existingToggles.forEach(existingToggle => {
+        if (existingToggle !== toggle && selectedCriteria.has(existingToggle.dataset.criteria)) {
+            // Reset toggle
+            existingToggle.style.background = '#ccc';
+            existingToggle.querySelector('div').style.transform = 'translateX(0)';
+
+            // Reset row styling
+            const existingRow = existingToggle.closest('tr');
+            existingRow.style.background = 'white';
+
+            // Reset points badge
+            const existingBadge = existingRow.querySelector('span[data-points]');
+            existingBadge.style.background = '#e9ecef';
+            existingBadge.style.color = '#495057';
+            existingBadge.style.transform = 'scale(1)';
+
+            // Remove from selected criteria and track points
+            const existingCriteria = existingToggle.dataset.criteria;
+            selectedCriteria.delete(existingCriteria);
+            removedPoints += parseInt(existingToggle.dataset.points);
+        }
+    });
+
+    // Remove the points from previous selections
+    totalPoints -= removedPoints;
+
+    // Check if this toggle is currently active
+    const isCurrentlyActive = selectedCriteria.has(criteriaId);
+
+    if (isCurrentlyActive) {
+        // Deactivate
+        toggle.style.background = '#ccc';
+        toggle.querySelector('div').style.transform = 'translateX(0)';
+        row.style.background = 'white';
+        pointsBadge.style.background = '#e9ecef';
+        pointsBadge.style.color = '#495057';
+        pointsBadge.style.transform = 'scale(1)';
+        selectedCriteria.delete(criteriaId);
+        totalPoints -= points;
+    } else {
+        // Activate
+        toggle.style.background = 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)';
+        toggle.querySelector('div').style.transform = 'translateX(30px)';
+        row.style.background = 'linear-gradient(135deg, rgba(0, 123, 255, 0.1) 0%, rgba(0, 86, 179, 0.1) 100%)';
+        pointsBadge.style.background = 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)';
+        pointsBadge.style.color = 'white';
+        pointsBadge.style.transform = 'scale(1.1)';
+        selectedCriteria.add(criteriaId);
+        totalPoints += points;
+    }
+
+    updateDisplay();
+}
+
+function updateDisplay() {
+    const totalPointsValue = document.getElementById('totalPointsValue');
+    const progressBar = document.getElementById('progressBar');
+    const classificationPreview = document.getElementById('classificationPreview');
+    const calculateBtn = document.getElementById('calculateBtn');
+    const selectedCriteriaInput = document.getElementById('selected_criteria');
+
+    // Update total points
+    totalPointsValue.textContent = totalPoints;
+
+    // Update progress bar (max 8 points for full bar)
+    const progressPercent = Math.min((totalPoints / 8) * 100, 100);
+    progressBar.style.width = progressPercent + '%';
+
+    // Update classification preview
+    const lightingType = '{{ classification.road_type.lighting_type }}';
+    let previewClass = '';
+    let previewDescription = '';
+
+    if (lightingType === 'M') {
+        if (totalPoints >= 6) {
+            previewClass = 'M1';
+            previewDescription = 'Höchste Beleuchtungsklasse für Kraftfahrzeugverkehr';
+        } else if (totalPoints >= 5) {
+            previewClass = 'M2';
+            previewDescription = 'Hohe Beleuchtungsklasse für Kraftfahrzeugverkehr';
+        } else if (totalPoints >= 4) {
+            previewClass = 'M3';
+            previewDescription = 'Mittlere Beleuchtungsklasse für Kraftfahrzeugverkehr';
+        } else if (totalPoints >= 3) {
+            previewClass = 'M4';
+            previewDescription = 'Standard Beleuchtungsklasse für Kraftfahrzeugverkehr';
+        } else if (totalPoints >= 2) {
+            previewClass = 'M5';
+            previewDescription = 'Niedrige Beleuchtungsklasse für Kraftfahrzeugverkehr';
+        } else {
+            previewClass = 'M6';
+            previewDescription = 'Niedrigste Beleuchtungsklasse für Kraftfahrzeugverkehr';
+        }
+    } else if (lightingType === 'P') {
+        if (totalPoints >= 6) {
+            previewClass = 'P1';
+            previewDescription = 'Höchste Beleuchtungsklasse für Fußgänger/Radfahrer';
+        } else if (totalPoints >= 4) {
+            previewClass = 'P3';
+            previewDescription = 'Mittlere Beleuchtungsklasse für Fußgänger/Radfahrer';
+        } else {
+            previewClass = 'P5';
+            previewDescription = 'Niedrige Beleuchtungsklasse für Fußgänger/Radfahrer';
+        }
+    } else if (lightingType === 'A') {
+        if (totalPoints >= 6) {
+            previewClass = 'A1';
+            previewDescription = 'Höchste Beleuchtungsklasse für Konfliktbereiche';
+        } else if (totalPoints >= 4) {
+            previewClass = 'A3';
+            previewDescription = 'Mittlere Beleuchtungsklasse für Konfliktbereiche';
+        } else {
+            previewClass = 'A5';
+            previewDescription = 'Niedrige Beleuchtungsklasse für Konfliktbereiche';
+        }
+    }
+
+    if (previewClass) {
+        classificationPreview.style.background = 'linear-gradient(135deg, rgba(40, 167, 69, 0.1) 0%, rgba(25, 135, 84, 0.1) 100%)';
+        classificationPreview.style.borderColor = '#28a745';
+        classificationPreview.innerHTML = `
+            <div style="font-size: 2rem; font-weight: 700; color: #28a745; margin-bottom: 0.5rem;">
+                ${previewClass}
+            </div>
+            <div style="color: #6c757d;">
+                ${previewDescription}
+            </div>
+        `;
+        if (calculateBtn) {
+            calculateBtn.disabled = false;
+            calculateBtn.style.opacity = '1';
+            calculateBtn.style.cursor = 'pointer';
+        }
+    } else {
+        classificationPreview.style.background = '#f8f9fa';
+        classificationPreview.style.borderColor = '#dee2e6';
+        classificationPreview.innerHTML = `
+            <div style="color: #6c757d;">
+                <i class="fas fa-lightbulb" style="margin-right: 0.5rem;"></i>
+                Wählen Sie Parameter aus<br>
+                um die Beleuchtungsklasse zu berechnen
+            </div>
+        `;
+        if (calculateBtn) {
+            calculateBtn.disabled = true;
+            calculateBtn.style.opacity = '0.6';
+            calculateBtn.style.cursor = 'not-allowed';
+        }
+    }
+
+    // Update hidden input
+    if (selectedCriteriaInput) {
+        selectedCriteriaInput.value = JSON.stringify(Array.from(selectedCriteria));
+    }
+
+    // Debug: Log the current state
+    console.log('Current state:', {
+        totalPoints: totalPoints,
+        selectedCriteria: Array.from(selectedCriteria),
+        buttonDisabled: calculateBtn ? calculateBtn.disabled : 'not found'
+    });
+}
+</script>
+{% endblock %}

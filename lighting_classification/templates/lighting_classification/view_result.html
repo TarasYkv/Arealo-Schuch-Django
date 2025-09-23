@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}DIN 13201-1 - Beleuchtungsklasse{% endblock %}
+
+{% block content %}
+<div style="max-width: 1200px; margin: 0 auto; padding: 2rem; background-color: #f8f9fa;">
+    <!-- Page Header -->
+    <div style="text-align: center; margin-bottom: 3rem; padding: 2rem 0;">
+        <h1 style="font-size: 2.5rem; font-weight: 700; background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem;">
+            <i class="fas fa-lightbulb" style="margin-right: 0.5rem; color: #007bff;"></i>
+            DIN 13201-1 Ergebnis
+        </h1>
+        <p style="color: #6c757d; margin: 0; font-size: 1.1rem;">{{ classification.project_name }}</p>
+    </div>
+
+    <!-- Step Indicator -->
+    <div style="display: flex; justify-content: center; margin-bottom: 2rem; gap: 1rem;">
+        <div style="display: flex; align-items: center; padding: 0.75rem 1.5rem; border-radius: 2rem; font-weight: 600; background: #28a745; color: white;">
+            <i class="fas fa-check" style="margin-right: 0.5rem;"></i>
+            1. Straßentyp
+        </div>
+        <div style="display: flex; align-items: center; padding: 0.75rem 1.5rem; border-radius: 2rem; font-weight: 600; background: #28a745; color: white;">
+            <i class="fas fa-check" style="margin-right: 0.5rem;"></i>
+            2. Parameter
+        </div>
+        <div style="display: flex; align-items: center; padding: 0.75rem 1.5rem; border-radius: 2rem; font-weight: 600; background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; transform: scale(1.05); box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);">
+            <i class="fas fa-lightbulb" style="margin-right: 0.5rem;"></i>
+            3. Beleuchtungsklasse
+        </div>
+    </div>
+
+    <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
+        <!-- Ergebnis Card -->
+        <div style="flex: 1; min-width: 300px;">
+            <div style="background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 8px rgba(0, 123, 255, 0.1); border: 2px solid #e9ecef;">
+                <h3 style="color: #007bff; margin-bottom: 1.5rem; font-weight: 600;">
+                    <i class="fas fa-award" style="margin-right: 0.5rem;"></i>
+                    Beleuchtungsklasse
+                </h3>
+
+                <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 1rem 2rem; border-radius: 50px; font-size: 2rem; font-weight: bold; text-align: center; margin: 1rem 0; box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);">
+                    {{ classification.calculated_lighting_class }}
+                </div>
+
+                <div style="text-align: center; color: #6c757d; margin-bottom: 2rem;">
+                    {{ classification.road_category.code }} - {{ classification.road_category.name }}
+                </div>
+
+                <!-- Wartungswerte -->
+                <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-top: 1rem;">
+                    <h5 style="color: #495057; margin-bottom: 1rem;">Wartungswerte nach DIN EN 13201-2</h5>
+
+                    {% if classification.maintenance_luminance %}
+                    <div style="margin-bottom: 0.75rem;">
+                        <strong>Leuchtdichte:</strong> {{ classification.maintenance_luminance }} cd/m²
+                    </div>
+                    {% endif %}
+
+                    {% if classification.maintenance_illuminance %}
+                    <div style="margin-bottom: 0.75rem;">
+                        <strong>Beleuchtungsstärke:</strong> {{ classification.maintenance_illuminance }} lx
+                    </div>
+                    {% endif %}
+
+                    {% if classification.overall_uniformity_uo %}
+                    <div style="margin-bottom: 0.75rem;">
+                        <strong>Gesamtgleichmäßigkeit Uo:</strong> {{ classification.overall_uniformity_uo }}
+                    </div>
+                    {% endif %}
+
+                    {% if classification.longitudinal_uniformity_ul %}
+                    <div style="margin-bottom: 0.75rem;">
+                        <strong>Längsgleichmäßigkeit Ul:</strong> {{ classification.longitudinal_uniformity_ul }}
+                    </div>
+                    {% endif %}
+
+                    {% if classification.threshold_increment_ti %}
+                    <div style="margin-bottom: 0.75rem;">
+                        <strong>Schwellenwerterhöhung TI:</strong> {{ classification.threshold_increment_ti }}%
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Berechnung Card -->
+        <div style="flex: 1; min-width: 300px;">
+            <div style="background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 8px rgba(0, 123, 255, 0.1); border: 2px solid #e9ecef;">
+                <h3 style="color: #007bff; margin-bottom: 1.5rem; font-weight: 600;">
+                    <i class="fas fa-calculator" style="margin-right: 0.5rem;"></i>
+                    DIN-Berechnung
+                </h3>
+
+                <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border: 2px dashed #007bff; border-radius: 12px; padding: 1.5rem; text-align: center; margin: 1.5rem 0;">
+                    <div style="font-size: 1.5rem; color: #007bff; font-weight: bold; margin-bottom: 1rem;">
+                        {{ classification.total_weighting_value }}
+                    </div>
+                    <div style="color: #6c757d; margin-bottom: 1rem;">
+                        VWS (Summe der Wichtungswerte)
+                    </div>
+
+                    <div style="border-top: 2px solid #007bff; padding-top: 1rem; margin-top: 1rem;">
+                        <div style="font-weight: bold; color: #495057;">Formel nach DIN 13201-1</div>
+                        <div style="font-size: 1.2rem; color: #007bff; margin: 0.5rem 0;">
+                            {{ classification.road_category.lighting_class_type }} = 6 - VWS
+                        </div>
+                        <div style="color: #6c757d; font-size: 0.9rem;">
+                            {{ classification.road_category.lighting_class_type }} = {{ classification.road_category.get_lighting_class_type_display }}<br>
+                            VWS = Summe der Wichtungswerte
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ausgewählte Parameter -->
+                <h5 style="color: #495057; margin-bottom: 1rem; margin-top: 2rem;">Ausgewählte DIN-Parameter</h5>
+
+                {% for selected_choice in selected_choices %}
+                <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 1rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong>{{ selected_choice.parameter.name }}:</strong><br>
+                        <span style="color: #6c757d;">{{ selected_choice.choice.choice_text }}</span>
+                    </div>
+                    <div style="background: #007bff; color: white; padding: 0.25rem 0.75rem; border-radius: 15px; font-weight: bold; font-size: 0.9rem;">
+                        VW {{ selected_choice.choice.weighting_value }}
+                    </div>
+                </div>
+                {% empty %}
+                <div style="background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; padding: 1rem; border-radius: 8px;">
+                    <i class="fas fa-exclamation-triangle" style="margin-right: 0.5rem;"></i>
+                    Keine Parameter ausgewählt.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Zusätzliche Informationen zur Beleuchtungsklasse -->
+    {% if lighting_info %}
+    <div style="background: white; border-radius: 12px; padding: 2rem; margin-top: 2rem; box-shadow: 0 4px 8px rgba(0, 123, 255, 0.1); border: 2px solid #e9ecef;">
+        <h3 style="color: #007bff; margin-bottom: 1.5rem; font-weight: 600;">
+            <i class="fas fa-info-circle" style="margin-right: 0.5rem;"></i>
+            Informationen zur Beleuchtungsklasse {{ classification.calculated_lighting_class }}
+        </h3>
+
+        <div style="margin-bottom: 1rem;">
+            <strong style="color: #495057;">Beschreibung:</strong>
+            <p style="margin: 0.5rem 0; color: #6c757d;">{{ lighting_info.description }}</p>
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+            <strong style="color: #495057;">Anwendung:</strong>
+            <p style="margin: 0.5rem 0; color: #6c757d;">{{ lighting_info.application }}</p>
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+            <strong style="color: #495057;">Anforderungen:</strong>
+            <p style="margin: 0.5rem 0; color: #6c757d;">{{ lighting_info.requirements }}</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Action Buttons -->
+    <div style="text-align: center; margin-top: 3rem; padding: 2rem 0;">
+        <a href="{% url 'lighting_classification:configure_parameters' classification.id %}"
+           style="padding: 0.75rem 2rem; font-size: 1.1rem; font-weight: 600; border-radius: 10px; text-decoration: none; display: inline-block; margin: 0 0.5rem; background: #6c757d; color: white;">
+            <i class="fas fa-arrow-left" style="margin-right: 0.5rem;"></i>
+            Parameter ändern
+        </a>
+        <a href="{% url 'lighting_classification:select_road_type' %}"
+           style="padding: 0.75rem 2rem; font-size: 1.1rem; font-weight: 600; border-radius: 10px; text-decoration: none; display: inline-block; margin: 0 0.5rem; background: white; color: #007bff; border: 2px solid #007bff;">
+            <i class="fas fa-plus" style="margin-right: 0.5rem;"></i>
+            Neue Klassifizierung
+        </a>
+        <a href="{% url 'lighting_classification:download_pdf' classification.id %}"
+           style="padding: 0.75rem 2rem; font-size: 1.1rem; font-weight: 600; border-radius: 10px; text-decoration: none; display: inline-block; margin: 0 0.5rem; background: #28a745; color: white;">
+            <i class="fas fa-download" style="margin-right: 0.5rem;"></i>
+            PDF Download
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -203,26 +203,26 @@
 {% block content %}
 <div id="lighting-classification-app" class="container-fluid px-4">
     <!-- Page Header -->
-    <div class="text-center mb-4">
-        <h1 class="lighting-page-title">
-            <i class="fas fa-lightbulb me-2"></i>
+    <div style="text-align: center; margin-bottom: 3rem; padding: 2rem 0;">
+        <h1 style="font-size: 2.5rem; font-weight: 700; background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem;">
+            <i class="fas fa-lightbulb" style="margin-right: 0.5rem; color: #007bff;"></i>
             DIN EN 13201 Klassifizierung
         </h1>
-        <p class="text-muted">Normgerechte Beleuchtungsklassifizierung für Straßen und Wege</p>
+        <p style="color: #6c757d; margin: 0;">Normgerechte Beleuchtungsklassifizierung für Straßen und Wege</p>
     </div>
 
     <!-- Step Indicator -->
-    <div class="lighting-step-indicator">
-        <div class="lighting-step active">
-            <i class="fas fa-road me-2"></i>
+    <div style="display: flex; justify-content: center; margin-bottom: 2rem;">
+        <div style="display: flex; align-items: center; padding: 0.5rem 1rem; border-radius: 2rem; margin: 0 0.5rem; font-weight: 500; transition: all 0.3s ease; background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; transform: scale(1.05);">
+            <i class="fas fa-road" style="margin-right: 0.5rem;"></i>
             1. Straßentyp
         </div>
-        <div class="lighting-step inactive">
-            <i class="fas fa-sliders-h me-2"></i>
+        <div style="display: flex; align-items: center; padding: 0.5rem 1rem; border-radius: 2rem; margin: 0 0.5rem; font-weight: 500; transition: all 0.3s ease; background: #f8f9fa; color: #6c757d;">
+            <i class="fas fa-sliders-h" style="margin-right: 0.5rem;"></i>
             2. Parameter
         </div>
-        <div class="lighting-step inactive">
-            <i class="fas fa-lightbulb me-2"></i>
+        <div style="display: flex; align-items: center; padding: 0.5rem 1rem; border-radius: 2rem; margin: 0 0.5rem; font-weight: 500; transition: all 0.3s ease; background: #f8f9fa; color: #6c757d;">
+            <i class="fas fa-lightbulb" style="margin-right: 0.5rem;"></i>
             3. Beleuchtungsklasse
         </div>
     </div>
@@ -249,46 +249,45 @@
                             <i class="fas fa-info-circle me-1"></i>
                             Wählen Sie einen Straßentyp durch Klick auf die Karten aus
                         </small>
-                        <input type="hidden" id="road_type_id" name="road_type_id">
+                        <input type="hidden" id="din_category_id" name="din_category_id">
                     </div>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Road Types by Category -->
-    {% for category_name, road_types in road_types_by_category.items %}
+    <!-- DIN Road Categories -->
     <div style="background: white; border: 2px solid #007bff; border-radius: 12px; margin-bottom: 2rem; box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2); overflow: hidden;">
         <div style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; padding: 1rem 1.5rem; font-weight: 600; font-size: 1.1rem;">
-            <i class="{{ category_icons|default_if_none:'' }}{{ category_name|default:'fas fa-road' }}" style="margin-right: 0.5rem;"></i>
-            {{ category_name }}
+            <i class="fas fa-road" style="margin-right: 0.5rem;"></i>
+            DIN 13201-1 Straßenkategorien
         </div>
         <div style="padding: 1.5rem;">
             <div style="display: flex; flex-wrap: wrap; margin: -0.75rem;">
-                {% for road_type in road_types %}
+                {% for din_category in din_categories %}
                 <div style="flex: 0 0 33.333333%; max-width: 33.333333%; padding: 0.75rem;">
                     <div class="lighting-road-type-card"
-                         data-road-type-id="{{ road_type.id }}"
-                         data-road-type-name="{{ road_type.code }} - {{ road_type.name }}"
+                         data-road-type-id="{{ din_category.id }}"
+                         data-road-type-name="{{ din_category.code }} - {{ din_category.name }}"
                          style="border: 2px solid #e9ecef; border-radius: 8px; padding: 1.25rem; cursor: pointer; transition: all 0.3s ease; background: white; position: relative; min-height: 140px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"
                          onmouseover="this.style.borderColor='#007bff'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 15px rgba(0, 123, 255, 0.15)';"
                          onmouseout="this.style.borderColor='#e9ecef'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)';">
-                        <div style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(0, 123, 255, 0.1); color: #007bff; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 500;">{{ road_type.lighting_type }}-Klassen</div>
-                        <div style="font-weight: bold; font-size: 1.1rem; color: #007bff; margin-bottom: 0.5rem;">{{ road_type.code }}</div>
-                        <div style="font-weight: 600; margin-bottom: 0.5rem; font-size: 1rem; color: #333;">{{ road_type.name }}</div>
-                        <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">{{ road_type.description }}</div>
+                        <div style="position: absolute; top: 0.75rem; right: 0.75rem; background: rgba(0, 123, 255, 0.1); color: #007bff; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem; font-weight: 500;">{{ din_category.lighting_class_type }}-Klassen</div>
+                        <div style="font-weight: bold; font-size: 1.1rem; color: #007bff; margin-bottom: 0.5rem;">{{ din_category.code }}</div>
+                        <div style="font-weight: 600; margin-bottom: 0.5rem; font-size: 1rem; color: #333;">{{ din_category.name }}</div>
+                        <div style="font-size: 0.9rem; color: #6c757d; line-height: 1.4;">{{ din_category.description }}</div>
+                        <div style="font-size: 0.75rem; color: #6c757d; margin-top: 0.5rem;">Tabelle {{ din_category.table_number }}</div>
                     </div>
+                </div>
+                {% empty %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Keine DIN-Kategorien verfügbar. Bitte wenden Sie sich an einen Administrator.
                 </div>
                 {% endfor %}
             </div>
         </div>
     </div>
-    {% empty %}
-    <div class="alert alert-warning">
-        <i class="fas fa-exclamation-triangle me-2"></i>
-        Keine Straßentypen verfügbar. Bitte wenden Sie sich an einen Administrator.
-    </div>
-    {% endfor %}
 
     <!-- Action Buttons -->
     <div class="text-center mb-4">
@@ -303,7 +302,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const roadTypeCards = document.querySelectorAll('.lighting-road-type-card');
-    const roadTypeIdInput = document.getElementById('road_type_id');
+    const roadTypeIdInput = document.getElementById('din_category_id');
     const roadTypeDisplay = document.getElementById('selected_road_type_display');
     const continueBtn = document.getElementById('continueBtn');
 
@@ -362,12 +361,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             // Update form fields
-            const roadTypeId = this.dataset.roadTypeId;
+            const dinCategoryId = this.dataset.roadTypeId;
             const roadTypeName = this.dataset.roadTypeName;
 
-            console.log('Selected:', roadTypeId, roadTypeName);
+            console.log('Selected:', dinCategoryId, roadTypeName);
 
-            roadTypeIdInput.value = roadTypeId;
+            roadTypeIdInput.value = dinCategoryId;
             roadTypeDisplay.value = roadTypeName;
 
             // Enable continue button
@@ -390,7 +389,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Form validation
     document.getElementById('classificationForm').addEventListener('submit', function(e) {
         const projectName = document.getElementById('project_name').value.trim();
-        const roadTypeId = roadTypeIdInput.value;
+        const dinCategoryId = roadTypeIdInput.value;
 
         if (!projectName) {
             e.preventDefault();
@@ -399,7 +398,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        if (!roadTypeId) {
+        if (!dinCategoryId) {
             e.preventDefault();
             alert('Bitte wählen Sie einen Straßentyp aus.');
             return;
