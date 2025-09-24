@@ -3127,7 +3127,318 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    // Rich Text Editor für Modal
+    const modalDescriptionTextarea = document.querySelector('#newTaskDescription');
+    if (modalDescriptionTextarea) {
+        // Verstecke das originale Textarea
+        modalDescriptionTextarea.style.display = 'none';
+
+        // Generiere eindeutige IDs für das Modal
+        const modalEditorId = 'modalEditor';
+
+        // Erstelle den Editor
+        const modalEditorHTML = `
+            <div class="simple-editor" id="${modalEditorId}">
+                <div class="editor-toolbar">
+                    <select class="size-select" id="modalFontSize" title="Textgröße">
+                        <option value="">Normal</option>
+                        <option value="1">Klein</option>
+                        <option value="3">Mittel</option>
+                        <option value="5">Groß</option>
+                        <option value="7">Sehr groß</option>
+                    </select>
+                    <div class="editor-separator"></div>
+                    <button type="button" class="editor-btn" data-command="bold" title="Fett">
+                        <strong>B</strong>
+                    </button>
+                    <button type="button" class="editor-btn" data-command="italic" title="Kursiv">
+                        <em>I</em>
+                    </button>
+                    <button type="button" class="editor-btn" data-command="underline" title="Unterstrichen">
+                        <u>U</u>
+                    </button>
+                    <div class="editor-separator"></div>
+                    <button type="button" class="editor-btn" data-command="insertUnorderedList" title="Aufzählungsliste">
+                        • —
+                    </button>
+                    <div class="editor-separator"></div>
+                    <button type="button" class="editor-btn" data-command="createLink" title="Link einfügen">
+                        🔗
+                    </button>
+                    <input type="file" id="modalImageUpload" accept="image/*" style="display: none;">
+                    <button type="button" class="editor-btn" id="modalImageBtn" title="Bild hochladen">
+                        🖼️ Bild
+                    </button>
+                    <div class="editor-separator"></div>
+                    <button type="button" class="editor-btn" data-command="removeFormat" title="Formatierung entfernen">
+                        ✖️
+                    </button>
+                </div>
+                <div class="editor-content" contenteditable="true" data-placeholder="Details eingeben...">
+                    ${modalDescriptionTextarea.value || ''}
+                </div>
+                <div class="image-resize-popup" id="modalImageResizePopup">
+                    <button class="resize-btn" data-size="25">25%</button>
+                    <button class="resize-btn" data-size="50">50%</button>
+                    <button class="resize-btn" data-size="75">75%</button>
+                    <button class="resize-btn" data-size="100">100%</button>
+                    <button class="resize-btn" data-size="original">Original</button>
+                </div>
+            </div>
+        `;
+
+        // Füge den Editor nach dem Textarea ein
+        modalDescriptionTextarea.insertAdjacentHTML('afterend', modalEditorHTML);
+
+        const modalEditorContent = document.querySelector(`#${modalEditorId} .editor-content`);
+        const modalButtons = document.querySelectorAll(`#${modalEditorId} .editor-btn[data-command]`);
+        const modalImageBtn = document.getElementById('modalImageBtn');
+        const modalImageUpload = document.getElementById('modalImageUpload');
+        const modalFontSize = document.getElementById('modalFontSize');
+        const modalImageResizePopup = document.getElementById('modalImageResizePopup');
+        let selectedModalImage = null;
+
+        // Textgröße Handler
+        modalFontSize.addEventListener('change', () => {
+            const size = modalFontSize.value;
+            if (size) {
+                document.execCommand('fontSize', false, size);
+            }
+            modalEditorContent.focus();
+        });
+
+        // Button Click Handler
+        modalButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const command = button.dataset.command;
+
+                if (command === 'createLink') {
+                    const url = prompt('URL eingeben:', 'https://');
+                    if (url) {
+                        document.execCommand(command, false, url);
+                    }
+                } else {
+                    document.execCommand(command, false, null);
+                }
+
+                modalEditorContent.focus();
+            });
+        });
+
+        // Bild-Klick Handler für Größenänderung
+        modalEditorContent.addEventListener('click', (e) => {
+            if (e.target.tagName === 'IMG') {
+                // Entferne vorherige Auswahl
+                document.querySelectorAll(`#${modalEditorId} .editor-content img`).forEach(img => {
+                    img.classList.remove('selected');
+                });
+
+                // Markiere aktuelles Bild
+                e.target.classList.add('selected');
+                selectedModalImage = e.target;
+
+                // Zeige Resize-Popup
+                const rect = e.target.getBoundingClientRect();
+                const editorRect = modalEditorContent.getBoundingClientRect();
+                modalImageResizePopup.style.left = (rect.left - editorRect.left) + 'px';
+                modalImageResizePopup.style.top = (rect.bottom - editorRect.top + 5) + 'px';
+                modalImageResizePopup.classList.add('show');
+            } else {
+                // Verstecke Popup wenn woanders geklickt
+                modalImageResizePopup.classList.remove('show');
+                document.querySelectorAll(`#${modalEditorId} .editor-content img`).forEach(img => {
+                    img.classList.remove('selected');
+                });
+                selectedModalImage = null;
+            }
+        });
+
+        // Bildgrößen-Buttons
+        document.querySelectorAll(`#${modalEditorId} .resize-btn`).forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!selectedModalImage) return;
+
+                const size = btn.dataset.size;
+                if (size === 'original') {
+                    selectedModalImage.style.width = '';
+                    selectedModalImage.style.maxWidth = '100%';
+                } else {
+                    selectedModalImage.style.width = size + '%';
+                    selectedModalImage.style.maxWidth = size + '%';
+                }
+
+                // Verstecke Popup
+                modalImageResizePopup.classList.remove('show');
+                selectedModalImage.classList.remove('selected');
+                selectedModalImage = null;
+            });
+        });
+
+        // Bild Upload Handler
+        modalImageBtn.addEventListener('click', () => {
+            modalImageUpload.click();
+        });
+
+        modalImageUpload.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Zeige Ladeanzeige
+            const loadingText = '<p style="color: #6c757d;">Bild wird hochgeladen...</p>';
+            document.execCommand('insertHTML', false, loadingText);
+
+            fetch('/loomline/upload-image/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.location) {
+                    // Ersetze Ladetext mit Bild
+                    modalEditorContent.innerHTML = modalEditorContent.innerHTML.replace(
+                        '<p style="color: #6c757d;">Bild wird hochgeladen...</p>',
+                        `<img src="${result.location}" alt="${file.name}">`
+                    );
+                } else {
+                    alert('Bildupload fehlgeschlagen');
+                    modalEditorContent.innerHTML = modalEditorContent.innerHTML.replace(
+                        '<p style="color: #6c757d;">Bild wird hochgeladen...</p>',
+                        ''
+                    );
+                }
+            })
+            .catch(error => {
+                console.error('Upload error:', error);
+                alert('Bildupload fehlgeschlagen');
+                modalEditorContent.innerHTML = modalEditorContent.innerHTML.replace(
+                    '<p style="color: #6c757d;">Bild wird hochgeladen...</p>',
+                    ''
+                );
+            });
+
+            // Reset file input
+            modalImageUpload.value = '';
+        });
+
+        // Synchronisiere Editor-Inhalt mit Textarea vor dem Absenden
+        const modalForm = document.getElementById('addTaskForm');
+        if (modalForm) {
+            modalForm.addEventListener('submit', () => {
+                modalDescriptionTextarea.value = modalEditorContent.innerHTML;
+            });
+        }
+
+        // Synchronisiere auch bei jeder Änderung
+        modalEditorContent.addEventListener('input', () => {
+            modalDescriptionTextarea.value = modalEditorContent.innerHTML;
+        });
+    }
 });
 
 </script>
+
+<!-- Rich Text Editor Styles für Modal -->
+<style>
+.simple-editor {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    background: white;
+}
+.editor-toolbar {
+    border-bottom: 1px solid #dee2e6;
+    padding: 8px;
+    background: #f8f9fa;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.editor-btn {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+.editor-btn:hover {
+    background: #e9ecef;
+}
+.editor-btn.active {
+    background: #007bff;
+    color: white;
+}
+.editor-content {
+    min-height: 150px;
+    padding: 12px;
+    outline: none;
+}
+.editor-content img {
+    max-width: 100%;
+    height: auto;
+    margin: 10px 0;
+    cursor: move;
+    border: 2px solid transparent;
+    transition: border 0.3s;
+}
+.editor-content img:hover {
+    border: 2px solid #007bff;
+}
+.editor-content img.selected {
+    border: 2px solid #007bff;
+    box-shadow: 0 0 0 1px rgba(0,123,255,0.25);
+}
+.editor-separator {
+    width: 1px;
+    height: 20px;
+    background: #dee2e6;
+    margin: 0 4px;
+}
+.size-select {
+    padding: 4px 8px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    background: white;
+    font-size: 14px;
+    cursor: pointer;
+}
+.size-select:hover {
+    background: #e9ecef;
+}
+.image-resize-popup {
+    position: absolute;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    display: none;
+    z-index: 1000;
+}
+.image-resize-popup.show {
+    display: block;
+}
+.resize-btn {
+    padding: 4px 8px;
+    margin: 2px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+}
+.resize-btn:hover {
+    background: #007bff;
+    color: white;
+}
+</style>
 {% endblock %}

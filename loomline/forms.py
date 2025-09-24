@@ -22,7 +22,7 @@ class ProjectForm(forms.ModelForm):
             }),
             'description': forms.Textarea(attrs={
                 'class': 'form-control',
-                'rows': 3,
+                'rows': 5,
                 'placeholder': 'Kurze Beschreibung des Projekts...'
             }),
             'domain': forms.TextInput(attrs={
@@ -45,8 +45,8 @@ class TaskEntryForm(forms.ModelForm):
                 'required': True
             }),
             'description': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 2,
+                'class': 'form-control tinymce-editor',
+                'rows': 3,
                 'placeholder': 'Zusätzliche Details (optional)...'
             }),
             'completed_at': forms.DateTimeInput(attrs={
@@ -83,8 +83,8 @@ class QuickTaskEntryForm(forms.ModelForm):
                 'required': True
             }),
             'description': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 3,
+                'class': 'form-control tinymce-editor',
+                'rows': 4,
                 'placeholder': 'Was genau wurde gemacht? (optional)...'
             }),
             'completed_at': forms.DateTimeInput(attrs={
