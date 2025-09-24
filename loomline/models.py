@@ -149,3 +149,46 @@ class TaskEntry(models.Model):
         verbose_name = "Erledigte Aufgabe"
         verbose_name_plural = "Erledigte Aufgaben"
         ordering = ['-completed_at']
+
+
+class ScheduledNotification(models.Model):
+    """Speichert geplante Benachrichtigungen für Aufgaben."""
+
+    user_to_notify = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name="Zu benachrichtigender Nutzer"
+    )
+    
+    task_entry = models.ForeignKey(
+        TaskEntry,
+        on_delete=models.CASCADE,
+        related_name='notifications',
+        verbose_name="Aufgabe"
+    )
+    
+    message = models.TextField(
+        verbose_name="Nachricht"
+    )
+    
+    send_at = models.DateTimeField(
+        verbose_name="Sendezeitpunkt"
+    )
+    
+    sent = models.BooleanField(
+        default=False,
+        verbose_name="Gesendet"
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Erstellt am"
+    )
+
+    def __str__(self):
+        return f"Benachrichtigung für {self.user_to_notify.username} zu '{self.task_entry.title}' am {self.send_at}"
+
+    class Meta:
+        verbose_name = "Geplante Benachrichtigung"
+        verbose_name_plural = "Geplante Benachrichtigungen"
+        ordering = ['-send_at']

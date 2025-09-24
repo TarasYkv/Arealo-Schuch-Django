@@ -311,6 +311,7 @@ def add_subtask(request):
         title = request.POST.get('title')
         description = request.POST.get('description', '')
         completed_at = request.POST.get('completed_at')
+        notification_datetime_str = request.POST.get('notification_datetime')
 
         if title:
             subtask = TaskEntry.objects.create(
@@ -321,7 +322,25 @@ def add_subtask(request):
                 parent_task=parent_task,
                 completed_at=timezone.now() if not completed_at else completed_at
             )
-            messages.success(request, f'Sub-Aufgabe "{subtask.title}" erfolgreich hinzugefügt!')
+
+            # Create notification if datetime is provided
+            if notification_datetime_str:
+                try:
+                    send_at_dt = datetime.fromisoformat(notification_datetime_str)
+                    # Make timezone aware
+                    send_at_aware = timezone.make_aware(send_at_dt)
+
+                    ScheduledNotification.objects.create(
+                        user_to_notify=request.user,
+                        task_entry=subtask,
+                        message=f'Erinnerung für deine Sub-Aufgabe: "{subtask.title}"',
+                        send_at=send_at_aware
+                    )
+                    messages.success(request, f'Sub-Aufgabe "{subtask.title}" mit Erinnerung erstellt!')
+                except (ValueError, TypeError):
+                    messages.warning(request, "Ungültiges Datumsformat für die Erinnerung.")
+            else:
+                 messages.success(request, f'Sub-Aufgabe "{subtask.title}" erfolgreich hinzugefügt!')
         else:
             messages.error(request, 'Titel ist erforderlich.')
 

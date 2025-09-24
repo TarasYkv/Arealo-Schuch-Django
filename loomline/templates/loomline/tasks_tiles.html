@@ -437,6 +437,22 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Notification Input -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="form-group mb-4">
+                                <label for="newNotificationDateTime" class="form-label">
+                                    <i class="fas fa-bell me-2"></i>Erinnerung (optional)
+                                </label>
+                                <input type="datetime-local" class="form-control add-input" id="newNotificationDateTime">
+                                <div class="form-text text-muted" style="font-size: 0.8rem; margin-top: 0.5rem;">
+                                    Hinweis: Erinnerungen werden stündlich verarbeitet. Die Zustellung erfolgt zur nächsten vollen Stunde.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </form>
             </div>
             <div class="modal-footer add-task-footer">
@@ -2605,10 +2621,8 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('addTaskForm').addEventListener('submit', function(e) {
         e.preventDefault();
 
-        const title = document.getElementById('newTaskTitle').value;
-        const description = document.getElementById('newTaskDescription').value;
-        const projectId = document.getElementById('newTaskProject').value;
         const completedAt = document.getElementById('newTaskCompletedAt').value;
+        const notificationDateTime = document.getElementById('newNotificationDateTime').value;
         const parentTaskId = this.getAttribute('data-parent-task');
         const isSubtask = this.getAttribute('data-is-subtask') === 'true';
 
@@ -2624,6 +2638,11 @@ document.addEventListener('DOMContentLoaded', function() {
             'project': projectId,
             'completed_at': completedAt
         };
+
+        // Add notification time if set
+        if (notificationDateTime) {
+            requestBody['notification_datetime'] = notificationDateTime;
+        }
 
         // Add parent_task_id if it's a subtask
         if (isSubtask && parentTaskId) {
