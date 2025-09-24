@@ -39,9 +39,20 @@
                     </div>
                 </div>
                 <div class="card-footer bg-transparent border-0">
-                    <a href="{% url 'loomline:project-detail' project.pk %}" class="btn btn-outline-primary w-100">
-                        Timeline anzeigen
-                    </a>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'loomline:project-detail' project.pk %}" class="btn btn-outline-primary flex-grow-1">
+                            <i class="fas fa-eye me-1"></i>Timeline
+                        </a>
+                        <a href="{% url 'loomline:project-edit' project.pk %}" class="btn btn-outline-secondary" title="Projekt bearbeiten">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <button type="button" class="btn btn-outline-danger" title="Projekt löschen"
+                                data-bs-toggle="modal" data-bs-target="#deleteModal"
+                                data-project-id="{{ project.pk }}"
+                                data-project-name="{{ project.name }}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -59,4 +70,55 @@
         {% endfor %}
     </div>
 </div>
+
+<!-- Lösch-Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">
+                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                    Projekt löschen
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Möchten Sie das Projekt <strong id="projectNameToDelete"></strong> wirklich löschen?</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Achtung:</strong> Diese Aktion kann nicht rückgängig gemacht werden.
+                    Alle Aufgaben und Daten dieses Projekts werden unwiderruflich gelöscht.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Abbrechen
+                </button>
+                <form id="deleteForm" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash me-2"></i>Endgültig löschen
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Handle delete modal
+document.getElementById('deleteModal').addEventListener('show.bs.modal', function (event) {
+    const button = event.relatedTarget;
+    const projectId = button.getAttribute('data-project-id');
+    const projectName = button.getAttribute('data-project-name');
+
+    // Update modal content
+    document.getElementById('projectNameToDelete').textContent = projectName;
+
+    // Update form action
+    const form = document.getElementById('deleteForm');
+    form.action = "{% url 'loomline:project-delete' 0 %}".replace('0', projectId);
+});
+</script>
+
 {% endblock %}
