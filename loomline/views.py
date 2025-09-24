@@ -16,7 +16,7 @@ from django.core.paginator import Paginator
 from django.utils import timezone
 from django.http import JsonResponse
 from datetime import timedelta, datetime
-from .models import Project, TaskEntry
+from .models import Project, TaskEntry, ScheduledNotification
 from .forms import ProjectForm, TaskEntryForm, QuickTaskEntryForm, AddMemberForm
 
 User = get_user_model()
@@ -205,7 +205,8 @@ def tasks_tiles_view(request):
         models.Q(project__owner=user) | models.Q(project__members=user),
         parent_task__isnull=True  # Nur Hauptaufgaben, keine Sub-Aufgaben
     ).select_related('project', 'completed_by').prefetch_related(
-        Prefetch('subtasks', queryset=TaskEntry.objects.order_by('-completed_at'))
+        Prefetch('subtasks', queryset=TaskEntry.objects.order_by('-completed_at').prefetch_related('notifications')),
+        'notifications'  # Lade auch Benachrichtigungen für Hauptaufgaben
     ).order_by('-completed_at')
 
     # Filter anwenden
@@ -309,10 +310,12 @@ def add_subtask(request):
 
         # Erstelle Sub-Aufgabe
         title = request.POST.get('title')
-        title = request.POST.get('title')
         description = request.POST.get('description', '')
         completed_at_str = request.POST.get('completed_at')
         notification_datetime_str = request.POST.get('notification_datetime')
+
+        # Debug logging
+        print(f"[DEBUG] Creating subtask - notification_datetime received: {notification_datetime_str}")
 
         if title:
             try:
@@ -337,19 +340,23 @@ def add_subtask(request):
 
                 # Create notification if datetime is provided
                 if notification_datetime_str:
+                    print(f"[DEBUG] Creating notification for subtask {subtask.id}")
                     try:
                         send_at_dt = datetime.fromisoformat(notification_datetime_str)
                         # Make timezone aware
                         send_at_aware = timezone.make_aware(send_at_dt)
+                        print(f"[DEBUG] Notification time parsed: {send_at_aware}")
 
-                        ScheduledNotification.objects.create(
+                        notification = ScheduledNotification.objects.create(
                             user_to_notify=request.user,
                             task_entry=subtask,
                             message=f'Erinnerung für deine Sub-Aufgabe: "{subtask.title}"',
                             send_at=send_at_aware
                         )
+                        print(f"[DEBUG] Notification created with ID: {notification.id}")
                         messages.success(request, f'Sub-Aufgabe "{subtask.title}" mit Erinnerung erstellt!')
-                    except (ValueError, TypeError):
+                    except (ValueError, TypeError) as e:
+                        print(f"[DEBUG] Error creating notification: {e}")
                         messages.warning(request, "Ungültiges Datumsformat für die Erinnerung.")
                 else:
                      messages.success(request, f'Sub-Aufgabe "{subtask.title}" erfolgreich hinzugefügt!')
@@ -412,8 +419,8 @@ def delete_subtask(request, subtask_id):
 
 @login_required
 def edit_task(request, task_id):
-    """Hauptaufgabe bearbeiten"""
-    task = get_object_or_404(TaskEntry, pk=task_id, parent_task__isnull=True)
+    """Aufgabe bearbeiten (Haupt- oder Subtask)"""
+    task = get_object_or_404(TaskEntry, pk=task_id)
 
     # Prüfen ob User Berechtigung hat (Owner oder Mitglied des Projekts)
     if not task.project.can_access(request.user):

@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Aufgabe bearbeiten{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0">
+                    <h3 class="mb-0">
+                        <i class="fas fa-edit me-2"></i>Aufgabe bearbeiten
+                    </h3>
+                    <small class="text-muted">
+                        {% if task.parent_task %}
+                            Sub-Aufgabe von: {{ task.parent_task.title }}
+                        {% else %}
+                            Hauptaufgabe
+                        {% endif %}
+                    </small>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <!-- Aufgaben-Titel -->
+                        <div class="mb-3">
+                            <label for="{{ form.title.id_for_label }}" class="form-label fw-bold">
+                                <i class="fas fa-heading me-2"></i>Titel
+                            </label>
+                            {{ form.title }}
+                            {% if form.title.errors %}
+                            <div class="text-danger">{{ form.title.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Beschreibung -->
+                        <div class="mb-3">
+                            <label for="{{ form.description.id_for_label }}" class="form-label">
+                                <i class="fas fa-align-left me-2"></i>Beschreibung (optional)
+                            </label>
+                            {{ form.description }}
+                            {% if form.description.errors %}
+                            <div class="text-danger">{{ form.description.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Erledigt am -->
+                        <div class="mb-4">
+                            <label for="{{ form.completed_at.id_for_label }}" class="form-label">
+                                <i class="fas fa-calendar me-2"></i>Erledigt am
+                            </label>
+                            {{ form.completed_at }}
+                            {% if form.completed_at.errors %}
+                            <div class="text-danger">{{ form.completed_at.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Erinnerung (falls vorhanden) -->
+                        {% if task.notifications.exists %}
+                        <div class="mb-4">
+                            <div class="alert alert-warning">
+                                <h6 class="alert-heading">
+                                    <i class="fas fa-bell me-2"></i>Erinnerung vorhanden
+                                </h6>
+                                {% with notification=task.notifications.first %}
+                                <p class="mb-1">
+                                    <strong>Zeitpunkt:</strong> {{ notification.send_at|date:"d.m.Y H:i" }}
+                                    {% if notification.sent %}
+                                        <span class="badge bg-success ms-2">Gesendet</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark ms-2">Ausstehend</span>
+                                    {% endif %}
+                                </p>
+                                <p class="mb-0">
+                                    <small>{{ notification.message }}</small>
+                                </p>
+                                {% endwith %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Info Box -->
+                        <div class="alert alert-info mb-4">
+                            <small>
+                                <i class="fas fa-info-circle me-1"></i>
+                                Projekt: <strong>{{ task.project.name }}</strong> |
+                                Erstellt von: <strong>{{ task.completed_by.username }}</strong>
+                            </small>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary flex-grow-1">
+                                <i class="fas fa-save me-2"></i>Änderungen speichern
+                            </button>
+                            <a href="{% url 'loomline:tasks-tiles' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-2"></i>Abbrechen
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="card border-danger mt-3">
+                <div class="card-body">
+                    <h6 class="text-danger mb-2">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Gefahrenzone
+                    </h6>
+                    <p class="text-muted small mb-3">
+                        Diese Aktion kann nicht rückgängig gemacht werden.
+                    </p>
+                    <form method="post" action="{% if task.parent_task %}{% url 'loomline:delete-subtask' task.id %}{% else %}{% url 'loomline:delete-task' task.id %}{% endif %}" onsubmit="return confirm('Sind Sie sicher, dass Sie diese Aufgabe löschen möchten?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger btn-sm">
+                            <i class="fas fa-trash me-2"></i>Aufgabe löschen
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-control, .form-select {
+        border: 1px solid #dee2e6;
+        padding: 0.75rem;
+        font-size: 0.95rem;
+        transition: all 0.2s;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: #6c757d;
+        box-shadow: 0 0 0 0.2rem rgba(108, 117, 125, 0.15);
+    }
+
+    textarea.form-control {
+        min-height: 120px;
+        resize: vertical;
+    }
+
+    .card {
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+    }
+</style>
+{% endblock %}
