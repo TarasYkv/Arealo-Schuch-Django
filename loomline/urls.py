@@ -15,6 +15,8 @@ urlpatterns = [
     path('projekte/', views.ProjectListView.as_view(), name='project-list'),
     path('projekte/neu/', views.ProjectCreateView.as_view(), name='project-create'),
     path('projekte/<int:pk>/', views.ProjectDetailView.as_view(), name='project-detail'),
+    path('projekte/<int:pk>/bearbeiten/', views.ProjectUpdateView.as_view(), name='project-edit'),
+    path('projekte/<int:pk>/loeschen/', views.project_delete, name='project-delete'),
 
     # Aufgaben
     path('projekte/<int:project_id>/aufgabe/', views.add_task, name='add-task'),

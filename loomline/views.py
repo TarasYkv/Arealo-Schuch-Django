@@ -6,7 +6,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
-from django.views.generic import ListView, CreateView, DetailView
+from django.views.generic import ListView, CreateView, DetailView, UpdateView
 from django.urls import reverse_lazy, reverse
 from django.utils.decorators import method_decorator
 from django.db import models
@@ -14,7 +14,7 @@ from django.db.models import Prefetch
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
 from django.utils import timezone
-from django.http import JsonResponse
+from django.http import JsonResponse, Http404
 from datetime import timedelta, datetime
 from .models import Project, TaskEntry, ScheduledNotification
 from .forms import ProjectForm, TaskEntryForm, QuickTaskEntryForm, AddMemberForm
@@ -466,3 +466,44 @@ def edit_task(request, task_id):
         'task': task,
     }
     return render(request, 'loomline/edit_task.html', context)
+
+
+class ProjectUpdateView(LoginRequiredMixin, UpdateView):
+    """Projekt bearbeiten"""
+    model = Project
+    form_class = ProjectForm
+    template_name = 'loomline/project_form.html'
+
+    def get_object(self):
+        project = get_object_or_404(Project, pk=self.kwargs['pk'])
+        if not project.can_access(self.request.user):
+            messages.error(self.request, 'Sie haben keine Berechtigung, dieses Projekt zu bearbeiten.')
+            raise Http404
+        return project
+
+    def form_valid(self, form):
+        messages.success(self.request, f'Projekt "{form.instance.name}" wurde erfolgreich aktualisiert!')
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse('loomline:project-detail', kwargs={'pk': self.object.pk})
+
+
+@login_required
+def project_delete(request, pk):
+    """Projekt löschen"""
+    project = get_object_or_404(Project, pk=pk)
+
+    # Prüfen ob User Berechtigung hat (nur Owner kann löschen)
+    if project.owner != request.user:
+        messages.error(request, 'Nur der Projektbesitzer kann das Projekt löschen.')
+        return redirect('loomline:project-list')
+
+    if request.method == 'POST':
+        project_name = project.name
+        project.delete()
+        messages.success(request, f'Projekt "{project_name}" wurde erfolgreich gelöscht.')
+        return redirect('loomline:project-list')
+
+    # GET request - sollte nicht passieren, aber für Sicherheit
+    return redirect('loomline:project-list')
