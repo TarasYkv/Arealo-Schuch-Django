@@ -142,14 +142,7 @@
                                                 data-title="{{ task.title }}"
                                                 data-date="{{ task.completed_at|date:'d.m.Y H:i' }}"
                                                 data-user="{{ task.completed_by.username }}"
-                                                data-has-notification="{% if task.notifications.exists %}true{% else %}false{% endif %}"
-                                                {% if task.notifications.exists %}
-                                                    {% with notification=task.notifications.first %}
-                                                    data-notification-time="{{ notification.send_at|date:'d.m.Y H:i' }}"
-                                                    data-notification-sent="{{ notification.sent|yesno:'true,false' }}"
-                                                    data-notification-message="{{ notification.message }}"
-                                                    {% endwith %}
-                                                {% endif %}>
+                                                data-has-notification="false">
                                             <i class="fas fa-expand-alt"></i> Mehr anzeigen
                                         </button>
                                         {% endif %}
@@ -472,8 +465,8 @@
                         </div>
                     </div>
 
-                    <!-- Notification Input -->
-                    <div class="row">
+                    <!-- Notification Input - nur für Subtasks -->
+                    <div class="row" id="notificationSection" style="display: none;">
                         <div class="col-12">
                             <div class="form-group mb-4">
                                 <label for="newNotificationDateTime" class="form-label">
@@ -655,7 +648,8 @@
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 
-.task-tile:hover {
+/* Remove CSS hover, use JavaScript instead */
+.task-tile.flipped {
     transform: rotateY(180deg);
 }
 
@@ -2647,6 +2641,9 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('addTaskForm').removeAttribute('data-parent-task');
         document.getElementById('addTaskForm').removeAttribute('data-is-subtask');
 
+        // Hide notification section for main tasks
+        document.getElementById('notificationSection').style.display = 'none';
+
         // Clear form
         document.getElementById('newTaskTitle').value = '';
         document.getElementById('newTaskDescription').value = '';
@@ -2678,6 +2675,9 @@ document.addEventListener('DOMContentLoaded', function() {
             document.querySelector('.add-task-subtitle').textContent = 'Fügen Sie eine neue Aufgabe hinzu';
             document.getElementById('addTaskForm').removeAttribute('data-parent-task');
             document.getElementById('addTaskForm').removeAttribute('data-is-subtask');
+
+            // Hide notification section for main tasks
+            document.getElementById('notificationSection').style.display = 'none';
 
             // Clear form
             document.getElementById('addTaskForm').reset();
@@ -2716,6 +2716,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // Store parent task ID for later use
             document.getElementById('addTaskForm').setAttribute('data-parent-task', taskId);
             document.getElementById('addTaskForm').setAttribute('data-is-subtask', 'true');
+
+            // Show notification section for subtasks
+            document.getElementById('notificationSection').style.display = 'block';
 
             // Show modal
             const addModal = new bootstrap.Modal(document.getElementById('addTaskModal'));
@@ -3091,6 +3094,39 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }, 500);
+
+    // Hauptkarten-Flip-Events - Zuverlässige JavaScript-Steuerung
+    document.querySelectorAll('.task-tile').forEach(tile => {
+        let flipTimeout = null;
+
+        tile.addEventListener('mouseenter', function() {
+            // Clear any existing timeout
+            if (flipTimeout) {
+                clearTimeout(flipTimeout);
+                flipTimeout = null;
+            }
+
+            console.log('🔄 Main card FLIP');
+            this.classList.add('flipped');
+        });
+
+        tile.addEventListener('mouseleave', function() {
+            // Add a slight delay to prevent flickering
+            const self = this;
+            flipTimeout = setTimeout(() => {
+                console.log('🔄 Main card FLIP OUT');
+                self.classList.remove('flipped');
+            }, 100); // 100ms delay to prevent accidental flip-backs
+        });
+
+        // Also handle mouse entering the tile again (cancels flip-back)
+        tile.addEventListener('mouseenter', function() {
+            if (flipTimeout) {
+                clearTimeout(flipTimeout);
+                flipTimeout = null;
+            }
+        });
+    });
 });
 
 </script>
