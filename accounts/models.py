@@ -850,7 +850,7 @@ class AppInfo(models.Model):
     APP_CHOICES = [
         # Hauptkategorien
         ('chat', 'Chat'),
-        ('videos', 'Videos'), 
+        ('videos', 'Videos'),
         ('mail', 'Email'),
         ('shopify_manager', 'Shopify Manager'),
         ('image_editor', 'Bild Editor'),
@@ -863,6 +863,7 @@ class AppInfo(models.Model):
         ('bug_report', 'Bug Report'),
         ('payments', 'Zahlungen & Abos'),
         ('core', 'Schuch (Startseite/Kern)'),
+        ('loomline', 'LoomLine - SEO Task Timeline'),
     ]
     
     app_name = models.CharField(max_length=50, choices=APP_CHOICES, unique=True, verbose_name="App/Feature")

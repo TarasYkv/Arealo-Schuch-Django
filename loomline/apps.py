@@ -32,17 +32,12 @@ class LoomlineConfig(AppConfig):
             app_info, created = AppInfo.objects.get_or_create(
                 app_name='loomline',
                 defaults={
-                    'display_name': 'LoomLine',
-                    'description': 'SEO Task Timeline Management - Collaborative SEO project tracking with timeline, metrics, and team coordination.',
-                    'icon': 'fas fa-chart-line',
-                    'url_name': 'loomline:dashboard',
-                    'category': 'SEO & Marketing',
-                    'is_active': True,
-                    'requires_permission': True,
-                    'permission_name': 'loomline',
-                    'version': '1.0.0',
-                    'author': 'Arealo-Schuch Development Team',
-                    'features': [
+                    'title': 'LoomLine - SEO Task Timeline',
+                    'short_description': 'Collaborative SEO project tracking with timeline, metrics, and team coordination.',
+                    'detailed_description': 'LoomLine ist ein umfassendes SEO Task Timeline Management System für kollaborative SEO-Projekte. '
+                                          'Es bietet Projektorganisation, Timeline-Tracking, Metriken-Aufzeichnung und Teamkoordination. '
+                                          'Perfekt für SEO-Teams die ihre Projekte strukturiert verwalten und den Fortschritt verfolgen möchten.',
+                    'key_features': [
                         'Project-based SEO task organization',
                         'Collaborative team management',
                         'Timeline tracking and activity history',
@@ -52,14 +47,11 @@ class LoomlineConfig(AppConfig):
                         'Real-time updates and notifications',
                         'Export and reporting capabilities'
                     ],
-                    'tech_stack': [
-                        'Django 5.2+',
-                        'Django REST Framework',
-                        'Bootstrap 5',
-                        'Font Awesome Icons',
-                        'JavaScript ES6+',
-                        'JSON Field Storage'
-                    ]
+                    'technical_requirements': 'Django 5.2+, Django REST Framework, Bootstrap 5, Font Awesome Icons, JavaScript ES6+, JSON Field Storage',
+                    'subscription_requirements': 'SEO & Marketing Paket oder höher',
+                    'icon_class': 'fas fa-chart-line',
+                    'is_active': True,
+                    'development_status': 'stable'
                 }
             )
 
