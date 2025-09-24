@@ -336,11 +336,24 @@ def delete_task(request, task_id):
 
         # Prüfen ob User Berechtigung hat (Owner oder Mitglied des Projekts)
         if not task.project.can_access(request.user):
+            if request.headers.get('Content-Type') == 'application/json':
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Sie haben keine Berechtigung, diese Aufgabe zu löschen.'
+                })
             messages.error(request, 'Sie haben keine Berechtigung, diese Aufgabe zu löschen.')
             return redirect('loomline:tasks-tiles')
 
         task_title = task.title
         task.delete()
+
+        # JSON-Anfrage für AJAX
+        if request.headers.get('Content-Type') == 'application/json':
+            return JsonResponse({
+                'success': True,
+                'message': f'Aufgabe "{task_title}" wurde gelöscht.'
+            })
+
         messages.success(request, f'Aufgabe "{task_title}" wurde gelöscht.')
 
     return redirect('loomline:tasks-tiles')
