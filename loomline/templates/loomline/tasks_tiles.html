@@ -4,6 +4,7 @@
 {% block title %}Aufgaben-Übersicht{% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <div class="container-fluid mt-4">
     <!-- Header -->
     <div class="row mb-4">
@@ -73,51 +74,76 @@
                     <div class="task-tile-wrapper">
                         <div class="task-tile" data-task-id="{{ task.id }}">
                             <div class="task-front">
+                                {% if forloop.first %}
+                                <div class="newest-badge-corner">
+                                    <span>Neuste</span>
+                                </div>
+                                {% endif %}
                                 <div class="task-header">
                                     <div class="task-icon">
                                         <i class="fas fa-check-circle"></i>
                                     </div>
-                                    <div class="task-date">
-                                        {{ task.completed_at|date:"d.m" }}
+                                    <div class="task-date-container">
+                                        <div class="task-date">
+                                            {{ task.completed_at|date:"d.m.Y H:i" }}
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="task-content">
-                                    <h5 class="task-title">{{ task.title|truncatechars:40 }}</h5>
-                                    <div class="task-project">
-                                        <i class="fas fa-folder me-1"></i>{{ task.project.name|truncatechars:20 }}
+                                    <div class="task-content-top">
+                                        <h5 class="task-title">{{ task.title|truncatechars:40 }}</h5>
                                     </div>
-                                    <div class="task-user">
-                                        <i class="fas fa-user me-1"></i>{{ task.completed_by.first_name|default:task.completed_by.username|truncatechars:15 }}
+                                    <div class="task-content-bottom">
+                                        <div class="task-user">
+                                            <i class="fas fa-user me-1"></i>{{ task.completed_by.first_name|default:task.completed_by.username|truncatechars:15 }}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                             <div class="task-back">
+                                <!-- Main Task Add Button (Top Center) -->
+                                <div class="task-back-add-main">
+                                    <button class="action-btn add-task-btn" data-project-id="{{ task.project.id }}" title="Neue Hauptaufgabe erstellen">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Subcard Add Button (Right Center) -->
+                                <div class="task-back-add-sub">
+                                    <button class="action-btn add-subtask-btn" data-task-id="{{ task.id }}" data-project-id="{{ task.project.id }}" title="Neue Unteraufgabe erstellen">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+
+                                <div class="task-back-header">
+                                    <div class="task-back-actions">
+                                        <button class="action-btn edit-btn" data-task-id="{{ task.id }}" data-title="{{ task.title }}" data-description="{{ task.description }}" title="Bearbeiten">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="action-btn delete-btn" data-task-id="{{ task.id }}" title="Löschen">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
                                 <div class="task-back-content">
-                                    <div class="task-back-title">{{ task.title }}</div>
-                                    <div class="task-description">
-                                        {% if task.description %}
-                                        {{ task.description|truncatechars:120 }}
-                                        {% else %}
-                                        <em>Keine Beschreibung verfügbar</em>
+                                    <div class="task-back-top">
+                                        <div class="task-back-title">Beschreibung</div>
+                                        <div class="task-description">
+                                            {% if task.description %}
+                                            {{ task.description|truncatechars:80 }}
+                                            {% else %}
+                                            <em>Keine Beschreibung verfügbar</em>
+                                            {% endif %}
+                                        </div>
+                                        {% if task.description and task.description|length > 80 %}
+                                        <button class="expand-btn" data-description="{{ task.description }}" data-title="{{ task.title }}" data-date="{{ task.completed_at|date:'d.m.Y H:i' }}" data-user="{{ task.completed_by.username }}">
+                                            <i class="fas fa-expand-alt"></i> Mehr anzeigen
+                                        </button>
                                         {% endif %}
                                     </div>
-                                    {% if task.description and task.description|length > 120 %}
-                                    <button class="expand-btn" data-description="{{ task.description }}" data-title="{{ task.title }}" data-date="{{ task.completed_at|date:'d.m.Y H:i' }}" data-user="{{ task.completed_by.username }}">
-                                        <i class="fas fa-expand-alt"></i> Mehr anzeigen
-                                    </button>
-                                    {% endif %}
-                                    <div class="task-back-meta">
-                                        <div class="meta-item">
-                                            <i class="fas fa-calendar"></i>
-                                            {{ task.completed_at|date:"d.m.Y H:i" }}
-                                        </div>
-                                        <div class="meta-item">
-                                            <i class="fas fa-user"></i>
-                                            {{ task.completed_by.username }}
-                                        </div>
-                                        <div class="meta-item">
-                                            <i class="fas fa-folder"></i>
-                                            {{ task.project.name }}
+                                    <div class="task-back-bottom">
+                                        <div class="task-project-info">
+                                            <i class="fas fa-folder me-1"></i>{{ task.project.name }}
                                         </div>
                                     </div>
                                 </div>
@@ -133,34 +159,47 @@
                     <div class="subcard-wrapper" data-index="{{ forloop.counter0 }}">
                         <div class="subcard">
                             <div class="subcard-front">
+                                {% if forloop.first %}
+                                <div class="newest-badge-corner subcard-newest-corner">
+                                    <span>Neuste</span>
+                                </div>
+                                {% endif %}
                                 <div class="subcard-header">
                                     <div class="subcard-icon">
-                                        <i class="fas fa-check"></i>
+                                        <i class="fas fa-check-circle"></i>
                                     </div>
-                                    <div class="subcard-date">
-                                        {{ subtask.completed_at|date:"d.m" }}
+                                    <div class="subcard-date-container">
+                                        <div class="subcard-date">
+                                            {{ subtask.completed_at|date:"d.m.Y H:i" }}
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="subcard-content">
-                                    <h6 class="subcard-title">{{ subtask.title|truncatechars:25 }}</h6>
-                                    <div class="subcard-user">
-                                        <i class="fas fa-user me-1"></i>{{ subtask.completed_by.first_name|default:subtask.completed_by.username|truncatechars:10 }}
+                                    <div class="subcard-content-top">
+                                        <h6 class="subcard-title">{{ subtask.title|truncatechars:30 }}</h6>
+                                    </div>
+                                    <div class="subcard-content-bottom">
+                                        <div class="subcard-user">
+                                            <i class="fas fa-user me-1"></i>{{ subtask.completed_by.first_name|default:subtask.completed_by.username|truncatechars:12 }}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                             <div class="subcard-back">
                                 <div class="subcard-back-content">
-                                    <div class="subcard-back-title">{{ subtask.title }}</div>
-                                    <div class="subcard-description">
-                                        {% if subtask.description %}
-                                        {{ subtask.description|truncatechars:80 }}
-                                        {% else %}
-                                        <em>Keine Details</em>
-                                        {% endif %}
+                                    <div class="subcard-back-top">
+                                        <div class="subcard-description">
+                                            {% if subtask.description %}
+                                            {{ subtask.description|truncatechars:100 }}
+                                            {% else %}
+                                            <em>Keine Beschreibung verfügbar</em>
+                                            {% endif %}
+                                        </div>
                                     </div>
-                                    <div class="subcard-back-meta">
-                                        {{ subtask.completed_at|date:"d.m.Y" }}<br>
-                                        {{ subtask.completed_by.username }}
+                                    <div class="subcard-back-bottom">
+                                        <div class="subcard-project-name">
+                                            <i class="fas fa-folder me-1"></i>{{ subtask.project.name|truncatechars:15 }}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -170,6 +209,22 @@
                 </div>
                 {% endif %}
             </div>
+
+            <!-- Timeline connector between tasks -->
+            {% if not forloop.last %}
+            {% with next_task=tasks|slice:forloop.counter|first %}
+            <div class="timeline-connector" data-task-index="{{ forloop.counter0 }}" data-current-date="{{ task.completed_at|date:'c' }}" data-next-date="{{ next_task.completed_at|date:'c' }}">
+                <div class="timeline-line">
+                    <div class="timeline-badge">
+                        <div class="timeline-duration">
+                            <i class="fas fa-clock"></i>
+                            <span class="duration-text">Berechne...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endwith %}
+            {% endif %}
             {% endfor %}
         </div>
     </div>
@@ -260,7 +315,7 @@
                         <label for="projectFilter" class="form-label">Projekt</label>
                         <select class="form-select" id="projectFilter" name="project">
                             <option value="">Alle Projekte</option>
-                            {% for project in available_projects %}
+                            {% for project in user_projects %}
                             <option value="{{ project.id }}" {% if request.GET.project == project.id|stringformat:"s" %}selected{% endif %}>
                                 {{ project.name }}
                             </option>
@@ -303,18 +358,145 @@
     </div>
 </div>
 
+<!-- Add Task Modal -->
+<div class="modal fade" id="addTaskModal" tabindex="-1" aria-labelledby="addTaskModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content add-task-modal">
+            <div class="modal-header add-task-header">
+                <div class="add-task-header-content">
+                    <div class="add-task-icon">
+                        <i class="fas fa-plus-circle"></i>
+                    </div>
+                    <div class="add-task-title-section">
+                        <h5 class="modal-title add-task-title" id="addTaskModalLabel">Neue Aufgabe erstellen</h5>
+                        <div class="add-task-subtitle">Fügen Sie eine neue Aufgabe hinzu</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close add-task-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body add-task-body">
+                <form id="addTaskForm" class="add-task-form">
+                    <div class="form-group mb-4">
+                        <label for="newTaskTitle" class="form-label">
+                            <i class="fas fa-heading me-2"></i>Titel
+                        </label>
+                        <div class="input-group">
+                            <input type="text" class="form-control add-input" id="newTaskTitle" placeholder="Aufgabentitel eingeben..." required>
+                            <button type="button" class="btn btn-outline-secondary voice-btn" id="voiceTitleBtn" title="Spracheingabe">
+                                <i class="fas fa-microphone"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-group mb-4">
+                        <label for="newTaskDescription" class="form-label">
+                            <i class="fas fa-align-left me-2"></i>Beschreibung
+                        </label>
+                        <div class="input-group-textarea">
+                            <textarea class="form-control add-textarea" id="newTaskDescription" rows="4" placeholder="Beschreibung der Aufgabe (optional)..."></textarea>
+                            <button type="button" class="btn btn-outline-secondary voice-btn voice-btn-textarea" id="voiceDescriptionBtn" title="Spracheingabe">
+                                <i class="fas fa-microphone"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group mb-4">
+                                <label for="newTaskProject" class="form-label">
+                                    <i class="fas fa-folder me-2"></i>Projekt
+                                </label>
+                                <select class="form-control add-select" id="newTaskProject" required>
+                                    <option value="">Projekt auswählen...</option>
+                                    {% for project in user_projects %}
+                                    <option value="{{ project.id }}">{{ project.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-4">
+                                <label for="newTaskCompletedAt" class="form-label">
+                                    <i class="fas fa-calendar me-2"></i>Abgeschlossen am
+                                </label>
+                                <input type="datetime-local" class="form-control add-input" id="newTaskCompletedAt" required>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer add-task-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Abbrechen
+                </button>
+                <button type="submit" class="btn btn-primary" form="addTaskForm">
+                    <i class="fas fa-plus me-2"></i>Aufgabe erstellen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Task Detail Modal -->
 <div class="modal fade" id="taskDetailModal" tabindex="-1" aria-labelledby="taskDetailModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="taskDetailModalLabel">Aufgaben-Details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content task-detail-modal">
+            <div class="modal-header task-detail-header">
+                <div class="task-detail-header-content">
+                    <div class="task-detail-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="task-detail-title-section">
+                        <h5 class="modal-title task-detail-title" id="taskDetailModalLabel">Aufgaben-Details</h5>
+                        <div class="task-detail-subtitle">Vollständige Übersicht</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close task-detail-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                <div id="taskDetailContent">
+            <div class="modal-body task-detail-body">
+                <div id="taskDetailContent" class="task-detail-content">
                     <!-- Wird dynamisch gefüllt -->
                 </div>
+            </div>
+            <div class="modal-footer task-detail-footer" id="taskDetailFooter">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Schließen
+                </button>
+                <button type="button" class="btn btn-primary">
+                    <i class="fas fa-edit me-2"></i>Bearbeiten
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content delete-confirm-modal">
+            <div class="modal-header delete-confirm-header">
+                <div class="delete-icon-wrapper">
+                    <div class="delete-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-body delete-confirm-body">
+                <h4 class="delete-confirm-title">Aufgabe löschen?</h4>
+                <p class="delete-confirm-message">
+                    Diese Aktion kann nicht rückgängig gemacht werden. Die Aufgabe wird dauerhaft entfernt.
+                </p>
+                <div class="task-preview" id="deleteTaskPreview">
+                    <!-- Task preview will be inserted here -->
+                </div>
+            </div>
+            <div class="modal-footer delete-confirm-footer">
+                <button type="button" class="btn btn-secondary delete-cancel-btn" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Abbrechen
+                </button>
+                <button type="button" class="btn btn-danger delete-confirm-btn" id="confirmDeleteBtn">
+                    <i class="fas fa-trash me-2"></i>Löschen
+                </button>
             </div>
         </div>
     </div>
@@ -373,18 +555,18 @@
 .task-tiles-grid {
     display: flex;
     flex-direction: column;
-    gap: 2rem;
+    gap: 0;
 }
 
 .task-container {
     position: relative;
-    margin-bottom: 2rem;
+    margin-bottom: 0;
 }
 
 /* Main Task Card */
 .main-task-card {
     position: relative;
-    z-index: 10;
+    z-index: 1; /* UNTER den Subcards */
 }
 
 .task-tile-wrapper {
@@ -433,8 +615,15 @@
 .task-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     margin-bottom: 1rem;
+}
+
+.task-date-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .task-icon {
@@ -450,8 +639,74 @@
     border-radius: 15px;
 }
 
+.task-date-full {
+    font-size: 0.9rem;
+    font-weight: bold;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 0.25rem 0.75rem;
+    border-radius: 15px;
+}
+
+/* Corner Badge Styles */
+.newest-badge-corner {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: linear-gradient(135deg, #ffd700 0%, #ffb000 100%);
+    color: #333;
+    font-size: 0.6rem;
+    font-weight: bold;
+    padding: 0.3rem 0.8rem;
+    transform: rotate(-45deg) translate(-25%, 0%);
+    transform-origin: top left;
+    z-index: 20;
+    box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4);
+    animation: pulseGlow 2s infinite;
+    border-radius: 0 0 8px 0;
+    min-width: 60px;
+    text-align: center;
+}
+
+.newest-badge-corner span {
+    font-size: 0.6rem;
+    white-space: nowrap;
+}
+
+.subcard-newest-corner {
+    font-size: 0.5rem;
+    padding: 0.2rem 0.6rem;
+    min-width: 50px;
+}
+
+.subcard-newest-corner span {
+    font-size: 0.5rem;
+}
+
+@keyframes pulseGlow {
+    0%, 100% {
+        box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4);
+    }
+    50% {
+        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.7);
+    }
+}
+
 .task-content {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.task-content-top {
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+}
+
+.task-content-bottom {
+    margin-top: auto;
+    padding-bottom: 0.5rem;
 }
 
 .task-title {
@@ -472,6 +727,19 @@
     height: 100%;
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
+}
+
+.task-back-top {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.task-back-bottom {
+    margin-top: auto;
+    padding-top: 0.5rem;
+    padding-bottom: 1rem;
 }
 
 .task-back-title {
@@ -481,10 +749,24 @@
 }
 
 .task-description {
-    flex: 1;
     font-size: 0.85rem;
     line-height: 1.4;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    height: 5.6em; /* 4 lines * 1.4 line-height */
+    flex: 1;
+}
+
+.task-project-info {
+    font-size: 0.8rem;
+    opacity: 0.9;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .expand-btn {
@@ -495,7 +777,8 @@
     border-radius: 8px;
     font-size: 0.75rem;
     cursor: pointer;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
+    margin-top: auto;
     transition: background 0.3s ease;
 }
 
@@ -506,6 +789,8 @@
 .task-back-meta {
     font-size: 0.75rem;
     opacity: 0.9;
+    margin-top: auto;
+    padding-top: 0.5rem;
 }
 
 .meta-item {
@@ -515,57 +800,167 @@
     gap: 0.5rem;
 }
 
+/* Timeline Connector */
+.timeline-connector {
+    position: relative;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    height: 60px;
+    margin: 0.5rem 0;
+    padding-left: 160px; /* Center relative to main task card (320px / 2) */
+}
+
+.timeline-line {
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(to bottom, #007bff, #6c757d);
+    position: relative;
+    border-radius: 2px;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+}
+
+.timeline-line::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -4px;
+    width: 12px;
+    height: 12px;
+    background: #007bff;
+    border-radius: 50%;
+    box-shadow: 0 0 10px rgba(0, 123, 255, 0.5);
+}
+
+.timeline-line::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: -4px;
+    width: 12px;
+    height: 12px;
+    background: #6c757d;
+    border-radius: 50%;
+    box-shadow: 0 0 10px rgba(108, 117, 125, 0.5);
+}
+
+.timeline-badge {
+    position: absolute;
+    left: 50%; /* Center relative to the timeline line */
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+}
+
+.timeline-duration {
+    background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+    border: 2px solid #007bff;
+    border-radius: 15px;
+    padding: 0.3rem 0.6rem;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.7rem;
+    font-weight: bold;
+    color: #007bff;
+    white-space: nowrap;
+    min-width: 80px;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.timeline-duration:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(0, 123, 255, 0.3);
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+}
+
+.timeline-duration i {
+    font-size: 0.65rem;
+    opacity: 0.8;
+}
+
+.duration-text {
+    font-size: 0.7rem;
+}
+
 /* Sub Cards Container */
 .subcards-container {
     position: absolute;
     left: 340px;
     top: 0;
     display: flex;
-    gap: 10px;
-    z-index: 5;
-    transition: all 0.5s ease;
+    gap: 20px; /* Sichtbarer Abstand zwischen den Subcards */
+    z-index: 10; /* ÜBER der Hauptkarte */
+    min-height: 140px;
+    /* Karten sind immer sichtbar nebeneinander */
 }
 
+/* Subcard wrapper - normale Pointer-Events */
 .subcard-wrapper {
     position: relative;
-    transition: all 0.5s ease;
+    perspective: 1000px;
+    transition: transform 0.5s ease;
+    z-index: 15; /* ÜBER allem */
+    pointer-events: auto; /* IMMER aktiviert */
 }
 
-/* Accordion Effect */
-.subcards-container:not(:hover) .subcard-wrapper:not(:first-child) {
-    transform: translateX(-90px);
-}
 
-.subcards-container:not(:hover) .subcard-wrapper:not(:first-child):nth-child(3) {
-    transform: translateX(-180px);
-}
-
-.subcards-container:not(:hover) .subcard-wrapper:not(:first-child):nth-child(4) {
-    transform: translateX(-270px);
-}
-
-.subcards-container:not(:hover) .subcard-wrapper:not(:first-child):nth-child(n+5) {
-    transform: translateX(-360px);
-}
-
-.subcards-container:hover .subcard-wrapper {
+/* === CARDS ALWAYS VISIBLE - NO STACKING === */
+/* Normal state: cards side by side with gap */
+.subcard-wrapper:nth-child(1) {
     transform: translateX(0);
 }
 
-/* Individual Sub Cards */
+.subcard-wrapper:nth-child(2) {
+    transform: translateX(0);
+}
+
+.subcard-wrapper:nth-child(3) {
+    transform: translateX(0);
+}
+
+.subcard-wrapper:nth-child(4) {
+    transform: translateX(0);
+}
+
+.subcard-wrapper:nth-child(n+5) {
+    transform: translateX(0);
+}
+
+/* JavaScript-controlled expansion - All positioning handled by JavaScript now */
+/* CSS rules removed to avoid conflicts with absolute positioning */
+
+/* === INDIVIDUAL CARD FLIP === */
 .subcard {
     width: 200px;
     height: 140px;
     position: relative;
     transform-style: preserve-3d;
-    transition: transform 0.4s;
+    transition: transform 0.6s ease;
     border-radius: 12px;
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
-    perspective: 1000px;
 }
 
+/* CSS fallback for hover */
 .subcard:hover {
     transform: rotateY(180deg);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+}
+
+/* JavaScript-controlled flip */
+.subcard.flipped {
+    transform: rotateY(180deg);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+}
+
+/* Individual wrapper hover: slight lift effect - immer aktiv */
+.subcard-wrapper:hover {
+    z-index: 10;
+    transform: translateY(-5px);
+    transition: transform 0.3s ease, z-index 0.1s ease;
 }
 
 .subcard-front, .subcard-back {
@@ -593,8 +988,15 @@
 .subcard-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     margin-bottom: 0.75rem;
+}
+
+.subcard-date-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.3rem;
 }
 
 .subcard-icon {
@@ -612,45 +1014,79 @@
 
 .subcard-content {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+}
+
+.subcard-content-top {
+    flex: 1;
+}
+
+.subcard-content-bottom {
+    margin-top: auto;
 }
 
 .subcard-title {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: bold;
-    margin-bottom: 0.5rem;
-    line-height: 1.3;
+    line-height: 1.2;
+    margin-bottom: 0.25rem;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
 }
 
 .subcard-user {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     opacity: 0.9;
 }
 
-/* Subcard Back */
+/* Subcard Back - Enhanced Layout */
 .subcard-back-content {
     height: 100%;
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
+    padding: 0.25rem;
 }
 
-.subcard-back-title {
-    font-size: 0.85rem;
-    font-weight: bold;
-    margin-bottom: 0.5rem;
-    color: #333;
+.subcard-back-top {
+    flex: 1;
+    display: flex;
+    align-items: center;
 }
 
 .subcard-description {
-    flex: 1;
     font-size: 0.75rem;
     line-height: 1.3;
-    margin-bottom: 0.5rem;
+    color: #444;
+    text-align: center;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+}
+
+.subcard-back-bottom {
+    margin-top: auto;
+    padding-top: 0.5rem;
+}
+
+.subcard-project-name {
+    font-size: 0.7rem;
+    font-weight: 600;
     color: #555;
+    margin-bottom: 0.25rem;
+    text-align: center;
 }
 
 .subcard-back-meta {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: #666;
+    text-align: center;
 }
 
 /* Responsive Design */
@@ -661,7 +1097,7 @@
 
     .task-container {
         position: relative;
-        margin-bottom: 1.5rem;
+        margin-bottom: 0;
     }
 
     .subcards-container {
@@ -683,6 +1119,28 @@
     .subcard {
         width: 180px;
         height: 120px;
+    }
+
+    .timeline-connector {
+        height: 40px;
+        margin: 0.25rem 0;
+        padding-left: 50%; /* Center on mobile since cards are full width */
+        justify-content: center;
+    }
+
+    .timeline-badge {
+        left: 50%; /* Center relative to the timeline line */
+        transform: translate(-50%, -50%);
+    }
+
+    .timeline-duration {
+        font-size: 0.65rem;
+        padding: 0.25rem 0.5rem;
+        min-width: 70px;
+    }
+
+    .timeline-duration i {
+        font-size: 0.6rem;
     }
 }
 
@@ -721,6 +1179,696 @@
     font-size: 3rem;
     margin-bottom: 1rem;
     opacity: 0.5;
+}
+
+/* Task Detail Modal Styles */
+.task-detail-modal {
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    border: none;
+}
+
+.task-detail-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-bottom: none;
+    padding: 1.5rem 2rem;
+}
+
+.task-detail-header-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.task-detail-icon {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.task-detail-title-section {
+    flex: 1;
+}
+
+.task-detail-title {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: bold;
+}
+
+.task-detail-subtitle {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-top: 0.25rem;
+}
+
+.task-detail-close {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    border: none;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.task-detail-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.task-detail-body {
+    padding: 2rem;
+    background: #f8f9fa;
+    min-height: 400px;
+}
+
+.task-detail-content {
+    background: white;
+    border-radius: 15px;
+    padding: 2rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.task-detail-footer {
+    background: white;
+    border-top: 1px solid #e9ecef;
+    padding: 1.5rem 2rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+}
+
+.task-detail-footer .btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 10px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.task-detail-footer .btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+}
+
+.task-detail-footer .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.task-detail-footer .btn-secondary {
+    background: #6c757d;
+    border: none;
+}
+
+.task-detail-footer .btn-secondary:hover {
+    background: #5a6268;
+    transform: translateY(-2px);
+}
+
+/* Task Detail Content Styles */
+.task-detail-main {
+    animation: fadeInUp 0.5s ease;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.task-detail-main-header {
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.task-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 25px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+}
+
+.task-detail-main-title {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #333;
+    margin: 0;
+    line-height: 1.3;
+}
+
+.task-detail-grid {
+    display: grid;
+    gap: 2rem;
+}
+
+.task-detail-section {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 1.5rem;
+    border-left: 4px solid #667eea;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.section-header i {
+    color: #667eea;
+    font-size: 1.1rem;
+}
+
+.section-header h6 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.section-content {
+    color: #555;
+    line-height: 1.6;
+}
+
+.task-description-full {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.task-detail-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+}
+
+.meta-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.meta-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.meta-icon {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.meta-content {
+    flex: 1;
+}
+
+.meta-label {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+}
+
+.meta-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #333;
+    line-height: 1.2;
+}
+
+/* Task Back Actions */
+.task-back-header {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 15;
+}
+
+/* Main Task Add Button (Top Center) */
+.task-back-add-main {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 16;
+}
+
+/* Subcard Add Button (Right Center) */
+.task-back-add-sub {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    z-index: 16;
+}
+
+.task-back-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.action-btn {
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.action-btn:hover {
+    background: white;
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.edit-btn {
+    color: #007bff;
+}
+
+.edit-btn:hover {
+    color: #0056b3;
+    background: #e3f2fd;
+}
+
+.delete-btn {
+    color: #dc3545;
+}
+
+.delete-btn:hover {
+    color: #a71e2a;
+    background: #ffebee;
+}
+
+.add-task-btn {
+    color: #28a745;
+}
+
+.add-task-btn:hover {
+    color: #1e7e34;
+    background: #e8f5e8;
+    transform: scale(1.15);
+}
+
+.add-subtask-btn {
+    color: #17a2b8;
+}
+
+.add-subtask-btn:hover {
+    color: #117a8b;
+    background: #e3f7fc;
+    transform: scale(1.15);
+}
+
+/* Add Task Modal Styles */
+.add-task-modal {
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    border: none;
+}
+
+.add-task-header {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    border-bottom: none;
+    padding: 1.5rem 2rem;
+}
+
+.add-task-header-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.add-task-icon {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.add-task-title-section {
+    flex: 1;
+}
+
+.add-task-title {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: bold;
+}
+
+.add-task-subtitle {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-top: 0.25rem;
+}
+
+.add-task-close {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    border: none;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.add-task-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.add-task-body {
+    padding: 2rem;
+    background: #f8f9fa;
+}
+
+.add-task-form {
+    background: white;
+    border-radius: 15px;
+    padding: 2rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.add-input, .add-textarea, .add-select {
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+
+.add-input:focus, .add-textarea:focus, .add-select:focus {
+    border-color: #28a745;
+    box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+}
+
+.add-textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.add-task-footer {
+    background: white;
+    border-top: 1px solid #e9ecef;
+    padding: 1.5rem 2rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+}
+
+.add-task-footer .btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 10px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.add-task-footer .btn-primary {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    border: none;
+}
+
+.add-task-footer .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+}
+
+/* Voice Input Button Styles */
+.input-group-textarea {
+    position: relative;
+}
+
+.voice-btn {
+    transition: all 0.3s ease;
+}
+
+.voice-btn:hover {
+    background-color: #28a745;
+    border-color: #28a745;
+    color: white;
+}
+
+.voice-btn.recording {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: white;
+    animation: pulse 1s infinite;
+}
+
+.voice-btn-textarea {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 10;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 10px;
+    min-width: auto;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Edit Form Styles */
+.edit-task-form {
+    max-width: none;
+}
+
+.edit-form-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.edit-form-header h3 {
+    color: #333;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.edit-input, .edit-textarea {
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+
+.edit-input:focus, .edit-textarea:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+.edit-textarea {
+    resize: vertical;
+    min-height: 150px;
+}
+
+.form-label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.form-label i {
+    color: #667eea;
+}
+
+.edit-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e9ecef;
+}
+
+/* Delete Confirmation Modal Styles */
+.delete-confirm-modal {
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    border: none;
+}
+
+.delete-confirm-header {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: white;
+    border-bottom: none;
+    padding: 2rem;
+    text-align: center;
+    position: relative;
+}
+
+.delete-icon-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 0;
+}
+
+.delete-icon {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+.delete-confirm-body {
+    padding: 2rem;
+    text-align: center;
+    background: #f8f9fa;
+}
+
+.delete-confirm-title {
+    color: #333;
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+}
+
+.delete-confirm-message {
+    color: #6c757d;
+    font-size: 1rem;
+    line-height: 1.5;
+    margin-bottom: 1.5rem;
+}
+
+.task-preview {
+    background: white;
+    border-radius: 12px;
+    padding: 1rem;
+    margin: 1rem 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-left: 4px solid #dc3545;
+}
+
+.task-preview-title {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+}
+
+.task-preview-description {
+    color: #6c757d;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    margin: 0;
+}
+
+.delete-confirm-footer {
+    background: white;
+    border-top: 1px solid #e9ecef;
+    padding: 1.5rem 2rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.delete-confirm-footer .btn {
+    padding: 0.75rem 2rem;
+    border-radius: 10px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    min-width: 120px;
+}
+
+.delete-cancel-btn {
+    background: #6c757d;
+    border: none;
+}
+
+.delete-cancel-btn:hover {
+    background: #5a6268;
+    transform: translateY(-2px);
+}
+
+.delete-confirm-btn {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    border: none;
+}
+
+.delete-confirm-btn:hover {
+    background: linear-gradient(135deg, #c82333 0%, #a71e2a 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4);
 }
 </style>
 
@@ -798,17 +1946,47 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const modalContent = document.getElementById('taskDetailContent');
             modalContent.innerHTML = `
-                <h5>${title}</h5>
-                <hr>
-                <p><strong>Beschreibung:</strong></p>
-                <p>${description}</p>
-                <hr>
-                <div class="row">
-                    <div class="col-md-6">
-                        <p><strong>Datum:</strong><br>${date}</p>
+                <div class="task-detail-main">
+                    <div class="task-detail-main-header">
+                        <div class="task-status-badge">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Abgeschlossen</span>
+                        </div>
+                        <h2 class="task-detail-main-title">${title}</h2>
                     </div>
-                    <div class="col-md-6">
-                        <p><strong>Benutzer:</strong><br>${user}</p>
+
+                    <div class="task-detail-grid">
+                        <div class="task-detail-section">
+                            <div class="section-header">
+                                <i class="fas fa-align-left"></i>
+                                <h6>Beschreibung</h6>
+                            </div>
+                            <div class="section-content">
+                                <p class="task-description-full">${description}</p>
+                            </div>
+                        </div>
+
+                        <div class="task-detail-meta-grid">
+                            <div class="meta-card">
+                                <div class="meta-icon">
+                                    <i class="fas fa-calendar-alt"></i>
+                                </div>
+                                <div class="meta-content">
+                                    <div class="meta-label">Abgeschlossen am</div>
+                                    <div class="meta-value">${date}</div>
+                                </div>
+                            </div>
+
+                            <div class="meta-card">
+                                <div class="meta-icon">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                                <div class="meta-content">
+                                    <div class="meta-label">Erledigt von</div>
+                                    <div class="meta-value">${user}</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -817,7 +1995,370 @@ document.addEventListener('DOMContentLoaded', function() {
             modal.show();
         }
     });
+
+    // Delete button functionality
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('delete-btn') || e.target.closest('.delete-btn')) {
+            const btn = e.target.classList.contains('delete-btn') ? e.target : e.target.closest('.delete-btn');
+            const taskId = btn.getAttribute('data-task-id');
+            const taskContainer = btn.closest('.task-container');
+
+            if (taskContainer) {
+                const title = taskContainer.querySelector('.task-title')?.textContent || 'Unbekannte Aufgabe';
+                const description = taskContainer.querySelector('.task-description')?.textContent || 'Keine Beschreibung';
+
+                // Populate delete confirmation modal
+                const deletePreview = document.getElementById('deleteTaskPreview');
+                deletePreview.innerHTML = `
+                    <div class="task-preview-title">${title}</div>
+                    <div class="task-preview-description">${description}</div>
+                `;
+
+                // Show delete confirmation modal
+                const deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+                deleteModal.show();
+
+                // Handle confirmation
+                document.getElementById('confirmDeleteBtn').onclick = function() {
+                    // Send delete request to server
+                    fetch(`/loomline/aufgaben/${taskId}/loeschen/`, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+                                          document.querySelector('meta[name="csrf-token"]')?.content ||
+                                          getCookie('csrftoken')
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Find associated timeline connector
+                            const nextTimelineConnector = taskContainer.nextElementSibling;
+                            const prevTimelineConnector = taskContainer.previousElementSibling;
+
+                            // Remove the entire task container with animation
+                            taskContainer.style.transition = 'all 0.5s ease';
+                            taskContainer.style.transform = 'scale(0.8)';
+                            taskContainer.style.opacity = '0';
+
+                            // Also animate timeline connectors if they exist
+                            if (nextTimelineConnector && nextTimelineConnector.classList.contains('timeline-connector')) {
+                                nextTimelineConnector.style.transition = 'all 0.5s ease';
+                                nextTimelineConnector.style.opacity = '0';
+                                nextTimelineConnector.style.height = '0';
+                            }
+
+                            setTimeout(() => {
+                                taskContainer.remove();
+
+                                // Remove timeline connector if it exists
+                                if (nextTimelineConnector && nextTimelineConnector.classList.contains('timeline-connector')) {
+                                    nextTimelineConnector.remove();
+                                }
+
+                                // Check if this was the last task and remove orphaned timeline
+                                const remainingTasks = document.querySelectorAll('.task-container');
+                                if (remainingTasks.length === 0) {
+                                    // Remove any remaining timeline connectors
+                                    const remainingConnectors = document.querySelectorAll('.timeline-connector');
+                                    remainingConnectors.forEach(connector => connector.remove());
+                                } else if (remainingTasks.length === 1) {
+                                    // If only one task remains, remove any timeline connectors
+                                    const allConnectors = document.querySelectorAll('.timeline-connector');
+                                    allConnectors.forEach(connector => connector.remove());
+                                }
+                            }, 500);
+
+                            // Close modal
+                            deleteModal.hide();
+
+                            console.log('Aufgabe erfolgreich gelöscht:', data.message);
+                        } else {
+                            alert('Fehler beim Löschen: ' + (data.message || 'Unbekannter Fehler'));
+                            deleteModal.hide();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Fehler beim Löschen der Aufgabe');
+                        deleteModal.hide();
+                    });
+                };
+            }
+        }
+    });
+
+    // Edit button functionality
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('edit-btn') || e.target.closest('.edit-btn')) {
+            const btn = e.target.classList.contains('edit-btn') ? e.target : e.target.closest('.edit-btn');
+            const taskId = btn.getAttribute('data-task-id');
+            const currentTitle = btn.getAttribute('data-title');
+            const currentDescription = btn.getAttribute('data-description');
+
+            // Create edit modal content
+            const modalContent = document.getElementById('taskDetailContent');
+            modalContent.innerHTML = `
+                <form id="editTaskForm" class="edit-task-form">
+                    <div class="edit-form-header">
+                        <h3>Aufgabe bearbeiten</h3>
+                        <p class="text-muted">Ändern Sie Titel und Beschreibung der Aufgabe</p>
+                    </div>
+
+                    <div class="form-group mb-4">
+                        <label for="editTitle" class="form-label">
+                            <i class="fas fa-heading me-2"></i>Titel
+                        </label>
+                        <input type="text" class="form-control edit-input" id="editTitle" value="${currentTitle}" required>
+                    </div>
+
+                    <div class="form-group mb-4">
+                        <label for="editDescription" class="form-label">
+                            <i class="fas fa-align-left me-2"></i>Beschreibung
+                        </label>
+                        <textarea class="form-control edit-textarea" id="editDescription" rows="6" placeholder="Beschreibung der Aufgabe...">${currentDescription || ''}</textarea>
+                    </div>
+
+                </form>
+            `;
+
+            // Update modal footer for edit mode
+            const footer = document.getElementById('taskDetailFooter');
+            footer.innerHTML = `
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Abbrechen
+                </button>
+                <button type="submit" class="btn btn-primary" form="editTaskForm">
+                    <i class="fas fa-save me-2"></i>Speichern
+                </button>
+            `;
+
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('taskDetailModal'));
+            modal.show();
+
+            // Handle form submission
+            document.getElementById('editTaskForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                const newTitle = document.getElementById('editTitle').value;
+                const newDescription = document.getElementById('editDescription').value;
+
+                // Update the card content
+                const taskContainer = btn.closest('.task-container');
+                if (taskContainer) {
+                    const titleElement = taskContainer.querySelector('.task-title');
+                    const descriptionElement = taskContainer.querySelector('.task-description');
+
+                    if (titleElement) {
+                        titleElement.textContent = newTitle.length > 40 ? newTitle.substring(0, 37) + '...' : newTitle;
+                    }
+
+                    if (descriptionElement) {
+                        descriptionElement.innerHTML = newDescription ?
+                            (newDescription.length > 80 ? newDescription.substring(0, 77) + '...' : newDescription) :
+                            '<em>Keine Beschreibung verfügbar</em>';
+                    }
+
+                    // Update data attributes
+                    btn.setAttribute('data-title', newTitle);
+                    btn.setAttribute('data-description', newDescription);
+                }
+
+                // Reset modal footer
+                const footer = document.getElementById('taskDetailFooter');
+                footer.innerHTML = `
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Schließen
+                    </button>
+                    <button type="button" class="btn btn-primary">
+                        <i class="fas fa-edit me-2"></i>Bearbeiten
+                    </button>
+                `;
+
+                // Send update to server
+                fetch(`/loomline/aufgaben/${taskId}/bearbeiten/`, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+                                      document.querySelector('meta[name="csrf-token"]')?.content ||
+                                      getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({
+                        title: newTitle,
+                        description: newDescription
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Show success message
+                        console.log('Aufgabe erfolgreich aktualisiert:', data.message);
+
+                        // Close modal
+                        modal.hide();
+                    } else {
+                        alert('Fehler beim Speichern: ' + (data.message || 'Unbekannter Fehler'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Fehler beim Speichern der Änderungen');
+                });
+            });
+        }
+    });
+
+    // Add task button functionality
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('add-task-btn') || e.target.closest('.add-task-btn')) {
+            const btn = e.target.classList.contains('add-task-btn') ? e.target : e.target.closest('.add-task-btn');
+            const projectId = btn.getAttribute('data-project-id');
+
+            // Set current date/time as default
+            const now = new Date();
+            const localDatetime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+            document.getElementById('newTaskCompletedAt').value = localDatetime;
+
+            // Pre-select project if available
+            if (projectId) {
+                document.getElementById('newTaskProject').value = projectId;
+            }
+
+            // Reset modal to main task mode
+            document.getElementById('addTaskModalLabel').textContent = 'Neue Aufgabe erstellen';
+            document.querySelector('.add-task-subtitle').textContent = 'Fügen Sie eine neue Aufgabe hinzu';
+            document.getElementById('addTaskForm').removeAttribute('data-parent-task');
+            document.getElementById('addTaskForm').removeAttribute('data-is-subtask');
+
+            // Clear form
+            document.getElementById('addTaskForm').reset();
+            document.getElementById('newTaskCompletedAt').value = localDatetime;
+            if (projectId) {
+                document.getElementById('newTaskProject').value = projectId;
+            }
+
+            // Show modal
+            const addModal = new bootstrap.Modal(document.getElementById('addTaskModal'));
+            addModal.show();
+        }
+    });
+
+    // Add subtask button functionality
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('add-subtask-btn') || e.target.closest('.add-subtask-btn')) {
+            const btn = e.target.classList.contains('add-subtask-btn') ? e.target : e.target.closest('.add-subtask-btn');
+            const taskId = btn.getAttribute('data-task-id');
+            const projectId = btn.getAttribute('data-project-id');
+
+            // Set current date/time as default
+            const now = new Date();
+            const localDatetime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+            document.getElementById('newTaskCompletedAt').value = localDatetime;
+
+            // Pre-select project if available
+            if (projectId) {
+                document.getElementById('newTaskProject').value = projectId;
+            }
+
+            // Update modal title for subtask
+            document.getElementById('addTaskModalLabel').textContent = 'Neue Unteraufgabe erstellen';
+            document.querySelector('.add-task-subtitle').textContent = 'Fügen Sie eine neue Unteraufgabe hinzu';
+
+            // Store parent task ID for later use
+            document.getElementById('addTaskForm').setAttribute('data-parent-task', taskId);
+            document.getElementById('addTaskForm').setAttribute('data-is-subtask', 'true');
+
+            // Show modal
+            const addModal = new bootstrap.Modal(document.getElementById('addTaskModal'));
+            addModal.show();
+        }
+    });
+
+    // Handle add task form submission
+    document.getElementById('addTaskForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const title = document.getElementById('newTaskTitle').value;
+        const description = document.getElementById('newTaskDescription').value;
+        const projectId = document.getElementById('newTaskProject').value;
+        const completedAt = document.getElementById('newTaskCompletedAt').value;
+        const parentTaskId = this.getAttribute('data-parent-task');
+        const isSubtask = this.getAttribute('data-is-subtask') === 'true';
+
+        if (!title || !projectId || !completedAt) {
+            alert('Bitte füllen Sie alle Pflichtfelder aus.');
+            return;
+        }
+
+        // Prepare request body
+        const requestBody = {
+            'title': title,
+            'description': description,
+            'project': projectId,
+            'completed_at': completedAt
+        };
+
+        // Add parent_task_id if it's a subtask
+        if (isSubtask && parentTaskId) {
+            requestBody['parent_task_id'] = parentTaskId;
+        }
+
+        // Determine URL based on whether it's a subtask or main task
+        const url = isSubtask ? '/loomline/sub-aufgabe/' : '/loomline/eintragen/';
+
+        // Send request to server
+        fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+                              document.querySelector('meta[name="csrf-token"]')?.content ||
+                              getCookie('csrftoken')
+            },
+            body: new URLSearchParams(requestBody)
+        })
+        .then(response => {
+            if (response.ok) {
+                // Close modal
+                const addModal = bootstrap.Modal.getInstance(document.getElementById('addTaskModal'));
+                addModal.hide();
+
+                // Reload page to show new task
+                window.location.reload();
+            } else {
+                return response.text().then(text => {
+                    throw new Error('Server error: ' + response.status);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Fehler beim Erstellen der Aufgabe: ' + error.message);
+        });
+    });
 });
+
+// Helper function to get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
 
 // Filter functions
 function applyFilters() {
@@ -871,6 +2412,198 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('filterSummary').style.display = 'block';
         document.getElementById('filterSummaryText').textContent = filterTexts.join(', ');
     }
+
+    // Calculate and display time durations between tasks
+    calculateTimeDurations();
 });
+
+function calculateTimeDurations() {
+    const timelineConnectors = document.querySelectorAll('.timeline-connector');
+
+    // Update each timeline connector
+    timelineConnectors.forEach((connector) => {
+        const currentDateStr = connector.getAttribute('data-current-date');
+        const nextDateStr = connector.getAttribute('data-next-date');
+
+        if (currentDateStr && nextDateStr) {
+            const currentDate = new Date(currentDateStr);
+            const nextDate = new Date(nextDateStr);
+
+            // Calculate time difference
+            const timeDiff = Math.abs(nextDate - currentDate);
+            const diffInMinutes = Math.floor(timeDiff / (1000 * 60));
+            const diffInHours = Math.floor(timeDiff / (1000 * 60 * 60));
+            const diffInDays = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+
+            let durationText = '';
+
+            if (diffInDays > 0) {
+                durationText = diffInDays + (diffInDays === 1 ? ' Tag' : ' Tage');
+            } else if (diffInHours > 0) {
+                durationText = diffInHours + (diffInHours === 1 ? ' Stunde' : ' Stunden');
+            } else if (diffInMinutes > 0) {
+                durationText = diffInMinutes + (diffInMinutes === 1 ? ' Minute' : ' Minuten');
+            } else {
+                durationText = '< 1 Min';
+            }
+
+            const durationElement = connector.querySelector('.duration-text');
+            if (durationElement) {
+                durationElement.textContent = durationText;
+            }
+        }
+    });
+}
+
+// Voice Input Functionality
+let recognition = null;
+let isListening = false;
+
+// Check if browser supports speech recognition
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'de-DE';
+
+    recognition.onstart = function() {
+        isListening = true;
+    };
+
+    recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript;
+        if (recognition.currentTarget) {
+            const input = document.getElementById(recognition.currentTarget);
+            if (input) {
+                if (input.tagName === 'TEXTAREA') {
+                    // For textarea, append to existing content
+                    const currentValue = input.value;
+                    input.value = currentValue ? currentValue + ' ' + transcript : transcript;
+                } else {
+                    // For input fields, replace content
+                    input.value = transcript;
+                }
+
+                // Trigger input event for any validation or formatting
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }
+    };
+
+    recognition.onend = function() {
+        isListening = false;
+        // Reset all voice buttons
+        document.querySelectorAll('.voice-btn').forEach(btn => {
+            btn.classList.remove('recording');
+            btn.innerHTML = '<i class="fas fa-microphone"></i>';
+            btn.title = 'Spracheingabe';
+        });
+    };
+
+    recognition.onerror = function(event) {
+        console.error('Speech recognition error:', event.error);
+        isListening = false;
+        // Reset all voice buttons
+        document.querySelectorAll('.voice-btn').forEach(btn => {
+            btn.classList.remove('recording');
+            btn.innerHTML = '<i class="fas fa-microphone"></i>';
+            btn.title = 'Spracheingabe';
+        });
+
+        // Show user-friendly error message
+        if (event.error === 'not-allowed') {
+            alert('Mikrofon-Zugriff wurde verweigert. Bitte erlauben Sie den Mikrofon-Zugriff in den Browser-Einstellungen.');
+        } else if (event.error === 'no-speech') {
+            alert('Keine Sprache erkannt. Bitte versuchen Sie es erneut.');
+        } else {
+            alert('Spracherkennung fehlgeschlagen. Bitte versuchen Sie es erneut.');
+        }
+    };
+}
+
+// Voice button event listeners
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.voice-btn')) {
+        e.preventDefault();
+        const btn = e.target.closest('.voice-btn');
+
+        if (!recognition) {
+            alert('Spracherkennung wird von diesem Browser nicht unterstützt.');
+            return;
+        }
+
+        if (isListening) {
+            recognition.stop();
+            return;
+        }
+
+        // Determine target input field
+        let targetInputId = '';
+        if (btn.id === 'voiceTitleBtn') {
+            targetInputId = 'newTaskTitle';
+        } else if (btn.id === 'voiceDescriptionBtn') {
+            targetInputId = 'newTaskDescription';
+        }
+
+        if (targetInputId) {
+            // Update button appearance
+            btn.classList.add('recording');
+            btn.innerHTML = '<i class="fas fa-stop"></i>';
+            btn.title = 'Aufnahme stoppen';
+
+            // Set target for recognition result
+            recognition.currentTarget = targetInputId;
+
+            // Start recognition
+            try {
+                recognition.start();
+            } catch (error) {
+                console.error('Error starting speech recognition:', error);
+                btn.classList.remove('recording');
+                btn.innerHTML = '<i class="fas fa-microphone"></i>';
+                btn.title = 'Spracheingabe';
+            }
+        }
+    }
+});
+
+// Simplified Subcard Hover Behavior - Cards always visible and flip on hover
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Subcard flip behavior initialized');
+
+    // Wait for DOM to be fully ready
+    setTimeout(() => {
+        const subcardContainers = document.querySelectorAll('.subcards-container');
+        console.log('📦 Setting up', subcardContainers.length, 'subcard containers');
+
+        subcardContainers.forEach((container, index) => {
+            const subcardCount = container.querySelectorAll('.subcard-wrapper').length;
+            console.log('📊 Container', index, 'has', subcardCount, 'subcards');
+
+            // Karten sind immer sichtbar nebeneinander - Flex-Layout bleibt aktiv
+            // Keine Positionierungsänderungen mehr nötig
+
+            // Card hover events - Karten flippen beim Hover wie die Haupt-Cards
+            const subcards = container.querySelectorAll('.subcard');
+            subcards.forEach((card, cardIndex) => {
+                // Hover-Events sind jetzt immer aktiv
+                card.addEventListener('mouseenter', function() {
+                    console.log('🔄 Card', cardIndex, 'FLIP');
+                    // CSS :hover regel flippt die Karte bereits, aber wir können auch die Klasse setzen
+                    this.classList.add('flipped');
+                });
+
+                card.addEventListener('mouseleave', function() {
+                    console.log('🔄 Card', cardIndex, 'FLIP OUT');
+                    // Karte zurückdrehen
+                    this.classList.remove('flipped');
+                });
+            });
+        });
+    }, 500);
+});
+
 </script>
 {% endblock %}

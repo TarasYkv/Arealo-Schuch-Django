@@ -27,7 +27,7 @@ class LoomlineConfig(AppConfig):
     def register_app_info(self):
         """Register app information in the core system"""
         try:
-            from core.models import AppInfo
+            from accounts.models import AppInfo
 
             app_info, created = AppInfo.objects.get_or_create(
                 app_name='loomline',
