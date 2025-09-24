@@ -16,6 +16,9 @@ from django.core.paginator import Paginator
 from django.utils import timezone
 from django.http import JsonResponse, Http404
 from datetime import timedelta, datetime
+import os
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
 from .models import Project, TaskEntry, ScheduledNotification
 from .forms import ProjectForm, TaskEntryForm, QuickTaskEntryForm, AddMemberForm
 
@@ -399,6 +402,39 @@ def add_subtask(request):
             messages.error(request, 'Titel ist erforderlich.')
 
     return redirect('loomline:tasks-tiles')
+
+
+@login_required
+def upload_image(request):
+    """Upload image for TinyMCE editor"""
+    if request.method == 'POST' and request.FILES.get('file'):
+        file = request.FILES['file']
+
+        # Validate file type
+        if not file.content_type.startswith('image/'):
+            return JsonResponse({'error': 'Only image files are allowed'}, status=400)
+
+        # Validate file size (max 5MB)
+        if file.size > 5 * 1024 * 1024:
+            return JsonResponse({'error': 'File size too large. Max 5MB allowed'}, status=400)
+
+        try:
+            # Create unique filename
+            import uuid
+            ext = os.path.splitext(file.name)[1]
+            filename = f"loomline/images/{uuid.uuid4()}{ext}"
+
+            # Save file
+            saved_path = default_storage.save(filename, ContentFile(file.read()))
+
+            # Return the URL
+            file_url = default_storage.url(saved_path)
+            return JsonResponse({'location': file_url})
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Invalid request'}, status=400)
 
 
 @login_required

@@ -33,4 +33,7 @@ urlpatterns = [
     path('aufgaben/<int:task_id>/bearbeiten/', views.edit_task, name='edit-task'),
     path('aufgaben/<int:task_id>/loeschen/', views.delete_task, name='delete-task'),
     path('sub-aufgaben/<int:subtask_id>/loeschen/', views.delete_subtask, name='delete-subtask'),
+
+    # Image Upload für TinyMCE
+    path('upload-image/', views.upload_image, name='upload-image'),
 ]
