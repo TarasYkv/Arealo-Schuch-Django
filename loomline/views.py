@@ -309,38 +309,52 @@ def add_subtask(request):
 
         # Erstelle Sub-Aufgabe
         title = request.POST.get('title')
+        title = request.POST.get('title')
         description = request.POST.get('description', '')
-        completed_at = request.POST.get('completed_at')
+        completed_at_str = request.POST.get('completed_at')
         notification_datetime_str = request.POST.get('notification_datetime')
 
         if title:
-            subtask = TaskEntry.objects.create(
-                project=parent_task.project,
-                title=title,
-                description=description,
-                completed_by=request.user,
-                parent_task=parent_task,
-                completed_at=timezone.now() if not completed_at else completed_at
-            )
+            try:
+                # Datums-String in ein für Django gültiges, zeitzoneninformiertes Datum umwandeln
+                if completed_at_str:
+                    try:
+                        completed_at_dt = datetime.fromisoformat(completed_at_str)
+                        final_completed_at = timezone.make_aware(completed_at_dt)
+                    except (ValueError, TypeError):
+                        final_completed_at = timezone.now() # Fallback
+                else:
+                    final_completed_at = timezone.now()
 
-            # Create notification if datetime is provided
-            if notification_datetime_str:
-                try:
-                    send_at_dt = datetime.fromisoformat(notification_datetime_str)
-                    # Make timezone aware
-                    send_at_aware = timezone.make_aware(send_at_dt)
+                subtask = TaskEntry.objects.create(
+                    project=parent_task.project,
+                    title=title,
+                    description=description,
+                    completed_by=request.user,
+                    parent_task=parent_task,
+                    completed_at=final_completed_at
+                )
 
-                    ScheduledNotification.objects.create(
-                        user_to_notify=request.user,
-                        task_entry=subtask,
-                        message=f'Erinnerung für deine Sub-Aufgabe: "{subtask.title}"',
-                        send_at=send_at_aware
-                    )
-                    messages.success(request, f'Sub-Aufgabe "{subtask.title}" mit Erinnerung erstellt!')
-                except (ValueError, TypeError):
-                    messages.warning(request, "Ungültiges Datumsformat für die Erinnerung.")
-            else:
-                 messages.success(request, f'Sub-Aufgabe "{subtask.title}" erfolgreich hinzugefügt!')
+                # Create notification if datetime is provided
+                if notification_datetime_str:
+                    try:
+                        send_at_dt = datetime.fromisoformat(notification_datetime_str)
+                        # Make timezone aware
+                        send_at_aware = timezone.make_aware(send_at_dt)
+
+                        ScheduledNotification.objects.create(
+                            user_to_notify=request.user,
+                            task_entry=subtask,
+                            message=f'Erinnerung für deine Sub-Aufgabe: "{subtask.title}"',
+                            send_at=send_at_aware
+                        )
+                        messages.success(request, f'Sub-Aufgabe "{subtask.title}" mit Erinnerung erstellt!')
+                    except (ValueError, TypeError):
+                        messages.warning(request, "Ungültiges Datumsformat für die Erinnerung.")
+                else:
+                     messages.success(request, f'Sub-Aufgabe "{subtask.title}" erfolgreich hinzugefügt!')
+            except Exception as e:
+                messages.error(request, f"Ein unerwarteter Fehler ist aufgetreten: {str(e)}")
         else:
             messages.error(request, 'Titel ist erforderlich.')
 
