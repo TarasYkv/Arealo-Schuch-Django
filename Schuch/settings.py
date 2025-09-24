@@ -299,4 +299,8 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'mail_app.tasks.sync_emails',
         'schedule': MAIL_APP_SETTINGS['EMAIL_SYNC_INTERVAL'],
     },
+    'send-loomline-notifications': {
+        'task': 'loomline.tasks.send_scheduled_notifications',
+        'schedule': 300.0,  # Every 5 minutes
+    },
 }
