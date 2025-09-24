@@ -364,14 +364,30 @@ def add_subtask(request):
                         send_at_aware = timezone.make_aware(send_at_dt)
                         print(f"[DEBUG] Notification time parsed: {send_at_aware}")
 
-                        notification = ScheduledNotification.objects.create(
-                            user_to_notify=request.user,
-                            task_entry=subtask,
-                            message=f'Erinnerung für deine Sub-Aufgabe: "{subtask.title}"',
-                            send_at=send_at_aware
-                        )
-                        print(f"[DEBUG] Notification created with ID: {notification.id}")
-                        messages.success(request, f'Sub-Aufgabe "{subtask.title}" mit Erinnerung erstellt!')
+                        # Get all project members (owner + members)
+                        project = parent_task.project
+                        all_users = [project.owner]
+                        all_users.extend(project.members.all())
+                        # Remove duplicates if any
+                        all_users = list(set(all_users))
+
+                        # Create notification for each team member
+                        for user in all_users:
+                            # Customize message based on whether it's the creator or team member
+                            if user == request.user:
+                                msg = f'🔔 Erinnerung für deine Sub-Aufgabe: "{subtask.title}"'
+                            else:
+                                msg = f'🔔 Team-Erinnerung: Sub-Aufgabe "{subtask.title}" im Projekt "{project.name}" ist fällig! (erstellt von {request.user.get_full_name() or request.user.username})'
+
+                            notification = ScheduledNotification.objects.create(
+                                user_to_notify=user,
+                                task_entry=subtask,
+                                message=msg,
+                                send_at=send_at_aware
+                            )
+                            print(f"[DEBUG] Notification created with ID {notification.id} for user {user.username}")
+
+                        messages.success(request, f'Sub-Aufgabe "{subtask.title}" mit Erinnerung für alle Team-Mitglieder erstellt!')
                     except (ValueError, TypeError) as e:
                         print(f"[DEBUG] Error creating notification: {e}")
                         messages.warning(request, "Ungültiges Datumsformat für die Erinnerung.")
