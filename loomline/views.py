@@ -99,16 +99,33 @@ def add_task(request, project_id):
 @login_required
 def dashboard(request):
     """Einfaches Dashboard mit Projektübersicht"""
-    projects = Project.objects.filter(owner=request.user, is_active=True)[:5]
+    # Zeige Projekte die der User besitzt oder bei denen er Mitglied ist
+    user = request.user
+    projects = Project.objects.filter(
+        models.Q(owner=user) | models.Q(members=user),
+        is_active=True
+    ).distinct()[:5]
+
+    # Zeige Tasks aus allen Projekten zu denen der User Zugang hat
     recent_tasks = TaskEntry.objects.filter(
-        project__owner=request.user
-    ).select_related('project')[:10]
+        models.Q(project__owner=user) | models.Q(project__members=user)
+    ).select_related('project').distinct()[:10]
+
+    # Total counts für alle zugänglichen Projekte
+    total_projects = Project.objects.filter(
+        models.Q(owner=user) | models.Q(members=user),
+        is_active=True
+    ).distinct().count()
+
+    total_tasks = TaskEntry.objects.filter(
+        models.Q(project__owner=user) | models.Q(project__members=user)
+    ).distinct().count()
 
     context = {
         'projects': projects,
         'recent_tasks': recent_tasks,
-        'total_projects': Project.objects.filter(owner=request.user, is_active=True).count(),
-        'total_tasks': TaskEntry.objects.filter(project__owner=request.user).count(),
+        'total_projects': total_projects,
+        'total_tasks': total_tasks,
     }
 
     return render(request, 'loomline/dashboard.html', context)

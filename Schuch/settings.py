@@ -289,6 +289,10 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
 
+# Site Configuration für E-Mail Links
+SITE_DOMAIN = 'www.workloom.de'
+SITE_NAME = 'WorkLoom'
+
 # Celery Beat Scheduler for periodic tasks
 CELERY_BEAT_SCHEDULE = {
     'sync-emails': {
