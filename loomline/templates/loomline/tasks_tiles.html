@@ -136,7 +136,20 @@
                                             {% endif %}
                                         </div>
                                         {% if task.description and task.description|length > 80 %}
-                                        <button class="expand-btn" data-description="{{ task.description }}" data-title="{{ task.title }}" data-date="{{ task.completed_at|date:'d.m.Y H:i' }}" data-user="{{ task.completed_by.username }}">
+                                        <button class="expand-btn"
+                                                data-task-id="{{ task.id }}"
+                                                data-description="{{ task.description }}"
+                                                data-title="{{ task.title }}"
+                                                data-date="{{ task.completed_at|date:'d.m.Y H:i' }}"
+                                                data-user="{{ task.completed_by.username }}"
+                                                data-has-notification="{% if task.notifications.exists %}true{% else %}false{% endif %}"
+                                                {% if task.notifications.exists %}
+                                                    {% with notification=task.notifications.first %}
+                                                    data-notification-time="{{ notification.send_at|date:'d.m.Y H:i' }}"
+                                                    data-notification-sent="{{ notification.sent|yesno:'true,false' }}"
+                                                    data-notification-message="{{ notification.message }}"
+                                                    {% endwith %}
+                                                {% endif %}>
                                             <i class="fas fa-expand-alt"></i> Mehr anzeigen
                                         </button>
                                         {% endif %}
@@ -157,11 +170,17 @@
                 <div class="subcards-container" data-task-id="{{ task.id }}" data-total-cards="{{ task.subtasks.all|length }}">
                     {% for subtask in task.subtasks.all %}
                     <div class="subcard-wrapper {% if forloop.counter <= 3 %}visible{% else %}hidden-card{% endif %}" data-index="{{ forloop.counter0 }}">
-                        <div class="subcard">
-                            <div class="subcard-front">
+                        <div class="subcard" style="position: relative;">
+                            <div class="subcard-front" style="position: relative;">
                                 {% if forloop.first %}
                                 <div class="newest-badge-corner subcard-newest-corner">
                                     <span>Neuste</span>
+                                </div>
+                                {% endif %}
+                                {% if subtask.notifications.exists %}
+                                <div class="subcard-notification-badge" style="position: absolute; top: 5px; right: 5px; background: {% if subtask.notifications.first.sent %}#28a745{% else %}#ffc107{% endif %}; color: {% if subtask.notifications.first.sent %}white{% else %}#856404{% endif %}; padding: 0.2rem 0.4rem; border-radius: 8px; font-size: 0.6rem; font-weight: bold; z-index: 10;">
+                                    <i class="fas fa-bell" style="font-size: 0.5rem;"></i>
+                                    {% if subtask.notifications.first.sent %}Gesendet{% else %}Erinnerung{% endif %}
                                 </div>
                                 {% endif %}
                                 <div class="subcard-header">
@@ -205,8 +224,23 @@
                                                 data-title="{{ subtask.title }}"
                                                 data-description="{{ subtask.description|default:'' }}"
                                                 data-date="{{ subtask.completed_at|date:'d.m.Y H:i' }}"
-                                                data-user="{{ subtask.completed_by.first_name|default:subtask.completed_by.username }}">
+                                                data-user="{{ subtask.completed_by.first_name|default:subtask.completed_by.username }}"
+                                                data-has-notification="{% if subtask.notifications.exists %}true{% else %}false{% endif %}"
+                                                {% if subtask.notifications.exists %}
+                                                    {% with notification=subtask.notifications.first %}
+                                                    data-notification-time="{{ notification.send_at|date:'d.m.Y H:i' }}"
+                                                    data-notification-sent="{{ notification.sent|yesno:'true,false' }}"
+                                                    data-notification-message="{{ notification.message }}"
+                                                    {% endwith %}
+                                                {% endif %}>
                                             <i class="fas fa-info-circle me-1"></i>Mehr
+                                            {% if subtask.notifications.exists %}
+                                                {% if subtask.notifications.first.sent %}
+                                                    <i class="fas fa-bell-slash text-success ms-1" title="Erinnerung wurde gesendet"></i>
+                                                {% else %}
+                                                    <i class="fas fa-bell text-warning ms-1" title="Erinnerung eingerichtet"></i>
+                                                {% endif %}
+                                            {% endif %}
                                         </button>
                                     </div>
                                 </div>
@@ -492,7 +526,7 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     <i class="fas fa-times me-2"></i>Schließen
                 </button>
-                <button type="button" class="btn btn-primary">
+                <button type="button" class="btn btn-primary" id="editTaskFromModalBtn">
                     <i class="fas fa-edit me-2"></i>Bearbeiten
                 </button>
             </div>
@@ -2171,10 +2205,38 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('expand-btn') || e.target.closest('.expand-btn')) {
             const btn = e.target.classList.contains('expand-btn') ? e.target : e.target.closest('.expand-btn');
+            const taskId = btn.getAttribute('data-task-id');
             const description = btn.getAttribute('data-description');
             const title = btn.getAttribute('data-title');
             const date = btn.getAttribute('data-date');
             const user = btn.getAttribute('data-user');
+            const hasNotification = btn.getAttribute('data-has-notification') === 'true';
+            const notificationTime = btn.getAttribute('data-notification-time');
+            const notificationSent = btn.getAttribute('data-notification-sent') === 'true';
+            const notificationMessage = btn.getAttribute('data-notification-message');
+
+            // Build notification HTML if exists
+            let notificationHtml = '';
+            if (hasNotification) {
+                notificationHtml = `
+                    <div class="task-detail-notification" style="background: #fff3cd; border-radius: 8px; padding: 1rem; margin-top: 1rem; border: 1px solid #ffc107;">
+                        <div class="section-header" style="color: #856404; margin-bottom: 0.5rem;">
+                            <i class="fas fa-bell me-2"></i>
+                            <h6 style="display: inline;">Erinnerung</h6>
+                        </div>
+                        <div style="display: grid; gap: 0.5rem;">
+                            <div>
+                                <strong>Zeitpunkt:</strong> ${notificationTime || 'Nicht festgelegt'}
+                                ${notificationSent ? '<span class="badge bg-success ms-2">Gesendet</span>' : '<span class="badge bg-warning ms-2">Ausstehend</span>'}
+                            </div>
+                            ${notificationMessage ? `
+                            <div>
+                                <strong>Nachricht:</strong><br>
+                                <em style="color: #666;">${notificationMessage}</em>
+                            </div>` : ''}
+                        </div>
+                    </div>`;
+            }
 
             const modalContent = document.getElementById('taskDetailContent');
             modalContent.innerHTML = `
@@ -2220,8 +2282,13 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                         </div>
                     </div>
+
+                    ${notificationHtml}
                 </div>
             `;
+
+            // Store task ID for the edit button
+            document.getElementById('taskDetailModal').setAttribute('data-current-task-id', taskId);
 
             const modal = new bootstrap.Modal(document.getElementById('taskDetailModal'));
             modal.show();
@@ -2237,10 +2304,38 @@ document.addEventListener('DOMContentLoaded', function() {
             const btn = e.target.classList.contains('subcard-details-btn')
                       ? e.target
                       : e.target.closest('.subcard-details-btn');
+            const taskId = btn.getAttribute('data-task-id');
             const description = btn.getAttribute('data-description');
             const title = btn.getAttribute('data-title');
             const date = btn.getAttribute('data-date');
             const user = btn.getAttribute('data-user');
+            const hasNotification = btn.getAttribute('data-has-notification') === 'true';
+            const notificationTime = btn.getAttribute('data-notification-time');
+            const notificationSent = btn.getAttribute('data-notification-sent') === 'true';
+            const notificationMessage = btn.getAttribute('data-notification-message');
+
+            // Build notification HTML if exists
+            let notificationHtml = '';
+            if (hasNotification) {
+                notificationHtml = `
+                    <div class="task-detail-notification" style="background: #fff3cd; border-radius: 8px; padding: 1rem; margin-top: 1rem; border: 1px solid #ffc107;">
+                        <div class="detail-section-header" style="color: #856404; margin-bottom: 0.5rem;">
+                            <i class="fas fa-bell me-2"></i>
+                            Erinnerung
+                        </div>
+                        <div style="display: grid; gap: 0.5rem;">
+                            <div>
+                                <strong>Zeitpunkt:</strong> ${notificationTime || 'Nicht festgelegt'}
+                                ${notificationSent ? '<span class="badge bg-success ms-2">Gesendet</span>' : '<span class="badge bg-warning ms-2">Ausstehend</span>'}
+                            </div>
+                            ${notificationMessage ? `
+                            <div>
+                                <strong>Nachricht:</strong><br>
+                                <em style="color: #666;">${notificationMessage}</em>
+                            </div>` : ''}
+                        </div>
+                    </div>`;
+            }
 
             const modalContent = document.getElementById('taskDetailContent');
             modalContent.innerHTML = `
@@ -2284,8 +2379,13 @@ document.addEventListener('DOMContentLoaded', function() {
                             ${description || '<em style="color: #999;">Keine Beschreibung verfügbar</em>'}
                         </div>
                     </div>
+
+                    ${notificationHtml}
                 </div>
             `;
+
+            // Store task ID for the edit button
+            document.getElementById('taskDetailModal').setAttribute('data-current-task-id', taskId);
 
             const modal = new bootstrap.Modal(document.getElementById('taskDetailModal'));
             modal.show();
@@ -2630,6 +2730,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const parentTaskId = this.getAttribute('data-parent-task');
         const isSubtask = this.getAttribute('data-is-subtask') === 'true';
 
+        // Debug logging
+        console.log('Creating task:', {
+            title, projectId, completedAt, notificationDateTime,
+            parentTaskId, isSubtask
+        });
+
         if (!title || !projectId || !completedAt) {
             alert('Bitte füllen Sie alle Pflichtfelder aus.');
             return;
@@ -2646,6 +2752,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Add notification time if set
         if (notificationDateTime) {
             requestBody['notification_datetime'] = notificationDateTime;
+            console.log('Notification datetime added:', notificationDateTime);
         }
 
         // Add parent_task_id if it's a subtask
@@ -2915,6 +3022,31 @@ document.addEventListener('click', function(e) {
 });
 
 // Simplified Subcard Hover Behavior - Cards always visible and flip on hover
+// Edit Task from Modal functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const editBtn = document.getElementById('editTaskFromModalBtn');
+    if (editBtn) {
+        editBtn.addEventListener('click', function() {
+            const modal = document.getElementById('taskDetailModal');
+            const taskId = modal.getAttribute('data-current-task-id');
+
+            if (!taskId) {
+                alert('Keine Task-ID gefunden!');
+                return;
+            }
+
+            // Close the current modal
+            const bsModal = bootstrap.Modal.getInstance(modal);
+            if (bsModal) {
+                bsModal.hide();
+            }
+
+            // Redirect to edit page
+            window.location.href = `/loomline/aufgaben/${taskId}/bearbeiten/`;
+        });
+    }
+});
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Subcard flip behavior initialized');
 
