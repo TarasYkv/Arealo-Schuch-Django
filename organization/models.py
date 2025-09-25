@@ -327,3 +327,29 @@ class BoardAudioParticipant(models.Model):
     def is_active(self):
         """Prüft ob der Teilnehmer aktuell in der Session ist."""
         return self.left_at is None
+
+
+class BoardMirrorSession(models.Model):
+    """Bildschirmfreigabe-Session für ein Ideenboard."""
+
+    board = models.OneToOneField(IdeaBoard, on_delete=models.CASCADE, related_name='mirror_session', verbose_name="Board")
+    owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='active_mirror_sessions', verbose_name="Freigegeben von")
+    channel_name = models.CharField(max_length=200, verbose_name="Channel Name")
+    is_active = models.BooleanField(default=False, verbose_name="Aktiv")
+    started_at = models.DateTimeField(null=True, blank=True, verbose_name="Gestartet am")
+    ended_at = models.DateTimeField(null=True, blank=True, verbose_name="Beendet am")
+
+    class Meta:
+        verbose_name = "Board-Mirror-Session"
+        verbose_name_plural = "Board-Mirror-Sessions"
+
+    def __str__(self):
+        return f"Mirror Session für {self.board.title}"
+
+    def get_channel_name(self):
+        return f"board_mirror_{self.board.id}"
+
+    def save(self, *args, **kwargs):
+        if not self.channel_name:
+            self.channel_name = self.get_channel_name()
+        super().save(*args, **kwargs)

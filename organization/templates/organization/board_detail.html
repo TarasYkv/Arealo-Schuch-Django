@@ -32,6 +32,13 @@
                         </div>
                     </div>
 
+                    <!-- Mirror Button -->
+                    <button type="button" id="mirror-toggle-btn" class="btn btn-sm btn-outline-primary me-1" style="width: 120px; height: 38px; display: flex; align-items: center; justify-content: center;">
+                        🖥️ <span id="mirror-button-label" class="d-none d-sm-inline">Mirror</span>
+                    </button>
+                    <span id="mirror-active-indicator" class="badge bg-danger" style="display: none; font-size: 0.7rem; align-self: center;">LIVE</span>
+                    <span id="mirror-owner-info" class="text-muted small" style="display: none;"></span>
+
                     {% if board.creator == request.user %}
                         <button type="button" class="btn btn-sm btn-info me-1" data-bs-toggle="modal" data-bs-target="#inviteModal" style="width: 120px; height: 38px; display: flex; align-items: center; justify-content: center;">
                             👥 <span class="d-none d-sm-inline">Einladen</span>
@@ -161,6 +168,17 @@
                                     height="{{ board.height }}"
                                     style="border: 1px solid #dee2e6; background-color: {{ board.background_color }}; max-width: 100%; height: auto; cursor: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTMgM0w5IDE5TDEyIDE1TDE5IDEySjMgM1oiIGZpbGw9IiMwMDAiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIxIi8+Cjwvc3ZnPg==) 3 3, pointer;">
                             </canvas>
+
+                            <!-- Mirror Overlay -->
+                            <div id="mirror-overlay" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 1050; align-items: center; justify-content: center;">
+                                <div id="mirror-overlay-inner" style="position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                                    <div id="mirror-owner-label" style="color: #fff; font-weight: 600; margin-bottom: 8px; font-size: 1rem; text-align: center;">
+                                        Bildschirmfreigabe
+                                    </div>
+                                    <div id="mirror-video-player" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;"></div>
+                                    <div id="mirror-overlay-message" style="position: absolute; top: 12px; right: 12px; color: #fff; font-size: 0.85rem; background: rgba(0,0,0,0.4); padding: 6px 10px; border-radius: 999px; display: none;"></div>
+                                </div>
+                            </div>
 
                             <!-- Tool Controls Popup -->
                             <div id="tool-controls-popup" style="display: none; position: absolute; z-index: 9999; background: white; border: 1px solid #ccc; border-radius: 4px; padding: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.15); top: 10px; left: 50%; transform: translateX(-50%);">
@@ -569,6 +587,14 @@
 
 <script>
 const boardUploadImageUrl = "{% url 'organization:board_upload_image' board.pk %}";
+const boardMirrorUrls = {
+    status: "{% url 'organization:board_mirror_status' board.pk %}",
+    start: "{% url 'organization:board_mirror_start' board.pk %}",
+    stop: "{% url 'organization:board_mirror_stop' board.pk %}",
+    token: "{% url 'organization:board_mirror_token' board.pk %}",
+};
+const currentUserId = {{ request.user.id }};
+const currentUsername = "{{ request.user.username|escapejs }}";
 class IdeaBoard {
     constructor() {
         console.log('IdeaBoard constructor starting...');
@@ -4005,6 +4031,534 @@ function saveInvitations() {
 
 <!-- JSZip for creating ZIP downloads -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<script>
+class BoardMirrorManager {
+    constructor() {
+        this.button = document.getElementById('mirror-toggle-btn');
+        this.buttonLabel = document.getElementById('mirror-button-label');
+        this.activeIndicator = document.getElementById('mirror-active-indicator');
+        this.ownerInfo = document.getElementById('mirror-owner-info');
+        this.overlay = document.getElementById('mirror-overlay');
+        this.overlayMessage = document.getElementById('mirror-overlay-message');
+        this.videoContainer = document.getElementById('mirror-video-player');
+        this.ownerLabel = document.getElementById('mirror-owner-label');
+
+        this.isSharing = false;
+        this.isViewing = false;
+        this.viewerOwnerId = null;
+        this.activeOwnerId = null;
+        this.activeOwnerName = null;
+        this.pendingStart = false;
+        this.pendingStop = false;
+        this.viewerJoining = false;
+        this.pendingStatus = false;
+        this.serverStopPromise = null;
+
+        this.mirrorClient = null;
+        this.screenTrack = null;
+        this.viewerClient = null;
+        this.remoteVideoTrack = null;
+
+        this.statusInterval = null;
+
+        this.initEventListeners();
+        this.updateButtonState();
+        this.checkStatus();
+        this.statusInterval = setInterval(() => this.checkStatus(), 5000);
+    }
+
+    initEventListeners() {
+        if (this.button) {
+            this.button.addEventListener('click', () => {
+                if (this.isSharing) {
+                    this.stopSharing();
+                } else {
+                    this.startSharing();
+                }
+            });
+        }
+    }
+
+    async checkStatus() {
+        if (this.pendingStatus) {
+            return;
+        }
+
+        this.pendingStatus = true;
+        try {
+            const response = await fetch(boardMirrorUrls.status, {
+                cache: 'no-store'
+            });
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status);
+            }
+            const data = await response.json();
+            await this.handleStatusUpdate(data);
+        } catch (error) {
+            console.error('Mirror status error:', error);
+        } finally {
+            this.pendingStatus = false;
+        }
+    }
+
+    async handleStatusUpdate(data) {
+        const sessionActive = !!data.has_active_session;
+        const owner = data.owner || null;
+        const ownerId = owner ? owner.id : null;
+        const ownerName = owner ? owner.username : null;
+        const isOwner = !!data.is_owner;
+
+        this.activeOwnerId = ownerId;
+        this.activeOwnerName = ownerName;
+
+        if (!sessionActive) {
+            if (this.isSharing || this.mirrorClient || this.screenTrack) {
+                await this.stopSharing(true);
+            }
+            if (this.isViewing) {
+                await this.stopViewing();
+            }
+        } else {
+            if (isOwner) {
+                this.isSharing = true;
+                this.hideOverlay();
+            } else {
+                this.isSharing = false;
+                await this.ensureViewing();
+            }
+        }
+
+        this.updateOwnerInfo();
+        this.updateButtonState();
+    }
+
+    async startSharing() {
+        if (this.pendingStart || !this.button) {
+            return;
+        }
+
+        if (typeof AgoraRTC === 'undefined') {
+            alert('Bildschirmfreigabe ist momentan nicht verfügbar (Agora SDK fehlt).');
+            return;
+        }
+
+        this.pendingStart = true;
+        this.updateButtonState();
+
+        try {
+            const csrfToken = getCookie('csrftoken');
+            const response = await fetch(boardMirrorUrls.start, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Start fehlgeschlagen');
+            }
+
+            let screenTrackResult = await AgoraRTC.createScreenVideoTrack(
+                {
+                    encoderConfig: {
+                        width: 1280,
+                        height: 720,
+                        frameRate: 15,
+                    },
+                },
+                'auto'
+            );
+
+            let videoTrack;
+            if (Array.isArray(screenTrackResult)) {
+                [videoTrack] = screenTrackResult;
+                screenTrackResult.forEach((track, index) => {
+                    if (index > 0 && track && typeof track.close === 'function') {
+                        track.close();
+                    }
+                });
+            } else {
+                videoTrack = screenTrackResult;
+            }
+
+            if (!videoTrack) {
+                throw new Error('Keine Bildschirmspur verfügbar');
+            }
+
+            this.mirrorClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+            this.mirrorClient.on('connection-state-change', (cur, prev) => {
+                console.debug('Mirror connection state changed:', prev, '->', cur);
+            });
+
+            await this.mirrorClient.join(result.app_id, result.channel_name, result.token, result.uid);
+            await this.mirrorClient.publish(videoTrack);
+
+            this.screenTrack = videoTrack;
+            this.isSharing = true;
+            this.activeOwnerId = currentUserId;
+            this.activeOwnerName = currentUsername;
+
+            videoTrack.on('track-ended', () => {
+                this.stopSharing(true);
+            });
+
+            this.hideOverlay();
+            this.updateOwnerInfo();
+            this.updateButtonState();
+
+            // Notify others quickly
+            setTimeout(() => this.checkStatus(), 500);
+        } catch (error) {
+            console.error('Start Mirror failed:', error);
+            await this.requestServerStop();
+            alert('Bildschirmfreigabe konnte nicht gestartet werden: ' + error.message);
+            this.isSharing = false;
+            this.activeOwnerId = null;
+            this.activeOwnerName = null;
+            this.updateOwnerInfo();
+        } finally {
+            this.pendingStart = false;
+            this.updateButtonState();
+        }
+    }
+
+    async stopSharing(fromTrackEnd = false) {
+        if (this.pendingStop) {
+            return;
+        }
+
+        this.pendingStop = true;
+        this.updateButtonState();
+
+        try {
+            if (this.screenTrack) {
+                try {
+                    this.screenTrack.stop();
+                } catch (err) {
+                    console.warn('Unable to stop screen track:', err);
+                }
+                try {
+                    this.screenTrack.close();
+                } catch (err) {
+                    console.warn('Unable to close screen track:', err);
+                }
+            }
+            this.screenTrack = null;
+
+            if (this.mirrorClient) {
+                try {
+                    await this.mirrorClient.unpublish();
+                } catch (err) {
+                    console.warn('Unpublish failed:', err);
+                }
+                try {
+                    await this.mirrorClient.leave();
+                } catch (err) {
+                    console.warn('Leave mirror channel failed:', err);
+                }
+            }
+            this.mirrorClient = null;
+
+            this.isSharing = false;
+            this.activeOwnerId = null;
+            this.activeOwnerName = null;
+            this.updateOwnerInfo();
+            this.hideOverlay();
+
+            await this.requestServerStop();
+
+            if (!fromTrackEnd) {
+                setTimeout(() => this.checkStatus(), 500);
+            }
+        } finally {
+            this.pendingStop = false;
+            this.updateButtonState();
+        }
+    }
+
+    async ensureViewing() {
+        if (!this.activeOwnerId || this.activeOwnerId === currentUserId) {
+            if (this.isViewing) {
+                await this.stopViewing();
+            }
+            return;
+        }
+
+        if (this.isViewing && this.viewerOwnerId === this.activeOwnerId) {
+            this.showOverlay(this.activeOwnerName);
+            return;
+        }
+
+        await this.startViewing();
+    }
+
+    async startViewing() {
+        if (this.viewerJoining || !this.activeOwnerId || this.activeOwnerId === currentUserId) {
+            return;
+        }
+
+        if (typeof AgoraRTC === 'undefined') {
+            console.error('Agora SDK nicht verfügbar – Bildschirmfreigabe kann nicht angezeigt werden.');
+            return;
+        }
+
+        this.viewerJoining = true;
+        this.showOverlay(this.activeOwnerName);
+        this.showOverlayMessage('Verbindung wird hergestellt ...');
+
+        try {
+            const csrfToken = getCookie('csrftoken');
+            const response = await fetch(boardMirrorUrls.token, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                }
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Tokenfehler');
+            }
+
+            this.viewerClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+
+            this.viewerClient.on('user-published', async (user, mediaType) => {
+                await this.viewerClient.subscribe(user, mediaType);
+                if (mediaType === 'video') {
+                    this.attachRemoteTrack(user.videoTrack);
+                } else if (mediaType === 'audio' && user.audioTrack) {
+                    user.audioTrack.play();
+                }
+            });
+
+            const handleRemoteLeft = async () => {
+                await this.stopViewing();
+                setTimeout(() => this.checkStatus(), 500);
+            };
+
+            this.viewerClient.on('user-unpublished', handleRemoteLeft);
+            this.viewerClient.on('user-left', handleRemoteLeft);
+
+            await this.viewerClient.join(result.app_id, result.channel_name, result.token, result.uid);
+
+            this.isViewing = true;
+            this.viewerOwnerId = result.owner ? result.owner.id : this.activeOwnerId;
+            this.showOverlay(result.owner ? result.owner.username : this.activeOwnerName);
+            this.showOverlayMessage('Warte auf Bildschirmfreigabe ...');
+        } catch (error) {
+            console.error('Start viewing mirror failed:', error);
+            await this.stopViewing();
+        } finally {
+            this.viewerJoining = false;
+            this.updateButtonState();
+        }
+    }
+
+    attachRemoteTrack(videoTrack) {
+        if (!videoTrack) {
+            return;
+        }
+
+        if (this.remoteVideoTrack) {
+            try {
+                this.remoteVideoTrack.stop();
+            } catch (err) {
+                console.warn('Unable to stop old remote track:', err);
+            }
+        }
+
+        this.remoteVideoTrack = videoTrack;
+        if (this.videoContainer) {
+            this.videoContainer.innerHTML = '';
+        }
+        videoTrack.play('mirror-video-player', {
+            fit: 'contain'
+        });
+        this.clearOverlayMessage();
+    }
+
+    async stopViewing() {
+        if (this.remoteVideoTrack) {
+            try {
+                this.remoteVideoTrack.stop();
+            } catch (err) {
+                console.warn('Unable to stop remote track:', err);
+            }
+        }
+        this.remoteVideoTrack = null;
+
+        if (this.viewerClient) {
+            try {
+                await this.viewerClient.leave();
+            } catch (err) {
+                console.warn('Leave viewer channel failed:', err);
+            }
+        }
+        this.viewerClient = null;
+
+        this.isViewing = false;
+        this.viewerOwnerId = null;
+        this.hideOverlay();
+        this.updateButtonState();
+    }
+
+    async requestServerStop() {
+        if (this.serverStopPromise) {
+            return this.serverStopPromise;
+        }
+
+        const csrfToken = getCookie('csrftoken');
+
+        this.serverStopPromise = fetch(boardMirrorUrls.stop, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        }).catch((error) => {
+            console.warn('Mirror stop request failed:', error);
+        }).finally(() => {
+            this.serverStopPromise = null;
+        });
+
+        return this.serverStopPromise;
+    }
+
+    showOverlay(ownerName) {
+        if (!this.overlay) {
+            return;
+        }
+        this.overlay.style.display = 'flex';
+        if (this.ownerLabel) {
+            this.ownerLabel.textContent = ownerName ? `Bildschirmfreigabe von ${ownerName}` : 'Bildschirmfreigabe';
+        }
+    }
+
+    hideOverlay() {
+        if (this.overlay) {
+            this.overlay.style.display = 'none';
+        }
+        if (this.videoContainer) {
+            this.videoContainer.innerHTML = '';
+        }
+        this.clearOverlayMessage();
+    }
+
+    showOverlayMessage(message) {
+        if (this.overlayMessage) {
+            this.overlayMessage.textContent = message;
+            this.overlayMessage.style.display = 'block';
+        }
+    }
+
+    clearOverlayMessage() {
+        if (this.overlayMessage) {
+            this.overlayMessage.textContent = '';
+            this.overlayMessage.style.display = 'none';
+        }
+    }
+
+    updateOwnerInfo() {
+        const hasActive = !!this.activeOwnerId;
+
+        if (this.activeIndicator) {
+            this.activeIndicator.style.display = hasActive ? 'inline-block' : 'none';
+        }
+
+        if (this.ownerInfo) {
+            if (hasActive && this.activeOwnerId !== currentUserId && this.activeOwnerName) {
+                this.ownerInfo.style.display = 'inline';
+                this.ownerInfo.textContent = `Freigabe: ${this.activeOwnerName}`;
+            } else if (hasActive && this.activeOwnerId === currentUserId) {
+                this.ownerInfo.style.display = 'inline';
+                this.ownerInfo.textContent = 'Sie teilen Ihren Bildschirm';
+            } else {
+                this.ownerInfo.style.display = 'none';
+                this.ownerInfo.textContent = '';
+            }
+        }
+    }
+
+    updateButtonState() {
+        if (!this.button || !this.buttonLabel) {
+            return;
+        }
+
+        if (this.pendingStart) {
+            this.button.disabled = true;
+            this.button.className = 'btn btn-sm btn-outline-primary me-1';
+            this.buttonLabel.textContent = 'Startet...';
+            return;
+        }
+
+        if (this.pendingStop) {
+            this.button.disabled = true;
+            this.button.className = 'btn btn-sm btn-outline-secondary me-1';
+            this.buttonLabel.textContent = 'Stoppt...';
+            return;
+        }
+
+        if (this.isSharing) {
+            this.button.disabled = false;
+            this.button.className = 'btn btn-sm btn-danger me-1';
+            this.buttonLabel.textContent = 'Stoppen';
+            return;
+        }
+
+        if (this.activeOwnerId && this.activeOwnerId !== currentUserId) {
+            this.button.disabled = true;
+            this.button.className = 'btn btn-sm btn-outline-secondary me-1';
+            this.buttonLabel.textContent = 'Mirror';
+            return;
+        }
+
+        this.button.disabled = false;
+        this.button.className = 'btn btn-sm btn-outline-primary me-1';
+        this.buttonLabel.textContent = 'Mirror';
+    }
+
+    cleanup() {
+        if (this.statusInterval) {
+            clearInterval(this.statusInterval);
+            this.statusInterval = null;
+        }
+
+        if (this.isSharing || this.mirrorClient || this.screenTrack) {
+            this.stopSharing(true);
+        }
+
+        if (this.isViewing || this.viewerClient) {
+            this.stopViewing();
+        }
+    }
+}
+
+let boardMirrorManager;
+
+function initializeBoardMirror() {
+    try {
+        boardMirrorManager = new BoardMirrorManager();
+        window.boardMirrorManager = boardMirrorManager;
+    } catch (error) {
+        console.error('Mirror manager initialisation failed:', error);
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeBoardMirror);
+} else {
+    initializeBoardMirror();
+}
+
+window.addEventListener('beforeunload', () => {
+    if (boardMirrorManager) {
+        boardMirrorManager.cleanup();
+    }
+});
+</script>
 
 <script>
 // ========================================

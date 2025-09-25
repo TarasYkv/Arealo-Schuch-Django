@@ -1,5 +1,13 @@
 from django.contrib import admin
-from .models import Note, Event, EventParticipant, IdeaBoard, BoardElement, EventReminder
+from .models import (
+    Note,
+    Event,
+    EventParticipant,
+    IdeaBoard,
+    BoardElement,
+    EventReminder,
+    BoardMirrorSession,
+)
 
 
 @admin.register(Note)
@@ -48,3 +56,11 @@ class EventReminderAdmin(admin.ModelAdmin):
     list_display = ['event', 'user', 'reminder_time', 'is_sent', 'sent_at']
     list_filter = ['is_sent', 'reminder_time']
     search_fields = ['event__title', 'user__username']
+
+
+@admin.register(BoardMirrorSession)
+class BoardMirrorSessionAdmin(admin.ModelAdmin):
+    list_display = ['board', 'owner', 'is_active', 'started_at', 'ended_at']
+    list_filter = ['is_active', 'started_at']
+    search_fields = ['board__title', 'owner__username']
+    readonly_fields = ['channel_name', 'started_at', 'ended_at']
