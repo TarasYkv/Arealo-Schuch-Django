@@ -166,7 +166,7 @@
                             <div id="tool-controls-popup" style="display: none; position: absolute; z-index: 9999; background: white; border: 1px solid #ccc; border-radius: 4px; padding: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.15); top: 10px; left: 50%; transform: translateX(-50%);">
                                 <div class="d-flex align-items-center gap-3">
                                     <!-- Farben -->
-                                    <div class="d-flex align-items-center">
+                                    <div class="d-flex align-items-center" id="color-picker-control">
                                         <label class="small me-2 mb-0">🎨</label>
                                         <input type="color" id="color-picker" value="#000000" style="width: 30px; height: 25px; border: 1px solid #ccc; border-radius: 3px; cursor: pointer;">
                                     </div>
@@ -197,7 +197,7 @@
                                     </div>
 
                                     <!-- Transparenz -->
-                                    <div class="d-flex align-items-center">
+                                    <div class="d-flex align-items-center" id="opacity-control">
                                         <label class="small me-2 mb-0">🔍</label>
                                         <input type="range" class="form-range" id="opacity" min="0" max="100" value="100" style="width: 80px; height: 15px;">
                                         <span class="small ms-1"><span id="opacity-value">100</span>%</span>
@@ -3348,6 +3348,29 @@ class IdeaBoard {
         }
     }
 
+    getControlTargetType() {
+        if (this.selectedElement) {
+            return this.selectedElement.element_type;
+        }
+
+        switch (this.currentTool) {
+            case 'pen':
+                return 'freehand';
+            case 'text':
+            case 'emoji':
+            case 'arrow':
+            case 'rectangle':
+            case 'circle':
+            case 'triangle':
+            case 'image':
+            case 'brush':
+            case 'line':
+                return this.currentTool;
+            default:
+                return null;
+        }
+    }
+
     buildElementUpdatePayload(element) {
         const payload = {
             element_id: element.id,
@@ -3626,54 +3649,42 @@ class IdeaBoard {
         const popup = document.getElementById('tool-controls-popup');
         const strokeControl = document.getElementById('stroke-width-control');
         const fontSizeControl = document.getElementById('font-size-control');
+        const arrowDirectionControl = document.getElementById('arrow-direction-control');
+        const arrowDirectionSelect = document.getElementById('arrow-direction');
+        const opacityControl = document.getElementById('opacity-control');
 
         console.log('showToolControlsPopup called');
         console.log('currentTool:', this.currentTool);
         console.log('selectedElement:', this.selectedElement?.element_type);
 
-        // Hide popup completely for emoji elements
-        if (this.selectedElement && this.selectedElement.element_type === 'emoji') {
+        const targetType = this.getControlTargetType();
+
+        if (!targetType) {
             popup.style.display = 'none';
             return;
         }
 
-        // Determine what controls to show based on current tool AND selected element
-        let showStrokeWidth = false;
-        let showFontSize = false;
-
-        // Check current tool for controls
-        if (this.currentTool !== 'select') {
-            switch (this.currentTool) {
-                case 'text':
-                    showFontSize = true;
-                    break;
-                case 'pen':
-                case 'arrow':
-                case 'rectangle':
-                case 'circle':
-                case 'triangle':
-                    showStrokeWidth = true;
-                    break;
-            }
+        // Hide popup completely for emoji elements
+        if (targetType === 'emoji') {
+            popup.style.display = 'none';
+            return;
         }
 
-        // Also check selected element for controls (show both if relevant)
-        if (this.selectedElement) {
-            const elementType = this.selectedElement.element_type;
-            switch (elementType) {
-                case 'text':
-                    showFontSize = true;
-                    break;
-                case 'pen':
-                case 'arrow':
-                case 'rectangle':
-                case 'circle':
-                case 'triangle':
-                case 'freehand':
-                    showStrokeWidth = true;
-                    break;
-            }
+        // For image tool without an active selection, skip popup (no immediate controls)
+        if (!this.selectedElement && targetType === 'image') {
+            popup.style.display = 'none';
+            return;
         }
+
+        const strokeWidthTypes = new Set(['freehand', 'pen', 'brush', 'rectangle', 'circle', 'triangle', 'arrow', 'line']);
+        const fontSizeTypes = new Set(['text']);
+        const arrowDirectionTypes = new Set(['arrow']);
+        const opacityTypes = new Set(['freehand', 'pen', 'brush', 'rectangle', 'circle', 'triangle', 'arrow', 'line', 'text', 'image']);
+
+        const showStrokeWidth = strokeWidthTypes.has(targetType);
+        const showFontSize = fontSizeTypes.has(targetType);
+        const showArrowDirection = arrowDirectionTypes.has(targetType);
+        const showOpacity = opacityTypes.has(targetType);
 
         // Apply visibility with !important to override Bootstrap
         if (showStrokeWidth) {
@@ -3686,6 +3697,28 @@ class IdeaBoard {
             fontSizeControl.style.setProperty('display', 'flex', 'important');
         } else {
             fontSizeControl.style.setProperty('display', 'none', 'important');
+        }
+
+        if (arrowDirectionControl) {
+            if (showArrowDirection) {
+                arrowDirectionControl.style.setProperty('display', 'flex', 'important');
+                if (arrowDirectionSelect) {
+                    let direction = 'none';
+                    if (this.selectedElement && this.selectedElement.element_type === 'arrow') {
+                        direction = this.selectedElement.data?.direction || 'none';
+                    } else if (this.currentArrowDirection) {
+                        direction = this.currentArrowDirection;
+                    }
+                    arrowDirectionSelect.value = direction;
+                    this.currentArrowDirection = direction;
+                }
+            } else {
+                arrowDirectionControl.style.setProperty('display', 'none', 'important');
+            }
+        }
+
+        if (opacityControl) {
+            opacityControl.style.setProperty('display', showOpacity ? 'flex' : 'none', 'important');
         }
 
         console.log('Popup controls - showStrokeWidth:', showStrokeWidth, 'showFontSize:', showFontSize);
@@ -3732,6 +3765,10 @@ class IdeaBoard {
             const opacityPercent = Math.round(this.currentOpacity * 100);
             document.getElementById('opacity').value = opacityPercent;
             document.getElementById('opacity-value').textContent = opacityPercent;
+        }
+
+        if (window.updateArrowDirectionVisibility) {
+            window.updateArrowDirectionVisibility();
         }
 
         // Simple display - popup is already positioned at top center of canvas
@@ -5341,6 +5378,14 @@ document.addEventListener('DOMContentLoaded', function() {
             // Update drawing canvas if it exists
             if (window.drawingCanvas) {
                 drawingCanvas.currentArrowDirection = newDirection;
+                if (drawingCanvas.selectedElement && drawingCanvas.selectedElement.element_type === 'arrow') {
+                    drawingCanvas.selectedElement.data = {
+                        ...drawingCanvas.selectedElement.data,
+                        direction: newDirection
+                    };
+                    drawingCanvas.scheduleServerUpdate(drawingCanvas.selectedElement);
+                    drawingCanvas.scheduleRedraw();
+                }
             }
         });
 
@@ -5356,18 +5401,31 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateArrowDirectionVisibility() {
         const arrowDirectionControl = document.getElementById('arrow-direction-control');
         const arrowDirectionSelect = document.getElementById('arrow-direction');
-        const currentTool = window.drawingCanvas ? drawingCanvas.currentTool : 'select';
 
-        if (arrowDirectionControl) {
-            if (currentTool === 'arrow') {
-                arrowDirectionControl.style.display = 'flex';
-                // Ensure the drawing canvas has the current direction
-                if (window.drawingCanvas && arrowDirectionSelect) {
-                    drawingCanvas.currentArrowDirection = arrowDirectionSelect.value;
+        if (!arrowDirectionControl) {
+            return;
+        }
+
+        let shouldShow = false;
+        if (window.drawingCanvas && typeof window.drawingCanvas.getControlTargetType === 'function') {
+            shouldShow = window.drawingCanvas.getControlTargetType() === 'arrow';
+        }
+
+        if (shouldShow) {
+            arrowDirectionControl.style.setProperty('display', 'flex', 'important');
+            if (window.drawingCanvas && arrowDirectionSelect) {
+                let direction = 'none';
+                if (drawingCanvas.selectedElement && drawingCanvas.selectedElement.element_type === 'arrow') {
+                    direction = drawingCanvas.selectedElement.data?.direction || 'none';
+                } else if (drawingCanvas.currentArrowDirection) {
+                    direction = drawingCanvas.currentArrowDirection;
                 }
-            } else {
-                arrowDirectionControl.style.display = 'none';
+                arrowDirectionSelect.value = direction;
+                drawingCanvas.currentArrowDirection = direction;
+                drawingCanvas.canvas.dispatchEvent(new CustomEvent('arrowDirectionVisibilityChanged'));
             }
+        } else {
+            arrowDirectionControl.style.setProperty('display', 'none', 'important');
         }
     }
 
