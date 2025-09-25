@@ -7,10 +7,15 @@ from django.utils import timezone
 from django.db.models import Q
 from django.core.paginator import Paginator
 from django.contrib.auth import get_user_model
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
 from .models import Note, Event, EventParticipant, IdeaBoard, BoardElement, EventReminder, VideoCall, CallParticipant, BoardAudioSession, BoardAudioParticipant
 from .agora_utils import generate_agora_token, get_agora_config, CallRoles
+from PIL import Image, UnidentifiedImageError
 import json
+import os
 import re
+import uuid
 
 User = get_user_model()
 
@@ -503,14 +508,17 @@ def board_save_element(request, pk):
         
         data = json.loads(request.body)
         
+        width = data.get('width', 100)
+        height = data.get('height', 100)
+
         element = BoardElement.objects.create(
             board=board,
             element_type=data.get('element_type'),
             data=data.get('data', {}),
             position_x=data.get('position_x', 0),
             position_y=data.get('position_y', 0),
-            width=data.get('width', 100),
-            height=data.get('height', 100),
+            width=int(width) if width is not None else 100,
+            height=int(height) if height is not None else 100,
             color=data.get('color', '#000000'),
             stroke_width=data.get('stroke_width', 2),
             opacity=data.get('opacity', 1.0),
@@ -623,6 +631,10 @@ def board_update_element(request, pk):
             element.position_x = data.get('position_x', element.position_x)
             element.position_y = data.get('position_y', element.position_y)
             element.rotation = data.get('rotation', element.rotation)
+            if 'width' in data and data.get('width') is not None:
+                element.width = int(data.get('width'))
+            if 'height' in data and data.get('height') is not None:
+                element.height = int(data.get('height'))
 
             # Update style properties if provided
             if 'color' in data:
@@ -637,13 +649,55 @@ def board_update_element(request, pk):
             # Update board's updated_at timestamp for polling
             board.updated_at = timezone.now()
             board.save()
-            
+
             return JsonResponse({'success': True})
             
         except BoardElement.DoesNotExist:
             return JsonResponse({'error': 'Element nicht gefunden'}, status=404)
-    
+
     return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
+
+
+@login_required
+@csrf_exempt
+def board_upload_image(request, pk):
+    """Lade ein Bild für ein Ideenboard hoch und gib die URL zurück."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
+
+    board = get_object_or_404(IdeaBoard, pk=pk)
+
+    if not (board.creator == request.user or request.user in board.collaborators.all()):
+        return JsonResponse({'error': 'Keine Berechtigung'}, status=403)
+
+    upload = request.FILES.get('image')
+    if not upload:
+        return JsonResponse({'error': 'Kein Bild übermittelt'}, status=400)
+
+    ext = os.path.splitext(upload.name)[1].lower()
+    if ext not in ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp']:
+        return JsonResponse({'error': 'Nicht unterstütztes Bildformat'}, status=400)
+
+    temp_data = upload.read()
+    try:
+        with Image.open(ContentFile(temp_data)) as img:
+            width, height = img.size
+    except (UnidentifiedImageError, OSError):
+        return JsonResponse({'error': 'Ungültige Bilddatei'}, status=400)
+
+    filename = f"board_images/{uuid.uuid4().hex}{ext}"
+    saved_path = default_storage.save(filename, ContentFile(temp_data))
+    image_url = default_storage.url(saved_path)
+
+    board.updated_at = timezone.now()
+    board.save(update_fields=['updated_at'])
+
+    return JsonResponse({
+        'success': True,
+        'url': image_url,
+        'width': width,
+        'height': height
+    })
 
 
 

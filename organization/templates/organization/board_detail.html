@@ -70,6 +70,9 @@
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="emoji">
                             😀 Emoji
                         </button>
+                        <button type="button" class="btn btn-outline-primary tool-btn" data-tool="image">
+                            🖼️ Bild
+                        </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="rectangle">
                             ⬜ Rechteck
                         </button>
@@ -112,6 +115,7 @@
             <div class="card">
                 <div class="card-body p-0">
                     <div id="canvas-container" style="position: relative; overflow: hidden;">
+                        <input type="file" id="image-upload-input" accept="image/*" style="display: none;">
                         <!-- Undo Button and Speaking Indicator - Top Right -->
                         <div style="position: absolute; top: 10px; right: 10px; z-index: 10;">
                             <button type="button" class="btn btn-secondary btn-sm" id="undo-action">
@@ -590,6 +594,7 @@ class IdeaBoard {
         this.isResizing = false;
         this.resizeHandle = null;
         this.dragOffset = {x: 0, y: 0};
+        this.pendingImagePlacement = null;
 
         // Performance optimization variables
         this.isDragActive = false;
@@ -611,7 +616,11 @@ class IdeaBoard {
         this.isPanning = false;
         this.lastPanX = 0;
         this.lastPanY = 0;
-        
+
+        // Image handling
+        this.imageUploadInput = document.getElementById('image-upload-input');
+        this.imageCache = new Map();
+
         console.log('Calling initEventListeners...');
         this.initEventListeners();
         
@@ -677,6 +686,12 @@ class IdeaBoard {
             const mouseEvent = new MouseEvent('mouseup', {});
             this.stopDrawing(mouseEvent);
         });
+
+        if (this.imageUploadInput) {
+            this.imageUploadInput.addEventListener('change', (e) => this.handleImageInputChange(e));
+        } else {
+            console.warn('Image upload input not found on page.');
+        }
         
         // Tool Selection - Force event handling
         const toolButtons = document.querySelectorAll('.tool-btn');
@@ -889,9 +904,16 @@ class IdeaBoard {
             this.handleSelection(this.startX, this.startY);
             return;
         }
-        
+
+        if (this.currentTool === 'image') {
+            this.pendingImagePlacement = { x: this.startX, y: this.startY };
+            this.triggerImageUpload();
+            this.isDrawing = false;
+            return;
+        }
+
         this.isDrawing = true;
-        
+
         if (this.currentTool === 'pen') {
             this.currentPath = [{x: this.startX, y: this.startY}];
         }
@@ -1205,8 +1227,30 @@ class IdeaBoard {
                 this.ctx.font = `${emojiSize}px Arial`;
                 this.ctx.fillText(data.emoji, data.x, data.y);
                 break;
+
+            case 'image':
+                const imageWidth = data.width || element.width || 100;
+                const imageHeight = data.height || element.height || 100;
+                const imageX = data.x !== undefined ? data.x : element.position_x;
+                const imageY = data.y !== undefined ? data.y : element.position_y;
+
+                if (element.imageObj && element.imageObj.complete) {
+                    this.ctx.drawImage(element.imageObj, imageX, imageY, imageWidth, imageHeight);
+                } else {
+                    this.loadImageForElement(element);
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.2;
+                    this.ctx.fillStyle = '#6c757d';
+                    this.ctx.fillRect(imageX, imageY, imageWidth, imageHeight);
+                    this.ctx.restore();
+                    this.ctx.strokeStyle = '#6c757d';
+                    this.ctx.setLineDash([4, 4]);
+                    this.ctx.strokeRect(imageX, imageY, imageWidth, imageHeight);
+                    this.ctx.setLineDash([]);
+                }
+                break;
         }
-        
+
         // Restore transformation if rotation was applied
         if (element.rotation && element.rotation !== 0) {
             this.ctx.restore();
@@ -1399,7 +1443,11 @@ class IdeaBoard {
         
         if (!this.isDrawing) return;
         this.isDrawing = false;
-        
+
+        if (this.currentTool === 'image') {
+            return;
+        }
+
         const coords = event ? this.getCanvasCoordinates(event) : {x: this.startX, y: this.startY};
         const endX = coords.x;
         const endY = coords.y;
@@ -2170,7 +2218,14 @@ class IdeaBoard {
             rotation: 0, // Default rotation
             layer_index: this.elements.length
         };
-        
+
+        if (data && data.width !== undefined) {
+            element.width = Math.max(1, Math.round(data.width));
+        }
+        if (data && data.height !== undefined) {
+            element.height = Math.max(1, Math.round(data.height));
+        }
+
         fetch(`/organization/boards/{{ board.pk }}/save-element/`, {
             method: 'POST',
             headers: {
@@ -2184,6 +2239,7 @@ class IdeaBoard {
             if (data.success) {
                 element.id = data.id;
                 this.elements.push(element);
+                this.prepareElementAssets(element);
                 this.lastUpdate = Date.now();
             }
         });
@@ -2379,6 +2435,7 @@ class IdeaBoard {
                 // Ensure all loaded elements have position values
                 this.elements.forEach(element => {
                     this.ensureElementPosition(element);
+                    this.prepareElementAssets(element);
                 });
                 this.scheduleRedraw();
             })
@@ -2386,7 +2443,154 @@ class IdeaBoard {
                 console.error('Error loading elements:', error);
             });
     }
-    
+
+    triggerImageUpload() {
+        if (!this.imageUploadInput) {
+            console.warn('Cannot open image picker – input element missing.');
+            return;
+        }
+
+        // Reset value so selecting the same file twice still triggers change
+        this.imageUploadInput.value = '';
+        this.imageUploadInput.click();
+    }
+
+    handleImageInputChange(event) {
+        const files = event.target.files;
+        if (!files || files.length === 0) {
+            this.pendingImagePlacement = null;
+            return;
+        }
+
+        const file = files[0];
+        this.uploadImageFile(file);
+    }
+
+    uploadImageFile(file) {
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const placement = this.pendingImagePlacement || {
+            x: this.canvas.width / 2,
+            y: this.canvas.height / 2
+        };
+
+        fetch(`/organization/boards/{{ board.pk }}/upload-image/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                throw new Error(data.error || 'Unbekannter Fehler beim Hochladen');
+            }
+            this.placeImageElement({
+                url: data.url,
+                naturalWidth: data.width,
+                naturalHeight: data.height,
+                placement
+            });
+        })
+        .catch(error => {
+            console.error('Bild-Upload fehlgeschlagen:', error);
+            this.showNotification('Bild konnte nicht hochgeladen werden.', 'error');
+        })
+        .finally(() => {
+            this.pendingImagePlacement = null;
+        });
+    }
+
+    placeImageElement({ url, naturalWidth, naturalHeight, placement }) {
+        if (!url) {
+            console.warn('Kein Bild-Link erhalten.');
+            return;
+        }
+
+        const maxDimension = 400;
+        let displayWidth = naturalWidth || 200;
+        let displayHeight = naturalHeight || 200;
+
+        if (displayWidth > maxDimension) {
+            const scale = maxDimension / displayWidth;
+            displayWidth = Math.round(displayWidth * scale);
+            displayHeight = Math.round(displayHeight * scale);
+        }
+        if (displayHeight > maxDimension) {
+            const scale = maxDimension / displayHeight;
+            displayWidth = Math.round(displayWidth * scale);
+            displayHeight = Math.round(displayHeight * scale);
+        }
+
+        const topLeftX = Math.max(0, placement.x - displayWidth / 2);
+        const topLeftY = Math.max(0, placement.y - displayHeight / 2);
+
+        const imageData = {
+            src: url,
+            x: topLeftX,
+            y: topLeftY,
+            width: displayWidth,
+            height: displayHeight,
+            naturalWidth: naturalWidth,
+            naturalHeight: naturalHeight
+        };
+
+        this.startX = imageData.x;
+        this.startY = imageData.y;
+
+        this.saveElement('image', imageData);
+    }
+
+    prepareElementAssets(element) {
+        if (!element || !element.data) {
+            return;
+        }
+
+        if (element.element_type === 'image') {
+            if (element.data.src) {
+                this.loadImageForElement(element);
+            }
+            if (element.data.width !== undefined) {
+                element.width = element.data.width;
+            }
+            if (element.data.height !== undefined) {
+                element.height = element.data.height;
+            }
+        }
+    }
+
+    loadImageForElement(element) {
+        if (!element || !element.data || !element.data.src) {
+            return;
+        }
+
+        if (element.imageObj && element.imageObj.complete) {
+            return;
+        }
+
+        const cached = this.imageCache.get(element.data.src);
+        if (cached && cached.complete) {
+            element.imageObj = cached;
+            this.scheduleRedraw();
+            return;
+        }
+
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            this.imageCache.set(element.data.src, img);
+            element.imageObj = img;
+            this.scheduleRedraw();
+        };
+        img.onerror = (err) => {
+            console.error('Bild konnte nicht geladen werden:', err, element.data.src);
+        };
+        img.src = element.data.src;
+        element.imageObj = img;
+    }
+
     handleSelection(x, y) {
         // Check if clicking on resize/rotate handle
         if (this.selectedElement) {
@@ -2550,6 +2754,14 @@ class IdeaBoard {
                     }
                 }
                 return false;
+
+            case 'image':
+                const imgWidth = data.width || element.width || 0;
+                const imgHeight = data.height || element.height || 0;
+                const imgX = data.x !== undefined ? data.x : element.position_x;
+                const imgY = data.y !== undefined ? data.y : element.position_y;
+                return x >= imgX && x <= imgX + imgWidth &&
+                       y >= imgY && y <= imgY + imgHeight;
         }
         return false;
     }
@@ -2618,6 +2830,14 @@ class IdeaBoard {
                 data.x = newX;
                 data.y = newY;
                 break;
+            case 'image':
+                data.x = newX;
+                data.y = newY;
+                if (this.selectedElement.width !== undefined) {
+                    this.selectedElement.position_x = newX;
+                    this.selectedElement.position_y = newY;
+                }
+                break;
             case 'arrow':
                 data.x1 += deltaX;
                 data.y1 += deltaY;
@@ -2643,7 +2863,7 @@ class IdeaBoard {
         }
 
         this.scheduleRedraw();
-        if (this.selectedElement.element_type === 'freehand') {
+        if (['freehand', 'image'].includes(this.selectedElement.element_type)) {
             this.ensureElementPosition(this.selectedElement);
         }
         this.scheduleServerUpdate(this.selectedElement);
@@ -2738,6 +2958,17 @@ class IdeaBoard {
                     width: emojiSize,
                     height: emojiSize
                 };
+            case 'image':
+                const imageWidth = data.width || element.width || 0;
+                const imageHeight = data.height || element.height || 0;
+                const imageX = data.x !== undefined ? data.x : element.position_x || 0;
+                const imageY = data.y !== undefined ? data.y : element.position_y || 0;
+                return {
+                    x: imageX,
+                    y: imageY,
+                    width: imageWidth,
+                    height: imageHeight
+                };
             case 'arrow':
                 const minX = Math.min(data.x1, data.x2);
                 const maxX = Math.max(data.x1, data.x2);
@@ -2801,6 +3032,7 @@ class IdeaBoard {
         
         switch (this.selectedElement.element_type) {
             case 'rectangle':
+            case 'image':
                 if (this.resizeHandle.includes('e')) {
                     data.width = Math.max(10, x - data.x); // Minimum width of 10px
                 }
@@ -2817,6 +3049,10 @@ class IdeaBoard {
                     data.height = Math.max(10, data.y + oldHeight - y);
                     data.y = y;
                 }
+                this.selectedElement.width = data.width;
+                this.selectedElement.height = data.height;
+                this.selectedElement.position_x = data.x;
+                this.selectedElement.position_y = data.y;
                 break;
             case 'circle':
                 const dx = x - data.x;
@@ -3009,7 +3245,10 @@ class IdeaBoard {
                     if (!this.pollingPaused && this.hasElementsChanged(data.elements)) {
                         this.elements = data.elements;
                         // Ensure all elements have correct position values
-                        this.elements.forEach(element => this.ensureElementPosition(element));
+                        this.elements.forEach(element => {
+                            this.ensureElementPosition(element);
+                            this.prepareElementAssets(element);
+                        });
                         this.scheduleRedraw();
                     }
                     this.lastUpdate = Date.now();
@@ -3036,7 +3275,9 @@ class IdeaBoard {
                 newEl.rotation !== oldEl.rotation ||
                 newEl.color !== oldEl.color ||
                 newEl.stroke_width !== oldEl.stroke_width ||
-                newEl.opacity !== oldEl.opacity) {
+                newEl.opacity !== oldEl.opacity ||
+                newEl.width !== oldEl.width ||
+                newEl.height !== oldEl.height) {
                 return true;
             }
         }
@@ -3061,6 +3302,17 @@ class IdeaBoard {
                 if (element.position_y === undefined) element.position_y = data.y || 0;
                 break;
                 
+            case 'image':
+                if (element.position_x === undefined) element.position_x = data.x || 0;
+                if (element.position_y === undefined) element.position_y = data.y || 0;
+                if (data.width !== undefined) {
+                    element.width = data.width;
+                }
+                if (data.height !== undefined) {
+                    element.height = data.height;
+                }
+                break;
+
             case 'arrow':
                 const minX = Math.min(data.x1, data.x2);
                 const minY = Math.min(data.y1, data.y2);
@@ -3114,6 +3366,12 @@ class IdeaBoard {
         if (element.opacity !== undefined && element.opacity !== null) {
             payload.opacity = element.opacity;
         }
+        if (element.width !== undefined && element.width !== null) {
+            payload.width = element.width;
+        }
+        if (element.height !== undefined && element.height !== null) {
+            payload.height = element.height;
+        }
 
         return payload;
     }
@@ -3164,7 +3422,9 @@ class IdeaBoard {
             rotation: elementToUpdate.rotation,
             color: elementToUpdate.color,
             stroke_width: elementToUpdate.stroke_width,
-            opacity: elementToUpdate.opacity
+            opacity: elementToUpdate.opacity,
+            width: elementToUpdate.width,
+            height: elementToUpdate.height
         } : null;
 
         // Send the update to server
@@ -3208,6 +3468,8 @@ class IdeaBoard {
             element.color = originalState.color;
             element.stroke_width = originalState.stroke_width;
             element.opacity = originalState.opacity;
+            element.width = originalState.width;
+            element.height = originalState.height;
 
             this.scheduleRedraw();
             console.log('Element rolled back to previous state');
@@ -3335,6 +3597,9 @@ class IdeaBoard {
             case 'emoji':
                 // Emoji cursor
                 this.canvas.style.cursor = 'url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiIGZpbGw9IiNmZmZmMDAiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxjaXJjbGUgY3g9IjkiIGN5PSI5IiByPSIxLjUiIGZpbGw9IiMwMDAiLz4KPGNpcmNsZSBjeD0iMTUiIGN5PSI5IiByPSIxLjUiIGZpbGw9IiMwMDAiLz4KPHBhdGggZD0ibTkgMTZhMyAzIDAgMCAwIDYgMCIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4=) 12 12, pointer';
+                break;
+            case 'image':
+                this.canvas.style.cursor = 'url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3QgeD0iMiIgeT0iNCIgd2lkdGg9IjIwIiBoZWlnaHQ9IjE2IiByeD0iMyIgcnk9IjMiIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxyZWN0IHg9IjQiIHk9IjYiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxMiIgZmlsbD0iI2ZmZiIvPgo8bGluZSB4MT0iNyIgeTE9IjkiIHgyPSIxMyIgeTI9IjE1IiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMiIvPgo8Y2lyY2xlIGN4PSIxNSIgY3k9IjExIiByPSIyIiBmaWxsPSIjMDBBNEZGIi8+Cjwvc3ZnPg==) 12 12, pointer';
                 break;
             case 'arrow':
                 // Arrow cursor
