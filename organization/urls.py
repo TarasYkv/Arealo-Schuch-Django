@@ -39,6 +39,12 @@ urlpatterns = [
     path('boards/<int:pk>/audio/status/', views.board_audio_status, name='board_audio_status'),
     path('boards/<int:pk>/audio/mute/', views.board_audio_mute, name='board_audio_mute'),
 
+    # Board Mirror
+    path('boards/<int:pk>/mirror/start/', views.board_mirror_start, name='board_mirror_start'),
+    path('boards/<int:pk>/mirror/stop/', views.board_mirror_stop, name='board_mirror_stop'),
+    path('boards/<int:pk>/mirror/status/', views.board_mirror_status, name='board_mirror_status'),
+    path('boards/<int:pk>/mirror/token/', views.board_mirror_token, name='board_mirror_token'),
+
     # Board Notes
     path('boards/<int:pk>/update-notes/', views.board_update_notes, name='board_update_notes'),
     path('boards/<int:pk>/get-notes/', views.board_get_notes, name='board_get_notes'),

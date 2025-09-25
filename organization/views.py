@@ -9,7 +9,19 @@ from django.core.paginator import Paginator
 from django.contrib.auth import get_user_model
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
-from .models import Note, Event, EventParticipant, IdeaBoard, BoardElement, EventReminder, VideoCall, CallParticipant, BoardAudioSession, BoardAudioParticipant
+from .models import (
+    Note,
+    Event,
+    EventParticipant,
+    IdeaBoard,
+    BoardElement,
+    EventReminder,
+    VideoCall,
+    CallParticipant,
+    BoardAudioSession,
+    BoardAudioParticipant,
+    BoardMirrorSession,
+)
 from .agora_utils import generate_agora_token, get_agora_config, CallRoles
 from PIL import Image, UnidentifiedImageError
 import json
@@ -1340,6 +1352,173 @@ def board_audio_mute(request, pk):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+# ========================================
+# Board Mirror (Screen Share) Views
+# ========================================
+
+
+def _user_has_board_access(board, user):
+    return board.creator == user or user in board.collaborators.all() or board.is_public
+
+
+def _ensure_mirror_session(board):
+    session, _ = BoardMirrorSession.objects.get_or_create(
+        board=board,
+        defaults={
+            'channel_name': f'board_mirror_{board.id}',
+            'is_active': False,
+        }
+    )
+    return session
+
+
+@login_required
+def board_mirror_status(request, pk):
+    """Status der Bildschirmfreigabe abrufen."""
+    board = get_object_or_404(IdeaBoard, pk=pk)
+
+    if not _user_has_board_access(board, request.user):
+        return JsonResponse({'error': 'Keine Berechtigung'}, status=403)
+
+    session = _ensure_mirror_session(board)
+    is_active = session.is_active and session.owner is not None
+
+    owner_data = None
+    if session.owner:
+        owner_data = {
+            'id': session.owner.id,
+            'username': session.owner.username,
+        }
+
+    return JsonResponse({
+        'has_active_session': is_active,
+        'owner': owner_data,
+        'channel_name': session.channel_name,
+        'started_at': session.started_at.isoformat() if session.started_at else None,
+        'is_owner': session.owner_id == request.user.id if session.owner_id else False,
+    })
+
+
+@login_required
+@csrf_exempt
+def board_mirror_start(request, pk):
+    """Bildschirmfreigabe starten."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
+
+    board = get_object_or_404(IdeaBoard, pk=pk)
+
+    if not _user_has_board_access(board, request.user):
+        return JsonResponse({'error': 'Keine Berechtigung'}, status=403)
+
+    session = _ensure_mirror_session(board)
+
+    if session.is_active and session.owner and session.owner != request.user:
+        return JsonResponse({
+            'success': False,
+            'error': 'Ein anderer Teilnehmer teilt bereits den Bildschirm.',
+            'owner': {
+                'id': session.owner.id,
+                'username': session.owner.username,
+            }
+        }, status=409)
+
+    session.owner = request.user
+    session.is_active = True
+    session.started_at = timezone.now()
+    session.ended_at = None
+    if not session.channel_name:
+        session.channel_name = session.get_channel_name()
+    session.save()
+
+    agora_config = get_agora_config()
+    uid = int(f"2{request.user.id:06d}")
+    try:
+        token = generate_agora_token(session.channel_name, uid, CallRoles.PUBLISHER)
+    except ValueError as exc:
+        # Reset session state if token generation fails
+        session.is_active = False
+        session.owner = None
+        session.save(update_fields=['is_active', 'owner'])
+        return JsonResponse({'success': False, 'error': str(exc)}, status=500)
+
+    return JsonResponse({
+        'success': True,
+        'token': token,
+        'channel_name': session.channel_name,
+        'uid': uid,
+        'app_id': agora_config['app_id'],
+    })
+
+
+@login_required
+@csrf_exempt
+def board_mirror_stop(request, pk):
+    """Bildschirmfreigabe beenden."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
+
+    board = get_object_or_404(IdeaBoard, pk=pk)
+
+    if not _user_has_board_access(board, request.user):
+        return JsonResponse({'error': 'Keine Berechtigung'}, status=403)
+
+    session = _ensure_mirror_session(board)
+
+    if not session.is_active:
+        return JsonResponse({'success': True})
+
+    if session.owner and session.owner != request.user and board.creator != request.user:
+        return JsonResponse({'error': 'Nur der aktuelle Freigebende oder der Board-Ersteller kann die Freigabe beenden.'}, status=403)
+
+    session.is_active = False
+    session.ended_at = timezone.now()
+    session.owner = None
+    session.save(update_fields=['is_active', 'ended_at', 'owner'])
+
+    return JsonResponse({'success': True})
+
+
+@login_required
+@csrf_exempt
+def board_mirror_token(request, pk):
+    """Agora-Token für die Bildschirmfreigabe abrufen."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Nur POST erlaubt'}, status=405)
+
+    board = get_object_or_404(IdeaBoard, pk=pk)
+
+    if not _user_has_board_access(board, request.user):
+        return JsonResponse({'error': 'Keine Berechtigung'}, status=403)
+
+    session = _ensure_mirror_session(board)
+
+    if not (session.is_active and session.owner):
+        return JsonResponse({'error': 'Keine aktive Bildschirmfreigabe.'}, status=404)
+
+    agora_config = get_agora_config()
+    uid = int(f"2{request.user.id:06d}")
+    role = CallRoles.PUBLISHER if session.owner_id == request.user.id else CallRoles.SUBSCRIBER
+
+    try:
+        token = generate_agora_token(session.channel_name, uid, role)
+    except ValueError as exc:
+        return JsonResponse({'error': str(exc)}, status=500)
+
+    owner_data = {
+        'id': session.owner.id,
+        'username': session.owner.username,
+    } if session.owner else None
+
+    return JsonResponse({
+        'success': True,
+        'token': token,
+        'channel_name': session.channel_name,
+        'uid': uid,
+        'app_id': agora_config['app_id'],
+        'is_owner': session.owner_id == request.user.id,
+        'owner': owner_data,
+    })
 @login_required
 def get_username(request, user_id):
     """Get username for a specific user ID."""
