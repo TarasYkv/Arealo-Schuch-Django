@@ -568,6 +568,7 @@
 </div>
 
 <script>
+const boardUploadImageUrl = "{% url 'organization:board_upload_image' board.pk %}";
 class IdeaBoard {
     constructor() {
         console.log('IdeaBoard constructor starting...');
@@ -2475,7 +2476,9 @@ class IdeaBoard {
             y: this.canvas.height / 2
         };
 
-        fetch(`/organization/boards/{{ board.pk }}/upload-image/`, {
+        const uploadUrl = boardUploadImageUrl || `/organization/boards/{{ board.pk }}/upload-image/`;
+
+        fetch(uploadUrl, {
             method: 'POST',
             headers: {
                 'X-CSRFToken': '{{ csrf_token }}'
