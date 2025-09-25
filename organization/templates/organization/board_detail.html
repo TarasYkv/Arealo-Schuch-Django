@@ -2515,6 +2515,41 @@ class IdeaBoard {
                        y >= data.y - emojiSize && y <= data.y;
 
             case 'freehand':
+                if (!data.path || data.path.length < 2) {
+                    return false;
+                }
+
+                const strokeWidth = element.stroke_width !== undefined ? element.stroke_width : (data.strokeWidth || 2);
+                const hitRadius = Math.max(8, strokeWidth + 6);
+
+                // Quick bounding-box reject before detailed checks
+                let minPathX = data.path[0].x;
+                let maxPathX = data.path[0].x;
+                let minPathY = data.path[0].y;
+                let maxPathY = data.path[0].y;
+
+                for (let i = 1; i < data.path.length; i++) {
+                    const point = data.path[i];
+                    if (point.x < minPathX) minPathX = point.x;
+                    if (point.x > maxPathX) maxPathX = point.x;
+                    if (point.y < minPathY) minPathY = point.y;
+                    if (point.y > maxPathY) maxPathY = point.y;
+                }
+
+                if (x < minPathX - hitRadius || x > maxPathX + hitRadius ||
+                    y < minPathY - hitRadius || y > maxPathY + hitRadius) {
+                    return false;
+                }
+
+                for (let i = 1; i < data.path.length; i++) {
+                    const start = data.path[i - 1];
+                    const end = data.path[i];
+                    const segmentDistance = this.distanceToLine(x, y, start.x, start.y, end.x, end.y);
+                    if (segmentDistance <= hitRadius) {
+                        return true;
+                    }
+                }
+                return false;
         }
         return false;
     }
@@ -2598,9 +2633,19 @@ class IdeaBoard {
                 data.y3 += deltaY;
                 break;
             case 'freehand':
+                if (Array.isArray(data.path)) {
+                    for (let i = 0; i < data.path.length; i++) {
+                        data.path[i].x += deltaX;
+                        data.path[i].y += deltaY;
+                    }
+                }
+                break;
         }
 
         this.scheduleRedraw();
+        if (this.selectedElement.element_type === 'freehand') {
+            this.ensureElementPosition(this.selectedElement);
+        }
         this.scheduleServerUpdate(this.selectedElement);
     }
     
@@ -2714,6 +2759,35 @@ class IdeaBoard {
                     y: triMinY,
                     width: triMaxX - triMinX,
                     height: triMaxY - triMinY
+                };
+            case 'freehand':
+                if (!data.path || data.path.length === 0) {
+                    const fallbackX = element.position_x !== undefined ? element.position_x : 0;
+                    const fallbackY = element.position_y !== undefined ? element.position_y : 0;
+                    return { x: fallbackX, y: fallbackY, width: 0, height: 0 };
+                }
+
+                let pathMinX = data.path[0].x;
+                let pathMaxX = data.path[0].x;
+                let pathMinY = data.path[0].y;
+                let pathMaxY = data.path[0].y;
+
+                for (let i = 1; i < data.path.length; i++) {
+                    const point = data.path[i];
+                    if (point.x < pathMinX) pathMinX = point.x;
+                    if (point.x > pathMaxX) pathMaxX = point.x;
+                    if (point.y < pathMinY) pathMinY = point.y;
+                    if (point.y > pathMaxY) pathMaxY = point.y;
+                }
+
+                const freehandStroke = element.stroke_width !== undefined ? element.stroke_width : (data.strokeWidth || 2);
+                const padding = Math.max(4, freehandStroke);
+
+                return {
+                    x: pathMinX - padding,
+                    y: pathMinY - padding,
+                    width: Math.max(10, (pathMaxX - pathMinX) + padding * 2),
+                    height: Math.max(10, (pathMaxY - pathMinY) + padding * 2)
                 };
             default:
                 return { x: 0, y: 0, width: 0, height: 0 };
@@ -3004,8 +3078,25 @@ class IdeaBoard {
                 if (element.position_x === undefined) element.position_x = triMinX;
                 if (element.position_y === undefined) element.position_y = triMinY;
                 break;
-                
+
             case 'freehand':
+                if (data.path && data.path.length > 0) {
+                    let minPathX = data.path[0].x;
+                    let minPathY = data.path[0].y;
+
+                    for (let i = 1; i < data.path.length; i++) {
+                        const point = data.path[i];
+                        if (point.x < minPathX) minPathX = point.x;
+                        if (point.y < minPathY) minPathY = point.y;
+                    }
+
+                    element.position_x = minPathX;
+                    element.position_y = minPathY;
+                } else {
+                    if (element.position_x === undefined) element.position_x = 0;
+                    if (element.position_y === undefined) element.position_y = 0;
+                }
+                break;
         }
     }
 
