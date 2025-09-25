@@ -2967,15 +2967,8 @@ class IdeaBoard {
     }
     
     updateElementOnServer(element) {
-        const updateData = {
-            element_id: element.id,
-            data: element.data,
-            position_x: element.position_x,
-            position_y: element.position_y,
-            rotation: element.rotation || 0
-        };
-        
-        
+        const updateData = this.buildElementUpdatePayload(element);
+
         fetch(`/organization/boards/{{ board.pk }}/update-element/`, {
             method: 'POST',
             headers: {
@@ -3040,11 +3033,14 @@ class IdeaBoard {
                 JSON.stringify(newEl.data) !== JSON.stringify(oldEl.data) ||
                 newEl.position_x !== oldEl.position_x ||
                 newEl.position_y !== oldEl.position_y ||
-                newEl.rotation !== oldEl.rotation) {
+                newEl.rotation !== oldEl.rotation ||
+                newEl.color !== oldEl.color ||
+                newEl.stroke_width !== oldEl.stroke_width ||
+                newEl.opacity !== oldEl.opacity) {
                 return true;
             }
         }
-        
+
         return false;
     }
     
@@ -3100,6 +3096,28 @@ class IdeaBoard {
         }
     }
 
+    buildElementUpdatePayload(element) {
+        const payload = {
+            element_id: element.id,
+            data: element.data,
+            position_x: element.position_x,
+            position_y: element.position_y,
+            rotation: element.rotation || 0
+        };
+
+        if (element.color !== undefined && element.color !== null) {
+            payload.color = element.color;
+        }
+        if (element.stroke_width !== undefined && element.stroke_width !== null) {
+            payload.stroke_width = element.stroke_width;
+        }
+        if (element.opacity !== undefined && element.opacity !== null) {
+            payload.opacity = element.opacity;
+        }
+
+        return payload;
+    }
+
     // Performance optimization methods
     scheduleRedraw() {
         if (this.redrawScheduled) return;
@@ -3118,13 +3136,7 @@ class IdeaBoard {
         }
 
         // Store the pending update
-        this.pendingUpdate = {
-            element_id: element.id,
-            data: element.data,
-            position_x: element.position_x,
-            position_y: element.position_y,
-            rotation: element.rotation || 0
-        };
+        this.pendingUpdate = this.buildElementUpdatePayload(element);
 
         // Schedule the debounced update
         this.updateTimeout = setTimeout(() => {
@@ -3149,7 +3161,10 @@ class IdeaBoard {
             data: JSON.parse(JSON.stringify(elementToUpdate.data)),
             position_x: elementToUpdate.position_x,
             position_y: elementToUpdate.position_y,
-            rotation: elementToUpdate.rotation
+            rotation: elementToUpdate.rotation,
+            color: elementToUpdate.color,
+            stroke_width: elementToUpdate.stroke_width,
+            opacity: elementToUpdate.opacity
         } : null;
 
         // Send the update to server
@@ -3190,6 +3205,9 @@ class IdeaBoard {
             element.position_x = originalState.position_x;
             element.position_y = originalState.position_y;
             element.rotation = originalState.rotation;
+            element.color = originalState.color;
+            element.stroke_width = originalState.stroke_width;
+            element.opacity = originalState.opacity;
 
             this.scheduleRedraw();
             console.log('Element rolled back to previous state');
