@@ -133,7 +133,7 @@ class DINLightingClassification(models.Model):
     ]
 
     # Grunddaten
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     project_name = models.CharField(max_length=200)
     road_category = models.ForeignKey(DINRoadCategory, on_delete=models.CASCADE)
 
