@@ -89,8 +89,9 @@ def start_classification(request):
         return redirect('lighting_classification:select_road_type')
 
     # Neue DIN-konforme Klassifizierung erstellen
+    # Für anonyme Benutzer setzen wir user auf None
     classification = DINLightingClassification.objects.create(
-        user=request.user,
+        user=request.user if request.user.is_authenticated else None,
         project_name=project_name,
         road_category=din_category,
         status='draft'
@@ -104,11 +105,19 @@ def start_classification(request):
 def configure_parameters(request, classification_id):
     """Schritt 2: DIN-konforme Parameter konfigurieren"""
 
-    classification = get_object_or_404(
-        DINLightingClassification,
-        id=classification_id,
-        user=request.user
-    )
+    # Für anonyme Benutzer filtern wir mit user=None
+    if request.user.is_authenticated:
+        classification = get_object_or_404(
+            DINLightingClassification,
+            id=classification_id,
+            user=request.user
+        )
+    else:
+        classification = get_object_or_404(
+            DINLightingClassification,
+            id=classification_id,
+            user=None
+        )
 
     if request.method == 'POST':
         try:
@@ -136,7 +145,7 @@ def configure_parameters(request, classification_id):
                     else:
                         # Create adaptive classification for dt1/dt2
                         current_classification = DINLightingClassification.objects.create(
-                            user=request.user,
+                            user=request.user if request.user.is_authenticated else None,
                             project_name=f"{classification.project_name} ({period.upper()})",
                             road_category=classification.road_category,
                             time_period=period,
@@ -239,19 +248,36 @@ def configure_parameters(request, classification_id):
 def view_result(request, classification_id):
     """Schritt 3: DIN-konformes Ergebnis anzeigen"""
 
-    classification = get_object_or_404(
-        DINLightingClassification,
-        id=classification_id,
-        user=request.user
-    )
+    # Für anonyme Benutzer filtern wir mit user=None
+    if request.user.is_authenticated:
+        classification = get_object_or_404(
+            DINLightingClassification,
+            id=classification_id,
+            user=request.user
+        )
+    else:
+        classification = get_object_or_404(
+            DINLightingClassification,
+            id=classification_id,
+            user=None
+        )
 
     # Find related adaptive classifications
     base_project_name = classification.project_name.split(' (')[0]  # Remove (DT1), (DT2) suffixes
-    related_classifications = DINLightingClassification.objects.filter(
-        user=request.user,
-        project_name__startswith=base_project_name,
-        road_category=classification.road_category
-    ).order_by('time_period')
+    # Filter für authentifizierte oder anonyme Benutzer
+    if request.user.is_authenticated:
+        related_classifications = DINLightingClassification.objects.filter(
+            user=request.user,
+            project_name__startswith=base_project_name,
+            road_category=classification.road_category
+        )
+    else:
+        related_classifications = DINLightingClassification.objects.filter(
+            user=None,
+            project_name__startswith=base_project_name,
+            road_category=classification.road_category
+        )
+    related_classifications = related_classifications.order_by('time_period')
 
     # Group classifications by time period
     time_period_classifications = {}
@@ -407,11 +433,19 @@ def download_pdf(request, classification_id):
     """PDF-Download der DIN 13201-1 Klassifizierungsergebnisse"""
 
     # DIN-konformes Modell verwenden
-    classification = get_object_or_404(
-        DINLightingClassification,
-        id=classification_id,
-        user=request.user
-    )
+    # Für anonyme Benutzer filtern wir mit user=None
+    if request.user.is_authenticated:
+        classification = get_object_or_404(
+            DINLightingClassification,
+            id=classification_id,
+            user=request.user
+        )
+    else:
+        classification = get_object_or_404(
+            DINLightingClassification,
+            id=classification_id,
+            user=None
+        )
 
     # Zusätzliche Informationen zur Beleuchtungsklasse
     lighting_info = get_lighting_class_info(classification.calculated_lighting_class)
@@ -433,11 +467,20 @@ def download_pdf(request, classification_id):
 
     # Alle verwandten Zeitraum-Klassifizierungen laden (basierend auf Projektname)
     base_project_name = classification.project_name.split(' (')[0]  # Remove time period suffix
-    related_classifications = DINLightingClassification.objects.filter(
-        user=request.user,
-        project_name__startswith=base_project_name,
-        road_category=classification.road_category
-    ).order_by('time_period')
+    # Filter für authentifizierte oder anonyme Benutzer
+    if request.user.is_authenticated:
+        related_classifications = DINLightingClassification.objects.filter(
+            user=request.user,
+            project_name__startswith=base_project_name,
+            road_category=classification.road_category
+        )
+    else:
+        related_classifications = DINLightingClassification.objects.filter(
+            user=None,
+            project_name__startswith=base_project_name,
+            road_category=classification.road_category
+        )
+    related_classifications = related_classifications.order_by('time_period')
 
     for rel_class in related_classifications:
         period = rel_class.time_period or 'dt0'
