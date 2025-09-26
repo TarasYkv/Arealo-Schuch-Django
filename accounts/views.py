@@ -1777,6 +1777,14 @@ def user_permissions(request):
                     messages.success(request, f'Passwort für {user.username} wurde erfolgreich geändert.')
                 else:
                     messages.error(request, 'Bitte geben Sie ein neues Passwort ein.')
+
+            elif action == 'confirm_email':
+                if not user.email_verified:
+                    user.email_verified = True
+                    user.save()
+                    messages.success(request, f'E-Mail-Adresse für {user.username} wurde bestätigt.')
+                else:
+                    messages.info(request, f'E-Mail-Adresse von {user.username} war bereits bestätigt.')
                 
         except CustomUser.DoesNotExist:
             messages.error(request, 'Benutzer nicht gefunden.')
