@@ -1781,10 +1781,19 @@ def user_permissions(request):
             elif action == 'confirm_email':
                 if not user.email_verified:
                     user.email_verified = True
+                    user.is_active = True  # Benutzer auch aktivieren
                     user.save()
-                    messages.success(request, f'E-Mail-Adresse für {user.username} wurde bestätigt.')
+                    messages.success(request, f'E-Mail-Adresse für {user.username} wurde bestätigt und Account aktiviert.')
                 else:
                     messages.info(request, f'E-Mail-Adresse von {user.username} war bereits bestätigt.')
+
+            elif action == 'delete_user':
+                if user.id != request.user.id:  # Prevent self-deletion
+                    username = user.username
+                    user.delete()
+                    messages.success(request, f'Account von {username} wurde erfolgreich gelöscht.')
+                else:
+                    messages.error(request, 'Sie können Ihren eigenen Account nicht löschen.')
                 
         except CustomUser.DoesNotExist:
             messages.error(request, 'Benutzer nicht gefunden.')

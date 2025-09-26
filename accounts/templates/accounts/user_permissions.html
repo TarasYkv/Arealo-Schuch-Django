@@ -34,10 +34,7 @@
                                     <th>Online Status</th>
                                     <th>E-Mail bestätigt</th>
                                     <th>Superuser</th>
-                                    <th>Audioanrufe tätigen</th>
-                                    <th>Videoanrufe tätigen</th>
-                                    <th>Audioanrufe empfangen</th>
-                                    <th>Videoanrufe empfangen</th>
+                                    <th>Audio/Video Einstellungen</th>
                                     <th>Aktionen</th>
                                 </tr>
                             </thead>
@@ -97,48 +94,58 @@
                                             {% endif %}
                                         </td>
                                         <td>
-                                            {% if user.can_make_audio_calls %}
-                                                <span class="badge bg-success">
-                                                    <i class="fas fa-check"></i> Aktiviert
-                                                </span>
-                                            {% else %}
-                                                <span class="badge bg-danger">
-                                                    <i class="fas fa-times"></i> Deaktiviert
-                                                </span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if user.can_make_video_calls %}
-                                                <span class="badge bg-success">
-                                                    <i class="fas fa-check"></i> Aktiviert
-                                                </span>
-                                            {% else %}
-                                                <span class="badge bg-danger">
-                                                    <i class="fas fa-times"></i> Deaktiviert
-                                                </span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if user.can_receive_audio_calls %}
-                                                <span class="badge bg-success">
-                                                    <i class="fas fa-check"></i> Aktiviert
-                                                </span>
-                                            {% else %}
-                                                <span class="badge bg-danger">
-                                                    <i class="fas fa-times"></i> Deaktiviert
-                                                </span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if user.can_receive_video_calls %}
-                                                <span class="badge bg-success">
-                                                    <i class="fas fa-check"></i> Aktiviert
-                                                </span>
-                                            {% else %}
-                                                <span class="badge bg-danger">
-                                                    <i class="fas fa-times"></i> Deaktiviert
-                                                </span>
-                                            {% endif %}
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                                                        id="audioVideoDropdown{{ user.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    <i class="fas fa-cogs"></i> Einstellungen
+                                                </button>
+                                                <ul class="dropdown-menu" aria-labelledby="audioVideoDropdown{{ user.id }}">
+                                                    <li>
+                                                        <form method="post" class="d-inline">
+                                                            {% csrf_token %}
+                                                            <input type="hidden" name="user_id" value="{{ user.id }}">
+                                                            <input type="hidden" name="action" value="toggle_audio_calls">
+                                                            <button type="submit" class="dropdown-item">
+                                                                <i class="fas fa-microphone {% if user.can_make_audio_calls %}text-success{% else %}text-danger{% endif %}"></i>
+                                                                Audio tätigen: {% if user.can_make_audio_calls %}An{% else %}Aus{% endif %}
+                                                            </button>
+                                                        </form>
+                                                    </li>
+                                                    <li>
+                                                        <form method="post" class="d-inline">
+                                                            {% csrf_token %}
+                                                            <input type="hidden" name="user_id" value="{{ user.id }}">
+                                                            <input type="hidden" name="action" value="toggle_video_calls">
+                                                            <button type="submit" class="dropdown-item">
+                                                                <i class="fas fa-video {% if user.can_make_video_calls %}text-success{% else %}text-danger{% endif %}"></i>
+                                                                Video tätigen: {% if user.can_make_video_calls %}An{% else %}Aus{% endif %}
+                                                            </button>
+                                                        </form>
+                                                    </li>
+                                                    <li>
+                                                        <form method="post" class="d-inline">
+                                                            {% csrf_token %}
+                                                            <input type="hidden" name="user_id" value="{{ user.id }}">
+                                                            <input type="hidden" name="action" value="toggle_audio_receive">
+                                                            <button type="submit" class="dropdown-item">
+                                                                <i class="fas fa-phone-alt {% if user.can_receive_audio_calls %}text-success{% else %}text-danger{% endif %}"></i>
+                                                                Audio empfangen: {% if user.can_receive_audio_calls %}An{% else %}Aus{% endif %}
+                                                            </button>
+                                                        </form>
+                                                    </li>
+                                                    <li>
+                                                        <form method="post" class="d-inline">
+                                                            {% csrf_token %}
+                                                            <input type="hidden" name="user_id" value="{{ user.id }}">
+                                                            <input type="hidden" name="action" value="toggle_video_receive">
+                                                            <button type="submit" class="dropdown-item">
+                                                                <i class="fas fa-video {% if user.can_receive_video_calls %}text-success{% else %}text-danger{% endif %}"></i>
+                                                                Video empfangen: {% if user.can_receive_video_calls %}An{% else %}Aus{% endif %}
+                                                            </button>
+                                                        </form>
+                                                    </li>
+                                                </ul>
+                                            </div>
                                         </td>
                                         <td>
                                             <div class="btn-group" role="group">
@@ -155,7 +162,7 @@
                                                     <input type="hidden" name="action" value="confirm_email">
                                                     <button type="submit" class="btn btn-sm btn-outline-success"
                                                             title="E-Mail bestätigen">
-                                                        <i class="fas fa-envelope-check"></i>
+                                                        <i class="fas fa-check-circle"></i>
                                                     </button>
                                                 </form>
                                                 {% endif %}
@@ -170,46 +177,14 @@
                                                         <i class="fas fa-crown"></i>
                                                     </button>
                                                 </form>
-                                                
-                                                <form method="post" class="d-inline">
-                                                    {% csrf_token %}
-                                                    <input type="hidden" name="user_id" value="{{ user.id }}">
-                                                    <input type="hidden" name="action" value="toggle_audio_calls">
-                                                    <button type="submit" class="btn btn-sm {% if user.can_make_audio_calls %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
-                                                            title="Audioanrufe tätigen {% if user.can_make_audio_calls %}deaktivieren{% else %}aktivieren{% endif %}">
-                                                        <i class="fas fa-microphone"></i>
-                                                    </button>
-                                                </form>
-                                                
-                                                <form method="post" class="d-inline">
-                                                    {% csrf_token %}
-                                                    <input type="hidden" name="user_id" value="{{ user.id }}">
-                                                    <input type="hidden" name="action" value="toggle_video_calls">
-                                                    <button type="submit" class="btn btn-sm {% if user.can_make_video_calls %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
-                                                            title="Videoanrufe tätigen {% if user.can_make_video_calls %}deaktivieren{% else %}aktivieren{% endif %}">
-                                                        <i class="fas fa-video"></i>
-                                                    </button>
-                                                </form>
-                                                
-                                                <form method="post" class="d-inline">
-                                                    {% csrf_token %}
-                                                    <input type="hidden" name="user_id" value="{{ user.id }}">
-                                                    <input type="hidden" name="action" value="toggle_audio_receive">
-                                                    <button type="submit" class="btn btn-sm {% if user.can_receive_audio_calls %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
-                                                            title="Audioanrufe empfangen {% if user.can_receive_audio_calls %}deaktivieren{% else %}aktivieren{% endif %}">
-                                                        <i class="fas fa-phone-alt"></i>
-                                                    </button>
-                                                </form>
-                                                
-                                                <form method="post" class="d-inline">
-                                                    {% csrf_token %}
-                                                    <input type="hidden" name="user_id" value="{{ user.id }}">
-                                                    <input type="hidden" name="action" value="toggle_video_receive">
-                                                    <button type="submit" class="btn btn-sm {% if user.can_receive_video_calls %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
-                                                            title="Videoanrufe empfangen {% if user.can_receive_video_calls %}deaktivieren{% else %}aktivieren{% endif %}">
-                                                        <i class="fas fa-video"></i> <i class="fas fa-phone-alt"></i>
-                                                    </button>
-                                                </form>
+
+                                                {% if user.id != request.user.id %}
+                                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                                        onclick="showDeleteModal({{ user.id }}, '{{ user.username|escapejs }}')"
+                                                        title="Account löschen">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                                {% endif %}
                                                 
                                                 <button type="button" class="btn btn-sm btn-outline-info" 
                                                         onclick="showOnlineTimes({{ user.id }}, '{{ user.username|escapejs }}')"
@@ -227,7 +202,7 @@
                                     </tr>
                                 {% empty %}
                                     <tr>
-                                        <td colspan="8" class="text-center text-muted">
+                                        <td colspan="6" class="text-center text-muted">
                                             Keine Benutzer gefunden.
                                         </td>
                                     </tr>
@@ -335,6 +310,51 @@
     </div>
 </div>
 
+<!-- Modal für Account löschen -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteModalLabel">
+                    <i class="fas fa-trash"></i> Account löschen
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" id="deleteAccountForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" name="user_id" id="deleteUserId">
+                    <input type="hidden" name="action" value="delete_user">
+
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Achtung!</strong> Diese Aktion kann nicht rückgängig gemacht werden.
+                    </div>
+
+                    <p>
+                        Möchten Sie den Account von <strong><span id="deleteModalUserName"></span></strong>
+                        wirklich dauerhaft löschen?
+                    </p>
+
+                    <div class="mb-3">
+                        <label for="deleteConfirmation" class="form-label">
+                            Geben Sie "LÖSCHEN" ein, um zu bestätigen:
+                        </label>
+                        <input type="text" class="form-control" id="deleteConfirmation"
+                               placeholder="LÖSCHEN" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-danger" id="deleteAccountBtn" disabled>
+                        <i class="fas fa-trash"></i> Account löschen
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Modal für App-Nutzungsstatistiken -->
 <div class="modal fade" id="appUsageModal" tabindex="-1" aria-labelledby="appUsageModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl">
@@ -398,6 +418,19 @@ function showPasswordModal(userId, username) {
     
     // Show modal
     const modal = new bootstrap.Modal(document.getElementById('passwordModal'));
+    modal.show();
+}
+
+function showDeleteModal(userId, username) {
+    document.getElementById('deleteModalUserName').textContent = username;
+    document.getElementById('deleteUserId').value = userId;
+
+    // Reset form
+    document.getElementById('deleteConfirmation').value = '';
+    document.getElementById('deleteAccountBtn').disabled = true;
+
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
     modal.show();
 }
 
@@ -487,7 +520,20 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
+    // Delete confirmation validation
+    const deleteConfirmation = document.getElementById('deleteConfirmation');
+    if (deleteConfirmation) {
+        deleteConfirmation.addEventListener('input', function() {
+            const deleteBtn = document.getElementById('deleteAccountBtn');
+            if (this.value === 'LÖSCHEN') {
+                deleteBtn.disabled = false;
+            } else {
+                deleteBtn.disabled = true;
+            }
+        });
+    }
+
     // Event Listener für Zeitraum-Buttons
     const dayButtons = document.querySelectorAll('input[name="appUsageDays"]');
     dayButtons.forEach(button => {
