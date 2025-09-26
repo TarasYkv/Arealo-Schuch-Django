@@ -203,20 +203,52 @@
                                             {% if calculation.neue_anlage_vorhanden %}
                                             <tr>
                                                 <td><strong>Bestandsanlage</strong></td>
-                                                <td>{{ calculation.verbrauch_alt_kwh_jahr|floatformat:0|default:"-" }}</td>
-                                                <td>{{ calculation.kosten_alt_jahr|floatformat:0|default:"-" }} €</td>
+                                                <td>
+                                                    {{ calculation.verbrauch_alt_kwh_jahr|floatformat:0|default:"-" }}
+                                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1"
+                                                            data-bs-toggle="modal" data-bs-target="#infoModal"
+                                                            onclick="showCalculationInfo('verbrauch_alt', 'Verbrauch Bestandsanlage', 'Leistung × Anzahl × Stunden/Tag × Tage/Jahr ÷ 1000<br><br>{{ calculation.alt_leistung }}W × {{ calculation.alt_anzahl }} Stück × {{ calculation.alt_stunden_pro_tag }}h/Tag × {{ calculation.alt_tage_pro_jahr }} Tage/Jahr ÷ 1000 = {{ calculation.verbrauch_alt_kwh_jahr|floatformat:0 }} kWh/Jahr')"
+                                                            title="Berechnungsdetails anzeigen">
+                                                        <i class="fas fa-info-circle text-muted" style="font-size: 0.8rem;"></i>
+                                                    </button>
+                                                </td>
+                                                <td>
+                                                    {{ calculation.kosten_alt_jahr|floatformat:0|default:"-" }} €
+                                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1"
+                                                            data-bs-toggle="modal" data-bs-target="#infoModal"
+                                                            onclick="showCalculationInfo('kosten_alt', 'Kosten Bestandsanlage', 'Verbrauch × Strompreis + Wartungskosten + Laufende Kosten<br><br>{{ calculation.verbrauch_alt_kwh_jahr|floatformat:0 }} kWh × {{ calculation.strompreis }}€/kWh + {{ calculation.alt_wartungskosten }}€ + {{ calculation.alt_laufende_kosten }}€ = {{ calculation.kosten_alt_jahr|floatformat:0 }}€/Jahr')"
+                                                            title="Berechnungsdetails anzeigen">
+                                                        <i class="fas fa-info-circle text-muted" style="font-size: 0.8rem;"></i>
+                                                    </button>
+                                                </td>
                                             </tr>
                                             {% endif %}
                                             <tr>
                                                 <td><strong>LED ohne Lichtmanagement</strong></td>
-                                                <td>{{ calculation.verbrauch_neu_ohne_limas_kwh_jahr|floatformat:0|default:"-" }}</td>
-                                                <td>{{ calculation.kosten_neu_ohne_limas_jahr|floatformat:0|default:"-" }} €</td>
+                                                <td>
+                                                    {{ calculation.verbrauch_neu_ohne_lms_kwh_jahr|floatformat:0|default:"-" }}
+                                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1"
+                                                            data-bs-toggle="modal" data-bs-target="#infoModal"
+                                                            onclick="showCalculationInfo('verbrauch_neu', 'Verbrauch LED ohne LMS', 'Leistung × Anzahl × Stunden/Tag × Tage/Jahr ÷ 1000<br><br>{{ calculation.neu_leistung }}W × {{ calculation.neu_anzahl }} Stück × {{ calculation.neu_stunden_pro_tag }}h/Tag × {{ calculation.neu_tage_pro_jahr }} Tage/Jahr ÷ 1000 = {{ calculation.verbrauch_neu_ohne_lms_kwh_jahr|floatformat:0 }} kWh/Jahr')"
+                                                            title="Berechnungsdetails anzeigen">
+                                                        <i class="fas fa-info-circle text-muted" style="font-size: 0.8rem;"></i>
+                                                    </button>
+                                                </td>
+                                                <td>
+                                                    {{ calculation.kosten_neu_ohne_lms_jahr|floatformat:0|default:"-" }} €
+                                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1"
+                                                            data-bs-toggle="modal" data-bs-target="#infoModal"
+                                                            onclick="showCalculationInfo('kosten_neu', 'Kosten LED ohne LMS', 'Verbrauch × Strompreis + Wartungskosten + Laufende Kosten<br><br>{{ calculation.verbrauch_neu_ohne_lms_kwh_jahr|floatformat:0 }} kWh × {{ calculation.strompreis }}€/kWh + {{ calculation.neu_wartungskosten }}€ + {{ calculation.neu_laufende_kosten }}€ = {{ calculation.kosten_neu_ohne_lms_jahr|floatformat:0 }}€/Jahr')"
+                                                            title="Berechnungsdetails anzeigen">
+                                                        <i class="fas fa-info-circle text-muted" style="font-size: 0.8rem;"></i>
+                                                    </button>
+                                                </td>
                                             </tr>
-                                            {% if calculation.limas_aktiviert %}
+                                            {% if calculation.lms_aktiviert %}
                                             <tr class="table-success">
                                                 <td><strong>LED mit Lichtmanagement</strong></td>
-                                                <td>{{ calculation.verbrauch_neu_mit_limas_kwh_jahr|floatformat:0|default:"-" }}</td>
-                                                <td>{{ calculation.kosten_neu_mit_limas_jahr|floatformat:0|default:"-" }} €</td>
+                                                <td>{{ calculation.verbrauch_neu_mit_lms_kwh_jahr|floatformat:0|default:"-" }}</td>
+                                                <td>{{ calculation.kosten_neu_mit_lms_jahr|floatformat:0|default:"-" }} €</td>
                                             </tr>
                                             {% endif %}
                                         </tbody>
@@ -247,18 +279,40 @@
                                         <tbody>
                                             <tr>
                                                 <td>LED-Leuchten Investition</td>
-                                                <td class="text-end">{{ calculation.investitionskosten_gesamt|floatformat:0|default:"0" }} €</td>
+                                                <td class="text-end">
+                                                    {{ calculation.investitionskosten_gesamt|floatformat:0|default:"0" }} €
+                                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1"
+                                                            data-bs-toggle="modal" data-bs-target="#infoModal"
+                                                            onclick="showCalculationInfo('invest_led', 'LED-Leuchten Investition', 'Einzelpreis × Anzahl Leuchten<br><br>{{ calculation.neu_einzelpreis }}€ × {{ calculation.neu_anzahl }} Stück = {{ calculation.investitionskosten_gesamt|floatformat:0 }}€')"
+                                                            title="Berechnungsdetails anzeigen">
+                                                        <i class="fas fa-info-circle text-muted" style="font-size: 0.8rem;"></i>
+                                                    </button>
+                                                </td>
                                             </tr>
-                                            {% if calculation.limas_aktiviert %}
+                                            {% if calculation.lms_aktiviert %}
                                             <tr>
                                                 <td>Investition Lichtmanagement</td>
-                                                <td class="text-end">{{ calculation.investitionskosten_lms|floatformat:0|default:"0" }} €</td>
+                                                <td class="text-end">
+                                                    {{ calculation.investitionskosten_lms|floatformat:0|default:"0" }} €
+                                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1"
+                                                            data-bs-toggle="modal" data-bs-target="#infoModal"
+                                                            onclick="showCalculationInfo('invest_lms', 'LMS Investition', 'LMS Grundkosten + (LMS Aufpreis × Anzahl Leuchten)<br><br>{{ calculation.lms_grundkosten }}€ + ({{ calculation.lms_aufpreis_pro_leuchte }}€ × {{ calculation.neu_anzahl }} Stück) = {{ calculation.investitionskosten_lms|floatformat:0 }}€')"
+                                                            title="Berechnungsdetails anzeigen">
+                                                        <i class="fas fa-info-circle text-muted" style="font-size: 0.8rem;"></i>
+                                                    </button>
+                                                </td>
                                             </tr>
                                             {% endif %}
                                             <tr class="table-primary">
                                                 <td><strong>Gesamtinvestition</strong></td>
                                                 <td class="text-end">
                                                     <strong>{{ calculation.investitionskosten_gesamt|add:calculation.investitionskosten_lms|floatformat:0|default:"0" }} €</strong>
+                                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1"
+                                                            data-bs-toggle="modal" data-bs-target="#infoModal"
+                                                            onclick="showCalculationInfo('invest_gesamt', 'Gesamtinvestition', 'LED-Investition + LMS-Investition<br><br>{{ calculation.investitionskosten_gesamt|floatformat:0 }}€ + {{ calculation.investitionskosten_lms|floatformat:0|default:0 }}€ = {{ calculation.investitionskosten_gesamt|add:calculation.investitionskosten_lms|floatformat:0 }}€')"
+                                                            title="Berechnungsdetails anzeigen">
+                                                        <i class="fas fa-info-circle text-muted" style="font-size: 0.8rem;"></i>
+                                                    </button>
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -269,7 +323,14 @@
                                     <div class="row">
                                         {% if calculation.amortisation_neu_jahre != None %}
                                         <div class="col-6">
-                                            <small class="text-muted">LED-Amortisation</small>
+                                            <small class="text-muted">LED-Amortisation
+                                                <button type="button" class="btn btn-sm btn-link p-0 ms-1"
+                                                        data-bs-toggle="modal" data-bs-target="#infoModal"
+                                                        onclick="showCalculationInfo('amort_led', 'LED-Amortisation', 'Investitionskosten ÷ Jährliche Einsparungen<br><br>{{ calculation.investitionskosten_gesamt|floatformat:0 }}€ ÷ {{ calculation.ersparnis_neu_jahr|floatformat:0|default:0 }}€/Jahr = {{ calculation.amortisation_neu_jahre|floatformat:1 }} Jahre')"
+                                                        title="Berechnungsdetails anzeigen">
+                                                    <i class="fas fa-info-circle text-muted" style="font-size: 0.7rem;"></i>
+                                                </button>
+                                            </small>
                                             <div class="fw-bold">
                                                 {% if calculation.amortisation_neu_jahre > 0 %}
                                                     {% if calculation.amortisation_neu_jahre < 1 %}
@@ -283,15 +344,22 @@
                                             </div>
                                         </div>
                                         {% endif %}
-                                        {% if calculation.amortisation_limas_jahre != None %}
+                                        {% if calculation.amortisation_lms_jahre != None %}
                                         <div class="col-6">
-                                            <small class="text-muted">Amortisation Lichtmanagement</small>
+                                            <small class="text-muted">Amortisation Lichtmanagement
+                                                <button type="button" class="btn btn-sm btn-link p-0 ms-1"
+                                                        data-bs-toggle="modal" data-bs-target="#infoModal"
+                                                        onclick="showCalculationInfo('amort_lms', 'LMS-Amortisation', 'Gesamtinvestition ÷ Jährliche Einsparungen (mit LMS)<br><br>{{ calculation.investitionskosten_gesamt|add:calculation.investitionskosten_lms|floatformat:0 }}€ ÷ {{ calculation.ersparnis_lms_jahr|floatformat:0|default:0 }}€/Jahr = {{ calculation.amortisation_lms_jahre|floatformat:1 }} Jahre')"
+                                                        title="Berechnungsdetails anzeigen">
+                                                    <i class="fas fa-info-circle text-muted" style="font-size: 0.7rem;"></i>
+                                                </button>
+                                            </small>
                                             <div class="fw-bold text-success">
-                                                {% if calculation.amortisation_limas_jahre > 0 %}
-                                                    {% if calculation.amortisation_limas_jahre < 1 %}
-                                                        {{ calculation.amortisation_limas_monate|floatformat:0 }} Monate
+                                                {% if calculation.amortisation_lms_jahre > 0 %}
+                                                    {% if calculation.amortisation_lms_jahre < 1 %}
+                                                        {{ calculation.amortisation_lms_monate|floatformat:0 }} Monate
                                                     {% else %}
-                                                        {{ calculation.amortisation_limas_jahre|floatformat:1 }} Jahre
+                                                        {{ calculation.amortisation_lms_jahre|floatformat:1 }} Jahre
                                                     {% endif %}
                                                 {% else %}
                                                     <span class="text-muted">Nicht rentabel</span>
@@ -306,7 +374,7 @@
                     </div>
 
                     <!-- Lichtmanagement Configuration Summary -->
-                    {% if calculation.limas_aktiviert %}
+                    {% if calculation.lms_aktiviert %}
                     <div class="row mb-4">
                         <div class="col-12">
                             <div class="card">
@@ -387,14 +455,14 @@
                                         </div>
                                         <div class="col-md-3">
                                             <div class="p-3">
-                                                <h5 class="text-primary">{{ calculation.co2_emission_neu_ohne_limas_kg_jahr|floatformat:0|default:"0" }}</h5>
+                                                <h5 class="text-primary">{{ calculation.co2_emission_neu_ohne_lms_kg_jahr|floatformat:0|default:"0" }}</h5>
                                                 <small>CO₂ LED (kg/a)</small>
                                             </div>
                                         </div>
-                                        {% if calculation.limas_aktiviert %}
+                                        {% if calculation.lms_aktiviert %}
                                         <div class="col-md-3">
                                             <div class="p-3">
-                                                <h5 class="text-success">{{ calculation.co2_emission_neu_mit_limas_kg_jahr|floatformat:0|default:"0" }}</h5>
+                                                <h5 class="text-success">{{ calculation.co2_emission_neu_mit_lms_kg_jahr|floatformat:0|default:"0" }}</h5>
                                                 <small>CO₂ LED + Lichtmanagement (kg/a)</small>
                                             </div>
                                         </div>
@@ -547,19 +615,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Cost data
         altKosten: {{ calculation.kosten_alt_jahr|default:0 }},
-        neuKosten: {{ calculation.kosten_neu_ohne_limas_jahr|default:0 }},
-        neuKostenMitLimas: {{ calculation.kosten_neu_mit_limas_jahr|default:0 }},
-        ersparnisKostenLed: Math.max(0, {{ calculation.kosten_alt_jahr|default:0 }} - {{ calculation.kosten_neu_ohne_limas_jahr|default:0 }}),
-        ersparnisKostenLichtmanagement: Math.max(0, {{ calculation.kosten_alt_jahr|default:0 }} - {{ calculation.kosten_neu_mit_limas_jahr|default:0 }}),
+        neuKosten: {{ calculation.kosten_neu_ohne_lms_jahr|default:0 }},
+        neuKostenMitLimas: {{ calculation.kosten_neu_mit_lms_jahr|default:0 }},
+        ersparnisKostenLed: Math.max(0, {{ calculation.kosten_alt_jahr|default:0 }} - {{ calculation.kosten_neu_ohne_lms_jahr|default:0 }}),
+        ersparnisKostenLichtmanagement: Math.max(0, {{ calculation.kosten_alt_jahr|default:0 }} - {{ calculation.kosten_neu_mit_lms_jahr|default:0 }}),
 
         // CO2 data from calculation
         altCO2: {{ calculation.co2_emission_alt_kg_jahr|default:0 }},
-        neuCO2: {{ calculation.co2_emission_neu_ohne_limas_kg_jahr|default:0 }},
-        neuCO2MitLimas: {{ calculation.co2_emission_neu_mit_limas_kg_jahr|default:0 }},
+        neuCO2: {{ calculation.co2_emission_neu_ohne_lms_kg_jahr|default:0 }},
+        neuCO2MitLimas: {{ calculation.co2_emission_neu_mit_lms_kg_jahr|default:0 }},
 
         // Amortization data
         amortisationNeu: {% if calculation.amortisation_neu_jahre and calculation.amortisation_neu_jahre > 0 %}{{ calculation.amortisation_neu_jahre|floatformat:2 }}{% else %}null{% endif %},
-        amortisationLimas: {% if calculation.amortisation_limas_jahre and calculation.amortisation_limas_jahre > 0 %}{{ calculation.amortisation_limas_jahre|floatformat:2 }}{% else %}null{% endif %},
+        amortisationLimas: {% if calculation.amortisation_lms_jahre and calculation.amortisation_lms_jahre > 0 %}{{ calculation.amortisation_lms_jahre|floatformat:2 }}{% else %}null{% endif %},
         amortisationGesamt: {% if calculation.amortisation_gesamt_jahre and calculation.amortisation_gesamt_jahre > 0 %}{{ calculation.amortisation_gesamt_jahre|floatformat:2 }}{% else %}null{% endif %}
     };
 
@@ -971,5 +1039,30 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
 });
+
+// Function to show calculation info in modal
+function showCalculationInfo(id, title, description) {
+    document.getElementById('infoModalLabel').textContent = title;
+    document.getElementById('infoModalBody').innerHTML = description;
+}
 </script>
+
+<!-- Info Modal -->
+<div class="modal fade" id="infoModal" tabindex="-1" aria-labelledby="infoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="infoModalLabel">Berechnungsdetails</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="infoModalBody">
+                <!-- Dynamic content will be inserted here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
