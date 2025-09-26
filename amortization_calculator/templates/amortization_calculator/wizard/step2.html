@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+{% load form_extras %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h4 class="mb-0">
+                                <i class="fas fa-calculator me-2"></i>
+                                Wirtschaftlichkeitsrechner
+                            </h4>
+                        </div>
+                        <div class="col-auto">
+                            <span class="badge bg-light text-dark">
+                                Schritt {{ step }} von {{ total_steps }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <!-- Progress Bar -->
+                    <div class="progress mb-4" style="height: 6px;">
+                        <div class="progress-bar bg-success" role="progressbar"
+                             style="width: {% widthratio step total_steps 100 %}%"></div>
+                    </div>
+
+                    <h5 class="card-title">{{ page_title }}</h5>
+                    <p class="text-muted mb-4">
+                        Geben Sie die Daten Ihrer aktuellen Beleuchtungsanlage ein, um eine Vergleichsberechnung zu ermöglichen.
+                    </p>
+
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+
+                        <!-- Hersteller und Modell -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.alt_hersteller.id_for_label }}">
+                                    <i class="fas fa-industry me-1"></i>
+                                    {{ form.alt_hersteller.label }}
+                                </label>
+                                {{ form.alt_hersteller|add_class:"form-control" }}
+                                {% if form.alt_hersteller.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.alt_hersteller.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.alt_modell.id_for_label }}">
+                                    <i class="fas fa-tag me-1"></i>
+                                    {{ form.alt_modell.label }}
+                                </label>
+                                {{ form.alt_modell|add_class:"form-control" }}
+                                {% if form.alt_modell.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.alt_modell.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Technische Daten -->
+                        <h6 class="text-muted mb-3 mt-4">
+                            <i class="fas fa-cogs me-2"></i>Technische Daten
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.alt_leistung.id_for_label }}">
+                                    {{ form.alt_leistung.label }}
+                                </label>
+                                <div class="input-group">
+                                    {{ form.alt_leistung|add_class:"form-control" }}
+                                    <span class="input-group-text">W</span>
+                                </div>
+                                <div class="form-text">{{ form.alt_leistung.help_text }}</div>
+                                {% if form.alt_leistung.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.alt_leistung.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.alt_anzahl.id_for_label }}">
+                                    {{ form.alt_anzahl.label }}
+                                </label>
+                                <div class="input-group">
+                                    {{ form.alt_anzahl|add_class:"form-control" }}
+                                    <span class="input-group-text">Stück</span>
+                                </div>
+                                {% if form.alt_anzahl.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.alt_anzahl.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Betriebszeiten -->
+                        <h6 class="text-muted mb-3 mt-4">
+                            <i class="fas fa-clock me-2"></i>Betriebszeiten
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.alt_stunden_pro_tag.id_for_label }}">
+                                    {{ form.alt_stunden_pro_tag.label }}
+                                </label>
+                                <div class="input-group">
+                                    {{ form.alt_stunden_pro_tag|add_class:"form-control" }}
+                                    <span class="input-group-text">h/Tag</span>
+                                </div>
+                                <div class="form-text">{{ form.alt_stunden_pro_tag.help_text }}</div>
+                                {% if form.alt_stunden_pro_tag.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.alt_stunden_pro_tag.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.alt_tage_pro_jahr.id_for_label }}">
+                                    {{ form.alt_tage_pro_jahr.label }}
+                                </label>
+                                <div class="input-group">
+                                    {{ form.alt_tage_pro_jahr|add_class:"form-control" }}
+                                    <span class="input-group-text">Tage/Jahr</span>
+                                </div>
+                                <div class="form-text">{{ form.alt_tage_pro_jahr.help_text }}</div>
+                                {% if form.alt_tage_pro_jahr.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.alt_tage_pro_jahr.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Kosten -->
+                        <h6 class="text-muted mb-3 mt-4">
+                            <i class="fas fa-euro-sign me-2"></i>Laufende Kosten
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.alt_wartungskosten.id_for_label }}">
+                                    {{ form.alt_wartungskosten.label }}
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text">€</span>
+                                    {{ form.alt_wartungskosten|add_class:"form-control" }}
+                                    <span class="input-group-text">/Jahr</span>
+                                </div>
+                                <div class="form-text">{{ form.alt_wartungskosten.help_text }}</div>
+                                {% if form.alt_wartungskosten.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.alt_wartungskosten.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.alt_laufende_kosten.id_for_label }}">
+                                    {{ form.alt_laufende_kosten.label }}
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text">€</span>
+                                    {{ form.alt_laufende_kosten|add_class:"form-control" }}
+                                    <span class="input-group-text">/Jahr</span>
+                                </div>
+                                <div class="form-text">{{ form.alt_laufende_kosten.help_text }}</div>
+                                {% if form.alt_laufende_kosten.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.alt_laufende_kosten.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Navigation -->
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'amortization_calculator:wizard_step1_edit' calc_id=calculation.id %}"
+                               class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-1"></i> Zurück
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                Weiter <i class="fas fa-arrow-right ms-1"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Progress Footer -->
+                <div class="card-footer bg-light">
+                    <div class="row text-center text-muted small">
+                        <div class="col">
+                            <i class="fas fa-check text-success"></i>
+                            Projektdaten
+                        </div>
+                        <div class="col">
+                            <i class="fas fa-lightbulb text-warning"></i>
+                            Bestandsanlage
+                        </div>
+                        <div class="col">
+                            {% if step > 2 %}
+                                <i class="fas fa-check text-success"></i>
+                            {% else %}
+                                <i class="fas fa-circle"></i>
+                            {% endif %}
+                            LED-Anlage
+                        </div>
+                        <div class="col">
+                            {% if step > 3 %}
+                                <i class="fas fa-check text-success"></i>
+                            {% else %}
+                                <i class="fas fa-circle"></i>
+                            {% endif %}
+                            LMS
+                        </div>
+                        <div class="col">
+                            {% if step > 4 %}
+                                <i class="fas fa-check text-success"></i>
+                            {% else %}
+                                <i class="fas fa-circle"></i>
+                            {% endif %}
+                            Ergebnisse
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Box -->
+            <div class="card mt-4 border-info">
+                <div class="card-body">
+                    <h6 class="text-info"><i class="fas fa-info-circle me-2"></i>Hinweis zu Bestandsanlagen</h6>
+                    <p class="mb-0 text-muted">
+                        Geben Sie möglichst genaue Werte ein, um eine präzise Vergleichsberechnung zu erhalten.
+                        Bei unbekannten Wartungskosten können Sie Erfahrungswerte oder Herstellerangaben verwenden.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Automatische Berechnung des Jahresverbrauchs
+    const leistungInput = document.querySelector('#{{ form.alt_leistung.id_for_label }}');
+    const anzahlInput = document.querySelector('#{{ form.alt_anzahl.id_for_label }}');
+    const stundenInput = document.querySelector('#{{ form.alt_stunden_pro_tag.id_for_label }}');
+    const tageInput = document.querySelector('#{{ form.alt_tage_pro_jahr.id_for_label }}');
+
+    function calculateConsumption() {
+        if (leistungInput && anzahlInput && stundenInput && tageInput) {
+            const leistung = parseFloat(leistungInput.value) || 0;
+            const anzahl = parseFloat(anzahlInput.value) || 0;
+            const stunden = parseFloat(stundenInput.value) || 0;
+            const tage = parseFloat(tageInput.value) || 0;
+
+            const verbrauch = (leistung * anzahl * stunden * tage) / 1000; // kWh/Jahr
+
+            // Show preview if all values are present
+            if (leistung > 0 && anzahl > 0 && stunden > 0 && tage > 0) {
+                showConsumptionPreview(verbrauch);
+            }
+        }
+    }
+
+    function showConsumptionPreview(verbrauch) {
+        // Remove existing preview
+        const existingPreview = document.querySelector('#consumption-preview');
+        if (existingPreview) {
+            existingPreview.remove();
+        }
+
+        // Create preview element
+        const preview = document.createElement('div');
+        preview.id = 'consumption-preview';
+        preview.className = 'card border-light shadow-sm mt-3';
+        preview.innerHTML = `
+            <div class="card-body py-2">
+                <small class="text-muted">
+                    <i class="fas fa-calculator me-1"></i>
+                    <strong>Vorschau:</strong>
+                    Geschätzter Jahresverbrauch: <strong>${verbrauch.toLocaleString('de-DE', {maximumFractionDigits: 0})} kWh</strong>
+                </small>
+            </div>
+        `;
+
+        // Insert after the last form row
+        const lastRow = document.querySelector('.row:last-of-type');
+        if (lastRow && lastRow.parentNode) {
+            lastRow.parentNode.insertBefore(preview, lastRow.nextSibling);
+        }
+    }
+
+    // Add event listeners
+    if (leistungInput) leistungInput.addEventListener('input', calculateConsumption);
+    if (anzahlInput) anzahlInput.addEventListener('input', calculateConsumption);
+    if (stundenInput) stundenInput.addEventListener('input', calculateConsumption);
+    if (tageInput) tageInput.addEventListener('input', calculateConsumption);
+
+    // Initial calculation
+    calculateConsumption();
+});
+</script>
+{% endblock %}

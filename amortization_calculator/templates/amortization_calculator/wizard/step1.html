@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+{% load form_extras %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center mb-4">
+        <div class="col-lg-10">
+            <div class="card border-0 shadow-sm bg-light">
+                <div class="card-body py-4 px-4 px-lg-5">
+                    <div class="row align-items-center">
+                        <div class="col-lg-8">
+                            <h2 class="fw-bold text-primary mb-3">Willkommen im Wirtschaftlichkeitsrechner</h2>
+                            <p class="mb-3 text-muted">
+                                Bewerten Sie in wenigen Schritten die Umstellung auf moderne LED-Beleuchtung und ein smartes Lichtmanagement.
+                                Der Assistent begleitet Sie von den Stammdaten bis zu Energie-, Kosten- und CO<sub>2</sub>-Einsparungen.
+                            </p>
+                            <ul class="list-inline small text-muted mb-0">
+                                <li class="list-inline-item me-3"><i class="fas fa-bolt text-warning me-1"></i>Energieverbrauch vergleichen</li>
+                                <li class="list-inline-item me-3"><i class="fas fa-chart-line text-success me-1"></i>Amortisation & Einsparungen sehen</li>
+                                <li class="list-inline-item"><i class="fas fa-leaf text-primary me-1"></i>Emissionen transparent darstellen</li>
+                            </ul>
+                        </div>
+                        <div class="col-lg-4 text-lg-end mt-4 mt-lg-0">
+                            <a href="#project-form" class="btn btn-primary btn-lg shadow-sm">
+                                Neues Projekt starten
+                                <i class="fas fa-arrow-right ms-2"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            {% if project_list %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-folder-open me-2 text-primary"></i>Meine Projekte</h5>
+                        <span class="badge bg-primary-subtle text-primary">{{ project_list|length }} aktiv{% if project_list|length != 1 %}e{% endif %}</span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Projekt</th>
+                                    <th>Unternehmen</th>
+                                    <th class="text-center">Letzte Aktualisierung</th>
+                                    <th class="text-end">Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for project in project_list %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ project.projektname }}</strong>
+                                        <div class="small text-muted">{{ project.get_anlagen_typ_display }}</div>
+                                    </td>
+                                    <td>{{ project.firmenname }}</td>
+                                    <td class="text-center small text-muted">{{ project.updated_at|date:"d.m.Y H:i" }}</td>
+                                    <td class="text-end">
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{% url 'amortization_calculator:wizard_results' project.id %}" class="btn btn-outline-primary" title="Ergebnisse anzeigen">
+                                                <i class="fas fa-chart-line"></i>
+                                            </a>
+                                            <a href="{% url 'amortization_calculator:wizard_step2' project.id %}" class="btn btn-outline-secondary" title="Projekt bearbeiten">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="row justify-content-center">
+        <div class="col-lg-8" id="project-form">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h4 class="mb-0">
+                                <i class="fas fa-calculator me-2"></i>
+                                Wirtschaftlichkeitsrechner
+                            </h4>
+                        </div>
+                        <div class="col-auto">
+                            <span class="badge bg-light text-dark">
+                                Schritt {{ step }} von {{ total_steps }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <!-- Progress Bar -->
+                    <div class="progress mb-4" style="height: 6px;">
+                        <div class="progress-bar bg-success" role="progressbar"
+                             style="width: {% widthratio step total_steps 100 %}%"></div>
+                    </div>
+
+                    <h5 class="card-title">{{ page_title }}</h5>
+                    <p class="text-muted mb-4">
+                        Geben Sie die grundlegenden Projektdaten für Ihre Wirtschaftlichkeitsberechnung ein.
+                    </p>
+
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.firmenname.id_for_label }}">
+                                    {{ form.firmenname.label }}
+                                </label>
+                                {{ form.firmenname|add_class:"form-control" }}
+                                {% if form.firmenname.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.firmenname.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.projektname.id_for_label }}">
+                                    {{ form.projektname.label }}
+                                </label>
+                                {{ form.projektname|add_class:"form-control" }}
+                                {% if form.projektname.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.projektname.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.strompreis.id_for_label }}">
+                                    {{ form.strompreis.label }}
+                                </label>
+                                {{ form.strompreis|add_class:"form-control" }}
+                                <div class="form-text">{{ form.strompreis.help_text }}</div>
+                                {% if form.strompreis.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.strompreis.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.anlagen_typ.id_for_label }}">
+                                    {{ form.anlagen_typ.label }}
+                                </label>
+                                {{ form.anlagen_typ|add_class:"form-control" }}
+                                {% if form.anlagen_typ.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.anlagen_typ.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <h6 class="text-muted mb-3">Kontaktdaten (Optional)</h6>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label" for="{{ form.kontakt_name.id_for_label }}">
+                                    {{ form.kontakt_name.label }}
+                                </label>
+                                {{ form.kontakt_name|add_class:"form-control" }}
+                                {% if form.kontakt_name.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.kontakt_name.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label" for="{{ form.kontakt_email.id_for_label }}">
+                                    {{ form.kontakt_email.label }}
+                                </label>
+                                {{ form.kontakt_email|add_class:"form-control" }}
+                                {% if form.kontakt_email.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.kontakt_email.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label" for="{{ form.kontakt_telefon.id_for_label }}">
+                                    {{ form.kontakt_telefon.label }}
+                                </label>
+                                {{ form.kontakt_telefon|add_class:"form-control" }}
+                                {% if form.kontakt_telefon.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.kontakt_telefon.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <div class="mb-4">
+                            <div class="form-check">
+                                {{ form.neue_anlage_vorhanden }}
+                                <label class="form-check-label ms-2" for="{{ form.neue_anlage_vorhanden.id_for_label }}">
+                                    {{ form.neue_anlage_vorhanden.label }}
+                                </label>
+                                <small class="form-text text-muted d-block mt-1">
+                                    {{ form.neue_anlage_vorhanden.help_text }}
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <div></div> <!-- Leerer Platz für Back-Button in späteren Schritten -->
+                            <button type="submit" class="btn btn-primary">
+                                Weiter <i class="fas fa-arrow-right ms-1"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="card-footer bg-light">
+                    <div class="row text-center text-muted small">
+                        <div class="col">
+                            <i class="fas fa-lightbulb text-warning"></i>
+                            Projektdaten
+                        </div>
+                        <div class="col">
+                            {% if step > 1 %}
+                                <i class="fas fa-check text-success"></i>
+                            {% else %}
+                                <i class="fas fa-circle"></i>
+                            {% endif %}
+                            Bestandsanlage
+                        </div>
+                        <div class="col">
+                            {% if step > 2 %}
+                                <i class="fas fa-check text-success"></i>
+                            {% else %}
+                                <i class="fas fa-circle"></i>
+                            {% endif %}
+                            LED-Anlage
+                        </div>
+                        <div class="col">
+                            {% if step > 3 %}
+                                <i class="fas fa-check text-success"></i>
+                            {% else %}
+                                <i class="fas fa-circle"></i>
+                            {% endif %}
+                            LIMAS
+                        </div>
+                        <div class="col">
+                            {% if step > 4 %}
+                                <i class="fas fa-check text-success"></i>
+                            {% else %}
+                                <i class="fas fa-circle"></i>
+                            {% endif %}
+                            Ergebnisse
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Box -->
+            <div class="card mt-4 border-info">
+                <div class="card-body">
+                    <h6 class="text-info"><i class="fas fa-info-circle me-2"></i>Über diesen Rechner</h6>
+                    <p class="mb-0 text-muted">
+                        Dieser Rechner hilft Ihnen dabei, die Wirtschaftlichkeit von LED-Beleuchtungssystemen
+                        mit Lichtmanagement zu bewerten. Sie erhalten eine detaillierte Analyse der Amortisation,
+                        Energieeinsparungen und CO₂-Reduzierung.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle Bestandsanlage Hinweis
+    const bestandsanlageCheckbox = document.getElementById('{{ form.neue_anlage_vorhanden.id_for_label }}');
+
+    if (bestandsanlageCheckbox) {
+        const updateHint = () => {
+            const isChecked = bestandsanlageCheckbox.checked;
+            const hint = isChecked ?
+                'Im nächsten Schritt werden Sie nach den Daten Ihrer Bestandsanlage gefragt.' :
+                'Sie gehen direkt zur Konfiguration der neuen LED-Anlage.';
+
+            // Update hint text if element exists
+            const hintElement = document.querySelector('#bestandsanlage-hint');
+            if (hintElement) {
+                hintElement.textContent = hint;
+            }
+        };
+
+        bestandsanlageCheckbox.addEventListener('change', updateHint);
+        updateHint(); // Initial call
+    }
+});
+</script>
+{% endblock %}
