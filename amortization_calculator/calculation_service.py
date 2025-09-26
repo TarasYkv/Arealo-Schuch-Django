@@ -394,10 +394,15 @@ class LightingCalculationService:
         for pollutant, factor in self.EMISSION_FACTORS.items():
             factor_kwh = factor / 1000 if pollutant == 'co2' else factor / 1000000
 
+            # Sichere Werte für die Berechnung (None wird zu 0 für Multiplikation)
+            alt_verbrauch = self.calc.verbrauch_alt_kwh_jahr if self.calc.verbrauch_alt_kwh_jahr is not None else 0
+            neu_ohne_verbrauch = self.calc.verbrauch_neu_ohne_lms_kwh_jahr if self.calc.verbrauch_neu_ohne_lms_kwh_jahr is not None else 0
+            neu_mit_verbrauch = self.calc.verbrauch_neu_mit_lms_kwh_jahr if self.calc.verbrauch_neu_mit_lms_kwh_jahr is not None else 0
+
             emissions[pollutant] = {
-                'alt': self.calc.verbrauch_alt_kwh_jahr * factor_kwh if self.calc.neue_anlage_vorhanden else 0,
-                'neu_ohne_lms': self.calc.verbrauch_neu_ohne_lms_kwh_jahr * factor_kwh,
-                'neu_mit_lms': self.calc.verbrauch_neu_mit_lms_kwh_jahr * factor_kwh if self.calc.lms_aktiviert else self.calc.verbrauch_neu_ohne_lms_kwh_jahr * factor_kwh,
+                'alt': alt_verbrauch * factor_kwh if self.calc.neue_anlage_vorhanden else 0,
+                'neu_ohne_lms': neu_ohne_verbrauch * factor_kwh,
+                'neu_mit_lms': neu_mit_verbrauch * factor_kwh if self.calc.lms_aktiviert else neu_ohne_verbrauch * factor_kwh,
                 'einheit': 'kg/Jahr' if pollutant in ['co2', 'so2', 'nox'] else 'g/Jahr'
             }
 
