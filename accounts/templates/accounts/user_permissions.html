@@ -32,6 +32,7 @@
                                 <tr>
                                     <th>Benutzer</th>
                                     <th>Online Status</th>
+                                    <th>E-Mail bestätigt</th>
                                     <th>Superuser</th>
                                     <th>Audioanrufe tätigen</th>
                                     <th>Videoanrufe tätigen</th>
@@ -70,6 +71,17 @@
                                             {% else %}
                                                 <span class="badge bg-secondary">
                                                     <i class="fas fa-circle"></i> Offline
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if user.email_verified %}
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-check-circle"></i> Bestätigt
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-warning">
+                                                    <i class="fas fa-exclamation-circle"></i> Unbestätigt
                                                 </span>
                                             {% endif %}
                                         </td>
@@ -130,11 +142,23 @@
                                         </td>
                                         <td>
                                             <div class="btn-group" role="group">
-                                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                <button type="button" class="btn btn-sm btn-outline-danger"
                                                         onclick="showPasswordModal({{ user.id }}, '{{ user.username|escapejs }}')"
                                                         title="Passwort ändern">
                                                     <i class="fas fa-key"></i>
                                                 </button>
+
+                                                {% if not user.email_verified %}
+                                                <form method="post" class="d-inline">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="user_id" value="{{ user.id }}">
+                                                    <input type="hidden" name="action" value="confirm_email">
+                                                    <button type="submit" class="btn btn-sm btn-outline-success"
+                                                            title="E-Mail bestätigen">
+                                                        <i class="fas fa-envelope-check"></i>
+                                                    </button>
+                                                </form>
+                                                {% endif %}
                                                 
                                                 <form method="post" class="d-inline">
                                                     {% csrf_token %}
