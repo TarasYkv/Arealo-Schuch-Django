@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+{% load form_extras %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h4 class="mb-0">
+                                <i class="fas fa-calculator me-2"></i>
+                                Wirtschaftlichkeitsrechner
+                            </h4>
+                        </div>
+                        <div class="col-auto">
+                            <span class="badge bg-light text-dark">
+                                Schritt {{ step }} von {{ total_steps }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <!-- Progress Bar -->
+                    <div class="progress mb-4" style="height: 6px;">
+                        <div class="progress-bar bg-success" role="progressbar"
+                             style="width: {% widthratio step total_steps 100 %}%"></div>
+                    </div>
+
+                    <h5 class="card-title">{{ page_title }}</h5>
+                    <p class="text-muted mb-4">
+                        Konfigurieren Sie die neue LED-Beleuchtungsanlage für die Wirtschaftlichkeitsberechnung.
+                    </p>
+
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+
+                        <!-- Hersteller und Modell -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.neu_hersteller.id_for_label }}">
+                                    <i class="fas fa-industry me-1"></i>
+                                    {{ form.neu_hersteller.label }}
+                                </label>
+                                {{ form.neu_hersteller|add_class:"form-control" }}
+                                {% if form.neu_hersteller.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.neu_hersteller.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.neu_modell.id_for_label }}">
+                                    <i class="fas fa-tag me-1"></i>
+                                    {{ form.neu_modell.label }}
+                                </label>
+                                {{ form.neu_modell|add_class:"form-control" }}
+                                {% if form.neu_modell.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.neu_modell.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Technische Daten -->
+                        <h6 class="text-muted mb-3 mt-4">
+                            <i class="fas fa-led text-success me-2"></i>LED-Technische Daten
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.neu_leistung.id_for_label }}">
+                                    {{ form.neu_leistung.label }}
+                                </label>
+                                <div class="input-group">
+                                    {{ form.neu_leistung|add_class:"form-control" }}
+                                    <span class="input-group-text">W</span>
+                                </div>
+                                <div class="form-text">{{ form.neu_leistung.help_text }}</div>
+                                {% if form.neu_leistung.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.neu_leistung.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.neu_anzahl.id_for_label }}">
+                                    {{ form.neu_anzahl.label }}
+                                </label>
+                                <div class="input-group">
+                                    {{ form.neu_anzahl|add_class:"form-control" }}
+                                    <span class="input-group-text">Stück</span>
+                                </div>
+                                {% if form.neu_anzahl.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.neu_anzahl.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Betriebszeiten -->
+                        <h6 class="text-muted mb-3 mt-4">
+                            <i class="fas fa-clock me-2"></i>Betriebszeiten
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.neu_stunden_pro_tag.id_for_label }}">
+                                    {{ form.neu_stunden_pro_tag.label }}
+                                </label>
+                                <div class="input-group">
+                                    {{ form.neu_stunden_pro_tag|add_class:"form-control" }}
+                                    <span class="input-group-text">h/Tag</span>
+                                </div>
+                                {% if form.neu_stunden_pro_tag.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.neu_stunden_pro_tag.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.neu_tage_pro_jahr.id_for_label }}">
+                                    {{ form.neu_tage_pro_jahr.label }}
+                                </label>
+                                <div class="input-group">
+                                    {{ form.neu_tage_pro_jahr|add_class:"form-control" }}
+                                    <span class="input-group-text">Tage/Jahr</span>
+                                </div>
+                                {% if form.neu_tage_pro_jahr.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.neu_tage_pro_jahr.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Investitionskosten -->
+                        <h6 class="text-muted mb-3 mt-4">
+                            <i class="fas fa-euro-sign me-2"></i>Investitionskosten
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.neu_anschaffungskosten_pro_stueck.id_for_label }}">
+                                    {{ form.neu_anschaffungskosten_pro_stueck.label }}
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text">€</span>
+                                    {{ form.neu_anschaffungskosten_pro_stueck|add_class:"form-control" }}
+                                    <span class="input-group-text">/Stück</span>
+                                </div>
+                                <div class="form-text">{{ form.neu_anschaffungskosten_pro_stueck.help_text }}</div>
+                                {% if form.neu_anschaffungskosten_pro_stueck.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.neu_anschaffungskosten_pro_stueck.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.neu_installationskosten.id_for_label }}">
+                                    {{ form.neu_installationskosten.label }}
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text">€</span>
+                                    {{ form.neu_installationskosten|add_class:"form-control" }}
+                                </div>
+                                <div class="form-text">{{ form.neu_installationskosten.help_text }}</div>
+                                {% if form.neu_installationskosten.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.neu_installationskosten.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Laufende Kosten -->
+                        <h6 class="text-muted mb-3 mt-4">
+                            <i class="fas fa-chart-line me-2"></i>Laufende Kosten
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.neu_wartungskosten.id_for_label }}">
+                                    {{ form.neu_wartungskosten.label }}
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text">€</span>
+                                    {{ form.neu_wartungskosten|add_class:"form-control" }}
+                                    <span class="input-group-text">/Jahr</span>
+                                </div>
+                                <div class="form-text">{{ form.neu_wartungskosten.help_text }}</div>
+                                {% if form.neu_wartungskosten.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.neu_wartungskosten.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="{{ form.neu_laufende_kosten.id_for_label }}">
+                                    {{ form.neu_laufende_kosten.label }}
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text">€</span>
+                                    {{ form.neu_laufende_kosten|add_class:"form-control" }}
+                                    <span class="input-group-text">/Jahr</span>
+                                </div>
+                                <div class="form-text">{{ form.neu_laufende_kosten.help_text }}</div>
+                                {% if form.neu_laufende_kosten.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {{ form.neu_laufende_kosten.errors|join:", " }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Navigation -->
+                        <div class="d-flex justify-content-between mt-4">
+                            {% if calculation.neue_anlage_vorhanden %}
+                                <a href="{% url 'amortization_calculator:wizard_step2' calc_id=calculation.id %}"
+                                   class="btn btn-outline-secondary">
+                                    <i class="fas fa-arrow-left me-1"></i> Zurück
+                                </a>
+                            {% else %}
+                                <a href="{% url 'amortization_calculator:wizard_step1_edit' calc_id=calculation.id %}"
+                                   class="btn btn-outline-secondary">
+                                    <i class="fas fa-arrow-left me-1"></i> Zurück
+                                </a>
+                            {% endif %}
+                            <button type="submit" class="btn btn-primary">
+                                Weiter zu LMS <i class="fas fa-arrow-right ms-1"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Progress Footer -->
+                <div class="card-footer bg-light">
+                    <div class="row text-center text-muted small">
+                        <div class="col">
+                            <i class="fas fa-check text-success"></i>
+                            Projektdaten
+                        </div>
+                        <div class="col">
+                            {% if calculation.neue_anlage_vorhanden %}
+                                <i class="fas fa-check text-success"></i>
+                            {% else %}
+                                <i class="fas fa-minus text-muted"></i>
+                            {% endif %}
+                            Bestandsanlage
+                        </div>
+                        <div class="col">
+                            <i class="fas fa-lightbulb text-warning"></i>
+                            LED-Anlage
+                        </div>
+                        <div class="col">
+                            {% if step > 3 %}
+                                <i class="fas fa-check text-success"></i>
+                            {% else %}
+                                <i class="fas fa-circle"></i>
+                            {% endif %}
+                            LMS
+                        </div>
+                        <div class="col">
+                            {% if step > 4 %}
+                                <i class="fas fa-check text-success"></i>
+                            {% else %}
+                                <i class="fas fa-circle"></i>
+                            {% endif %}
+                            Ergebnisse
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Boxes -->
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="card border-success">
+                        <div class="card-body">
+                            <h6 class="text-success"><i class="fas fa-leaf me-2"></i>LED-Vorteile</h6>
+                            <ul class="mb-0 small text-muted">
+                                <li>Bis zu 80% weniger Energieverbrauch</li>
+                                <li>Längere Lebensdauer (bis 50.000h)</li>
+                                <li>Geringere Wartungskosten</li>
+                                <li>Bessere Lichtqualität</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border-info">
+                        <div class="card-body">
+                            <h6 class="text-info"><i class="fas fa-calculator me-2"></i>Berechnungshinweis</h6>
+                            <p class="mb-0 small text-muted">
+                                Die Gesamtinvestition setzt sich zusammen aus:
+                                Anzahl × Preis pro Leuchte + Installationskosten
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Automatische Berechnung von Verbrauch und Investitionskosten
+    const leistungInput = document.querySelector('#{{ form.neu_leistung.id_for_label }}');
+    const anzahlInput = document.querySelector('#{{ form.neu_anzahl.id_for_label }}');
+    const stundenInput = document.querySelector('#{{ form.neu_stunden_pro_tag.id_for_label }}');
+    const tageInput = document.querySelector('#{{ form.neu_tage_pro_jahr.id_for_label }}');
+    const preisInput = document.querySelector('#{{ form.neu_anschaffungskosten_pro_stueck.id_for_label }}');
+    const installationInput = document.querySelector('#{{ form.neu_installationskosten.id_for_label }}');
+
+    function updateCalculations() {
+        const leistung = parseFloat(leistungInput.value) || 0;
+        const anzahl = parseFloat(anzahlInput.value) || 0;
+        const stunden = parseFloat(stundenInput.value) || 0;
+        const tage = parseFloat(tageInput.value) || 0;
+        const preis = parseFloat(preisInput.value) || 0;
+        const installation = parseFloat(installationInput.value) || 0;
+
+        // Verbrauch berechnen
+        const verbrauch = (leistung * anzahl * stunden * tage) / 1000; // kWh/Jahr
+
+        // Investitionskosten berechnen
+        const gesamtinvestition = (anzahl * preis) + installation;
+
+        // Remove existing preview
+        const existingPreview = document.querySelector('#calculations-preview');
+        if (existingPreview) {
+            existingPreview.remove();
+        }
+
+        // Show preview if relevant values are present
+        if ((verbrauch > 0) || (gesamtinvestition > 0)) {
+            showCalculationsPreview(verbrauch, gesamtinvestition, anzahl, preis);
+        }
+    }
+
+    function showCalculationsPreview(verbrauch, gesamtinvestition, anzahl, preis) {
+        const preview = document.createElement('div');
+        preview.id = 'calculations-preview';
+        preview.className = 'card border-light shadow-sm mt-3';
+
+        let content = '<div class="card-body py-2"><small class="text-muted"><i class="fas fa-calculator me-1"></i><strong>Berechnungsvorschau:</strong><br>';
+
+        if (verbrauch > 0) {
+            content += `📊 Geschätzter Jahresverbrauch: <strong>${verbrauch.toLocaleString('de-DE', {maximumFractionDigits: 0})} kWh</strong><br>`;
+        }
+
+        if (gesamtinvestition > 0) {
+            content += `💰 Gesamtinvestition: <strong>${gesamtinvestition.toLocaleString('de-DE', {maximumFractionDigits: 0})} €</strong>`;
+            if (anzahl > 0 && preis > 0) {
+                content += ` (${anzahl} × ${preis.toLocaleString('de-DE')} € + Installation)`;
+            }
+        }
+
+        content += '</small></div>';
+        preview.innerHTML = content;
+
+        // Insert after the form
+        const form = document.querySelector('form');
+        if (form && form.parentNode) {
+            form.parentNode.insertBefore(preview, form.nextSibling);
+        }
+    }
+
+    // Add event listeners
+    [leistungInput, anzahlInput, stundenInput, tageInput, preisInput, installationInput].forEach(input => {
+        if (input) {
+            input.addEventListener('input', updateCalculations);
+        }
+    });
+
+    // Initial calculation
+    updateCalculations();
+});
+</script>
+{% endblock %}

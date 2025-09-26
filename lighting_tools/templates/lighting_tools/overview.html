@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+{% load app_permissions %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-5">
+    <!-- Header Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="hero-section position-relative overflow-hidden rounded-4 shadow-lg mb-5">
+                <div class="hero-background position-absolute w-100 h-100"
+                     style="background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #667eea 100%); opacity: 0.95;"></div>
+                <div class="hero-content position-relative text-white p-5">
+                    <div class="row align-items-center">
+                        <div class="col-lg-8">
+                            <h1 class="display-4 fw-bold mb-4">
+                                <i class="fas fa-lightbulb me-3" style="color: #ffd700;"></i>
+                                Beleuchtungs-Tools
+                            </h1>
+                            <p class="lead fs-5 mb-4" style="line-height: 1.6;">
+                                Professionelle Werkzeuge für die moderne Beleuchtungsindustrie. Von der Wirtschaftlichkeitsberechnung
+                                bis zur normenkonformen Planung – alle Tools für erfolgreiche Beleuchtungsprojekte an einem Ort.
+                            </p>
+                            <div class="d-flex flex-wrap gap-3">
+                                <div class="feature-badge bg-white bg-opacity-90 rounded-pill px-3 py-2" style="backdrop-filter: blur(10px);">
+                                    <i class="fas fa-check-circle me-2 text-success"></i>
+                                    <small class="fw-semibold text-dark">Normenkonform</small>
+                                </div>
+                                <div class="feature-badge bg-white bg-opacity-90 rounded-pill px-3 py-2" style="backdrop-filter: blur(10px);">
+                                    <i class="fas fa-chart-line me-2 text-success"></i>
+                                    <small class="fw-semibold text-dark">ROI-Optimiert</small>
+                                </div>
+                                <div class="feature-badge bg-white bg-opacity-90 rounded-pill px-3 py-2" style="backdrop-filter: blur(10px);">
+                                    <i class="fas fa-cog me-2 text-success"></i>
+                                    <small class="fw-semibold text-dark">Professionell</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4 text-center">
+                            <div class="hero-icon-container d-inline-block position-relative">
+                                <div class="hero-icon-bg position-absolute w-100 h-100 bg-white opacity-10 rounded-circle"></div>
+                                <i class="fas fa-industry position-relative" style="font-size: 8rem; opacity: 0.8;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tools Grid -->
+    <div class="row g-4">
+        {% for tool in tools %}
+            {% if not tool.permission or user|can_see_app_in_frontend:tool.permission %}
+            <div class="col-xl-4 col-lg-6 col-md-6">
+                <div class="tool-card h-100 card border-0 shadow-sm position-relative overflow-hidden {% if tool.status == 'development' %}opacity-75{% endif %}"
+                     style="transition: all 0.3s ease; border-radius: 20px; {% if tool.status == 'development' %}cursor: not-allowed;{% endif %}">
+
+                    <!-- Card Header with Gradient -->
+                    <div class="card-header border-0 text-white position-relative"
+                         style="background: linear-gradient(135deg,
+                         {% if tool.color == 'primary' %}#667eea, #764ba2
+                         {% elif tool.color == 'warning' %}#f093fb, #f5576c
+                         {% elif tool.color == 'success' %}#4facfe, #00f2fe
+                         {% elif tool.color == 'info' %}#43e97b, #38f9d7
+                         {% elif tool.color == 'secondary' %}#667eea, #764ba2
+                         {% elif tool.color == 'danger' %}#fa709a, #fee140
+                         {% else %}#667eea, #764ba2{% endif %});
+                         border-radius: 20px 20px 0 0; min-height: 120px; display: flex; align-items: center;">
+
+                        <div class="row w-100 align-items-center">
+                            <div class="col-8">
+                                <h5 class="card-title mb-0 fw-bold">{{ tool.name }}</h5>
+                                <!-- Status Badge -->
+                                <div class="mt-2">
+                                    {% if tool.status == 'available' %}
+                                        <span class="badge bg-success bg-opacity-80 text-white">
+                                            <i class="fas fa-check-circle me-1"></i>{{ tool.status_text }}
+                                        </span>
+                                    {% elif tool.status == 'beta' %}
+                                        <span class="badge bg-warning bg-opacity-80 text-dark">
+                                            <i class="fas fa-flask me-1"></i>{{ tool.status_text }}
+                                        </span>
+                                    {% elif tool.status == 'development' %}
+                                        <span class="badge bg-info bg-opacity-80 text-white">
+                                            <i class="fas fa-code me-1"></i>{{ tool.status_text }}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary bg-opacity-80 text-white">
+                                            <i class="fas fa-question-circle me-1"></i>Status unbekannt
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-4 text-end">
+                                <div class="tool-icon-container">
+                                    <i class="{{ tool.icon }}" style="font-size: 2.5rem; opacity: 0.8;"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Decorative Elements -->
+                        <div class="position-absolute" style="top: 10px; right: 10px; opacity: 0.1;">
+                            <i class="fas fa-circle" style="font-size: 3rem;"></i>
+                        </div>
+                        <div class="position-absolute" style="bottom: 10px; left: 10px; opacity: 0.1;">
+                            <i class="fas fa-square" style="font-size: 1.5rem;"></i>
+                        </div>
+                    </div>
+
+                    <!-- Card Body -->
+                    <div class="card-body p-4">
+                        <p class="text-muted mb-4" style="line-height: 1.6;">
+                            {{ tool.description }}
+                        </p>
+
+                        <!-- Features -->
+                        <div class="mb-4">
+                            <h6 class="text-muted fw-semibold mb-3">
+                                <i class="fas fa-star me-2 text-warning"></i>Hauptfunktionen:
+                            </h6>
+                            <div class="row g-2">
+                                {% for feature in tool.features %}
+                                <div class="col-6">
+                                    <div class="feature-item d-flex align-items-center">
+                                        <i class="fas fa-check-circle me-2 text-success" style="font-size: 0.8rem;"></i>
+                                        <small class="text-muted">{{ feature }}</small>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Action Button -->
+                        <div class="d-grid">
+                            {% if tool.status == 'development' %}
+                                <button class="btn btn-secondary btn-lg rounded-3 fw-semibold shadow-sm"
+                                        disabled style="cursor: not-allowed;">
+                                    <i class="fas fa-lock me-2"></i>In Entwicklung
+                                </button>
+                            {% else %}
+                                <a href="{% url tool.url %}"
+                                   class="btn btn-{{ tool.color }} btn-lg rounded-3 fw-semibold shadow-sm"
+                                   style="transition: all 0.3s ease;">
+                                    <i class="fas fa-arrow-right me-2"></i>Tool öffnen
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Hover Effect Overlay -->
+                    <div class="position-absolute top-0 start-0 w-100 h-100 hover-overlay"
+                         style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+                         opacity: 0; transition: opacity 0.3s ease; border-radius: 20px; pointer-events: none;"></div>
+                </div>
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    <!-- Bottom Info Section -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="info-section bg-light rounded-4 p-5 shadow-sm">
+                <div class="row align-items-center">
+                    <div class="col-lg-8">
+                        <h3 class="fw-bold text-dark mb-3">
+                            <i class="fas fa-info-circle me-2 text-primary"></i>
+                            Über unsere Beleuchtungs-Tools
+                        </h3>
+                        <p class="text-muted mb-3" style="line-height: 1.7;">
+                            Unsere professionellen Tools unterstützen Sie bei allen Aspekten der modernen Beleuchtungsplanung.
+                            Von der ersten Wirtschaftlichkeitsanalyse über die technische Planung bis hin zur normenkonformen
+                            Umsetzung – wir bieten Ihnen die komplette Toolchain für erfolgreiche Beleuchtungsprojekte.
+                        </p>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="stat-item text-center">
+                                    <div class="stat-number h4 text-primary fw-bold mb-1">6+</div>
+                                    <div class="stat-label small text-muted">Spezialisierte Tools</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="stat-item text-center">
+                                    <div class="stat-number h4 text-success fw-bold mb-1">DIN</div>
+                                    <div class="stat-label small text-muted">Normenkonform</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="stat-item text-center">
+                                    <div class="stat-number h4 text-warning fw-bold mb-1">24/7</div>
+                                    <div class="stat-label small text-muted">Verfügbar</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 text-center">
+                        <div class="info-icon-container d-inline-block">
+                            <i class="fas fa-tools text-primary" style="font-size: 6rem; opacity: 0.1;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Styles -->
+<style>
+.tool-card:hover:not(.opacity-75) {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1) !important;
+}
+
+.tool-card:hover:not(.opacity-75) .hover-overlay {
+    opacity: 1;
+}
+
+.tool-card .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.hero-section {
+    min-height: 400px;
+}
+
+.feature-badge {
+    backdrop-filter: blur(10px);
+}
+
+.tool-icon-container {
+    animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+.hero-icon-container {
+    animation: rotate 20s linear infinite;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@media (max-width: 768px) {
+    .hero-section {
+        min-height: 300px;
+    }
+
+    .display-4 {
+        font-size: 2rem;
+    }
+
+    .tool-card .card-header {
+        min-height: 100px;
+    }
+}
+</style>
+{% endblock %}

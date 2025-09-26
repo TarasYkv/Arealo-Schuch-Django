@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     'encrypted_model_fields',
     'organization',
     'payments',
+    'lighting_tools',
     'mail_app',
     'email_templates',
     'somi_plan',

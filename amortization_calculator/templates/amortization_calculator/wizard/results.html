@@ -1,0 +1,975 @@
+{% extends "base.html" %}
+{% load form_extras %}
+{% load humanize %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-12">
+            <div class="card shadow-lg">
+                <div class="card-header bg-success text-white">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h4 class="mb-0">
+                                <i class="fas fa-chart-line me-2"></i>
+                                Wirtschaftlichkeitsberechnung - Ergebnisse
+                            </h4>
+                        </div>
+                        <div class="col-auto">
+                            <span class="badge bg-light text-dark">
+                                {{ calculation.projektname }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body">
+                    <!-- Validation Errors -->
+                    {% if validation_errors %}
+                        <div class="card border-warning">
+                            <div class="card-body">
+                                <h6 class="text-warning"><i class="fas fa-exclamation-triangle me-2"></i>Eingabehinweise</h6>
+                                <ul class="mb-0 text-muted">
+                                    {% for error in validation_errors %}
+                                        <li>{{ error }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Summary Cards -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-euro-sign fa-2x mb-2"></i>
+                                    <h6>Jährliche Ersparnis</h6>
+                                    <h4>{{ summary.ersparnis_gesamt|floatformat:0|default:"0" }} €</h4>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-calendar-alt fa-2x mb-2"></i>
+                                    <h6>Amortisationszeit</h6>
+                                    <h4>
+                                        {% if calculation.amortisation_gesamt_jahre > 0 %}
+                                            {{ calculation.amortisation_gesamt_jahre|floatformat:1 }} Jahre
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </h4>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-leaf fa-2x mb-2"></i>
+                                    <h6>CO₂-Einsparung</h6>
+                                    <h4>{{ calculation.co2_ersparnis_kg_jahr|floatformat:0|default:"0" }} kg/Jahr</h4>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-white h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-bolt fa-2x mb-2"></i>
+                                    <h6>Energieeinsparung</h6>
+                                    <h4 id="energyEinsparung">-</h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Charts -->
+                    <div class="row mb-4">
+                        <!-- Cost Comparison Chart -->
+                        <div class="col-lg-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header bg-primary text-white">
+                                    <h6 class="card-title mb-0">
+                                        <i class="fas fa-chart-bar me-2"></i>
+                                        Kostenvergleich (€/Jahr)
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="costComparisonChart" height="300"></canvas>
+                                </div>
+                            </div>
+        </div>
+
+        <!-- Amortization Chart -->
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                                <div class="card-header bg-info text-white">
+                                    <h6 class="card-title mb-0">
+                                        <i class="fas fa-clock me-2"></i>
+                                        Amortisationszeiten (Jahre)
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="amortizationChart" height="300"></canvas>
+                                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Savings Charts -->
+    <div class="row mb-4">
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-piggy-bank me-2"></i>
+                        Einsparung: Bestand vs. LED
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="savingsLedChart" height="220"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-hand-holding-usd me-2"></i>
+                        Einsparung: Bestand vs. LED + Lichtmanagement
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="savingsLightMgmtChart" height="220"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Environmental Impact Charts -->
+    <div class="row mb-4">
+        <!-- Energy Consumption Chart -->
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                                <div class="card-header bg-success text-white">
+                                    <h6 class="card-title mb-0">
+                                        <i class="fas fa-bolt me-2"></i>
+                                        Energieverbrauch (kWh/Jahr)
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="energyConsumptionChart" height="300"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CO2 Emissions Chart -->
+                        <div class="col-lg-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header bg-warning text-dark">
+                                    <h6 class="card-title mb-0">
+                                        <i class="fas fa-leaf me-2"></i>
+                                        CO₂-Emissionen (kg/Jahr)
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="co2EmissionsChart" height="300"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Results -->
+                    <div class="row">
+                        <!-- Verbrauch und Kosten -->
+                        <div class="col-lg-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-chart-bar me-2"></i>Verbrauch und Kosten
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th></th>
+                                                <th>Verbrauch (kWh/a)</th>
+                                                <th>Kosten (€/a)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% if calculation.neue_anlage_vorhanden %}
+                                            <tr>
+                                                <td><strong>Bestandsanlage</strong></td>
+                                                <td>{{ calculation.verbrauch_alt_kwh_jahr|floatformat:0|default:"-" }}</td>
+                                                <td>{{ calculation.kosten_alt_jahr|floatformat:0|default:"-" }} €</td>
+                                            </tr>
+                                            {% endif %}
+                                            <tr>
+                                                <td><strong>LED ohne Lichtmanagement</strong></td>
+                                                <td>{{ calculation.verbrauch_neu_ohne_limas_kwh_jahr|floatformat:0|default:"-" }}</td>
+                                                <td>{{ calculation.kosten_neu_ohne_limas_jahr|floatformat:0|default:"-" }} €</td>
+                                            </tr>
+                                            {% if calculation.limas_aktiviert %}
+                                            <tr class="table-success">
+                                                <td><strong>LED mit Lichtmanagement</strong></td>
+                                                <td>{{ calculation.verbrauch_neu_mit_limas_kwh_jahr|floatformat:0|default:"-" }}</td>
+                                                <td>{{ calculation.kosten_neu_mit_limas_jahr|floatformat:0|default:"-" }} €</td>
+                                            </tr>
+                                            {% endif %}
+                                        </tbody>
+                                    </table>
+
+                                    <div class="card border-success mt-3" id="savingsPercentage" style="display: none;">
+                                        <div class="card-body py-2">
+                                            <small class="text-success">
+                                                <i class="fas fa-percentage me-1"></i>
+                                                <strong id="savingsPercent">0%</strong> Kosteneinsparung
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Investition und Amortisation -->
+                        <div class="col-lg-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-coins me-2"></i>Investition und Amortisation
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table table-sm">
+                                        <tbody>
+                                            <tr>
+                                                <td>LED-Leuchten Investition</td>
+                                                <td class="text-end">{{ calculation.investitionskosten_gesamt|floatformat:0|default:"0" }} €</td>
+                                            </tr>
+                                            {% if calculation.limas_aktiviert %}
+                                            <tr>
+                                                <td>Investition Lichtmanagement</td>
+                                                <td class="text-end">{{ calculation.investitionskosten_limas|floatformat:0|default:"0" }} €</td>
+                                            </tr>
+                                            {% endif %}
+                                            <tr class="table-primary">
+                                                <td><strong>Gesamtinvestition</strong></td>
+                                                <td class="text-end">
+                                                    <strong>{{ calculation.investitionskosten_gesamt|add:calculation.investitionskosten_limas|floatformat:0|default:"0" }} €</strong>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+
+                                    <hr>
+
+                                    <div class="row">
+                                        {% if calculation.amortisation_neu_jahre != None %}
+                                        <div class="col-6">
+                                            <small class="text-muted">LED-Amortisation</small>
+                                            <div class="fw-bold">
+                                                {% if calculation.amortisation_neu_jahre > 0 %}
+                                                    {% if calculation.amortisation_neu_jahre < 1 %}
+                                                        {{ calculation.amortisation_neu_monate|floatformat:0 }} Monate
+                                                    {% else %}
+                                                        {{ calculation.amortisation_neu_jahre|floatformat:1 }} Jahre
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="text-muted">Nicht rentabel</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                        {% if calculation.amortisation_limas_jahre != None %}
+                                        <div class="col-6">
+                                            <small class="text-muted">Amortisation Lichtmanagement</small>
+                                            <div class="fw-bold text-success">
+                                                {% if calculation.amortisation_limas_jahre > 0 %}
+                                                    {% if calculation.amortisation_limas_jahre < 1 %}
+                                                        {{ calculation.amortisation_limas_monate|floatformat:0 }} Monate
+                                                    {% else %}
+                                                        {{ calculation.amortisation_limas_jahre|floatformat:1 }} Jahre
+                                                    {% endif %}
+                                                {% else %}
+                                                    <span class="text-muted">Nicht rentabel</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lichtmanagement Configuration Summary -->
+                    {% if calculation.limas_aktiviert %}
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-microchip me-2"></i>Lichtmanagement Konfiguration
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        {% if calculation.bewegungsmelder_aktiviert %}
+                                        <div class="col-md-4">
+                                            <div class="border p-3 rounded bg-light h-100">
+                                                <h6 class="text-success">
+                                                    <i class="fas fa-walking me-1"></i>Bewegungsmelder
+                                                </h6>
+                                                <ul class="list-unstyled small mb-0">
+                                                    <li>• {{ calculation.bewegungsmelder_anzahl }} Leuchten</li>
+                                                    <li>• {{ calculation.bewegungsmelder_abwesenheit_niveau }}% bei Abwesenheit</li>
+                                                    <li>• {{ calculation.bewegungsmelder_anwesenheit_niveau }}% bei Anwesenheit</li>
+                                                    <li>• {{ calculation.bewegungsmelder_frequentierung_stunden }}h {% if calculation.bewegungsmelder_frequentierung_minuten %}{{ calculation.bewegungsmelder_frequentierung_minuten }}min {% endif %}Frequentierung</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+
+                                        {% if calculation.tageslicht_aktiviert %}
+                                        <div class="col-md-4">
+                                            <div class="border p-3 rounded bg-light h-100">
+                                                <h6 class="text-warning">
+                                                    <i class="fas fa-sun me-1"></i>Tageslichtregelung
+                                                </h6>
+                                                <ul class="list-unstyled small mb-0">
+                                                    <li>• {{ calculation.tageslicht_anzahl }} Leuchten</li>
+                                                    <li>• {{ calculation.tageslicht_reduzierung_niveau }}% Reduzierung</li>
+                                                    <li>• {{ calculation.tageslicht_nutzung_stunden }}h {% if calculation.tageslicht_nutzung_minuten %}{{ calculation.tageslicht_nutzung_minuten }}min {% endif %}Tageslicht</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+
+                                        {% if calculation.kalender_aktiviert %}
+                                        <div class="col-md-4">
+                                            <div class="border p-3 rounded bg-light h-100">
+                                                <h6 class="text-info">
+                                                    <i class="fas fa-calendar-alt me-1"></i>Kalendersteuerung
+                                                </h6>
+                                                <ul class="list-unstyled small mb-0">
+                                                    <li>• {{ calculation.kalender_anzahl_ausschalttage }} Ausschalttage</li>
+                                                    <li>• Automatische Feiertags-Abschaltung</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- CO2 and Environmental Impact -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-leaf me-2"></i>Umweltauswirkungen
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row text-center">
+                                        <div class="col-md-3">
+                                            <div class="p-3">
+                                                <h5 class="text-muted">{{ calculation.co2_emission_alt_kg_jahr|floatformat:0|default:"0" }}</h5>
+                                                <small>CO₂ Bestand (kg/a)</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="p-3">
+                                                <h5 class="text-primary">{{ calculation.co2_emission_neu_ohne_limas_kg_jahr|floatformat:0|default:"0" }}</h5>
+                                                <small>CO₂ LED (kg/a)</small>
+                                            </div>
+                                        </div>
+                                        {% if calculation.limas_aktiviert %}
+                                        <div class="col-md-3">
+                                            <div class="p-3">
+                                                <h5 class="text-success">{{ calculation.co2_emission_neu_mit_limas_kg_jahr|floatformat:0|default:"0" }}</h5>
+                                                <small>CO₂ LED + Lichtmanagement (kg/a)</small>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                        <div class="col-md-3">
+                                            <div class="p-3 bg-success text-white rounded">
+                                                <h5><i class="fas fa-arrow-down me-1"></i>{{ calculation.co2_ersparnis_kg_jahr|floatformat:0|default:"0" }}</h5>
+                                                <small>CO₂ Einsparung (kg/a)</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="btn-group" role="group">
+                            <a href="{% url 'amortization_calculator:wizard_step4' calc_id=calculation.id %}"
+                               class="btn btn-outline-secondary">
+                                <i class="fas fa-edit me-1"></i> Bearbeiten
+                            </a>
+                            <a href="{% url 'amortization_calculator:calculation_duplicate' calc_id=calculation.id %}"
+                               class="btn btn-outline-primary">
+                                <i class="fas fa-copy me-1"></i> Duplizieren
+                            </a>
+                            <a href="{% url 'amortization_calculator:export_pdf' calc_id=calculation.id %}"
+                               class="btn btn-outline-success">
+                                <i class="fas fa-file-pdf me-1"></i> PDF Export
+                            </a>
+                            <a href="{% url 'amortization_calculator:export_detailed_pdf' calc_id=calculation.id %}"
+                               class="btn btn-outline-info">
+                                <i class="fas fa-book-open me-1"></i> PDF Berechnungsdetails
+                            </a>
+                        </div>
+                        <a href="{% url 'amortization_calculator:wizard_step1' %}"
+                           class="btn btn-primary btn-lg">
+                            <i class="fas fa-plus me-1"></i> Neue Berechnung
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Progress Footer -->
+                <div class="card-footer bg-success text-white">
+                    <div class="row text-center">
+                        <div class="col">
+                            <i class="fas fa-check-circle me-1"></i>
+                            <strong>Berechnung abgeschlossen</strong>
+                        </div>
+                        <div class="col-auto">
+                            <small>{{ calculation.created_at|date:"d.m.Y H:i" }} Uhr</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Project Summary Card -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Projektübersicht
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-sm table-borderless">
+                                <tr>
+                                    <td><strong>Projekt:</strong></td>
+                                    <td>{{ calculation.projektname }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Unternehmen:</strong></td>
+                                    <td>{{ calculation.firmenname }}</td>
+                                </tr>
+                                {% if calculation.kontakt_name %}
+                                <tr>
+                                    <td><strong>Ansprechpartner:</strong></td>
+                                    <td>{{ calculation.kontakt_name }}</td>
+                                </tr>
+                                {% endif %}
+                                <tr>
+                                    <td><strong>Strompreis:</strong></td>
+                                    <td>{{ calculation.strompreis }} €/kWh</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-sm table-borderless">
+                                <tr>
+                                    <td><strong>Anlagentyp:</strong></td>
+                                    <td>{{ calculation.get_anlagen_typ_display }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>LED-Leuchten:</strong></td>
+                                    <td>{{ calculation.neu_anzahl }} × {{ calculation.neu_leistung }}W</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Hersteller:</strong></td>
+                                    <td>{{ calculation.neu_hersteller }} {{ calculation.neu_modell }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Betriebszeit:</strong></td>
+                                    <td>{{ calculation.neu_stunden_pro_tag }}h/Tag, {{ calculation.neu_tage_pro_jahr }} Tage/Jahr</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.card-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.bg-light {
+    background-color: #f8f9fa!important;
+}
+
+@media print {
+    .btn, .card-footer {
+        display: none !important;
+    }
+}
+</style>
+
+<!-- Chart.js Library -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chartData = {
+        // Energy consumption data (calculated from power and runtime)
+        altVerbrauch: {{ calculation.alt_leistung|default:0 }} * {{ calculation.alt_anzahl|default:0 }} * {{ calculation.alt_stunden_pro_tag|default:0 }} * {{ calculation.alt_tage_pro_jahr|default:0 }} / 1000,
+        neuVerbrauch: {{ calculation.neu_leistung|default:0 }} * {{ calculation.neu_anzahl|default:0 }} * {{ calculation.neu_stunden_pro_tag|default:0 }} * {{ calculation.neu_tage_pro_jahr|default:0 }} / 1000,
+
+        // Cost data
+        altKosten: {{ calculation.kosten_alt_jahr|default:0 }},
+        neuKosten: {{ calculation.kosten_neu_ohne_limas_jahr|default:0 }},
+        neuKostenMitLimas: {{ calculation.kosten_neu_mit_limas_jahr|default:0 }},
+        ersparnisKostenLed: Math.max(0, {{ calculation.kosten_alt_jahr|default:0 }} - {{ calculation.kosten_neu_ohne_limas_jahr|default:0 }}),
+        ersparnisKostenLichtmanagement: Math.max(0, {{ calculation.kosten_alt_jahr|default:0 }} - {{ calculation.kosten_neu_mit_limas_jahr|default:0 }}),
+
+        // CO2 data from calculation
+        altCO2: {{ calculation.co2_emission_alt_kg_jahr|default:0 }},
+        neuCO2: {{ calculation.co2_emission_neu_ohne_limas_kg_jahr|default:0 }},
+        neuCO2MitLimas: {{ calculation.co2_emission_neu_mit_limas_kg_jahr|default:0 }},
+
+        // Amortization data
+        amortisationNeu: {% if calculation.amortisation_neu_jahre and calculation.amortisation_neu_jahre > 0 %}{{ calculation.amortisation_neu_jahre|floatformat:2 }}{% else %}null{% endif %},
+        amortisationLimas: {% if calculation.amortisation_limas_jahre and calculation.amortisation_limas_jahre > 0 %}{{ calculation.amortisation_limas_jahre|floatformat:2 }}{% else %}null{% endif %},
+        amortisationGesamt: {% if calculation.amortisation_gesamt_jahre and calculation.amortisation_gesamt_jahre > 0 %}{{ calculation.amortisation_gesamt_jahre|floatformat:2 }}{% else %}null{% endif %}
+    };
+
+    // Common chart configuration
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'top',
+            },
+            tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                titleColor: 'white',
+                bodyColor: 'white',
+                cornerRadius: 6,
+                displayColors: true
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                grid: {
+                    color: 'rgba(0, 0, 0, 0.1)'
+                }
+            },
+            x: {
+                grid: {
+                    display: false
+                }
+            }
+        }
+    };
+
+    // 1. Cost Comparison Chart
+    const costCtx = document.getElementById('costComparisonChart').getContext('2d');
+    const costDatasets = [];
+
+    {% if calculation.neue_anlage_vorhanden %}
+    costDatasets.push({
+        label: 'Bestandsanlage',
+        data: [chartData.altKosten, 0, 0],
+        backgroundColor: '#dc3545',
+        borderColor: '#dc3545',
+        borderWidth: 1
+    });
+    {% endif %}
+
+    costDatasets.push({
+        label: 'LED-Leuchten',
+        data: {% if calculation.neue_anlage_vorhanden %}[0, chartData.neuKosten, 0]{% else %}[chartData.neuKosten, 0]{% endif %},
+        backgroundColor: '#0075BE',
+        borderColor: '#0075BE',
+        borderWidth: 1
+    });
+
+    costDatasets.push({
+        label: 'LED + Lichtmanagement',
+        data: {% if calculation.neue_anlage_vorhanden %}[0, 0, chartData.neuKostenMitLimas]{% else %}[0, chartData.neuKostenMitLimas]{% endif %},
+        backgroundColor: '#28a745',
+        borderColor: '#28a745',
+        borderWidth: 1
+    });
+
+    new Chart(costCtx, {
+        type: 'bar',
+        data: {
+            labels: {% if calculation.neue_anlage_vorhanden %}['Bestandsanlage', 'LED-Leuchten', 'LED + Lichtmanagement']{% else %}['LED-Leuchten', 'LED + Lichtmanagement']{% endif %},
+            datasets: costDatasets
+        },
+        options: {
+            ...chartOptions,
+            plugins: {
+                ...chartOptions.plugins,
+                title: {
+                    display: true,
+                    text: 'Kostenvergleich pro Jahr'
+                },
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true
+                    }
+                }
+            },
+            scales: {
+                ...chartOptions.scales,
+                y: {
+                    ...chartOptions.scales.y,
+                    ticks: {
+                        callback: function(value, index, values) {
+                            return '€ ' + value.toLocaleString();
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // 2. Amortization Chart
+    const amortCtx = document.getElementById('amortizationChart').getContext('2d');
+
+    // Debug: Log the amortization data
+    console.log('🔍 DEBUG Amortization Data:');
+    console.log('LED-Leuchten:', chartData.amortisationNeu);
+    console.log('Nur Lichtmanagement:', chartData.amortisationLimas);
+    console.log('LED + Lichtmanagement:', chartData.amortisationGesamt);
+
+    new Chart(amortCtx, {
+        type: 'bar',
+        data: {
+            labels: ['LED-Leuchten', 'Nur Lichtmanagement', 'LED + Lichtmanagement'],
+            datasets: [{
+                label: 'Amortisationszeit (Jahre)',
+                data: [chartData.amortisationNeu, chartData.amortisationLimas, chartData.amortisationGesamt],
+                backgroundColor: ['#dc3545', '#28a745', '#0075BE'],
+                borderColor: ['#dc3545', '#28a745', '#0075BE'],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false  // Hide legend for single dataset
+                },
+                title: {
+                    display: true,
+                    text: 'Amortisationszeiten in Jahren',
+                    font: {
+                        size: 14,
+                        weight: 'bold'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: 'white',
+                    bodyColor: 'white',
+                    cornerRadius: 6,
+                    callbacks: {
+                        label: function(context) {
+                            return context.parsed.y.toFixed(1) + ' Jahre';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: Math.max(chartData.amortisationNeu, chartData.amortisationLimas, chartData.amortisationGesamt) * 1.2,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    },
+                    ticks: {
+                        callback: function(value, index, values) {
+                            return value.toFixed(1) + ' Jahre';
+                        }
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+
+    // 2b. Savings: Bestandsanlage vs. LED
+    const savingsLedCtx = document.getElementById('savingsLedChart').getContext('2d');
+    new Chart(savingsLedCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Bestand'],
+            datasets: [{
+                label: 'Kosten Bestand',
+                data: [chartData.altKosten],
+                backgroundColor: '#dc3545',
+                borderColor: '#dc3545',
+                borderWidth: 1
+            }, {
+                label: 'Kosten LED',
+                data: [chartData.neuKosten],
+                backgroundColor: '#0075BE',
+                borderColor: '#0075BE',
+                borderWidth: 1
+            }, {
+                label: 'Einsparung LED',
+                data: [chartData.ersparnisKostenLed],
+                backgroundColor: 'rgba(40, 167, 69, 0.35)',
+                borderColor: '#28a745',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            ...chartOptions,
+            plugins: {
+                ...chartOptions.plugins,
+                title: {
+                    display: true,
+                    text: 'Jährliche Kosten & Einsparung'
+                },
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true
+                    }
+                }
+            },
+            scales: {
+                ...chartOptions.scales,
+                y: {
+                    ...chartOptions.scales.y,
+                    ticks: {
+                        callback: function(value) {
+                            return '€ ' + value.toLocaleString();
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // 2c. Savings: Bestandsanlage vs. LED + Lichtmanagement
+    const savingsLightMgmtCtx = document.getElementById('savingsLightMgmtChart').getContext('2d');
+    new Chart(savingsLightMgmtCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Bestand'],
+            datasets: [{
+                label: 'Kosten Bestand',
+                data: [chartData.altKosten],
+                backgroundColor: '#dc3545',
+                borderColor: '#dc3545',
+                borderWidth: 1
+            }, {
+                label: 'Kosten LED + Lichtmanagement',
+                data: [chartData.neuKostenMitLimas],
+                backgroundColor: '#1e8449',
+                borderColor: '#1e8449',
+                borderWidth: 1
+            }, {
+                label: 'Einsparung LED + Lichtmanagement',
+                data: [chartData.ersparnisKostenLichtmanagement],
+                backgroundColor: 'rgba(255, 193, 7, 0.35)',
+                borderColor: '#ffc107',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            ...chartOptions,
+            plugins: {
+                ...chartOptions.plugins,
+                title: {
+                    display: true,
+                    text: 'Jährliche Kosten & Einsparung'
+                },
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true
+                    }
+                }
+            },
+            scales: {
+                ...chartOptions.scales,
+                y: {
+                    ...chartOptions.scales.y,
+                    ticks: {
+                        callback: function(value) {
+                            return '€ ' + value.toLocaleString();
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // 3. Energy Consumption Chart
+    const energyCtx = document.getElementById('energyConsumptionChart').getContext('2d');
+    const energyDatasets = [];
+
+    {% if calculation.neue_anlage_vorhanden %}
+    energyDatasets.push({
+        label: 'Bestandsanlage',
+        data: [chartData.altVerbrauch, 0, 0],
+        backgroundColor: '#dc3545',
+        borderColor: '#dc3545',
+        borderWidth: 1
+    });
+    {% endif %}
+
+    energyDatasets.push({
+        label: 'LED-Leuchten',
+        data: {% if calculation.neue_anlage_vorhanden %}[0, chartData.neuVerbrauch, 0]{% else %}[chartData.neuVerbrauch, 0]{% endif %},
+        backgroundColor: '#ffc107',
+        borderColor: '#ffc107',
+        borderWidth: 1
+    });
+
+    energyDatasets.push({
+        label: 'LED + Lichtmanagement',
+        data: {% if calculation.neue_anlage_vorhanden %}[0, 0, chartData.neuVerbrauch * 0.7]{% else %}[0, chartData.neuVerbrauch * 0.7]{% endif %},
+        backgroundColor: '#28a745',
+        borderColor: '#28a745',
+        borderWidth: 1
+    });
+
+    new Chart(energyCtx, {
+        type: 'bar',
+        data: {
+            labels: {% if calculation.neue_anlage_vorhanden %}['Bestandsanlage', 'LED-Leuchten', 'LED + Lichtmanagement']{% else %}['LED-Leuchten', 'LED + Lichtmanagement']{% endif %},
+            datasets: energyDatasets
+        },
+        options: {
+            ...chartOptions,
+            plugins: {
+                ...chartOptions.plugins,
+                title: {
+                    display: true,
+                    text: 'Energieverbrauch pro Jahr'
+                }
+            },
+            scales: {
+                ...chartOptions.scales,
+                y: {
+                    ...chartOptions.scales.y,
+                    ticks: {
+                        callback: function(value, index, values) {
+                            return value.toLocaleString() + ' kWh';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // 4. CO2 Emissions Chart
+    const co2Ctx = document.getElementById('co2EmissionsChart').getContext('2d');
+    const co2Datasets = [];
+
+    {% if calculation.neue_anlage_vorhanden %}
+    co2Datasets.push({
+        label: 'Bestandsanlage',
+        data: [chartData.altCO2, 0, 0],
+        backgroundColor: '#dc3545',
+        borderColor: '#dc3545',
+        borderWidth: 1
+    });
+    {% endif %}
+
+    co2Datasets.push({
+        label: 'LED-Leuchten',
+        data: {% if calculation.neue_anlage_vorhanden %}[0, chartData.neuCO2, 0]{% else %}[chartData.neuCO2, 0]{% endif %},
+        backgroundColor: '#ffc107',
+        borderColor: '#ffc107',
+        borderWidth: 1
+    });
+
+    co2Datasets.push({
+        label: 'LED + Lichtmanagement',
+        data: {% if calculation.neue_anlage_vorhanden %}[0, 0, chartData.neuCO2MitLimas]{% else %}[0, chartData.neuCO2MitLimas]{% endif %},
+        backgroundColor: '#28a745',
+        borderColor: '#28a745',
+        borderWidth: 1
+    });
+
+    new Chart(co2Ctx, {
+        type: 'bar',
+        data: {
+            labels: {% if calculation.neue_anlage_vorhanden %}['Bestandsanlage', 'LED-Leuchten', 'LED + Lichtmanagement']{% else %}['LED-Leuchten', 'LED + Lichtmanagement']{% endif %},
+            datasets: co2Datasets
+        },
+        options: {
+            ...chartOptions,
+            plugins: {
+                ...chartOptions.plugins,
+                title: {
+                    display: true,
+                    text: 'CO₂-Emissionen pro Jahr'
+                }
+            },
+            scales: {
+                ...chartOptions.scales,
+                y: {
+                    ...chartOptions.scales.y,
+                    ticks: {
+                        callback: function(value, index, values) {
+                            return value.toLocaleString() + ' kg';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Update energy savings in summary card
+    const energySavings = Math.max(0, chartData.altVerbrauch - (chartData.neuVerbrauch * 0.7));
+    document.getElementById('energyEinsparung').textContent = energySavings.toLocaleString('de-DE', { maximumFractionDigits: 0 }) + ' kWh/Jahr';
+
+    // Calculate and display cost savings percentage
+    if (chartData.altKosten > 0 && chartData.neuKostenMitLimas > 0) {
+        const savingsPercent = ((chartData.altKosten - chartData.neuKostenMitLimas) / chartData.altKosten) * 100;
+        if (savingsPercent > 0) {
+            document.getElementById('savingsPercent').textContent = savingsPercent.toFixed(1) + '%';
+            document.getElementById('savingsPercentage').style.display = 'block';
+        }
+    }
+
+});
+</script>
+{% endblock %}

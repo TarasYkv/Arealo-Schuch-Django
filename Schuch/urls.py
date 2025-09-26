@@ -20,6 +20,7 @@ urlpatterns = [
     # Schuch Tools
     path('beleuchtungsrechner/', core_views.beleuchtungsrechner, name='beleuchtungsrechner'),
     path('din-en-13201/', include('lighting_classification.urls')),
+    path('licht/', include('lighting_tools.urls')),
 
     # Legal pages
     path('impressum/', core_views.impressum_view, name='impressum'),

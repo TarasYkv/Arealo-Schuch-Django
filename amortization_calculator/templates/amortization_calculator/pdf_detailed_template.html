@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Berechnungsdokumentation</title>
+</head>
+<body>
+    <h1>Berechnungsdokumentation</h1>
+    <p><strong>Projekt:</strong> {{ context.project_name }}<br>
+       <strong>Unternehmen:</strong> {{ context.company_name }}<br>
+       <strong>Erstellt am:</strong> {{ generated_date|date:"d.m.Y" }}</p>
+
+    <div class="section">
+        <h2>1. Ausgangsdaten</h2>
+        <table>
+            <tbody>
+                <tr><th colspan="2">Allgemeine Parameter</th></tr>
+                <tr><td>Strompreis</td><td>{{ context.energy_price }} €/kWh</td></tr>
+                <tr><td>Anlagentyp</td><td>{{ context.anlage_typ }}</td></tr>
+                <tr><td>LED-Betriebsstunden pro Tag</td><td>{{ context.usage_hours_new }}</td></tr>
+                <tr><td>LED-Betriebstage pro Jahr</td><td>{{ context.usage_days_new }}</td></tr>
+                <tr><td>Bestands-Betriebsstunden pro Tag</td><td>{{ context.usage_hours_old }}</td></tr>
+                <tr><td>Bestands-Betriebstage pro Jahr</td><td>{{ context.usage_days_old }}</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>2. Berechnungsformeln</h2>
+        <div class="formula-box"><strong>Bestandsverbrauch</strong>: {{ context.formulas.verbrauch_alt }}</div>
+        <div class="formula-box"><strong>LED-Verbrauch</strong>: {{ context.formulas.verbrauch_neu }}</div>
+        <div class="formula-box"><strong>Bewegungsmelder</strong>: {{ context.formulas.bewegungsmelder }}</div>
+        <div class="formula-box"><strong>Tageslichtregelung</strong>: {{ context.formulas.tageslicht }}</div>
+        <div class="formula-box"><strong>Kosten</strong>: {{ context.formulas.kosten }}</div>
+        <div class="formula-box"><strong>Amortisation</strong>: {{ context.formulas.amortisation }}</div>
+        <div class="formula-box"><strong>CO₂</strong>: {{ context.formulas.co2 }}</div>
+        <p>{{ context.explanations.consumption }}</p>
+    </div>
+
+    <div class="section">
+        <h2>3. Verbrauch & Kosten</h2>
+        <div class="chart">
+            <img src="{{ charts.energy_chart }}" alt="Energieverbrauch">
+        </div>
+        <table>
+            <thead>
+                <tr><th>Szenario</th><th>Verbrauch (kWh/Jahr)</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Bestandsanlage</td><td>{{ context.consumption_old|floatformat:0 }}</td></tr>
+                <tr><td>LED</td><td>{{ context.consumption_led|floatformat:0 }}</td></tr>
+                <tr><td>LED + Lichtmanagement</td><td>{{ context.consumption_lightmanagement|floatformat:0 }}</td></tr>
+            </tbody>
+        </table>
+        <div class="chart">
+            <img src="{{ charts.cost_chart }}" alt="Kostenvergleich">
+        </div>
+        <table>
+            <thead>
+                <tr><th>Szenario</th><th>Jährliche Kosten</th><th>Einsparung</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Bestandsanlage</td><td>{{ context.cost_old|floatformat:0 }} €</td><td>-</td></tr>
+                <tr><td>LED</td><td>{{ context.cost_led|floatformat:0 }} €</td><td>{{ context.cost_savings_led|floatformat:0 }} €</td></tr>
+                <tr><td>LED + Lichtmanagement</td><td>{{ context.cost_lightmanagement|floatformat:0 }} €</td><td>{{ context.cost_savings_total|floatformat:0 }} €</td></tr>
+            </tbody>
+        </table>
+        <p>{{ context.explanations.costs }}</p>
+    </div>
+
+    <div class="section">
+        <h2>4. Amortisationszeiten</h2>
+        <div class="chart">
+            <img src="{{ charts.amortization_chart }}" alt="Amortisationszeiten">
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Szenario</th>
+                    <th>Amortisation (Jahre)</th>
+                    <th>Einsparung p.a.</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>LED</td>
+                    <td>{{ context.amort_led|default:"-" }}</td>
+                    <td>{{ context.cost_savings_led|floatformat:0 }} €</td>
+                </tr>
+                <tr>
+                    <td>Lichtmanagement</td>
+                    <td>{{ context.amort_lightmanagement|default:"-" }}</td>
+                    <td>{{ context.cost_savings_lightmanagement|floatformat:0 }} €</td>
+                </tr>
+                <tr>
+                    <td>Kombiniert</td>
+                    <td>{{ context.amort_total|default:"-" }}</td>
+                    <td>{{ context.cost_savings_lightmanagement|floatformat:0 }} €</td>
+                </tr>
+            </tbody>
+        </table>
+        <p>{{ context.explanations.amortisation }}</p>
+    </div>
+
+    <div class="section">
+        <h2>5. Steuerungsvarianten</h2>
+        <table>
+            <thead>
+                <tr><th>Regelung</th><th>Aktiv</th><th>Details</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Bewegungsmelder</td>
+                    <td>{% if context.movement_enabled %}Ja{% else %}Nein{% endif %}</td>
+                    <td>{{ context.movement_count }} Leuchten, {{ context.movement_presence_level }}% bei Anwesenheit, {{ context.movement_absence_level }}% bei Abwesenheit</td>
+                </tr>
+                <tr>
+                    <td>Tageslichtregelung</td>
+                    <td>{% if context.daylight_enabled %}Ja{% else %}Nein{% endif %}</td>
+                    <td>{{ context.daylight_count }} Leuchten, {{ context.daylight_reduction }}% Reduzierung, {{ context.daylight_hours }} h Nutzung</td>
+                </tr>
+                <tr>
+                    <td>Kalendersteuerung</td>
+                    <td>{% if context.calendar_enabled %}Ja{% else %}Nein{% endif %}</td>
+                    <td>{{ context.calendar_off_days }} Ausschalttage</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>6. Emissionen</h2>
+        <div class="chart">
+            <img src="{{ charts.co2_chart }}" alt="CO₂-Emissionen">
+        </div>
+        <table>
+            <thead>
+                <tr><th>Szenario</th><th>CO₂ (kg/Jahr)</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Bestandsanlage</td><td>{{ context.co2_old|floatformat:0 }}</td></tr>
+                <tr><td>LED</td><td>{{ context.co2_led|floatformat:0 }}</td></tr>
+                <tr><td>LED + Lichtmanagement</td><td>{{ context.co2_lightmanagement|floatformat:0 }}</td></tr>
+            </tbody>
+        </table>
+        <div class="highlight">
+            <p>{{ context.explanations.co2 }}</p>
+            <p><small>Verwendeter Emissionsfaktor: {{ context.co2_factor|floatformat:3 }} kg CO₂ je kWh.</small></p>
+        </div>
+    </div>
+
+</body>
+</html>
