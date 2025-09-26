@@ -3521,13 +3521,27 @@ def send_verification_email(user, request):
         
         # Erstelle Verifikations-URL
         try:
-            verification_url = request.build_absolute_uri(
-                reverse('accounts:verify_email', kwargs={'token': token})
-            )
+            from django.conf import settings
+
+            # Verwende konfigurierte Domain anstatt request.build_absolute_uri()
+            if hasattr(settings, 'SITE_DOMAIN') and hasattr(settings, 'SITE_PROTOCOL'):
+                verification_url = f"{settings.SITE_PROTOCOL}://{settings.SITE_DOMAIN}{reverse('accounts:verify_email', kwargs={'token': token})}"
+            else:
+                # Fallback auf request.build_absolute_uri()
+                verification_url = request.build_absolute_uri(
+                    reverse('accounts:verify_email', kwargs={'token': token})
+                )
         except Exception as e:
             logger.error(f"Error building verification URL: {str(e)}")
-            # Fallback URL
-            verification_url = f"{request.build_absolute_uri('/')[:-1]}/accounts/verify-email/{token}/"
+            # Fallback URL mit konfigurierter Domain
+            try:
+                from django.conf import settings
+                if hasattr(settings, 'SITE_DOMAIN') and hasattr(settings, 'SITE_PROTOCOL'):
+                    verification_url = f"{settings.SITE_PROTOCOL}://{settings.SITE_DOMAIN}/accounts/verify-email/{token}/"
+                else:
+                    verification_url = f"{request.build_absolute_uri('/')[:-1]}/accounts/verify-email/{token}/"
+            except:
+                verification_url = f"https://workloom.de/accounts/verify-email/{token}/"
         
         # Verwende das neue Trigger-System
         try:

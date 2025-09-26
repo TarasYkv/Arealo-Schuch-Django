@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
+    'django.contrib.sites',
     'channels',
     'rest_framework',
     'accounts',
@@ -178,6 +179,13 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'kontakt@workloom.de')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Workloom <kontakt@workloom.de>')
+
+# Domain-Konfiguration für E-Mail-Links
+SITE_DOMAIN = os.getenv('SITE_DOMAIN', 'workloom.de')
+SITE_PROTOCOL = os.getenv('SITE_PROTOCOL', 'https')
+
+# Django Sites Framework
+SITE_ID = 1
 
 # WICHTIG: Immer unser AutoFallbackEmailBackend verwenden!
 # Das Backend lädt die Konfiguration automatisch aus der Datenbank
