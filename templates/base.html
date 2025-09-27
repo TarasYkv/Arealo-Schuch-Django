@@ -24,6 +24,7 @@
     <link rel="stylesheet" href="{% static 'css/style.css' %}?v={% now 'U' %}&call-update=1">
     <link rel="stylesheet" href="{% static 'css/naturmacher.css' %}">
     <link rel="stylesheet" href="{% static 'css/bug-button.css' %}">
+    <link rel="stylesheet" href="{% static 'css/fileshare.css' %}?v={% now 'U' %}">
     
     <!-- LoomAds CSS -->
     {% loomads_css %}
@@ -1619,7 +1620,7 @@
                     {% endif %}
 
                     <!-- Media Dropdown Menu -->
-                    {% if user|can_see_app_in_frontend:"schulungen" or user|can_see_app_in_frontend:"bilder" or user|can_see_app_in_frontend:"videos" or user.is_authenticated %}
+                    {% if user|can_see_app_in_frontend:"schulungen" or user|can_see_app_in_frontend:"bilder" or user|can_see_app_in_frontend:"videos" or user|can_see_app_in_frontend:"fileshare" or user.is_authenticated %}
                     <div class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="mediaDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-play-circle"></i> Media
@@ -1648,6 +1649,11 @@
                             {% if user|can_see_app_in_frontend:"promptpro" %}
                             <li><a class="dropdown-item" href="{% url 'promptpro:prompt_list' %}">
                                 <i class="bi bi-collection"></i> PromptPro
+                            </a></li>
+                            {% endif %}
+                            {% if user|can_see_app_in_frontend:"fileshare" %}
+                            <li><a class="dropdown-item" href="{% url 'fileshare:index' %}">
+                                <i class="fas fa-share-alt"></i> FileShare
                             </a></li>
                             {% endif %}
                         </ul>
@@ -4319,6 +4325,8 @@
     });
     </script>
     {% endif %}
+
+    {% block extra_js %}{% endblock %}
 
 </body>
 </html>

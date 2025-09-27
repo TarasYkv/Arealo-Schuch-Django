@@ -20,6 +20,7 @@ SYSTEM_PAGES: Dict[str, Dict[str, str]] = {
     'chat_dashboard': {'title': 'Chat Dashboard', 'type': 'dashboard', 'description': 'Kommunikation und Nachrichten'},
     'somi_plan_dashboard': {'title': 'SOMI Plan Dashboard', 'type': 'dashboard', 'description': 'SOMI Planungstool'},
     'email_templates_dashboard': {'title': 'E-Mail Templates Dashboard', 'type': 'dashboard', 'description': 'E-Mail-Vorlagen verwalten'},
+    'fileshare_dashboard': {'title': 'Datei-Transfer Dashboard', 'type': 'dashboard', 'description': 'Dateien teilen und verwalten'},
 
     # Landing Pages
     'landing_about': {'title': 'Über uns', 'type': 'landing', 'description': 'Erfahren Sie mehr über unser Unternehmen'},
@@ -64,7 +65,7 @@ def get_system_page_choices() -> List[Tuple[str, str]]:
         'landing_testimonials', 'landing_blog', 'landing_faq',
         'shop_products', 'shop_categories', 'shop_cart', 'shop_checkout', 'shop_account', 'shop_orders',
         'accounts_dashboard', 'mail_dashboard', 'shopify_dashboard', 'image_editor_dashboard', 'organization_dashboard',
-        'naturmacher_dashboard', 'videos_dashboard', 'chat_dashboard', 'somi_plan_dashboard', 'email_templates_dashboard',
+        'naturmacher_dashboard', 'videos_dashboard', 'chat_dashboard', 'somi_plan_dashboard', 'email_templates_dashboard', 'fileshare_dashboard',
         'search_results', 'error_404', 'error_500', 'maintenance', 'coming_soon',
         'header', 'footer',
     ]

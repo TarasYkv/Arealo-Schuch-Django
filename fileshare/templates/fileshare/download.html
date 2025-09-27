@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dateien herunterladen - {{ transfer.title|default:"FileShare" }}{% endblock %}
+
+
+{% block content %}
+<div class="download-container">
+    <!-- Transfer Info -->
+    <div class="transfer-info text-center">
+        <h1 class="mb-4">
+            <i class="fas fa-cloud-download-alt"></i>
+            {{ transfer.title|default:"Datei-Transfer" }}
+        </h1>
+
+        <div class="row">
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <small>Dateien gesamt</small>
+                    <h4>{{ files|length }}</h4>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <small>Gesamtgröße</small>
+                    <h4>{{ total_size }}</h4>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <small>Läuft ab in</small>
+                    <h4>{{ expires_in }} Tagen</h4>
+                </div>
+            </div>
+        </div>
+
+        {% if transfer.sender %}
+        <p class="mb-0">
+            <small>Geteilt von: {{ transfer.sender.get_full_name|default:transfer.sender.username }}</small>
+        </p>
+        {% elif transfer.sender_email %}
+        <p class="mb-0">
+            <small>Geteilt von: {{ transfer.sender_email }}</small>
+        </p>
+        {% endif %}
+    </div>
+
+    <!-- Expiry Warning -->
+    {% if expires_in <= 2 %}
+    <div class="expiry-warning">
+        <i class="fas fa-exclamation-triangle"></i>
+        <strong>Warnung:</strong> Dieser Transfer läuft bald ab. Laden Sie Ihre Dateien jetzt herunter.
+    </div>
+    {% endif %}
+
+    <!-- Sender Message -->
+    {% if transfer.message %}
+    <div class="sender-message">
+        <h5><i class="fas fa-envelope"></i> Nachricht vom Absender:</h5>
+        <p class="mb-0">{{ transfer.message|linebreaks }}</p>
+    </div>
+    {% endif %}
+
+    <!-- File List -->
+    <div class="download-file-list">
+        <h4 class="mb-4">Dateien</h4>
+
+        {% for file in files %}
+        <div class="download-file-item">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-file file-icon"></i>
+                <div>
+                    <strong>{{ file.original_filename }}</strong>
+                    <br>
+                    <small class="text-muted">{{ file.file_size|filesizeformat }}</small>
+                </div>
+            </div>
+            <a href="{% url 'fileshare:download_single_file' transfer.id file.id %}"
+               class="btn btn-sm download-btn">
+                <i class="fas fa-download"></i> Herunterladen
+            </a>
+        </div>
+        {% endfor %}
+
+        <!-- Download All Button -->
+        {% if files|length > 1 %}
+        <div class="text-center mt-4">
+            <a href="{% url 'fileshare:download_file' transfer.id %}"
+               class="btn btn-lg download-btn">
+                <i class="fas fa-file-archive"></i> Alle als ZIP herunterladen
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Download Stats -->
+    {% if transfer.download_limit > 0 %}
+    <div class="text-center mt-4">
+        <small class="text-muted">
+            Downloads: {{ transfer.total_downloads }} / {{ transfer.download_limit }}
+        </small>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-download single file
+    {% if files|length == 1 %}
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            const downloadBtn = document.querySelector('.download-btn');
+            if (downloadBtn && confirm('Download der Datei starten?')) {
+                downloadBtn.click();
+            }
+        }, 1000);
+    });
+    {% endif %}
+</script>
+{% endblock %}

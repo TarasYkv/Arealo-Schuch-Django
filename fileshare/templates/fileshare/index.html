@@ -1,0 +1,551 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}FileShare - Große Dateien schnell senden{% endblock %}
+
+{% block extra_css %}
+<style>
+/* FileShare Override Styles */
+.hero-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    color: white !important;
+    padding: 80px 0 !important;
+    text-align: center !important;
+    margin-bottom: 40px !important;
+}
+
+.upload-zone {
+    border: 3px dashed #007bff !important;
+    border-radius: 20px !important;
+    padding: 60px !important;
+    text-align: center !important;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%) !important;
+    transition: all 0.3s ease !important;
+    cursor: pointer !important;
+    min-height: 400px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+}
+
+.upload-zone:hover {
+    border-color: #0056b3 !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    color: white !important;
+}
+
+.feature-card {
+    padding: 30px !important;
+    border-radius: 15px !important;
+    background: white !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1) !important;
+    margin-bottom: 30px !important;
+    transition: transform 0.3s ease !important;
+}
+
+.feature-card:hover {
+    transform: translateY(-5px) !important;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.15) !important;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="container">
+        <h1 class="display-4 mb-4">Große Dateien schnell senden</h1>
+        <p class="lead">Dateien bis zu 2GB kostenlos teilen. Keine Registrierung erforderlich.</p>
+    </div>
+</div>
+
+<div class="container">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <!-- Upload Form -->
+            <div id="upload-form" class="mb-4">
+                <div class="upload-zone" id="upload-zone">
+                    <i class="fas fa-cloud-upload-alt fa-5x mb-4"></i>
+                    <h3>Dateien hier ablegen oder klicken zum Durchsuchen</h3>
+                    <p class="text-muted">Maximale Dateigröße: 2GB</p>
+                    <input type="file" id="file-input" multiple style="display: none;">
+                </div>
+
+                <!-- Test Button for debugging -->
+                <div class="text-center mt-3">
+                    <button id="test-button" class="btn btn-warning">🔧 Test Datei-Auswahl</button>
+                </div>
+
+                <!-- File List -->
+                <div id="file-list" class="file-list mt-4" style="display: none;">
+                    <h5>Ausgewählte Dateien:</h5>
+                    <div id="files-container"></div>
+                </div>
+
+                <!-- Transfer Options -->
+                <div id="transfer-options" class="mt-4" style="display: none;">
+                    <form id="transfer-form">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Transfer-Titel (Optional)</label>
+                            <input type="text" class="form-control" id="title" name="title" placeholder="Geben Sie Ihrem Transfer einen Namen">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="message" class="form-label">Nachricht (Optional)</label>
+                            <textarea class="form-control" id="message" name="message" rows="3" placeholder="Nachricht für Empfänger hinzufügen"></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Transfer-Art</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="transfer_type" id="type-link" value="link" checked>
+                                <label class="form-check-label" for="type-link">
+                                    Download-Link erhalten
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="transfer_type" id="type-email" value="email">
+                                <label class="form-check-label" for="type-email">
+                                    Per E-Mail senden
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="email-recipients" class="mb-3" style="display: none;">
+                            <label for="recipients" class="form-label">E-Mail-Empfänger</label>
+                            <textarea class="form-control" id="recipients" name="recipients" rows="2" placeholder="E-Mail-Adressen durch Kommas getrennt eingeben"></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="enable-password" onchange="togglePasswordField()">
+                                <label class="form-check-label" for="enable-password">
+                                    Passwort-Schutz aktivieren
+                                </label>
+                            </div>
+                            <div id="password-field" class="mt-2" style="display: none;">
+                                <input type="password" class="form-control" id="password" name="password" placeholder="Passwort festlegen">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="expiry_days" class="form-label">Ablauf (Tage)</label>
+                            <select class="form-control" id="expiry_days" name="expiry_days">
+                                <option value="1">1 Tag</option>
+                                <option value="3">3 Tage</option>
+                                <option value="7" selected>7 Tage</option>
+                                <option value="14">14 Tage</option>
+                                <option value="30">30 Tage</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-lg w-100" id="transfer-button">
+                            <i class="fas fa-paper-plane"></i> Dateien übertragen
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Upload Progress -->
+                <div id="upload-progress" class="mt-4" style="display: none;">
+                    <h5>Hochladen...</h5>
+                    <div class="progress" style="height: 30px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <p class="text-center mt-2" id="progress-text">0%</p>
+                </div>
+            </div>
+
+            <!-- Transfer Complete -->
+            <div class="transfer-complete" id="transfer-complete">
+                <i class="fas fa-check-circle fa-5x mb-4"></i>
+                <h2>Transfer abgeschlossen!</h2>
+                <p>Ihre Dateien sind bereit zum Teilen.</p>
+
+                <div class="mb-4">
+                    <label class="form-label">Download-Link:</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="download-link" readonly>
+                        <button class="btn btn-outline-light" type="button" id="copy-link">
+                            <i class="fas fa-copy"></i> Kopieren
+                        </button>
+                    </div>
+                </div>
+
+                <div class="qr-code" id="qr-code-container"></div>
+
+                <div class="mt-4">
+                    <button class="btn btn-light btn-lg" onclick="location.reload()">
+                        <i class="fas fa-plus"></i> Neuer Transfer
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features -->
+    <div class="row mt-5">
+        <div class="col-md-4">
+            <div class="feature-card text-center">
+                <i class="fas fa-shield-alt fa-3x mb-3 text-primary"></i>
+                <h4>Sicher</h4>
+                <p>Ihre Dateien sind verschlüsselt und mit optionalem Passwort geschützt.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="feature-card text-center">
+                <i class="fas fa-clock fa-3x mb-3 text-primary"></i>
+                <h4>Temporär</h4>
+                <p>Dateien werden nach Ablaufzeit automatisch gelöscht.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="feature-card text-center">
+                <i class="fas fa-bolt fa-3x mb-3 text-primary"></i>
+                <h4>Schnell</h4>
+                <p>Hochgeschwindigkeits-Uploads und Downloads mit Fortsetzungsfunktion.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Transfers (for logged in users) -->
+    {% if user.is_authenticated and user_transfers %}
+    <div class="row mt-5">
+        <div class="col-12">
+            <h3>Aktuelle Transfers</h3>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Titel</th>
+                            <th>Dateien</th>
+                            <th>Größe</th>
+                            <th>Erstellt</th>
+                            <th>Läuft ab</th>
+                            <th>Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for transfer in user_transfers %}
+                        <tr>
+                            <td>{{ transfer.title|default:"Ohne Titel" }}</td>
+                            <td>{{ transfer.files.count }}</td>
+                            <td>{{ transfer.total_size|filesizeformat }}</td>
+                            <td>{{ transfer.created_at|date:"M d, Y" }}</td>
+                            <td>{{ transfer.expires_at|date:"M d, Y" }}</td>
+                            <td>
+                                <a href="{% url 'fileshare:download' transfer.id %}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-download"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <a href="{% url 'fileshare:my_transfers' %}" class="btn btn-primary">Alle Transfers anzeigen</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    console.log('FileShare JavaScript starting...');
+
+    function initFileShare() {
+        console.log('Initializing FileShare...');
+        let selectedFiles = [];
+        let transferId = null;
+
+        // Upload zone events
+        const uploadZone = document.getElementById('upload-zone');
+        const fileInput = document.getElementById('file-input');
+
+        console.log('Upload zone element:', uploadZone);
+        console.log('File input element:', fileInput);
+
+        if (!uploadZone || !fileInput) {
+            console.error('Upload zone or file input not found!');
+            console.error('uploadZone:', uploadZone);
+            console.error('fileInput:', fileInput);
+            return;
+        }
+
+        console.log('Adding click event listener to upload zone...');
+        uploadZone.addEventListener('click', function(e) {
+            console.log('Upload zone clicked!', e);
+            console.log('Triggering file input click...');
+            fileInput.click();
+            console.log('File input click triggered');
+        });
+
+        // Test button for debugging
+        const testButton = document.getElementById('test-button');
+        if (testButton) {
+            console.log('Adding test button click handler...');
+            testButton.addEventListener('click', function(e) {
+                console.log('Test button clicked!');
+                alert('Test button funktioniert! Jetzt teste ich den File Input...');
+                fileInput.click();
+                console.log('File input triggered via test button');
+            });
+        }
+
+    uploadZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadZone.classList.add('dragover');
+    });
+
+    uploadZone.addEventListener('dragleave', () => {
+        uploadZone.classList.remove('dragover');
+    });
+
+    uploadZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+        handleFiles(e.dataTransfer.files);
+    });
+
+    fileInput.addEventListener('change', function(e) {
+        console.log('File input changed!', e);
+        console.log('Selected files:', e.target.files);
+        handleFiles(e.target.files);
+    });
+
+    // Handle file selection
+    function handleFiles(files) {
+        selectedFiles = Array.from(files);
+        displayFiles();
+        document.getElementById('file-list').style.display = 'block';
+        document.getElementById('transfer-options').style.display = 'block';
+    }
+
+    // Display selected files
+    function displayFiles() {
+        const container = document.getElementById('files-container');
+        container.innerHTML = '';
+
+        selectedFiles.forEach((file, index) => {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'file-item';
+            fileItem.innerHTML = `
+                <div>
+                    <i class="fas fa-file"></i>
+                    <span>${file.name}</span>
+                    <small class="text-muted ms-2">(${formatFileSize(file.size)})</small>
+                </div>
+                <button class="btn btn-sm btn-danger" onclick="removeFile(${index})">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            container.appendChild(fileItem);
+        });
+    }
+
+    // Remove file from selection
+    function removeFile(index) {
+        selectedFiles.splice(index, 1);
+        displayFiles();
+
+        if (selectedFiles.length === 0) {
+            document.getElementById('file-list').style.display = 'none';
+            document.getElementById('transfer-options').style.display = 'none';
+        }
+    }
+
+    // Format file size
+    function formatFileSize(bytes) {
+        const units = ['B', 'KB', 'MB', 'GB'];
+        let size = bytes;
+        let unitIndex = 0;
+
+        while (size >= 1024 && unitIndex < units.length - 1) {
+            size /= 1024;
+            unitIndex++;
+        }
+
+        return `${size.toFixed(1)} ${units[unitIndex]}`;
+    }
+
+    // Transfer type toggle
+    document.querySelectorAll('input[name="transfer_type"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            const emailRecipients = document.getElementById('email-recipients');
+            if (e.target.value === 'email') {
+                emailRecipients.style.display = 'block';
+            } else {
+                emailRecipients.style.display = 'none';
+            }
+        });
+    });
+
+    // Handle transfer form submission
+    document.getElementById('transfer-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        if (selectedFiles.length === 0) {
+            alert('Bitte wählen Sie Dateien zum Übertragen aus');
+            return;
+        }
+
+        // Create transfer
+        const formData = new FormData(e.target);
+
+        try {
+            console.log('Sending form data:', formData);
+            const response = await fetch('{% url "fileshare:create_transfer" %}', {
+                method: 'POST',
+                body: formData
+            });
+
+            console.log('Response status:', response.status);
+            const data = await response.json();
+            console.log('Response data:', data);
+
+            if (data.success) {
+                transferId = data.transfer_id;
+                await uploadFiles(data.upload_url);
+            } else {
+                alert('Fehler: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Create transfer error:', error);
+            alert('Fehler beim Erstellen des Transfers: ' + error);
+        }
+    });
+
+    // Upload files
+    async function uploadFiles(uploadUrl) {
+        document.getElementById('upload-form').style.display = 'none';
+        document.getElementById('upload-progress').style.display = 'block';
+
+        let totalSize = selectedFiles.reduce((sum, file) => sum + file.size, 0);
+        let uploadedSize = 0;
+
+        for (const file of selectedFiles) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                console.log('Uploading file:', file.name, 'to URL:', uploadUrl);
+                const response = await fetch(uploadUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                console.log('Upload response status:', response.status);
+                const data = await response.json();
+                console.log('Upload response data:', data);
+
+                if (data.success) {
+                    uploadedSize += file.size;
+                    updateProgress((uploadedSize / totalSize) * 100);
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                alert('Fehler beim Hochladen der Datei: ' + error);
+                return;
+            }
+        }
+
+        // Complete transfer
+        await completeTransfer();
+    }
+
+    // Update upload progress
+    function updateProgress(percentage) {
+        const progressBar = document.querySelector('.progress-bar');
+        const progressText = document.getElementById('progress-text');
+
+        progressBar.style.width = percentage + '%';
+        progressText.textContent = Math.round(percentage) + '%';
+    }
+
+    // Complete transfer
+    async function completeTransfer() {
+        const formData = new FormData();
+        const recipients = document.getElementById('recipients').value;
+
+        if (recipients) {
+            formData.append('recipients', recipients);
+        }
+
+        try {
+            const response = await fetch(`/fileshare/complete/${transferId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showTransferComplete(data);
+            } else {
+                alert('Fehler: ' + data.error);
+            }
+        } catch (error) {
+            alert('Fehler beim Abschließen des Transfers: ' + error);
+        }
+    }
+
+    // Show transfer complete
+    function showTransferComplete(data) {
+        document.getElementById('upload-progress').style.display = 'none';
+        document.getElementById('transfer-complete').style.display = 'block';
+
+        document.getElementById('download-link').value = data.download_url;
+
+        if (data.qr_code) {
+            document.getElementById('qr-code-container').innerHTML = `
+                <img src="${data.qr_code}" alt="QR Code">
+            `;
+        }
+    }
+
+    // Copy link to clipboard
+    document.getElementById('copy-link').addEventListener('click', () => {
+        const linkInput = document.getElementById('download-link');
+        linkInput.select();
+        document.execCommand('copy');
+
+        const btn = document.getElementById('copy-link');
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Kopiert!';
+        setTimeout(() => {
+            btn.innerHTML = originalHTML;
+        }, 2000);
+    });
+
+    } // End initFileShare
+
+    // Toggle password field visibility
+    function togglePasswordField() {
+        const checkbox = document.getElementById('enable-password');
+        const passwordField = document.getElementById('password-field');
+        const passwordInput = document.getElementById('password');
+
+        if (checkbox.checked) {
+            passwordField.style.display = 'block';
+            passwordInput.setAttribute('required', 'required');
+        } else {
+            passwordField.style.display = 'none';
+            passwordInput.removeAttribute('required');
+            passwordInput.value = '';
+        }
+    }
+
+    // Initialize immediately and on DOM ready as fallback
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initFileShare);
+    } else {
+        initFileShare();
+    }
+</script>
+{% endblock %}

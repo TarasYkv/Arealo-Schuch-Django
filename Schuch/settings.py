@@ -80,6 +80,7 @@ INSTALLED_APPS = [
     'loomads',
     'lighting_classification',
     'loomline',
+    'fileshare',
 ]
 
 
