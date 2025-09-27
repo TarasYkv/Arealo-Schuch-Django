@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Meine Transfers - FileShare{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Meine Transfers</h1>
+
+    <!-- Statistics -->
+    <div class="stats-container">
+        <div class="stat-card">
+            <div class="stat-label">Gesamt Transfers</div>
+            <div class="stat-number">{{ stats.total_transfers }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Aktive Transfers</div>
+            <div class="stat-number">{{ stats.active_transfers }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Gesamt Downloads</div>
+            <div class="stat-number">{{ stats.total_downloads }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Gesamt Geteilt</div>
+            <div class="stat-number">{{ stats.total_size|filesizeformat }}</div>
+        </div>
+    </div>
+
+    <!-- Transfer List -->
+    <h3 class="mb-3">Letzte Transfers</h3>
+
+    {% if transfers %}
+        {% for transfer in transfers %}
+        <div class="transfer-card">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h5>{{ transfer.title|default:"Ohne Titel" }}</h5>
+                    <p class="text-muted mb-1">
+                        <i class="fas fa-file"></i> {{ transfer.files.count }} Dateien
+                        <span class="ms-3"><i class="fas fa-database"></i> {{ transfer.total_size|filesizeformat }}</span>
+                        <span class="ms-3"><i class="fas fa-download"></i> {{ transfer.total_downloads }} Downloads</span>
+                    </p>
+                    <p class="text-muted mb-0">
+                        <small>Erstellt: {{ transfer.created_at|date:"d.m.Y H:i" }}</small>
+                    </p>
+                </div>
+                <div class="col-md-3">
+                    {% if transfer.can_download %}
+                    <span class="status-badge status-active">Aktiv</span>
+                    <small class="d-block mt-1">Läuft ab: {{ transfer.expires_at|date:"d.m.Y" }}</small>
+                    {% else %}
+                    <span class="status-badge status-expired">Abgelaufen</span>
+                    {% endif %}
+                </div>
+                <div class="col-md-3">
+                    <div class="btn-actions">
+                        <a href="{% url 'fileshare:download' transfer.id %}"
+                           class="btn btn-sm btn-primary">
+                            <i class="fas fa-eye"></i> Anzeigen
+                        </a>
+                        <button class="btn btn-sm btn-info"
+                                onclick="copyLink('{{ request.build_absolute_uri }}{% url 'fileshare:download' transfer.id %}')">
+                            <i class="fas fa-link"></i> Link kopieren
+                        </button>
+                        <form method="post" action="{% url 'fileshare:delete_transfer' transfer.id %}" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-danger"
+                                    onclick="return confirm('Sind Sie sicher, dass Sie diesen Transfer löschen möchten?')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> Sie haben noch keine Transfers erstellt.
+        <a href="{% url 'fileshare:index' %}" class="alert-link">Erstellen Sie Ihren ersten Transfer</a>
+    </div>
+    {% endif %}
+
+    <div class="mt-4">
+        <a href="{% url 'fileshare:index' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Neuer Transfer
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function copyLink(url) {
+    navigator.clipboard.writeText(url).then(function() {
+        alert('Link in die Zwischenablage kopiert!');
+    }, function(err) {
+        console.error('Link konnte nicht kopiert werden: ', err);
+    });
+}
+</script>
+{% endblock %}

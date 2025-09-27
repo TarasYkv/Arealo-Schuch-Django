@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dateien wurden mit Ihnen geteilt</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px 10px 0 0;
+            text-align: center;
+            margin: -30px -30px 30px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+        .button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 40px;
+            text-decoration: none;
+            border-radius: 25px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .file-list {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .file-item {
+            padding: 10px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .file-item:last-child {
+            border-bottom: none;
+        }
+        .info-box {
+            background-color: #e8f4f8;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Dateien wurden mit Ihnen geteilt</h1>
+        </div>
+
+        <p>Hallo,</p>
+
+        {% if transfer.sender %}
+        <p><strong>{{ transfer.sender.get_full_name|default:transfer.sender.username }}</strong> hat Dateien mit Ihnen geteilt.</p>
+        {% elif transfer.sender_email %}
+        <p><strong>{{ transfer.sender_email }}</strong> hat Dateien mit Ihnen geteilt.</p>
+        {% else %}
+        <p>Jemand hat Dateien mit Ihnen geteilt.</p>
+        {% endif %}
+
+        {% if transfer.title %}
+        <h2>{{ transfer.title }}</h2>
+        {% endif %}
+
+        {% if transfer.message %}
+        <div class="info-box">
+            <strong>Nachricht:</strong><br>
+            {{ transfer.message|linebreaks }}
+        </div>
+        {% endif %}
+
+        <div class="file-list">
+            <h3>Dateien ({{ transfer.files.count }})</h3>
+            {% for file in transfer.files.all %}
+            <div class="file-item">
+                📄 {{ file.original_filename }} <small>({{ file.file_size|filesizeformat }})</small>
+            </div>
+            {% endfor %}
+            <p><strong>Gesamtgröße:</strong> {{ transfer.total_size|filesizeformat }}</p>
+        </div>
+
+        <div style="text-align: center;">
+            <a href="{{ download_url }}" class="button">Dateien herunterladen</a>
+        </div>
+
+        <div class="info-box">
+            <strong>⏰ Wichtig:</strong> Dieser Transfer läuft in {{ expires_in_days }} Tagen ab. Bitte laden Sie Ihre Dateien herunter, bevor sie automatisch gelöscht werden.
+        </div>
+
+        {% if transfer.password_hash %}
+        <div class="info-box">
+            <strong>🔒 Passwort geschützt:</strong> Sie benötigen ein Passwort, um auf diese Dateien zuzugreifen. Der Absender sollte Ihnen das Passwort separat mitgeteilt haben.
+        </div>
+        {% endif %}
+
+        <div class="footer">
+            <p>Diese E-Mail wurde von FileShare - WorkLoom versendet</p>
+            <p>Wenn Sie diese E-Mail nicht erwartet haben, können Sie sie sicher ignorieren.</p>
+        </div>
+    </div>
+</body>
+</html>

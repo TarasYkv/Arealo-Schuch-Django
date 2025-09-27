@@ -192,6 +192,7 @@ class AppPermission(models.Model):
         ('makeads', 'AdsMake'),
         ('streamrec', 'StreamRec'),
         ('promptpro', 'PromptPro'),
+        ('fileshare', 'FileShare'),
         
         # Schuch Tools
         ('schuch', 'Schuch'),

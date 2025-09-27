@@ -52,6 +52,7 @@ urlpatterns = [
     path('superconfig/', include('superconfig.urls')),
     path('loomads/', include('loomads.urls')),
     path('loomline/', include('loomline.urls')),
+    path('fileshare/', include('fileshare.urls')),
     path('page/<str:page_name>/', core_views.dynamic_page_view, name='dynamic_page'),
     path('admin/', admin.site.urls),
 ]
