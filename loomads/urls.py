@@ -34,6 +34,18 @@ urlpatterns = [
     path('auto-campaigns/<uuid:campaign_id>/', views_frontend.auto_campaign_detail, name='auto_campaign_detail'),
     path('auto-campaigns/<uuid:campaign_id>/edit/', views_frontend.auto_campaign_edit, name='auto_campaign_edit'),
     path('auto-campaigns/<uuid:campaign_id>/delete/', views_frontend.auto_campaign_delete, name='auto_campaign_delete'),
+
+    # App-Kampagnen
+    path('app-campaigns/', views.app_campaign_list, name='app_campaign_list'),
+    path('app-campaigns/create/', views.app_campaign_create, name='app_campaign_create'),
+    path('app-campaigns/<uuid:campaign_id>/', views.app_campaign_detail, name='app_campaign_detail'),
+    path('app-campaigns/<uuid:campaign_id>/edit/', views.app_campaign_edit, name='app_campaign_edit'),
+    path('app-campaigns/<uuid:campaign_id>/delete/', views.app_campaign_delete, name='app_campaign_delete'),
+
+    # App-Anzeigen
+    path('app-campaigns/<uuid:campaign_id>/ads/create/', views.app_ad_create, name='app_ad_create'),
+    path('app-ads/<uuid:ad_id>/edit/', views.app_ad_edit, name='app_ad_edit'),
+    path('app-ads/<uuid:ad_id>/delete/', views.app_ad_delete, name='app_ad_delete'),
     
     # Auto-Campaign Formate
     path('auto-formats/', views_frontend.auto_format_list, name='auto_format_list'),

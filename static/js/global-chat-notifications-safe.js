@@ -75,7 +75,7 @@ class SafeGlobalChatNotifications {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-            const response = await fetch('/chat/unread-count/', {
+            const response = await fetch('/organization/chat/unread-count/', {
                 signal: controller.signal,
                 method: 'GET',
                 headers: {

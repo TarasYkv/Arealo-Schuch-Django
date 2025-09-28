@@ -1,14 +1,16 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import JsonResponse
+from django.http import JsonResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Count, Max
 from django.core.paginator import Paginator
 from django.contrib.auth import get_user_model
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
+from datetime import timedelta
 from .models import (
     Note,
     Event,
@@ -22,6 +24,9 @@ from .models import (
     BoardAudioParticipant,
     BoardMirrorSession,
 )
+# Chat models import
+from chat.models import ChatRoom, ChatMessage, ChatRoomParticipant, ChatMessageRead, ChatMessageAttachment
+from chat.email_service import ChatEmailNotificationService
 from .agora_utils import generate_agora_token, get_agora_config, CallRoles
 from PIL import Image, UnidentifiedImageError
 import json
@@ -1570,3 +1575,100 @@ def board_get_notes(request, pk):
         'success': True,
         'notes': board.notes or ''
     })
+
+
+# ===== CHAT VIEWS (von chat app integriert) =====
+
+def is_user_logged_in(user):
+    """Check if user is considered 'logged in' based on recent activity (30 minutes)"""
+    return (
+        user.last_activity and
+        timezone.now() - user.last_activity < timedelta(minutes=30)
+    )
+
+# Chat Views - Wrapper ohne App-Permission Decorators
+@login_required
+def chat_home(request):
+    """Chat Home ohne Chat App Permission"""
+    from chat.views import chat_home as original_chat_home
+    # Umgehe den require_app_permission Decorator
+    return original_chat_home.__wrapped__(request)
+
+@login_required
+def schuch_dashboard(request):
+    """Schuch Dashboard ohne Chat App Permission"""
+    from chat.views import schuch_dashboard as original_schuch_dashboard
+    return original_schuch_dashboard.__wrapped__(request)
+
+@login_required
+@require_http_methods(["POST"])
+def send_message(request, room_id):
+    """Send Message ohne Chat App Permission"""
+    from chat.views import send_message as original_send_message
+    return original_send_message.__wrapped__(request, room_id)
+
+@login_required
+def get_messages(request, room_id):
+    """Get Messages ohne Chat App Permission"""
+    from chat.views import get_messages as original_get_messages
+    return original_get_messages.__wrapped__(request, room_id)
+
+@login_required
+def get_unread_count(request):
+    """Get Unread Count ohne Chat App Permission"""
+    from chat.views import get_unread_count as original_get_unread_count
+    return original_get_unread_count.__wrapped__(request)
+
+@login_required
+@require_http_methods(["POST"])
+def mark_messages_read(request, room_id):
+    """Mark Messages Read ohne Chat App Permission"""
+    from chat.views import mark_messages_read as original_mark_messages_read
+    return original_mark_messages_read.__wrapped__(request, room_id)
+
+@login_required
+@require_http_methods(["POST"])
+def update_online_status(request):
+    """Update Online Status ohne Chat App Permission"""
+    from chat.views import update_online_status as original_update_online_status
+    return original_update_online_status.__wrapped__(request)
+
+@login_required
+@require_http_methods(["POST"])
+def set_offline(request):
+    """Set Offline ohne Chat App Permission"""
+    from chat.views import set_offline as original_set_offline
+    return original_set_offline.__wrapped__(request)
+
+# Weitere Chat Views als Wrapper
+def redirect_to_chat(request, room_id):
+    from chat.views import redirect_to_chat as original_redirect_to_chat
+    return original_redirect_to_chat(request, room_id)
+
+def start_chat(request, user_id):
+    from chat.views import start_chat as original_start_chat
+    return original_start_chat(request, user_id)
+
+def chat_user_search(request):
+    from chat.views import user_search as original_user_search
+    return original_user_search(request)
+
+def create_group_chat(request):
+    from chat.views import create_group_chat as original_create_group_chat
+    return original_create_group_chat(request)
+
+def batch_update(request, room_id):
+    from chat.views import batch_update as original_batch_update
+    return original_batch_update(request, room_id)
+
+def delete_chat(request, room_id):
+    from chat.views import delete_chat as original_delete_chat
+    return original_delete_chat(request, room_id)
+
+def get_chat_info(request, room_id):
+    from chat.views import get_chat_info as original_get_chat_info
+    return original_get_chat_info(request, room_id)
+
+def export_chat_pdf(request, room_id):
+    from chat.views import export_chat_pdf as original_export_chat_pdf
+    return original_export_chat_pdf(request, room_id)

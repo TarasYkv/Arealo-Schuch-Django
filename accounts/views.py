@@ -124,7 +124,7 @@ def dashboard(request):
             'name': 'Chat System',
             'description': 'Kommunizieren Sie direkt mit anderen Nutzern über unser integriertes Chat-System.',
             'icon': 'bi-chat-dots',
-            'url': 'chat:home',
+            'url': 'organization:chat_home',
             'color': 'bg-primary',
             'category': 'communication'
         },
@@ -148,7 +148,7 @@ def dashboard(request):
             'name': 'Schuch Dashboard',
             'description': 'Erweiterte Dashboard-Funktionen und Übersichten.',
             'icon': 'bi-speedometer2',
-            'url': 'chat:schuch_dashboard',
+            'url': 'organization:schuch_dashboard',
             'color': 'bg-info',
             'category': 'dashboard'
         },

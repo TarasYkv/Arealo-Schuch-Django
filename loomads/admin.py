@@ -4,7 +4,8 @@ from django.urls import reverse
 from django.utils.safestring import mark_safe
 from .models import (
     Campaign, AdZone, Advertisement, AdPlacement,
-    AdImpression, AdClick, AdSchedule, AdTargeting
+    AdImpression, AdClick, AdSchedule, AdTargeting,
+    AppCampaign, AppAdvertisement
 )
 
 
@@ -214,6 +215,9 @@ class AdImpressionAdmin(admin.ModelAdmin):
 # Import Auto-Campaign Admin Classes
 from .admin_auto import *
 
+# Import App-Campaign Admin Classes
+from .admin_app import *
+
 
 @admin.register(AdClick)
 class AdClickAdmin(admin.ModelAdmin):
@@ -229,3 +233,6 @@ class AdClickAdmin(admin.ModelAdmin):
 
 # Import Auto-Campaign Admin Classes
 from .admin_auto import *
+
+# Import App-Campaign Admin Classes
+from .admin_app import *

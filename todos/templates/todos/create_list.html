@@ -29,44 +29,35 @@
                             <div class="form-text">Optional: Eine detaillierte Beschreibung der Liste</div>
                         </div>
                         
-                        <!-- Sichtbarkeit -->
-                        <div class="mb-3">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="is_public" name="is_public">
-                                <label class="form-check-label" for="is_public">
-                                    <i class="fas fa-globe"></i> Öffentlich sichtbar
-                                </label>
-                                <div class="form-text">Wenn aktiviert, können alle Benutzer diese Liste sehen (aber nicht bearbeiten)</div>
-                            </div>
-                        </div>
-                        
                         <!-- Benutzer teilen -->
                         <div class="mb-4">
-                            <label class="form-label">
+                            <label class="form-label" for="user-search">
                                 <i class="fas fa-users"></i>
                                 Mit Benutzern teilen
                             </label>
-                            <div class="form-text mb-2">Wählen Sie Benutzer aus, die diese Liste bearbeiten können</div>
-                            
-                            {% if all_users %}
-                                <div class="row">
-                                    {% for user in all_users %}
-                                    <div class="col-md-6 mb-2">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" 
-                                                   id="user-{{ user.id }}" name="shared_with" value="{{ user.id }}">
-                                            <label class="form-check-label" for="user-{{ user.id }}">
-                                                <i class="fas fa-user"></i>
-                                                {{ user.get_full_name|default:user.username }}
-                                                <small class="text-muted">({{ user.username }})</small>
-                                            </label>
-                                        </div>
+                            <div class="form-text mb-2">Suchen Sie nach Benutzernamen, um sie zur Liste hinzuzufügen</div>
+
+                            <!-- Suchfeld -->
+                            <div class="mb-3">
+                                <input type="text" class="form-control" id="user-search"
+                                       placeholder="Benutzername eingeben (mindestens 2 Zeichen)...">
+                                <div id="search-results" class="mt-2" style="display: none;">
+                                    <div class="border rounded p-2 bg-light">
+                                        <div id="search-results-list"></div>
                                     </div>
-                                    {% endfor %}
                                 </div>
-                            {% else %}
-                                <p class="text-muted">Keine anderen Benutzer verfügbar</p>
-                            {% endif %}
+                                <div id="search-loading" class="text-muted mt-2" style="display: none;">
+                                    <i class="fas fa-spinner fa-spin"></i> Suche läuft...
+                                </div>
+                            </div>
+
+                            <!-- Ausgewählte Benutzer -->
+                            <div id="selected-users">
+                                <div class="form-text mb-2">Ausgewählte Benutzer:</div>
+                                <div id="selected-users-list">
+                                    <p class="text-muted">Noch keine Benutzer ausgewählt</p>
+                                </div>
+                            </div>
                         </div>
                         
                         <!-- Buttons -->
@@ -89,30 +80,150 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Auto-Focus auf Titel-Feld
     document.getElementById('title').focus();
-    
+
     // Zeichen-Zähler für Titel
     const titleInput = document.getElementById('title');
     const titleContainer = titleInput.parentElement;
-    
+
     const charCounter = document.createElement('div');
     charCounter.className = 'form-text text-end';
     charCounter.style.marginTop = '0.25rem';
     titleContainer.appendChild(charCounter);
-    
+
     function updateCharCounter() {
         const current = titleInput.value.length;
         const max = 200;
         charCounter.textContent = `${current}/${max} Zeichen`;
-        
+
         if (current > max * 0.8) {
             charCounter.className = 'form-text text-end text-warning';
         } else {
             charCounter.className = 'form-text text-end text-muted';
         }
     }
-    
+
     titleInput.addEventListener('input', updateCharCounter);
     updateCharCounter();
+
+    // Benutzersuche
+    const userSearch = document.getElementById('user-search');
+    const searchResults = document.getElementById('search-results');
+    const searchResultsList = document.getElementById('search-results-list');
+    const searchLoading = document.getElementById('search-loading');
+    const selectedUsersList = document.getElementById('selected-users-list');
+
+    let selectedUsers = new Map(); // userId -> user object
+    let searchTimeout;
+
+    function updateSelectedUsersDisplay() {
+        if (selectedUsers.size === 0) {
+            selectedUsersList.innerHTML = '<p class="text-muted">Noch keine Benutzer ausgewählt</p>';
+            return;
+        }
+
+        let html = '';
+        selectedUsers.forEach((user, userId) => {
+            html += `
+                <div class="d-flex align-items-center justify-content-between mb-2 p-2 border rounded">
+                    <div>
+                        <i class="fas fa-user text-primary"></i>
+                        <strong>${user.display_name}</strong>
+                        <small class="text-muted">(${user.username})</small>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeUser(${userId})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <input type="hidden" name="shared_with" value="${userId}">
+                </div>
+            `;
+        });
+        selectedUsersList.innerHTML = html;
+    }
+
+    window.removeUser = function(userId) {
+        selectedUsers.delete(userId);
+        updateSelectedUsersDisplay();
+    };
+
+    function addUser(user) {
+        if (!selectedUsers.has(user.id)) {
+            selectedUsers.set(user.id, user);
+            updateSelectedUsersDisplay();
+            userSearch.value = '';
+            searchResults.style.display = 'none';
+        }
+    }
+
+    function searchUsers(query) {
+        if (query.length < 2) {
+            searchResults.style.display = 'none';
+            return;
+        }
+
+        searchLoading.style.display = 'block';
+        searchResults.style.display = 'none';
+
+        fetch(`{% url 'todos:search_users' %}?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                searchLoading.style.display = 'none';
+
+                if (data.success && data.users.length > 0) {
+                    let html = '';
+                    data.users.forEach(user => {
+                        const isSelected = selectedUsers.has(user.id);
+                        const buttonClass = isSelected ? 'btn-secondary disabled' : 'btn-outline-primary';
+                        const buttonText = isSelected ? 'Bereits ausgewählt' : 'Hinzufügen';
+
+                        html += `
+                            <div class="d-flex align-items-center justify-content-between mb-2 p-2 border-bottom">
+                                <div>
+                                    <i class="fas fa-user text-primary"></i>
+                                    <strong>${user.display_name}</strong>
+                                    <small class="text-muted">(${user.username})</small>
+                                    ${user.email ? `<br><small class="text-muted">${user.email}</small>` : ''}
+                                </div>
+                                <button type="button" class="btn btn-sm ${buttonClass}"
+                                        ${isSelected ? 'disabled' : `onclick="addUserFromSearch(${JSON.stringify(user).replace(/"/g, '&quot;')})"`}>
+                                    ${buttonText}
+                                </button>
+                            </div>
+                        `;
+                    });
+                    searchResultsList.innerHTML = html;
+                    searchResults.style.display = 'block';
+                } else {
+                    searchResultsList.innerHTML = '<p class="text-muted">Keine Benutzer gefunden</p>';
+                    searchResults.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Fehler bei der Benutzersuche:', error);
+                searchLoading.style.display = 'none';
+                searchResultsList.innerHTML = '<p class="text-danger">Fehler bei der Suche</p>';
+                searchResults.style.display = 'block';
+            });
+    }
+
+    window.addUserFromSearch = function(user) {
+        addUser(user);
+    };
+
+    userSearch.addEventListener('input', function() {
+        const query = this.value.trim();
+
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            searchUsers(query);
+        }, 300); // 300ms Verzögerung
+    });
+
+    // Verstecke Suchergebnisse beim Klick außerhalb
+    document.addEventListener('click', function(event) {
+        if (!userSearch.contains(event.target) && !searchResults.contains(event.target)) {
+            searchResults.style.display = 'none';
+        }
+    });
 });
 </script>
 {% endblock %}

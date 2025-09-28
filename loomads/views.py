@@ -12,7 +12,8 @@ import random
 
 from .models import (
     Campaign, AdZone, Advertisement, AdPlacement,
-    AdImpression, AdClick, AdSchedule, AdTargeting, ZoneIntegration, LoomAdsSettings
+    AdImpression, AdClick, AdSchedule, AdTargeting, ZoneIntegration, LoomAdsSettings,
+    AppCampaign, AppAdvertisement
 )
 
 # Import frontend management views
@@ -21,6 +22,13 @@ from .views_frontend import (
     ad_create, ad_edit, ad_delete, ad_list, ad_detail,
     zone_create, zone_edit, zone_delete,
     settings
+)
+
+# Import app campaign views
+from .views_app import (
+    app_campaign_list, app_campaign_create, app_campaign_detail,
+    app_campaign_edit, app_campaign_delete,
+    app_ad_create, app_ad_edit, app_ad_delete
 )
 
 
@@ -510,7 +518,7 @@ def get_ad_for_zone(request, zone_code):
         logger.warning(f'Zone not found: {zone_code}')
         return JsonResponse({'error': f'Zone "{zone_code}" not found'}, status=404)
     
-    # Aktive Anzeigen für diese Zone finden
+    # Aktive Anzeigen für diese Zone finden (normale Anzeigen)
     now = timezone.now()
     active_ads = Advertisement.objects.filter(
         is_active=True,
@@ -519,9 +527,83 @@ def get_ad_for_zone(request, zone_code):
         campaign__start_date__lte=now,
         campaign__end_date__gte=now
     )
-    
+
+    # Aktive App-Anzeigen für diese Zone hinzufügen
+    app_ads = AppAdvertisement.objects.filter(
+        is_active=True,
+        zones=zone,
+        app_campaign__status='active',
+        app_campaign__start_date__lte=now,
+        app_campaign__end_date__gte=now
+    )
+
     initial_count = active_ads.count()
-    logger.debug(f'Initial ads found for {zone_code}: {initial_count}')
+    app_ads_count = app_ads.count()
+    logger.debug(f'Initial ads found for {zone_code}: {initial_count} normal, {app_ads_count} app ads')
+
+    # Wenn keine normalen Anzeigen da sind, aber App-Anzeigen, dann App-Anzeigen verwenden
+    if initial_count == 0 and app_ads_count > 0:
+        # App-Anzeige auswählen (weighted random)
+        if app_ads_count == 1:
+            selected_app_ad = app_ads.first()
+        else:
+            # Gewichtete Auswahl bei mehreren App-Anzeigen
+            app_ads_with_weights = []
+            for app_ad in app_ads:
+                app_ads_with_weights.append((app_ad, app_ad.effective_weight))
+
+            if app_ads_with_weights:
+                ads, weights = zip(*app_ads_with_weights)
+                selected_app_ad = random.choices(ads, weights=weights, k=1)[0]
+            else:
+                selected_app_ad = app_ads.first()
+
+        # App-Anzeige zu Advertisement-kompatiblem Format konvertieren
+        should_track = (
+            request.GET.get('track') != 'false' and
+            not (request.user.is_authenticated and request.user.is_superuser)
+        )
+
+        if should_track:
+            # Impression tracken für App-Anzeigen (nur Counter, kein detailliertes Tracking)
+            session_key = f'ad_impression_{selected_app_ad.id}_{zone.id}'
+            impression_time = request.session.get(session_key)
+            current_time = timezone.now().timestamp()
+
+            if not impression_time or (current_time - impression_time) > 30:
+                # Nur den Counter erhöhen, kein AdImpression Record
+                # (da AdImpression nur normale Advertisements unterstützt)
+                selected_app_ad.impressions_count = F('impressions_count') + 1
+                selected_app_ad.save(update_fields=['impressions_count'])
+
+                request.session[session_key] = current_time
+                request.session.modified = True
+
+        # Response für App-Anzeige
+        response_data = {
+            'id': str(selected_app_ad.id),
+            'type': selected_app_ad.ad_type,
+            'title': selected_app_ad.title,
+            'description': selected_app_ad.description_text,
+            'target_url': selected_app_ad.link_url,
+            'target_type': '_blank',  # App-Anzeigen öffnen standardmäßig in neuem Tab
+        }
+
+        if selected_app_ad.ad_type == 'image' and selected_app_ad.image:
+            response_data['image_url'] = request.build_absolute_uri(selected_app_ad.image.url)
+        elif selected_app_ad.ad_type == 'html' and selected_app_ad.html_content:
+            response_data['type'] = 'html'
+            response_data['html_content'] = selected_app_ad.html_content
+        elif selected_app_ad.ad_type == 'video' and selected_app_ad.video_url:
+            response_data['video_url'] = selected_app_ad.video_url
+
+        return JsonResponse(response_data)
+
+    # Wenn keine App-Anzeigen oder normale Anzeigen vorhanden sind, mit normaler Logik fortfahren
+    if initial_count == 0:
+        error_msg = f'No ads available for zone {zone_code}. Normal ads: {initial_count}, App ads: {app_ads_count}'
+        logger.warning(error_msg)
+        return JsonResponse({'error': 'No ads available', 'debug': error_msg}, status=200)
     
     # Device-Targeting prüfen
     user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
@@ -887,11 +969,18 @@ def get_multiple_ads_for_zone(request, zone_code, count=3):
 @require_POST
 def track_click(request, ad_id):
     """API: Klick auf Anzeige tracken"""
+    # Prüfen ob es eine normale Anzeige oder App-Anzeige ist
+    ad = None
+    app_ad = None
+
     try:
         ad = Advertisement.objects.get(id=ad_id)
     except Advertisement.DoesNotExist:
-        return JsonResponse({'error': 'Ad not found'}, status=404)
-    
+        try:
+            app_ad = AppAdvertisement.objects.get(id=ad_id)
+        except AppAdvertisement.DoesNotExist:
+            return JsonResponse({'error': 'Ad not found'}, status=404)
+
     # Klick tracken
     zone_code = request.POST.get('zone_code')
     zone = None
@@ -900,21 +989,25 @@ def track_click(request, ad_id):
             zone = AdZone.objects.get(code=zone_code)
         except AdZone.DoesNotExist:
             pass
-    
+
     # Nur tracken wenn nicht Superuser
     if not (request.user.is_authenticated and request.user.is_superuser):
         AdClick.objects.create(
-            advertisement=ad,
+            advertisement=ad if ad else None,
             zone=zone,
             user=request.user if request.user.is_authenticated else None,
             ip_address=get_client_ip(request),
             user_agent=request.META.get('HTTP_USER_AGENT', ''),
             referrer_url=request.META.get('HTTP_REFERER', '')
         )
-        
-        ad.clicks_count = F('clicks_count') + 1
-        ad.save(update_fields=['clicks_count'])
-    
+
+        if ad:
+            ad.clicks_count = F('clicks_count') + 1
+            ad.save(update_fields=['clicks_count'])
+        elif app_ad:
+            app_ad.clicks_count = F('clicks_count') + 1
+            app_ad.save(update_fields=['clicks_count'])
+
     return JsonResponse({'status': 'success'})
 
 

@@ -20,4 +20,5 @@ urlpatterns = [
     path('api/todo/<int:pk>/status/', views.update_todo_status, name='update_todo_status'),
     path('api/todo/<int:pk>/assign/', views.assign_todo, name='assign_todo'),
     path('api/todo/<int:pk>/comment/', views.add_comment, name='add_comment'),
+    path('api/search-users/', views.search_users, name='search_users'),
 ]

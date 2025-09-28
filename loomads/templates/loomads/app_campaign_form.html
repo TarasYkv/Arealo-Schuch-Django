@@ -1,0 +1,341 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-0">
+                <i class="bi bi-phone text-info me-2"></i>
+                {{ title }}
+            </h1>
+            <p class="text-muted mb-0">App-spezifische Kampagne konfigurieren</p>
+        </div>
+        <div class="btn-group">
+            <a href="{% url 'loomads:app_campaign_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Zurück zur Liste
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Kampagnen-Form -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-gear me-2 text-info"></i>Kampagnen-Einstellungen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <!-- Grundinformationen -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-muted mb-3">Grundinformationen</h6>
+                            </div>
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    {{ form.name.label_tag }}
+                                    {{ form.name }}
+                                    {% if form.name.help_text %}
+                                        <div class="form-text">{{ form.name.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.name.errors %}
+                                        <div class="text-danger">{{ form.name.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.app_target.label_tag }}
+                                    {{ form.app_target }}
+                                    {% if form.app_target.help_text %}
+                                        <div class="form-text">{{ form.app_target.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.app_target.errors %}
+                                        <div class="text-danger">{{ form.app_target.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="mb-3">
+                                    {{ form.description.label_tag }}
+                                    {{ form.description }}
+                                    {% if form.description.help_text %}
+                                        <div class="form-text">{{ form.description.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.description.errors %}
+                                        <div class="text-danger">{{ form.description.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Status und Priorität -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-muted mb-3">Status und Priorität</h6>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.status.label_tag }}
+                                    {{ form.status }}
+                                    {% if form.status.help_text %}
+                                        <div class="form-text">{{ form.status.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.status.errors %}
+                                        <div class="text-danger">{{ form.status.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.priority.label_tag }}
+                                    {{ form.priority }}
+                                    {% if form.priority.help_text %}
+                                        <div class="form-text">{{ form.priority.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.priority.errors %}
+                                        <div class="text-danger">{{ form.priority.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.weight_multiplier.label_tag }}
+                                    {{ form.weight_multiplier }}
+                                    {% if form.weight_multiplier.help_text %}
+                                        <div class="form-text">{{ form.weight_multiplier.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.weight_multiplier.errors %}
+                                        <div class="text-danger">{{ form.weight_multiplier.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Zeitplanung -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-muted mb-3">Zeitplanung</h6>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.start_date.label_tag }}
+                                    {{ form.start_date }}
+                                    {% if form.start_date.help_text %}
+                                        <div class="form-text">{{ form.start_date.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.start_date.errors %}
+                                        <div class="text-danger">{{ form.start_date.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.end_date.label_tag }}
+                                    {{ form.end_date }}
+                                    {% if form.end_date.help_text %}
+                                        <div class="form-text">{{ form.end_date.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.end_date.errors %}
+                                        <div class="text-danger">{{ form.end_date.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Zone-Einstellungen -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-muted mb-3">Zone-Einstellungen</h6>
+                            </div>
+                            <div class="col-12">
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        {{ form.auto_include_new_zones }}
+                                        {{ form.auto_include_new_zones.label_tag }}
+                                    </div>
+                                    {% if form.auto_include_new_zones.help_text %}
+                                        <div class="form-text">{{ form.auto_include_new_zones.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.auto_include_new_zones.errors %}
+                                        <div class="text-danger">{{ form.auto_include_new_zones.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Limits (Collapsible) -->
+                        <div class="accordion mb-4" id="limitsAccordion">
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="limitsHeading">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#limitsCollapse" aria-expanded="false" aria-controls="limitsCollapse">
+                                        <i class="bi bi-speedometer2 me-2"></i>Impression- und Klick-Limits (Optional)
+                                    </button>
+                                </h2>
+                                <div id="limitsCollapse" class="accordion-collapse collapse" aria-labelledby="limitsHeading" data-bs-parent="#limitsAccordion">
+                                    <div class="accordion-body">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <h6 class="text-muted mb-3">Impression-Limits</h6>
+                                                <div class="mb-3">
+                                                    {{ form.daily_impression_limit.label_tag }}
+                                                    {{ form.daily_impression_limit }}
+                                                    {% if form.daily_impression_limit.help_text %}
+                                                        <div class="form-text">{{ form.daily_impression_limit.help_text }}</div>
+                                                    {% endif %}
+                                                    {% if form.daily_impression_limit.errors %}
+                                                        <div class="text-danger">{{ form.daily_impression_limit.errors.0 }}</div>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="mb-3">
+                                                    {{ form.total_impression_limit.label_tag }}
+                                                    {{ form.total_impression_limit }}
+                                                    {% if form.total_impression_limit.help_text %}
+                                                        <div class="form-text">{{ form.total_impression_limit.help_text }}</div>
+                                                    {% endif %}
+                                                    {% if form.total_impression_limit.errors %}
+                                                        <div class="text-danger">{{ form.total_impression_limit.errors.0 }}</div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <h6 class="text-muted mb-3">Klick-Limits</h6>
+                                                <div class="mb-3">
+                                                    {{ form.daily_click_limit.label_tag }}
+                                                    {{ form.daily_click_limit }}
+                                                    {% if form.daily_click_limit.help_text %}
+                                                        <div class="form-text">{{ form.daily_click_limit.help_text }}</div>
+                                                    {% endif %}
+                                                    {% if form.daily_click_limit.errors %}
+                                                        <div class="text-danger">{{ form.daily_click_limit.errors.0 }}</div>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="mb-3">
+                                                    {{ form.total_click_limit.label_tag }}
+                                                    {{ form.total_click_limit }}
+                                                    {% if form.total_click_limit.help_text %}
+                                                        <div class="form-text">{{ form.total_click_limit.help_text }}</div>
+                                                    {% endif %}
+                                                    {% if form.total_click_limit.errors %}
+                                                        <div class="text-danger">{{ form.total_click_limit.errors.0 }}</div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'loomads:app_campaign_list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-circle"></i> Abbrechen
+                            </a>
+                            <button type="submit" class="btn btn-info">
+                                <i class="bi bi-check-circle"></i>
+                                {% if campaign %}
+                                    App-Kampagne aktualisieren
+                                {% else %}
+                                    App-Kampagne erstellen
+                                {% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Hilfe-Panel -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2 text-info"></i>App-Kampagnen Info
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6><i class="bi bi-phone me-2"></i>Was sind App-Kampagnen?</h6>
+                        <p class="text-muted small">
+                            App-Kampagnen zielen auf spezifische Apps ab und werden automatisch
+                            in allen Zonen der gewählten App angezeigt.
+                        </p>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6><i class="bi bi-gear me-2"></i>Automatische Zone-Zuordnung</h6>
+                        <p class="text-muted small">
+                            Die Kampagne wird automatisch allen Zonen der gewählten App zugeordnet.
+                            Neue Zonen werden automatisch einbezogen (falls aktiviert).
+                        </p>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6><i class="bi bi-star me-2"></i>Priorität & Gewichtung</h6>
+                        <p class="text-muted small">
+                            Höhere Priorität = häufigere Anzeige. Der Gewichtungs-Multiplikator
+                            verstärkt zusätzlich die Anzeigengewichtung in den App-Zonen.
+                        </p>
+                    </div>
+
+                    <div class="mb-0">
+                        <h6><i class="bi bi-speedometer2 me-2"></i>Limits</h6>
+                        <p class="text-muted small">
+                            Limits gelten pro App für alle Zonen zusammen.
+                            Leer lassen für unbegrenzte Anzeigen.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {% if campaign %}
+                <!-- Kampagnen-Info -->
+                <div class="card border-0 shadow-sm mt-4">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-bar-chart me-2 text-success"></i>Aktuelle Performance
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <div class="border-end">
+                                    <div class="h5 mb-0">{{ campaign.get_target_zones_count }}</div>
+                                    <small class="text-muted">Zonen</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="border-end">
+                                    <div class="h5 mb-0">{{ campaign.app_advertisements.count }}</div>
+                                    <small class="text-muted">Anzeigen</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="h5 mb-0 {% if campaign.get_ctr >= 2 %}text-success{% elif campaign.get_ctr >= 1 %}text-warning{% else %}text-danger{% endif %}">
+                                    {{ campaign.get_ctr|floatformat:2 }}%
+                                </div>
+                                <small class="text-muted">CTR</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.form-control:focus, .form-select:focus {
+    border-color: #0dcaf0;
+    box-shadow: 0 0 0 0.2rem rgba(13, 202, 240, 0.25);
+}
+</style>
+{% endblock %}

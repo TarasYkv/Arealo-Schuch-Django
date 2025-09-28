@@ -34,7 +34,8 @@ urlpatterns = [
     path('pdf-tool/', include('pdf_sucher.urls')),
     path('schulungen/', include('naturmacher.urls')),
     path('todos/', include('todos.urls')),
-    path('chat/', include('chat.urls')),
+    # Chat wurde zu Organization verschoben
+    path('chat/', core_views.redirect_to_organization_chat, name='chat_redirect'),
     path('shopify/', include('shopify_manager.urls')),
     path('images/', include('image_editor.urls')),
     path('bug-report/', include('bug_report.urls')),
@@ -53,6 +54,7 @@ urlpatterns = [
     path('loomads/', include('loomads.urls')),
     path('loomline/', include('loomline.urls')),
     path('fileshare/', include('fileshare.urls')),
+    path('stats/', include('stats.urls')),
     path('page/<str:page_name>/', core_views.dynamic_page_view, name='dynamic_page'),
     path('admin/', admin.site.urls),
 ]

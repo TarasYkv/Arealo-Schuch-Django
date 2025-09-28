@@ -1,0 +1,407 @@
+{% load static %}
+
+{% if not error %}
+<!-- LoomAds Card Zone: {{ zone_code }} -->
+<div class="task-container" data-zone-code="{{ zone_code }}" data-ad-type="card">
+    <div class="main-task-card ad-card">
+        <div class="task-tile-wrapper">
+            <div class="task-tile ad-tile" id="loomads-card-zone-{{ zone_code }}-{{ random_id }}">
+                <!-- Loading placeholder -->
+                <div class="ad-loading" style="display: flex; align-items: center; justify-content: center; min-height: 200px; color: #6c757d;">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                    <span>Lade Werbung...</span>
+                </div>
+
+                <!-- Ad content will be loaded here -->
+                <div class="ad-content" style="display: none;"></div>
+
+                <!-- Ad back side (for flip effect) -->
+                <div class="ad-back">
+                    <div>
+                        <h4>🎯 Gesponsert</h4>
+                        <p class="mb-3">Klicken Sie für weitere Details</p>
+                        <div class="text-center">
+                            <i class="fas fa-external-link-alt fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const zoneContainer = document.getElementById('loomads-card-zone-{{ zone_code }}-{{ random_id }}');
+    const loadingDiv = zoneContainer.querySelector('.ad-loading');
+    const contentDiv = zoneContainer.querySelector('.ad-content');
+    const apiUrl = '{{ api_url }}';
+    const trackUrlTemplate = '{{ track_url }}';
+
+    // Function to track clicks
+    function trackClick(adId) {
+        if (!adId) return;
+
+        const trackUrl = trackUrlTemplate.replace('AD_ID_PLACEHOLDER', adId);
+
+        fetch(trackUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+            },
+            body: 'zone_code={{ zone_code }}'
+        }).catch(err => console.log('Click tracking failed:', err));
+    }
+
+    // Function to render ad content as card
+    function renderAdCard(ad) {
+        let cardContent = '';
+
+        if (ad.type === 'html' && ad.html_content) {
+            cardContent = `
+                <div class="task-front ad-front">
+                    <div class="ad-badge-corner">
+                        <span>Anzeige</span>
+                    </div>
+                    <div class="task-header ad-header" style="display: none;">
+                        <div class="task-icon ad-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="task-date-container">
+                        </div>
+                    </div>
+                    <div class="task-content ad-content-inner">
+                        <div class="ad-html-content">
+                            ${ad.html_content}
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (ad.type === 'image' && ad.image_url) {
+            cardContent = `
+                <div class="task-front ad-front">
+                    <div class="ad-badge-corner">
+                        <span>Anzeige</span>
+                    </div>
+                    <div class="task-header ad-header">
+                        <div class="task-icon ad-icon">
+                            <i class="fas fa-image"></i>
+                        </div>
+                        <div class="task-date-container">
+                        </div>
+                    </div>
+                    <div class="task-content ad-content-inner">
+                        <div class="ad-image-container">
+                            <img src="${ad.image_url}" alt="${ad.title || 'Werbung'}" class="ad-image img-fluid">
+                        </div>
+                        ${ad.title ? `<h5 class="ad-title mt-2">${ad.title}</h5>` : ''}
+                        ${ad.description ? `<p class="ad-description text-muted small">${ad.description}</p>` : ''}
+                    </div>
+                </div>
+            `;
+        } else if (ad.type === 'text') {
+            cardContent = `
+                <div class="task-front ad-front">
+                    <div class="ad-badge-corner">
+                        <span>Anzeige</span>
+                    </div>
+                    <div class="task-header ad-header">
+                        <div class="task-icon ad-icon">
+                            <i class="fas fa-bullhorn"></i>
+                        </div>
+                        <div class="task-date-container">
+                        </div>
+                    </div>
+                    <div class="task-content ad-content-inner">
+                        <div class="task-content-top">
+                            <h5 class="ad-title">${ad.title || 'Werbung'}</h5>
+                        </div>
+                        <div class="task-content-bottom">
+                            <p class="ad-description text-muted">${ad.description || ''}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Fallback für unbekannte Typen
+            cardContent = `
+                <div class="task-front ad-front">
+                    <div class="ad-badge-corner">
+                        <span>Anzeige</span>
+                    </div>
+                    <div class="task-header ad-header">
+                        <div class="task-icon ad-icon">
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <div class="task-date-container">
+                        </div>
+                    </div>
+                    <div class="task-content ad-content-inner">
+                        <div class="task-content-top">
+                            <h5 class="ad-title">${ad.title || 'Hier könnte deine Werbung stehen!'}</h5>
+                        </div>
+                        <div class="task-content-bottom">
+                            <p class="ad-description text-muted">${ad.description || 'Kontaktiere uns für Werbeplätze.'}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        contentDiv.innerHTML = cardContent;
+
+        // Add click handler if target URL exists
+        if (ad.target_url) {
+            contentDiv.style.cursor = 'pointer';
+            contentDiv.addEventListener('click', function(e) {
+                e.preventDefault();
+                trackClick(ad.id);
+
+                // Open link based on target type
+                if (ad.target_type === '_blank') {
+                    window.open(ad.target_url, '_blank');
+                } else {
+                    window.location.href = ad.target_url;
+                }
+            });
+        }
+
+        // Show content, hide loading
+        loadingDiv.style.display = 'none';
+        contentDiv.style.display = 'block';
+
+        // Add flip functionality like normal task cards
+        setupAdCardFlip();
+    }
+
+    // Function to load ad
+    function loadAd() {
+        fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                // Hide the entire ad container on error
+                zoneContainer.closest('.ad-card-container').style.display = 'none';
+                return;
+            }
+
+            renderAdCard(data);
+        })
+        .catch(error => {
+            console.log('Ad loading failed:', error);
+            // Hide the entire ad container on error
+            zoneContainer.closest('.ad-card-container').style.display = 'none';
+        });
+    }
+
+    // Function to setup flip functionality for ad cards
+    function setupAdCardFlip() {
+        const adTile = zoneContainer;
+        let flipTimeout = null;
+
+        adTile.addEventListener('mouseenter', function() {
+            // Clear any existing timeout
+            if (flipTimeout) {
+                clearTimeout(flipTimeout);
+                flipTimeout = null;
+            }
+            console.log('🔄 Ad card FLIP');
+            this.classList.add('flipped');
+        });
+
+        adTile.addEventListener('mouseleave', function() {
+            // Add a slight delay to prevent flickering
+            flipTimeout = setTimeout(() => {
+                console.log('🔄 Ad card UNFLIP');
+                this.classList.remove('flipped');
+                flipTimeout = null;
+            }, 50);
+        });
+    }
+
+    // Load ad after a short delay to not block page rendering
+    setTimeout(loadAd, 100);
+
+    // Add cache-busting for development
+    console.log('Ad card template updated: v1.2');
+})();
+</script>
+
+<style>
+/* Ad Card Styling - Match Task Card Structure Exactly */
+.task-container[data-ad-type="card"] {
+    margin-bottom: 2rem !important; /* Add extra spacing below ad cards */
+}
+
+.ad-front, .ad-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    border-radius: 15px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Ad Front Styling */
+.ad-front {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 2px solid #e3f2fd;
+}
+
+/* Ad Back Styling (for flip effect) */
+.ad-back {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+    transform: rotateY(180deg);
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+.ad-back * {
+    transform: scaleX(-1); /* Fix all text mirroring on back side */
+}
+
+.ad-back .ad-badge-corner * {
+    transform: scaleX(-1) !important; /* Double negative for badge corner text */
+}
+
+.ad-badge-corner {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    padding: 4px 12px 8px 8px;
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 80%);
+    z-index: 10;
+}
+
+.ad-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.ad-icon {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+
+.ad-label {
+    background: rgba(0, 123, 255, 0.1);
+    color: #007bff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.ad-content-inner {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* Center the content vertically */
+    margin-top: 0; /* Reset margin since we removed the header */
+}
+
+.ad-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.5rem;
+    line-height: 1.3;
+}
+
+.ad-description {
+    font-size: 14px;
+    color: #666;
+    line-height: 1.4;
+    margin-bottom: 0;
+}
+
+.ad-image-container {
+    text-align: center;
+    margin-bottom: 0.75rem;
+}
+
+.ad-image {
+    max-width: 100%;
+    max-height: 120px;
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+.ad-html-content {
+    /* Let HTML content style itself */
+}
+
+.ad-html-content > div {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* Loading state */
+.ad-loading {
+    color: #007bff !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+
+.ad-loading .spinner-border {
+    color: #007bff;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .ad-front, .ad-back {
+        padding: 0.75rem;
+    }
+
+    .ad-title {
+        font-size: 14px;
+    }
+
+    .ad-description {
+        font-size: 13px;
+    }
+
+    .ad-icon {
+        width: 35px;
+        height: 35px;
+        font-size: 14px;
+    }
+}
+</style>
+
+{% else %}
+<!-- Error or no ad zone -->
+{% if fallback %}
+    {{ fallback|safe }}
+{% endif %}
+{% endif %}

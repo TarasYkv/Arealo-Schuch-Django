@@ -1,9 +1,13 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load loomads_tags %}
 
 {% block title %}Chat System{% endblock %}
 
 {% block content %}
+<!-- Chat Header Ad Zone -->
+{% show_ad_zone 'chat_header_banner' %}
+
 <div class="chat-app">
     <div class="chat-sidebar">
         <div class="chat-header-fixed">
@@ -19,6 +23,9 @@
                 <input type="text" class="form-control" id="chatSearch" placeholder="Chats durchsuchen...">
             </div>
         </div>
+
+        <!-- Chat Sidebar Ad Zone -->
+        {% show_ad_zone 'chat_sidebar_main' %}
 
         <div class="chat-list-container">
             {% for room in chat_rooms %}
@@ -675,7 +682,7 @@ class ChatManager {
 
     sendOnlineStatusToServer() {
         // Send online status update to server
-        fetch('/chat/update-online-status/', {
+        fetch('/organization/chat/update-online-status/', {
             method: 'POST',
             headers: {
                 'X-CSRFToken': getCookie('csrftoken')
@@ -787,7 +794,7 @@ class ChatManager {
         await this.batchUpdate();
 
         // Mark messages as read
-        fetch(`/chat/api/room/${roomId}/mark_read/`, {
+        fetch(`/organization/chat/api/room/${roomId}/mark_read/`, {
             method: 'POST',
             headers: {
                 'X-CSRFToken': getCookie('csrftoken')
@@ -802,7 +809,7 @@ class ChatManager {
         if (!this.currentRoomId) return;
 
         try {
-            const response = await this.makeRequest(`/chat/api/batch/${this.currentRoomId}/`, {
+            const response = await this.makeRequest(`/organization/chat/api/batch/${this.currentRoomId}/`, {
                 method: 'POST',
                 headers: {
                     'X-CSRFToken': getCookie('csrftoken'),
@@ -962,7 +969,7 @@ class ChatManager {
         input.value = '';
 
         try {
-            const response = await this.makeRequest(`/chat/api/room/${this.currentRoomId}/send/`, {
+            const response = await this.makeRequest(`/organization/chat/api/room/${this.currentRoomId}/send/`, {
                 method: 'POST',
                 headers: {
                     'X-CSRFToken': getCookie('csrftoken'),
@@ -1090,7 +1097,7 @@ class ChatManager {
         }
 
         // Set offline status
-        navigator.sendBeacon('/chat/set-offline/', new FormData());
+        navigator.sendBeacon('/organization/chat/set-offline/', new FormData());
     }
 }
 
@@ -1146,7 +1153,7 @@ function showChatInfo() {
         </div>
     `;
 
-    fetch(`/chat/api/room/${chatManager.currentRoomId}/info/`)
+    fetch(`/organization/chat/api/room/${chatManager.currentRoomId}/info/`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -1266,7 +1273,7 @@ function deleteChat(roomId, event) {
         event.stopPropagation();
     }
 
-    fetch(`/chat/api/room/${roomId}/delete/`, {
+    fetch(`/organization/chat/api/room/${roomId}/delete/`, {
         method: 'POST',
         headers: {
             'X-CSRFToken': getCookie('csrftoken')
@@ -1289,12 +1296,12 @@ function deleteChat(roomId, event) {
 }
 
 function createNewChat() {
-    window.location.href = '/chat/search/';
+    window.location.href = '/organization/chat/search/';
 }
 
 // Global function to update chat list
 function updateChatList() {
-    fetch('/chat/unread-count/')
+    fetch('/organization/chat/unread-count/')
         .then(response => response.json())
         .then(data => {
             // Update total unread count if you have a global badge
@@ -1319,7 +1326,7 @@ function exportChatToPDF() {
     exportBtn.disabled = true;
     exportBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Exportiere...';
 
-    fetch(`/chat/api/room/${chatManager.currentRoomId}/export-pdf/`, {
+    fetch(`/organization/chat/api/room/${chatManager.currentRoomId}/export-pdf/`, {
         method: 'POST',
         headers: {
             'X-CSRFToken': getCookie('csrftoken'),
@@ -1403,7 +1410,7 @@ function sendFilesAsAttachments(files) {
         formData.append('attachments', file);
     });
 
-    fetch(`/chat/api/room/${chatManager.currentRoomId}/send/`, {
+    fetch(`/organization/chat/api/room/${chatManager.currentRoomId}/send/`, {
         method: 'POST',
         body: formData,
         headers: {
@@ -1611,4 +1618,8 @@ window.addEventListener('beforeunload', () => {
     chatManager.cleanup();
 });
 </script>
+
+<!-- Chat Footer Ad Zone -->
+{% show_ad_zone 'chat_footer_tools' %}
+
 {% endblock %}

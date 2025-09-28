@@ -1,11 +1,99 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load loomads_tags %}
 
 {% block title %}Dateien herunterladen - {{ transfer.title|default:"FileShare" }}{% endblock %}
 
+{% block extra_css %}
+<style>
+/* FileShara Download Page Ad Styles */
+.loomads-download-banner {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 10px !important;
+    padding: 15px !important;
+    backdrop-filter: blur(5px) !important;
+}
+
+.loomads-download-hero {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%) !important;
+    border-radius: 20px !important;
+    padding: 30px !important;
+    color: white !important;
+    box-shadow: 0 15px 40px rgba(238, 90, 36, 0.3) !important;
+    margin: 20px 0 !important;
+}
+
+.loomads-download-cards .loomads-zone {
+    border: 3px solid #ff6b6b !important;
+    border-radius: 15px !important;
+    padding: 20px !important;
+    background: linear-gradient(135deg, #ffe0e0 0%, #ffcccc 100%) !important;
+    box-shadow: 0 10px 30px rgba(255, 107, 107, 0.2) !important;
+    transition: all 0.3s ease !important;
+    max-width: 300px !important;
+    margin: 10px !important;
+}
+
+.loomads-download-cards .loomads-zone:hover {
+    transform: translateY(-5px) !important;
+    box-shadow: 0 15px 40px rgba(255, 107, 107, 0.4) !important;
+    border-color: #e55656 !important;
+}
+
+.loomads-download-footer {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%) !important;
+    border-radius: 20px !important;
+    padding: 25px !important;
+    color: white !important;
+    box-shadow: 0 12px 35px rgba(79, 172, 254, 0.3) !important;
+    margin: 30px 0 !important;
+}
+
+.download-container {
+    position: relative;
+}
+
+/* Mobile Responsive for Download Page */
+@media (max-width: 768px) {
+    .loomads-download-cards {
+        flex-direction: column !important;
+        align-items: center !important;
+    }
+
+    .loomads-download-cards .loomads-zone {
+        max-width: 100% !important;
+        margin-bottom: 15px !important;
+    }
+
+    .loomads-download-hero,
+    .loomads-download-footer {
+        padding: 20px !important;
+        margin: 15px 0 !important;
+    }
+}
+</style>
+{% endblock %}
+
 
 {% block content %}
+<!-- LoomAds CSS -->
+{% loomads_css %}
+
+<!-- Top Download Ad Banner -->
+<div class="container-fluid bg-primary text-white py-2">
+    <div class="container text-center">
+        {% show_ad_zone 'fileshare_download_top' css_class='loomads-download-banner' %}
+    </div>
+</div>
+
 <div class="download-container">
+    <!-- Prominent Ad Before Download -->
+    <div class="row mb-4">
+        <div class="col-12 text-center">
+            {% show_ad_zone 'fileshare_download_hero' css_class='loomads-download-hero' %}
+        </div>
+    </div>
+
     <!-- Transfer Info -->
     <div class="transfer-info text-center">
         <h1 class="mb-4">
@@ -93,6 +181,13 @@
         {% endif %}
     </div>
 
+    <!-- Ad Zone Between Downloads and Stats -->
+    <div class="row my-4">
+        <div class="col-12">
+            {% show_multi_ad_zone 'fileshare_download_middle' ad_count=3 css_class='loomads-download-cards d-flex gap-3 justify-content-center' %}
+        </div>
+    </div>
+
     <!-- Download Stats -->
     {% if transfer.download_limit > 0 %}
     <div class="text-center mt-4">
@@ -101,7 +196,24 @@
         </small>
     </div>
     {% endif %}
+
+    <!-- Footer Download Ad -->
+    <div class="row mt-5">
+        <div class="col-12">
+            {% show_ad_zone 'fileshare_download_footer' css_class='loomads-download-footer' %}
+        </div>
+    </div>
+
+    <!-- Notification Zone -->
+    <div class="row mt-3">
+        <div class="col-12">
+            {% show_ad_zone 'fileshare_download_notification' css_class='loomads-notification' %}
+        </div>
+    </div>
 </div>
+
+<!-- Download Page Modal -->
+{% show_ad_modal 'fileshare_download_modal' delay=5000 %}
 {% endblock %}
 
 {% block extra_js %}

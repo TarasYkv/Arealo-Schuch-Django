@@ -1,0 +1,344 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ campaign.name }} - App-Kampagne - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-0">
+                <i class="bi bi-phone text-info me-2"></i>
+                {{ campaign.name }}
+            </h1>
+            <p class="text-muted mb-0">
+                App-Kampagne für
+                {% if campaign.app_target == 'loomline' %}
+                    <span class="badge bg-primary">{{ campaign.get_app_target_display }}</span>
+                {% elif campaign.app_target == 'fileshare' %}
+                    <span class="badge bg-danger">{{ campaign.get_app_target_display }}</span>
+                {% elif campaign.app_target == 'streamrec' %}
+                    <span class="badge bg-secondary">{{ campaign.get_app_target_display }}</span>
+                {% elif campaign.app_target == 'promptpro' %}
+                    <span class="badge bg-info">{{ campaign.get_app_target_display }}</span>
+                {% elif campaign.app_target == 'blog' %}
+                    <span class="badge bg-success">{{ campaign.get_app_target_display }}</span>
+                {% else %}
+                    <span class="badge bg-dark">{{ campaign.get_app_target_display }}</span>
+                {% endif %}
+            </p>
+        </div>
+        <div class="btn-group">
+            <a href="{% url 'loomads:app_ad_create' campaign.id %}" class="btn btn-success">
+                <i class="bi bi-plus-lg"></i> Neue Anzeige
+            </a>
+            <a href="{% url 'loomads:app_campaign_edit' campaign.id %}" class="btn btn-warning">
+                <i class="bi bi-pencil"></i> Bearbeiten
+            </a>
+            <a href="{% url 'loomads:app_campaign_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Zurück
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Kampagnen-Info -->
+        <div class="col-lg-4 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2 text-info"></i>Kampagnen-Details
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <small class="text-muted">Status</small>
+                        <div>
+                            {% if campaign.status == 'active' %}
+                                <span class="badge bg-success">{{ campaign.get_status_display }}</span>
+                            {% elif campaign.status == 'draft' %}
+                                <span class="badge bg-secondary">{{ campaign.get_status_display }}</span>
+                            {% elif campaign.status == 'paused' %}
+                                <span class="badge bg-warning">{{ campaign.get_status_display }}</span>
+                            {% else %}
+                                <span class="badge bg-info">{{ campaign.get_status_display }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <small class="text-muted">Priorität</small>
+                        <div>
+                            <span class="badge bg-{% if campaign.priority >= 4 %}danger{% elif campaign.priority >= 3 %}warning{% else %}secondary{% endif %}">
+                                {{ campaign.get_priority_display }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <small class="text-muted">Gewichtungs-Multiplikator</small>
+                        <div><strong>{{ campaign.weight_multiplier }}x</strong></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <small class="text-muted">Laufzeit</small>
+                        <div>
+                            <strong>{{ campaign.start_date|date:"d.m.Y H:i" }}</strong><br>
+                            bis <strong>{{ campaign.end_date|date:"d.m.Y H:i" }}</strong>
+                        </div>
+                    </div>
+
+                    {% if campaign.description %}
+                        <div class="mb-3">
+                            <small class="text-muted">Beschreibung</small>
+                            <div>{{ campaign.description }}</div>
+                        </div>
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <small class="text-muted">Erstellt von</small>
+                        <div>{{ campaign.created_by.username }}</div>
+                    </div>
+
+                    <div class="mb-0">
+                        <small class="text-muted">Erstellt am</small>
+                        <div>{{ campaign.created_at|date:"d.m.Y H:i" }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance-Statistiken -->
+        <div class="col-lg-8 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-bar-chart me-2 text-success"></i>Performance-Übersicht
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center mb-4">
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded">
+                                <div class="h4 mb-0 text-info">{{ target_zones_count }}</div>
+                                <small class="text-muted">Ziel-Zonen</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded">
+                                <div class="h4 mb-0 text-primary">{{ advertisements.count }}</div>
+                                <small class="text-muted">Anzeigen</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded">
+                                <div class="h4 mb-0 text-secondary">{{ total_impressions|intcomma }}</div>
+                                <small class="text-muted">Impressions</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded">
+                                <div class="h4 mb-0 {% if campaign_ctr >= 2 %}text-success{% elif campaign_ctr >= 1 %}text-warning{% else %}text-danger{% endif %}">
+                                    {{ campaign_ctr|floatformat:2 }}%
+                                </div>
+                                <small class="text-muted">CTR</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if campaign.daily_impression_limit or campaign.total_impression_limit %}
+                        <div class="mb-3">
+                            <h6>Impression-Limits</h6>
+                            <div class="row">
+                                {% if campaign.daily_impression_limit %}
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Täglich:</small>
+                                        <strong>{{ campaign.daily_impression_limit|intcomma }}</strong>
+                                    </div>
+                                {% endif %}
+                                {% if campaign.total_impression_limit %}
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Gesamt:</small>
+                                        <strong>{{ campaign.total_impression_limit|intcomma }}</strong>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {% if campaign.daily_click_limit or campaign.total_click_limit %}
+                        <div class="mb-0">
+                            <h6>Klick-Limits</h6>
+                            <div class="row">
+                                {% if campaign.daily_click_limit %}
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Täglich:</small>
+                                        <strong>{{ campaign.daily_click_limit|intcomma }}</strong>
+                                    </div>
+                                {% endif %}
+                                {% if campaign.total_click_limit %}
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Gesamt:</small>
+                                        <strong>{{ campaign.total_click_limit|intcomma }}</strong>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Anzeigen -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white border-0">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-images me-2 text-warning"></i>App-Anzeigen ({{ advertisements.count }})
+                </h5>
+                <a href="{% url 'loomads:app_ad_create' campaign.id %}" class="btn btn-success btn-sm">
+                    <i class="bi bi-plus-lg"></i> Neue Anzeige
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if advertisements %}
+                <div class="row">
+                    {% for ad in advertisements %}
+                        <div class="col-lg-6 mb-3">
+                            <div class="card border">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h6 class="card-title mb-0">{{ ad.name }}</h6>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'loomads:app_ad_edit' ad.id %}"
+                                               class="btn btn-outline-warning btn-sm" title="Bearbeiten">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <a href="{% url 'loomads:app_ad_delete' ad.id %}"
+                                               class="btn btn-outline-danger btn-sm" title="Löschen">
+                                                <i class="bi bi-trash"></i>
+                                            </a>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-2">
+                                        <span class="badge bg-secondary">{{ ad.get_ad_type_display }}</span>
+                                        <span class="badge bg-info">Gewichtung: {{ ad.effective_weight }}</span>
+                                        <span class="badge bg-{% if ad.device_targeting == 'all' %}success{% else %}warning{% endif %}">
+                                            {{ ad.get_device_targeting_display }}
+                                        </span>
+                                        {% if ad.is_active %}
+                                            <span class="badge bg-success">Aktiv</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Inaktiv</span>
+                                        {% endif %}
+                                    </div>
+
+                                    {% if ad.title %}
+                                        <p class="card-text small"><strong>{{ ad.title }}</strong></p>
+                                    {% endif %}
+
+                                    {% if ad.description_text %}
+                                        <p class="card-text small text-muted">{{ ad.description_text|truncatechars:100 }}</p>
+                                    {% endif %}
+
+                                    <div class="row text-center border-top pt-2">
+                                        <div class="col-4">
+                                            <small class="text-muted">Zonen</small>
+                                            <div><strong>{{ ad.zones.count }}</strong></div>
+                                        </div>
+                                        <div class="col-4">
+                                            <small class="text-muted">Impressions</small>
+                                            <div><strong>{{ ad.impressions_count|intcomma }}</strong></div>
+                                        </div>
+                                        <div class="col-4">
+                                            <small class="text-muted">CTR</small>
+                                            <div class="{% if ad.get_ctr >= 2 %}text-success{% elif ad.get_ctr >= 1 %}text-warning{% else %}text-danger{% endif %}">
+                                                <strong>{{ ad.get_ctr|floatformat:2 }}%</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-image text-muted" style="font-size: 3rem;"></i>
+                    <h5 class="mt-3">Keine Anzeigen vorhanden</h5>
+                    <p class="text-muted">Erstellen Sie die erste Anzeige für diese App-Kampagne.</p>
+                    <a href="{% url 'loomads:app_ad_create' campaign.id %}" class="btn btn-success">
+                        <i class="bi bi-plus-lg"></i> Erste Anzeige erstellen
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Ziel-Zonen -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-grid me-2 text-secondary"></i>Ziel-Zonen ({{ target_zones_count }})
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if target_zones %}
+                <div class="row">
+                    {% for zone in target_zones|slice:":12" %}
+                        <div class="col-lg-4 col-md-6 mb-2">
+                            <div class="border rounded p-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>{{ zone.name }}</strong><br>
+                                        <small class="text-muted">{{ zone.code }}</small>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="badge bg-{{ zone.zone_type|default:'secondary' }}">
+                                            {{ zone.get_zone_type_display }}
+                                        </span>
+                                        {% if zone.is_active %}
+                                            <span class="badge bg-success">Aktiv</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Inaktiv</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                    {% if target_zones|length > 12 %}
+                        <div class="col-12">
+                            <p class="text-center text-muted">
+                                ... und {{ target_zones|length|add:"-12" }} weitere Zonen
+                            </p>
+                        </div>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-grid text-muted" style="font-size: 3rem;"></i>
+                    <h5 class="mt-3">Keine Zonen gefunden</h5>
+                    <p class="text-muted">
+                        Für die App "{{ campaign.get_app_target_display }}" wurden keine passenden Zonen gefunden.
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+</style>
+{% endblock %}

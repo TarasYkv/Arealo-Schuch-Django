@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}App-Kampagnen - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-0">
+                <i class="bi bi-phone text-info me-2"></i>
+                App-Kampagnen
+            </h1>
+            <p class="text-muted mb-0">App-spezifische Kampagnen verwalten</p>
+        </div>
+        <div class="btn-group">
+            <a href="{% url 'loomads:app_campaign_create' %}" class="btn btn-info">
+                <i class="bi bi-plus-lg"></i> Neue App-Kampagne
+            </a>
+            <a href="{% url 'loomads:dashboard' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Zurück
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label for="search" class="form-label">Suche</label>
+                    <input type="text" name="search" id="search" class="form-control"
+                           placeholder="Name oder Beschreibung..." value="{{ search_query }}">
+                </div>
+                <div class="col-md-2">
+                    <label for="app" class="form-label">App</label>
+                    <select name="app" id="app" class="form-select">
+                        <option value="">Alle Apps</option>
+                        {% for key, value in app_choices %}
+                            <option value="{{ key }}" {% if app_filter == key %}selected{% endif %}>{{ value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="status" class="form-label">Status</label>
+                    <select name="status" id="status" class="form-select">
+                        <option value="">Alle Status</option>
+                        <option value="draft" {% if status_filter == 'draft' %}selected{% endif %}>Entwurf</option>
+                        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Aktiv</option>
+                        <option value="paused" {% if status_filter == 'paused' %}selected{% endif %}>Pausiert</option>
+                        <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Abgeschlossen</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-search"></i> Filtern
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">&nbsp;</label>
+                    <div class="d-grid">
+                        <a href="{% url 'loomads:app_campaign_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle"></i> Filter zurücksetzen
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Kampagnen Liste -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0">
+            <h5 class="card-title mb-0">
+                App-Kampagnen ({{ page_obj.paginator.count }} gefunden)
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            {% if page_obj %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Name</th>
+                                <th>App</th>
+                                <th>Status</th>
+                                <th>Priorität</th>
+                                <th>Laufzeit</th>
+                                <th>Zonen</th>
+                                <th>Anzeigen</th>
+                                <th>Performance</th>
+                                <th>Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for campaign in page_obj %}
+                                <tr>
+                                    <td>
+                                        <div>
+                                            <strong>
+                                                <a href="{% url 'loomads:app_campaign_detail' campaign.id %}"
+                                                   class="text-decoration-none">
+                                                    {{ campaign.name }}
+                                                </a>
+                                            </strong>
+                                            {% if campaign.description %}
+                                                <br><small class="text-muted">{{ campaign.description|truncatechars:50 }}</small>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if campaign.app_target == 'loomline' %}
+                                            <span class="badge bg-primary">{{ campaign.get_app_target_display }}</span>
+                                        {% elif campaign.app_target == 'fileshare' %}
+                                            <span class="badge bg-danger">{{ campaign.get_app_target_display }}</span>
+                                        {% elif campaign.app_target == 'streamrec' %}
+                                            <span class="badge bg-secondary">{{ campaign.get_app_target_display }}</span>
+                                        {% elif campaign.app_target == 'promptpro' %}
+                                            <span class="badge bg-info">{{ campaign.get_app_target_display }}</span>
+                                        {% elif campaign.app_target == 'blog' %}
+                                            <span class="badge bg-success">{{ campaign.get_app_target_display }}</span>
+                                        {% else %}
+                                            <span class="badge bg-dark">{{ campaign.get_app_target_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if campaign.status == 'active' %}
+                                            <span class="badge bg-success">{{ campaign.get_status_display }}</span>
+                                        {% elif campaign.status == 'draft' %}
+                                            <span class="badge bg-secondary">{{ campaign.get_status_display }}</span>
+                                        {% elif campaign.status == 'paused' %}
+                                            <span class="badge bg-warning">{{ campaign.get_status_display }}</span>
+                                        {% else %}
+                                            <span class="badge bg-info">{{ campaign.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{% if campaign.priority >= 4 %}danger{% elif campaign.priority >= 3 %}warning{% else %}secondary{% endif %}">
+                                            {{ campaign.get_priority_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small>
+                                            {{ campaign.start_date|date:"d.m.Y H:i" }}<br>
+                                            bis {{ campaign.end_date|date:"d.m.Y H:i" }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ campaign.get_target_zones_count }} Zonen</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ campaign.app_advertisements.count }}</span>
+                                    </td>
+                                    <td>
+                                        <small>
+                                            <div class="text-muted">{{ campaign.get_total_impressions|intcomma }} Impressions</div>
+                                            <div class="text-muted">{{ campaign.get_total_clicks|intcomma }} Klicks</div>
+                                            <div class="{% if campaign.get_ctr >= 2 %}text-success{% elif campaign.get_ctr >= 1 %}text-warning{% else %}text-danger{% endif %}">
+                                                {{ campaign.get_ctr|floatformat:2 }}% CTR
+                                            </div>
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'loomads:app_campaign_detail' campaign.id %}"
+                                               class="btn btn-outline-primary btn-sm" title="Details">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            <a href="{% url 'loomads:app_campaign_edit' campaign.id %}"
+                                               class="btn btn-outline-warning btn-sm" title="Bearbeiten">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <a href="{% url 'loomads:app_campaign_delete' campaign.id %}"
+                                               class="btn btn-outline-danger btn-sm" title="Löschen">
+                                                <i class="bi bi-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if page_obj.has_other_pages %}
+                    <div class="card-footer bg-white border-0">
+                        <nav aria-label="Pagination">
+                            <ul class="pagination mb-0 justify-content-center">
+                                {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.app %}&app={{ request.GET.app }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                                            <i class="bi bi-chevron-double-left"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.app %}&app={{ request.GET.app }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                                            <i class="bi bi-chevron-left"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+
+                                {% for num in page_obj.paginator.page_range %}
+                                    {% if page_obj.number == num %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ num }}</span>
+                                        </li>
+                                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.app %}&app={{ request.GET.app }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">{{ num }}</a>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.app %}&app={{ request.GET.app }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                                            <i class="bi bi-chevron-right"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.app %}&app={{ request.GET.app }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                                            <i class="bi bi-chevron-double-right"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    </div>
+                {% endif %}
+
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-phone-vibrate text-muted" style="font-size: 3rem;"></i>
+                    <h5 class="mt-3">Keine App-Kampagnen gefunden</h5>
+                    <p class="text-muted">Erstellen Sie Ihre erste App-Kampagne, um loszulegen.</p>
+                    <a href="{% url 'loomads:app_campaign_create' %}" class="btn btn-info">
+                        <i class="bi bi-plus-lg"></i> Erste App-Kampagne erstellen
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.table td {
+    vertical-align: middle;
+}
+</style>
+{% endblock %}

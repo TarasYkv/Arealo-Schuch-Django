@@ -115,35 +115,30 @@ def create_list(request):
     if request.method == 'POST':
         title = request.POST.get('title', '').strip()
         description = request.POST.get('description', '').strip()
-        is_public = request.POST.get('is_public') == 'on'
         shared_users = request.POST.getlist('shared_with')
-        
+
         if not title:
             messages.error(request, 'Bitte geben Sie einen Titel ein.')
             return redirect('todos:home')
-        
+
         # Liste erstellen
         todo_list = TodoList.objects.create(
             title=title,
             description=description,
             created_by=request.user,
-            is_public=is_public
+            is_public=False
         )
-        
+
         # Benutzer hinzufügen
         if shared_users:
             users = User.objects.filter(id__in=shared_users)
             todo_list.shared_with.set(users)
-        
+
         messages.success(request, f'Liste "{title}" wurde erfolgreich erstellt.')
         return redirect('todos:list_detail', pk=todo_list.pk)
-    
-    # Alle Benutzer für die Auswahl
-    all_users = User.objects.exclude(id=request.user.id).order_by('first_name', 'last_name', 'username')
-    
-    context = {
-        'all_users': all_users,
-    }
+
+    # Keine Benutzer mehr vorladen - wird per AJAX geladen
+    context = {}
     return render(request, 'todos/create_list.html', context)
 
 
@@ -403,26 +398,58 @@ def my_todos(request):
     """Alle dem Benutzer zugeordneten ToDos"""
     # Filter-Parameter
     status_filter = request.GET.get('status', 'active')  # active, completed, all
-    
+
     # Basis-Query
     todos = Todo.objects.filter(assignments__user=request.user).select_related('todo_list')
-    
+
     if status_filter == 'active':
         todos = todos.exclude(status='completed')
     elif status_filter == 'completed':
         todos = todos.filter(status='completed')
     # 'all' zeigt alle an
-    
+
     # Sortierung
     todos = todos.order_by('-priority', 'due_date', '-created_at')
-    
+
     # Pagination
     paginator = Paginator(todos, 20)
     page_number = request.GET.get('page')
     todos_page = paginator.get_page(page_number)
-    
+
     context = {
         'todos': todos_page,
         'status_filter': status_filter,
     }
     return render(request, 'todos/my_todos.html', context)
+
+
+@login_required
+def search_users(request):
+    """AJAX-Endpunkt für die Benutzersuche"""
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'error': 'Nur GET-Requests erlaubt'})
+
+    query = request.GET.get('q', '').strip()
+
+    if len(query) < 2:
+        return JsonResponse({'success': True, 'users': []})
+
+    # Benutzer suchen (außer dem aktuellen Benutzer)
+    users = User.objects.filter(
+        Q(username__icontains=query) |
+        Q(first_name__icontains=query) |
+        Q(last_name__icontains=query) |
+        Q(email__icontains=query)
+    ).exclude(id=request.user.id).order_by('first_name', 'last_name', 'username')[:10]
+
+    user_list = []
+    for user in users:
+        user_list.append({
+            'id': user.id,
+            'username': user.username,
+            'full_name': user.get_full_name(),
+            'display_name': user.get_full_name() or user.username,
+            'email': user.email
+        })
+
+    return JsonResponse({'success': True, 'users': user_list})

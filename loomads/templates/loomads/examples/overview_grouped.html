@@ -1,0 +1,326 @@
+{% extends 'base.html' %}
+
+{% block title %}Anzeigen-Beispiele - Apps Übersicht{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-0">
+                <i class="bi bi-grid-3x3-gap text-primary me-2"></i>
+                Anzeigen-Beispiele
+            </h1>
+            <p class="text-muted mb-0">Gruppiert nach Apps - {{ total_zones }} Zonen, {{ total_ads }} Beispielanzeigen</p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if is_hardcoded %}<span class="badge bg-info">Live Beispiele</span>{% endif %}
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-funnel me-1"></i>
+                    {% if app_filter %}{{ app_filter|title }}{% else %}Alle Apps{% endif %}
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="?">Alle Apps</a></li>
+                    {% for app in available_apps %}
+                        <li><a class="dropdown-item {% if app_filter == app %}active{% endif %}" href="?app={{ app }}">{{ app|title }}</a></li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Apps Overview Cards -->
+    {% if not app_filter %}
+    <div class="row mb-5">
+        <div class="col-12">
+            <h3 class="h4 mb-3">📱 Apps Übersicht</h3>
+            <div class="row">
+                {% for app_code, app_data in apps_data %}
+                <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
+                    <a href="?app={{ app_code }}" class="text-decoration-none">
+                        <div class="card h-100 app-overview-card" style="transition: all 0.2s ease;">
+                            <div class="card-body text-center">
+                                <div class="app-icon mb-3">
+                                    {% if app_code == 'loomline' %}
+                                        <i class="bi bi-kanban" style="font-size: 3rem; color: #667eea;"></i>
+                                    {% elif app_code == 'fileshare' %}
+                                        <i class="bi bi-cloud-upload" style="font-size: 3rem; color: #ff6b6b;"></i>
+                                    {% elif app_code == 'streamrec' %}
+                                        <i class="bi bi-record-circle" style="font-size: 3rem; color: #764ba2;"></i>
+                                    {% elif app_code == 'promptpro' %}
+                                        <i class="bi bi-robot" style="font-size: 3rem; color: #4facfe;"></i>
+                                    {% elif app_code == 'blog' %}
+                                        <i class="bi bi-journal-text" style="font-size: 3rem; color: #43e97b;"></i>
+                                    {% elif app_code == 'videos' %}
+                                        <i class="bi bi-play-circle" style="font-size: 3rem; color: #f093fb;"></i>
+                                    {% elif app_code == 'chat' %}
+                                        <i class="bi bi-chat-dots" style="font-size: 3rem; color: #20bf6b;"></i>
+                                    {% elif app_code == 'global' %}
+                                        <i class="bi bi-globe" style="font-size: 3rem; color: #0fb9b1;"></i>
+                                    {% elif app_code == 'shopify' %}
+                                        <i class="bi bi-shop" style="font-size: 3rem; color: #95e1d3;"></i>
+                                    {% elif app_code == 'dashboard' %}
+                                        <i class="bi bi-speedometer2" style="font-size: 3rem; color: #4facfe;"></i>
+                                    {% else %}
+                                        <i class="bi bi-app" style="font-size: 3rem; color: #6c757d;"></i>
+                                    {% endif %}
+                                </div>
+                                <h5 class="card-title">{{ app_data.name }}</h5>
+                                <div class="row text-center">
+                                    <div class="col-6">
+                                        <div class="fw-bold text-primary">{{ app_data.total_zones }}</div>
+                                        <small class="text-muted">Zonen</small>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="fw-bold text-success">{{ app_data.total_ads }}</div>
+                                        <small class="text-muted">Anzeigen</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- App-specific Zones -->
+    {% for app_code, app_data in apps_data %}
+    <div class="app-section mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="h4 mb-0">
+                {% if app_code == 'loomline' %}
+                    <i class="bi bi-kanban text-primary me-2"></i>
+                {% elif app_code == 'fileshare' %}
+                    <i class="bi bi-cloud-upload text-danger me-2"></i>
+                {% elif app_code == 'streamrec' %}
+                    <i class="bi bi-record-circle me-2" style="color: #764ba2;"></i>
+                {% elif app_code == 'promptpro' %}
+                    <i class="bi bi-robot me-2" style="color: #4facfe;"></i>
+                {% elif app_code == 'blog' %}
+                    <i class="bi bi-journal-text me-2" style="color: #43e97b;"></i>
+                {% elif app_code == 'videos' %}
+                    <i class="bi bi-play-circle text-info me-2"></i>
+                {% elif app_code == 'chat' %}
+                    <i class="bi bi-chat-dots me-2" style="color: #20bf6b;"></i>
+                {% elif app_code == 'global' %}
+                    <i class="bi bi-globe me-2" style="color: #0fb9b1;"></i>
+                {% elif app_code == 'shopify' %}
+                    <i class="bi bi-shop me-2" style="color: #95e1d3;"></i>
+                {% elif app_code == 'dashboard' %}
+                    <i class="bi bi-speedometer2 text-success me-2"></i>
+                {% else %}
+                    <i class="bi bi-app text-secondary me-2"></i>
+                {% endif %}
+                {{ app_data.name }}
+            </h3>
+            <div class="text-muted small">
+                {{ app_data.total_zones }} Zonen • {{ app_data.total_ads }} Anzeigen
+            </div>
+        </div>
+
+        <!-- Zone Grid for this App -->
+        <div class="row">
+            {% for zone_item in app_data.zones %}
+            <div class="col-xl-3 col-lg-4 col-md-6 mb-4">
+                <div class="card h-100 zone-tile {% if zone_item.size_category == 'small' %}border-warning{% elif zone_item.size_category == 'medium' %}border-info{% else %}border-success{% endif %}"
+                     onclick="openZoneDetail('{{ zone_item.zone.id }}')"
+                     style="cursor: pointer; transition: all 0.2s ease;">
+
+                    <!-- Zone Preview -->
+                    <div class="card-img-top d-flex align-items-center justify-content-center"
+                         style="height: 120px; background: {% if app_code == 'loomline' %}linear-gradient(135deg, #667eea 0%, #764ba2 100%){% elif app_code == 'fileshare' %}linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%){% elif app_code == 'videos' %}linear-gradient(135deg, #f093fb 0%, #f5576c 100%){% elif app_code == 'dashboard' %}linear-gradient(135deg, #4facfe 0%, #00f2fe 100%){% else %}linear-gradient(135deg, #6c757d 0%, #495057 100%){% endif %};">
+                        <div class="text-center text-white">
+                            <!-- Size Indicator -->
+                            {% if zone_item.size_category == 'small' %}
+                                <i class="bi bi-aspect-ratio" style="font-size: 2rem;"></i>
+                                <div class="small mt-1">Kompakt</div>
+                            {% elif zone_item.size_category == 'medium' %}
+                                <i class="bi bi-aspect-ratio-fill" style="font-size: 2rem;"></i>
+                                <div class="small mt-1">Mittel</div>
+                            {% else %}
+                                <i class="bi bi-window" style="font-size: 2rem;"></i>
+                                <div class="small mt-1">Groß</div>
+                            {% endif %}
+
+                            <!-- Zone Dimensions -->
+                            <div class="badge bg-dark bg-opacity-50 mt-2">
+                                {{ zone_item.zone.width }} × {{ zone_item.zone.height }}px
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-body">
+                        <h5 class="card-title">{{ zone_item.zone.name }}</h5>
+                        <p class="card-text small text-muted">
+                            Zone-Code: <code>{{ zone_item.zone.code }}</code>
+                        </p>
+
+                        <!-- Statistics -->
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="badge {% if app_code == 'loomline' %}bg-primary{% elif app_code == 'fileshare' %}bg-danger{% elif app_code == 'streamrec' %}bg-secondary{% elif app_code == 'promptpro' %}bg-info{% elif app_code == 'blog' %}bg-success{% elif app_code == 'videos' %}bg-info{% elif app_code == 'chat' %}bg-warning{% elif app_code == 'global' %}bg-dark{% elif app_code == 'shopify' %}bg-success{% elif app_code == 'dashboard' %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {{ zone_item.ads_count }} Beispiele
+                                </span>
+                            </div>
+                            <div class="text-end">
+                                <small class="text-muted">{{ zone_item.zone.width }}×{{ zone_item.zone.height }}</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-footer bg-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            {% if zone_item.size_category == 'small' %}
+                                <small class="text-warning"><i class="bi bi-info-circle"></i> Banner-Style</small>
+                            {% elif zone_item.size_category == 'medium' %}
+                                <small class="text-info"><i class="bi bi-info-circle"></i> Card-Style</small>
+                            {% else %}
+                                <small class="text-success"><i class="bi bi-info-circle"></i> Feature-Rich</small>
+                            {% endif %}
+                            <small class="text-muted">
+                                <i class="bi bi-arrow-right"></i>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% empty %}
+    <div class="row">
+        <div class="col-12">
+            <div class="alert alert-info text-center">
+                <h5><i class="bi bi-info-circle me-2"></i>Keine Zonen gefunden</h5>
+                <p class="mb-0">
+                    {% if app_filter %}
+                        Keine Zonen für die App "{{ app_filter }}" gefunden.
+                        <a href="?" class="alert-link">Alle Apps anzeigen</a>
+                    {% else %}
+                        Es sind noch keine Anzeigenzonen konfiguriert.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Quick Access & Info Section -->
+    <div class="row mt-5">
+        <div class="col-md-8">
+            <div class="alert alert-info">
+                <h6><i class="bi bi-lightbulb me-2"></i>Wie verwenden?</h6>
+                <p class="mb-0">
+                    Klicke auf eine Zone-Kachel um alle Beispielanzeigen für diese Zone zu sehen.
+                    Auf der Detail-Seite kannst du dann den HTML-Code jeder Anzeige kopieren und als Vorlage verwenden.
+                </p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">🚀 Erweiterte App-Unterstützung</h6>
+                    <p class="card-text small">Alle Apps sind jetzt vollständig integriert mit maßgeschneiderten Anzeigenbeispielen.</p>
+                    <div class="d-flex gap-1 flex-wrap">
+                        <a href="?app=loomline" class="btn btn-primary btn-sm mb-1">LoomLine</a>
+                        <a href="?app=fileshare" class="btn btn-danger btn-sm mb-1">FileShara</a>
+                        <a href="?app=streamrec" class="btn btn-secondary btn-sm mb-1">StreamRec</a>
+                        <a href="?app=promptpro" class="btn btn-info btn-sm mb-1">PromptPro</a>
+                        <a href="?app=blog" class="btn btn-success btn-sm mb-1">Blog</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openZoneDetail(zoneId) {
+    window.location.href = "/loomads/examples/zone/" + zoneId + "/";
+}
+
+// Hover effects
+document.addEventListener('DOMContentLoaded', function() {
+    const tiles = document.querySelectorAll('.zone-tile');
+    const appCards = document.querySelectorAll('.app-overview-card');
+
+    tiles.forEach(tile => {
+        tile.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+            this.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+        });
+
+        tile.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = '';
+        });
+    });
+
+    appCards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-3px)';
+            this.style.boxShadow = '0 6px 20px rgba(0,0,0,0.1)';
+        });
+
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = '';
+        });
+    });
+});
+</script>
+
+<style>
+.zone-tile:hover {
+    border-color: #007bff !important;
+}
+
+.zone-tile:hover .card-footer {
+    background-color: #f8f9fa !important;
+}
+
+.app-overview-card:hover {
+    border-color: #007bff !important;
+}
+
+.app-section {
+    border-left: 4px solid #dee2e6;
+    padding-left: 1rem;
+}
+
+.app-section:first-child {
+    border-left-color: #667eea;
+}
+
+.app-section:nth-child(2) {
+    border-left-color: #ff6b6b;
+}
+
+.app-section:nth-child(3) {
+    border-left-color: #f093fb;
+}
+
+.app-section:nth-child(4) {
+    border-left-color: #4facfe;
+}
+
+.dropdown-item.active {
+    background-color: #e9ecef !important;
+    color: #495057 !important;
+}
+
+@media (max-width: 768px) {
+    .zone-tile .card-img-top {
+        height: 80px !important;
+    }
+
+    .app-overview-card .app-icon i {
+        font-size: 2rem !important;
+    }
+}
+</style>
+{% endblock %}

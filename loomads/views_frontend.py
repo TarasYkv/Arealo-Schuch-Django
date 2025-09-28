@@ -538,11 +538,65 @@ def ajax_update_zone_status(request):
 def examples_overview(request):
     """Show zone tiles overview page with hardcoded examples"""
     from .hardcoded_examples import HARDCODED_EXAMPLES
-    
-    # Verwende hartcodierte Daten statt Datenbank
-    zone_data = []
+
+    # Get app filter from URL parameter
+    app_filter = request.GET.get('app', None)
+
+    # App-spezifische Zonen aus der Datenbank mit erstellten Beispielanzeigen
+    app_zones = {}
+
+    # App-spezifische Zonen aus der Datenbank
+    app_zone_configs = {
+        'loomline': {'prefix': 'loomline_', 'default_width': 300, 'default_height': 250},
+        'fileshare': {'prefix': 'fileshare_', 'default_width': 400, 'default_height': 200},
+        'streamrec': {'prefix': 'streamrec_', 'default_width': 350, 'default_height': 180},
+        'promptpro': {'prefix': 'promptpro_', 'default_width': 320, 'default_height': 200},
+        'blog': {'prefix': 'blog_', 'default_width': 728, 'default_height': 90},
+        'videos': {'prefix': 'videos_', 'default_width': 400, 'default_height': 300},
+        'chat': {'prefix': 'chat_', 'default_width': 300, 'default_height': 150}
+    }
+
+    # Lade Zonen für alle Apps aus der Datenbank
+    for app_name, config in app_zone_configs.items():
+        zones = AdZone.objects.filter(code__startswith=config['prefix'], is_active=True)
+        for zone in zones:
+            if zone.code not in app_zones:
+                app_zones[zone.code] = {
+                    'zone_name': zone.name,
+                    'zone_id': zone.id,
+                    'width': zone.width or config['default_width'],
+                    'height': zone.height or config['default_height'],
+                    'size_category': get_size_category(zone.width or config['default_width'], zone.height or config['default_height']),
+                    'app': app_name,
+                    'ads': get_sample_ads_for_zone(zone, app_name)
+                }
+
+    # Bestehende hartcodierte Beispiele zu anderen Apps hinzufügen
     for zone_code, zone_info in HARDCODED_EXAMPLES.items():
-        zone_data.append({
+        if zone_code not in app_zones:
+            app_zones[zone_code] = {
+                **zone_info,
+                'app': determine_app_from_zone_code(zone_code)
+            }
+
+    # Gruppiere nach Apps
+    apps_data = {}
+    for zone_code, zone_info in app_zones.items():
+        app = zone_info.get('app', 'other')
+
+        # Filter nach App wenn gewählt
+        if app_filter and app != app_filter:
+            continue
+
+        if app not in apps_data:
+            apps_data[app] = {
+                'name': get_app_display_name(app),
+                'zones': [],
+                'total_zones': 0,
+                'total_ads': 0
+            }
+
+        zone_data = {
             'zone': {
                 'id': zone_info['zone_id'],
                 'name': zone_info['zone_name'],
@@ -551,70 +605,329 @@ def examples_overview(request):
                 'height': zone_info['height']
             },
             'ads_count': len(zone_info['ads']),
-            'size_category': zone_info['size_category']
-        })
-    
-    # Sortiere nach Zone-Namen
-    zone_data.sort(key=lambda x: x['zone']['name'])
-    
-    context = {
-        'zone_data': zone_data,
-        'total_zones': len(zone_data),
-        'is_hardcoded': True  # Flag für Template
+            'size_category': zone_info['size_category'],
+            'app': app
+        }
+
+        apps_data[app]['zones'].append(zone_data)
+        apps_data[app]['total_zones'] += 1
+        apps_data[app]['total_ads'] += len(zone_info['ads'])
+
+    # Sortiere Apps und Zonen
+    for app_data in apps_data.values():
+        app_data['zones'].sort(key=lambda x: x['zone']['name'])
+
+    # Apps nach Priorität sortieren
+    app_priority = {
+        'loomline': 1, 'fileshare': 2, 'streamrec': 3, 'promptpro': 4, 'blog': 5,
+        'videos': 6, 'chat': 7, 'dashboard': 8, 'global': 9, 'other': 99
     }
-    
-    return render(request, 'loomads/examples/overview.html', context)
+    sorted_apps = sorted(apps_data.items(), key=lambda x: app_priority.get(x[0], 50))
+
+    context = {
+        'apps_data': sorted_apps,
+        'total_zones': sum(app['total_zones'] for app in apps_data.values()),
+        'total_ads': sum(app['total_ads'] for app in apps_data.values()),
+        'is_hardcoded': True,
+        'app_filter': app_filter,
+        'available_apps': sorted(apps_data.keys())
+    }
+
+    return render(request, 'loomads/examples/overview_grouped.html', context)
 
 
-@login_required  
+def get_size_category(width, height):
+    """Bestimme Größenkategorie basierend auf Dimensionen"""
+    area = width * height
+    if area < 50000:  # z.B. 300x160
+        return 'small'
+    elif area < 120000:  # z.B. 400x300
+        return 'medium'
+    else:
+        return 'large'
+
+
+def get_app_display_name(app_code):
+    """Benutzerfreundliche App-Namen"""
+    app_names = {
+        'loomline': 'LoomLine',
+        'fileshare': 'FileShara',
+        'streamrec': 'StreamRec',
+        'promptpro': 'PromptPro',
+        'blog': 'Blog',
+        'dashboard': 'Dashboard',
+        'videos': 'Video-Management',
+        'audio': 'Audio Studio',
+        'bilder': 'Bilder-Editor',
+        'shopify': 'Shopify Integration',
+        'chat': 'Chat-System',
+        'global': 'Global Bereiche',
+        'other': 'Andere Apps'
+    }
+    return app_names.get(app_code, app_code.title())
+
+
+def determine_app_from_zone_code(zone_code):
+    """Bestimme App aus Zone-Code"""
+    if zone_code.startswith('loomline_'):
+        return 'loomline'
+    elif zone_code.startswith('fileshare_'):
+        return 'fileshare'
+    elif zone_code.startswith('streamrec_'):
+        return 'streamrec'
+    elif zone_code.startswith('promptpro_'):
+        return 'promptpro'
+    elif zone_code.startswith('blog_'):
+        return 'blog'
+    elif zone_code.startswith('videos_') or 'video' in zone_code:
+        return 'videos'
+    elif zone_code.startswith('dashboard_') or 'dashboard' in zone_code:
+        return 'dashboard'
+    elif zone_code.startswith('chat_'):
+        return 'chat'
+    elif zone_code.startswith('header_') or zone_code.startswith('footer_') or zone_code.startswith('main_'):
+        return 'global'
+    elif 'shopify' in zone_code or 'produkte' in zone_code or 'kategorien' in zone_code or 'stores' in zone_code or zone_code.startswith('collection_'):
+        return 'shopify'
+    elif 'audio' in zone_code:
+        return 'audio'
+    elif 'bilder' in zone_code or 'image' in zone_code:
+        return 'bilder'
+    else:
+        return 'other'
+
+
+def get_sample_ads_for_zone(zone, app):
+    """Erstelle Beispielanzeigen für eine Zone"""
+    if app == 'loomline':
+        return get_loomline_sample_ads(zone)
+    elif app == 'fileshare':
+        return get_fileshare_sample_ads(zone)
+    elif app == 'streamrec':
+        return get_streamrec_sample_ads(zone)
+    elif app == 'promptpro':
+        return get_promptpro_sample_ads(zone)
+    elif app == 'blog':
+        return get_blog_sample_ads(zone)
+    else:
+        return []
+
+
+def get_loomline_sample_ads(zone):
+    """LoomLine-spezifische Beispielanzeigen"""
+    ads = []
+
+    # Premium Features Ad
+    ads.append({
+        'name': f'LoomLine Premium - {zone.name}',
+        'title': 'LoomLine Premium Features',
+        'campaign': 'LoomLine Integration',
+        'weight': 8,
+        'description': f'Premium-Features Anzeige für {zone.name}',
+        'html_content': f'''
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: {zone.width or 300}px; height: {zone.height or 200}px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+            <div style="font-size: 32px; margin-bottom: 10px;">🚀</div>
+            <h3 style="margin: 0 0 10px 0; font-size: 18px;">LoomLine Pro</h3>
+            <p style="margin: 0 0 15px 0; font-size: 14px; opacity: 0.9;">Erweiterte Projekt-Features & KI-Analytics</p>
+            <button style="background: white; color: #667eea; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer;">Jetzt upgraden</button>
+        </div>
+        '''
+    })
+
+    # Task Management Ad
+    ads.append({
+        'name': f'Smart Tasks - {zone.name}',
+        'title': 'Intelligente Aufgabenverwaltung',
+        'campaign': 'LoomLine Features',
+        'weight': 7,
+        'description': f'Smart Tasks Anzeige für {zone.name}',
+        'html_content': f'''
+        <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 20px; border-radius: 12px; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: {zone.width or 300}px; height: {zone.height or 200}px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+            <div style="font-size: 28px; margin-bottom: 10px;">📋</div>
+            <h3 style="margin: 0 0 10px 0; font-size: 16px;">Smart Tasks</h3>
+            <p style="margin: 0 0 15px 0; font-size: 12px; opacity: 0.9;">KI-unterstützte Aufgabenpriorisierung</p>
+            <div style="background: rgba(255,255,255,0.2); padding: 8px; border-radius: 4px; font-size: 11px;">+40% Effizienz</div>
+        </div>
+        '''
+    })
+
+    return ads
+
+
+def get_fileshare_sample_ads(zone):
+    """FileShara-spezifische Beispielanzeigen"""
+    ads = []
+
+    # Storage Upgrade Ad
+    ads.append({
+        'name': f'FileShara Pro Storage - {zone.name}',
+        'title': 'Unbegrenzter Cloud-Speicher',
+        'campaign': 'FileShara Premium',
+        'weight': 9,
+        'description': f'Storage-Upgrade Anzeige für {zone.name}',
+        'html_content': f'''
+        <div style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); color: white; padding: 20px; border-radius: 15px; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: {zone.width or 400}px; height: {zone.height or 200}px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+            <div style="font-size: 36px; margin-bottom: 10px;">💾</div>
+            <h3 style="margin: 0 0 10px 0; font-size: 20px;">FileShara PRO</h3>
+            <div style="background: rgba(255,255,255,0.2); padding: 10px; border-radius: 8px; margin: 10px 0;">
+                <div style="font-size: 24px; font-weight: bold;">100GB</div>
+                <div style="font-size: 12px;">Cloud-Speicher</div>
+            </div>
+            <button style="background: white; color: #ff6b6b; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer;">Upgrade starten</button>
+        </div>
+        '''
+    })
+
+    # Security Features Ad
+    ads.append({
+        'name': f'Sicherheits-Features - {zone.name}',
+        'title': 'Erweiterte Dateisicherheit',
+        'campaign': 'FileShara Security',
+        'weight': 8,
+        'description': f'Sicherheits-Features Anzeige für {zone.name}',
+        'html_content': f'''
+        <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 20px; border-radius: 15px; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: {zone.width or 400}px; height: {zone.height or 200}px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+            <div style="font-size: 32px; margin-bottom: 10px;">🔒</div>
+            <h3 style="margin: 0 0 10px 0; font-size: 18px;">Enterprise Security</h3>
+            <ul style="list-style: none; padding: 0; margin: 10px 0; font-size: 12px; text-align: left;">
+                <li style="margin: 4px 0;">✓ End-to-End Verschlüsselung</li>
+                <li style="margin: 4px 0;">✓ Erweiterte Zugriffskontrollen</li>
+                <li style="margin: 4px 0;">✓ Audit-Protokolle</li>
+            </ul>
+            <button style="background: white; color: #4facfe; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer;">Mehr erfahren</button>
+        </div>
+        '''
+    })
+
+    # Speed Boost Ad
+    ads.append({
+        'name': f'Upload Speed Boost - {zone.name}',
+        'title': '10x schnellere Uploads',
+        'campaign': 'FileShara Performance',
+        'weight': 7,
+        'description': f'Speed Boost Anzeige für {zone.name}',
+        'html_content': f'''
+        <div style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #2c3e50; padding: 20px; border-radius: 12px; text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: {zone.width or 400}px; height: {zone.height or 200}px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;">
+            <div style="font-size: 28px; margin-bottom: 10px;">⚡</div>
+            <h3 style="margin: 0 0 10px 0; font-size: 16px;">Speed Boost</h3>
+            <div style="background: #2c3e50; color: white; padding: 8px; border-radius: 6px; margin: 10px 0; font-weight: bold;">
+                10x schneller
+            </div>
+            <p style="margin: 0; font-size: 11px;">Premium Upload-Geschwindigkeit</p>
+        </div>
+        '''
+    })
+
+    return ads
+
+
+@login_required
 @user_passes_test(is_superuser)
 def examples_zone_detail(request, zone_id):
-    """Show example ads for specific zone using hardcoded data"""
+    """Show example ads for specific zone using both DB and hardcoded data"""
     from .hardcoded_examples import HARDCODED_EXAMPLES
-    
-    # Finde Zone in hartcodierten Daten
-    zone_data = None
-    zone_code = None
-    
-    for code, data in HARDCODED_EXAMPLES.items():
-        if str(data['zone_id']) == str(zone_id):
-            zone_data = data
-            zone_code = code
-            break
-    
-    if not zone_data:
-        from django.http import Http404
-        raise Http404("Zone nicht gefunden")
-    
-    # Simuliere Zone-Objekt
-    zone = {
-        'id': zone_data['zone_id'],
-        'name': zone_data['zone_name'],
-        'code': zone_code,
-        'width': zone_data['width'],
-        'height': zone_data['height']
-    }
-    
-    # Anzeigen aus hartcodierten Daten
+
+    zone = None
     ads = []
-    for i, ad_data in enumerate(zone_data['ads']):
-        ads.append({
-            'id': f"{zone_id}_{i}",  # Generiere eindeutige ID
-            'name': ad_data['name'],
-            'title': ad_data['title'], 
-            'html_content': ad_data['html_content'],
-            'campaign': {'name': ad_data['campaign']},
-            'weight': ad_data['weight'],
-            'description': ad_data.get('description', '')
-        })
-    
+
+    # Erst in Datenbank-Zonen suchen (LoomLine/FileShara)
+    try:
+        db_zone = AdZone.objects.get(id=zone_id)
+        app = determine_app_from_zone_code(db_zone.code)
+
+        zone = {
+            'id': db_zone.id,
+            'name': db_zone.name,
+            'code': db_zone.code,
+            'width': db_zone.width or 300,
+            'height': db_zone.height or 200,
+            'app': app
+        }
+
+        # Generiere Beispielanzeigen für diese Zone
+        sample_ads = get_sample_ads_for_zone(db_zone, app)
+
+        for i, ad_data in enumerate(sample_ads):
+            try:
+                ads.append({
+                    'id': f"db_{zone_id}_{i}",
+                    'name': ad_data.get('name', f'Anzeige {i+1}'),
+                    'title': ad_data.get('title', 'Beispielanzeige'),
+                    'html_content': ad_data.get('html_content', ''),
+                    'campaign': {'name': ad_data.get('campaign', 'Beispielkampagne')},
+                    'weight': ad_data.get('weight', 5),
+                    'description': ad_data.get('description', '')
+                })
+            except Exception as e:
+                print(f"Error processing DB ad {i}: {e}")
+                # Skip this ad but continue with others
+                continue
+
+    except AdZone.DoesNotExist:
+        # Fallback zu hartcodierten Daten
+        zone_data = None
+        zone_code = None
+
+        for code, data in HARDCODED_EXAMPLES.items():
+            try:
+                if str(data.get('zone_id', '')) == str(zone_id):
+                    zone_data = data
+                    zone_code = code
+                    break
+            except Exception as e:
+                print(f"Error checking hardcoded zone {code}: {e}")
+                continue
+
+        if not zone_data:
+            from django.http import Http404
+            raise Http404(f"Zone mit ID {zone_id} nicht gefunden")
+
+        try:
+            zone = {
+                'id': zone_data.get('zone_id', zone_id),
+                'name': zone_data.get('zone_name', f'Zone {zone_id}'),
+                'code': zone_code or f'zone_{zone_id}',
+                'width': zone_data.get('width', 300),
+                'height': zone_data.get('height', 200),
+                'app': determine_app_from_zone_code(zone_code or '')
+            }
+
+            # Anzeigen aus hartcodierten Daten
+            hardcoded_ads = zone_data.get('ads', [])
+            for i, ad_data in enumerate(hardcoded_ads):
+                try:
+                    ads.append({
+                        'id': f"hc_{zone_id}_{i}",
+                        'name': ad_data.get('name', f'Anzeige {i+1}'),
+                        'title': ad_data.get('title', 'Beispielanzeige'),
+                        'html_content': ad_data.get('html_content', '<div>Keine Anzeige verfügbar</div>'),
+                        'campaign': {'name': ad_data.get('campaign', 'Beispielkampagne')},
+                        'weight': ad_data.get('weight', 5),
+                        'description': ad_data.get('description', '')
+                    })
+                except Exception as e:
+                    print(f"Error processing hardcoded ad {i}: {e}")
+                    # Skip this ad but continue with others
+                    continue
+
+        except Exception as e:
+            print(f"Error processing zone data: {e}")
+            from django.http import Http404
+            raise Http404(f"Fehler beim Verarbeiten der Zone {zone_id}")
+
+    # Falls immer noch keine Zone gefunden wurde
+    if not zone:
+        from django.http import Http404
+        raise Http404(f"Zone mit ID {zone_id} konnte nicht geladen werden")
+
     context = {
         'zone': zone,
         'ads': ads,
         'ads_count': len(ads),
-        'is_hardcoded': True
+        'is_hardcoded': True,
+        'app_name': get_app_display_name(zone.get('app', 'other'))
     }
-    
+
     return render(request, 'loomads/examples/zone_detail.html', context)
 
 
@@ -841,3 +1154,231 @@ def auto_format_list(request):
         'title': 'Auto-Kampagnen-Formate'
     }
     return render(request, 'loomads/auto_format_list.html', context)
+
+
+# ========== SAMPLE ADS GENERATORS FOR NEW APPS ==========
+
+def get_streamrec_sample_ads(zone):
+    """StreamRec-spezifische Beispielanzeigen"""
+    ads = []
+
+    # Recording Equipment Ad
+    if zone.height and zone.height <= 120:
+        # Banner style
+        ads.append({
+            'id': f"streamrec_banner_{zone.id}_1",
+            'name': f'StreamRec Pro Equipment - {zone.name}',
+            'title': 'Professionelle Aufnahme-Ausrüstung',
+            'html_content': f'''
+            <div style="width: {zone.width}px; height: {zone.height}px;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        border-radius: 8px; display: flex; align-items: center;
+                        padding: 10px; color: white; font-family: Arial, sans-serif;">
+                <div style="flex: 1;">
+                    <div style="font-weight: bold; font-size: 14px;">🎙️ StreamRec Pro</div>
+                    <div style="font-size: 11px;">Professionelle Aufnahme-Tools</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.2); padding: 5px 10px;
+                           border-radius: 4px; font-size: 11px; font-weight: bold;">
+                    Mehr erfahren →
+                </div>
+            </div>
+            ''',
+            'campaign': {'name': 'StreamRec Equipment'},
+            'weight': 8,
+            'description': 'Banner-Anzeige für Recording-Equipment'
+        })
+    else:
+        # Card style
+        ads.append({
+            'id': f"streamrec_card_{zone.id}_1",
+            'name': f'StreamRec Studio Setup - {zone.name}',
+            'title': 'Komplettes Studio Setup',
+            'html_content': f'''
+            <div style="width: {zone.width}px; height: {zone.height}px;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        border-radius: 12px; padding: 20px; color: white;
+                        font-family: Arial, sans-serif; position: relative; overflow: hidden;">
+                <div style="position: absolute; top: -20px; right: -20px;
+                           width: 80px; height: 80px; background: rgba(255,255,255,0.1);
+                           border-radius: 50%;"></div>
+                <div style="font-size: 24px; margin-bottom: 5px;">🎬</div>
+                <div style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">
+                    StreamRec Studio
+                </div>
+                <div style="font-size: 12px; margin-bottom: 15px; opacity: 0.9;">
+                    Professionelle Aufnahme-Software mit Premium-Features
+                </div>
+                <div style="background: rgba(255,255,255,0.2); padding: 8px 16px;
+                           border-radius: 6px; font-size: 12px; font-weight: bold;
+                           text-align: center; cursor: pointer;">
+                    Jetzt testen →
+                </div>
+            </div>
+            ''',
+            'campaign': {'name': 'StreamRec Studio'},
+            'weight': 9,
+            'description': 'Karten-Anzeige für Studio-Setup'
+        })
+
+    # Streaming Tools Ad
+    ads.append({
+        'id': f"streamrec_tools_{zone.id}_2",
+        'name': f'StreamRec Live Tools - {zone.name}',
+        'title': 'Live-Streaming Tools',
+        'html_content': f'''
+        <div style="width: {zone.width}px; height: {zone.height}px;
+                    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+                    border-radius: 8px; padding: 15px; color: white;
+                    font-family: Arial, sans-serif; text-align: center;">
+            <div style="font-size: 20px; margin-bottom: 8px;">📡</div>
+            <div style="font-weight: bold; font-size: 14px; margin-bottom: 5px;">
+                Live-Streaming
+            </div>
+            <div style="font-size: 11px; margin-bottom: 10px;">
+                Professionelle Tools für Live-Übertragungen
+            </div>
+            <div style="background: rgba(255,255,255,0.2); padding: 6px 12px;
+                       border-radius: 4px; font-size: 11px; display: inline-block;">
+                Demo ansehen
+            </div>
+        </div>
+        ''',
+        'campaign': {'name': 'StreamRec Live'},
+        'weight': 7,
+        'description': 'Live-Streaming Tools Anzeige'
+    })
+
+    return ads
+
+
+def get_promptpro_sample_ads(zone):
+    """PromptPro-spezifische Beispielanzeigen"""
+    ads = []
+
+    # AI Prompts Ad
+    ads.append({
+        'id': f"promptpro_ai_{zone.id}_1",
+        'name': f'PromptPro AI Assistant - {zone.name}',
+        'title': 'KI-gestützte Prompt-Generierung',
+        'html_content': f'''
+        <div style="width: {zone.width}px; height: {zone.height}px;
+                    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+                    border-radius: 10px; padding: 16px; color: white;
+                    font-family: Arial, sans-serif; position: relative;">
+            <div style="position: absolute; top: 10px; right: 10px;
+                       background: rgba(255,255,255,0.2); border-radius: 50%;
+                       width: 30px; height: 30px; display: flex; align-items: center;
+                       justify-content: center; font-size: 14px;">🤖</div>
+            <div style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">
+                PromptPro AI
+            </div>
+            <div style="font-size: 12px; margin-bottom: 12px; opacity: 0.9;">
+                Intelligente Prompt-Optimierung für bessere KI-Ergebnisse
+            </div>
+            <div style="background: rgba(255,255,255,0.2); padding: 8px 14px;
+                       border-radius: 5px; font-size: 11px; display: inline-block;">
+                ✨ Prompts optimieren
+            </div>
+        </div>
+        ''',
+        'campaign': {'name': 'PromptPro AI'},
+        'weight': 9,
+        'description': 'KI-Prompt-Optimierung Anzeige'
+    })
+
+    # Template Library Ad
+    ads.append({
+        'id': f"promptpro_templates_{zone.id}_2",
+        'name': f'PromptPro Templates - {zone.name}',
+        'title': 'Professionelle Prompt-Vorlagen',
+        'html_content': f'''
+        <div style="width: {zone.width}px; height: {zone.height}px;
+                    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                    border-radius: 8px; padding: 14px; color: white;
+                    font-family: Arial, sans-serif;">
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <div style="font-size: 18px; margin-right: 8px;">📝</div>
+                <div style="font-weight: bold; font-size: 14px;">Template-Bibliothek</div>
+            </div>
+            <div style="font-size: 11px; margin-bottom: 12px;">
+                500+ vorgefertigte Prompts für alle Anwendungsfälle
+            </div>
+            <div style="background: rgba(255,255,255,0.2); padding: 6px 12px;
+                       border-radius: 4px; font-size: 11px; text-align: center;">
+                Bibliothek durchsuchen →
+            </div>
+        </div>
+        ''',
+        'campaign': {'name': 'PromptPro Templates'},
+        'weight': 8,
+        'description': 'Template-Bibliothek Anzeige'
+    })
+
+    return ads
+
+
+def get_blog_sample_ads(zone):
+    """Blog-spezifische Beispielanzeigen"""
+    ads = []
+
+    # Content Marketing Ad
+    ads.append({
+        'id': f"blog_content_{zone.id}_1",
+        'name': f'Blog Content Marketing - {zone.name}',
+        'title': 'Professionelles Content Marketing',
+        'html_content': f'''
+        <div style="width: {zone.width}px; height: {zone.height}px;
+                    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+                    border-radius: 6px; padding: 12px; color: white;
+                    font-family: Arial, sans-serif; display: flex;
+                    align-items: center; justify-content: center;">
+            <div style="text-align: center;">
+                <div style="font-size: 16px; margin-bottom: 5px;">✍️</div>
+                <div style="font-weight: bold; font-size: 13px; margin-bottom: 4px;">
+                    Content Marketing
+                </div>
+                <div style="font-size: 10px; margin-bottom: 8px;">
+                    Professionelle Blog-Artikel & SEO-Optimierung
+                </div>
+                <div style="background: rgba(255,255,255,0.2); padding: 4px 8px;
+                           border-radius: 3px; font-size: 10px;">
+                    Mehr erfahren
+                </div>
+            </div>
+        </div>
+        ''',
+        'campaign': {'name': 'Blog Content'},
+        'weight': 7,
+        'description': 'Content Marketing für Blog'
+    })
+
+    # SEO Tools Ad
+    ads.append({
+        'id': f"blog_seo_{zone.id}_2",
+        'name': f'Blog SEO Tools - {zone.name}',
+        'title': 'SEO-Optimierung für Blogs',
+        'html_content': f'''
+        <div style="width: {zone.width}px; height: {zone.height}px;
+                    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+                    border-radius: 8px; padding: 10px; color: white;
+                    font-family: Arial, sans-serif;">
+            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                <div style="font-size: 14px; margin-right: 6px;">🔍</div>
+                <div style="font-weight: bold; font-size: 12px;">SEO-Boost</div>
+            </div>
+            <div style="font-size: 10px; margin-bottom: 10px;">
+                Optimiere deine Blog-Artikel für bessere Suchmaschinen-Rankings
+            </div>
+            <div style="background: rgba(255,255,255,0.2); padding: 5px 10px;
+                       border-radius: 4px; font-size: 10px; text-align: center;">
+                SEO analysieren →
+            </div>
+        </div>
+        ''',
+        'campaign': {'name': 'Blog SEO'},
+        'weight': 8,
+        'description': 'SEO-Tools für Blog-Optimierung'
+    })
+
+    return ads
