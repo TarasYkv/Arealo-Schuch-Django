@@ -15,7 +15,7 @@ import sqlite3
 import smtplib
 import ssl
 import requests
-from .models import EmailConfiguration, SuperuserEmailShare
+from .models import EmailConfiguration, SuperuserEmailShare, GlobalMessage
 
 
 def is_superuser(user):
@@ -1147,3 +1147,214 @@ def add_shared_email(request):
 def update_email_config(request):
     """Legacy - redirect to save_email_config"""
     return save_email_config(request)
+
+
+# Global Messages Views
+
+@login_required
+@user_passes_test(is_superuser)
+def create_global_message(request):
+    """Create a new global message"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+
+            # Create new message
+            message = GlobalMessage(
+                title=data['title'],
+                content=data['content'],
+                display_position=data.get('display_position', 'popup_center'),
+                display_type=data.get('display_type', 'info'),
+                visibility=data.get('visibility', 'all'),
+                duration_seconds=data.get('duration_seconds') or None,
+                is_active=data.get('is_active', True),
+                is_dismissible=data.get('is_dismissible', True),
+                start_date=data.get('start_date') or None,
+                end_date=data.get('end_date') or None,
+                created_by=request.user
+            )
+
+            message.save()
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Nachricht erfolgreich erstellt',
+                'message_data': {
+                    'id': message.id,
+                    'title': message.title,
+                    'content': message.content,
+                    'display_position': message.get_display_position_display(),
+                    'display_type': message.get_display_type_display(),
+                    'visibility': message.get_visibility_display(),
+                    'is_active': message.is_active,
+                    'created_at': message.created_at.strftime('%d.%m.%Y %H:%M')
+                }
+            })
+
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'Fehler beim Erstellen der Nachricht: {str(e)}'
+            })
+
+    return JsonResponse({'success': False, 'message': 'Invalid request method'})
+
+
+@login_required
+@user_passes_test(is_superuser)
+def list_global_messages(request):
+    """List all global messages"""
+    try:
+        messages = GlobalMessage.objects.all().order_by('-created_at')
+
+        messages_data = []
+        for msg in messages:
+            messages_data.append({
+                'id': msg.id,
+                'title': msg.title,
+                'content': msg.content[:100] + '...' if len(msg.content) > 100 else msg.content,
+                'display_position': msg.get_display_position_display(),
+                'display_type': msg.get_display_type_display(),
+                'visibility': msg.get_visibility_display(),
+                'is_active': msg.is_active,
+                'is_currently_active': msg.is_currently_active(),
+                'duration_seconds': msg.duration_seconds,
+                'start_date': msg.start_date.strftime('%d.%m.%Y %H:%M') if msg.start_date else None,
+                'end_date': msg.end_date.strftime('%d.%m.%Y %H:%M') if msg.end_date else None,
+                'created_at': msg.created_at.strftime('%d.%m.%Y %H:%M'),
+                'created_by': msg.created_by.username
+            })
+
+        return JsonResponse({
+            'success': True,
+            'messages': messages_data
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Fehler beim Laden der Nachrichten: {str(e)}'
+        })
+
+
+@login_required
+@user_passes_test(is_superuser)
+def toggle_message_status(request, message_id):
+    """Toggle message active status"""
+    if request.method == 'POST':
+        try:
+            message = GlobalMessage.objects.get(id=message_id)
+            message.is_active = not message.is_active
+            message.save()
+
+            return JsonResponse({
+                'success': True,
+                'message': f'Nachricht wurde {"aktiviert" if message.is_active else "deaktiviert"}',
+                'is_active': message.is_active
+            })
+
+        except GlobalMessage.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Nachricht nicht gefunden'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'Fehler: {str(e)}'
+            })
+
+    return JsonResponse({'success': False, 'message': 'Invalid request method'})
+
+
+@login_required
+@user_passes_test(is_superuser)
+def delete_global_message(request, message_id):
+    """Delete a global message"""
+    if request.method == 'POST':
+        try:
+            message = GlobalMessage.objects.get(id=message_id)
+            message.delete()
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Nachricht erfolgreich gelöscht'
+            })
+
+        except GlobalMessage.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Nachricht nicht gefunden'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'Fehler beim Löschen: {str(e)}'
+            })
+
+    return JsonResponse({'success': False, 'message': 'Invalid request method'})
+
+
+@login_required
+@user_passes_test(is_superuser)
+def get_message_for_preview(request, message_id):
+    """Get message data for preview"""
+    try:
+        message = GlobalMessage.objects.get(id=message_id)
+
+        return JsonResponse({
+            'success': True,
+            'message_data': {
+                'id': message.id,
+                'title': message.title,
+                'content': message.content,
+                'display_position': message.display_position,
+                'display_type': message.display_type,
+                'visibility': message.visibility,
+                'duration_seconds': message.duration_seconds,
+                'is_dismissible': message.is_dismissible,
+                'is_active': message.is_active,
+                'is_currently_active': message.is_currently_active()
+            }
+        })
+
+    except GlobalMessage.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'message': 'Nachricht nicht gefunden'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Fehler: {str(e)}'
+        })
+
+
+def get_active_messages_for_user(request):
+    """Get active messages for current user (for display on website)"""
+    try:
+        user = request.user if request.user.is_authenticated else None
+        active_messages = GlobalMessage.get_active_messages_for_user(user)
+
+        messages_data = []
+        for msg in active_messages:
+            messages_data.append({
+                'id': msg.id,
+                'title': msg.title,
+                'content': msg.content,
+                'display_position': msg.display_position,
+                'display_type': msg.display_type,
+                'duration_seconds': msg.duration_seconds,
+                'is_dismissible': msg.is_dismissible
+            })
+
+        return JsonResponse({
+            'success': True,
+            'messages': messages_data
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Fehler: {str(e)}'
+        })

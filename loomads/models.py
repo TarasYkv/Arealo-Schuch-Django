@@ -153,6 +153,183 @@ class Campaign(models.Model):
         return 0
 
 
+class AppCampaign(models.Model):
+    """App-spezifische Werbekampagne - automatische Zuordnung zu allen App-Zonen"""
+
+    APP_CHOICES = [
+        ('loomline', 'LoomLine'),
+        ('fileshare', 'FileShara'),
+        ('streamrec', 'StreamRec'),
+        ('promptpro', 'PromptPro'),
+        ('blog', 'Blog'),
+        ('videos', 'Video-Management'),
+        ('chat', 'Chat-System'),
+        ('global', 'Global Bereiche'),
+        ('shopify', 'Shopify Integration'),
+        ('dashboard', 'Dashboard'),
+    ]
+
+    STATUS_CHOICES = [
+        ('draft', 'Entwurf'),
+        ('active', 'Aktiv'),
+        ('paused', 'Pausiert'),
+        ('completed', 'Abgeschlossen'),
+    ]
+
+    PRIORITY_CHOICES = [
+        (1, 'Sehr niedrig'),
+        (2, 'Niedrig'),
+        (3, 'Normal'),
+        (4, 'Hoch'),
+        (5, 'Sehr hoch'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=200, verbose_name='App-Kampagnenname')
+    description = models.TextField(blank=True, verbose_name='Beschreibung')
+    app_target = models.CharField(
+        max_length=20,
+        choices=APP_CHOICES,
+        verbose_name='Ziel-App',
+        help_text='App für die diese Kampagne geschaltet wird'
+    )
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='app_campaigns')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    priority = models.IntegerField(
+        choices=PRIORITY_CHOICES,
+        default=3,
+        verbose_name='Priorität',
+        help_text='Höhere Priorität = häufigere Anzeige in App-Zonen'
+    )
+
+    # Zeitplanung
+    start_date = models.DateTimeField(verbose_name='Startdatum')
+    end_date = models.DateTimeField(verbose_name='Enddatum')
+
+    # Automatische Zone-Zuordnung Optionen
+    auto_include_new_zones = models.BooleanField(
+        default=True,
+        verbose_name='Neue Zonen automatisch einbeziehen',
+        help_text='Neue Zonen der App automatisch zu dieser Kampagne hinzufügen'
+    )
+    exclude_zone_types = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name='Ausgeschlossene Zone-Typen',
+        help_text='Zone-Typen die von dieser App-Kampagne ausgeschlossen werden sollen'
+    )
+
+    # Limits
+    daily_impression_limit = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Tägliches Impression-Limit (pro App)',
+        help_text='Maximale Anzahl der Impressions pro Tag für alle App-Zonen (leer = unbegrenzt)'
+    )
+    total_impression_limit = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Gesamt Impression-Limit (pro App)',
+        help_text='Maximale Anzahl der Impressions insgesamt für alle App-Zonen (leer = unbegrenzt)'
+    )
+    daily_click_limit = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Tägliches Klick-Limit (pro App)',
+        help_text='Maximale Anzahl der Klicks pro Tag für alle App-Zonen (leer = unbegrenzt)'
+    )
+    total_click_limit = models.IntegerField(
+        null=True, blank=True,
+        verbose_name='Gesamt Klick-Limit (pro App)',
+        help_text='Maximale Anzahl der Klicks insgesamt für alle App-Zonen (leer = unbegrenzt)'
+    )
+
+    # Gewichtung und Performance
+    weight_multiplier = models.FloatField(
+        default=1.0,
+        validators=[MinValueValidator(0.1), MaxValueValidator(5.0)],
+        verbose_name='Gewichtungs-Multiplikator',
+        help_text='Multiplikator für die Anzeigengewichtung in App-Zonen (0.1 - 5.0)'
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'App-Kampagne'
+        verbose_name_plural = 'App-Kampagnen'
+        ordering = ['-priority', '-created_at']
+        unique_together = ['name', 'app_target']  # Ein Kampagnenname pro App
+
+    def __str__(self):
+        return f"{self.name} ({self.get_app_target_display()})"
+
+    @property
+    def is_active(self):
+        """Check if campaign is currently active"""
+        now = timezone.now()
+        return (
+            self.status == 'active' and
+            self.start_date <= now <= self.end_date
+        )
+
+    def get_target_zones(self):
+        """Get all zones that belong to this app campaign's target"""
+        from .views_frontend import determine_app_from_zone_code
+
+        all_zones = AdZone.objects.filter(is_active=True)
+        target_zones = []
+
+        for zone in all_zones:
+            zone_app = determine_app_from_zone_code(zone.code)
+            if zone_app == self.app_target:
+                # Check if zone type is excluded
+                if zone.zone_type not in self.exclude_zone_types:
+                    target_zones.append(zone)
+
+        return target_zones
+
+    def get_target_zones_count(self):
+        """Get count of target zones"""
+        return len(self.get_target_zones())
+
+    def get_total_impressions(self):
+        """Get total impressions for all ads in this app campaign"""
+        return sum(ad.impressions_count for ad in self.app_advertisements.all())
+
+    def get_total_clicks(self):
+        """Get total clicks for all ads in this app campaign"""
+        return sum(ad.clicks_count for ad in self.app_advertisements.all())
+
+    def get_ctr(self):
+        """Get Click-Through Rate for this app campaign"""
+        impressions = self.get_total_impressions()
+        clicks = self.get_total_clicks()
+        if impressions > 0:
+            return (clicks / impressions) * 100
+        return 0
+
+    def sync_zones(self):
+        """Synchronize campaign with current app zones (add new zones if auto_include_new_zones is True)"""
+        if not self.auto_include_new_zones:
+            return
+
+        target_zones = self.get_target_zones()
+
+        # Add campaign to advertisements that target these zones
+        for ad in self.app_advertisements.all():
+            current_zones = set(ad.zones.all())
+            target_zones_set = set(target_zones)
+
+            # Add new zones to the advertisement
+            new_zones = target_zones_set - current_zones
+            if new_zones:
+                ad.zones.add(*new_zones)
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Auto-sync zones after saving if auto_include_new_zones is enabled
+        if self.auto_include_new_zones:
+            self.sync_zones()
+
+
 class AdZone(models.Model):
     """Werbebereich auf der Website"""
     ZONE_TYPES = [
@@ -273,6 +450,112 @@ class Advertisement(models.Model):
     def get_ctr(self):
         """Get Click-Through Rate for templates"""
         return self.ctr
+
+
+class AppAdvertisement(models.Model):
+    """App-spezifische Werbeanzeige - automatisch allen App-Zonen zugeordnet"""
+
+    AD_TYPES = [
+        ('banner', 'Banner'),
+        ('text', 'Text-Anzeige'),
+        ('image', 'Bild-Anzeige'),
+        ('video', 'Video-Anzeige'),
+        ('html', 'HTML/Rich Content'),
+        ('native', 'Native Content'),
+    ]
+
+    DEVICE_TYPES = [
+        ('all', 'Alle Geräte'),
+        ('desktop', 'Desktop'),
+        ('mobile', 'Mobil'),
+        ('tablet', 'Tablet'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    app_campaign = models.ForeignKey(
+        AppCampaign,
+        on_delete=models.CASCADE,
+        related_name='app_advertisements'
+    )
+    name = models.CharField(max_length=200, verbose_name='Anzeigenname')
+    description = models.TextField(blank=True, verbose_name='Beschreibung')
+    ad_type = models.CharField(max_length=20, choices=AD_TYPES, default='html')
+
+    # Content
+    title = models.CharField(max_length=200, blank=True, verbose_name='Titel')
+    description_text = models.TextField(blank=True, verbose_name='Beschreibungstext')
+    html_content = models.TextField(blank=True, verbose_name='HTML-Inhalt')
+    image = models.ImageField(upload_to='loomads/images/', blank=True, null=True)
+    video_url = models.URLField(blank=True, verbose_name='Video-URL')
+    link_url = models.URLField(verbose_name='Ziel-URL')
+    link_text = models.CharField(max_length=100, blank=True, verbose_name='Link-Text')
+
+    # Automatische Zone-Zuordnung
+    zones = models.ManyToManyField(
+        AdZone,
+        blank=True,
+        related_name='app_advertisements',
+        help_text='Wird automatisch mit allen App-Zonen synchronisiert'
+    )
+
+    # Settings
+    weight = models.IntegerField(
+        default=5,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+        verbose_name='Gewichtung',
+        help_text='Anzeigengewichtung (1-10) - wird mit App-Kampagne Multiplikator kombiniert'
+    )
+    device_targeting = models.CharField(
+        max_length=20,
+        choices=DEVICE_TYPES,
+        default='all',
+        verbose_name='Geräte-Targeting'
+    )
+    is_active = models.BooleanField(default=True, verbose_name='Aktiv')
+
+    # Performance tracking
+    impressions_count = models.PositiveIntegerField(default=0)
+    clicks_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'App-Anzeige'
+        verbose_name_plural = 'App-Anzeigen'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} ({self.app_campaign.name})"
+
+    @property
+    def effective_weight(self):
+        """Calculate effective weight including app campaign multiplier"""
+        return self.weight * self.app_campaign.weight_multiplier
+
+    @property
+    def ctr(self):
+        """Click-Through-Rate berechnen"""
+        if self.impressions_count > 0:
+            return (self.clicks_count / self.impressions_count) * 100
+        return 0
+
+    def get_ctr(self):
+        """Get Click-Through Rate for templates"""
+        return self.ctr
+
+    def sync_with_app_zones(self):
+        """Synchronize this advertisement with all zones of the target app"""
+        target_zones = self.app_campaign.get_target_zones()
+
+        # Clear current zones and add all app zones
+        self.zones.clear()
+        self.zones.add(*target_zones)
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Auto-sync with app zones after saving
+        if self.app_campaign.auto_include_new_zones:
+            self.sync_with_app_zones()
 
 
 class AdPlacement(models.Model):

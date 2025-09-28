@@ -20,4 +20,12 @@ urlpatterns = [
     path('email/auto-configure/', views.auto_configure_email_fallback, name='auto_configure_email_fallback'),
     path('zoho/setup/', views.setup_zoho_oauth, name='setup_zoho_oauth'),
     path('zoho/callback/', views.zoho_oauth_callback, name='zoho_oauth_callback'),
+
+    # Global Messages URLs
+    path('messages/create/', views.create_global_message, name='create_global_message'),
+    path('messages/list/', views.list_global_messages, name='list_global_messages'),
+    path('messages/<int:message_id>/toggle/', views.toggle_message_status, name='toggle_message_status'),
+    path('messages/<int:message_id>/delete/', views.delete_global_message, name='delete_global_message'),
+    path('messages/<int:message_id>/preview/', views.get_message_for_preview, name='get_message_for_preview'),
+    path('messages/active/', views.get_active_messages_for_user, name='get_active_messages_for_user'),
 ]

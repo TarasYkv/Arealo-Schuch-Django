@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Ad-Klicks Details{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Reset any conflicting styles from base template */
+    .container-fluid {
+        max-width: none !important;
+        padding-left: 20px !important;
+        padding-right: 20px !important;
+    }
+
+    .bg-white {
+        background: transparent !important;
+    }
+
+    main.container {
+        max-width: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+    }
+
+    body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%) !important;
+        min-height: 100vh;
+    }
+    .badge {
+        font-size: 0.8rem;
+    }
+    .table th {
+        background-color: #f8f9fa;
+        border-top: none;
+        font-weight: 600;
+    }
+    .url-link {
+        color: #0066cc;
+        text-decoration: none;
+    }
+    .url-link:hover {
+        text-decoration: underline;
+    }
+</style>
+{% endblock %}
+
+{% block fullscreen_content %}
+<div class="container-fluid" style="padding: 20px;">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">🎯 Ad-Klicks Details</h1>
+            <a href="{% url 'stats:dashboard' %}" class="btn btn-secondary mb-3">← Zurück zum Dashboard</a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 140px;">Zeit</th>
+                                    <th>Ad Name</th>
+                                    <th>Kampagne</th>
+                                    <th>Zone</th>
+                                    <th style="width: 120px;">Benutzer</th>
+                                    <th style="width: 120px;">IP-Adresse</th>
+                                    <th>Seite</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for click in ad_clicks %}
+                                <tr>
+                                    <td style="font-size: 0.9rem;">
+                                        <div>{{ click.click_time|date:"d.m.Y" }}</div>
+                                        <div class="text-muted">{{ click.click_time|date:"H:i:s" }}</div>
+                                    </td>
+                                    <td>
+                                        <strong>{{ click.ad_name|default:click.ad_id }}</strong>
+                                    </td>
+                                    <td>
+                                        {% if click.campaign_name %}
+                                            <span class="badge bg-info text-dark">{{ click.campaign_name }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if click.zone_name %}
+                                            <span class="badge bg-success">{{ click.zone_name }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if click.user %}
+                                            <span class="badge bg-primary">{{ click.user.username }}</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Anonym</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><code class="small">{{ click.ip_address }}</code></td>
+                                    <td>
+                                        <a href="{{ click.page_url }}" target="_blank" title="{{ click.page_url }}" class="url-link">
+                                            {{ click.page_url|truncatechars:40 }}
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">
+                                        <i class="bi bi-bullseye"></i> Keine Ad-Klicks gefunden
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {% if ad_clicks %}
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <small class="text-muted">{{ ad_clicks|length }} Einträge angezeigt</small>
+                        <div>
+                            <button class="btn btn-sm btn-outline-primary" onclick="window.print()">
+                                <i class="bi bi-printer"></i> Drucken
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

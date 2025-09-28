@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     'lighting_classification',
     'loomline',
     'fileshare',
+    'stats',
 ]
 
 
@@ -94,6 +95,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.PublicAppRedirectMiddleware',  # Redirect unauthenticated users to app info pages
+    'stats.middleware.StatsTrackingMiddleware',  # Website statistics tracking
+    'stats.error_middleware.DetailedErrorLoggingMiddleware',  # Enhanced error logging
     'chat.middleware.RateLimitMiddleware',
     'chat.middleware.ChatRateLimitMiddleware',
     'makeads.middleware.APIKeyCacheMiddleware',  # MakeAds API-Key Cache Management

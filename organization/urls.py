@@ -57,6 +57,26 @@ urlpatterns = [
     path('calls/<uuid:call_id>/leave/', views.call_leave, name='call_leave'),
     path('calls/<uuid:call_id>/status/', views.call_status, name='call_status'),
     
+    # Chat/Kommunikation (von chat app verschoben)
+    path('chat/', views.chat_home, name='chat_home'),
+    path('chat/schuch-dashboard/', views.schuch_dashboard, name='schuch_dashboard'),
+    path('chat/room/<int:room_id>/', views.redirect_to_chat, name='room_detail'),
+    path('chat/start/<int:user_id>/', views.start_chat, name='start_chat'),
+    path('chat/search/', views.chat_user_search, name='chat_user_search'),
+    path('chat/group/create/', views.create_group_chat, name='create_group_chat'),
+
+    # Chat AJAX endpoints
+    path('chat/api/batch/<int:room_id>/', views.batch_update, name='batch_update'),
+    path('chat/api/room/<int:room_id>/send/', views.send_message, name='send_message'),
+    path('chat/api/room/<int:room_id>/messages/', views.get_messages, name='get_messages'),
+    path('chat/api/room/<int:room_id>/mark_read/', views.mark_messages_read, name='mark_messages_read'),
+    path('chat/unread-count/', views.get_unread_count, name='get_unread_count'),
+    path('chat/update-online-status/', views.update_online_status, name='update_online_status'),
+    path('chat/set-offline/', views.set_offline, name='set_offline'),
+    path('chat/api/room/<int:room_id>/delete/', views.delete_chat, name='delete_chat'),
+    path('chat/api/room/<int:room_id>/info/', views.get_chat_info, name='get_chat_info'),
+    path('chat/api/room/<int:room_id>/export-pdf/', views.export_chat_pdf, name='export_chat_pdf'),
+
     # API
     path('api/user-search/', views.user_search, name='user_search'),
     path('api/check-incoming-calls/', views.check_incoming_calls, name='check_incoming_calls'),

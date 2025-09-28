@@ -219,7 +219,7 @@ def start_chat(request, user_id):
     ).first()
     
     if existing_chat:
-        return redirect(f'/chat/?room={existing_chat.id}')
+        return redirect(f'/organization/chat/?room={existing_chat.id}')
     
     # Create new private chat
     chat_room = ChatRoom.objects.create(
@@ -243,7 +243,7 @@ def start_chat(request, user_id):
     chat_room.last_message_at = welcome_message.created_at
     chat_room.save(update_fields=['last_message_at'])
     
-    return redirect(f'/chat/?room={chat_room.id}')
+    return redirect(f'/organization/chat/?room={chat_room.id}')
 
 
 @login_required
@@ -644,7 +644,7 @@ def create_group_chat(request):
         chat_room.save(update_fields=['last_message_at'])
         
         messages.success(request, f"Gruppenchat '{name}' wurde erstellt.")
-        return redirect(f'/chat/?room={chat_room.id}')
+        return redirect(f'/organization/chat/?room={chat_room.id}')
     
     # GET request - show form
     users = User.objects.exclude(id=request.user.id).order_by('username')
@@ -1184,7 +1184,7 @@ def redirect_to_chat(request, room_id):
         return redirect('chat:home')
     
     # Redirect to main chat page with room_id as parameter
-    return redirect(f'/chat/?room={room_id}')
+    return redirect(f'/organization/chat/?room={room_id}')
 
 
 @login_required

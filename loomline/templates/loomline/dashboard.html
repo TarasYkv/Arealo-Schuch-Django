@@ -1,10 +1,21 @@
 {% extends "base.html" %}
 {% load static %}
+{% load loomads_tags %}
 
 {% block title %}LoomLine Dashboard{% endblock %}
 
 {% block content %}
+<!-- LoomAds CSS -->
+{% loomads_css %}
+
 <div class="container-fluid mt-4">
+    <!-- Header Ad Zone -->
+    <div class="row mb-3">
+        <div class="col-12">
+            {% show_ad_zone 'loomline_header' css_class='loomads-header' %}
+        </div>
+    </div>
+
     <!-- Header -->
     <div class="row mb-4">
         <div class="col-12">
@@ -85,9 +96,24 @@
         </div>
     </div>
 
+    <!-- Ad Cards Zone between sections -->
+    <div class="row mb-4">
+        <div class="col-12">
+            {% show_multi_ad_zone 'loomline_content_cards' ad_count=3 css_class='loomads-content_card d-flex gap-3 justify-content-center' %}
+        </div>
+    </div>
+
     <div class="row">
+        <!-- Sidebar Ad Zone -->
+        <div class="col-lg-3 mb-4 order-lg-2">
+            <div class="position-sticky" style="top: 20px;">
+                {% show_ad_zone 'loomline_sidebar' css_class='loomads-sidebar mb-4' %}
+                {% show_ad_zone 'loomline_sidebar_2' css_class='loomads-sidebar' %}
+            </div>
+        </div>
+
         <!-- Aktuelle Projekte -->
-        <div class="col-lg-6 mb-4">
+        <div class="col-lg-5 mb-4 order-lg-1">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">🎯 Meine Projekte</h5>
@@ -124,7 +150,7 @@
         </div>
 
         <!-- Letzte Aktivitäten -->
-        <div class="col-lg-6 mb-4">
+        <div class="col-lg-4 mb-4 order-lg-3">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white border-0">
                     <h5 class="mb-0">⚡ Letzte Aktivitäten</h5>
@@ -154,7 +180,24 @@
             </div>
         </div>
     </div>
+
+    <!-- Footer Ad Zone -->
+    <div class="row mt-5 mb-4">
+        <div class="col-12">
+            {% show_ad_zone 'loomline_footer' css_class='loomads-header' %}
+        </div>
+    </div>
+
+    <!-- Notification Zone -->
+    <div class="row">
+        <div class="col-12">
+            {% show_ad_zone 'loomline_notification' css_class='loomads-notification' %}
+        </div>
+    </div>
 </div>
+
+<!-- Modal Ad Zone -->
+{% show_ad_modal 'loomline_modal' delay=10000 %}
 
 <style>
 .card {
@@ -293,6 +336,24 @@
     font-style: italic;
     padding-top: 1rem;
     border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* LoomLine Ad Cards Integration */
+.loomads-content_card .loomads-zone {
+    max-width: 300px;
+    flex: 1;
+}
+
+@media (max-width: 992px) {
+    .loomads-content_card {
+        flex-direction: column !important;
+        align-items: center !important;
+    }
+
+    .loomads-content_card .loomads-zone {
+        max-width: 100%;
+        margin-bottom: 1rem;
+    }
 }
 
 /* Responsive Design */

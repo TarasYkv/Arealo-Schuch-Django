@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}App-Anzeige löschen - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0">
+                    <h5 class="card-title mb-0 text-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>App-Anzeige löschen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Achtung:</strong> Diese Aktion kann nicht rückgängig gemacht werden!
+                    </div>
+
+                    <p>Sind Sie sicher, dass Sie die App-Anzeige <strong>"{{ ad.name }}"</strong> löschen möchten?</p>
+
+                    <div class="mb-3">
+                        <h6>Anzeigen-Details:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Name:</strong> {{ ad.name }}</li>
+                            <li><strong>App-Kampagne:</strong> {{ ad.app_campaign.name }}</li>
+                            <li><strong>App:</strong>
+                                <span class="badge bg-info">{{ ad.app_campaign.get_app_target_display }}</span>
+                            </li>
+                            <li><strong>Typ:</strong>
+                                <span class="badge bg-secondary">{{ ad.get_ad_type_display }}</span>
+                            </li>
+                            <li><strong>Status:</strong>
+                                {% if ad.is_active %}
+                                    <span class="badge bg-success">Aktiv</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Inaktiv</span>
+                                {% endif %}
+                            </li>
+                            <li><strong>Zonen:</strong> {{ ad.zones.count }}</li>
+                            <li><strong>Erstellt am:</strong> {{ ad.created_at|date:"d.m.Y H:i" }}</li>
+                        </ul>
+                    </div>
+
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Folgende Daten werden ebenfalls gelöscht:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>Alle Performance-Daten ({{ ad.impressions_count }} Impressions, {{ ad.clicks_count }} Klicks)</li>
+                            <li>Alle Zone-Zuordnungen ({{ ad.zones.count }} Zonen)</li>
+                            <li>Alle zugehörigen Tracking-Daten</li>
+                        </ul>
+                    </div>
+
+                    <form method="post" class="d-flex justify-content-between">
+                        {% csrf_token %}
+                        <a href="{% url 'loomads:app_campaign_detail' ad.app_campaign.id %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Abbrechen
+                        </a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash"></i> App-Anzeige endgültig löschen
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

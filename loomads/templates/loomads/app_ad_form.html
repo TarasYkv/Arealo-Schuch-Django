@@ -1,0 +1,385 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-0">
+                <i class="bi bi-image text-warning me-2"></i>
+                {{ title }}
+            </h1>
+            {% if campaign %}
+                <p class="text-muted mb-0">
+                    Für App-Kampagne: <strong>{{ campaign.name }}</strong>
+                    <span class="badge bg-info ms-2">{{ campaign.get_app_target_display }}</span>
+                </p>
+            {% elif ad %}
+                <p class="text-muted mb-0">
+                    Für App-Kampagne: <strong>{{ ad.app_campaign.name }}</strong>
+                    <span class="badge bg-info ms-2">{{ ad.app_campaign.get_app_target_display }}</span>
+                </p>
+            {% endif %}
+        </div>
+        <div class="btn-group">
+            {% if campaign %}
+                <a href="{% url 'loomads:app_campaign_detail' campaign.id %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Zurück zur Kampagne
+                </a>
+            {% elif ad %}
+                <a href="{% url 'loomads:app_campaign_detail' ad.app_campaign.id %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Zurück zur Kampagne
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- App-Anzeigen-Form -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-gear me-2 text-warning"></i>Anzeigen-Einstellungen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        <!-- Grundinformationen -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-muted mb-3">Grundinformationen</h6>
+                            </div>
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    {{ form.name.label_tag }}
+                                    {{ form.name }}
+                                    {% if form.name.help_text %}
+                                        <div class="form-text">{{ form.name.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.name.errors %}
+                                        <div class="text-danger">{{ form.name.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.ad_type.label_tag }}
+                                    {{ form.ad_type }}
+                                    {% if form.ad_type.help_text %}
+                                        <div class="form-text">{{ form.ad_type.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.ad_type.errors %}
+                                        <div class="text-danger">{{ form.ad_type.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="mb-3">
+                                    {{ form.description.label_tag }}
+                                    {{ form.description }}
+                                    {% if form.description.help_text %}
+                                        <div class="form-text">{{ form.description.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.description.errors %}
+                                        <div class="text-danger">{{ form.description.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Anzeigeninhalt -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-muted mb-3">Anzeigeninhalt</h6>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.title.label_tag }}
+                                    {{ form.title }}
+                                    {% if form.title.help_text %}
+                                        <div class="form-text">{{ form.title.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.title.errors %}
+                                        <div class="text-danger">{{ form.title.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.link_url.label_tag }}
+                                    {{ form.link_url }}
+                                    {% if form.link_url.help_text %}
+                                        <div class="form-text">{{ form.link_url.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.link_url.errors %}
+                                        <div class="text-danger">{{ form.link_url.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="mb-3">
+                                    {{ form.description_text.label_tag }}
+                                    {{ form.description_text }}
+                                    {% if form.description_text.help_text %}
+                                        <div class="form-text">{{ form.description_text.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.description_text.errors %}
+                                        <div class="text-danger">{{ form.description_text.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Medien-Inhalte (Conditional) -->
+                        <div class="row mb-4" id="media-content">
+                            <div class="col-12">
+                                <h6 class="text-muted mb-3">Medien-Inhalte</h6>
+                            </div>
+
+                            <!-- Bild -->
+                            <div class="col-md-6" id="image-field">
+                                <div class="mb-3">
+                                    {{ form.image.label_tag }}
+                                    {{ form.image }}
+                                    {% if form.image.help_text %}
+                                        <div class="form-text">{{ form.image.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.image.errors %}
+                                        <div class="text-danger">{{ form.image.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Video URL -->
+                            <div class="col-md-6" id="video-field">
+                                <div class="mb-3">
+                                    {{ form.video_url.label_tag }}
+                                    {{ form.video_url }}
+                                    {% if form.video_url.help_text %}
+                                        <div class="form-text">{{ form.video_url.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.video_url.errors %}
+                                        <div class="text-danger">{{ form.video_url.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- HTML Content -->
+                            <div class="col-12" id="html-field">
+                                <div class="mb-3">
+                                    {{ form.html_content.label_tag }}
+                                    {{ form.html_content }}
+                                    {% if form.html_content.help_text %}
+                                        <div class="form-text">{{ form.html_content.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.html_content.errors %}
+                                        <div class="text-danger">{{ form.html_content.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Targeting und Einstellungen -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-muted mb-3">Targeting und Einstellungen</h6>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.weight.label_tag }}
+                                    {{ form.weight }}
+                                    {% if form.weight.help_text %}
+                                        <div class="form-text">{{ form.weight.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.weight.errors %}
+                                        <div class="text-danger">{{ form.weight.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.device_targeting.label_tag }}
+                                    {{ form.device_targeting }}
+                                    {% if form.device_targeting.help_text %}
+                                        <div class="form-text">{{ form.device_targeting.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.device_targeting.errors %}
+                                        <div class="text-danger">{{ form.device_targeting.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form.link_text.label_tag }}
+                                    {{ form.link_text }}
+                                    {% if form.link_text.help_text %}
+                                        <div class="form-text">{{ form.link_text.help_text }}</div>
+                                    {% endif %}
+                                    {% if form.link_text.errors %}
+                                        <div class="text-danger">{{ form.link_text.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Aktiv Checkbox -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <div class="form-check">
+                                    {{ form.is_active }}
+                                    {{ form.is_active.label_tag }}
+                                </div>
+                                {% if form.is_active.help_text %}
+                                    <div class="form-text">{{ form.is_active.help_text }}</div>
+                                {% endif %}
+                                {% if form.is_active.errors %}
+                                    <div class="text-danger">{{ form.is_active.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="d-flex justify-content-between">
+                            {% if campaign %}
+                                <a href="{% url 'loomads:app_campaign_detail' campaign.id %}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-x-circle"></i> Abbrechen
+                                </a>
+                            {% elif ad %}
+                                <a href="{% url 'loomads:app_campaign_detail' ad.app_campaign.id %}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-x-circle"></i> Abbrechen
+                                </a>
+                            {% endif %}
+                            <button type="submit" class="btn btn-warning">
+                                <i class="bi bi-check-circle"></i>
+                                {% if ad %}
+                                    App-Anzeige aktualisieren
+                                {% else %}
+                                    App-Anzeige erstellen
+                                {% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Hilfe-Panel -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2 text-warning"></i>App-Anzeigen Info
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6><i class="bi bi-phone me-2"></i>Automatische Zone-Zuordnung</h6>
+                        <p class="text-muted small">
+                            Diese Anzeige wird automatisch allen Zonen der App-Kampagne zugeordnet.
+                        </p>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6><i class="bi bi-star me-2"></i>Effektive Gewichtung</h6>
+                        <p class="text-muted small">
+                            Die finale Gewichtung wird aus Anzeigengewichtung × Kampagnen-Multiplikator berechnet.
+                        </p>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6><i class="bi bi-devices me-2"></i>Geräte-Targeting</h6>
+                        <p class="text-muted small">
+                            Bestimmt auf welchen Geräten die Anzeige angezeigt wird.
+                        </p>
+                    </div>
+
+                    <div class="mb-0">
+                        <h6><i class="bi bi-palette me-2"></i>Anzeigentypen</h6>
+                        <ul class="text-muted small">
+                            <li><strong>HTML:</strong> Für Rich Content mit eigenem Styling</li>
+                            <li><strong>Bild:</strong> Einfache Bildanzeigen</li>
+                            <li><strong>Video:</strong> Video-Anzeigen mit URL</li>
+                            <li><strong>Text:</strong> Reine Textanzeigen</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            {% if campaign %}
+                <!-- Kampagnen-Info -->
+                <div class="card border-0 shadow-sm mt-4">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-info-circle me-2 text-info"></i>Kampagnen-Details
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-2">
+                            <strong>{{ campaign.name }}</strong>
+                        </div>
+                        <div class="mb-2">
+                            <span class="badge bg-info">{{ campaign.get_app_target_display }}</span>
+                            {% if campaign.status == 'active' %}
+                                <span class="badge bg-success">{{ campaign.get_status_display }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ campaign.get_status_display }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="small text-muted">
+                            Gewichtungs-Multiplikator: <strong>{{ campaign.weight_multiplier }}x</strong>
+                        </div>
+                        <div class="small text-muted">
+                            Ziel-Zonen: <strong>{{ campaign.get_target_zones_count }}</strong>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const adTypeField = document.getElementById('id_ad_type');
+    const imageField = document.getElementById('image-field');
+    const videoField = document.getElementById('video-field');
+    const htmlField = document.getElementById('html-field');
+
+    function toggleMediaFields() {
+        const adType = adTypeField.value;
+
+        // Hide all fields first
+        imageField.style.display = 'none';
+        videoField.style.display = 'none';
+        htmlField.style.display = 'none';
+
+        // Show relevant fields based on ad type
+        if (adType === 'image' || adType === 'banner') {
+            imageField.style.display = 'block';
+        } else if (adType === 'video') {
+            videoField.style.display = 'block';
+        } else if (adType === 'html' || adType === 'native') {
+            htmlField.style.display = 'block';
+        }
+    }
+
+    // Initial toggle
+    toggleMediaFields();
+
+    // Toggle on change
+    adTypeField.addEventListener('change', toggleMediaFields);
+});
+</script>
+
+<style>
+.form-control:focus, .form-select:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25);
+}
+</style>
+{% endblock %}

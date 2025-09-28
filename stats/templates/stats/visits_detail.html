@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block title %}Besuche Details{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Reset any conflicting styles from base template */
+    .container-fluid {
+        max-width: none !important;
+        padding-left: 20px !important;
+        padding-right: 20px !important;
+    }
+
+    .bg-white {
+        background: transparent !important;
+    }
+
+    main.container {
+        max-width: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+    }
+
+    body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%) !important;
+        min-height: 100vh;
+    }
+    .badge {
+        font-size: 0.8rem;
+    }
+    .app-badge {
+        font-size: 0.7rem;
+        margin-left: 5px;
+    }
+    .duration-badge {
+        font-size: 0.7rem;
+    }
+    .table th {
+        background-color: #f8f9fa;
+        border-top: none;
+        font-weight: 600;
+    }
+    .url-link {
+        color: #0066cc;
+        text-decoration: none;
+    }
+    .url-link:hover {
+        text-decoration: underline;
+    }
+    .device-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .device-icon {
+        font-size: 1.2rem;
+    }
+    .device-details small {
+        line-height: 1.2;
+    }
+    .referer-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .referer-icon {
+        font-size: 1rem;
+    }
+    .referer-details small {
+        line-height: 1.2;
+    }
+</style>
+{% endblock %}
+
+{% block fullscreen_content %}
+<div class="container-fluid" style="padding: 20px;">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">🔍 Besuche Details</h1>
+            <a href="{% url 'stats:dashboard' %}" class="btn btn-secondary mb-3">← Zurück zum Dashboard</a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 140px;">Zeit</th>
+                                    <th>URL & App</th>
+                                    <th>Seitentitel</th>
+                                    <th style="width: 120px;">Benutzer</th>
+                                    <th style="width: 100px;">Device</th>
+                                    <th style="width: 80px;">Dauer</th>
+                                    <th style="width: 90px;">Performance</th>
+                                    <th>Referrer Source</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for visit in visits %}
+                                <tr>
+                                    <td style="font-size: 0.9rem;">
+                                        <div>{{ visit.visit_time|date:"d.m.Y" }}</div>
+                                        <div class="text-muted">{{ visit.visit_time|date:"H:i:s" }}</div>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <a href="{{ visit.url }}" target="_blank" title="{{ visit.url }}" class="url-link">
+                                                {{ visit.url|truncatechars:45 }}
+                                            </a>
+                                        </div>
+                                        {% if visit.app_name %}
+                                            <span class="badge bg-info text-dark app-badge">{{ visit.app_name }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span title="{{ visit.page_title }}">
+                                            {{ visit.page_title|default:"-"|truncatechars:50 }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if visit.user %}
+                                            <span class="badge bg-primary">{{ visit.user.username }}</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Anonym</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="device-info">
+                                            {% if visit.device_type %}
+                                                <span class="device-icon">
+                                                    {% if visit.device_type == 'mobile' %}📱
+                                                    {% elif visit.device_type == 'tablet' %}📟
+                                                    {% else %}💻{% endif %}
+                                                </span>
+                                                <div class="device-details">
+                                                    <small class="d-block">{{ visit.device_type|title }}</small>
+                                                    <small class="text-muted">{{ visit.browser|default:"-" }}</small>
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if visit.session_duration %}
+                                            {% if visit.session_duration > 300 %}
+                                                <span class="badge bg-danger duration-badge">{{ visit.session_duration }}s</span>
+                                                <small class="d-block text-muted">Long</small>
+                                            {% elif visit.session_duration > 60 %}
+                                                <span class="badge bg-warning duration-badge">{{ visit.session_duration }}s</span>
+                                                <small class="d-block text-muted">Medium</small>
+                                            {% else %}
+                                                <span class="badge bg-success duration-badge">{{ visit.session_duration }}s</span>
+                                                <small class="d-block text-muted">Quick</small>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if visit.page_load_time %}
+                                            {% if visit.page_load_time > 3 %}
+                                                <span class="badge bg-danger">{{ visit.page_load_time|floatformat:1 }}s</span>
+                                                <small class="d-block text-muted">🐌 Slow</small>
+                                            {% elif visit.page_load_time > 1 %}
+                                                <span class="badge bg-warning">{{ visit.page_load_time|floatformat:1 }}s</span>
+                                                <small class="d-block text-muted">⚡ OK</small>
+                                            {% else %}
+                                                <span class="badge bg-success">{{ visit.page_load_time|floatformat:1 }}s</span>
+                                                <small class="d-block text-muted">🚀 Fast</small>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if visit.referer %}
+                                            {% if visit.referer_source %}
+                                                <div class="referer-info">
+                                                    <span class="referer-icon">{{ visit.referer_icon }}</span>
+                                                    <div class="referer-details">
+                                                        <small class="d-block">{{ visit.referer_source }}</small>
+                                                        <a href="{{ visit.referer }}" target="_blank" title="{{ visit.referer }}" class="url-link small">
+                                                            {{ visit.referer|truncatechars:20 }}
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            {% else %}
+                                                <a href="{{ visit.referer }}" target="_blank" title="{{ visit.referer }}" class="url-link">
+                                                    {{ visit.referer|truncatechars:25 }}
+                                                </a>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge bg-info">🏠 Direct</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">
+                                        <i class="bi bi-inbox"></i> Keine Besuche gefunden
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {% if visits %}
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <small class="text-muted">{{ visits|length }} Einträge angezeigt</small>
+                        <div>
+                            <button class="btn btn-sm btn-outline-primary" onclick="window.print()">
+                                <i class="bi bi-printer"></i> Drucken
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

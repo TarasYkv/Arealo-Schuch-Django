@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}App-Kampagne löschen - LoomAds{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0">
+                    <h5 class="card-title mb-0 text-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>App-Kampagne löschen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Achtung:</strong> Diese Aktion kann nicht rückgängig gemacht werden!
+                    </div>
+
+                    <p>Sind Sie sicher, dass Sie die App-Kampagne <strong>"{{ campaign.name }}"</strong> löschen möchten?</p>
+
+                    <div class="mb-3">
+                        <h6>Kampagnen-Details:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Name:</strong> {{ campaign.name }}</li>
+                            <li><strong>App:</strong>
+                                <span class="badge bg-info">{{ campaign.get_app_target_display }}</span>
+                            </li>
+                            <li><strong>Status:</strong>
+                                {% if campaign.status == 'active' %}
+                                    <span class="badge bg-success">{{ campaign.get_status_display }}</span>
+                                {% elif campaign.status == 'draft' %}
+                                    <span class="badge bg-secondary">{{ campaign.get_status_display }}</span>
+                                {% elif campaign.status == 'paused' %}
+                                    <span class="badge bg-warning">{{ campaign.get_status_display }}</span>
+                                {% else %}
+                                    <span class="badge bg-info">{{ campaign.get_status_display }}</span>
+                                {% endif %}
+                            </li>
+                            <li><strong>Anzeigen:</strong> {{ campaign.app_advertisements.count }}</li>
+                            <li><strong>Erstellt am:</strong> {{ campaign.created_at|date:"d.m.Y H:i" }}</li>
+                        </ul>
+                    </div>
+
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Folgende Daten werden ebenfalls gelöscht:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>Alle zugehörigen App-Anzeigen ({{ campaign.app_advertisements.count }})</li>
+                            <li>Alle Performance-Daten (Impressions, Klicks)</li>
+                            <li>Alle Zone-Zuordnungen</li>
+                        </ul>
+                    </div>
+
+                    <form method="post" class="d-flex justify-content-between">
+                        {% csrf_token %}
+                        <a href="{% url 'loomads:app_campaign_detail' campaign.id %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Abbrechen
+                        </a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash"></i> App-Kampagne endgültig löschen
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,5 +1,5 @@
 # core/views.py
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.http import Http404
 from django.contrib.auth.decorators import login_required
 from accounts.models import CustomPage, EditableContent
@@ -382,3 +382,8 @@ def public_app_list(request):
     }
     
     return render(request, 'core/public_app_list.html', context)
+
+
+def redirect_to_organization_chat(request):
+    """Redirect von /chat/ zu /organization/chat/"""
+    return redirect('organization:chat_home')

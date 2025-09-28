@@ -71,6 +71,12 @@
                                 Email Service
                             </button>
                         </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="messages-main-tab" data-bs-toggle="tab" data-bs-target="#messages-main-pane" type="button" role="tab">
+                                <i class="fas fa-bullhorn me-2"></i>
+                                Globale Nachrichten
+                            </button>
+                        </li>
                     </ul>
                 </div>
             </div>
@@ -827,6 +833,194 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Global Messages Tab -->
+                <div class="tab-pane fade" id="messages-main-pane" role="tabpanel">
+                    <!-- Global Messages Info Card -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card info-card">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-bullhorn text-info me-2"></i>
+                                        Globale Nachrichten Verwaltung
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="text-muted">Hier können Sie Nachrichten und Ankündigungen für alle Website-Besucher verwalten. Diese Nachrichten können an verschiedenen Positionen angezeigt werden und sind konfigurierbar für angemeldete oder nicht-angemeldete Benutzer.</p>
+
+                                    <div class="alert alert-info" role="alert">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        <strong>Hinweis:</strong> Aktive Nachrichten werden automatisch auf allen Seiten der Website angezeigt. Stellen Sie sicher, dass nur relevante Nachrichten aktiv sind.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Messages Management Cards -->
+                    <div class="row mb-4">
+                        <!-- Create New Message -->
+                        <div class="col-md-6 mb-4">
+                            <div class="card card-hover h-100" style="border-left: 4px solid #28a745;">
+                                <div class="card-header bg-success text-white">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-plus me-2"></i>
+                                        Neue Nachricht erstellen
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="messageForm">
+                                        {% csrf_token %}
+                                        <div class="mb-3">
+                                            <label for="messageTitle" class="form-label">Titel *</label>
+                                            <input type="text" class="form-control" id="messageTitle" required placeholder="Titel der Nachricht">
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="messageContent" class="form-label">Inhalt *</label>
+                                            <textarea class="form-control" id="messageContent" rows="3" required placeholder="Nachrichteninhalt..."></textarea>
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label for="messagePosition" class="form-label">Position</label>
+                                                <select class="form-select" id="messagePosition">
+                                                    <option value="popup_center">Popup - Mitte</option>
+                                                    <option value="popup_top">Popup - Oben</option>
+                                                    <option value="banner_top">Banner - Oben</option>
+                                                    <option value="banner_bottom">Banner - Unten</option>
+                                                    <option value="toast_top_right">Toast - Oben Rechts</option>
+                                                    <option value="toast_top_left">Toast - Oben Links</option>
+                                                    <option value="toast_bottom_right">Toast - Unten Rechts</option>
+                                                    <option value="toast_bottom_left">Toast - Unten Links</option>
+                                                    <option value="sidebar_right">Seitlich - Rechts</option>
+                                                    <option value="sidebar_left">Seitlich - Links</option>
+                                                </select>
+                                            </div>
+
+                                            <div class="col-md-6 mb-3">
+                                                <label for="messageType" class="form-label">Typ</label>
+                                                <select class="form-select" id="messageType">
+                                                    <option value="info">Information</option>
+                                                    <option value="success">Erfolg</option>
+                                                    <option value="warning">Warnung</option>
+                                                    <option value="error">Fehler</option>
+                                                    <option value="announcement">Ankündigung</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label for="messageVisibility" class="form-label">Sichtbarkeit</label>
+                                                <select class="form-select" id="messageVisibility">
+                                                    <option value="all">Alle Besucher</option>
+                                                    <option value="authenticated">Nur angemeldete Benutzer</option>
+                                                    <option value="unauthenticated">Nur nicht-angemeldete Besucher</option>
+                                                </select>
+                                            </div>
+
+                                            <div class="col-md-6 mb-3">
+                                                <label for="messageDuration" class="form-label">Dauer (Sekunden)</label>
+                                                <input type="number" class="form-control" id="messageDuration" placeholder="Leer = unendlich" min="1">
+                                                <small class="form-text text-muted">Lassen Sie das Feld leer für unendliche Anzeige</small>
+                                            </div>
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label for="messageStartDate" class="form-label">Startdatum</label>
+                                                <input type="datetime-local" class="form-control" id="messageStartDate">
+                                                <small class="form-text text-muted">Leer = sofort aktiv</small>
+                                            </div>
+
+                                            <div class="col-md-6 mb-3">
+                                                <label for="messageEndDate" class="form-label">Enddatum</label>
+                                                <input type="datetime-local" class="form-control" id="messageEndDate">
+                                                <small class="form-text text-muted">Leer = unbegrenzt</small>
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="messageIsActive" checked>
+                                                <label class="form-check-label" for="messageIsActive">
+                                                    Nachricht ist aktiv
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="messageIsDismissible" checked>
+                                                <label class="form-check-label" for="messageIsDismissible">
+                                                    Benutzer kann Nachricht schließen
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        <div class="d-grid">
+                                            <button type="submit" class="btn btn-success btn-lg">
+                                                <i class="fas fa-plus me-2"></i>
+                                                Nachricht erstellen
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Manage Messages -->
+                        <div class="col-md-6 mb-4">
+                            <div class="card card-hover h-100" style="border-left: 4px solid #17a2b8;">
+                                <div class="card-header bg-info text-white">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-list me-2"></i>
+                                        Aktive Nachrichten
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div id="messagesList">
+                                        <div class="d-flex justify-content-center">
+                                            <div class="spinner-border text-info" role="status">
+                                                <span class="visually-hidden">Lädt...</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Preview Section -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card" style="border-left: 4px solid #ffc107;">
+                                <div class="card-header bg-warning text-dark">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-eye me-2"></i>
+                                        Nachrichtenvorschau
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="text-muted">Hier können Sie testen, wie Ihre Nachrichten angezeigt werden.</p>
+
+                                    <div class="mb-3">
+                                        <label for="previewMessageSelect" class="form-label">Nachricht auswählen:</label>
+                                        <select class="form-select" id="previewMessageSelect">
+                                            <option value="">-- Nachricht auswählen --</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="d-grid">
+                                        <button class="btn btn-warning" onclick="previewMessage()">
+                                            <i class="fas fa-eye me-2"></i>
+                                            Nachricht vorschau anzeigen
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -887,6 +1081,12 @@ $(document).ready(function() {
         loadSharedEmails();
         loadCurrentEmailConfig();
         loadZohoIntegrationStatus();
+    });
+
+    // Load messages when messages tab is clicked
+    $('#messages-main-tab').on('shown.bs.tab', function (e) {
+        loadGlobalMessages();
+        loadMessagesForPreview();
     });
     
     // Setup form handlers
@@ -2442,5 +2642,223 @@ function autoConfigureEmail() {
 }
 
 window.autoConfigureEmail = autoConfigureEmail;
+
+// Global Messages Functions
+
+function loadGlobalMessages() {
+    console.log('🔄 Loading global messages...');
+
+    $.get('{% url "superconfig:list_global_messages" %}')
+    .done(function(response) {
+        if (response.success) {
+            displayMessagesList(response.messages);
+        } else {
+            $('#messagesList').html(`
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Fehler beim Laden der Nachrichten: ${response.message}
+                </div>
+            `);
+        }
+    })
+    .fail(function() {
+        $('#messagesList').html(`
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Netzwerkfehler beim Laden der Nachrichten
+            </div>
+        `);
+    });
+}
+
+function displayMessagesList(messages) {
+    let html = '';
+
+    if (messages.length === 0) {
+        html = `
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                Noch keine Nachrichten erstellt.
+            </div>
+        `;
+    } else {
+        html = '<div class="list-group">';
+
+        messages.forEach(function(msg) {
+            const statusBadge = msg.is_currently_active ?
+                '<span class="badge bg-success ms-2">Aktiv</span>' :
+                '<span class="badge bg-secondary ms-2">Inaktiv</span>';
+
+            const typeIcon = getMessageTypeIcon(msg.display_type);
+
+            html += `
+                <div class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">
+                            ${typeIcon} ${msg.title}
+                            ${statusBadge}
+                        </h6>
+                        <small>${msg.created_at}</small>
+                    </div>
+                    <p class="mb-1">${msg.content}</p>
+                    <small class="text-muted">
+                        Position: ${msg.display_position} |
+                        Sichtbarkeit: ${msg.visibility}
+                        ${msg.duration_seconds ? ` | Dauer: ${msg.duration_seconds}s` : ' | Unbegrenzt'}
+                    </small>
+                    <div class="mt-2">
+                        <button class="btn btn-sm btn-outline-primary me-1" onclick="previewSpecificMessage(${msg.id})">
+                            <i class="fas fa-eye"></i> Vorschau
+                        </button>
+                        <button class="btn btn-sm ${msg.is_active ? 'btn-outline-warning' : 'btn-outline-success'}" onclick="toggleMessageStatus(${msg.id})">
+                            <i class="fas fa-power-off"></i> ${msg.is_active ? 'Deaktivieren' : 'Aktivieren'}
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteMessage(${msg.id})">
+                            <i class="fas fa-trash"></i> Löschen
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+    }
+
+    $('#messagesList').html(html);
+}
+
+function getMessageTypeIcon(type) {
+    const icons = {
+        'info': '<i class="fas fa-info-circle text-info"></i>',
+        'success': '<i class="fas fa-check-circle text-success"></i>',
+        'warning': '<i class="fas fa-exclamation-triangle text-warning"></i>',
+        'error': '<i class="fas fa-times-circle text-danger"></i>',
+        'announcement': '<i class="fas fa-bullhorn text-primary"></i>'
+    };
+    return icons[type] || '<i class="fas fa-info-circle"></i>';
+}
+
+function loadMessagesForPreview() {
+    $.get('{% url "superconfig:list_global_messages" %}')
+    .done(function(response) {
+        if (response.success) {
+            let options = '<option value="">-- Nachricht auswählen --</option>';
+            response.messages.forEach(function(msg) {
+                options += `<option value="${msg.id}">${msg.title}</option>`;
+            });
+            $('#previewMessageSelect').html(options);
+        }
+    });
+}
+
+// Form submission handler
+$('#messageForm').on('submit', function(e) {
+    e.preventDefault();
+
+    const formData = {
+        'title': $('#messageTitle').val(),
+        'content': $('#messageContent').val(),
+        'display_position': $('#messagePosition').val(),
+        'display_type': $('#messageType').val(),
+        'visibility': $('#messageVisibility').val(),
+        'duration_seconds': $('#messageDuration').val() || null,
+        'start_date': $('#messageStartDate').val() || null,
+        'end_date': $('#messageEndDate').val() || null,
+        'is_active': $('#messageIsActive').is(':checked'),
+        'is_dismissible': $('#messageIsDismissible').is(':checked')
+    };
+
+    $.ajax({
+        url: '{% url "superconfig:create_global_message" %}',
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json'
+        },
+        data: JSON.stringify(formData),
+        success: function(response) {
+            if (response.success) {
+                showAlert('✅ Nachricht erfolgreich erstellt!', 'success');
+                $('#messageForm')[0].reset();
+                loadGlobalMessages();
+                loadMessagesForPreview();
+            } else {
+                showAlert(`❌ Fehler: ${response.message}`, 'danger');
+            }
+        },
+        error: function() {
+            showAlert('❌ Netzwerkfehler beim Erstellen der Nachricht', 'danger');
+        }
+    });
+});
+
+function toggleMessageStatus(messageId) {
+    $.post(`/superconfig/messages/${messageId}/toggle/`, {
+        'csrfmiddlewaretoken': document.querySelector('[name=csrfmiddlewaretoken]').value
+    })
+    .done(function(response) {
+        if (response.success) {
+            showAlert(`✅ ${response.message}`, 'success');
+            loadGlobalMessages();
+        } else {
+            showAlert(`❌ Fehler: ${response.message}`, 'danger');
+        }
+    })
+    .fail(function() {
+        showAlert('❌ Netzwerkfehler', 'danger');
+    });
+}
+
+function deleteMessage(messageId) {
+    if (confirm('Sind Sie sicher, dass Sie diese Nachricht löschen möchten?')) {
+        $.post(`/superconfig/messages/${messageId}/delete/`, {
+            'csrfmiddlewaretoken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        })
+        .done(function(response) {
+            if (response.success) {
+                showAlert('✅ Nachricht gelöscht', 'success');
+                loadGlobalMessages();
+                loadMessagesForPreview();
+            } else {
+                showAlert(`❌ Fehler: ${response.message}`, 'danger');
+            }
+        })
+        .fail(function() {
+            showAlert('❌ Netzwerkfehler', 'danger');
+        });
+    }
+}
+
+function previewMessage() {
+    const messageId = $('#previewMessageSelect').val();
+    if (!messageId) {
+        showAlert('❌ Bitte wählen Sie eine Nachricht aus', 'warning');
+        return;
+    }
+    previewSpecificMessage(messageId);
+}
+
+function previewSpecificMessage(messageId) {
+    $.get(`/superconfig/messages/${messageId}/preview/`)
+    .done(function(response) {
+        if (response.success) {
+            const msg = response.message_data;
+            showGlobalMessagePreview(msg);
+        } else {
+            showAlert(`❌ Fehler: ${response.message}`, 'danger');
+        }
+    })
+    .fail(function() {
+        showAlert('❌ Netzwerkfehler', 'danger');
+    });
+}
+
+// Make functions globally available
+window.loadGlobalMessages = loadGlobalMessages;
+window.toggleMessageStatus = toggleMessageStatus;
+window.deleteMessage = deleteMessage;
+window.previewMessage = previewMessage;
+window.previewSpecificMessage = previewSpecificMessage;
+
 </script>
 {% endblock %}

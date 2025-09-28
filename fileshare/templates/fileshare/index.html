@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load loomads_tags %}
 
 {% block title %}FileShare - Große Dateien schnell senden{% endblock %}
 
@@ -48,20 +49,122 @@
     transform: translateY(-5px) !important;
     box-shadow: 0 15px 40px rgba(0,0,0,0.15) !important;
 }
+
+/* FileShara Prominent Ad Styles */
+.loomads-hero-special {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 20px !important;
+    padding: 20px !important;
+    margin: 20px 0 !important;
+    backdrop-filter: blur(10px) !important;
+    border: 2px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.loomads-sidebar-prominent {
+    border: 3px solid #007bff !important;
+    border-radius: 15px !important;
+    padding: 15px !important;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+    box-shadow: 0 10px 30px rgba(0, 123, 255, 0.2) !important;
+    transition: all 0.3s ease !important;
+}
+
+.loomads-sidebar-prominent:hover {
+    transform: translateY(-5px) !important;
+    box-shadow: 0 15px 40px rgba(0, 123, 255, 0.3) !important;
+    border-color: #0056b3 !important;
+}
+
+.loomads-central-banner {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    border-radius: 20px !important;
+    padding: 30px !important;
+    color: white !important;
+    box-shadow: 0 15px 50px rgba(102, 126, 234, 0.3) !important;
+    margin: 40px 0 !important;
+}
+
+.loomads-central-banner .loomads-zone {
+    background: transparent !important;
+}
+
+.loomads-content_card .loomads-zone {
+    border: 2px solid #28a745 !important;
+    border-radius: 12px !important;
+    padding: 20px !important;
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%) !important;
+    box-shadow: 0 8px 25px rgba(40, 167, 69, 0.2) !important;
+    transition: all 0.3s ease !important;
+    max-width: 280px !important;
+    margin: 10px !important;
+}
+
+.loomads-content_card .loomads-zone:hover {
+    transform: translateY(-3px) !important;
+    box-shadow: 0 12px 35px rgba(40, 167, 69, 0.3) !important;
+    border-color: #1e7e34 !important;
+}
+
+/* Mobile Responsive for FileShara Ads */
+@media (max-width: 768px) {
+    .loomads-content_card {
+        flex-direction: column !important;
+        align-items: center !important;
+    }
+
+    .loomads-content_card .loomads-zone {
+        max-width: 100% !important;
+        margin-bottom: 15px !important;
+    }
+
+    .loomads-sidebar-prominent {
+        margin-bottom: 20px !important;
+    }
+
+    .loomads-central-banner {
+        padding: 20px !important;
+        margin: 20px 0 !important;
+    }
+}
 </style>
 {% endblock %}
 
 {% block content %}
+<!-- LoomAds CSS -->
+{% loomads_css %}
+
+
 <div class="hero-section">
     <div class="container">
         <h1 class="display-4 mb-4">Große Dateien schnell senden</h1>
         <p class="lead">Dateien bis zu 2GB kostenlos teilen. Keine Registrierung erforderlich.</p>
+
+        <!-- Hero Ad Zone - Super Prominent -->
+        <div class="mt-4">
+            {% show_ad_zone 'fileshare_hero_ad' css_class='loomads-hero-special' %}
+        </div>
     </div>
 </div>
 
 <div class="container">
+    <!-- Full-width Content Ad Cards -->
+    <div class="row mb-5">
+        <div class="col-12">
+            {% show_multi_ad_zone 'fileshare_content_cards' ad_count=4 css_class='loomads-content_card d-flex gap-3 justify-content-center flex-wrap' %}
+        </div>
+    </div>
+
     <div class="row">
-        <div class="col-lg-8 mx-auto">
+        <!-- Prominent Sidebar Ad -->
+        <div class="col-lg-3 mb-4">
+            <div class="position-sticky" style="top: 20px;">
+                <div class="mb-4">
+                    {% show_ad_zone 'fileshare_sidebar_main' css_class='loomads-sidebar-prominent' %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
             <!-- Upload Form -->
             <div id="upload-form" class="mb-4">
                 <div class="upload-zone" id="upload-zone">
@@ -154,6 +257,11 @@
                     </div>
                     <p class="text-center mt-2" id="progress-text">0%</p>
                 </div>
+
+                <!-- Ad Zone Between Form and Progress -->
+                <div class="my-4">
+                    {% show_ad_zone 'fileshare_form_bottom' css_class='loomads-content_card' %}
+                </div>
             </div>
 
             <!-- Transfer Complete -->
@@ -181,6 +289,29 @@
                 </div>
             </div>
         </div>
+
+        <!-- Right Sidebar with Prominent Ad -->
+        <div class="col-lg-3 mb-4">
+            <div class="position-sticky" style="top: 20px;">
+                <div class="mb-4">
+                    {% show_ad_zone 'fileshare_right_main' css_class='loomads-sidebar-prominent' %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Big Central Ad Zone -->
+    <div class="row my-5">
+        <div class="col-12 text-center">
+            {% show_ad_zone 'fileshare_central_banner' css_class='loomads-central-banner' %}
+        </div>
+    </div>
+
+    <!-- Ad Zone Between Features -->
+    <div class="row mb-4">
+        <div class="col-12">
+            {% show_multi_ad_zone 'fileshare_feature_ads' ad_count=3 css_class='loomads-content_card d-flex gap-3 justify-content-center' %}
+        </div>
     </div>
 
     <!-- Features -->
@@ -205,6 +336,13 @@
                 <h4>Schnell</h4>
                 <p>Hochgeschwindigkeits-Uploads und Downloads mit Fortsetzungsfunktion.</p>
             </div>
+        </div>
+    </div>
+
+    <!-- Post-Features Ad Zone -->
+    <div class="row my-5">
+        <div class="col-12">
+            {% show_ad_zone 'fileshare_post_features' css_class='loomads-central-banner' %}
         </div>
     </div>
 
@@ -247,7 +385,25 @@
         </div>
     </div>
     {% endif %}
+
+    <!-- Final Footer Ad Zone -->
+    <div class="row mt-5 pt-5">
+        <div class="col-12">
+            {% show_ad_zone 'fileshare_footer_banner' css_class='loomads-header' %}
+        </div>
+    </div>
+
+    <!-- Bottom Notification Ad -->
+    <div class="row mt-3">
+        <div class="col-12">
+            {% show_ad_zone 'fileshare_notification' css_class='loomads-notification' %}
+        </div>
+    </div>
 </div>
+
+<!-- Modal Ad and Video Popup -->
+{% show_ad_modal 'fileshare_modal' delay=8000 %}
+{% show_video_popup 'fileshare_video_popup' %}
 {% endblock %}
 
 {% block extra_js %}

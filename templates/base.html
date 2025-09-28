@@ -3,13 +3,14 @@
 {% load loomads_tags %}
 {% load visual_editor_tags %}
 {% load visual_editor_tags_simple %}
+{% load global_messages %}
 <!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token }}">
-    <title>Workloom</title>
+    <title>{% block title %}Workloom{% endblock %}</title>
     
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="{% static 'images/favicon.ico' %}">
@@ -144,7 +145,7 @@
         }
 
         /* Disable the ::before animation for communication and user dropdowns to prevent overlap */
-        #kommunikationDropdown::before,
+        #organisationDropdown::before,
         #userDropdown::before {
             display: none !important;
         }
@@ -166,8 +167,8 @@
             z-index: 2;
         }
 
-        /* Specific isolation for communication and user dropdowns */
-        .communication-dropdown .nav-link {
+        /* Specific isolation for organisation and user dropdowns */
+        .nav-item.dropdown .nav-link {
             display: inline-block;
             width: auto;
         }
@@ -293,12 +294,12 @@
             animation: pulse-glow 2s infinite;
         }
 
-        /* Ensure kommunikation dropdown doesn't clip the badge */
-        .communication-dropdown {
+        /* Ensure organisation dropdown doesn't clip the badge */
+        .nav-item.dropdown {
             overflow: visible !important;
         }
 
-        .communication-dropdown .nav-link {
+        .nav-item.dropdown .nav-link {
             overflow: visible !important;
         }
 
@@ -1481,6 +1482,11 @@
         margin-left: auto !important;
     }
     </style>
+
+    <!-- Global Messages System -->
+    {% global_messages_scripts %}
+
+    {% block extra_css %}{% endblock %}
 </head>
 <body class="{% if user.is_authenticated and user.dark_mode %}bg-dark text-light{% else %}bg-light{% endif %}{% if user.is_authenticated and user.desktop_view %} force-desktop-view{% endif %}" data-user-authenticated="{% if user.is_authenticated %}true{% else %}false{% endif %}">
 
@@ -1548,7 +1554,7 @@
                         </a>
                         <ul class="dropdown-menu" aria-labelledby="schuchDropdown">
                             {% if user|can_see_app_in_frontend:"schuch_dashboard" %}
-                            <li><a class="dropdown-item" href="{% url 'chat:schuch_dashboard' %}">
+                            <li><a class="dropdown-item" href="{% url 'organization:schuch_dashboard' %}">
                                 <i class="bi bi-speedometer2"></i> Schuch Dashboard
                             </a></li>
                             {% endif %}
@@ -1708,10 +1714,17 @@
                     {% endif %}
                     
                     <!-- Organisation Dropdown Menu -->
-                    {% if user|can_see_app_in_frontend:"organisation" or user|can_see_app_in_frontend:"todos" %}
+                    {% if user|can_see_app_in_frontend:"organisation" or user|can_see_app_in_frontend:"todos" or user|can_see_app_in_frontend:"chat" or user|can_see_app_in_frontend:"mail" %}
                     <div class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="organisationDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <a class="nav-link dropdown-toggle position-relative" href="#" id="organisationDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-building"></i> Organisation
+                            {% if user.is_authenticated and user|can_see_app_in_frontend:"chat" %}
+                                <!-- Chat Notification Badge -->
+                                <span id="user-chat-notification-badge" class="position-absolute badge rounded-circle bg-danger border border-light" style="display: none; top: -12px; right: -5px; width: 22px; height: 22px; font-size: 11px; line-height: 22px; text-align: center; z-index: 1050; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">
+                                    <i class="bi bi-envelope-fill"></i>
+                                    <span class="visually-hidden">ungelesene Nachrichten</span>
+                                </span>
+                            {% endif %}
                         </a>
                         <ul class="dropdown-menu" aria-labelledby="organisationDropdown">
                             {% if user|can_see_app_in_frontend:"organisation" %}
@@ -1735,26 +1748,12 @@
                                 <i class="fas fa-tasks"></i> ToDos
                             </a></li>
                             {% endif %}
-                        </ul>
-                    </div>
-                    {% endif %}
-                    
-                    <!-- Kommunikation Dropdown Menu -->
-                    {% if user|can_see_app_in_frontend:"chat" or user|can_see_app_in_frontend:"mail" %}
-                    <div class="nav-item dropdown communication-dropdown">
-                        <a class="nav-link dropdown-toggle position-relative" href="#" id="kommunikationDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="margin-right: 0.5rem;">
-                            <i class="bi bi-chat-dots"></i> Kommunikation
-                            {% if user.is_authenticated and user|can_see_app_in_frontend:"chat" %}
-                                <!-- Chat Notification Badge -->
-                                <span id="user-chat-notification-badge" class="position-absolute badge rounded-circle bg-danger border border-light" style="display: none; top: -12px; right: -5px; width: 22px; height: 22px; font-size: 11px; line-height: 22px; text-align: center; z-index: 1050; box-shadow: 0 2px 6px rgba(0,0,0,0.4);">
-                                    <i class="bi bi-envelope-fill"></i>
-                                    <span class="visually-hidden">ungelesene Nachrichten</span>
-                                </span>
+                            {% if user|can_see_app_in_frontend:"chat" or user|can_see_app_in_frontend:"mail" %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li class="dropdown-header">Kommunikation</li>
                             {% endif %}
-                        </a>
-                        <ul class="dropdown-menu" aria-labelledby="kommunikationDropdown">
                             {% if user|can_see_app_in_frontend:"chat" %}
-                            <li><a class="dropdown-item" href="{% url 'chat:home' %}">
+                            <li><a class="dropdown-item" href="{% url 'organization:chat_home' %}">
                                 <i class="bi bi-chat-text"></i> Chat
                             </a></li>
                             {% endif %}
@@ -1802,6 +1801,9 @@
                                     <i class="bi bi-credit-card"></i> Abonnements
                                 </a></li>
                                 {% if user.is_superuser %}
+                                <li><a class="dropdown-item" href="{% url 'stats:dashboard' %}">
+                                    <i class="bi bi-bar-chart-fill text-info"></i> Statistiken
+                                </a></li>
                                 <li><a class="dropdown-item" href="{% url 'email_templates:dashboard' %}">
                                     <i class="bi bi-envelope-paper"></i> Email-Vorlagen
                                 </a></li>
@@ -2369,7 +2371,7 @@
         // Chat-Benachrichtigungen updaten
         function updateChatNotifications() {
             {% if user.is_authenticated %}
-            fetch('/chat/unread-count/', {
+            fetch('/organization/chat/unread-count/', {
                 method: 'GET',
                 headers: {
                     'X-CSRFToken': getCookie('csrftoken')
@@ -2410,7 +2412,7 @@
             
             // Set user offline when leaving the page
             window.addEventListener('beforeunload', function() {
-                navigator.sendBeacon('/chat/set-offline/');
+                navigator.sendBeacon('/organization/chat/set-offline/');
             });
             {% endif %}
         });
@@ -3073,7 +3075,7 @@
         function handleMessageNotificationClick() {
             if (currentMessageNotification) {
                 // Open chat in new tab with specific room
-                window.open('/chat/?room=' + currentMessageNotification.roomId, '_blank');
+                window.open('/organization/chat/?room=' + currentMessageNotification.roomId, '_blank');
             }
         }
 
@@ -3081,7 +3083,7 @@
         function handleContactChatNotificationClick() {
             if (currentMessageNotification) {
                 // Open chat in new tab with specific room
-                window.open('/chat/?room=' + currentMessageNotification.roomId, '_blank');
+                window.open('/organization/chat/?room=' + currentMessageNotification.roomId, '_blank');
                 // Hide the notification badge after clicking
                 document.getElementById('contact-chat-notification').style.display = 'none';
             }
@@ -3324,7 +3326,7 @@
                     throw new Error('CSRF-Token nicht gefunden. Bitte laden Sie die Seite neu.');
                 }
                 
-                const response = await fetch('/chat/api/room/' + roomId + '/call/initiate/', {
+                const response = await fetch('/organization/chat/api/room/' + roomId + '/call/initiate/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3457,7 +3459,7 @@
         
         // Enhanced chat notifications that also show floating notifications
         function updateChatNotifications() {
-            fetch('/chat/unread-count/')
+            fetch('/organization/chat/unread-count/')
                 .then(response => response.json())
                 .then(data => {
                     const badge = document.getElementById('user-chat-notification-badge');
@@ -3514,7 +3516,7 @@
             //         }
             //         
             //         // Check for calls across all user's chat rooms
-            //         const response = await fetch('/chat/check-incoming-calls/', {
+            //         const response = await fetch('/organization/chat/check-incoming-calls/', {
             //             method: 'GET',
             //             headers: {
             //                 'X-CSRFToken': getCookie('csrftoken')
@@ -3584,7 +3586,7 @@
             
             // Try to get caller's real profile picture from chat room info
             if (callData.caller_id && callData.room_id) {
-                fetch('/chat/api/room/' + callData.room_id + '/info/')
+                fetch('/organization/chat/api/room/' + callData.room_id + '/info/')
                     .then(response => response.json())
                     .then(data => {
                         if (data.success && data.room.participants_detailed) {
@@ -3944,7 +3946,7 @@
                 }
                 
                 // Accept the call in the backend first (this updates the call status)
-                const acceptResponse = await fetch('/chat/accept-call/', {
+                const acceptResponse = await fetch('/organization/chat/accept-call/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3964,7 +3966,7 @@
                 console.log('✅ Call accepted in backend successfully');
                 
                 // Clear call notification on server
-                const clearResponse = await fetch('/chat/clear-call-notification/', {
+                const clearResponse = await fetch('/organization/chat/clear-call-notification/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3984,7 +3986,7 @@
                 // Check if we're already on the chat page
                 const currentPath = window.location.pathname;
                 const currentSearch = window.location.search;
-                const isOnChatPage = currentPath.includes('/chat/');
+                const isOnChatPage = currentPath.includes('/organization/chat/');
                 const isCorrectRoom = currentSearch.includes('room=' + callData.room_id);
                 
                 console.log('🔍 Current location check:', { 
@@ -4008,7 +4010,7 @@
                     }
                 } else {
                     // Redirect to chat page with room and auto-accept call
-                    const chatUrl = '/chat/?room=' + callData.room_id + '&answerCall=' + callData.call_id + '&callType=' + callData.call_type;
+                    const chatUrl = '/organization/chat/?room=' + callData.room_id + '&answerCall=' + callData.call_id + '&callType=' + callData.call_type;
                     console.log('🔗 Redirecting to:', chatUrl);
                     window.location.href = chatUrl;
                 }
@@ -4025,7 +4027,7 @@
             
             try {
                 // End call for all participants using the end-call-notification endpoint
-                const endCallResponse = await fetch('/chat/end-call-notification/', {
+                const endCallResponse = await fetch('/organization/chat/end-call-notification/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -4041,7 +4043,7 @@
                 }
                 
                 // Also clear the specific call notification 
-                const clearResponse = await fetch('/chat/clear-call-notification/', {
+                const clearResponse = await fetch('/organization/chat/clear-call-notification/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -4094,7 +4096,7 @@
         
         async function updateUserOnlineStatus() {
             try {
-                const response = await fetch('/chat/update-online-status/', {
+                const response = await fetch('/organization/chat/update-online-status/', {
                     method: 'POST',
                     headers: {
                         'X-CSRFToken': getCookie('csrftoken'),
@@ -4127,7 +4129,7 @@
             if (navigator.sendBeacon) {
                 const formData = new FormData();
                 formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
-                navigator.sendBeacon('/chat/set-offline/', formData);
+                navigator.sendBeacon('/organization/chat/set-offline/', formData);
             }
         });
     </script>
@@ -4290,7 +4292,7 @@
     <script>
     // Simple chat notification system
     function updateChatNotificationBadge() {
-        fetch('/chat/unread-count/')
+        fetch('/organization/chat/unread-count/')
             .then(response => response.json())
             .then(data => {
                 const badge = document.getElementById('user-chat-notification-badge');
@@ -4327,6 +4329,9 @@
     {% endif %}
 
     {% block extra_js %}{% endblock %}
+
+    <!-- Global Messages Debug Info (only in DEBUG mode) -->
+    {% global_messages_debug_info %}
 
 </body>
 </html>

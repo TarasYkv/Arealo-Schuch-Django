@@ -4,68 +4,87 @@
 {% block content %}
 <div class="container-fluid">
     <div id="alert-container"></div>
-    
+
     <!-- Header Ad Zone -->
     {% show_ad_zone 'todos_mytodos_header' css_class='mb-3' %}
-    
+
     <!-- Header -->
-    <div class="todo-nav">
-        <div class="row align-items-center">
-            <div class="col-md-8">
-                <nav aria-label="breadcrumb">
-                    <ol class="breadcrumb">
-                        <li class="breadcrumb-item">
-                            <a href="{% url 'todos:home' %}">ToDo-Listen</a>
-                        </li>
-                        <li class="breadcrumb-item active">Meine ToDos</li>
-                    </ol>
-                </nav>
-                
-                <h1 class="mb-1">
-                    <i class="fas fa-user-check text-success"></i>
-                    Meine ToDos
-                </h1>
-                <p class="text-muted mb-0">Alle mir zugeordneten Aufgaben im Überblick</p>
-            </div>
-            <div class="col-md-4 text-end">
-                <a href="{% url 'todos:home' %}" class="btn btn-outline-secondary">
-                    <i class="fas fa-arrow-left"></i> Zurück zur Übersicht
-                </a>
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm" style="background: linear-gradient(145deg, #f8f9ff 0%, #ffffff 100%);">
+                <div class="card-body">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item">
+                                <a href="{% url 'todos:home' %}" class="text-decoration-none">
+                                    <i class="fas fa-home me-1"></i>ToDo-Listen
+                                </a>
+                            </li>
+                            <li class="breadcrumb-item active">Meine ToDos</li>
+                        </ol>
+                    </nav>
+
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <h1 class="h3 mb-2 text-dark fw-bold">
+                                <i class="fas fa-user-check text-success me-2"></i>
+                                Meine ToDos
+                            </h1>
+                            <p class="text-muted mb-0">Alle mir zugeordneten Aufgaben im Überblick</p>
+                        </div>
+                        <div>
+                            <a href="{% url 'todos:home' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-1"></i> Zurück zur Übersicht
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
     
     <div class="row">
         <!-- Filter Sidebar -->
-        <div class="col-lg-3">
-            <div class="filter-sidebar p-3">
-                <h6><i class="fas fa-filter"></i> Filter</h6>
-                
-                <form method="get" id="filterForm">
-                    <!-- Status Filter -->
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold">Status</label>
-                        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
-                            <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Aktive ToDos</option>
-                            <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Erledigte ToDos</option>
-                            <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Alle ToDos</option>
-                        </select>
-                    </div>
-                    
-                    <a href="{% url 'todos:my_todos' %}" class="btn btn-sm btn-outline-secondary">
-                        <i class="fas fa-times"></i> Filter zurücksetzen
-                    </a>
-                </form>
-                
-                <!-- Quick Stats -->
-                <div class="mt-4">
-                    <h6><i class="fas fa-chart-pie"></i> Statistiken</h6>
-                    {% with total_todos=todos.paginator.count %}
-                    <div class="small mb-2">
-                        <div class="d-flex justify-content-between">
-                            <span>Gesamt:</span>
-                            <span class="fw-bold">{{ total_todos }}</span>
+        <div class="col-lg-3 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header border-bottom-0 py-3" style="background: linear-gradient(145deg, #e3f2fd 0%, #f3e5f5 100%);">
+                    <h6 class="mb-0 fw-semibold">
+                        <i class="fas fa-filter text-primary me-2"></i>
+                        Filter
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" id="filterForm">
+                        <!-- Status Filter -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold">Status</label>
+                            <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                                <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Aktive ToDos</option>
+                                <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Erledigte ToDos</option>
+                                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Alle ToDos</option>
+                            </select>
                         </div>
+
+                        <a href="{% url 'todos:my_todos' %}" class="btn btn-sm btn-outline-secondary w-100">
+                            <i class="fas fa-times me-1"></i> Filter zurücksetzen
+                        </a>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="card border-0 shadow-sm mt-3">
+                <div class="card-header border-bottom-0 py-3" style="background: linear-gradient(145deg, #fff3e0 0%, #fce4ec 100%);">
+                    <h6 class="mb-0 fw-semibold">
+                        <i class="fas fa-chart-pie text-warning me-2"></i>
+                        Statistiken
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% with total_todos=todos.paginator.count %}
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">Gesamt:</span>
+                        <span class="badge bg-primary rounded-pill">{{ total_todos }}</span>
                     </div>
                     {% endwith %}
                 </div>
@@ -75,141 +94,154 @@
         <!-- ToDo Liste -->
         <div class="col-lg-9">
             {% if todos %}
-                <div class="mb-3 d-flex justify-content-between align-items-center">
-                    <span class="text-muted">
-                        {% if status_filter == 'active' %}
-                            Aktive ToDos
-                        {% elif status_filter == 'completed' %}
-                            Erledigte ToDos
-                        {% else %}
-                            Alle ToDos
-                        {% endif %}
-                        ({{ todos.paginator.count }} gesamt)
-                    </span>
+                <div class="mb-3">
+                    <div class="card border-0 shadow-sm" style="background: linear-gradient(145deg, #f8f9ff 0%, #ffffff 100%);">
+                        <div class="card-body p-3">
+                            <h6 class="mb-0 text-muted">
+                                {% if status_filter == 'active' %}
+                                    <i class="fas fa-clock text-warning me-2"></i>Aktive ToDos
+                                {% elif status_filter == 'completed' %}
+                                    <i class="fas fa-check-circle text-success me-2"></i>Erledigte ToDos
+                                {% else %}
+                                    <i class="fas fa-list text-primary me-2"></i>Alle ToDos
+                                {% endif %}
+                                <span class="badge bg-primary rounded-pill ms-2">{{ todos.paginator.count }}</span>
+                            </h6>
+                        </div>
+                    </div>
                 </div>
-                
+
                 {% for todo in todos %}
-                <div class="todo-card mb-3 p-3 todo-status-{{ todo.status }} priority-{{ todo.priority }} 
-                     {% if todo.is_overdue %}overdue{% endif %}" data-todo-id="{{ todo.id }}">
-                    
-                    <div class="row align-items-center">
-                        <div class="col-md-8">
-                            <div class="d-flex align-items-start">
-                                <div class="me-3">
-                                    <!-- Status Checkboxen -->
-                                    <div class="btn-group-vertical" role="group">
-                                        <input type="radio" class="btn-check status-checkbox" 
-                                               name="status-{{ todo.id }}" 
-                                               id="pending-{{ todo.id }}" 
-                                               value="pending"
-                                               data-todo-id="{{ todo.id }}"
-                                               {% if todo.status == 'pending' %}checked{% endif %}>
-                                        <label class="btn btn-outline-secondary btn-sm" for="pending-{{ todo.id }}" title="Steht aus">
-                                            <i class="fas fa-clock"></i>
-                                        </label>
-                                        
-                                        <input type="radio" class="btn-check status-checkbox" 
-                                               name="status-{{ todo.id }}" 
-                                               id="progress-{{ todo.id }}" 
-                                               value="in_progress"
-                                               data-todo-id="{{ todo.id }}"
-                                               {% if todo.status == 'in_progress' %}checked{% endif %}>
-                                        <label class="btn btn-outline-warning btn-sm" for="progress-{{ todo.id }}" title="In Bearbeitung">
-                                            <i class="fas fa-spinner"></i>
-                                        </label>
-                                        
-                                        <input type="radio" class="btn-check status-checkbox" 
-                                               name="status-{{ todo.id }}" 
-                                               id="completed-{{ todo.id }}" 
-                                               value="completed"
-                                               data-todo-id="{{ todo.id }}"
-                                               {% if todo.status == 'completed' %}checked{% endif %}>
-                                        <label class="btn btn-outline-success btn-sm" for="completed-{{ todo.id }}" title="Erledigt">
-                                            <i class="fas fa-check"></i>
-                                        </label>
+                <div class="card border-0 shadow-sm mb-3 {% if todo.is_overdue %}border-danger{% endif %}" data-todo-id="{{ todo.id }}">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <div class="d-flex align-items-start">
+                                    <div class="me-3">
+                                        <!-- Status Buttons -->
+                                        <div class="btn-group-vertical" role="group">
+                                            <input type="radio" class="btn-check status-checkbox"
+                                                   name="status-{{ todo.id }}"
+                                                   id="pending-{{ todo.id }}"
+                                                   value="pending"
+                                                   data-todo-id="{{ todo.id }}"
+                                                   {% if todo.status == 'pending' %}checked{% endif %}>
+                                            <label class="btn btn-outline-secondary btn-sm" for="pending-{{ todo.id }}" title="Steht aus">
+                                                <i class="fas fa-clock"></i>
+                                            </label>
+
+                                            <input type="radio" class="btn-check status-checkbox"
+                                                   name="status-{{ todo.id }}"
+                                                   id="progress-{{ todo.id }}"
+                                                   value="in_progress"
+                                                   data-todo-id="{{ todo.id }}"
+                                                   {% if todo.status == 'in_progress' %}checked{% endif %}>
+                                            <label class="btn btn-outline-warning btn-sm" for="progress-{{ todo.id }}" title="In Bearbeitung">
+                                                <i class="fas fa-spinner"></i>
+                                            </label>
+
+                                            <input type="radio" class="btn-check status-checkbox"
+                                                   name="status-{{ todo.id }}"
+                                                   id="completed-{{ todo.id }}"
+                                                   value="completed"
+                                                   data-todo-id="{{ todo.id }}"
+                                                   {% if todo.status == 'completed' %}checked{% endif %}>
+                                            <label class="btn btn-outline-success btn-sm" for="completed-{{ todo.id }}" title="Erledigt">
+                                                <i class="fas fa-check"></i>
+                                            </label>
+                                        </div>
                                     </div>
-                                </div>
-                                
-                                <div class="flex-grow-1">
-                                    <h5 class="mb-1">
-                                        <a href="{% url 'todos:todo_detail' todo.pk %}" class="text-decoration-none">
-                                            {{ todo.title }}
-                                        </a>
-                                    </h5>
-                                    
-                                    <!-- Liste -->
-                                    <div class="small text-muted mb-2">
-                                        <i class="fas fa-list"></i>
-                                        <a href="{% url 'todos:list_detail' todo.todo_list.pk %}" class="text-decoration-none text-muted">
-                                            {{ todo.todo_list.title }}
-                                        </a>
-                                    </div>
-                                    
-                                    {% if todo.description %}
-                                        <p class="text-muted mb-2">{{ todo.description|truncatewords:15 }}</p>
-                                    {% endif %}
-                                    
-                                    <div class="d-flex flex-wrap gap-2 align-items-center">
-                                        <!-- Status Badge -->
-                                        <span class="badge {{ todo.get_status_color }} status-badge">
-                                            {{ todo.get_status_display }}
-                                        </span>
-                                        
-                                        <!-- Priorität Badge -->
-                                        <span class="badge bg-secondary {{ todo.get_priority_color }}">
-                                            {{ todo.get_priority_display }}
-                                        </span>
-                                        
-                                        <!-- Fälligkeitsdatum -->
-                                        {% if todo.due_date %}
-                                            <span class="small {% if todo.is_overdue %}text-danger{% else %}text-muted{% endif %}">
-                                                <i class="fas fa-calendar"></i>
-                                                {{ todo.due_date|date:"d.m.Y H:i" }}
-                                                {% if todo.is_overdue %}
-                                                    <span class="badge bg-danger">Überfällig</span>
-                                                {% endif %}
-                                            </span>
+
+                                    <div class="flex-grow-1">
+                                        <h5 class="mb-2 {% if todo.status == 'completed' %}text-decoration-line-through text-muted{% endif %}">
+                                            <a href="{% url 'todos:todo_detail' todo.pk %}" class="text-decoration-none">
+                                                {{ todo.title }}
+                                            </a>
+                                        </h5>
+
+                                        <!-- Liste -->
+                                        <div class="small text-muted mb-2">
+                                            <i class="fas fa-list me-1"></i>
+                                            <a href="{% url 'todos:list_detail' todo.todo_list.pk %}" class="text-decoration-none text-muted">
+                                                {{ todo.todo_list.title }}
+                                            </a>
+                                        </div>
+
+                                        {% if todo.description %}
+                                            <p class="text-muted mb-2 small">{{ todo.description|truncatewords:15 }}</p>
                                         {% endif %}
-                                        
-                                        <!-- Ersteller -->
-                                        <span class="small text-muted">
-                                            <i class="fas fa-user"></i>
-                                            {{ todo.created_by.get_full_name|default:todo.created_by.username }}
-                                        </span>
-                                        
-                                        <!-- Erledigt am -->
-                                        {% if todo.completed_at %}
-                                            <span class="small text-success">
-                                                <i class="fas fa-check-circle"></i>
-                                                Erledigt: {{ todo.completed_at|date:"d.m.Y H:i" }}
+
+                                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                                            <!-- Status Badge -->
+                                            <span class="badge
+                                                {% if todo.status == 'pending' %}bg-secondary
+                                                {% elif todo.status == 'in_progress' %}bg-warning
+                                                {% else %}bg-success
+                                                {% endif %}">
+                                                {{ todo.get_status_display }}
                                             </span>
-                                        {% endif %}
+
+                                            <!-- Priorität Badge -->
+                                            <span class="badge
+                                                {% if todo.priority == 'urgent' %}bg-danger
+                                                {% elif todo.priority == 'high' %}bg-warning
+                                                {% elif todo.priority == 'medium' %}bg-primary
+                                                {% else %}bg-secondary
+                                                {% endif %}">
+                                                {{ todo.get_priority_display }}
+                                            </span>
+
+                                            <!-- Fälligkeitsdatum -->
+                                            {% if todo.due_date %}
+                                                <span class="small {% if todo.is_overdue %}text-danger fw-bold{% else %}text-muted{% endif %}">
+                                                    <i class="fas fa-calendar me-1"></i>
+                                                    {{ todo.due_date|date:"d.m.Y H:i" }}
+                                                    {% if todo.is_overdue %}
+                                                        <span class="badge bg-danger ms-1">Überfällig</span>
+                                                    {% endif %}
+                                                </span>
+                                            {% endif %}
+
+                                            <!-- Ersteller -->
+                                            <span class="small text-muted">
+                                                <i class="fas fa-user me-1"></i>
+                                                {{ todo.created_by.get_full_name|default:todo.created_by.username }}
+                                            </span>
+
+                                            <!-- Erledigt am -->
+                                            {% if todo.completed_at %}
+                                                <span class="small text-success">
+                                                    <i class="fas fa-check-circle me-1"></i>
+                                                    Erledigt: {{ todo.completed_at|date:"d.m.Y H:i" }}
+                                                </span>
+                                            {% endif %}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                        
-                        <div class="col-md-4">
-                            <!-- Weitere Zuordnungen -->
-                            {% with other_assignments=todo.get_assigned_users_display %}
-                                {% if other_assignments != "Niemand zugeordnet" %}
-                                    <div class="mb-2">
-                                        <div class="small text-muted mb-1">Auch zugeordnet an:</div>
-                                        <div class="assignment-display small">
-                                            {{ other_assignments }}
+
+                            <div class="col-md-4">
+                                <!-- Weitere Zuordnungen -->
+                                {% with other_assignments=todo.get_assigned_users_display %}
+                                    {% if other_assignments != "Niemand zugeordnet" %}
+                                        <div class="mb-3">
+                                            <div class="small text-muted mb-1">Auch zugeordnet an:</div>
+                                            <div class="small">
+                                                {{ other_assignments }}
+                                            </div>
                                         </div>
-                                    </div>
-                                {% endif %}
-                            {% endwith %}
-                            
-                            <!-- Aktionen -->
-                            <div class="btn-group">
-                                <a href="{% url 'todos:todo_detail' todo.pk %}" class="btn btn-sm btn-outline-primary">
-                                    <i class="fas fa-eye"></i> Details
-                                </a>
-                                <a href="{% url 'todos:list_detail' todo.todo_list.pk %}" class="btn btn-sm btn-outline-secondary">
-                                    <i class="fas fa-list"></i> Liste
-                                </a>
+                                    {% endif %}
+                                {% endwith %}
+
+                                <!-- Aktionen -->
+                                <div class="btn-group w-100">
+                                    <a href="{% url 'todos:todo_detail' todo.pk %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye me-1"></i> Details
+                                    </a>
+                                    <a href="{% url 'todos:list_detail' todo.todo_list.pk %}" class="btn btn-sm btn-outline-secondary">
+                                        <i class="fas fa-list me-1"></i> Liste
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -276,4 +308,106 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Status checkbox handling
+    const statusCheckboxes = document.querySelectorAll('.status-checkbox');
+
+    statusCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            if (this.checked) {
+                const todoId = this.dataset.todoId;
+                const newStatus = this.value;
+                updateTodoStatus(todoId, newStatus, this);
+            }
+        });
+    });
+
+    function updateTodoStatus(todoId, status, checkbox) {
+        fetch(`{% url 'todos:update_todo_status' 0 %}`.replace('0', todoId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                status: status
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update UI
+                const todoCard = checkbox.closest('.card');
+                const titleElement = todoCard.querySelector('h5 a');
+                const statusBadge = todoCard.querySelector('.badge');
+
+                // Update title styling
+                if (status === 'completed') {
+                    titleElement.parentElement.classList.add('text-decoration-line-through', 'text-muted');
+                } else {
+                    titleElement.parentElement.classList.remove('text-decoration-line-through', 'text-muted');
+                }
+
+                // Update status badge
+                statusBadge.className = 'badge';
+                if (status === 'pending') {
+                    statusBadge.classList.add('bg-secondary');
+                } else if (status === 'in_progress') {
+                    statusBadge.classList.add('bg-warning');
+                } else {
+                    statusBadge.classList.add('bg-success');
+                }
+                statusBadge.textContent = data.status_display;
+
+                showAlert('Status erfolgreich aktualisiert', 'success');
+            } else {
+                showAlert('Fehler beim Aktualisieren des Status: ' + data.error, 'danger');
+                // Revert checkbox
+                checkbox.checked = false;
+            }
+        })
+        .catch(error => {
+            showAlert('Fehler beim Aktualisieren des Status', 'danger');
+            console.error('Error:', error);
+            // Revert checkbox
+            checkbox.checked = false;
+        });
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function showAlert(message, type) {
+        const alertContainer = document.getElementById('alert-container');
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-dismissible fade show`;
+        alert.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        alertContainer.appendChild(alert);
+
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (alert.parentNode) {
+                alert.remove();
+            }
+        }, 5000);
+    }
+});
+</script>
 {% endblock %}

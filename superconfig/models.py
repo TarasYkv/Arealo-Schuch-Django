@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 from encrypted_model_fields.fields import EncryptedTextField, EncryptedCharField
 
 
@@ -184,3 +185,127 @@ class SuperuserEmailShare(models.Model):
     
     def __str__(self):
         return f"{self.display_name} ({self.email_address})"
+
+
+class GlobalMessage(models.Model):
+    """
+    Global messages/announcements for the website
+    Only manageable by superusers
+    """
+    DISPLAY_POSITION_CHOICES = [
+        ('popup_center', 'Popup - Mitte'),
+        ('popup_top', 'Popup - Oben'),
+        ('banner_top', 'Banner - Oben'),
+        ('banner_bottom', 'Banner - Unten'),
+        ('toast_top_right', 'Toast - Oben Rechts'),
+        ('toast_top_left', 'Toast - Oben Links'),
+        ('toast_bottom_right', 'Toast - Unten Rechts'),
+        ('toast_bottom_left', 'Toast - Unten Links'),
+        ('sidebar_right', 'Seitlich - Rechts'),
+        ('sidebar_left', 'Seitlich - Links'),
+    ]
+
+    DISPLAY_TYPE_CHOICES = [
+        ('info', 'Information'),
+        ('warning', 'Warnung'),
+        ('success', 'Erfolg'),
+        ('error', 'Fehler'),
+        ('announcement', 'Ankündigung'),
+    ]
+
+    VISIBILITY_CHOICES = [
+        ('all', 'Alle Besucher'),
+        ('authenticated', 'Nur angemeldete Benutzer'),
+        ('unauthenticated', 'Nur nicht angemeldete Besucher'),
+    ]
+
+    title = models.CharField(max_length=200, help_text='Titel der Nachricht')
+    content = models.TextField(help_text='Inhalt der Nachricht')
+
+    display_position = models.CharField(
+        max_length=50,
+        choices=DISPLAY_POSITION_CHOICES,
+        default='popup_center',
+        help_text='Position der Nachrichtenanzeige'
+    )
+
+    display_type = models.CharField(
+        max_length=20,
+        choices=DISPLAY_TYPE_CHOICES,
+        default='info',
+        help_text='Art der Nachricht (bestimmt Farbe/Icon)'
+    )
+
+    visibility = models.CharField(
+        max_length=20,
+        choices=VISIBILITY_CHOICES,
+        default='all',
+        help_text='Wer soll diese Nachricht sehen'
+    )
+
+    duration_seconds = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text='Anzeigedauer in Sekunden (leer = unendlich)'
+    )
+
+    is_active = models.BooleanField(default=True, help_text='Nachricht aktiv anzeigen')
+    is_dismissible = models.BooleanField(default=True, help_text='Benutzer kann Nachricht schließen')
+
+    start_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Startdatum (leer = sofort)'
+    )
+
+    end_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Enddatum (leer = unbegrenzt)'
+    )
+
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Globale Nachricht"
+        verbose_name_plural = "Globale Nachrichten"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.title} ({self.get_display_position_display()})"
+
+    def is_currently_active(self):
+        """Check if message should be displayed now"""
+        if not self.is_active:
+            return False
+
+        now = timezone.now()
+
+        if self.start_date and now < self.start_date:
+            return False
+
+        if self.end_date and now > self.end_date:
+            return False
+
+        return True
+
+    def should_show_for_user(self, user):
+        """Check if message should be shown for specific user"""
+        if not self.is_currently_active():
+            return False
+
+        if self.visibility == 'authenticated' and not user.is_authenticated:
+            return False
+
+        if self.visibility == 'unauthenticated' and user.is_authenticated:
+            return False
+
+        return True
+
+    @classmethod
+    def get_active_messages_for_user(cls, user):
+        """Get all active messages for a specific user"""
+        return [msg for msg in cls.objects.filter(is_active=True)
+                if msg.should_show_for_user(user)]

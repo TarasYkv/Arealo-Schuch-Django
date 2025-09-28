@@ -471,6 +471,74 @@ def show_video_popup(context, zone_code, css_class='', style=''):
     }
 
 
+@register.inclusion_tag('loomads/tags/ad_card_zone.html', takes_context=True)
+def show_ad_card_zone(context, zone_code, css_class='', style='', fallback=''):
+    """
+    Template Tag zum Anzeigen einer Werbezone als Card
+
+    Verwendung:
+    {% load loomads_tags %}
+    {% show_ad_card_zone 'loomline_tasks_card' css_class='task-ad-card' %}
+    """
+    request = context.get('request')
+    if not request:
+        return {
+            'zone_code': zone_code,
+            'error': 'Request context not available',
+            'fallback': fallback
+        }
+
+    try:
+        zone = AdZone.objects.get(code=zone_code, is_active=True)
+    except AdZone.DoesNotExist:
+        return {
+            'zone_code': zone_code,
+            'error': 'Zone "{}" not found'.format(zone_code),
+            'fallback': fallback
+        }
+
+    # App-spezifische Zone-Kontrolle prüfen
+    current_app = request.resolver_match.app_name if request.resolver_match else None
+    settings = LoomAdsSettings.get_settings()
+
+    # Überprüfe ob Zone für diese App aktiviert ist
+    zone_type = zone.zone_type
+    if not settings.is_zone_enabled(zone_type, current_app):
+        return {
+            'zone_code': zone_code,
+            'error': 'Zone "{}" disabled for app "{}"'.format(zone_type, current_app or 'default'),
+            'fallback': fallback
+        }
+
+    # App-Beschränkung prüfen
+    if zone.app_restriction:
+        if current_app != zone.app_restriction:
+            return {
+                'zone_code': zone_code,
+                'error': 'Zone restricted to app "{}"'.format(zone.app_restriction),
+                'fallback': fallback
+            }
+
+    # Generiere eine eindeutige ID für diese Zone-Instanz
+    random_id = str(uuid.uuid4())[:8]
+
+    context_data = {
+        'zone': zone,
+        'zone_code': zone_code,
+        'api_url': request.build_absolute_uri(reverse('loomads:get_ad_for_zone', args=[zone_code])),
+        'track_url': request.build_absolute_uri('/loomads/api/track/click/AD_ID_PLACEHOLDER/'),
+        'css_class': css_class,
+        'style': style,
+        'fallback': fallback,
+        'width': zone.width,
+        'height': zone.height,
+        'zone_type': zone.zone_type,
+        'random_id': random_id,
+    }
+
+    return context_data
+
+
 @register.simple_tag
 def get_ad_apps(advertisement):
     """
