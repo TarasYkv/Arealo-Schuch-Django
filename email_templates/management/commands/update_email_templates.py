@@ -11,6 +11,12 @@ class Command(BaseCommand):
         # 1. Update Registration Email
         try:
             reg_template = EmailTemplate.objects.get(template_type='user_registration', is_default=True)
+
+            # Setze Slug falls leer
+            if not reg_template.slug:
+                from django.utils.text import slugify
+                reg_template.slug = slugify(reg_template.name)
+                self.stdout.write(self.style.WARNING(f'Set slug: {reg_template.slug}'))
             reg_template.subject = 'Willkommen bei Workloom - E-Mail bestätigen ERFORDERLICH'
             reg_template.html_content = '''<!DOCTYPE html>
 <html lang="de">
@@ -208,8 +214,46 @@ class Command(BaseCommand):
     </div>
 </body>
 </html>'''
+            # Update auch den Text-Inhalt
+            reg_template.text_content = '''Willkommen bei Workloom, {{ user_name }}!
+
+⚠️ WICHTIG: E-Mail-Bestätigung erforderlich ⚠️
+
+Sie MÜSSEN Ihre E-Mail-Adresse bestätigen, um Ihr Konto zu aktivieren!
+Ohne Bestätigung können Sie sich nicht anmelden und haben keinen Zugriff auf Workloom.
+
+Vielen Dank für Ihre Registrierung!
+Ihre Registrierung bei Workloom war erfolgreich, aber Ihr Konto ist noch NICHT aktiviert.
+
+Um die Aktivierung abzuschließen, müssen Sie unbedingt auf diesen Link klicken:
+{{ activation_url }}
+
+❗ Dieser Link ist nur begrenzt gültig - bestätigen Sie Ihre E-Mail bitte umgehend!
+
+🚀 Was Sie nach der Bestätigung erwartet:
+• Chat-System: Direkte Kommunikation mit Kollegen und Kunden
+• Shopify-Integration: Nahtlose E-Commerce-Lösungen
+• PDF-Suche & KI: Intelligente Dokumentenanalyse und Zusammenfassungen
+• Video-Hosting: Professionelle Präsentation Ihrer Projekte
+• Organisationstools: Notizen, Boards und Terminplanung
+• Amortisationsrechner: Finanzanalysen und Kalkulationen
+• Statistiken & Analytics: Datengetriebene Entscheidungen
+• Sichere Dateifreigabe: Verschlüsselter Transfer und Sharing
+
+🎯 Probleme beim Bestätigen?
+Falls der Link nicht funktioniert, kopieren Sie ihn in Ihren Browser:
+{{ activation_url }}
+
+{{ site_name }} Team
+Ihre moderne Arbeitsplattform für effiziente Zusammenarbeit
+
+Support kontaktieren: kontakt@workloom.de
+
+Diese E-Mail wurde automatisch generiert. Falls Sie sich nicht bei Workloom registriert haben, ignorieren Sie diese E-Mail.
+© {{ current_year }} {{ site_name }}. Alle Rechte vorbehalten.'''
+
             reg_template.save()
-            self.stdout.write(self.style.SUCCESS(f'✅ Updated registration email: {reg_template.name}'))
+            self.stdout.write(self.style.SUCCESS(f'✅ Updated registration email (HTML + Text): {reg_template.name}'))
         except EmailTemplate.DoesNotExist:
             self.stdout.write(self.style.ERROR('❌ Registration email template not found'))
 
