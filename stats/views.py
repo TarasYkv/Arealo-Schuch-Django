@@ -95,6 +95,9 @@ def dashboard(request):
     # Bounce Rate Analysis
     bounce_rate_stats = analyze_bounce_rate(last_7_days)
 
+    # SEO Metrics
+    seo_metrics = analyze_seo_metrics(last_7_days)
+
     context = {
         'today_visits': today_visits,
         'today_unique_visitors': today_unique_visitors,
@@ -118,6 +121,7 @@ def dashboard(request):
         'activity_heatmap': activity_heatmap,
         'geographic_stats': geographic_stats,
         'bounce_rate_stats': bounce_rate_stats,
+        'seo_metrics': seo_metrics,
     }
 
     return render(request, 'stats/dashboard.html', context)
@@ -199,6 +203,7 @@ def dashboard_standalone(request):
         'activity_heatmap': activity_heatmap,
         'geographic_stats': geographic_stats,
         'bounce_rate_stats': bounce_rate_stats,
+        'seo_metrics': seo_metrics,
     }
 
     return render(request, 'stats/dashboard_standalone.html', context)
@@ -647,9 +652,23 @@ def analyze_error_stats(since_date):
 
     total_errors = ErrorLog.objects.filter(timestamp__date__gte=since_date).count()
 
+    # Get URLs where errors occurred for debugging
+    enhanced_locations = []
+    for location in error_locations:
+        enhanced_location = dict(location)
+
+        # Get the actual error URLs for this location
+        error_urls = ErrorLog.objects.filter(
+            file_path=location['file_path'],
+            line_number=location['line_number']
+        ).values_list('url', flat=True).distinct()[:3]  # Get up to 3 example URLs
+
+        enhanced_location['error_urls'] = list(error_urls)
+        enhanced_locations.append(enhanced_location)
+
     return {
         'error_types': list(grouped_errors.values())[:8],
-        'error_locations': list(error_locations),
+        'error_locations': enhanced_locations,
         'affected_users': list(affected_users),
         'slow_errors': list(slow_errors),
         'timeline_data': timeline_data,
@@ -901,6 +920,118 @@ def analyze_geographic_stats(since_date):
         'cities': list(city_stats),
         'top_country': top_country,
         'total_countries': len(country_stats)
+    }
+
+
+def analyze_seo_metrics(since_date=None):
+    """Analysiert SEO-relevante Metriken"""
+    from .models import CoreWebVitals, CrawlError, BrokenLink, SitemapStatus, RobotsTxtStatus
+    from django.db.models import Avg, Count
+    import requests
+    from urllib.parse import urlparse
+
+    # Core Web Vitals
+    core_web_vitals = CoreWebVitals.objects.all().order_by('-timestamp')[:10]
+
+    # Durchschnittswerte berechnen
+    avg_vitals = CoreWebVitals.objects.aggregate(
+        avg_lcp=Avg('lcp'),
+        avg_fid=Avg('fid'),
+        avg_cls=Avg('cls')
+    )
+
+    # Crawl Errors
+    crawl_errors = CrawlError.objects.filter(
+        is_resolved=False
+    ).order_by('-last_checked')[:10]
+
+    # Broken Links
+    broken_links = BrokenLink.objects.filter(
+        is_fixed=False
+    ).order_by('-last_checked')[:10]
+
+    # Sitemap Status
+    domain = '127.0.0.1:8000'  # Oder aus settings holen
+    sitemap_url = f'http://{domain}/sitemap.xml'
+
+    sitemap_status, created = SitemapStatus.objects.get_or_create(
+        sitemap_url=sitemap_url
+    )
+
+    # Robots.txt Status
+    robots_status, created = RobotsTxtStatus.objects.get_or_create(
+        domain=domain
+    )
+
+    # Check robots.txt
+    try:
+        response = requests.get(f'http://{domain}/robots.txt', timeout=5)
+        robots_status.is_accessible = response.status_code == 200
+        if response.status_code == 200:
+            robots_status.content = response.text
+            # Parse robots.txt content
+            lines = response.text.split('\n')
+            for line in lines:
+                if line.lower().startswith('sitemap:'):
+                    sitemap_ref = line.split(':', 1)[1].strip()
+                    if sitemap_ref not in robots_status.sitemap_references:
+                        robots_status.sitemap_references.append(sitemap_ref)
+                elif line.lower().startswith('crawl-delay:'):
+                    robots_status.crawl_delay = int(line.split(':')[1].strip())
+        robots_status.save()
+    except:
+        robots_status.is_accessible = False
+        robots_status.save()
+
+    # SEO Score berechnen
+    seo_score = 100
+    seo_issues = []
+
+    # Core Web Vitals Score
+    if avg_vitals['avg_lcp'] and avg_vitals['avg_lcp'] > 2.5:
+        seo_score -= 10
+        seo_issues.append('Slow Loading (LCP > 2.5s)')
+    if avg_vitals['avg_fid'] and avg_vitals['avg_fid'] > 100:
+        seo_score -= 10
+        seo_issues.append('Poor Interactivity (FID > 100ms)')
+    if avg_vitals['avg_cls'] and avg_vitals['avg_cls'] > 0.1:
+        seo_score -= 10
+        seo_issues.append('Layout Shift Issues (CLS > 0.1)')
+
+    # Crawl Errors
+    if crawl_errors.count() > 0:
+        seo_score -= min(crawl_errors.count() * 5, 20)
+        seo_issues.append(f'{crawl_errors.count()} Crawl Errors')
+
+    # Broken Links
+    if broken_links.count() > 0:
+        seo_score -= min(broken_links.count() * 3, 15)
+        seo_issues.append(f'{broken_links.count()} Broken Links')
+
+    # Robots.txt
+    if not robots_status.is_accessible:
+        seo_score -= 10
+        seo_issues.append('robots.txt not accessible')
+
+    return {
+        'core_web_vitals': list(core_web_vitals.values()),
+        'avg_vitals': avg_vitals,
+        'crawl_errors': list(crawl_errors.values()),
+        'broken_links': list(broken_links.values()),
+        'sitemap_status': {
+            'url': sitemap_status.sitemap_url,
+            'is_accessible': sitemap_status.is_accessible,
+            'total_urls': sitemap_status.total_urls,
+            'last_checked': sitemap_status.last_checked
+        },
+        'robots_status': {
+            'domain': robots_status.domain,
+            'is_accessible': robots_status.is_accessible,
+            'crawl_delay': robots_status.crawl_delay,
+            'sitemap_references': robots_status.sitemap_references
+        },
+        'seo_score': max(0, seo_score),
+        'seo_issues': seo_issues
     }
 
 
