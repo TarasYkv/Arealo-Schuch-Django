@@ -914,10 +914,13 @@
                                         <div class="row">
                                             <div class="col-md-6 mb-3">
                                                 <label for="messageVisibility" class="form-label">Sichtbarkeit</label>
-                                                <select class="form-select" id="messageVisibility">
+                                                <select class="form-select" id="messageVisibility" onchange="toggleUserSelection()">
                                                     <option value="all">Alle Besucher</option>
                                                     <option value="authenticated">Nur angemeldete Benutzer</option>
                                                     <option value="unauthenticated">Nur nicht-angemeldete Besucher</option>
+                                                    <option value="specific_users">Bestimmte Benutzer</option>
+                                                    <option value="staff_only">Nur Staff-Benutzer</option>
+                                                    <option value="superuser_only">Nur Superuser</option>
                                                 </select>
                                             </div>
 
@@ -939,6 +942,30 @@
                                                 <label for="messageEndDate" class="form-label">Enddatum</label>
                                                 <input type="datetime-local" class="form-control" id="messageEndDate">
                                                 <small class="form-text text-muted">Leer = unbegrenzt</small>
+                                            </div>
+                                        </div>
+
+                                        <!-- User Selection (only visible when "Bestimmte Benutzer" is selected) -->
+                                        <div id="userSelectionDiv" class="mb-3" style="display: none;">
+                                            <label for="targetUsers" class="form-label">Zielbenutzer auswählen</label>
+                                            <div class="card border-info">
+                                                <div class="card-body p-3">
+                                                    <div id="availableUsers" class="row">
+                                                        <div class="col-12">
+                                                            <div class="d-flex justify-content-center">
+                                                                <div class="spinner-border spinner-border-sm text-info" role="status">
+                                                                    <span class="visually-hidden">Lade Benutzer...</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="mt-2">
+                                                        <small class="text-muted">
+                                                            <i class="fas fa-info-circle me-1"></i>
+                                                            Wählen Sie die Benutzer aus, die diese Nachricht sehen sollen.
+                                                        </small>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
 
@@ -1020,6 +1047,104 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Debug Settings Section -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card" style="border-left: 4px solid #6f42c1;">
+                                <div class="card-header" style="background-color: #6f42c1; color: white;">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-bug me-2"></i>
+                                        Debug-Anzeige Einstellungen
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="text-muted">Kontrollieren Sie die Debug-Box "🔔 Global Messages Debug", die unten links auf der Website angezeigt wird.</p>
+
+                                    <!-- Debug Settings Form -->
+                                    <form id="debugSettingsForm">
+                                        {% csrf_token %}
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="debugEnabled" role="switch">
+                                                    <label class="form-check-label" for="debugEnabled">
+                                                        <strong>Debug-Anzeige aktivieren</strong>
+                                                    </label>
+                                                </div>
+                                                <small class="text-muted">Schaltet die gesamte Debug-Box ein oder aus</small>
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label for="debugVisibility" class="form-label">Sichtbarkeit</label>
+                                                <select class="form-select" id="debugVisibility">
+                                                    <option value="disabled">Ausgeschaltet</option>
+                                                    <option value="superuser_only">Nur Superuser</option>
+                                                    <option value="staff_only">Nur Staff-Benutzer</option>
+                                                    <option value="authenticated">Alle angemeldeten Benutzer</option>
+                                                    <option value="all">Alle Benutzer</option>
+                                                </select>
+                                                <small class="text-muted">Wer soll die Debug-Box sehen können</small>
+                                            </div>
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-md-4 mb-3">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="showStatistics">
+                                                    <label class="form-check-label" for="showStatistics">
+                                                        Statistiken anzeigen
+                                                    </label>
+                                                </div>
+                                                <small class="text-muted">Anzahl Nachrichten etc.</small>
+                                            </div>
+                                            <div class="col-md-4 mb-3">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="showUserInfo">
+                                                    <label class="form-check-label" for="showUserInfo">
+                                                        Benutzer-Infos anzeigen
+                                                    </label>
+                                                </div>
+                                                <small class="text-muted">Benutzername etc.</small>
+                                            </div>
+                                            <div class="col-md-4 mb-3">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="showMessageDetails">
+                                                    <label class="form-check-label" for="showMessageDetails">
+                                                        Nachrichten-Details anzeigen
+                                                    </label>
+                                                </div>
+                                                <small class="text-muted">Liste aktiver Nachrichten</small>
+                                            </div>
+                                        </div>
+
+                                        <div class="row">
+                                            <div class="col-12">
+                                                <div class="d-flex gap-2">
+                                                    <button type="submit" class="btn btn-success">
+                                                        <i class="fas fa-save me-2"></i>
+                                                        Einstellungen speichern
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-secondary" onclick="loadDebugSettings()">
+                                                        <i class="fas fa-refresh me-2"></i>
+                                                        Neu laden
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Current Settings Display -->
+                                        <div id="currentDebugSettings" class="mt-3">
+                                            <div class="d-flex justify-content-center">
+                                                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                                    <span class="visually-hidden">Lädt...</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1083,9 +1208,11 @@ $(document).ready(function() {
         loadZohoIntegrationStatus();
     });
 
-    // Load messages when messages tab is clicked
+    // Load messages and debug settings when messages tab is clicked
     $('#messages-main-tab').on('shown.bs.tab', function (e) {
+        console.log('🔄 Messages tab activated - loading messages and debug settings...');
         loadGlobalMessages();
+        loadDebugSettings();
         loadMessagesForPreview();
     });
     
@@ -2765,8 +2892,17 @@ $('#messageForm').on('submit', function(e) {
         'start_date': $('#messageStartDate').val() || null,
         'end_date': $('#messageEndDate').val() || null,
         'is_active': $('#messageIsActive').is(':checked'),
-        'is_dismissible': $('#messageIsDismissible').is(':checked')
+        'is_dismissible': $('#messageIsDismissible').is(':checked'),
+        'target_users': (function() {
+            const selectedUsers = $('input[name="targetUsers"]:checked').map(function() { return this.value; }).get();
+            console.log('🔧 JAVASCRIPT FIX: Selected target_users:', selectedUsers);
+            console.log('🔧 JAVASCRIPT FIX: Number of selected checkboxes:', $('input[name="targetUsers"]:checked').length);
+            return selectedUsers;
+        })()
     };
+
+    console.log('🔧 COMPLETE FORM DATA:', formData);
+    // CACHE BUSTER: Force reload at 2025-09-29 09:10
 
     $.ajax({
         url: '{% url "superconfig:create_global_message" %}',
@@ -2853,12 +2989,186 @@ function previewSpecificMessage(messageId) {
     });
 }
 
+// Debug Settings Functions
+function loadDebugSettings() {
+    console.log('Loading debug settings...');
+
+    $.get('/superconfig/debug/settings/')
+        .done(function(response) {
+            console.log('Debug settings response:', response);
+
+            if (response.success) {
+                const settings = response.settings;
+
+                // Update form fields
+                $('#debugEnabled').prop('checked', settings.is_debug_enabled);
+                $('#debugVisibility').val(settings.debug_visibility);
+                $('#showStatistics').prop('checked', settings.show_statistics);
+                $('#showUserInfo').prop('checked', settings.show_user_info);
+                $('#showMessageDetails').prop('checked', settings.show_message_details);
+
+                // Update status display
+                const statusText = `Status: ${settings.is_debug_enabled ? 'Ein' : 'Aus'} | Sichtbarkeit: ${settings.debug_visibility_display}${settings.updated_at ? ' | Aktualisiert: ' + settings.updated_at : ''}`;
+                $('#currentDebugSettings').html(`<small class="text-muted"><i class="fas fa-info-circle me-1"></i>${statusText}</small>`);
+            } else {
+                showAlert('❌ Fehler beim Laden der Debug-Einstellungen: ' + response.message, 'danger');
+                $('#currentDebugSettings').html(`<small class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i>Fehler beim Laden</small>`);
+            }
+        })
+        .fail(function() {
+            showAlert('❌ Netzwerkfehler beim Laden der Debug-Einstellungen', 'danger');
+            $('#currentDebugSettings').html(`<small class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i>Netzwerkfehler</small>`);
+        });
+}
+
+function saveDebugSettings() {
+    console.log('Saving debug settings...');
+
+    const data = {
+        is_debug_enabled: $('#debugEnabled').is(':checked'),
+        debug_visibility: $('#debugVisibility').val(),
+        show_statistics: $('#showStatistics').is(':checked'),
+        show_user_info: $('#showUserInfo').is(':checked'),
+        show_message_details: $('#showMessageDetails').is(':checked')
+    };
+
+    console.log('Debug settings data:', data);
+
+    $.ajax({
+        url: '/superconfig/debug/settings/update/',
+        method: 'POST',
+        data: JSON.stringify(data),
+        contentType: 'application/json',
+        headers: {
+            'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+        }
+    })
+    .done(function(response) {
+        console.log('Debug settings save response:', response);
+
+        if (response.success) {
+            showAlert('✅ ' + response.message, 'success');
+
+            // Update status display
+            const settings = response.settings;
+            const statusText = `Status: ${settings.is_debug_enabled ? 'Ein' : 'Aus'} | Sichtbarkeit: ${settings.debug_visibility_display}`;
+            $('#currentDebugSettings').html(`<small class="text-success"><i class="fas fa-check-circle me-1"></i>${statusText} | Gerade aktualisiert</small>`);
+        } else {
+            showAlert('❌ ' + response.message, 'danger');
+        }
+    })
+    .fail(function() {
+        showAlert('❌ Netzwerkfehler beim Speichern der Debug-Einstellungen', 'danger');
+    });
+}
+
+// Debug Settings Form Handler
+$('#debugSettingsForm').on('submit', function(e) {
+    e.preventDefault();
+    saveDebugSettings();
+});
+
 // Make functions globally available
 window.loadGlobalMessages = loadGlobalMessages;
 window.toggleMessageStatus = toggleMessageStatus;
 window.deleteMessage = deleteMessage;
 window.previewMessage = previewMessage;
 window.previewSpecificMessage = previewSpecificMessage;
+window.loadDebugSettings = loadDebugSettings;
+window.saveDebugSettings = saveDebugSettings;
+
+// User Selection Functions
+function toggleUserSelection() {
+    const visibility = $('#messageVisibility').val();
+    const userSelectionDiv = $('#userSelectionDiv');
+
+    if (visibility === 'specific_users') {
+        userSelectionDiv.show();
+        loadAvailableUsers();
+    } else {
+        userSelectionDiv.hide();
+    }
+}
+
+function loadAvailableUsers() {
+    console.log('Loading available users...');
+
+    $.get('/superconfig/users/list/')
+        .done(function(response) {
+            console.log('Users response:', response);
+
+            if (response.success) {
+                displayAvailableUsers(response.users);
+            } else {
+                $('#availableUsers').html(`
+                    <div class="col-12">
+                        <div class="alert alert-warning mb-0">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            ${response.message}
+                        </div>
+                    </div>
+                `);
+            }
+        })
+        .fail(function() {
+            $('#availableUsers').html(`
+                <div class="col-12">
+                    <div class="alert alert-warning mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Fehler beim Laden der Benutzer
+                    </div>
+                </div>
+            `);
+        });
+}
+
+function displayAvailableUsers(users) {
+    let usersHtml = '';
+
+    users.forEach(function(user) {
+        let badges = '';
+        if (user.is_superuser) {
+            badges += '<span class="badge bg-danger ms-2">Superuser</span>';
+        } else if (user.is_staff) {
+            badges += '<span class="badge bg-primary ms-2">Staff</span>';
+        }
+
+        if (!user.is_active) {
+            badges += '<span class="badge bg-secondary ms-2">Inaktiv</span>';
+        }
+
+        const userClass = user.is_active ? '' : 'text-muted';
+
+        usersHtml += `
+            <div class="col-md-6 mb-2">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="user_${user.id}" value="${user.id}" name="targetUsers" ${!user.is_active ? 'disabled' : ''}>
+                    <label class="form-check-label ${userClass}" for="user_${user.id}">
+                        <strong>${user.username}</strong> ${badges}
+                        <br><small class="text-muted">${user.email}</small>
+                        ${user.date_joined ? `<br><small class="text-muted">Mitglied seit: ${user.date_joined}</small>` : ''}
+                    </label>
+                </div>
+            </div>
+        `;
+    });
+
+    if (users.length === 0) {
+        usersHtml = `
+            <div class="col-12">
+                <div class="alert alert-info mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Keine Benutzer gefunden
+                </div>
+            </div>
+        `;
+    }
+
+    $('#availableUsers').html(usersHtml);
+}
+
+window.toggleUserSelection = toggleUserSelection;
+window.loadAvailableUsers = loadAvailableUsers;
 
 </script>
 {% endblock %}

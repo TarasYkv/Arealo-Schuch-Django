@@ -15,7 +15,7 @@ import sqlite3
 import smtplib
 import ssl
 import requests
-from .models import EmailConfiguration, SuperuserEmailShare, GlobalMessage
+from .models import EmailConfiguration, SuperuserEmailShare, GlobalMessage, GlobalMessageDebugSettings
 
 
 def is_superuser(user):
@@ -1155,9 +1155,15 @@ def update_email_config(request):
 @user_passes_test(is_superuser)
 def create_global_message(request):
     """Create a new global message"""
+    print("="*50)
+    print("XXXXXXXXXXXXXXXXXXXXXXXXX DEBUG START XXXXXXXXXXXXXXXXXXXXXXXXX")
+    print(f"create_global_message function called by user: {request.user}")
+    print(f"Request method: {request.method}")
+    print("="*50)
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
+            print(f"DEBUG: Received data: {data}")
 
             # Create new message
             message = GlobalMessage(
@@ -1176,6 +1182,20 @@ def create_global_message(request):
 
             message.save()
 
+            # Handle target users if visibility is 'specific_users'
+            if data.get('visibility') == 'specific_users':
+                target_user_ids = data.get('target_users', [])
+                print(f"DEBUG: Target user IDs from request: {target_user_ids}")
+                if target_user_ids:
+                    from django.contrib.auth import get_user_model
+                    User = get_user_model()
+                    target_users = User.objects.filter(id__in=target_user_ids)
+                    print(f"DEBUG: Found target users: {[u.username for u in target_users]}")
+                    message.target_users.set(target_users)
+                    print(f"DEBUG: After setting target_users: {[u.username for u in message.target_users.all()]}")
+                else:
+                    print("DEBUG: No target_user_ids provided!")
+
             return JsonResponse({
                 'success': True,
                 'message': 'Nachricht erfolgreich erstellt',
@@ -1187,7 +1207,8 @@ def create_global_message(request):
                     'display_type': message.get_display_type_display(),
                     'visibility': message.get_visibility_display(),
                     'is_active': message.is_active,
-                    'created_at': message.created_at.strftime('%d.%m.%Y %H:%M')
+                    'created_at': message.created_at.strftime('%d.%m.%Y %H:%M'),
+                    'target_users': [{'id': user.id, 'username': user.username} for user in message.target_users.all()]
                 }
             })
 
@@ -1222,7 +1243,8 @@ def list_global_messages(request):
                 'start_date': msg.start_date.strftime('%d.%m.%Y %H:%M') if msg.start_date else None,
                 'end_date': msg.end_date.strftime('%d.%m.%Y %H:%M') if msg.end_date else None,
                 'created_at': msg.created_at.strftime('%d.%m.%Y %H:%M'),
-                'created_by': msg.created_by.username
+                'created_by': msg.created_by.username,
+                'target_users': [{'id': user.id, 'username': user.username} for user in msg.target_users.all()]
             })
 
         return JsonResponse({
@@ -1333,8 +1355,14 @@ def get_message_for_preview(request, message_id):
 def get_active_messages_for_user(request):
     """Get active messages for current user (for display on website)"""
     try:
-        user = request.user if request.user.is_authenticated else None
+        user = None
+        if hasattr(request, 'user') and request.user is not None:
+            if hasattr(request.user, 'is_authenticated') and request.user.is_authenticated:
+                user = request.user
+
+        print(f"DEBUG: get_active_messages_for_user called for user: {user}")
         active_messages = GlobalMessage.get_active_messages_for_user(user)
+        print(f"DEBUG: Found {len(active_messages)} active messages")
 
         messages_data = []
         for msg in active_messages:
@@ -1348,13 +1376,143 @@ def get_active_messages_for_user(request):
                 'is_dismissible': msg.is_dismissible
             })
 
-        return JsonResponse({
+        response_data = {
             'success': True,
             'messages': messages_data
+        }
+        print(f"DEBUG: Returning response: {response_data}")
+        return JsonResponse(response_data)
+
+    except Exception as e:
+        print(f"DEBUG: Exception in get_active_messages_for_user: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Fehler: {str(e)}'
+        })
+
+
+# Global Messages Debug Settings Views
+
+@login_required
+@user_passes_test(is_superuser)
+def get_debug_settings(request):
+    """Get current debug settings"""
+    try:
+        settings = GlobalMessageDebugSettings.get_settings()
+
+        if settings:
+            return JsonResponse({
+                'success': True,
+                'settings': {
+                    'is_debug_enabled': settings.is_debug_enabled,
+                    'debug_visibility': settings.debug_visibility,
+                    'debug_visibility_display': settings.get_debug_visibility_display(),
+                    'show_message_details': settings.show_message_details,
+                    'show_user_info': settings.show_user_info,
+                    'show_statistics': settings.show_statistics,
+                    'updated_at': settings.updated_at.strftime('%d.%m.%Y %H:%M') if settings.updated_at else None
+                }
+            })
+        else:
+            return JsonResponse({
+                'success': True,
+                'settings': {
+                    'is_debug_enabled': True,
+                    'debug_visibility': 'staff_only',
+                    'debug_visibility_display': 'Nur Staff-Benutzer',
+                    'show_message_details': True,
+                    'show_user_info': True,
+                    'show_statistics': True,
+                    'updated_at': None
+                }
+            })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Fehler beim Laden der Debug-Einstellungen: {str(e)}'
+        })
+
+
+@login_required
+@user_passes_test(is_superuser)
+def update_debug_settings(request):
+    """Update debug settings"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+
+            # Get or create settings
+            settings = GlobalMessageDebugSettings.get_settings()
+            if not settings:
+                settings = GlobalMessageDebugSettings.objects.create(
+                    is_debug_enabled=True,
+                    debug_visibility='staff_only',
+                    created_by=request.user
+                )
+
+            # Update settings
+            settings.is_debug_enabled = data.get('is_debug_enabled', settings.is_debug_enabled)
+            settings.debug_visibility = data.get('debug_visibility', settings.debug_visibility)
+            settings.show_message_details = data.get('show_message_details', settings.show_message_details)
+            settings.show_user_info = data.get('show_user_info', settings.show_user_info)
+            settings.show_statistics = data.get('show_statistics', settings.show_statistics)
+
+            settings.save()
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Debug-Einstellungen erfolgreich aktualisiert',
+                'settings': {
+                    'is_debug_enabled': settings.is_debug_enabled,
+                    'debug_visibility': settings.debug_visibility,
+                    'debug_visibility_display': settings.get_debug_visibility_display(),
+                    'show_message_details': settings.show_message_details,
+                    'show_user_info': settings.show_user_info,
+                    'show_statistics': settings.show_statistics
+                }
+            })
+
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'Fehler beim Aktualisieren der Einstellungen: {str(e)}'
+            })
+
+    return JsonResponse({'success': False, 'message': 'Invalid request method'})
+
+
+@login_required
+@user_passes_test(is_superuser)
+def get_available_users(request):
+    """Get list of available users for message targeting"""
+    try:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        # Get all users, ordered by username
+        users = User.objects.all().order_by('username')
+
+        users_data = []
+        for user in users:
+            users_data.append({
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'is_staff': user.is_staff,
+                'is_superuser': user.is_superuser,
+                'is_active': user.is_active,
+                'date_joined': user.date_joined.strftime('%d.%m.%Y') if hasattr(user, 'date_joined') else None
+            })
+
+        return JsonResponse({
+            'success': True,
+            'users': users_data,
+            'total_count': len(users_data)
         })
 
     except Exception as e:
         return JsonResponse({
             'success': False,
-            'message': f'Fehler: {str(e)}'
+            'message': f'Fehler beim Laden der Benutzer: {str(e)}'
         })

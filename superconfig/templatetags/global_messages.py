@@ -70,28 +70,52 @@ def get_active_global_messages_count(context):
 @register.inclusion_tag('superconfig/includes/global_messages_debug.html', takes_context=True)
 def global_messages_debug_info(context):
     """
-    Debug information for global messages (only in DEBUG mode)
+    Debug information for global messages - controlled by GlobalMessageDebugSettings
     """
-    from django.conf import settings
-
-    if not settings.DEBUG:
-        return {}
+    from ..models import GlobalMessageDebugSettings
 
     user = context.get('user')
+
     try:
+        # Get debug settings
+        debug_settings = GlobalMessageDebugSettings.get_settings()
+
+        # Check if debug should be shown for this user
+        if not debug_settings or not debug_settings.should_show_debug_for_user(user):
+            return {}
+
         all_messages = GlobalMessage.objects.all()
         active_messages = GlobalMessage.get_active_messages_for_user(user)
 
-        return {
+        debug_context = {
             'debug': True,
-            'all_messages_count': all_messages.count(),
-            'active_messages_count': len(active_messages),
-            'user': user,
-            'is_authenticated': user.is_authenticated if user else False,
-            'messages': active_messages[:3]  # Show first 3 for debug
+            'debug_settings': debug_settings,
         }
-    except:
+
+        # Add statistics if enabled
+        if debug_settings.show_statistics:
+            debug_context.update({
+                'all_messages_count': all_messages.count(),
+                'active_messages_count': len(active_messages),
+            })
+
+        # Add user info if enabled
+        if debug_settings.show_user_info:
+            debug_context.update({
+                'user': user,
+                'is_authenticated': user.is_authenticated if user else False,
+            })
+
+        # Add message details if enabled
+        if debug_settings.show_message_details:
+            debug_context.update({
+                'messages': active_messages[:3]  # Show first 3 for debug
+            })
+
+        return debug_context
+
+    except Exception as e:
         return {
             'debug': True,
-            'error': 'Could not load debug info'
+            'error': f'Could not load debug info: {str(e)}'
         }

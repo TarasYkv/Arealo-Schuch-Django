@@ -2,6 +2,7 @@
 
 class GlobalMessagesManager {
     constructor() {
+        console.log('DEBUG: GlobalMessagesManager initialized');
         this.displayedMessages = new Set();
         this.messageQueue = [];
         this.isProcessingQueue = false;
@@ -25,11 +26,16 @@ class GlobalMessagesManager {
 
     async loadActiveMessages() {
         try {
+            console.log('DEBUG: Loading global messages from', this.baseUrl);
             const response = await fetch(this.baseUrl);
             const data = await response.json();
+            console.log('DEBUG: API Response:', data);
 
             if (data.success && data.messages) {
+                console.log('DEBUG: Processing', data.messages.length, 'messages');
                 this.processMessages(data.messages);
+            } else {
+                console.log('DEBUG: No messages or API failed');
             }
         } catch (error) {
             console.error('Error loading global messages:', error);
@@ -37,25 +43,39 @@ class GlobalMessagesManager {
     }
 
     processMessages(messages) {
+        console.log('DEBUG: processMessages called with', messages.length, 'messages');
+        console.log('DEBUG: Current displayedMessages:', Array.from(this.displayedMessages));
+
         messages.forEach(message => {
+            console.log('DEBUG: Processing message ID', message.id, 'title:', message.title);
             if (!this.displayedMessages.has(message.id)) {
+                console.log('DEBUG: Adding message ID', message.id, 'to queue');
                 this.messageQueue.push(message);
+            } else {
+                console.log('DEBUG: Message ID', message.id, 'already displayed, skipping');
             }
         });
 
+        console.log('DEBUG: Current queue length:', this.messageQueue.length);
         if (!this.isProcessingQueue) {
+            console.log('DEBUG: Starting queue processing');
             this.processMessageQueue();
+        } else {
+            console.log('DEBUG: Queue already being processed');
         }
     }
 
     async processMessageQueue() {
+        console.log('DEBUG: processMessageQueue called, queue length:', this.messageQueue.length);
         if (this.messageQueue.length === 0) {
             this.isProcessingQueue = false;
+            console.log('DEBUG: Queue empty, stopping processing');
             return;
         }
 
         this.isProcessingQueue = true;
         const message = this.messageQueue.shift();
+        console.log('DEBUG: Processing message from queue:', message.id, 'title:', message.title);
 
         this.displayMessage(message);
         this.displayedMessages.add(message.id);
@@ -226,6 +246,7 @@ class GlobalMessagesManager {
 }
 
 // Initialize global messages manager
+console.log('DEBUG: Creating GlobalMessagesManager instance');
 window.globalMessagesManager = new GlobalMessagesManager();
 
 // Make preview function available globally for SuperConfig
