@@ -240,7 +240,8 @@ class EmailTemplate(models.Model):
     ]
     
     name = models.CharField(max_length=200, verbose_name="Vorlagenname")
-    slug = models.SlugField(max_length=200, unique=True, verbose_name="Slug")
+    slug = models.SlugField(max_length=200, unique=True, blank=True, verbose_name="Slug",
+                           help_text="URL-freundlicher Name (wird automatisch generiert falls leer)")
     category = models.ForeignKey(EmailTemplateCategory, on_delete=models.SET_NULL, 
                                 null=True, blank=True, related_name='templates',
                                 verbose_name="Kategorie")
@@ -315,6 +316,20 @@ class EmailTemplate(models.Model):
         return f"{self.name} ({self.get_template_type_display()})"
     
     def save(self, *args, **kwargs):
+        # Auto-generate slug if empty
+        if not self.slug:
+            from django.utils.text import slugify
+            base_slug = slugify(self.name)
+            slug = base_slug
+            counter = 1
+
+            # Ensure unique slug
+            while EmailTemplate.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+
+            self.slug = slug
+
         # Ensure only one default template per type
         if self.is_default:
             EmailTemplate.objects.filter(

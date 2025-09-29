@@ -24,6 +24,33 @@
         .email-body {
             padding: 1.5rem;
             min-height: 400px;
+            overflow-x: auto;
+        }
+
+        /* AGGRESSIVE Reset aller E-Mail Template Constraints */
+        .email-body,
+        .email-body *,
+        .email-body body,
+        .email-body .container,
+        .email-body div,
+        .email-body table {
+            max-width: none !important;
+            width: 100% !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+        }
+
+        /* Entferne alle width/max-width Beschränkungen */
+        .email-body {
+            max-width: 100% !important;
+            width: 100% !important;
+        }
+
+        /* Override für inline styles */
+        .email-body [style*="max-width"],
+        .email-body [style*="width"] {
+            max-width: 100% !important;
+            width: 100% !important;
         }
         
         .preview-controls {
@@ -36,6 +63,24 @@
             box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
         }
         
+        /* Vollbreite-Modus */
+        .full-width-mode {
+            margin: 0;
+            padding: 0;
+            max-width: 100vw;
+        }
+
+        .full-width-mode .email-preview {
+            border-radius: 0;
+            box-shadow: none;
+            border: none;
+        }
+
+        .full-width-mode .email-body {
+            padding: 2rem;
+            max-width: 100%;
+        }
+
         @media print {
             .preview-controls {
                 display: none;
@@ -48,16 +93,19 @@
     </style>
 </head>
 <body class="bg-light">
-    <div class="container-fluid py-4">
+    <div class="container-fluid p-2">
         <div class="row">
             <!-- Main Preview Area -->
-            <div class="col-lg-8">
+            <div class="col-lg-9">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h1 class="h4 mb-0">
                         <i class="fas fa-eye me-2"></i>
                         Vorschau: {{ template.name }}
                     </h1>
                     <div>
+                        <button type="button" class="btn btn-sm btn-outline-info" onclick="toggleFullWidth()">
+                            <i class="fas fa-expand me-1"></i>Vollbreite
+                        </button>
                         <button type="button" class="btn btn-sm btn-outline-primary" onclick="window.print()">
                             <i class="fas fa-print me-1"></i>Drucken
                         </button>
@@ -139,7 +187,7 @@
             </div>
             
             <!-- Sidebar Controls -->
-            <div class="col-lg-4">
+            <div class="col-lg-3">
                 <div class="preview-controls">
                     <h6 class="mb-3">
                         <i class="fas fa-cogs me-2"></i>
@@ -231,9 +279,65 @@
         function refreshPreview() {
             window.location.reload();
         }
+
+        function toggleFullWidth() {
+            const mainCol = document.querySelector('.col-lg-9');
+            const sidebarCol = document.querySelector('.col-lg-3');
+            const toggleBtn = event.target.closest('button');
+            const container = document.querySelector('.container-fluid');
+
+            if (mainCol.classList.contains('col-lg-12')) {
+                // Zurück zur normalen Ansicht
+                mainCol.className = 'col-lg-9';
+                sidebarCol.style.display = '';
+                container.classList.remove('full-width-mode');
+                container.className = 'container-fluid p-2';
+                toggleBtn.innerHTML = '<i class="fas fa-expand me-1"></i>Vollbreite';
+            } else {
+                // Vollbreite Ansicht
+                mainCol.className = 'col-lg-12';
+                sidebarCol.style.display = 'none';
+                container.classList.add('full-width-mode');
+                container.className = 'container-fluid p-0 m-0 full-width-mode';
+                toggleBtn.innerHTML = '<i class="fas fa-compress me-1"></i>Normal';
+            }
+        }
         
         // Add responsive iframe support for email content
         document.addEventListener('DOMContentLoaded', function() {
+            // AGGRESSIVE width constraints removal
+            const emailBody = document.querySelector('.email-body');
+            if (emailBody) {
+                // Remove all width/max-width inline styles
+                const elementsWithWidth = emailBody.querySelectorAll('*[style*="width"], *[style*="max-width"]');
+                elementsWithWidth.forEach(function(element) {
+                    const style = element.getAttribute('style');
+                    if (style) {
+                        // Remove width and max-width declarations
+                        let newStyle = style
+                            .replace(/max-width\s*:\s*[^;]+;?/gi, '')
+                            .replace(/width\s*:\s*[^;]+;?/gi, '');
+
+                        // Clean up multiple semicolons
+                        newStyle = newStyle.replace(/;+/g, ';').replace(/;$/, '');
+
+                        if (newStyle.trim()) {
+                            element.setAttribute('style', newStyle);
+                        } else {
+                            element.removeAttribute('style');
+                        }
+                    }
+                });
+
+                // Force full width on common email containers
+                const containers = emailBody.querySelectorAll('body, .container, div[style*="margin"], div[style*="width"]');
+                containers.forEach(function(container) {
+                    container.style.width = '100%';
+                    container.style.maxWidth = 'none';
+                    container.style.margin = '0';
+                });
+            }
+
             // Make tables responsive in email content
             const tables = document.querySelectorAll('.email-body table');
             tables.forEach(function(table) {
