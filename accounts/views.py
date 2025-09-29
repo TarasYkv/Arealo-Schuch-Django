@@ -3605,6 +3605,8 @@ def send_verification_email(user, request):
         html_content = None
         text_content = None
 
+        fallback_template = None
+
         try:
             # Bevorzuge Template, das dem user_registration Trigger zugeordnet ist
             fallback_template = EmailTemplate.objects.filter(
@@ -3656,6 +3658,12 @@ def send_verification_email(user, request):
             recipient_list=[user.email],
             html_message=html_content,
         )
+
+        if fallback_template and html_content:
+            try:
+                fallback_template.increment_usage()
+            except Exception as usage_error:
+                logger.warning('Could not increment usage for template %s: %s', fallback_template.id, usage_error)
         
         logger.info(f"Verification email sent via Django mail to {user.email}")
         return True

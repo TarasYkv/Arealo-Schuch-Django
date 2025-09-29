@@ -86,6 +86,7 @@ def send_welcome_email(sender, instance, created, **kwargs):
                 'username': instance.username,
                 'email': instance.email,
                 'registration_date': instance.date_joined.strftime('%d.%m.%Y %H:%M'),
+                'verification_url': f"{getattr(settings, 'SITE_URL', 'http://127.0.0.1:8000')}{reverse('accounts:dashboard')}",
                 'activation_url': f"{getattr(settings, 'SITE_URL', 'http://127.0.0.1:8000')}{reverse('accounts:dashboard')}",
                 'site_name': 'Workloom',
                 'current_year': timezone.now().year,
