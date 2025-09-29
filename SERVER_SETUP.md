@@ -31,10 +31,10 @@ Falls requirements.txt nicht verwendet werden kann:
 source /path/to/your/venv/bin/activate
 
 # Installiere matplotlib
-pip install matplotlib==3.9.5
+pip install matplotlib==3.9.4
 
 # Oder falls pip3 verwendet wird:
-pip3 install matplotlib==3.9.5
+pip3 install matplotlib==3.9.4
 ```
 
 ### 3. Abhängigkeiten für matplotlib
