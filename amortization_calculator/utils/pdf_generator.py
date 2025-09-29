@@ -10,9 +10,13 @@ from datetime import datetime
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from weasyprint import HTML, CSS
-import matplotlib
-matplotlib.use('Agg')  # Non-interactive backend
-import matplotlib.pyplot as plt
+try:
+    import matplotlib
+    matplotlib.use('Agg')  # Non-interactive backend
+    import matplotlib.pyplot as plt
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    MATPLOTLIB_AVAILABLE = False
 import base64
 from decimal import Decimal
 from amortization_calculator.calculation_service import LightingCalculationService
@@ -32,7 +36,8 @@ class AmortizationChartGenerator:
 
     def __init__(self, calculation):
         self.calculation = calculation
-        plt.style.use('default')
+        if MATPLOTLIB_AVAILABLE:
+            plt.style.use('default')
 
     def _setup_chart_style(self, fig, ax):
         """Apply consistent styling to charts"""
@@ -245,6 +250,15 @@ class AmortizationChartGenerator:
 
     def generate_all_charts(self):
         """Generate all charts and return as dictionary"""
+        if not MATPLOTLIB_AVAILABLE:
+            # Return empty placeholders when matplotlib is not available
+            return {
+                'cost_chart': None,
+                'amortization_chart': None,
+                'energy_chart': None,
+                'co2_chart': None,
+            }
+
         return {
             'cost_chart': self.generate_cost_comparison_chart(),
             'amortization_chart': self.generate_amortization_chart(),
@@ -373,6 +387,7 @@ def generate_amortization_pdf(calculation):
         'generated_date': datetime.now(),
         'report_title': f'Wirtschaftlichkeitsanalyse - {calculation.projektname}',
         'company': calculation.firmenname or 'Unbekanntes Unternehmen',
+        'matplotlib_available': MATPLOTLIB_AVAILABLE,
     }
 
     # Render HTML template
@@ -691,6 +706,7 @@ def generate_detailed_pdf(calculation):
         'charts': charts,
         'context': detail_context,
         'generated_date': datetime.now(),
+        'matplotlib_available': MATPLOTLIB_AVAILABLE,
     })
 
     html_doc = HTML(string=html_string)

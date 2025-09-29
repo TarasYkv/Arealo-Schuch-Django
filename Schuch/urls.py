@@ -40,6 +40,8 @@ urlpatterns = [
     path('images/', include('image_editor.urls')),
     path('bug-report/', include('bug_report.urls')),
     path('organization/', include('organization.urls')),
+    # Chat namespace redirect for backward compatibility
+    path('chat/', include('organization.urls', namespace='chat')),
     path('videos/', include('videos.urls', namespace='videos')),
     path('promptpro/', include('promptpro.urls', namespace='promptpro')),
     # Public video access shortcut
