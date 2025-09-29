@@ -272,3 +272,164 @@ class SearchQuery(models.Model):
 
     def __str__(self):
         return f"Search: {self.query}"
+
+
+# SEO Models
+class CoreWebVitals(models.Model):
+    """Core Web Vitals - wichtige Performance-Metriken für SEO"""
+    url = models.URLField(max_length=500)
+
+    # Largest Contentful Paint (LCP) - Loading Performance
+    lcp = models.FloatField(help_text="Largest Contentful Paint in seconds")
+    lcp_rating = models.CharField(max_length=20, choices=[
+        ('good', 'Good (<2.5s)'),
+        ('needs_improvement', 'Needs Improvement (2.5-4s)'),
+        ('poor', 'Poor (>4s)')
+    ], blank=True)
+
+    # First Input Delay (FID) - Interactivity
+    fid = models.FloatField(help_text="First Input Delay in milliseconds", null=True, blank=True)
+    fid_rating = models.CharField(max_length=20, choices=[
+        ('good', 'Good (<100ms)'),
+        ('needs_improvement', 'Needs Improvement (100-300ms)'),
+        ('poor', 'Poor (>300ms)')
+    ], blank=True)
+
+    # Cumulative Layout Shift (CLS) - Visual Stability
+    cls = models.FloatField(help_text="Cumulative Layout Shift score")
+    cls_rating = models.CharField(max_length=20, choices=[
+        ('good', 'Good (<0.1)'),
+        ('needs_improvement', 'Needs Improvement (0.1-0.25)'),
+        ('poor', 'Poor (>0.25)')
+    ], blank=True)
+
+    timestamp = models.DateTimeField(default=timezone.now)
+    device_type = models.CharField(max_length=20, choices=[
+        ('mobile', 'Mobile'),
+        ('desktop', 'Desktop')
+    ], default='desktop')
+
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['url', 'timestamp']),
+        ]
+
+    def save(self, *args, **kwargs):
+        # Auto-calculate ratings
+        if self.lcp:
+            if self.lcp < 2.5:
+                self.lcp_rating = 'good'
+            elif self.lcp < 4.0:
+                self.lcp_rating = 'needs_improvement'
+            else:
+                self.lcp_rating = 'poor'
+
+        if self.fid:
+            if self.fid < 100:
+                self.fid_rating = 'good'
+            elif self.fid < 300:
+                self.fid_rating = 'needs_improvement'
+            else:
+                self.fid_rating = 'poor'
+
+        if self.cls:
+            if self.cls < 0.1:
+                self.cls_rating = 'good'
+            elif self.cls < 0.25:
+                self.cls_rating = 'needs_improvement'
+            else:
+                self.cls_rating = 'poor'
+
+        super().save(*args, **kwargs)
+
+
+class CrawlError(models.Model):
+    """Crawl-Fehler die von Suchmaschinen gefunden wurden"""
+    ERROR_TYPES = [
+        ('404', '404 Not Found'),
+        ('403', '403 Forbidden'),
+        ('500', '500 Server Error'),
+        ('redirect_loop', 'Redirect Loop'),
+        ('timeout', 'Timeout'),
+        ('dns', 'DNS Error'),
+        ('ssl', 'SSL Certificate Error'),
+    ]
+
+    url = models.URLField(max_length=500)
+    error_type = models.CharField(max_length=20, choices=ERROR_TYPES)
+    first_detected = models.DateTimeField(default=timezone.now)
+    last_checked = models.DateTimeField(default=timezone.now)
+    is_resolved = models.BooleanField(default=False)
+    response_code = models.IntegerField(null=True, blank=True)
+    crawler = models.CharField(max_length=50, blank=True)  # Googlebot, Bingbot, etc.
+    source_url = models.URLField(max_length=500, blank=True, help_text="URL die auf diese Seite verlinkt")
+
+    class Meta:
+        unique_together = ['url', 'error_type']
+        ordering = ['-last_checked']
+
+    def __str__(self):
+        return f"{self.error_type} - {self.url}"
+
+
+class BrokenLink(models.Model):
+    """Kaputte Links auf der Website"""
+    source_url = models.URLField(max_length=500, help_text="Seite mit dem kaputten Link")
+    target_url = models.URLField(max_length=500, help_text="Ziel-URL die nicht funktioniert")
+    anchor_text = models.CharField(max_length=200, blank=True)
+    status_code = models.IntegerField()
+    first_detected = models.DateTimeField(default=timezone.now)
+    last_checked = models.DateTimeField(default=timezone.now)
+    is_fixed = models.BooleanField(default=False)
+    link_type = models.CharField(max_length=20, choices=[
+        ('internal', 'Internal'),
+        ('external', 'External'),
+        ('image', 'Image'),
+        ('script', 'Script'),
+        ('stylesheet', 'Stylesheet'),
+    ], default='internal')
+
+    class Meta:
+        unique_together = ['source_url', 'target_url']
+        ordering = ['-last_checked']
+
+    def __str__(self):
+        return f"{self.source_url} -> {self.target_url} ({self.status_code})"
+
+
+class SitemapStatus(models.Model):
+    """Status der XML-Sitemap"""
+    sitemap_url = models.URLField(max_length=500)
+    is_accessible = models.BooleanField(default=True)
+    total_urls = models.IntegerField(default=0)
+    indexed_urls = models.IntegerField(default=0)
+    last_modified = models.DateTimeField(null=True, blank=True)
+    last_checked = models.DateTimeField(default=timezone.now)
+    errors = models.JSONField(default=list, blank=True)
+    warnings = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ['-last_checked']
+
+    def __str__(self):
+        return f"Sitemap: {self.sitemap_url}"
+
+
+class RobotsTxtStatus(models.Model):
+    """Status der robots.txt Datei"""
+    domain = models.CharField(max_length=200, unique=True)
+    is_accessible = models.BooleanField(default=True)
+    content = models.TextField(blank=True)
+    last_checked = models.DateTimeField(default=timezone.now)
+    violations = models.JSONField(default=list, blank=True)  # URLs die gegen robots.txt verstoßen
+    disallowed_paths = models.JSONField(default=list, blank=True)
+    sitemap_references = models.JSONField(default=list, blank=True)
+    crawl_delay = models.IntegerField(null=True, blank=True)
+    user_agents = models.JSONField(default=dict, blank=True)  # Rules per user-agent
+
+    class Meta:
+        ordering = ['-last_checked']
+
+    def __str__(self):
+        return f"robots.txt for {self.domain}"

@@ -756,6 +756,80 @@
                     </div>
                 </div>
                 {% endif %}
+
+                <!-- Error Locations für Entwickler -->
+                {% if error_stats.error_locations %}
+                <div class="col-md-12">
+                    <div class="table-card">
+                        <div class="table-header">
+                            <h5><i class="bi bi-bug me-2"></i>🔧 Error-Quellen für Entwickler</h5>
+                            <small class="text-muted">Direkte Links zu Seiten wo die Fehler aufgetreten sind</small>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Code-Stelle</th>
+                                        <th>View/App</th>
+                                        <th>Fehler</th>
+                                        <th>Betroffene URLs (zum Testen)</th>
+                                        <th>⌀ Dauer</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for location in error_stats.error_locations %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex flex-column">
+                                                <code class="text-primary small">{{ location.file_path|slice:"-40:" }}</code>
+                                                {% if location.line_number %}
+                                                <span class="badge bg-secondary mt-1">Zeile {{ location.line_number }}</span>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% if location.view_name %}
+                                                <span class="badge bg-info">{{ location.view_name }}</span>
+                                            {% endif %}
+                                            {% if location.app_name %}
+                                                <span class="badge bg-secondary">{{ location.app_name }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-danger">{{ location.count }}x</span>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex flex-column gap-1">
+                                                {% for url in location.error_urls %}
+                                                <a href="{{ url }}" target="_blank" class="text-decoration-none small">
+                                                    <i class="bi bi-link-45deg"></i> {{ url|truncatechars:50 }}
+                                                </a>
+                                                {% empty %}
+                                                <span class="text-muted small">Keine URLs verfügbar</span>
+                                                {% endfor %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% if location.avg_duration %}
+                                                <span class="badge bg-warning">{{ location.avg_duration|floatformat:2 }}s</span>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted py-3">
+                                            ✅ Keine Error-Locations gefunden
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
             </div>
 
             <!-- User Journey Heatmap -->
@@ -1023,6 +1097,240 @@
                 </div>
                 {% endif %}
             </div>
+
+            <!-- SEO Metrics Section -->
+            {% if seo_metrics %}
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card border-0 shadow-lg">
+                        <div class="card-header bg-gradient text-white" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                            <h4 class="mb-0"><i class="bi bi-search me-2"></i>🔍 Advanced SEO Metrics</h4>
+                            <small class="text-white-50">Core Web Vitals • Crawl Errors • Broken Links • Sitemap & Robots.txt</small>
+                        </div>
+                        <div class="card-body">
+                            <!-- SEO Score Overview -->
+                            <div class="row mb-4">
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="position-relative d-inline-block">
+                                            <canvas id="seoScoreChart" width="150" height="150"></canvas>
+                                            <div class="position-absolute top-50 start-50 translate-middle">
+                                                <h2 class="mb-0 {% if seo_metrics.seo_score >= 80 %}text-success{% elif seo_metrics.seo_score >= 60 %}text-warning{% else %}text-danger{% endif %}">
+                                                    {{ seo_metrics.seo_score }}
+                                                </h2>
+                                                <small class="text-muted">SEO Score</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-9">
+                                    <h5>SEO Issues Detected</h5>
+                                    {% if seo_metrics.seo_issues %}
+                                    <ul class="list-unstyled">
+                                        {% for issue in seo_metrics.seo_issues %}
+                                        <li class="mb-2">
+                                            <span class="badge bg-warning me-2">⚠️</span>
+                                            {{ issue }}
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% else %}
+                                    <p class="text-success">✅ Keine kritischen SEO-Probleme gefunden!</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Core Web Vitals -->
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <h5 class="mb-3"><i class="bi bi-speedometer2 me-2"></i>Core Web Vitals</h5>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="card border-0 bg-light">
+                                                <div class="card-body text-center">
+                                                    <h6>LCP (Loading)</h6>
+                                                    <h3 class="{% if seo_metrics.avg_vitals.avg_lcp and seo_metrics.avg_vitals.avg_lcp < 2.5 %}text-success{% elif seo_metrics.avg_vitals.avg_lcp and seo_metrics.avg_vitals.avg_lcp < 4 %}text-warning{% else %}text-danger{% endif %}">
+                                                        {{ seo_metrics.avg_vitals.avg_lcp|floatformat:2|default:"-" }}s
+                                                    </h3>
+                                                    <small class="text-muted">Target: < 2.5s</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="card border-0 bg-light">
+                                                <div class="card-body text-center">
+                                                    <h6>FID (Interactivity)</h6>
+                                                    <h3 class="{% if seo_metrics.avg_vitals.avg_fid and seo_metrics.avg_vitals.avg_fid < 100 %}text-success{% elif seo_metrics.avg_vitals.avg_fid and seo_metrics.avg_vitals.avg_fid < 300 %}text-warning{% else %}text-danger{% endif %}">
+                                                        {{ seo_metrics.avg_vitals.avg_fid|floatformat:0|default:"-" }}ms
+                                                    </h3>
+                                                    <small class="text-muted">Target: < 100ms</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="card border-0 bg-light">
+                                                <div class="card-body text-center">
+                                                    <h6>CLS (Stability)</h6>
+                                                    <h3 class="{% if seo_metrics.avg_vitals.avg_cls and seo_metrics.avg_vitals.avg_cls < 0.1 %}text-success{% elif seo_metrics.avg_vitals.avg_cls and seo_metrics.avg_vitals.avg_cls < 0.25 %}text-warning{% else %}text-danger{% endif %}">
+                                                        {{ seo_metrics.avg_vitals.avg_cls|floatformat:3|default:"-" }}
+                                                    </h3>
+                                                    <small class="text-muted">Target: < 0.1</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Two Columns for Errors and Links -->
+                            <div class="row">
+                                <!-- Crawl Errors -->
+                                <div class="col-md-6">
+                                    <div class="table-card">
+                                        <div class="table-header">
+                                            <h5><i class="bi bi-exclamation-octagon me-2"></i>🕷️ Crawl Errors</h5>
+                                            <small class="text-muted">Fehler die Suchmaschinen gefunden haben</small>
+                                        </div>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th>URL</th>
+                                                        <th>Error</th>
+                                                        <th>Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for error in seo_metrics.crawl_errors %}
+                                                    <tr>
+                                                        <td>
+                                                            <a href="{{ error.url }}" target="_blank" class="text-decoration-none">
+                                                                {{ error.url|truncatechars:30 }}
+                                                            </a>
+                                                        </td>
+                                                        <td><span class="badge bg-danger">{{ error.error_type }}</span></td>
+                                                        <td>
+                                                            {% if error.is_resolved %}
+                                                                <span class="badge bg-success">✅ Fixed</span>
+                                                            {% else %}
+                                                                <span class="badge bg-warning">⚠️ Open</span>
+                                                            {% endif %}
+                                                        </td>
+                                                    </tr>
+                                                    {% empty %}
+                                                    <tr>
+                                                        <td colspan="3" class="text-center text-muted py-3">
+                                                            ✅ Keine Crawl-Fehler gefunden
+                                                        </td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Broken Links -->
+                                <div class="col-md-6">
+                                    <div class="table-card">
+                                        <div class="table-header">
+                                            <h5><i class="bi bi-link-45deg me-2"></i>🔗 Broken Links</h5>
+                                            <small class="text-muted">Kaputte Links die behoben werden müssen</small>
+                                        </div>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Von Seite</th>
+                                                        <th>Ziel</th>
+                                                        <th>Code</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for link in seo_metrics.broken_links %}
+                                                    <tr>
+                                                        <td>
+                                                            <a href="{{ link.source_url }}" target="_blank" class="text-decoration-none" title="{{ link.source_url }}">
+                                                                {{ link.source_url|truncatechars:20 }}
+                                                            </a>
+                                                        </td>
+                                                        <td>
+                                                            <span title="{{ link.target_url }}">
+                                                                {{ link.target_url|truncatechars:20 }}
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            <span class="badge bg-danger">{{ link.status_code }}</span>
+                                                        </td>
+                                                    </tr>
+                                                    {% empty %}
+                                                    <tr>
+                                                        <td colspan="3" class="text-center text-muted py-3">
+                                                            ✅ Keine kaputten Links gefunden
+                                                        </td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Sitemap & Robots.txt Status -->
+                            <div class="row mt-4">
+                                <div class="col-md-6">
+                                    <div class="card border-0 bg-light">
+                                        <div class="card-body">
+                                            <h6><i class="bi bi-diagram-3 me-2"></i>XML Sitemap Status</h6>
+                                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                                <span>URL:</span>
+                                                <a href="{{ seo_metrics.sitemap_status.url }}" target="_blank">{{ seo_metrics.sitemap_status.url|truncatechars:30 }}</a>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                                <span>Status:</span>
+                                                {% if seo_metrics.sitemap_status.is_accessible %}
+                                                    <span class="badge bg-success">✅ Accessible</span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">❌ Not Accessible</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                                <span>Total URLs:</span>
+                                                <span class="badge bg-primary">{{ seo_metrics.sitemap_status.total_urls }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card border-0 bg-light">
+                                        <div class="card-body">
+                                            <h6><i class="bi bi-robot me-2"></i>Robots.txt Status</h6>
+                                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                                <span>Domain:</span>
+                                                <span>{{ seo_metrics.robots_status.domain }}</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                                <span>Status:</span>
+                                                {% if seo_metrics.robots_status.is_accessible %}
+                                                    <span class="badge bg-success">✅ Accessible</span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">❌ Not Accessible</span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                                <span>Crawl Delay:</span>
+                                                <span class="badge bg-info">{{ seo_metrics.robots_status.crawl_delay|default:"None" }}s</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
             <!-- Recent Activity -->
             <div class="row">
