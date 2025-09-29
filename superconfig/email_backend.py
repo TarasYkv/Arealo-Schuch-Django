@@ -86,6 +86,10 @@ class AutoFallbackEmailBackend(SMTPEmailBackend):
         """
         Override open to test connection and provide clear error messages
         """
+        # Ensure database configuration is loaded
+        if not self._config_loaded:
+            self._load_database_config()
+
         try:
             # Test DNS resolution first
             socket.gethostbyname(self.host)
