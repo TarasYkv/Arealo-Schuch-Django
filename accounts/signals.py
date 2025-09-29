@@ -86,7 +86,8 @@ def send_welcome_email(sender, instance, created, **kwargs):
                 'username': instance.username,
                 'email': instance.email,
                 'registration_date': instance.date_joined.strftime('%d.%m.%Y %H:%M'),
-                'dashboard_url': f"{getattr(settings, 'SITE_URL', 'http://127.0.0.1:8000')}{reverse('accounts:dashboard')}",
+                'activation_url': f"{getattr(settings, 'SITE_URL', 'http://127.0.0.1:8000')}{reverse('accounts:dashboard')}",
+                'site_name': 'Workloom',
                 'current_year': timezone.now().year,
                 'domain': 'workloom.de',
                 'features': [
@@ -100,7 +101,7 @@ def send_welcome_email(sender, instance, created, **kwargs):
             
             # Verwende das neue Trigger-System
             results = trigger_manager.fire_trigger(
-                trigger_key='welcome_email',
+                trigger_key='user_registration',
                 context_data=context_data,
                 recipient_email=instance.email,
                 recipient_name=instance.get_full_name() or instance.username
