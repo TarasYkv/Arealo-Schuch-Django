@@ -3560,22 +3560,23 @@ def send_verification_email(user, request):
             except:
                 verification_url = f"https://workloom.de/accounts/verify-email/{token}/"
         
+        context_data = {
+            'user_name': user.get_full_name() or user.username,
+            'username': user.username,
+            'user_email': user.email,
+            'verification_url': verification_url,
+            'activation_url': verification_url,  # support templates using activation_url
+            'verification_token': token,
+            'domain': request.get_host(),
+            'site_name': 'Workloom',
+            'company_name': 'Workloom'
+        }
+
         # Verwende das neue Trigger-System
         try:
             # Importiere das neue Trigger-System
             from email_templates.trigger_manager import TriggerManager
             trigger_manager = TriggerManager()
-            
-            context_data = {
-                'user_name': user.get_full_name() or user.username,
-                'username': user.username,
-                'user_email': user.email,
-                'verification_url': verification_url,
-                'verification_token': token,
-                'domain': request.get_host(),
-                'site_name': 'Workloom',
-                'company_name': 'Workloom'
-            }
             
             # Feuer den user_registration Trigger (richtig benannt)
             results = trigger_manager.fire_trigger(
@@ -3599,19 +3600,57 @@ def send_verification_email(user, request):
         except Exception as trigger_error:
             logger.warning(f"Trigger system failed: {str(trigger_error)}, falling back to Django mail")
         
-        # Fallback auf Django E-Mail-System
-        html_content = render_to_string('accounts/emails/welcome_verification.html', {
-            'user': user,
-            'verification_url': verification_url,
-        })
-        text_content = render_to_string('accounts/emails/welcome_verification.txt', {
-            'user': user,
-            'verification_url': verification_url,
-        })
-        
+        # Fallback auf Django E-Mail-System unter Verwendung gespeicherter Templates
+        subject = f'Willkommen bei Workloom - E-Mail bestätigen'
+        html_content = None
+        text_content = None
+
+        try:
+            # Bevorzuge Template, das dem user_registration Trigger zugeordnet ist
+            fallback_template = EmailTemplate.objects.filter(
+                trigger__trigger_key='user_registration',
+                is_active=True
+            ).order_by('-is_default', '-updated_at').first()
+
+            if not fallback_template:
+                # Fallback auf Standard Account-Aktivierungsvorlage
+                fallback_template = EmailTemplateService.get_default_template('account_activation')
+
+            if fallback_template:
+                render_result = EmailTemplateService.render_template(fallback_template, context_data)
+                if render_result.get('success'):
+                    html_content = render_result.get('html_content')
+                    text_content = render_result.get('text_content')
+                    subject = render_result.get('subject') or fallback_template.subject or subject
+                    if not text_content and html_content:
+                        text_content = strip_tags(html_content)
+                else:
+                    logger.warning(
+                        'Fallback template rendering failed (%s): %s',
+                        fallback_template.slug or fallback_template.id,
+                        render_result.get('error')
+                    )
+        except Exception as template_error:
+            logger.warning(
+                'Could not load fallback email template: %s',
+                str(template_error)
+            )
+
+        if not html_content:
+            # Verwende klassische Django-Templates als letzten Ausweg
+            html_content = render_to_string('accounts/emails/welcome_verification.html', {
+                'user': user,
+                'verification_url': verification_url,
+            })
+        if not text_content:
+            text_content = render_to_string('accounts/emails/welcome_verification.txt', {
+                'user': user,
+                'verification_url': verification_url,
+            })
+
         # Sende E-Mail über Django
         send_mail(
-            subject=f'Willkommen bei Workloom - E-Mail bestätigen',
+            subject=subject,
             message=text_content,
             from_email=None,  # Verwendet DEFAULT_FROM_EMAIL
             recipient_list=[user.email],
