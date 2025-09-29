@@ -12,9 +12,12 @@ def beleuchtungsrechner(request):
     return render(request, 'core/beleuchtungsrechner.html')
 
 def startseite_ansicht(request):
-    """Diese Ansicht rendert nur die Kachel-Übersicht."""
+    """Diese Ansicht rendert die Startseite mit verfügbaren Apps."""
+    available_apps = _get_available_apps()
+
     context = {
-        'current_page': 'startseite'
+        'current_page': 'startseite',
+        'available_apps': available_apps
     }
     return render(request, 'core/startseite.html', context)
 

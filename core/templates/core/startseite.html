@@ -162,16 +162,13 @@
     </section>
 
     <!-- Featured Apps Showcase -->
-    {% load public_apps %}
-    {% get_public_apps as available_apps %}
-    
     <section class="py-5">
         <div class="container">
             <div class="text-center mb-5">
                 <h2 class="fw-bold text-primary mb-3">Ihre All-in-One Business Suite</h2>
-                <p class="lead text-muted">Entdecken Sie unsere leistungsstarken Beta-Apps - kostenlos für Sie entwickelt</p>
+                <p class="lead text-muted">Entdecken Sie unsere leistungsstarken Beta-Apps - kostenlos für normale User entwickelt</p>
             </div>
-            
+
             <!-- Top Featured Apps -->
             <div class="row g-4 mb-5">
                 {% for app_key, app_info in available_apps.items %}
@@ -184,7 +181,7 @@
                             </div>
                             <div class="card-body p-4">
                                 <p class="card-text text-muted mb-3">{{ app_info.short_desc }}</p>
-                                
+
                                 <div class="mb-3">
                                     <h6 class="fw-bold text-primary mb-2">Top Features:</h6>
                                     <ul class="list-unstyled">
@@ -193,22 +190,36 @@
                                         {% endfor %}
                                     </ul>
                                 </div>
-                                
+
+                                {% if app_info.app_url %}
+                                <div class="d-grid mb-2">
+                                    {% if user.is_authenticated %}
+                                        <a href="{{ app_info.app_url }}" class="btn btn-{{ app_info.color }} btn-sm rounded-pill">
+                                            <i class="bi bi-arrow-right-circle me-1"></i>App öffnen
+                                        </a>
+                                    {% else %}
+                                        <a href="{% url 'accounts:login' %}?next={{ app_info.app_url }}" class="btn btn-{{ app_info.color }} btn-sm rounded-pill">
+                                            <i class="bi bi-box-arrow-in-right me-1"></i>Anmelden & öffnen
+                                        </a>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+
                                 <div class="d-grid">
                                     <a href="{% url 'public_app_info' app_key %}" class="btn btn-outline-{{ app_info.color }} btn-sm rounded-pill">
-                                        <i class="bi bi-info-circle me-1"></i>Details & Demo
+                                        <i class="bi bi-info-circle me-1"></i>Details & Features
                                     </a>
                                 </div>
                             </div>
                             <div class="card-footer bg-light text-center py-2">
-                                <small class="text-success fw-bold"><i class="bi bi-gift me-1"></i>Beta-Phase kostenlos</small>
+                                <small class="text-success fw-bold"><i class="bi bi-gift me-1"></i>Kostenlos für registrierte User</small>
                             </div>
                         </div>
                     </div>
                     {% endif %}
                 {% endfor %}
             </div>
-            
+
             <!-- Call to Action -->
             <div class="text-center">
                 <a href="{% url 'public_app_list' %}" class="btn btn-primary btn-lg rounded-pill px-5 me-3">
@@ -319,7 +330,7 @@
         <div class="container">
             <div class="text-center mb-5">
                 <h2 class="fw-bold text-primary mb-3">Workloom in der Praxis</h2>
-                <p class="lead text-muted">So nutzen erfolgreiche Unternehmer unsere Beta-Apps</p>
+                <p class="lead text-muted">So nutzen erfolgreiche Unternehmer unsere verfügbaren Apps</p>
             </div>
             <div class="row g-4">
                 <div class="col-lg-3 col-md-6">
@@ -328,8 +339,12 @@
                             <i class="bi bi-person-workspace text-warning" style="font-size: 3rem;"></i>
                         </div>
                         <h5>Freelancer</h5>
-                        <p class="text-muted mb-2">Nutzen <strong>ToDo Manager</strong> für Aufgabenverwaltung</p>
-                        <p class="text-muted mb-2">Verwenden <strong>StreamRec Studio</strong> für Content-Erstellung</p>
+                        {% if available_apps.todos %}
+                        <p class="text-muted mb-2">Nutzen <strong>{{ available_apps.todos.name }}</strong> für Aufgabenverwaltung</p>
+                        {% endif %}
+                        {% if available_apps.streamrec %}
+                        <p class="text-muted mb-2">Verwenden <strong>{{ available_apps.streamrec.name }}</strong> für Content-Erstellung</p>
+                        {% endif %}
                         <small class="text-success">💡 Bessere Organisation und Workflow</small>
                     </div>
                 </div>
@@ -339,8 +354,12 @@
                             <i class="bi bi-shop text-success" style="font-size: 3rem;"></i>
                         </div>
                         <h5>E-Commerce</h5>
-                        <p class="text-muted mb-2">Nutzen <strong>ShopifyFlow</strong> für Shop-Verwaltung</p>
-                        <p class="text-muted mb-2">Verwenden <strong>VideoFlow</strong> für Produktvideos</p>
+                        {% if available_apps.shopify %}
+                        <p class="text-muted mb-2">Nutzen <strong>{{ available_apps.shopify.name }}</strong> für Shop-Verwaltung</p>
+                        {% endif %}
+                        {% if available_apps.videos %}
+                        <p class="text-muted mb-2">Verwenden <strong>{{ available_apps.videos.name }}</strong> für Produktvideos</p>
+                        {% endif %}
                         <small class="text-success">💰 Bessere Shop-Organisation</small>
                     </div>
                 </div>
@@ -350,8 +369,12 @@
                             <i class="bi bi-building text-primary" style="font-size: 3rem;"></i>
                         </div>
                         <h5>KMUs</h5>
-                        <p class="text-muted mb-2">Nutzen <strong>WorkSpace</strong> für Teamorganisation</p>
-                        <p class="text-muted mb-2">Verwenden <strong>PromptPro</strong> für KI-Prompts</p>
+                        {% if available_apps.organisation %}
+                        <p class="text-muted mb-2">Nutzen <strong>{{ available_apps.organisation.name }}</strong> für Teamorganisation</p>
+                        {% endif %}
+                        {% if available_apps.promptpro %}
+                        <p class="text-muted mb-2">Verwenden <strong>{{ available_apps.promptpro.name }}</strong> für KI-Prompts</p>
+                        {% endif %}
                         <small class="text-success">⚡ Bessere Team-Koordination</small>
                     </div>
                 </div>
@@ -361,9 +384,9 @@
                             <i class="bi bi-lightbulb text-danger" style="font-size: 3rem;"></i>
                         </div>
                         <h5>Startups</h5>
-                        <p class="text-muted mb-2">Nutzen die <strong>gesamte Suite</strong> für Wachstum</p>
-                        <p class="text-muted mb-2">Kostenlose Beta-Nutzung aller Tools</p>
-                        <small class="text-success">🚀 Alles aus einer Hand</small>
+                        <p class="text-muted mb-2">Nutzen die <strong>gesamte verfügbare Suite</strong> für Wachstum</p>
+                        <p class="text-muted mb-2">Kostenlose Nutzung für registrierte User</p>
+                        <small class="text-success">🚀 {{ available_apps|length }} Apps aus einer Hand</small>
                     </div>
                 </div>
             </div>
@@ -373,9 +396,9 @@
     <!-- CTA Section -->
     <section class="py-5 text-white" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
         <div class="container text-center">
-            <h2 class="fw-bold mb-3">Bereit für die Beta-Phase?</h2>
+            <h2 class="fw-bold mb-3">Bereit für Workloom?</h2>
             <p class="lead mb-4">
-                Testen Sie unsere Apps kostenlos und helfen Sie uns bei der Entwicklung.
+                Nutzen Sie {{ available_apps|length }} leistungsstarke Apps kostenlos - nur Registrierung erforderlich.
             </p>
             <div class="mb-4">
                 <a href="{% url 'accounts:register' %}" class="btn btn-light btn-lg rounded-pill px-5 me-3">
@@ -383,7 +406,7 @@
                 </a>
             </div>
             <div class="d-flex justify-content-center flex-wrap gap-4 text-white-50">
-                <small><i class="bi bi-check2 me-1"></i>Beta-Phase kostenlos</small>
+                <small><i class="bi bi-check2 me-1"></i>Kostenlos für registrierte User</small>
                 <small><i class="bi bi-check2 me-1"></i>E-Mail Support</small>
                 <small><i class="bi bi-check2 me-1"></i>Made in Germany</small>
                 <small><i class="bi bi-check2 me-1"></i>DSGVO-konform</small>
