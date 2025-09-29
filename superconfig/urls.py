@@ -28,4 +28,11 @@ urlpatterns = [
     path('messages/<int:message_id>/delete/', views.delete_global_message, name='delete_global_message'),
     path('messages/<int:message_id>/preview/', views.get_message_for_preview, name='get_message_for_preview'),
     path('messages/active/', views.get_active_messages_for_user, name='get_active_messages_for_user'),
+
+    # Debug Settings URLs
+    path('debug/settings/', views.get_debug_settings, name='get_debug_settings'),
+    path('debug/settings/update/', views.update_debug_settings, name='update_debug_settings'),
+
+    # User Management URLs
+    path('users/list/', views.get_available_users, name='get_available_users'),
 ]

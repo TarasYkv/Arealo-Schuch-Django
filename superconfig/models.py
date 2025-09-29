@@ -217,6 +217,9 @@ class GlobalMessage(models.Model):
         ('all', 'Alle Besucher'),
         ('authenticated', 'Nur angemeldete Benutzer'),
         ('unauthenticated', 'Nur nicht angemeldete Besucher'),
+        ('specific_users', 'Bestimmte Benutzer'),
+        ('staff_only', 'Nur Staff-Benutzer'),
+        ('superuser_only', 'Nur Superuser'),
     ]
 
     title = models.CharField(max_length=200, help_text='Titel der Nachricht')
@@ -264,6 +267,14 @@ class GlobalMessage(models.Model):
         help_text='Enddatum (leer = unbegrenzt)'
     )
 
+    # User targeting
+    target_users = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        related_name='targeted_messages',
+        help_text='Spezifische Benutzer für diese Nachricht (nur relevant wenn Sichtbarkeit = "Bestimmte Benutzer")'
+    )
+
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -296,11 +307,29 @@ class GlobalMessage(models.Model):
         if not self.is_currently_active():
             return False
 
-        if self.visibility == 'authenticated' and not user.is_authenticated:
+        # Handle anonymous users (user is None)
+        is_authenticated = user is not None and hasattr(user, 'is_authenticated') and user.is_authenticated
+        is_staff = is_authenticated and user.is_staff
+        is_superuser = is_authenticated and user.is_superuser
+
+        # Check visibility settings
+        if self.visibility == 'authenticated' and not is_authenticated:
             return False
 
-        if self.visibility == 'unauthenticated' and user.is_authenticated:
+        if self.visibility == 'unauthenticated' and is_authenticated:
             return False
+
+        if self.visibility == 'staff_only' and not is_staff:
+            return False
+
+        if self.visibility == 'superuser_only' and not is_superuser:
+            return False
+
+        if self.visibility == 'specific_users':
+            if not is_authenticated:
+                return False
+            # Check if user is in target_users
+            return self.target_users.filter(id=user.id).exists()
 
         return True
 
@@ -309,3 +338,91 @@ class GlobalMessage(models.Model):
         """Get all active messages for a specific user"""
         return [msg for msg in cls.objects.filter(is_active=True)
                 if msg.should_show_for_user(user)]
+
+
+class GlobalMessageDebugSettings(models.Model):
+    """
+    Settings for Global Messages Debug Display
+    Controls when and for whom the debug info is shown
+    """
+    DEBUG_VISIBILITY_CHOICES = [
+        ('disabled', 'Ausgeschaltet'),
+        ('staff_only', 'Nur Staff-Benutzer'),
+        ('superuser_only', 'Nur Superuser'),
+        ('authenticated', 'Alle angemeldeten Benutzer'),
+        ('all', 'Alle Benutzer'),
+    ]
+
+    is_debug_enabled = models.BooleanField(
+        default=True,
+        help_text='Debug-Anzeige aktivieren/deaktivieren'
+    )
+
+    debug_visibility = models.CharField(
+        max_length=20,
+        choices=DEBUG_VISIBILITY_CHOICES,
+        default='staff_only',
+        help_text='Wer soll die Debug-Anzeige sehen können'
+    )
+
+    show_message_details = models.BooleanField(
+        default=True,
+        help_text='Details der aktiven Nachrichten anzeigen'
+    )
+
+    show_user_info = models.BooleanField(
+        default=True,
+        help_text='Benutzerinformationen anzeigen'
+    )
+
+    show_statistics = models.BooleanField(
+        default=True,
+        help_text='Nachrichtenstatistiken anzeigen'
+    )
+
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Global Messages Debug-Einstellungen"
+        verbose_name_plural = "Global Messages Debug-Einstellungen"
+
+    def __str__(self):
+        status = "Ein" if self.is_debug_enabled else "Aus"
+        return f"Debug-Anzeige: {status} ({self.get_debug_visibility_display()})"
+
+    @classmethod
+    def get_settings(cls):
+        """Get current debug settings or create default"""
+        settings = cls.objects.first()
+        if not settings:
+            # Create default settings
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            admin_user = User.objects.filter(is_superuser=True).first()
+            if admin_user:
+                settings = cls.objects.create(
+                    is_debug_enabled=True,
+                    debug_visibility='staff_only',
+                    created_by=admin_user
+                )
+        return settings
+
+    def should_show_debug_for_user(self, user):
+        """Check if debug should be shown for specific user"""
+        if not self.is_debug_enabled:
+            return False
+
+        if self.debug_visibility == 'disabled':
+            return False
+        elif self.debug_visibility == 'superuser_only':
+            return user and user.is_superuser
+        elif self.debug_visibility == 'staff_only':
+            return user and user.is_staff
+        elif self.debug_visibility == 'authenticated':
+            return user and user.is_authenticated
+        elif self.debug_visibility == 'all':
+            return True
+
+        return False
