@@ -6,23 +6,38 @@ Fehlende `matplotlib` Bibliothek auf dem Server führt zu dem Fehler:
 No module named 'matplotlib'
 ```
 
-## Lösung
-### 1. matplotlib installieren (Server-seitig)
+## Lösung (Empfohlen: requirements.txt)
+### 1. Über requirements.txt (Empfohlene Methode)
 
-Auf dem Server ausführen:
+`matplotlib` wurde bereits zu `requirements.txt` hinzugefügt. Für die Installation auf dem Server:
+
+```bash
+# Aktiviere die virtuelle Umgebung
+source /path/to/your/venv/bin/activate
+
+# Installiere alle Abhängigkeiten aus requirements.txt
+pip install -r requirements.txt
+
+# Oder für Update bestehender Installation
+pip install -r requirements.txt --upgrade
+```
+
+### 2. Manuelle Installation (Alternative)
+
+Falls requirements.txt nicht verwendet werden kann:
 
 ```bash
 # Aktiviere die virtuelle Umgebung
 source /path/to/your/venv/bin/activate
 
 # Installiere matplotlib
-pip install matplotlib
+pip install matplotlib==3.9.5
 
 # Oder falls pip3 verwendet wird:
-pip3 install matplotlib
+pip3 install matplotlib==3.9.5
 ```
 
-### 2. Abhängigkeiten für matplotlib
+### 3. Abhängigkeiten für matplotlib
 Möglicherweise sind zusätzliche System-Pakete erforderlich:
 
 ```bash
@@ -37,7 +52,7 @@ sudo yum install python3-tkinter python3-devel
 sudo dnf install python3-tkinter python3-devel
 ```
 
-### 3. Webserver neustarten
+### 4. Webserver neustarten
 Nach der Installation den Webserver neu starten:
 
 ```bash
