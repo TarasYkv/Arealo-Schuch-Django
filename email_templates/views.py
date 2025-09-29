@@ -480,7 +480,18 @@ def template_preview(request, pk):
     
     # Add default preview data if available_variables exist
     if template.available_variables and not preview_data:
-        preview_data = {key: f"[{key}]" for key in template.available_variables.keys()}
+        # Handle both dict and string cases
+        if isinstance(template.available_variables, str):
+            try:
+                variables = json.loads(template.available_variables)
+            except json.JSONDecodeError:
+                variables = {}
+        elif isinstance(template.available_variables, dict):
+            variables = template.available_variables
+        else:
+            variables = {}
+
+        preview_data = {key: f"[{key}]" for key in variables.keys()}
     
     # Render template
     render_result = EmailTemplateService.render_template(template, preview_data)
