@@ -64,48 +64,97 @@ class AmortizationChartGenerator:
         return f"data:image/png;base64,{image_base64}"
 
     def generate_cost_comparison_chart(self):
-        """Generate cost comparison bar chart"""
+        """Generate simple and clear cost comparison line chart"""
         fig, ax = plt.subplots(figsize=(10, 6))
         self._setup_chart_style(fig, ax)
 
-        # Data
-        labels = []
-        values = []
-        colors = []
+        # Prepare data
+        cost_bestand = float(self.calculation.kosten_alt_jahr or 0)
+        cost_led = float(self.calculation.kosten_neu_ohne_lms_jahr or 0)
+        cost_lms = float(self.calculation.kosten_neu_mit_lms_jahr or 0)
 
         if self.calculation.neue_anlage_vorhanden:
-            labels.extend(['Bestandsanlage', 'LED-Leuchten', 'LED + LIMAS'])
-            values.extend([
-                float(self.calculation.kosten_alt_jahr or 0),
-                float(self.calculation.kosten_neu_ohne_lms_jahr or 0),
-                float(self.calculation.kosten_neu_mit_lms_jahr or 0)
-            ])
-            colors.extend([self.COLORS['bestand'], self.COLORS['led'], self.COLORS['lms']])
+            # X-axis positions and labels
+            x_positions = [0, 1, 2]
+            x_labels = ['Bestand', 'LED', 'LED + LMS']
+            cost_values = [cost_bestand, cost_led, cost_lms]
+
+            # Main cost line
+            ax.plot(x_positions, cost_values,
+                   color=self.COLORS['bestand'], linewidth=4,
+                   marker='o', markersize=10, markerfacecolor='white',
+                   markeredgewidth=3, markeredgecolor=self.COLORS['bestand'],
+                   label='Jährliche Kosten', zorder=3)
+
+            # Simple savings area - from highest to lowest cost
+            if cost_bestand > cost_lms:
+                # Fill area under the entire cost line to show total savings potential
+                baseline = min(cost_values) * 0.95
+                ax.fill_between(x_positions, baseline, cost_values,
+                               color=self.COLORS['lms'], alpha=0.15, zorder=1)
+
+                # Highlight the actual savings area (above final cost, below initial cost)
+                ax.fill_between([0, 2], [cost_lms, cost_lms], [cost_bestand, cost_bestand],
+                               color=self.COLORS['lms'], alpha=0.4,
+                               label=f'Gesamteinsparung: {cost_bestand-cost_lms:,.0f} €/Jahr',
+                               zorder=2)
+
         else:
-            labels.extend(['LED-Leuchten', 'LED + LIMAS'])
-            values.extend([
-                float(self.calculation.kosten_neu_ohne_lms_jahr or 0),
-                float(self.calculation.kosten_neu_mit_lms_jahr or 0)
-            ])
-            colors.extend([self.COLORS['led'], self.COLORS['lms']])
+            # Only LED vs LED+LMS comparison
+            x_positions = [0, 1]
+            x_labels = ['LED', 'LED + LMS']
+            cost_values = [cost_led, cost_lms]
 
-        # Create bars
-        bars = ax.bar(labels, values, color=colors, alpha=0.8, edgecolor='white', linewidth=1)
+            # Main cost line
+            ax.plot(x_positions, cost_values,
+                   color=self.COLORS['led'], linewidth=4,
+                   marker='o', markersize=10, markerfacecolor='white',
+                   markeredgewidth=3, markeredgecolor=self.COLORS['led'],
+                   label='Jährliche Kosten', zorder=3)
 
-        # Add value labels on bars
-        for bar, value in zip(bars, values):
-            height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2., height + max(values)*0.01,
-                   f'{value:,.0f} €', ha='center', va='bottom', fontweight='bold')
+            # LMS savings area
+            if cost_led > cost_lms:
+                ax.fill_between(x_positions, cost_lms, cost_led,
+                               color=self.COLORS['lms'], alpha=0.4,
+                               label=f'LMS-Einsparung: {cost_led-cost_lms:,.0f} €/Jahr',
+                               zorder=2)
+
+        # Add value labels on points
+        for i, (x, y) in enumerate(zip(x_positions, cost_values)):
+            # Add cost value labels
+            ax.text(x, y + max(cost_values)*0.03, f'{y:,.0f} €',
+                   ha='center', va='bottom', fontweight='bold', fontsize=12,
+                   bbox=dict(boxstyle='round,pad=0.5', facecolor='white',
+                            edgecolor='gray', alpha=0.9))
+
+        # Add savings annotations
+        if self.calculation.neue_anlage_vorhanden and cost_bestand > cost_lms:
+            # Arrow showing total savings
+            ax.annotate('', xy=(2, cost_lms), xytext=(2, cost_bestand),
+                       arrowprops=dict(arrowstyle='<->', color=self.COLORS['lms'], lw=2))
+
+            # Savings amount text
+            mid_y = (cost_bestand + cost_lms) / 2
+            ax.text(2.1, mid_y, f'-{cost_bestand-cost_lms:,.0f} €\nEinsparung',
+                   va='center', ha='left', fontweight='bold', fontsize=11,
+                   color=self.COLORS['lms'],
+                   bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
 
         # Styling
+        ax.set_xticks(x_positions)
+        ax.set_xticklabels(x_labels, fontsize=12, fontweight='bold')
         ax.set_ylabel('Jährliche Kosten (€)', fontsize=12, fontweight='bold')
-        ax.set_title('Kostenvergleich pro Jahr', fontsize=14, fontweight='bold', pad=20)
+        ax.set_title('Kostenvergleich - Einsparungen durch LED und Lichtmanagement',
+                    fontsize=13, fontweight='bold', pad=20)
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:,.0f} €'))
 
-        # Rotate labels if needed
-        if len(labels) > 2:
-            plt.xticks(rotation=15)
+        # Set y-axis for better visibility
+        y_min = min(cost_values) * 0.9 if min(cost_values) > 0 else 0
+        y_max = max(cost_values) * 1.15
+        ax.set_ylim(y_min, y_max)
+
+        # Add legend
+        ax.legend(loc='upper right', frameon=True, fancybox=True, shadow=True, fontsize=10)
 
         plt.tight_layout()
         return self._save_chart_as_base64(fig)
@@ -248,6 +297,47 @@ class AmortizationChartGenerator:
         plt.tight_layout()
         return self._save_chart_as_base64(fig)
 
+    def generate_savings_chart(self):
+        """Generate savings comparison chart with values on bars"""
+        fig, ax = plt.subplots(figsize=(10, 6))
+        self._setup_chart_style(fig, ax)
+
+        # Calculate savings
+        alt_kosten = float(self.calculation.kosten_alt_jahr or 0)
+        neu_kosten = float(self.calculation.kosten_neu_ohne_lms_jahr or 0)
+        neu_kosten_lms = float(self.calculation.kosten_neu_mit_lms_jahr or 0)
+
+        savings_led = max(0, alt_kosten - neu_kosten)
+        savings_lms = max(0, alt_kosten - neu_kosten_lms)
+
+        # Data
+        labels = ['Einsparung durch LED', 'Einsparung durch LED+LMS']
+        values = [savings_led, savings_lms]
+        colors = [self.COLORS['led'], self.COLORS['lms']]
+
+        # Create bars
+        bars = ax.bar(labels, values, color=colors, alpha=0.8, edgecolor='white', linewidth=1)
+
+        # Add value labels in center of bars
+        for bar, value in zip(bars, values):
+            if value > 0:
+                height = bar.get_height()
+                # Position text in center of bar
+                center_y = height / 2
+                ax.text(bar.get_x() + bar.get_width()/2., center_y,
+                       f'€{value:,.0f}\n/Jahr', ha='center', va='center',
+                       fontweight='bold', color='white', fontsize=12)
+
+        # Styling
+        ax.set_ylabel('Jährliche Einsparungen (€)', fontsize=12, fontweight='bold')
+        ax.set_title('Jährliche Einsparungen: LED vs. LED+LMS', fontsize=14, fontweight='bold', pad=20)
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'€{x:,.0f}'))
+
+        self._setup_chart_style(fig, ax)
+        plt.tight_layout()
+
+        return self._save_chart_as_base64(fig)
+
     def generate_all_charts(self):
         """Generate all charts and return as dictionary"""
         if not MATPLOTLIB_AVAILABLE:
@@ -257,6 +347,7 @@ class AmortizationChartGenerator:
                 'amortization_chart': None,
                 'energy_chart': None,
                 'co2_chart': None,
+                'savings_chart': None,
             }
 
         return {
@@ -264,6 +355,7 @@ class AmortizationChartGenerator:
             'amortization_chart': self.generate_amortization_chart(),
             'energy_chart': self.generate_energy_consumption_chart(),
             'co2_chart': self.generate_co2_emissions_chart(),
+            'savings_chart': self.generate_savings_chart(),
         }
 
 

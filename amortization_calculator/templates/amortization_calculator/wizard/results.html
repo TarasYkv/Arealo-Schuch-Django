@@ -117,31 +117,18 @@
         </div>
     </div>
 
-    <!-- Savings Charts -->
+    <!-- Combined Savings Chart -->
     <div class="row mb-4">
-        <div class="col-lg-6 mb-4">
-            <div class="card h-100">
-                <div class="card-header bg-secondary text-white">
-                    <h6 class="card-title mb-0">
-                        <i class="fas fa-piggy-bank me-2"></i>
-                        Einsparung: Bestand vs. LED
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <canvas id="savingsLedChart" height="220"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-6 mb-4">
+        <div class="col-12 mb-4">
             <div class="card h-100">
                 <div class="card-header bg-success text-white">
                     <h6 class="card-title mb-0">
-                        <i class="fas fa-hand-holding-usd me-2"></i>
-                        Einsparung: Bestand vs. LED + Lichtmanagement
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Einsparungsvergleich: LED vs. LED + Lichtmanagement
                     </h6>
                 </div>
                 <div class="card-body">
-                    <canvas id="savingsLightMgmtChart" height="220"></canvas>
+                    <canvas id="combinedSavingsChart" height="300"></canvas>
                 </div>
             </div>
         </div>
@@ -662,40 +649,104 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    // 1. Cost Comparison Chart
+    // 1. Cost Comparison Chart - Simple Line Chart
     const costCtx = document.getElementById('costComparisonChart').getContext('2d');
-    const costDatasets = [];
 
     {% if calculation.neue_anlage_vorhanden %}
-    costDatasets.push({
-        label: 'Bestandsanlage',
-        data: [chartData.altKosten, 0, 0],
-        backgroundColor: '#dc3545',
-        borderColor: '#dc3545',
-        borderWidth: 1
-    });
+    // With existing installation: Bestand → LED → LED+LMS
+    const costValues = [chartData.altKosten, chartData.neuKosten, chartData.neuKostenMitLimas];
+    const costLabels = ['Bestand', 'LED', 'LED + LMS'];
+
+    const costDatasets = [
+        {
+            label: 'Jährliche Kosten',
+            data: costValues,
+            borderColor: '#dc3545',
+            backgroundColor: 'rgba(220, 53, 69, 0.1)',
+            borderWidth: 3,
+            pointBackgroundColor: '#ffffff',
+            pointBorderColor: '#dc3545',
+            pointBorderWidth: 2,
+            pointRadius: 8,
+            fill: false,
+            tension: 0.1
+        }
+    ];
+
+    // Add savings area if there are savings
+    if (chartData.altKosten > chartData.neuKostenMitLimas && chartData.altKosten && chartData.neuKostenMitLimas) {
+        const savingsAmount = Math.round((chartData.altKosten || 0) - (chartData.neuKostenMitLimas || 0));
+        costDatasets.push({
+            label: 'Einsparung: €' + savingsAmount.toLocaleString() + '/Jahr',
+            data: [chartData.neuKostenMitLimas, chartData.neuKostenMitLimas, chartData.neuKostenMitLimas],
+            backgroundColor: 'rgba(40, 167, 69, 0.3)',
+            borderColor: 'rgba(40, 167, 69, 0.5)',
+            borderWidth: 1,
+            pointRadius: 0,
+            fill: '+1'
+        });
+
+        // Top line for fill area - hidden in legend
+        costDatasets.push({
+            label: '', // Empty label to hide in legend
+            data: [chartData.altKosten, chartData.altKosten, chartData.altKosten],
+            backgroundColor: 'transparent',
+            borderColor: 'transparent',
+            pointRadius: 0,
+            fill: false
+        });
+    }
+
+    {% else %}
+    // Only LED comparison: LED → LED+LMS
+    const costValues = [chartData.neuKosten, chartData.neuKostenMitLimas];
+    const costLabels = ['LED', 'LED + LMS'];
+
+    const costDatasets = [
+        {
+            label: 'Jährliche Kosten',
+            data: costValues,
+            borderColor: '#0075BE',
+            backgroundColor: 'rgba(0, 117, 190, 0.1)',
+            borderWidth: 3,
+            pointBackgroundColor: '#ffffff',
+            pointBorderColor: '#0075BE',
+            pointBorderWidth: 2,
+            pointRadius: 8,
+            fill: false,
+            tension: 0.1
+        }
+    ];
+
+    // Add LMS savings area
+    if (chartData.neuKosten > chartData.neuKostenMitLimas && chartData.neuKosten && chartData.neuKostenMitLimas) {
+        const savingsAmount = Math.round((chartData.neuKosten || 0) - (chartData.neuKostenMitLimas || 0));
+        costDatasets.push({
+            label: 'LMS-Einsparung: €' + savingsAmount.toLocaleString() + '/Jahr',
+            data: [chartData.neuKostenMitLimas, chartData.neuKostenMitLimas],
+            backgroundColor: 'rgba(40, 167, 69, 0.3)',
+            borderColor: 'rgba(40, 167, 69, 0.5)',
+            borderWidth: 1,
+            pointRadius: 0,
+            fill: '+1'
+        });
+
+        // Top line for fill area - hidden in legend
+        costDatasets.push({
+            label: '', // Empty label to hide in legend
+            data: [chartData.neuKosten, chartData.neuKosten],
+            backgroundColor: 'transparent',
+            borderColor: 'transparent',
+            pointRadius: 0,
+            fill: false
+        });
+    }
     {% endif %}
 
-    costDatasets.push({
-        label: 'LED-Leuchten',
-        data: {% if calculation.neue_anlage_vorhanden %}[0, chartData.neuKosten, 0]{% else %}[chartData.neuKosten, 0]{% endif %},
-        backgroundColor: '#0075BE',
-        borderColor: '#0075BE',
-        borderWidth: 1
-    });
-
-    costDatasets.push({
-        label: 'LED + Lichtmanagement',
-        data: {% if calculation.neue_anlage_vorhanden %}[0, 0, chartData.neuKostenMitLimas]{% else %}[0, chartData.neuKostenMitLimas]{% endif %},
-        backgroundColor: '#28a745',
-        borderColor: '#28a745',
-        borderWidth: 1
-    });
-
     new Chart(costCtx, {
-        type: 'bar',
+        type: 'line',
         data: {
-            labels: {% if calculation.neue_anlage_vorhanden %}['Bestandsanlage', 'LED-Leuchten', 'LED + Lichtmanagement']{% else %}['LED-Leuchten', 'LED + Lichtmanagement']{% endif %},
+            labels: costLabels,
             datasets: costDatasets
         },
         options: {
@@ -704,12 +755,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 ...chartOptions.plugins,
                 title: {
                     display: true,
-                    text: 'Kostenvergleich pro Jahr'
+                    text: 'Kostenvergleich mit Einsparungen'
                 },
                 legend: {
                     position: 'bottom',
                     labels: {
-                        usePointStyle: true
+                        usePointStyle: true,
+                        filter: function(item, chart) {
+                            return item.text && item.text !== '' && item.text !== 'undefined';
+                        }
                     }
                 }
             },
@@ -717,12 +771,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 ...chartOptions.scales,
                 y: {
                     ...chartOptions.scales.y,
+                    beginAtZero: false,
                     ticks: {
                         callback: function(value, index, values) {
                             return '€ ' + value.toLocaleString();
                         }
                     }
                 }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
             }
         }
     });
@@ -797,115 +856,129 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // 2b. Savings: Bestandsanlage vs. LED
-    const savingsLedCtx = document.getElementById('savingsLedChart').getContext('2d');
-    new Chart(savingsLedCtx, {
+    // 2b. Combined Savings Chart: LED vs LED+LMS Comparison Side by Side
+    const combinedSavingsCtx = document.getElementById('combinedSavingsChart').getContext('2d');
+
+    // Debug: Log chart data
+    console.log('🔍 DEBUG Combined Savings Chart Data:');
+    console.log('altKosten:', chartData.altKosten);
+    console.log('neuKosten:', chartData.neuKosten);
+    console.log('neuKostenMitLimas:', chartData.neuKostenMitLimas);
+
+    // Ensure data exists and is valid
+    const altKostenValue = Number(chartData.altKosten) || 0;
+    const neuKostenValue = Number(chartData.neuKosten) || 0;
+    const neuKostenMitLimasValue = Number(chartData.neuKostenMitLimas) || 0;
+
+    console.log('Processed values:', { altKostenValue, neuKostenValue, neuKostenMitLimasValue });
+
+    // Calculate savings
+    const savingsLED = Math.max(0, altKostenValue - neuKostenValue);
+    const savingsLEDLMS = Math.max(0, altKostenValue - neuKostenMitLimasValue);
+
+    new Chart(combinedSavingsCtx, {
         type: 'bar',
         data: {
-            labels: ['Bestand'],
+            labels: ['Einsparung durch LED', 'Einsparung durch LED+LMS'],
             datasets: [{
-                label: 'Kosten Bestand',
-                data: [chartData.altKosten],
-                backgroundColor: '#dc3545',
-                borderColor: '#dc3545',
-                borderWidth: 1
-            }, {
-                label: 'Kosten LED',
-                data: [chartData.neuKosten],
-                backgroundColor: '#0075BE',
+                label: 'LED-Einsparung: €' + Math.round(savingsLED).toLocaleString() + '/Jahr',
+                data: [savingsLED, 0],
+                backgroundColor: 'rgba(0, 117, 190, 0.7)',
                 borderColor: '#0075BE',
-                borderWidth: 1
+                borderWidth: 2
             }, {
-                label: 'Einsparung LED',
-                data: [chartData.ersparnisKostenLed],
-                backgroundColor: 'rgba(40, 167, 69, 0.35)',
+                label: 'LED+LMS-Einsparung: €' + Math.round(savingsLEDLMS).toLocaleString() + '/Jahr',
+                data: [0, savingsLEDLMS],
+                backgroundColor: 'rgba(40, 167, 69, 0.7)',
                 borderColor: '#28a745',
-                borderWidth: 1
+                borderWidth: 2
             }]
         },
         options: {
-            ...chartOptions,
+            responsive: true,
+            maintainAspectRatio: false,
             plugins: {
-                ...chartOptions.plugins,
                 title: {
                     display: true,
-                    text: 'Jährliche Kosten & Einsparung'
+                    text: 'Jährliche Einsparungen: LED vs. LED+LMS',
+                    font: {
+                        size: 14,
+                        weight: 'bold'
+                    }
                 },
                 legend: {
                     position: 'bottom',
                     labels: {
                         usePointStyle: true
                     }
-                }
-            },
-            scales: {
-                ...chartOptions.scales,
-                y: {
-                    ...chartOptions.scales.y,
-                    ticks: {
-                        callback: function(value) {
-                            return '€ ' + value.toLocaleString();
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: 'white',
+                    bodyColor: 'white',
+                    cornerRadius: 6,
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': €' + context.parsed.y.toLocaleString() + '/Jahr';
+                        },
+                        afterLabel: function(context) {
+                            if (context.dataIndex === 0) {
+                                return 'Bestandskosten: €' + altKostenValue.toLocaleString() + '/Jahr\nLED-Kosten: €' + neuKostenValue.toLocaleString() + '/Jahr';
+                            } else if (context.dataIndex === 1) {
+                                return 'Bestandskosten: €' + altKostenValue.toLocaleString() + '/Jahr\nLED+LMS-Kosten: €' + neuKostenMitLimasValue.toLocaleString() + '/Jahr';
+                            }
+                            return '';
                         }
                     }
                 }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: false
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '€' + value.toLocaleString();
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    }
+                }
             }
-        }
+        },
+        plugins: [{
+            id: 'dataLabels',
+            afterDatasetsDraw: function(chart) {
+                const ctx = chart.ctx;
+                chart.data.datasets.forEach(function(dataset, i) {
+                    const meta = chart.getDatasetMeta(i);
+                    if (!meta.hidden) {
+                        meta.data.forEach(function(element, index) {
+                            const data = dataset.data[index];
+                            if (data > 0) {
+                                ctx.fillStyle = 'white';
+                                ctx.font = 'bold 14px Arial';
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+
+                                // Calculate the center of the bar
+                                const barHeight = Math.abs(element.y - element.base);
+                                const centerY = element.base - (barHeight / 2);
+
+                                ctx.fillText('€' + Math.round(data).toLocaleString(), element.x, centerY);
+                            }
+                        });
+                    }
+                });
+            }
+        }]
     });
 
-    // 2c. Savings: Bestandsanlage vs. LED + Lichtmanagement
-    const savingsLightMgmtCtx = document.getElementById('savingsLightMgmtChart').getContext('2d');
-    new Chart(savingsLightMgmtCtx, {
-        type: 'bar',
-        data: {
-            labels: ['Bestand'],
-            datasets: [{
-                label: 'Kosten Bestand',
-                data: [chartData.altKosten],
-                backgroundColor: '#dc3545',
-                borderColor: '#dc3545',
-                borderWidth: 1
-            }, {
-                label: 'Kosten LED + Lichtmanagement',
-                data: [chartData.neuKostenMitLimas],
-                backgroundColor: '#1e8449',
-                borderColor: '#1e8449',
-                borderWidth: 1
-            }, {
-                label: 'Einsparung LED + Lichtmanagement',
-                data: [chartData.ersparnisKostenLichtmanagement],
-                backgroundColor: 'rgba(255, 193, 7, 0.35)',
-                borderColor: '#ffc107',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            ...chartOptions,
-            plugins: {
-                ...chartOptions.plugins,
-                title: {
-                    display: true,
-                    text: 'Jährliche Kosten & Einsparung'
-                },
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        usePointStyle: true
-                    }
-                }
-            },
-            scales: {
-                ...chartOptions.scales,
-                y: {
-                    ...chartOptions.scales.y,
-                    ticks: {
-                        callback: function(value) {
-                            return '€ ' + value.toLocaleString();
-                        }
-                    }
-                }
-            }
-        }
-    });
 
     // 3. Energy Consumption Chart
     const energyCtx = document.getElementById('energyConsumptionChart').getContext('2d');
