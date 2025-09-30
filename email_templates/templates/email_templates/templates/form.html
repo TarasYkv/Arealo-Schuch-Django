@@ -499,11 +499,15 @@
                                         </div>
                                     </div>
                                     <div id="quill-editor" style="height: 400px;"></div>
-                                    <small class="form-text text-muted mt-2 d-block">
-                                        <i class="fas fa-info-circle me-1"></i>
-                                        Änderungen werden automatisch ins HTML-Feld synchronisiert.
-                                        Template-Variablen ({% verbatim %}{{ variable }}{% endverbatim %}) können direkt eingegeben werden.
-                                    </small>
+                                    <div class="alert alert-info mt-2">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        <strong>Hinweis:</strong> Der WYSIWYG-Editor eignet sich am besten für <strong>einfache E-Mails ohne komplexes Layout</strong>.
+                                        Für vollständige HTML-Dokumente mit Custom CSS nutze bitte den <strong>"HTML-Code" Tab</strong>.
+                                        <br>
+                                        <small class="mt-1 d-block">
+                                            Template-Variablen ({% verbatim %}{{ variable }}{% endverbatim %}) können direkt eingegeben werden.
+                                        </small>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1774,7 +1778,25 @@ document.addEventListener('DOMContentLoaded', function() {
         // Load initial content from HTML field if exists
         const htmlField = document.getElementById('id_html_content');
         if (htmlField && htmlField.value.trim()) {
-            syncToWysiwyg();
+            const htmlContent = htmlField.value;
+
+            // Check if it's a full HTML document
+            if (htmlContent.includes('<!DOCTYPE') || htmlContent.includes('<html')) {
+                console.warn('⚠️ Full HTML document detected - extracting body content');
+                // Try to extract body content
+                const bodyMatch = htmlContent.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+                if (bodyMatch && bodyMatch[1]) {
+                    quillEditor.root.innerHTML = bodyMatch[1];
+                    console.log('✅ Body content extracted and loaded');
+                } else {
+                    // Can't extract body, leave editor empty
+                    console.log('ℹ️ Complex HTML - use HTML-Code tab instead');
+                }
+            } else {
+                // Simple HTML, load directly
+                quillEditor.root.innerHTML = htmlContent;
+                console.log('✅ Initial content loaded into WYSIWYG');
+            }
         }
     }
 });
@@ -1785,7 +1807,14 @@ function syncFromWysiwyg() {
 
     const htmlField = document.getElementById('id_html_content');
     if (htmlField) {
-        const html = quillEditor.root.innerHTML;
+        // Get the HTML content from Quill
+        let html = quillEditor.root.innerHTML;
+
+        // If it's just empty paragraphs, clear the field
+        if (html === '<p><br></p>' || html.trim() === '') {
+            html = '';
+        }
+
         htmlField.value = html;
         console.log('✅ Synced from WYSIWYG to HTML');
     }
