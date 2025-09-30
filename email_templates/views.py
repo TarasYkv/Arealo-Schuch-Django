@@ -1106,3 +1106,42 @@ def generate_ai_content(request):
             'success': False,
             'error': f'Unerwarteter Fehler: {str(e)}'
         })
+
+
+@require_http_methods(["POST"])
+@login_required
+def html_to_text_view(request):
+    """
+    Convert HTML content to plain text
+    """
+    try:
+        data = json.loads(request.body)
+        html_content = data.get('html_content', '')
+
+        if not html_content:
+            return JsonResponse({
+                'success': False,
+                'error': 'Kein HTML-Inhalt angegeben.'
+            })
+
+        # Import the conversion function
+        from .utils import html_to_text
+
+        # Convert HTML to text
+        text_content = html_to_text(html_content)
+
+        return JsonResponse({
+            'success': True,
+            'text_content': text_content
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Ungültige JSON-Daten erhalten.'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler bei der Konvertierung: {str(e)}'
+        })

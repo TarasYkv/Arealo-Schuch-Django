@@ -496,6 +496,12 @@
                             
                             <div class="tab-pane fade" id="text-content" role="tabpanel">
                                 <div class="mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label class="form-label mb-0">Text-Inhalt</label>
+                                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="syncTextFromHTML()">
+                                            <i class="fas fa-sync-alt me-1"></i>Aus HTML generieren
+                                        </button>
+                                    </div>
                                     {{ form.text_content }}
                                     {% if form.text_content.errors %}
                                         <div class="invalid-feedback d-block">
@@ -503,7 +509,8 @@
                                         </div>
                                     {% endif %}
                                     <small class="form-text text-muted">
-                                        Optional: Nur-Text-Version für E-Mail-Clients ohne HTML-Unterstützung
+                                        Optional: Nur-Text-Version für E-Mail-Clients ohne HTML-Unterstützung.
+                                        Kann automatisch aus dem HTML-Inhalt generiert werden.
                                     </small>
                                 </div>
                             </div>
@@ -1625,5 +1632,61 @@ document.addEventListener('DOMContentLoaded', function() {
         updateModelInfo();
     }
 });
+
+// Function to sync text content from HTML content
+function syncTextFromHTML() {
+    const htmlContent = document.getElementById('id_html_content').value;
+
+    if (!htmlContent || htmlContent.trim() === '') {
+        alert('Bitte geben Sie zuerst HTML-Inhalt ein.');
+        return;
+    }
+
+    // Show loading state
+    const btn = event.target.closest('button');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Generiere...';
+
+    // Call backend to convert HTML to text
+    fetch('{% url "email_templates:html_to_text" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({
+            html_content: htmlContent
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('id_text_content').value = data.text_content;
+
+            // Show success message
+            btn.innerHTML = '<i class="fas fa-check me-1"></i>Generiert!';
+            btn.classList.remove('btn-outline-primary');
+            btn.classList.add('btn-success');
+
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-outline-primary');
+                btn.disabled = false;
+            }, 2000);
+        } else {
+            alert('Fehler beim Generieren des Text-Inhalts: ' + (data.error || 'Unbekannter Fehler'));
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Fehler beim Generieren des Text-Inhalts.');
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    });
+}
 </script>
 {% endblock %}
