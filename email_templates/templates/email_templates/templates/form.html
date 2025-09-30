@@ -4,11 +4,6 @@
 {% block title %}{{ title }}{% endblock %}
 
 {% block extra_css %}
-<!-- TinyMCE WYSIWYG Editor -->
-<script>
-console.log('🔄 Loading TinyMCE from CDN...');
-</script>
-<script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/7/tinymce.min.js" referrerpolicy="origin" onload="console.log('✅ TinyMCE loaded successfully')" onerror="console.error('❌ TinyMCE failed to load')"></script>
 <style>
     .code-editor {
         font-family: 'Courier New', monospace;
@@ -452,63 +447,34 @@ console.log('🔄 Loading TinyMCE from CDN...');
                         
                         <ul class="nav nav-tabs mb-3" id="contentTabs" role="tablist">
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="wysiwyg-tab" data-bs-toggle="tab" 
-                                        data-bs-target="#wysiwyg-content" type="button" role="tab">
-                                    <i class="fas fa-edit me-2"></i>WYSIWYG Editor
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="html-tab" data-bs-toggle="tab" 
+                                <button class="nav-link active" id="html-tab" data-bs-toggle="tab"
                                         data-bs-target="#html-content" type="button" role="tab">
                                     <i class="fas fa-code me-2"></i>HTML-Code
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="text-tab" data-bs-toggle="tab" 
+                                <button class="nav-link" id="text-tab" data-bs-toggle="tab"
                                         data-bs-target="#text-content" type="button" role="tab">
                                     <i class="fas fa-align-left me-2"></i>Text-Inhalt
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="css-tab" data-bs-toggle="tab" 
+                                <button class="nav-link" id="css-tab" data-bs-toggle="tab"
                                         data-bs-target="#css-content" type="button" role="tab">
                                     <i class="fas fa-paint-brush me-2"></i>Custom CSS
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="preview-tab" data-bs-toggle="tab" 
+                                <button class="nav-link" id="preview-tab" data-bs-toggle="tab"
                                         data-bs-target="#preview-content" type="button" role="tab">
                                     <i class="fas fa-eye me-2"></i>Vorschau
                                 </button>
                             </li>
                         </ul>
-                        
+
                         <div class="tab-content" id="contentTabsContent">
-                            <!-- WYSIWYG Editor Tab -->
-                            <div class="tab-pane fade show active" id="wysiwyg-content" role="tabpanel">
-                                <div class="mb-3">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <label class="form-label mb-0">
-                                            <i class="fas fa-edit me-2"></i>Visueller Editor
-                                        </label>
-                                        <div class="btn-group btn-group-sm" role="group">
-                                            <button type="button" class="btn btn-outline-secondary" onclick="syncFromWysiwyg()">
-                                                <i class="fas fa-sync me-1"></i>Sync zu HTML
-                                            </button>
-                                            <button type="button" class="btn btn-outline-secondary" onclick="syncToWysiwyg()">
-                                                <i class="fas fa-download me-1"></i>Von HTML laden
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <textarea id="wysiwyg-editor" class="form-control"></textarea>
-                                    <small class="form-text text-muted">
-                                        Verwenden Sie den visuellen Editor zum Formatieren. Bilder können direkt eingefügt und in der Größe angepasst werden.
-                                    </small>
-                                </div>
-                            </div>
-                            
                             <!-- HTML Code Tab -->
-                            <div class="tab-pane fade" id="html-content" role="tabpanel">
+                            <div class="tab-pane fade show active" id="html-content" role="tabpanel">
                                 <div class="mb-3">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <label class="form-label mb-0">HTML-Code</label>
@@ -1090,15 +1056,9 @@ function insertCustomVariable() {
 function updatePreview() {
     console.log('=== Starting updatePreview ===');
     const subject = document.getElementById('id_subject').value;
-    
-    // Get HTML content from WYSIWYG or HTML field
-    let htmlContent;
-    if (wysiwygEditor && document.getElementById('wysiwyg-content').classList.contains('active')) {
-        syncFromWysiwyg(); // Ensure HTML field is up to date
-        htmlContent = wysiwygEditor.getContent();
-    } else {
-        htmlContent = document.getElementById('id_html_content').value;
-    }
+
+    // Get HTML content directly from HTML field
+    let htmlContent = document.getElementById('id_html_content').value;
     
     const customCSS = document.getElementById('id_custom_css').value;
     
