@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
@@ -6,6 +7,7 @@ from django.http import JsonResponse, HttpResponse
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.views.decorators.http import require_http_methods
@@ -491,7 +493,86 @@ def template_preview(request, pk):
         else:
             variables = {}
 
-        preview_data = {key: f"[{key}]" for key in variables.keys()}
+        # Generate meaningful demo data based on variable names
+        preview_data = {}
+        for key in variables.keys():
+            # User-related variables
+            if key in ['user_name', 'customer_name', 'recipient_name', 'name']:
+                preview_data[key] = 'Max Mustermann'
+            elif key in ['first_name', 'vorname']:
+                preview_data[key] = 'Max'
+            elif key in ['last_name', 'nachname']:
+                preview_data[key] = 'Mustermann'
+            elif key in ['email', 'recipient_email', 'user_email']:
+                preview_data[key] = 'max.mustermann@example.com'
+
+            # Site/Company variables
+            elif key in ['site_name', 'company_name']:
+                preview_data[key] = 'Workloom'
+            elif key in ['domain', 'site_url']:
+                preview_data[key] = request.get_host()
+
+            # URLs and Links
+            elif 'verification_url' in key or 'confirm_url' in key:
+                preview_data[key] = f"http://{request.get_host()}/verify/demo-token-abc123xyz/"
+            elif 'reset_url' in key or 'password_url' in key:
+                preview_data[key] = f"http://{request.get_host()}/reset-password/demo-token-abc123xyz/"
+            elif 'activation_url' in key:
+                preview_data[key] = f"http://{request.get_host()}/activate/demo-token-abc123xyz/"
+            elif 'login_url' in key:
+                preview_data[key] = f"http://{request.get_host()}/login/"
+            elif 'url' in key or 'link' in key:
+                preview_data[key] = f"http://{request.get_host()}/demo-link/"
+
+            # Dates and Times
+            elif 'date' in key or 'datum' in key:
+                preview_data[key] = timezone.now().strftime('%d.%m.%Y')
+            elif 'time' in key or 'zeit' in key:
+                preview_data[key] = timezone.now().strftime('%H:%M')
+            elif 'datetime' in key:
+                preview_data[key] = timezone.now().strftime('%d.%m.%Y %H:%M')
+
+            # Amounts and Prices
+            elif 'amount' in key or 'price' in key or 'total' in key:
+                preview_data[key] = '€ 29,90'
+            elif 'currency' in key:
+                preview_data[key] = 'EUR'
+
+            # Order related
+            elif 'order_number' in key or 'order_id' in key:
+                preview_data[key] = 'ORD-2024-001234'
+            elif 'invoice_number' in key:
+                preview_data[key] = 'RE-2024-001234'
+
+            # File/Transfer related
+            elif 'file_name' in key or 'filename' in key:
+                preview_data[key] = 'beispiel-dokument.pdf'
+            elif 'file_size' in key or 'filesize' in key:
+                preview_data[key] = '2.5 MB'
+            elif 'download_url' in key:
+                preview_data[key] = f"http://{request.get_host()}/download/demo-transfer-abc123/"
+            elif 'expires' in key or 'expiry' in key:
+                preview_data[key] = (timezone.now() + timedelta(days=7)).strftime('%d.%m.%Y')
+
+            # Contact/Support
+            elif 'support_email' in key:
+                preview_data[key] = 'support@workloom.de'
+            elif 'phone' in key or 'telefon' in key:
+                preview_data[key] = '+49 123 456789'
+
+            # Messages and Content
+            elif 'message' in key or 'nachricht' in key:
+                preview_data[key] = 'Dies ist eine Beispielnachricht für die Vorschau.'
+            elif 'subject' in key or 'betreff' in key:
+                preview_data[key] = 'Beispiel-Betreff'
+            elif 'description' in key or 'beschreibung' in key:
+                preview_data[key] = 'Dies ist eine Beispielbeschreibung für die Vorschau.'
+
+            # Generic fallback
+            else:
+                # Use variable description if available, otherwise use variable name
+                var_description = variables.get(key, key)
+                preview_data[key] = f"[Demo: {var_description}]"
     
     # Render template
     render_result = EmailTemplateService.render_template(template, preview_data)
@@ -500,11 +581,28 @@ def template_preview(request, pk):
         messages.error(request, f'Vorlagen-Rendering fehlgeschlagen: {render_result["error"]}')
         return redirect('email_templates:template_detail', pk=pk)
     
+    rendered_subject = render_result['subject'] or ''
+
+    # Highlight trailing action keywords (e.g. "ERFORDERLICH") as badges instead of plain text
+    subject_badge = None
+    subject_display = rendered_subject
+    badge_suffixes = {
+        'ERFORDERLICH': 'Erforderlich',
+    }
+    for suffix, label in badge_suffixes.items():
+        token = f' {suffix}'
+        if subject_display.endswith(token):
+            subject_display = subject_display[: -len(token)].rstrip()
+            subject_badge = label
+            break
+
     return render(request, 'email_templates/templates/preview.html', {
         'template': template,
-        'rendered_subject': render_result['subject'],
+        'rendered_subject': rendered_subject,
         'rendered_html': render_result['html_content'],
         'rendered_text': render_result['text_content'],
+        'subject_display': subject_display,
+        'subject_badge': subject_badge,
         'preview_data': json.dumps(preview_data, indent=2) if preview_data else ''
     })
 

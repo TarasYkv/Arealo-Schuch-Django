@@ -154,12 +154,74 @@
                     
                     <!-- Email Body -->
                     <div class="email-body">
-                        {% if template.custom_css %}
-                            <style>{{ template.custom_css }}</style>
-                        {% endif %}
-                        
                         {% if rendered_html %}
-                            {{ rendered_html|safe }}
+                            {% if '<!DOCTYPE' in rendered_html or '<html' in rendered_html %}
+                                <iframe id="email-preview-iframe"
+                                        style="width: 100%; min-height: 600px; border: none;"
+                                        title="HTML-E-Mail-Vorschau">
+                                </iframe>
+                                <script>
+                                    document.addEventListener('DOMContentLoaded', function() {
+                                        const iframe = document.getElementById('email-preview-iframe');
+                                        if (!iframe) {
+                                            return;
+                                        }
+
+                                        const htmlContent = "{{ rendered_html|escapejs }}";
+
+                                        function resizeIframe() {
+                                            try {
+                                                const iframeDoc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
+                                                if (!iframeDoc) {
+                                                    return;
+                                                }
+
+                                                const body = iframeDoc.body;
+                                                const docEl = iframeDoc.documentElement;
+                                                const newHeight = Math.max(
+                                                    body ? body.scrollHeight : 0,
+                                                    docEl ? docEl.scrollHeight : 0
+                                                );
+
+                                                if (newHeight) {
+                                                    iframe.style.height = (newHeight + 50) + 'px';
+                                                }
+                                            } catch (error) {
+                                                console.log('Preview iframe resize failed', error);
+                                            }
+                                        }
+
+                                        iframe.addEventListener('load', function handleLoad() {
+                                            resizeIframe();
+                                            setTimeout(resizeIframe, 100);
+                                            setTimeout(resizeIframe, 300);
+                                        });
+
+                                        try {
+                                            iframe.srcdoc = htmlContent;
+                                        } catch (error) {
+                                            try {
+                                                const iframeDoc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
+                                                if (!iframeDoc) {
+                                                    return;
+                                                }
+
+                                                iframeDoc.open();
+                                                iframeDoc.write(htmlContent);
+                                                iframeDoc.close();
+                                                resizeIframe();
+                                            } catch (fallbackError) {
+                                                console.log('Preview fallback failed', fallbackError);
+                                            }
+                                        }
+                                    });
+                                </script>
+                            {% else %}
+                                {% if template.custom_css %}
+                                    <style>{{ template.custom_css }}</style>
+                                {% endif %}
+                                {{ rendered_html|safe }}
+                            {% endif %}
                         {% else %}
                             <div class="text-center text-muted py-5">
                                 <i class="fas fa-file-alt fa-3x mb-3"></i>
