@@ -418,7 +418,14 @@ def template_detail(request, pk):
 def template_edit(request, pk):
     """Edit email template"""
     template = get_object_or_404(EmailTemplate, pk=pk)
-    
+
+    # DEBUG: Log template data before form initialization
+    print(f"🔍 DEBUG template_edit - Template ID: {template.pk}")
+    print(f"🔍 DEBUG - Template name: {template.name}")
+    print(f"🔍 DEBUG - HTML content length: {len(template.html_content)}")
+    print(f"🔍 DEBUG - Text content length: {len(template.text_content)}")
+    print(f"🔍 DEBUG - First 100 chars of HTML: {template.html_content[:100]}")
+
     if request.method == 'POST':
         form = EmailTemplateForm(request.POST, instance=template)
         if form.is_valid():
@@ -426,16 +433,22 @@ def template_edit(request, pk):
             EmailTemplateService.create_template_version(
                 template, request.user, 'Updated template'
             )
-            
+
             template = form.save(commit=False)
             template.last_modified_by = request.user
             template.save()
-            
+
             messages.success(request, f'Vorlage "{template.name}" wurde aktualisiert.')
             return redirect('email_templates:template_detail', pk=template.pk)
     else:
         form = EmailTemplateForm(instance=template)
-    
+
+        # DEBUG: Check form after initialization
+        print(f"🔍 DEBUG - Form initialized with instance")
+        print(f"🔍 DEBUG - Form.instance.pk: {form.instance.pk}")
+        print(f"🔍 DEBUG - Form initial html_content length: {len(form.initial.get('html_content', ''))}")
+        print(f"🔍 DEBUG - Form field html_content value: {form['html_content'].value()[:100] if form['html_content'].value() else 'NONE'}")
+
     # Get available AI models for the current user
     from .ai_service import EmailAIService
     ai_service = EmailAIService(user=request.user)
