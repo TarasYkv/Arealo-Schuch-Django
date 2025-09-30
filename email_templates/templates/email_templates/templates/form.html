@@ -539,10 +539,29 @@
                                         <strong>Debug:</strong> Template geladen!
                                         HTML: {{ template.html_content|length }} Zeichen,
                                         Text: {{ template.text_content|length }} Zeichen
+                                        <br>
+                                        <strong>Form Field Value:</strong> {{ form.html_content.value|length|default:"0" }} Zeichen
                                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                                     </div>
                                     {% endif %}
+                                    <!-- DEBUG: Show what value the form field should have -->
+                                    <div class="alert alert-danger mt-2 mb-2">
+                                        <strong>🔥 CRITICAL DEBUG:</strong><br>
+                                        Form field value length: {{ form.html_content.value|length|default:"0" }}<br>
+                                        Form field value exists: {{ form.html_content.value|yesno:"✅ YES,❌ NO" }}<br>
+                                        First 200 chars of form value: <code>{{ form.html_content.value|slice:":200"|escape }}</code><br>
+                                        <strong>Template object html_content length:</strong> {{ template.html_content|length }}<br>
+                                        First 200 chars of template: <code>{{ template.html_content|slice:":200"|escape }}</code>
+                                    </div>
+
                                     {{ form.html_content }}
+
+                                    <div class="alert alert-info mt-2">
+                                        <strong>Textarea Debug:</strong>
+                                        Field ID: {{ form.html_content.id_for_label }}
+                                        | Has data in form: {{ form.html_content.value|yesno:"YES,NO" }}
+                                        | Direct Template Access: {{ template.html_content|slice:":50" }}...
+                                    </div>
                                     {% if form.html_content.errors %}
                                         <div class="invalid-feedback d-block">
                                             {{ form.html_content.errors.0 }}
