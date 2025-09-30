@@ -1794,20 +1794,21 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        // IMPORTANT: Set isInitialLoad to false AFTER loading content
-        // This prevents the auto-sync from overwriting the HTML field during initialization
+        // CRITICAL: Register event listener AFTER a delay to prevent sync during initialization
+        // This ensures the content is fully loaded before any auto-sync can occur
         setTimeout(() => {
             isInitialLoad = false;
-            console.log('✅ Initial load complete - auto-sync now enabled');
-        }, 100);
 
-        // Auto-sync to HTML field on text change - BUT NOT during initial load!
-        quillEditor.on('text-change', function(delta, oldDelta, source) {
-            if (source === 'user' && !isInitialLoad) {
-                syncFromWysiwyg();
-                console.log('✅ Auto-synced from WYSIWYG to HTML (user change)');
-            }
-        });
+            // NOW register the auto-sync event listener
+            quillEditor.on('text-change', function(delta, oldDelta, source) {
+                if (source === 'user') {
+                    syncFromWysiwyg();
+                    console.log('✅ Auto-synced from WYSIWYG to HTML (user change)');
+                }
+            });
+
+            console.log('✅ Initial load complete - auto-sync now enabled');
+        }, 200);
     }
 });
 
