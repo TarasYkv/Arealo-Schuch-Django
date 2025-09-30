@@ -601,6 +601,7 @@ def template_preview(request, pk):
         'rendered_subject': rendered_subject,
         'rendered_html': render_result['html_content'],
         'rendered_text': render_result['text_content'],
+        'raw_text_content': template.text_content,
         'subject_display': subject_display,
         'subject_badge': subject_badge,
         'preview_data': json.dumps(preview_data, indent=2) if preview_data else ''
