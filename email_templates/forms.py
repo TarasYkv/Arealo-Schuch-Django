@@ -168,7 +168,7 @@ class EmailTemplateForm(forms.ModelForm):
             'text_content': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 10,
-                'placeholder': 'Optionaler Nur-Text-Inhalt...'
+                'placeholder': 'Text-Version wird NICHT automatisch synchronisiert! Button "Aus HTML generieren" nutzen.'
             }),
             'custom_css': forms.Textarea(attrs={
                 'class': 'form-control',
@@ -198,7 +198,16 @@ class EmailTemplateForm(forms.ModelForm):
             'data-editor': 'html',
             'data-theme': 'default'
         })
-        
+
+        # Add help texts with sync warning
+        self.fields['html_content'].help_text = (
+            'HTML-Version der E-Mail. Änderungen werden NICHT automatisch in Text-Inhalt übernommen!'
+        )
+        self.fields['text_content'].help_text = (
+            'WICHTIG: Wird NICHT automatisch synchronisiert! '
+            'Nach HTML-Änderungen im Editor den Button "Aus HTML generieren" nutzen.'
+        )
+
         # Set up trigger field
         self.fields['trigger'].queryset = EmailTrigger.objects.filter(is_active=True).order_by('category', 'name')
         self.fields['trigger'].empty_label = "Kein Trigger (manueller Versand)"
