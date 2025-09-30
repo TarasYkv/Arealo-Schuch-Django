@@ -49,7 +49,10 @@ urlpatterns = [
     
     # AI Content Generation
     path('ai/generate-content/', views.generate_ai_content, name='generate_ai_content'),
-    
+
+    # Utilities
+    path('utils/html-to-text/', views.html_to_text_view, name='html_to_text'),
+
     # API Endpoints
     path('api/templates/<int:pk>/variables/', views.api_template_variables, name='api_template_variables'),
     path('api/templates/<int:pk>/render/', views.api_render_preview, name='api_render_preview'),
