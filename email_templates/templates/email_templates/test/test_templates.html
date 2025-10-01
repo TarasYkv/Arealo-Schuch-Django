@@ -1,0 +1,273 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}E-Mail-Vorlagen Testen{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1><i class="fas fa-envelope-open-text me-2"></i>E-Mail-Vorlagen Testen</h1>
+            <p class="text-muted">Senden Sie Test-E-Mails mit allen verfügbaren Vorlagen</p>
+        </div>
+    </div>
+
+    {% if not email_configured %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <strong>E-Mail nicht konfiguriert!</strong>
+        Bitte konfigurieren Sie zuerst die E-Mail-Einstellungen in SuperConfig.
+        <a href="/superconfig/email/" class="alert-link">Zu den E-Mail-Einstellungen</a>
+    </div>
+    {% endif %}
+
+    <!-- E-Mail-Adresse eingeben -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <i class="fas fa-at me-2"></i>Test-E-Mail-Adresse
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <label for="global-test-email" class="form-label">E-Mail-Adresse für alle Tests</label>
+                    <input type="email" class="form-control" id="global-test-email"
+                           value="{{ user_email }}" placeholder="ihre@email.de">
+                    <small class="form-text text-muted">
+                        Diese Adresse wird für alle Test-Versendungen verwendet.
+                    </small>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Schnellaktionen</label>
+                    <div>
+                        <button class="btn btn-success" onclick="sendAllTests()">
+                            <i class="fas fa-paper-plane me-1"></i>Alle Tests versenden
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="resetAllStatus()">
+                            <i class="fas fa-redo me-1"></i>Status zurücksetzen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Templates nach Trigger gruppiert -->
+    {% if templates %}
+        {% regroup templates by trigger as trigger_groups %}
+
+        {% for trigger_group in trigger_groups %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    {% if trigger_group.grouper %}
+                        <i class="fas fa-bell me-2"></i>{{ trigger_group.grouper.name }}
+                        <span class="badge bg-secondary">{{ trigger_group.list|length }}</span>
+                    {% else %}
+                        <i class="fas fa-envelope me-2"></i>Ohne Trigger
+                        <span class="badge bg-secondary">{{ trigger_group.list|length }}</span>
+                    {% endif %}
+                </h5>
+                {% if trigger_group.grouper %}
+                <small class="text-muted">{{ trigger_group.grouper.description }}</small>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th style="width: 40%;">Template</th>
+                                <th style="width: 30%;">Betreff</th>
+                                <th style="width: 15%;">Status</th>
+                                <th style="width: 15%;">Aktion</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for template in trigger_group.list %}
+                            <tr id="template-row-{{ template.id }}">
+                                <td>
+                                    <strong>{{ template.name }}</strong>
+                                    <br>
+                                    <small class="text-muted">ID: {{ template.id }}</small>
+                                </td>
+                                <td>
+                                    <small class="text-truncate d-inline-block" style="max-width: 300px;">
+                                        {{ template.subject }}
+                                    </small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary" id="status-{{ template.id }}">
+                                        Bereit
+                                    </span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary"
+                                            id="btn-{{ template.id }}"
+                                            onclick="sendTestEmail({{ template.id }}, '{{ template.name|escapejs }}')">
+                                        <i class="fas fa-paper-plane me-1"></i>Senden
+                                    </button>
+                                    <a href="{% url 'email_templates:template_detail' template.id %}"
+                                       class="btn btn-sm btn-outline-secondary"
+                                       target="_blank">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            Keine aktiven E-Mail-Vorlagen gefunden.
+            <a href="{% url 'email_templates:template_create' %}" class="alert-link">Jetzt erstellen</a>
+        </div>
+    {% endif %}
+</div>
+
+<style>
+.test-success {
+    background-color: #d4edda !important;
+}
+
+.test-error {
+    background-color: #f8d7da !important;
+}
+
+.test-sending {
+    background-color: #fff3cd !important;
+}
+</style>
+
+<script>
+function getTestEmail() {
+    return document.getElementById('global-test-email').value;
+}
+
+function updateStatus(templateId, status, message) {
+    const statusBadge = document.getElementById(`status-${templateId}`);
+    const button = document.getElementById(`btn-${templateId}`);
+    const row = document.getElementById(`template-row-${templateId}`);
+
+    if (status === 'sending') {
+        statusBadge.className = 'badge bg-warning';
+        statusBadge.textContent = 'Wird gesendet...';
+        button.disabled = true;
+        row.classList.add('test-sending');
+    } else if (status === 'success') {
+        statusBadge.className = 'badge bg-success';
+        statusBadge.textContent = '✓ Gesendet';
+        button.disabled = false;
+        row.classList.remove('test-sending');
+        row.classList.add('test-success');
+    } else if (status === 'error') {
+        statusBadge.className = 'badge bg-danger';
+        statusBadge.textContent = '✗ Fehler';
+        button.disabled = false;
+        row.classList.remove('test-sending');
+        row.classList.add('test-error');
+    }
+}
+
+function sendTestEmail(templateId, templateName) {
+    const testEmail = getTestEmail();
+
+    if (!testEmail) {
+        alert('Bitte geben Sie eine E-Mail-Adresse ein!');
+        return;
+    }
+
+    if (!confirm(`Test-E-Mail "${templateName}" an ${testEmail} senden?`)) {
+        return;
+    }
+
+    updateStatus(templateId, 'sending');
+
+    fetch(`/email-templates/test/${templateId}/send/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: `test_email=${encodeURIComponent(testEmail)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateStatus(templateId, 'success');
+
+            // Show success notification
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-success alert-dismissible fade show position-fixed';
+            alert.style.top = '20px';
+            alert.style.right = '20px';
+            alert.style.zIndex = '9999';
+            alert.style.maxWidth = '400px';
+            alert.innerHTML = `
+                <i class="fas fa-check-circle me-2"></i>
+                <strong>E-Mail gesendet!</strong><br>
+                Template: ${data.template_name}<br>
+                Betreff: ${data.subject}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(alert);
+
+            setTimeout(() => alert.remove(), 5000);
+        } else {
+            updateStatus(templateId, 'error');
+            alert('Fehler: ' + data.error);
+        }
+    })
+    .catch(error => {
+        updateStatus(templateId, 'error');
+        alert('Fehler beim Versenden: ' + error);
+    });
+}
+
+function sendAllTests() {
+    const testEmail = getTestEmail();
+
+    if (!testEmail) {
+        alert('Bitte geben Sie eine E-Mail-Adresse ein!');
+        return;
+    }
+
+    const templateIds = [...document.querySelectorAll('[id^="btn-"]')]
+        .map(btn => btn.id.replace('btn-', ''));
+
+    if (!confirm(`${templateIds.length} Test-E-Mails an ${testEmail} senden?`)) {
+        return;
+    }
+
+    let delay = 0;
+    templateIds.forEach((templateId, index) => {
+        setTimeout(() => {
+            const button = document.getElementById(`btn-${templateId}`);
+            if (button) {
+                button.click();
+            }
+        }, delay);
+        delay += 1000; // 1 Sekunde Verzögerung zwischen E-Mails
+    });
+}
+
+function resetAllStatus() {
+    document.querySelectorAll('[id^="status-"]').forEach(badge => {
+        badge.className = 'badge bg-secondary';
+        badge.textContent = 'Bereit';
+    });
+
+    document.querySelectorAll('[id^="btn-"]').forEach(btn => {
+        btn.disabled = false;
+    });
+
+    document.querySelectorAll('[id^="template-row-"]').forEach(row => {
+        row.classList.remove('test-success', 'test-error', 'test-sending');
+    });
+}
+</script>
+{% endblock %}
