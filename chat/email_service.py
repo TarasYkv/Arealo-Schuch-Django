@@ -133,14 +133,18 @@ class ChatEmailNotificationService:
             domain = getattr(settings, 'SITE_DOMAIN', 'localhost:8000')
             site_name = getattr(settings, 'SITE_NAME', 'WorkLoom')
 
+            # Build URLs manually to avoid reverse() errors during async execution
+            chat_url = f"http://{domain}/chat/?room={chat_room.id}"
+            profile_url = f"http://{domain}/accounts/profile/"
+
             context_data = {
                 'user_name': user.get_full_name() or user.username,
                 'recipient_name': user.get_full_name() or user.username,
                 'sender_name': message.sender.get_full_name() or message.sender.username,
                 'message_preview': ChatEmailNotificationService._get_message_preview(message),
                 'unread_count': unread_count,
-                'chat_url': f"http://{domain}{reverse('chat:home')}?room={chat_room.id}",
-                'profile_url': f"http://{domain}/accounts/profile/",
+                'chat_url': chat_url,
+                'profile_url': profile_url,
                 'site_name': site_name,
             }
 
