@@ -1,119 +1,443 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <title>Projekt Konfiguration</title>
-    {% extends 'base.html' %}
-</head>
-<body>
+{% extends 'base.html' %}
 
 {% block content %}
-    <h1>Projekt erfolgreich konfiguriert!</h1>
-    <p class="lead">
-        Hier ist die Zusammenfassung für Ihr Projekt
-        <strong>"{{ projekt.projekt_name }}"</strong>.
-        Diese Informationen wurden auch an <strong>{{ projekt.ansprechpartner_email }}</strong> gesendet.
-    </p>
+<style>
+.success-banner {
+    background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 50%, #81C784 100%);
+    color: white;
+    padding: 60px 0;
+    margin: -20px -15px 40px -15px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
 
-    <h3 class="mt-5">Empfohlene Variante</h3>
+.success-banner::before {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background:
+        radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px),
+        radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+    background-size: 50px 50px;
+    background-position: 0 0, 25px 25px;
+    animation: movePattern 20s linear infinite;
+}
 
-    <table class="table table-bordered table-striped">
-        <tr>
-            <th style="width: 30%;">Variante</th>
-            <td>{{ projekt.ausgewaehlte_variante.name }}</td>
-        </tr>
-        <tr>
-            <th>Beschreibung</th>
-            <td>{{ projekt.ausgewaehlte_variante.beschreibung }}</td>
-        </tr>
-        <tr>
-            <th colspan="2" style="text-align: center; background-color: #e9ecef;">Komponenten & Preise</th>
-        </tr>
+@keyframes movePattern {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(50px, 50px); }
+}
 
-        <tr>
-            <th>Leuchtentyp</th>
-            <td>{{ projekt.ausgewaehlte_variante.leuchte.name }} (Anzahl: {{ projekt.ausgewaehlte_variante.anzahl_leuchten }})</td>
-        </tr>
-        {% if projekt.ausgewaehlte_variante.preis_leuchten %}
-        <tr>
-            <th>Preis Leuchten</th>
-            <td>{{ projekt.ausgewaehlte_variante.preis_leuchten }} €</td>
-        </tr>
-        {% endif %}
+.success-icon {
+    font-size: 5rem;
+    margin-bottom: 20px;
+    animation: successPulse 2s ease-in-out infinite;
+    position: relative;
+    z-index: 1;
+}
 
-        <tr>
-            <th>Traversentyp</th>
-            <td>{{ projekt.ausgewaehlte_variante.traverse.name }} (Anzahl: {{ projekt.ausgewaehlte_variante.anzahl_traversen }})</td>
-        </tr>
-        {% if projekt.ausgewaehlte_variante.preis_traversen %}
-        <tr>
-            <th>Preis Traversen</th>
-            <td>{{ projekt.ausgewaehlte_variante.preis_traversen }} €</td>
-        </tr>
-        {% endif %}
+@keyframes successPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
 
+.success-banner h1 {
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: 15px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    position: relative;
+    z-index: 1;
+}
+
+.success-banner .lead {
+    font-size: 1.2rem;
+    opacity: 0.95;
+    position: relative;
+    z-index: 1;
+}
+
+.project-info-card {
+    background: white;
+    border-radius: 15px;
+    padding: 30px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    border-left: 5px solid #4CAF50;
+}
+
+.variant-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    border: 2px solid #4CAF50;
+}
+
+.variant-header {
+    display: flex;
+    align-items: center;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #e0e0e0;
+    margin-bottom: 25px;
+}
+
+.variant-icon {
+    font-size: 3rem;
+    color: #4CAF50;
+    margin-right: 20px;
+}
+
+.variant-title h2 {
+    margin: 0;
+    color: #1e7e34;
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.variant-title p {
+    margin: 5px 0 0 0;
+    color: #6c757d;
+}
+
+.component-section {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border-left: 4px solid #81C784;
+    transition: all 0.3s ease;
+}
+
+.component-section:hover {
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    transform: translateX(5px);
+}
+
+.component-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.component-name {
+    display: flex;
+    align-items: center;
+    flex: 1;
+}
+
+.component-icon {
+    font-size: 1.8rem;
+    color: #4CAF50;
+    margin-right: 15px;
+    width: 40px;
+    text-align: center;
+}
+
+.component-details h4 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #333;
+    font-weight: 600;
+}
+
+.component-count {
+    background: #E8F5E9;
+    color: #2E7D32;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.component-price {
+    background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%);
+    color: white;
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 1.1rem;
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+}
+
+.total-price-card {
+    background: linear-gradient(135deg, #1e7e34 0%, #4CAF50 100%);
+    color: white;
+    border-radius: 15px;
+    padding: 35px;
+    margin: 30px 0;
+    box-shadow: 0 6px 25px rgba(30, 126, 52, 0.4);
+    text-align: center;
+}
+
+.total-price-card h3 {
+    font-size: 1.5rem;
+    margin-bottom: 15px;
+    font-weight: 600;
+    opacity: 0.95;
+}
+
+.total-price {
+    font-size: 3.5rem;
+    font-weight: 700;
+    margin: 0;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+}
+
+.action-buttons {
+    text-align: center;
+    margin-top: 40px;
+}
+
+.btn-new-project {
+    padding: 15px 40px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 50px;
+    background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%);
+    border: none;
+    color: white;
+    box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.btn-new-project:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 30px rgba(76, 175, 80, 0.6);
+    background: linear-gradient(135deg, #66BB6A 0%, #4CAF50 100%);
+    color: white;
+}
+
+.info-badge {
+    background: #2196F3;
+    color: white;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    margin-left: 10px;
+}
+</style>
+
+<!-- Success Banner -->
+<div class="success-banner">
+    <div class="container">
+        <div class="success-icon">
+            ✅
+        </div>
+        <h1>Projekt erfolgreich konfiguriert!</h1>
+        <p class="lead">
+            Ihre Beleuchtungskonfiguration wurde berechnet und steht bereit
+        </p>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Project Info Card -->
+    <div class="project-info-card">
+        <div class="row align-items-center">
+            <div class="col-md-1 text-center">
+                <i class="fas fa-folder-open" style="font-size: 3rem; color: #4CAF50;"></i>
+            </div>
+            <div class="col-md-11">
+                <h3 style="margin: 0; color: #1e7e34;">
+                    <i class="fas fa-futbol me-2"></i>{{ projekt.projekt_name }}
+                </h3>
+                <p class="mb-0 mt-2" style="color: #6c757d;">
+                    <i class="fas fa-envelope me-2"></i>
+                    Bestätigung gesendet an: <strong>{{ projekt.ansprechpartner_email }}</strong>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Variant Card -->
+    <div class="variant-card">
+        <div class="variant-header">
+            <div class="variant-icon">
+                <i class="fas fa-award"></i>
+            </div>
+            <div class="variant-title">
+                <h2>{{ projekt.ausgewaehlte_variante.name }}</h2>
+                <p>{{ projekt.ausgewaehlte_variante.beschreibung }}</p>
+            </div>
+        </div>
+
+        <h4 class="mb-4" style="color: #1e7e34;">
+            <i class="fas fa-cogs me-2"></i>Komponenten-Übersicht
+        </h4>
+
+        <!-- Leuchten -->
+        <div class="component-section">
+            <div class="component-header">
+                <div class="component-name">
+                    <div class="component-icon">
+                        <i class="fas fa-lightbulb"></i>
+                    </div>
+                    <div class="component-details">
+                        <h4>Leuchten</h4>
+                        <small style="color: #6c757d;">{{ projekt.ausgewaehlte_variante.leuchte.name }}</small>
+                    </div>
+                </div>
+                <div class="component-count">
+                    {{ projekt.ausgewaehlte_variante.anzahl_leuchten }} Stück
+                </div>
+            </div>
+            {% if projekt.ausgewaehlte_variante.preis_leuchten %}
+            <div class="text-end mt-2">
+                <span class="component-price">{{ projekt.ausgewaehlte_variante.preis_leuchten }} €</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Traversen -->
+        <div class="component-section">
+            <div class="component-header">
+                <div class="component-name">
+                    <div class="component-icon">
+                        <i class="fas fa-grip-horizontal"></i>
+                    </div>
+                    <div class="component-details">
+                        <h4>Traversen</h4>
+                        <small style="color: #6c757d;">{{ projekt.ausgewaehlte_variante.traverse.name }}</small>
+                    </div>
+                </div>
+                <div class="component-count">
+                    {{ projekt.ausgewaehlte_variante.anzahl_traversen }} Stück
+                </div>
+            </div>
+            {% if projekt.ausgewaehlte_variante.preis_traversen %}
+            <div class="text-end mt-2">
+                <span class="component-price">{{ projekt.ausgewaehlte_variante.preis_traversen }} €</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Externes EVG -->
         {% if projekt.ausgewaehlte_variante.externes_evg %}
-        <tr>
-            <th>Externes EVG</th>
-            <td>{{ projekt.ausgewaehlte_variante.externes_evg.name }} (Anzahl: {{ projekt.ausgewaehlte_variante.anzahl_externe_evgs }})</td>
-        </tr>
-        {% if projekt.ausgewaehlte_variante.preis_externe_evgs %}
-        <tr>
-            <th>Preis externe EVGs</th>
-            <td>{{ projekt.ausgewaehlte_variante.preis_externe_evgs }} €</td>
-        </tr>
-        {% endif %}
+        <div class="component-section">
+            <div class="component-header">
+                <div class="component-name">
+                    <div class="component-icon">
+                        <i class="fas fa-microchip"></i>
+                    </div>
+                    <div class="component-details">
+                        <h4>Externes EVG</h4>
+                        <small style="color: #6c757d;">{{ projekt.ausgewaehlte_variante.externes_evg.name }}</small>
+                    </div>
+                </div>
+                <div class="component-count">
+                    {{ projekt.ausgewaehlte_variante.anzahl_externe_evgs }} Stück
+                </div>
+            </div>
+            {% if projekt.ausgewaehlte_variante.preis_externe_evgs %}
+            <div class="text-end mt-2">
+                <span class="component-price">{{ projekt.ausgewaehlte_variante.preis_externe_evgs }} €</span>
+            </div>
+            {% endif %}
+        </div>
         {% endif %}
 
+        <!-- Verteilerbox -->
         {% if projekt.ausgewaehlte_variante.verteilerbox %}
-        <tr>
-            <th>Verteilerbox</th>
-            <td>{{ projekt.ausgewaehlte_variante.verteilerbox.name }} (Anzahl: {{ projekt.ausgewaehlte_variante.anzahl_verteilerboxen }})</td>
-        </tr>
-        {% if projekt.ausgewaehlte_variante.preis_verteilerboxen %}
-        <tr>
-            <th>Preis Verteilerboxen</th>
-            <td>{{ projekt.ausgewaehlte_variante.preis_verteilerboxen }} €</td>
-        </tr>
-        {% endif %}
+        <div class="component-section">
+            <div class="component-header">
+                <div class="component-name">
+                    <div class="component-icon">
+                        <i class="fas fa-box"></i>
+                    </div>
+                    <div class="component-details">
+                        <h4>Verteilerbox</h4>
+                        <small style="color: #6c757d;">{{ projekt.ausgewaehlte_variante.verteilerbox.name }}</small>
+                    </div>
+                </div>
+                <div class="component-count">
+                    {{ projekt.ausgewaehlte_variante.anzahl_verteilerboxen }} Stück
+                </div>
+            </div>
+            {% if projekt.ausgewaehlte_variante.preis_verteilerboxen %}
+            <div class="text-end mt-2">
+                <span class="component-price">{{ projekt.ausgewaehlte_variante.preis_verteilerboxen }} €</span>
+            </div>
+            {% endif %}
+        </div>
         {% endif %}
 
+        <!-- Steuerbox -->
         {% if projekt.ausgewaehlte_variante.steuerbox %}
-        <tr>
-            <th>Steuerbox</th>
-            <td>{{ projekt.ausgewaehlte_variante.steuerbox.name }} (Anzahl: {{ projekt.ausgewaehlte_variante.anzahl_steuerboxen }})</td>
-        </tr>
-        {% if projekt.ausgewaehlte_variante.preis_steuerboxen %}
-        <tr>
-            <th>Preis Steuerboxen</th>
-            <td>{{ projekt.ausgewaehlte_variante.preis_steuerboxen }} €</td>
-        </tr>
-        {% endif %}
+        <div class="component-section">
+            <div class="component-header">
+                <div class="component-name">
+                    <div class="component-icon">
+                        <i class="fas fa-sliders-h"></i>
+                    </div>
+                    <div class="component-details">
+                        <h4>Steuerbox</h4>
+                        <small style="color: #6c757d;">{{ projekt.ausgewaehlte_variante.steuerbox.name }}</small>
+                    </div>
+                </div>
+                <div class="component-count">
+                    {{ projekt.ausgewaehlte_variante.anzahl_steuerboxen }} Stück
+                </div>
+            </div>
+            {% if projekt.ausgewaehlte_variante.preis_steuerboxen %}
+            <div class="text-end mt-2">
+                <span class="component-price">{{ projekt.ausgewaehlte_variante.preis_steuerboxen }} €</span>
+            </div>
+            {% endif %}
+        </div>
         {% endif %}
 
+        <!-- Steuerbaustein -->
         {% if projekt.ausgewaehlte_variante.steuerbaustein %}
-        <tr>
-            <th>Steuerbaustein</th>
-            <td>{{ projekt.ausgewaehlte_variante.steuerbaustein.name }} (Anzahl: {{ projekt.ausgewaehlte_variante.anzahl_steuerbausteine }})</td>
-        </tr>
-        {% if projekt.ausgewaehlte_variante.preis_steuerbausteine %}
-        <tr>
-            <th>Preis Steuerbausteine</th>
-            <td>{{ projekt.ausgewaehlte_variante.preis_steuerbausteine }} €</td>
-        </tr>
+        <div class="component-section">
+            <div class="component-header">
+                <div class="component-name">
+                    <div class="component-icon">
+                        <i class="fas fa-plug"></i>
+                    </div>
+                    <div class="component-details">
+                        <h4>Steuerbaustein</h4>
+                        <small style="color: #6c757d;">{{ projekt.ausgewaehlte_variante.steuerbaustein.name }}</small>
+                    </div>
+                </div>
+                <div class="component-count">
+                    {{ projekt.ausgewaehlte_variante.anzahl_steuerbausteine }} Stück
+                </div>
+            </div>
+            {% if projekt.ausgewaehlte_variante.preis_steuerbausteine %}
+            <div class="text-end mt-2">
+                <span class="component-price">{{ projekt.ausgewaehlte_variante.preis_steuerbausteine }} €</span>
+            </div>
+            {% endif %}
+        </div>
         {% endif %}
-        {% endif %}
+    </div>
 
-        {% if projekt.ausgewaehlte_variante.preis_gesamt %}
-        <tr style="font-weight: bold; background-color: #f2f2f2;">
-            <th>Preis für die gesamte Variante</th>
-            <td>{{ projekt.ausgewaehlte_variante.preis_gesamt }} €</td>
-        </tr>
-        {% endif %}
-    </table>
+    <!-- Total Price -->
+    {% if projekt.ausgewaehlte_variante.preis_gesamt %}
+    <div class="total-price-card">
+        <h3>
+            <i class="fas fa-calculator me-2"></i>Gesamtpreis der Konfiguration
+        </h3>
+        <p class="total-price">{{ projekt.ausgewaehlte_variante.preis_gesamt }} €</p>
+        <small style="opacity: 0.9; font-size: 0.95rem;">Alle Komponenten inklusive</small>
+    </div>
+    {% endif %}
 
-    <hr class="my-4">
-    <a href="{% url 'sportplatzApp:projekt_anlegen' %}" class="btn btn-secondary">Ein weiteres Projekt anlegen</a>
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+        <a href="{% url 'sportplatzApp:projekt_anlegen' %}" class="btn btn-new-project">
+            <i class="fas fa-plus-circle me-2"></i>Weiteres Projekt anlegen
+        </a>
+    </div>
+</div>
 {% endblock %}
-</body>
-</html>

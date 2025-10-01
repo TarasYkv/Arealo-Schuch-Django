@@ -22,33 +22,54 @@ def sportplatz_start_view(request):
     return render(request, 'sportplatzApp/sportplatz_start.html', context)
 
 
-# Die Funktion finde_passende_variante bleibt unverändert
+# Die Funktion finde_passende_variante - aktualisiert für alle 7 Varianten
 def finde_passende_variante(form_data):
+    """
+    Wählt die passende Variante basierend auf den Formular-Eingaben aus.
+
+    Logik basierend auf Excel-Tabelle:
+    - Variante 1: Internes EVG, ON/OFF (günstigste)
+    - Variante 2: Internes EVG, DALI (dimmbar)
+    - Variante 3: Internes EVG, LIMAS Air (App-Steuerung, jede Leuchte einzeln)
+    - Variante 4: Externes EVG, Standard (günstigste mit externem EVG)
+    - Variante 5: Externes EVG, Kabelgebundene Steuerung
+    - Variante 6: Externes EVG, LIMAS Air (App, 2 Leuchten gemeinsam)
+    - Variante 7: Externes EVG, LIMAS Air (App, jede Leuchte einzeln)
+    """
     try:
         ist_vg_im_mast = form_data.get('vorschaltgeraet_im_mast')
         ist_vg_anbau = form_data.get('vorschaltgeraet_anbau')
         hat_app_wunsch = form_data.get('wunsch_steuerung_per_app')
         hat_dimm_wunsch = form_data.get('wunsch_dimmbar')
         hat_einzelsteuerung_wunsch = form_data.get('wunsch_schaltung_je_leuchte')
+        hat_mast_schaltung_wunsch = form_data.get('wunsch_schaltung_je_mast')
 
         if ist_vg_im_mast or ist_vg_anbau:
-            # Fall A: Externes Vorschaltgerät
-            if hat_app_wunsch and hat_einzelsteuerung_wunsch:
-                return Variante.objects.get(name="Variante 7")
-            elif hat_app_wunsch:
-                return Variante.objects.get(name="Variante 6")
+            # Fall A: Externes Vorschaltgerät (Variante 4-7)
+            if hat_app_wunsch:
+                # LIMAS Air Funksteuerung
+                if hat_einzelsteuerung_wunsch:
+                    return Variante.objects.get(name="Variante 7")  # Jede Leuchte einzeln
+                else:
+                    return Variante.objects.get(name="Variante 6")  # 2 Leuchten gemeinsam
+            elif hat_mast_schaltung_wunsch or hat_dimm_wunsch:
+                # Kabelgebundene Steuerung
+                return Variante.objects.get(name="Variante 5")
             else:
+                # Standard / Günstigste
                 return Variante.objects.get(name="Variante 4")
         else:
-            # Fall B: Internes Vorschaltgerät
+            # Fall B: Internes Vorschaltgerät (Variante 1-3)
             if hat_app_wunsch:
+                # LIMAS Air Funksteuerung (jede Leuchte einzeln)
                 return Variante.objects.get(name="Variante 3")
             elif hat_dimm_wunsch:
+                # DALI Dimmbar
                 return Variante.objects.get(name="Variante 2")
             else:
-                if not hat_einzelsteuerung_wunsch:
-                    return Variante.objects.get(name="Variante 1")
-        return None
+                # Standard ON/OFF (günstigste)
+                return Variante.objects.get(name="Variante 1")
+
     except Variante.DoesNotExist:
         return None
 
