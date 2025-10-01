@@ -105,7 +105,7 @@ class ChatEmailNotificationService:
     @staticmethod
     def _send_notification(tracker: ChatEmailNotificationTracker) -> bool:
         """
-        Send individual email notification
+        Send individual email notification using the new trigger system
         """
         try:
             user = tracker.user
@@ -126,17 +126,6 @@ class ChatEmailNotificationService:
                 tracker.save(update_fields=['is_cancelled', 'cancelled_reason'])
                 return False
 
-            # Get email template
-            template = EmailTemplate.objects.filter(
-                template_type='chat_notification',
-                is_active=True,
-                is_default=True
-            ).first()
-
-            if not template:
-                logger.error("No active chat notification template found")
-                return False
-
             # Count total unread messages for this user in this room
             unread_count = chat_room.get_unread_count(user)
 
@@ -145,25 +134,28 @@ class ChatEmailNotificationService:
             site_name = getattr(settings, 'SITE_NAME', 'WorkLoom')
 
             context_data = {
+                'user_name': user.get_full_name() or user.username,
                 'recipient_name': user.get_full_name() or user.username,
                 'sender_name': message.sender.get_full_name() or message.sender.username,
                 'message_preview': ChatEmailNotificationService._get_message_preview(message),
                 'unread_count': unread_count,
-                'chat_url': f"https://{domain}{reverse('chat:home')}?room={chat_room.id}",
-                'profile_url': f"https://{domain}{reverse('accounts:profile')}",
+                'chat_url': f"http://{domain}{reverse('chat:home')}?room={chat_room.id}",
+                'profile_url': f"http://{domain}/accounts/profile/",
                 'site_name': site_name,
             }
 
-            # Send email using template service
-            result = EmailTemplateService.send_template_email(
-                template=template,
-                connection=None,  # Uses SuperConfig
+            # Use the new trigger system
+            from email_templates.trigger_manager import trigger_manager
+
+            results = trigger_manager.fire_trigger(
+                trigger_key='chat_message_notification',
+                context_data=context_data,
                 recipient_email=user.email,
-                recipient_name=user.get_full_name() or user.username,
-                context_data=context_data
+                recipient_name=user.get_full_name() or user.username
             )
 
-            if result.get('success'):
+            # Check if any template was sent successfully
+            if results and any(result.get('success') for result in results):
                 # Mark as sent
                 tracker.notification_sent = True
                 tracker.sent_at = timezone.now()
@@ -173,8 +165,8 @@ class ChatEmailNotificationService:
                            f"for message {message.id}")
                 return True
             else:
-                logger.error(f"Failed to send chat notification to {user.email}: "
-                           f"{result.get('message', 'Unknown error')}")
+                error_msg = results[0].get('message', 'Unknown error') if results else 'No templates found'
+                logger.error(f"Failed to send chat notification to {user.email}: {error_msg}")
                 return False
 
         except Exception as e:

@@ -1145,3 +1145,107 @@ def html_to_text_view(request):
             'success': False,
             'error': f'Fehler bei der Konvertierung: {str(e)}'
         })
+
+
+@login_required
+@user_passes_test(is_superuser)
+def template_test_view(request):
+    """
+    Test-Seite für E-Mail-Vorlagen
+    Ermöglicht das Senden von Test-E-Mails mit allen Templates
+    """
+    templates = EmailTemplate.objects.filter(is_active=True).select_related('trigger').order_by('trigger__name', 'name')
+
+    # Check SuperConfig email status
+    from superconfig.models import EmailConfiguration
+    email_configured = EmailConfiguration.objects.filter(is_active=True).exists()
+
+    context = {
+        'templates': templates,
+        'email_configured': email_configured,
+        'user_email': request.user.email,
+    }
+
+    return render(request, 'email_templates/test/test_templates.html', context)
+
+
+@login_required
+@user_passes_test(is_superuser)
+@require_http_methods(["POST"])
+def send_test_email(request, template_id):
+    """
+    Sendet eine Test-E-Mail mit der angegebenen Vorlage
+    """
+    try:
+        template = get_object_or_404(EmailTemplate, pk=template_id)
+        test_email = request.POST.get('test_email', request.user.email)
+
+        if not test_email:
+            return JsonResponse({
+                'success': False,
+                'error': 'Keine E-Mail-Adresse angegeben.'
+            })
+
+        # Test-Kontext-Daten
+        from django.template import Template as DjangoTemplate, Context
+
+        test_context = {
+            'user_name': request.user.get_full_name() or request.user.username,
+            'user_email': test_email,
+            'kunde_name': 'Max Mustermann',
+            'kunde_email': test_email,
+            'confirmation_link': f'http://{request.get_host()}/test/confirm/token-123',
+            'reset_link': f'http://{request.get_host()}/test/reset/token-456',
+            'bestellnummer': 'TEST-12345',
+            'datum': timezone.now().strftime('%d.%m.%Y'),
+            'betrag': '99,99 €',
+            'support_email': 'support@workloom.de',
+            'company_address': 'Workloom GmbH, Musterstraße 123, 12345 Musterstadt',
+            'unread_count': 5,
+            'storage_used': '8.5 GB',
+            'storage_limit': '10 GB',
+            'storage_percent': '85%',
+            'grace_period_days': 7,
+            'upgrade_url': f'http://{request.get_host()}/upgrade',
+            'plan_name': 'Pro Plan',
+            'plan_price': '29,99 €',
+        }
+
+        # Rendere Subject
+        subject_template = DjangoTemplate(template.subject)
+        subject = subject_template.render(Context(test_context))
+
+        # Rendere HTML Content
+        html_template = DjangoTemplate(template.html_content)
+        html_content = html_template.render(Context(test_context))
+
+        # Rendere Text Content
+        text_content = template.text_content
+        if text_content:
+            text_template = DjangoTemplate(text_content)
+            text_content = text_template.render(Context(test_context))
+
+        # Versende E-Mail
+        from django.core.mail import EmailMultiAlternatives
+
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=text_content or 'Dies ist eine Test-E-Mail.',
+            from_email=None,  # Verwendet DEFAULT_FROM_EMAIL
+            to=[test_email]
+        )
+        email.attach_alternative(html_content, "text/html")
+        email.send()
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Test-E-Mail wurde erfolgreich an {test_email} gesendet!',
+            'template_name': template.name,
+            'subject': subject
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Versenden der Test-E-Mail: {str(e)}'
+        })

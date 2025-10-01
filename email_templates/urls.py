@@ -27,7 +27,8 @@ urlpatterns = [
     path('templates/<int:pk>/preview/', views.template_preview, name='template_preview'),
     
     # Test Email
-    path('test-email/', views.send_test_email, name='send_test_email'),
+    path('test/', views.template_test_view, name='template_test'),
+    path('test/<int:template_id>/send/', views.send_test_email, name='send_test_email'),
     
     # Categories
     path('categories/', views.category_list, name='category_list'),

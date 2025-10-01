@@ -4,9 +4,14 @@
 {% block title %}{{ title }}{% endblock %}
 
 {% block extra_css %}
-<!-- Quill.js WYSIWYG Editor -->
-<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
-<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<!-- GrapesJS Core -->
+<link href="https://unpkg.com/grapesjs/dist/css/grapes.min.css" rel="stylesheet">
+<script src="https://unpkg.com/grapesjs"></script>
+
+<!-- GrapesJS Newsletter Plugin -->
+<link href="https://unpkg.com/grapesjs-preset-newsletter/dist/grapesjs-preset-newsletter.css" rel="stylesheet">
+<script src="https://unpkg.com/grapesjs-preset-newsletter"></script>
+
 <style>
     .code-editor {
         font-family: 'Courier New', monospace;
@@ -96,36 +101,28 @@
     .variable-tag:hover {
         background-color: #dee2e6;
     }
-    
-    /* WYSIWYG Editor Styling */
-    .tox-tinymce {
-        border-radius: 0.375rem !important;
+
+    /* GrapesJS Editor Styling */
+    #gjs {
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        overflow: hidden;
     }
-    
-    .tox .tox-toolbar__primary {
-        background: #f8f9fa !important;
-        border-bottom: 1px solid #dee2e6 !important;
+
+    .gjs-one-bg {
+        background-color: #f8f9fa;
     }
-    
-    .tox .tox-editor-header {
-        border: 1px solid #dee2e6 !important;
-        border-bottom: none !important;
-        border-radius: 0.375rem 0.375rem 0 0 !important;
+
+    .gjs-two-color {
+        color: #667eea;
     }
-    
-    .tox .tox-edit-area {
-        border: 1px solid #dee2e6 !important;
-        border-top: none !important;
-        border-radius: 0 0 0.375rem 0.375rem !important;
+
+    .gjs-four-color {
+        color: #667eea;
     }
-    
-    /* Template variable highlighting in WYSIWYG */
-    .mce-content-body .template-var {
-        background-color: #e7f3ff;
-        color: #0066cc;
-        padding: 2px 4px;
-        border-radius: 3px;
-        font-weight: bold;
+
+    .gjs-four-color-h:hover {
+        color: #764ba2;
     }
 </style>
 {% endblock %}
@@ -453,7 +450,7 @@
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link active" id="wysiwyg-tab" data-bs-toggle="tab"
                                         data-bs-target="#wysiwyg-content" type="button" role="tab">
-                                    <i class="fas fa-edit me-2"></i>WYSIWYG Editor
+                                    <i class="fas fa-magic me-2"></i>E-Mail Builder
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
@@ -483,32 +480,22 @@
                         </ul>
 
                         <div class="tab-content" id="contentTabsContent">
-                            <!-- WYSIWYG Editor Tab -->
+                            <!-- GrapesJS E-Mail Builder Tab -->
                             <div class="tab-pane fade show active" id="wysiwyg-content" role="tabpanel">
-                                <div class="mb-3">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <label class="form-label mb-0">
-                                            <i class="fas fa-edit me-2"></i>Visueller Editor
-                                        </label>
-                                        <div class="btn-group btn-group-sm" role="group">
-                                            <button type="button" class="btn btn-outline-secondary" onclick="syncFromWysiwyg()">
-                                                <i class="fas fa-sync me-1"></i>Sync zu HTML
-                                            </button>
-                                            <button type="button" class="btn btn-outline-secondary" onclick="syncToWysiwyg()">
-                                                <i class="fas fa-download me-1"></i>Von HTML laden
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div id="quill-editor" style="height: 400px;"></div>
-                                    <div class="alert alert-info mt-2">
-                                        <i class="fas fa-info-circle me-2"></i>
-                                        <strong>Hinweis:</strong> Der WYSIWYG-Editor eignet sich am besten für <strong>einfache E-Mails ohne komplexes Layout</strong>.
-                                        Für vollständige HTML-Dokumente mit Custom CSS nutze bitte den <strong>"HTML-Code" Tab</strong>.
-                                        <br>
-                                        <small class="mt-1 d-block">
-                                            Template-Variablen ({% verbatim %}{{ variable }}{% endverbatim %}) können direkt eingegeben werden.
-                                        </small>
-                                    </div>
+                                <div class="alert alert-info mb-3">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Professioneller E-Mail Builder</strong><br>
+                                    Nutzen Sie Drag & Drop, um professionelle E-Mail-Templates zu erstellen.
+                                    Ihre Änderungen werden automatisch im HTML-Code Tab gespeichert.
+                                </div>
+                                <div id="gjs" style="height: 600px; overflow: hidden;"></div>
+                                <div class="mt-3 d-flex gap-2">
+                                    <button type="button" class="btn btn-primary btn-sm" onclick="syncFromGrapesJS()">
+                                        <i class="fas fa-save me-1"></i>In HTML-Code übernehmen
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="syncToGrapesJS()">
+                                        <i class="fas fa-download me-1"></i>Aus HTML-Code laden
+                                    </button>
                                 </div>
                             </div>
 
@@ -882,11 +869,25 @@ function applyGeneratedContent(content) {
         if (htmlField) {
             htmlField.value = content.html_content;
             console.log('HTML content applied (first 100 chars):', content.html_content.substring(0, 100));
-            
-            // Also sync to WYSIWYG editor
-            if (wysiwygEditor) {
-                wysiwygEditor.setContent(content.html_content);
-                console.log('Content synced to WYSIWYG editor');
+
+            // Also sync to GrapesJS editor if available
+            if (editor) {
+                try {
+                    const htmlContent = content.html_content;
+                    // Extract body content if full HTML document
+                    if (htmlContent.includes('<!DOCTYPE') || htmlContent.includes('<html')) {
+                        const bodyMatch = htmlContent.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+                        if (bodyMatch && bodyMatch[1]) {
+                            editor.setComponents(bodyMatch[1]);
+                            console.log('Content synced to GrapesJS editor');
+                        }
+                    } else {
+                        editor.setComponents(htmlContent);
+                        console.log('Content synced to GrapesJS editor');
+                    }
+                } catch (e) {
+                    console.error('Error syncing to GrapesJS:', e);
+                }
             }
         }
     }
@@ -1063,41 +1064,77 @@ function updateGenerationInfoDisplay() {
 
 function insertVariable(varName) {
     const variable = '{% verbatim %}{{ {% endverbatim %}' + varName + '{% verbatim %} }}{% endverbatim %}';
-    
-    // Insert into WYSIWYG editor if it's active and focused
-    if (wysiwygEditor && document.getElementById('wysiwyg-content').classList.contains('active')) {
-        wysiwygEditor.insertContent('<span class="template-var">' + variable + '</span>');
-        
-        // Show success message
-        const tag = event.target;
-        const originalText = tag.textContent;
-        tag.textContent = '✓ Eingefügt!';
-        tag.style.backgroundColor = '#28a745';
-        tag.style.color = '#fff';
-        
-        setTimeout(function() {
-            tag.textContent = originalText;
-            tag.style.backgroundColor = '';
-            tag.style.color = '';
-        }, 1000);
-        
-        return;
+
+    // Check if E-Mail Builder tab is active
+    const wysiwygTab = document.getElementById('wysiwyg-content');
+    if (wysiwygTab && wysiwygTab.classList.contains('active') && editor) {
+        try {
+            // Insert into GrapesJS editor
+            const selected = editor.getSelected();
+            if (selected) {
+                // Add text component with the variable
+                selected.append({
+                    type: 'text',
+                    content: variable,
+                    style: {
+                        'display': 'inline',
+                        'padding': '2px 6px',
+                        'background-color': '#e7f3ff',
+                        'color': '#0066cc',
+                        'border-radius': '3px',
+                        'font-weight': 'bold'
+                    }
+                });
+            } else {
+                // Add to canvas if nothing selected
+                editor.addComponents({
+                    type: 'text',
+                    content: variable,
+                    style: {
+                        'padding': '2px 6px',
+                        'background-color': '#e7f3ff',
+                        'color': '#0066cc',
+                        'border-radius': '3px',
+                        'font-weight': 'bold'
+                    }
+                });
+            }
+
+            // Show success message
+            const tag = event.target;
+            const originalText = tag.textContent;
+            tag.textContent = '✓ Eingefügt!';
+            tag.style.backgroundColor = '#28a745';
+            tag.style.color = '#fff';
+
+            setTimeout(function() {
+                tag.textContent = originalText;
+                tag.style.backgroundColor = '';
+                tag.style.color = '';
+            }, 1000);
+
+            return;
+        } catch (err) {
+            console.error('Fehler beim Einfügen:', err);
+        }
     }
-    
-    // Fallback: copy to clipboard
+
+    // Fallback: Copy to clipboard
     navigator.clipboard.writeText(variable).then(function() {
-        // Show temporary success message
         const tag = event.target;
         const originalText = tag.textContent;
         tag.textContent = '✓ Kopiert!';
         tag.style.backgroundColor = '#28a745';
         tag.style.color = '#fff';
-        
+
         setTimeout(function() {
             tag.textContent = originalText;
             tag.style.backgroundColor = '';
             tag.style.color = '';
         }, 1000);
+    }).catch(function(err) {
+        console.error('Fehler beim Kopieren:', err);
+        alert('Variable konnte nicht kopiert werden: ' + variable);
     });
 }
 
@@ -1313,219 +1350,10 @@ function updateModelInfo() {
     }
 }
 
-// TinyMCE WYSIWYG Editor functionality
-let wysiwygEditor = null;
-
-// Global debugging function
-window.debugWysiwyg = function() {
-    console.log('=== WYSIWYG Debug Information ===');
-    console.log('📄 DOM ready:', document.readyState);
-    console.log('🎯 TinyMCE available:', typeof tinymce !== 'undefined');
-    console.log('🎯 WYSIWYG Editor variable:', !!wysiwygEditor);
-    console.log('🎯 Global WYSIWYG Editor:', !!window.globalWysiwygEditor);
-    
-    const htmlField = document.getElementById('id_html_content');
-    const wysiwygTextarea = document.getElementById('wysiwyg-editor');
-    console.log('📄 HTML Field:', !!htmlField);
-    console.log('📄 WYSIWYG Textarea:', !!wysiwygTextarea);
-    
-    if (htmlField) {
-        console.log('📝 HTML content length:', htmlField.value.length);
-        console.log('📝 HTML content:', htmlField.value.substring(0, 300));
-    }
-    
-    if (typeof tinymce !== 'undefined' && tinymce.editors) {
-        console.log('🎯 TinyMCE editors count:', tinymce.editors.length || 0);
-        if (tinymce.editors && tinymce.editors.length > 0) {
-            tinymce.editors.forEach((editor, index) => {
-                console.log(`🎯 Editor ${index}:`, {
-                    id: editor.id,
-                    initialized: editor.initialized,
-                    hidden: editor.hidden,
-                    readonly: editor.readonly,
-                    content: editor.getContent().substring(0, 100)
-                });
-            });
-        } else {
-            console.log('🎯 No TinyMCE editors found');
-        }
-    }
-    
-    return {
-        htmlField: htmlField,
-        wysiwygEditor: wysiwygEditor || window.globalWysiwygEditor,
-        tinymceAvailable: typeof tinymce !== 'undefined',
-        editorsCount: typeof tinymce !== 'undefined' ? tinymce.editors.length : 0
-    };
-};
-
-function initTinyMCE() {
-    console.log('🚀 initTinyMCE() called');
-    console.log('🎯 TinyMCE available:', typeof tinymce !== 'undefined');
-    
-    if (typeof tinymce === 'undefined') {
-        console.error('❌ TinyMCE not loaded. Trying to load it manually...');
-        
-        // Fallback: Try to load TinyMCE manually
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/tinymce@7/tinymce.min.js';
-        script.onload = function() {
-            console.log('✅ TinyMCE loaded via fallback');
-            setTimeout(initTinyMCE, 500); // Retry initialization
-        };
-        script.onerror = function() {
-            console.error('❌ TinyMCE fallback also failed');
-            alert('WYSIWYG Editor konnte nicht geladen werden. Verwenden Sie den HTML-Code Tab.');
-        };
-        document.head.appendChild(script);
-        return;
-    }
-    
-    if (typeof tinymce !== 'undefined') {
-        console.log('✅ Initializing TinyMCE...');
-        tinymce.init({
-            selector: '#wysiwyg-editor',
-            height: 400,
-            menubar: false,
-            plugins: [
-                'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
-                'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-                'insertdatetime', 'media', 'table', 'help', 'wordcount', 'emoticons',
-                'codesample', 'hr', 'pagebreak', 'nonbreaking'
-            ],
-            toolbar: 'undo redo | blocks | bold italic underline strikethrough | ' +
-                     'alignleft aligncenter alignright alignjustify | ' +
-                     'bullist numlist outdent indent | ' +
-                     'forecolor backcolor | ' +
-                     'link image media table | ' +
-                     'code codesample | ' +
-                     'emoticons charmap hr | ' +
-                     'preview fullscreen help',
-            content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px; line-height:1.4; }',
-            // Image handling
-            image_advtab: true,
-            image_uploadtab: true,
-            automatic_uploads: true,
-            file_picker_types: 'image',
-            // Email-specific optimizations
-            valid_elements: '*[*]',
-            extended_valid_elements: '*[*]',
-            // Template variables highlighting
-            setup: function(editor) {
-                console.log('🚀 TinyMCE setup function called');
-                wysiwygEditor = editor;
-                window.globalWysiwygEditor = editor; // Make it globally accessible for debugging
-                
-                // Sync content changes to HTML field
-                editor.on('change keyup', function() {
-                    console.log('📝 Content changed in WYSIWYG, syncing to HTML field');
-                    syncFromWysiwyg();
-                });
-                
-                // Load initial content after editor is fully initialized
-                editor.on('init', function() {
-                    console.log('🎯 TinyMCE Editor initialized successfully');
-                    console.log('🎯 Editor ID:', editor.id);
-                    console.log('🎯 Editor container:', editor.getContainer());
-                    
-                    const htmlField = document.getElementById('id_html_content');
-                    console.log('📄 HTML Field found:', !!htmlField);
-                    console.log('📄 HTML Field ID:', htmlField ? htmlField.id : 'N/A');
-                    
-                    if (htmlField) {
-                        console.log('📝 HTML Field value length:', htmlField.value.length);
-                        console.log('📝 HTML Field content preview:', htmlField.value.substring(0, 200));
-                        
-                        if (htmlField.value.trim()) {
-                            console.log('✅ Loading initial content to WYSIWYG');
-                            try {
-                                editor.setContent(htmlField.value);
-                                console.log('✅ Content loaded to WYSIWYG successfully');
-                                console.log('✅ Current WYSIWYG content:', editor.getContent().substring(0, 100));
-                            } catch (error) {
-                                console.error('❌ Error loading content:', error);
-                            }
-                        } else {
-                            console.log('⚠️ HTML field is empty, setting placeholder content');
-                            editor.setContent('<p>Hier können Sie Ihren E-Mail-Inhalt erstellen...</p>');
-                        }
-                    } else {
-                        console.error('❌ HTML field not found!');
-                    }
-                    
-                    // Additional debugging
-                    console.log('🎯 Editor ready state:', editor.initialized);
-                    console.log('🎯 Editor body:', editor.getBody());
-                });
-                
-                // Custom template variable insertion (TinyMCE 7 compatible)
-                editor.ui.registry.addButton('templatevar', {
-                    text: '{% verbatim %}{{ }}{% endverbatim %}',
-                    tooltip: 'Template-Variable einfügen',
-                    onAction: function() {
-                        const varName = prompt('Variablen-Name eingeben (ohne {% verbatim %}{{}}{% endverbatim %}):');
-                        if (varName) {
-                            editor.insertContent('{% verbatim %}{{ {% endverbatim %}' + varName + '{% verbatim %} }}{% endverbatim %}');
-                        }
-                    }
-                });
-            },
-            // Custom image upload (you'll need to implement this endpoint)
-            images_upload_handler: function (blobInfo, success, failure) {
-                // For now, convert to base64 data URL
-                const reader = new FileReader();
-                reader.onload = function() {
-                    success(reader.result);
-                };
-                reader.readAsDataURL(blobInfo.blob());
-            }
-        });
-    }
-}
-
-function syncFromWysiwyg() {
-    if (wysiwygEditor) {
-        const htmlField = document.getElementById('id_html_content');
-        if (htmlField) {
-            htmlField.value = wysiwygEditor.getContent();
-        }
-    }
-}
-
-function syncToWysiwyg() {
-    if (wysiwygEditor) {
-        const htmlField = document.getElementById('id_html_content');
-        if (htmlField) {
-            const content = htmlField.value || '';
-            console.log('Syncing HTML to WYSIWYG:', content.substring(0, 100));
-            wysiwygEditor.setContent(content);
-            
-            // Show success message
-            const successMsg = document.createElement('div');
-            successMsg.className = 'alert alert-success alert-dismissible fade show position-fixed';
-            successMsg.style.top = '20px';
-            successMsg.style.right = '20px';
-            successMsg.style.zIndex = '9999';
-            successMsg.innerHTML = `
-                <i class="fas fa-sync me-2"></i>
-                Inhalt vom HTML-Editor geladen!
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            document.body.appendChild(successMsg);
-            
-            setTimeout(() => {
-                if (successMsg.parentNode) {
-                    successMsg.remove();
-                }
-            }, 3000);
-        }
-    }
-}
-
 function formatHTML() {
     const htmlField = document.getElementById('id_html_content');
     if (htmlField && htmlField.value) {
-        // Simple HTML formatting - you might want to use a proper HTML formatter library
+        // Simple HTML formatting
         let formatted = htmlField.value;
         // Add basic indentation
         formatted = formatted.replace(/></g, '>\n<');
@@ -1533,132 +1361,258 @@ function formatHTML() {
     }
 }
 
-// Manual initialization function for debugging
-function manualInit() {
-    console.log('=== Manual Initialization ===');
-    const htmlField = document.getElementById('id_html_content');
-    console.log('📄 HTML Field found:', !!htmlField);
-    console.log('📝 HTML Field value length:', htmlField ? htmlField.value.length : 'N/A');
-    console.log('📝 HTML Field content:', htmlField ? htmlField.value.substring(0, 200) : 'null');
-    console.log('🎯 WYSIWYG Editor available:', !!wysiwygEditor);
-    console.log('🎯 TinyMCE global available:', typeof tinymce !== 'undefined');
-    
-    if (typeof tinymce !== 'undefined') {
-        console.log('🎯 TinyMCE editors:', tinymce.editors);
-        console.log('🎯 TinyMCE active editor:', tinymce.activeEditor);
-    }
-    
-    if (wysiwygEditor) {
-        console.log('✅ WYSIWYG Editor is ready');
-        if (htmlField) {
-            console.log('🔄 Manually loading content to WYSIWYG');
-            wysiwygEditor.setContent(htmlField.value || '<p>Test content loaded manually</p>');
-            console.log('✅ Content manually loaded');
+// GrapesJS E-Mail Builder
+let editor = null;
+
+// Initialize GrapesJS
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🎨 Initializing GrapesJS...');
+
+    try {
+        editor = grapesjs.init({
+            container: '#gjs',
+            height: '600px',
+            width: 'auto',
+            plugins: ['gjs-preset-newsletter'],
+            pluginsOpts: {
+                'gjs-preset-newsletter': {
+                    modalTitleImport: 'HTML Code importieren',
+                    modalLabelImport: 'Fügen Sie Ihren HTML-Code ein',
+                    modalLabelExport: 'HTML-Code kopieren',
+                    codeViewerTheme: 'material',
+                    importPlaceholder: '<div>HTML hier einfügen...</div>',
+                    cellStyle: {
+                        'font-size': '14px',
+                        'font-weight': '300',
+                        'vertical-align': 'top',
+                        color: '#333333',
+                        margin: 0,
+                        padding: 0,
+                    }
+                }
+            },
+            storageManager: false, // Disable default storage
+            deviceManager: {
+                devices: [{
+                    name: 'Desktop',
+                    width: '600px',
+                }, {
+                    name: 'Mobile',
+                    width: '320px',
+                    widthMedia: '480px',
+                }]
+            },
+            panels: {
+                defaults: [
+                    {
+                        id: 'basic-actions',
+                        el: '.panel__basic-actions',
+                        buttons: [
+                            {
+                                id: 'visibility',
+                                active: true,
+                                className: 'btn-toggle-borders',
+                                label: '<i class="fa fa-clone"></i>',
+                                command: 'sw-visibility',
+                            }, {
+                                id: 'export',
+                                className: 'btn-open-export',
+                                label: '<i class="fa fa-code"></i>',
+                                command: 'export-template',
+                                context: 'export-template',
+                            }, {
+                                id: 'show-json',
+                                className: 'btn-show-json',
+                                label: '<i class="fa fa-download"></i>',
+                                context: 'show-json',
+                                command(editor) {
+                                    editor.Modal.setTitle('Komponenten JSON')
+                                        .setContent(`<textarea style="width:100%; height: 250px;">
+                                            ${JSON.stringify(editor.getComponents())}
+                                        </textarea>`)
+                                        .open();
+                                },
+                            }
+                        ],
+                    },
+                    {
+                        id: 'panel-devices',
+                        el: '.panel__devices',
+                        buttons: [{
+                            id: 'device-desktop',
+                            label: '<i class="fa fa-desktop"></i>',
+                            command: 'set-device-desktop',
+                            active: true,
+                            togglable: false,
+                        }, {
+                            id: 'device-mobile',
+                            label: '<i class="fa fa-mobile"></i>',
+                            command: 'set-device-mobile',
+                            togglable: false,
+                        }],
+                    }
+                ]
+            },
+            // Canvas settings
+            canvas: {
+                styles: [],
+                scripts: [],
+            },
+            // Style Manager
+            styleManager: {
+                sectors: [{
+                    name: 'Allgemein',
+                    open: false,
+                    buildProps: ['float', 'display', 'position', 'top', 'right', 'left', 'bottom']
+                }, {
+                    name: 'Dimension',
+                    open: false,
+                    buildProps: ['width', 'height', 'max-width', 'min-height', 'margin', 'padding'],
+                }, {
+                    name: 'Typografie',
+                    open: false,
+                    buildProps: ['font-family', 'font-size', 'font-weight', 'letter-spacing', 'color', 'line-height', 'text-align', 'text-decoration', 'text-shadow'],
+                }, {
+                    name: 'Dekorationen',
+                    open: false,
+                    buildProps: ['background-color', 'border-radius', 'border', 'box-shadow', 'background'],
+                }],
+            },
+        });
+
+        console.log('✅ GrapesJS initialized successfully');
+
+        // Load initial content from HTML field
+        const htmlField = document.getElementById('id_html_content');
+        if (htmlField && htmlField.value.trim()) {
+            console.log('📝 Loading initial content into GrapesJS...');
+            const htmlContent = htmlField.value;
+
+            // Check if it's a full HTML document
+            if (htmlContent.includes('<!DOCTYPE') || htmlContent.includes('<html')) {
+                console.warn('⚠️ Full HTML document detected - extracting body content');
+                const bodyMatch = htmlContent.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+                if (bodyMatch && bodyMatch[1]) {
+                    editor.setComponents(bodyMatch[1]);
+                    console.log('✅ Body content loaded into GrapesJS');
+                }
+            } else {
+                editor.setComponents(htmlContent);
+                console.log('✅ Content loaded into GrapesJS');
+            }
         }
-    } else {
-        console.error('❌ WYSIWYG Editor not available yet');
-        // Try to reinitialize
-        console.log('🔄 Attempting to reinitialize TinyMCE...');
-        initTinyMCE();
+
+        // Commands
+        editor.Commands.add('set-device-desktop', {
+            run: (editor) => editor.setDevice('Desktop')
+        });
+        editor.Commands.add('set-device-mobile', {
+            run: (editor) => editor.setDevice('Mobile')
+        });
+
+        console.log('✅ GrapesJS setup complete');
+
+    } catch (error) {
+        console.error('❌ Error initializing GrapesJS:', error);
+        alert('Fehler beim Laden des E-Mail Builders. Bitte verwenden Sie den HTML-Code Tab.');
+    }
+});
+
+// Sync from GrapesJS to HTML field
+function syncFromGrapesJS() {
+    if (!editor) {
+        console.error('❌ GrapesJS editor not initialized');
+        alert('Editor ist noch nicht bereit. Bitte warten Sie einen Moment.');
+        return;
+    }
+
+    try {
+        console.log('🔄 Syncing from GrapesJS to HTML...');
+
+        // Get HTML from GrapesJS
+        const html = editor.getHtml();
+        const css = editor.getCss();
+
+        const htmlField = document.getElementById('id_html_content');
+        if (htmlField) {
+            // Combine HTML with inline CSS
+            const fullHtml = `<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        ${css}
+    </style>
+</head>
+<body>
+    ${html}
+</body>
+</html>`;
+
+            htmlField.value = fullHtml;
+            console.log('✅ Content synced to HTML field');
+
+            // Show success message
+            alert('✅ E-Mail wurde erfolgreich in den HTML-Code übernommen!');
+        }
+    } catch (error) {
+        console.error('❌ Error syncing from GrapesJS:', error);
+        alert('Fehler beim Übernehmen des Inhalts.');
+    }
+}
+
+// Sync from HTML field to GrapesJS
+function syncToGrapesJS() {
+    if (!editor) {
+        console.error('❌ GrapesJS editor not initialized');
+        alert('Editor ist noch nicht bereit. Bitte warten Sie einen Moment.');
+        return;
+    }
+
+    try {
+        console.log('🔄 Syncing from HTML to GrapesJS...');
+
+        const htmlField = document.getElementById('id_html_content');
+        if (htmlField && htmlField.value.trim()) {
+            const htmlContent = htmlField.value;
+
+            // Check if it's a full HTML document
+            if (htmlContent.includes('<!DOCTYPE') || htmlContent.includes('<html')) {
+                console.warn('⚠️ Full HTML document detected - extracting body content');
+                const bodyMatch = htmlContent.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+                if (bodyMatch && bodyMatch[1]) {
+                    editor.setComponents(bodyMatch[1]);
+                    console.log('✅ Body content loaded into GrapesJS');
+                } else {
+                    console.error('❌ Could not extract body content');
+                    alert('Fehler: Konnte Body-Content nicht extrahieren.');
+                    return;
+                }
+            } else {
+                editor.setComponents(htmlContent);
+                console.log('✅ Content loaded into GrapesJS');
+            }
+
+            alert('✅ HTML-Code wurde erfolgreich in den E-Mail Builder geladen!');
+        } else {
+            alert('⚠️ Kein HTML-Code zum Laden vorhanden.');
+        }
+    } catch (error) {
+        console.error('❌ Error syncing to GrapesJS:', error);
+        alert('Fehler beim Laden des HTML-Codes.');
     }
 }
 
 // Initialize form enhancements
 document.addEventListener('DOMContentLoaded', function() {
     console.log('=== DOM Content Loaded ===');
-    
-    // Initialize TinyMCE with more time
-    setTimeout(function() {
-        console.log('⏰ Initializing TinyMCE after DOM ready...');
-        initTinyMCE();
-        
-        // Additional initialization checks
-        setTimeout(function() {
-            console.log('⏰ TinyMCE should be ready now');
-            if (wysiwygEditor) {
-                console.log('✅ WYSIWYG Editor is ready');
-                const htmlField = document.getElementById('id_html_content');
-                if (htmlField && htmlField.value.trim()) {
-                    console.log('📝 Loading initial content after delay');
-                    wysiwygEditor.setContent(htmlField.value);
-                }
-            } else {
-                console.log('⚠️ WYSIWYG Editor still not ready, trying manual init');
-                manualInit();
-            }
-        }, 2000); // More time for TinyMCE to load
-        
-        // Final fallback check  
-        setTimeout(function() {
-            console.log('⏰ Final TinyMCE check...');
-            debugWysiwyg();
-        }, 3000);
-    }, 500); // More time to ensure DOM and scripts are ready
-    
+
     // Initialize model info display
     if (typeof updateModelInfo === 'function') {
         updateModelInfo();
     }
-    
-    // Tab switching synchronization
-    document.getElementById('wysiwyg-tab').addEventListener('shown.bs.tab', function() {
-        console.log('Switching to WYSIWYG tab');
-        if (wysiwygEditor) {
-            // Load content from HTML field to WYSIWYG when switching to this tab
-            const htmlField = document.getElementById('id_html_content');
-            if (htmlField && htmlField.value.trim()) {
-                const currentWysiwygContent = wysiwygEditor.getContent();
-                const htmlContent = htmlField.value;
-                
-                // Only update if content is different to avoid unnecessary updates
-                if (currentWysiwygContent !== htmlContent) {
-                    console.log('Content differs, syncing HTML to WYSIWYG');
-                    wysiwygEditor.setContent(htmlContent);
-                }
-            }
-            wysiwygEditor.focus();
-        }
-    });
-    
-    document.getElementById('html-tab').addEventListener('shown.bs.tab', function() {
-        console.log('Switching to HTML tab');
-        syncFromWysiwyg(); // Ensure HTML is up to date when switching to HTML tab
-    });
-    
-    // Initialize CodeMirror for better code editing (if available)
-    if (typeof CodeMirror !== 'undefined') {
-        const htmlField = document.getElementById('id_html_content');
-        const cssField = document.getElementById('id_custom_css');
-        
-        if (htmlField) {
-            const htmlEditor = CodeMirror.fromTextArea(htmlField, {
-                mode: 'htmlmixed',
-                lineNumbers: true,
-                theme: 'default',
-                lineWrapping: true
-            });
-            
-            // Update preview when editors change
-            htmlEditor.on('change', function() {
-                htmlField.value = htmlEditor.getValue();
-                syncToWysiwyg(); // Sync changes back to WYSIWYG
-            });
-        }
-        
-        if (cssField) {
-            const cssEditor = CodeMirror.fromTextArea(cssField, {
-                mode: 'css',
-                lineNumbers: true,
-                theme: 'default',
-                lineWrapping: true
-            });
-            
-            cssEditor.on('change', function() {
-                cssField.value = cssEditor.getValue();
-            });
-        }
-    }
-    
+
     // Auto-format JSON in available variables field
     const variablesField = document.getElementById('id_available_variables');
     if (variablesField) {
@@ -1673,11 +1627,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
-    }
-    
-    // Initialize model info display (fallback if not already called)
-    if (typeof updateModelInfo === 'function') {
-        updateModelInfo();
     }
 });
 
@@ -1737,143 +1686,6 @@ function syncTextFromHTML() {
     });
 }
 
-// Quill.js WYSIWYG Editor
-let quillEditor = null;
-let isInitialLoad = true;  // Flag to prevent auto-sync during initial load
 
-// Initialize Quill editor when document is ready
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Quill
-    if (document.getElementById('quill-editor')) {
-        const toolbarOptions = [
-            ['bold', 'italic', 'underline', 'strike'],
-            ['blockquote', 'code-block'],
-            [{ 'header': 1 }, { 'header': 2 }],
-            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-            [{ 'script': 'sub'}, { 'script': 'super' }],
-            [{ 'indent': '-1'}, { 'indent': '+1' }],
-            [{ 'direction': 'rtl' }],
-            [{ 'size': ['small', false, 'large', 'huge'] }],
-            [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-            [{ 'color': [] }, { 'background': [] }],
-            [{ 'font': [] }],
-            [{ 'align': [] }],
-            ['link', 'image'],
-            ['clean']
-        ];
-
-        quillEditor = new Quill('#quill-editor', {
-            modules: {
-                toolbar: toolbarOptions
-            },
-            theme: 'snow',
-            placeholder: 'Beginne mit dem Schreiben oder lade HTML...'
-        });
-
-        // Load initial content from HTML field if exists
-        const htmlField = document.getElementById('id_html_content');
-        if (htmlField && htmlField.value.trim()) {
-            const htmlContent = htmlField.value;
-
-            // Check if it's a full HTML document
-            if (htmlContent.includes('<!DOCTYPE') || htmlContent.includes('<html')) {
-                console.warn('⚠️ Full HTML document detected - extracting body content');
-                // Try to extract body content
-                const bodyMatch = htmlContent.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-                if (bodyMatch && bodyMatch[1]) {
-                    quillEditor.root.innerHTML = bodyMatch[1];
-                    console.log('✅ Body content extracted and loaded');
-                } else {
-                    // Can't extract body, leave editor empty
-                    console.log('ℹ️ Complex HTML - use HTML-Code tab instead');
-                }
-            } else {
-                // Simple HTML, load directly
-                quillEditor.root.innerHTML = htmlContent;
-                console.log('✅ Initial content loaded into WYSIWYG');
-            }
-        }
-
-        // CRITICAL: Register event listener AFTER a delay to prevent sync during initialization
-        // This ensures the content is fully loaded before any auto-sync can occur
-        setTimeout(() => {
-            isInitialLoad = false;
-
-            // NOW register the auto-sync event listener
-            quillEditor.on('text-change', function(delta, oldDelta, source) {
-                if (source === 'user') {
-                    syncFromWysiwyg();
-                    console.log('✅ Auto-synced from WYSIWYG to HTML (user change)');
-                }
-            });
-
-            console.log('✅ Initial load complete - auto-sync now enabled');
-        }, 200);
-    }
-});
-
-// Sync from WYSIWYG to HTML field
-function syncFromWysiwyg() {
-    if (!quillEditor) return;
-
-    const htmlField = document.getElementById('id_html_content');
-    if (htmlField) {
-        // Get the HTML content from Quill
-        let html = quillEditor.root.innerHTML;
-
-        // If it's just empty paragraphs, clear the field
-        if (html === '<p><br></p>' || html.trim() === '') {
-            html = '';
-        }
-
-        htmlField.value = html;
-        console.log('✅ Synced from WYSIWYG to HTML');
-    }
-}
-
-// Sync from HTML field to WYSIWYG
-function syncToWysiwyg() {
-    if (!quillEditor) return;
-
-    const htmlField = document.getElementById('id_html_content');
-    if (htmlField && htmlField.value.trim()) {
-        // Set content without triggering text-change event
-        quillEditor.root.innerHTML = htmlField.value;
-        console.log('✅ Synced from HTML to WYSIWYG');
-
-        // Show success message
-        const btn = event ? event.target.closest('button') : null;
-        if (btn) {
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-check me-1"></i>Geladen!';
-            btn.classList.remove('btn-outline-secondary');
-            btn.classList.add('btn-success');
-
-            setTimeout(() => {
-                btn.innerHTML = originalText;
-                btn.classList.remove('btn-success');
-                btn.classList.add('btn-outline-secondary');
-            }, 2000);
-        }
-    }
-}
-
-// Update insertVariable function to work with Quill
-const originalInsertVariable = window.insertVariable;
-window.insertVariable = function(varName) {
-    // Check if WYSIWYG tab is active
-    const wysiwygTab = document.getElementById('wysiwyg-content');
-    if (wysiwygTab && wysiwygTab.classList.contains('active') && quillEditor) {
-        // Insert into Quill editor
-        const range = quillEditor.getSelection(true);
-        quillEditor.insertText(range.index, '{% verbatim %}{{ {% endverbatim %}' + varName + '{% verbatim %} }}{% endverbatim %}');
-        quillEditor.setSelection(range.index + varName.length + 6);
-    } else {
-        // Fall back to original function for HTML tab
-        if (originalInsertVariable) {
-            originalInsertVariable(varName);
-        }
-    }
-};
 </script>
 {% endblock %}
