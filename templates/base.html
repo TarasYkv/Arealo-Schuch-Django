@@ -1670,6 +1670,10 @@
                             <i class="bi bi-shop"></i> Shopify
                         </a>
                         <ul class="dropdown-menu" aria-labelledby="shopifyDropdown">
+                            <li><a class="dropdown-item" href="{% url 'shopify_manager:dashboard' %}">
+                                <i class="bi bi-speedometer2"></i> Dashboard
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'shopify_manager:product_list' %}">
                                 <i class="bi bi-box-seam"></i> Produkte
                             </a></li>
@@ -1898,14 +1902,14 @@
     <!-- Schwebendes Kontakt-Widget -->
     <div id="bug-report-widget" class="position-fixed bottom-0 start-0 m-3" style="z-index: 1050;">
         <div class="position-relative">
-            <button id="bug-report-btn" class="btn rounded-circle shadow-lg" 
-                    style="width: 60px; height: 60px; border-radius: 50%; 
-                           background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 50%, #90caf9 100%);
-                           border: 2px solid #64b5f6;
+            <button id="bug-report-btn" class="btn rounded-circle shadow-lg"
+                    style="width: 60px; height: 60px; border-radius: 50%;
+                           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                           border: 2px solid #667eea;
                            display: flex; align-items: center; justify-content: center;
                            transition: all 0.3s ease;"
-                    title="Kontakt">
-                <i class="fas fa-comment-dots" style="font-size: 1.4rem; color: #1565c0;"></i>
+                    title="Kontakt aufnehmen">
+                <i class="fas fa-comment-dots" style="font-size: 1.4rem; color: white;"></i>
             </button>
             <!-- Chat Notification Badge -->
             <span id="contact-chat-notification" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" 
@@ -1920,21 +1924,22 @@
     <!-- Kontakt Modal -->
     <div class="modal fade" id="bugReportModal" tabindex="-1" aria-labelledby="bugReportModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); color: #333;">
-                    <h5 class="modal-title" id="bugReportModalLabel">
+            <div class="modal-content" style="border: 2px solid #d1d5db; border-radius: 16px; overflow: hidden;">
+                <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-bottom: none; padding: 2rem;">
+                    <h5 class="modal-title" id="bugReportModalLabel" style="font-weight: 700; font-size: 1.5rem;">
                         <i class="fas fa-comment-dots me-2"></i>Kontakt aufnehmen
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body" style="padding: 2rem; background: #ffffff;">
                     <form id="bugReportForm">
                         {% csrf_token %}
-                        
+
                         <!-- Kategorie Auswahl -->
-                        <div class="mb-3">
-                            <label for="categoryType" class="form-label">Was möchten Sie uns mitteilen? *</label>
-                            <select class="form-select" id="categoryType" name="category_type" required>
+                        <div class="mb-4">
+                            <label for="categoryType" class="form-label" style="font-weight: 600; color: #111827; margin-bottom: 0.5rem;">Was möchtest du uns mitteilen? *</label>
+                            <select class="form-select" id="categoryType" name="category_type" required
+                                    style="border: 2px solid #d1d5db; border-radius: 8px; padding: 0.75rem; font-size: 1rem;">
                                 <option value="">Bitte wählen...</option>
                                 <option value="bug">🐛 Bug melden</option>
                                 <option value="idea">💡 Idee melden</option>
@@ -1946,54 +1951,60 @@
                         
                         <!-- Anonyme Nutzer Felder -->
                         {% if not user.is_authenticated %}
-                        <div class="row mb-3">
+                        <div class="row mb-4">
                             <div class="col-md-6">
-                                <label for="senderName" class="form-label">Name *</label>
-                                <input type="text" class="form-control" id="senderName" name="sender_name" required>
+                                <label for="senderName" class="form-label" style="font-weight: 600; color: #111827; margin-bottom: 0.5rem;">Name *</label>
+                                <input type="text" class="form-control" id="senderName" name="sender_name" required
+                                       style="border: 2px solid #d1d5db; border-radius: 8px; padding: 0.75rem; font-size: 1rem;">
                             </div>
                             <div class="col-md-6">
-                                <label for="senderEmail" class="form-label">E-Mail-Adresse *</label>
-                                <input type="email" class="form-control" id="senderEmail" name="sender_email" required>
+                                <label for="senderEmail" class="form-label" style="font-weight: 600; color: #111827; margin-bottom: 0.5rem;">E-Mail-Adresse *</label>
+                                <input type="email" class="form-control" id="senderEmail" name="sender_email" required
+                                       style="border: 2px solid #d1d5db; border-radius: 8px; padding: 0.75rem; font-size: 1rem;">
                             </div>
                         </div>
                         {% endif %}
-                        
+
                         <!-- Betreff -->
-                        <div class="mb-3">
-                            <label for="bugSubject" class="form-label">Betreff *</label>
-                            <input type="text" class="form-control" id="bugSubject" name="subject" 
-                                   placeholder="Kurze Beschreibung Ihres Anliegens" required>
+                        <div class="mb-4">
+                            <label for="bugSubject" class="form-label" style="font-weight: 600; color: #111827; margin-bottom: 0.5rem;">Betreff *</label>
+                            <input type="text" class="form-control" id="bugSubject" name="subject"
+                                   placeholder="Kurze Beschreibung deines Anliegens" required
+                                   style="border: 2px solid #d1d5db; border-radius: 8px; padding: 0.75rem; font-size: 1rem;">
                         </div>
-                        
+
                         <!-- Nachricht -->
-                        <div class="mb-3">
-                            <label for="bugMessage" class="form-label">Ihre Nachricht *</label>
-                            <textarea class="form-control" id="bugMessage" name="message" rows="5" 
-                                      placeholder="Beschreiben Sie Ihr Anliegen detailliert..." required></textarea>
+                        <div class="mb-4">
+                            <label for="bugMessage" class="form-label" style="font-weight: 600; color: #111827; margin-bottom: 0.5rem;">Deine Nachricht *</label>
+                            <textarea class="form-control" id="bugMessage" name="message" rows="5"
+                                      placeholder="Beschreibe dein Anliegen detailliert..." required
+                                      style="border: 2px solid #d1d5db; border-radius: 8px; padding: 0.75rem; font-size: 1rem; line-height: 1.6;"></textarea>
                         </div>
                         
                         <!-- Screenshot Bereich -->
-                        <div class="mb-3">
-                            <label class="form-label">Screenshot</label>
+                        <div class="mb-4">
+                            <label class="form-label" style="font-weight: 600; color: #111827; margin-bottom: 0.5rem;">Screenshot</label>
                             <div class="d-flex gap-2 mb-2">
-                                <button type="button" class="btn btn-outline-primary" id="takeScreenshot">
+                                <button type="button" class="btn" id="takeScreenshot"
+                                        style="border: 2px solid #667eea; color: #667eea; border-radius: 8px; padding: 0.5rem 1rem; font-weight: 600;">
                                     <i class="fas fa-camera me-2"></i>Screenshot erstellen
                                 </button>
-                                <button type="button" class="btn btn-outline-secondary" id="clearScreenshot" style="display: none;">
+                                <button type="button" class="btn" id="clearScreenshot" style="display: none; border: 2px solid #d1d5db; color: #6b7280; border-radius: 8px; padding: 0.5rem 1rem; font-weight: 600;">
                                     <i class="fas fa-trash me-2"></i>Screenshot löschen
                                 </button>
                             </div>
                             <div id="screenshotPreview" style="display: none;">
-                                <img id="screenshotImage" class="img-fluid rounded border" style="max-height: 200px;">
+                                <img id="screenshotImage" class="img-fluid rounded" style="max-height: 200px; border: 2px solid #d1d5db; border-radius: 8px;">
                             </div>
                         </div>
-                        
+
                         <!-- Datei-Upload -->
-                        <div class="mb-3">
-                            <label for="fileUpload" class="form-label">Zusätzliche Dateien</label>
+                        <div class="mb-4">
+                            <label for="fileUpload" class="form-label" style="font-weight: 600; color: #111827; margin-bottom: 0.5rem;">Zusätzliche Dateien</label>
                             <input type="file" class="form-control" id="fileUpload" name="files" multiple
-                                   accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.txt,.zip">
-                            <div class="form-text">
+                                   accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.txt,.zip"
+                                   style="border: 2px solid #d1d5db; border-radius: 8px; padding: 0.75rem; font-size: 1rem;">
+                            <div class="form-text" style="color: #6b7280; font-size: 0.875rem; margin-top: 0.5rem;">
                                 Erlaubte Dateitypen: Bilder, PDFs, Dokumente, ZIP-Archive (max. 10MB je Datei)
                             </div>
                             <div id="fileList" class="mt-2"></div>
@@ -2005,17 +2016,339 @@
                         <input type="hidden" id="screenshotData" name="screenshot">
                     </form>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
-                    <button type="button" class="btn" id="submitBugReport" 
-                            style="background: linear-gradient(135deg, #ffdb4d 0%, #ffc107 100%); 
-                                   color: #333; border: 1px solid #fcbf09; font-weight: 500;">
-                        <i class="fas fa-paper-plane me-2"></i>Bug-Meldung senden
+                <div class="modal-footer" style="border-top: 2px solid #e5e7eb; padding: 1.5rem 2rem; background: #f9fafb;">
+                    <button type="button" class="btn" data-bs-dismiss="modal"
+                            style="border: 2px solid #d1d5db; color: #374151; border-radius: 10px; padding: 0.75rem 1.5rem; font-weight: 600;">
+                        Abbrechen
+                    </button>
+                    <button type="button" class="btn" id="submitBugReport"
+                            style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                                   color: white; border: none; border-radius: 10px; padding: 0.75rem 1.5rem; font-weight: 600; box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);">
+                        <i class="fas fa-paper-plane me-2"></i>Nachricht senden
                     </button>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
+
+    <!-- Kontakt-Widget Styles -->
+    <style>
+        #bug-report-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4) !important;
+        }
+
+        #bug-report-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Form Focus States */
+        .form-select:focus,
+        .form-control:focus {
+            border-color: #667eea !important;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.15) !important;
+            outline: none;
+        }
+
+        /* Button Hover States */
+        #takeScreenshot:hover {
+            background: linear-gradient(135deg, #ede9fe 0%, #f5f3ff 100%);
+            border-color: #667eea !important;
+            color: #5b21b6 !important;
+            transform: translateY(-1px);
+        }
+
+        #submitBugReport:hover {
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4) !important;
+            transform: translateY(-2px);
+        }
+
+        /* Modern Toast Notification */
+        .toast-notification {
+            min-width: 350px;
+            background: white;
+            border: 2px solid #d1d5db;
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.08);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            animation: slideInRight 0.3s ease-out;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Modern Confirm Dialog */
+        .confirm-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        .confirm-dialog {
+            background: white;
+            border: 2px solid #d1d5db;
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+            animation: scaleIn 0.3s ease-out;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .confirm-dialog::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .confirm-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 2px solid #fbbf24;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+        }
+
+        .confirm-icon i {
+            color: #f59e0b;
+            font-size: 1.75rem;
+        }
+
+        .confirm-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .confirm-message {
+            font-size: 1rem;
+            color: #6b7280;
+            line-height: 1.6;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .confirm-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+        }
+
+        .confirm-btn {
+            padding: 0.75rem 2rem;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 1rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .confirm-btn-cancel {
+            background: white;
+            border: 2px solid #d1d5db;
+            color: #374151;
+        }
+
+        .confirm-btn-cancel:hover {
+            border-color: #9ca3af;
+            background: #f9fafb;
+        }
+
+        .confirm-btn-confirm {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .confirm-btn-confirm:hover {
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            transform: translateY(-2px);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .toast-notification::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 5px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .toast-notification.success::before {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .toast-notification.error::before {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .toast-notification.warning::before {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+
+        .toast-notification.info::before {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        }
+
+        .toast-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .toast-notification.success .toast-icon {
+            background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+            border: 2px solid #6ee7b7;
+        }
+
+        .toast-notification.success .toast-icon i {
+            color: #059669;
+            font-size: 1.5rem;
+        }
+
+        .toast-notification.error .toast-icon {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            border: 2px solid #fca5a5;
+        }
+
+        .toast-notification.error .toast-icon i {
+            color: #dc2626;
+            font-size: 1.5rem;
+        }
+
+        .toast-notification.warning .toast-icon {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 2px solid #fbbf24;
+        }
+
+        .toast-notification.warning .toast-icon i {
+            color: #d97706;
+            font-size: 1.5rem;
+        }
+
+        .toast-notification.info .toast-icon {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            border: 2px solid #60a5fa;
+        }
+
+        .toast-notification.info .toast-icon i {
+            color: #2563eb;
+            font-size: 1.5rem;
+        }
+
+        .toast-content {
+            flex-grow: 1;
+        }
+
+        .toast-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 0.25rem;
+        }
+
+        .toast-message {
+            font-size: 0.875rem;
+            color: #6b7280;
+            line-height: 1.5;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: #9ca3af;
+            font-size: 1.25rem;
+            cursor: pointer;
+            padding: 0;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .toast-close:hover {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+
+        .toast-notification.hiding {
+            animation: slideOutRight 0.3s ease-in forwards;
+        }
+    </style>
 
     <!-- Editable Footer Section -->
     {% if user.is_authenticated %}
@@ -2119,7 +2452,107 @@
                 originalInfo.apply(console, arguments);
             };
         })();
-        
+
+        // HTML Escape Helper Function
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Modern Toast Notification Function
+        function showToast(title, message, type = 'success') {
+            const toastContainer = document.getElementById('toast-container');
+            if (!toastContainer) {
+                console.error('Toast container not found');
+                return;
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `toast-notification ${type}`;
+
+            const iconClass = type === 'success' ? 'fa-check-circle' :
+                            type === 'error' ? 'fa-exclamation-circle' :
+                            type === 'warning' ? 'fa-exclamation-triangle' :
+                            'fa-info-circle';
+
+            // Escape HTML to prevent XSS
+            const safeTitle = escapeHtml(title || 'Hinweis');
+            const safeMessage = escapeHtml(message || '');
+
+            toast.innerHTML = `
+                <div class="toast-icon">
+                    <i class="fas ${iconClass}"></i>
+                </div>
+                <div class="toast-content">
+                    <div class="toast-title">${safeTitle}</div>
+                    <div class="toast-message">${safeMessage}</div>
+                </div>
+                <button class="toast-close" onclick="closeToast(this)">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+
+            toastContainer.appendChild(toast);
+
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                const closeButton = toast.querySelector('.toast-close');
+                if (closeButton) {
+                    closeToast(closeButton);
+                }
+            }, 5000);
+        }
+
+        function closeToast(button) {
+            const toast = button.closest('.toast-notification');
+            if (!toast) {
+                console.error('Toast element not found');
+                return;
+            }
+            toast.classList.add('hiding');
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.remove();
+                }
+            }, 300);
+        }
+
+        // Override native alert() function globally to use modern Toast
+        (function() {
+            const originalAlert = window.alert;
+            window.alert = function(message) {
+                // Detect type based on message content
+                let type = 'success';
+                let title = 'Hinweis';
+
+                const messageLower = (message || '').toString().toLowerCase();
+
+                if (messageLower.includes('fehler') || messageLower.includes('error')) {
+                    type = 'error';
+                    title = 'Fehler';
+                } else if (messageLower.includes('erfolgreich') || messageLower.includes('success') || messageLower.includes('gespeichert')) {
+                    type = 'success';
+                    title = 'Erfolgreich';
+                } else if (messageLower.includes('warnung') || messageLower.includes('warning') || messageLower.includes('achtung')) {
+                    type = 'warning';
+                    title = 'Warnung';
+                } else if (messageLower.includes('info') || messageLower.includes('hinweis')) {
+                    type = 'info';
+                    title = 'Information';
+                }
+
+                // Show toast instead of alert
+                showToast(title, message, type);
+
+                // Log to console for debugging
+                console.log('Alert (converted to toast):', message);
+            };
+
+            // Make original alert available for special cases
+            window.nativeAlert = originalAlert;
+        })();
+
         // Bug-Report-Widget Funktionalität
         document.addEventListener('DOMContentLoaded', function() {
             const bugReportBtn = document.getElementById('bug-report-btn');
@@ -2202,10 +2635,18 @@
                             stream.getTracks().forEach(track => track.stop());
                         });
                     }).catch(function(err) {
-                        alert('Screenshot konnte nicht erstellt werden: ' + err.message);
+                        showToast(
+                            'Screenshot-Fehler',
+                            'Screenshot konnte nicht erstellt werden: ' + err.message,
+                            'error'
+                        );
                     });
                 } else {
-                    alert('Screenshot-Funktion wird von diesem Browser nicht unterstützt.');
+                    showToast(
+                        'Nicht unterstützt',
+                        'Screenshot-Funktion wird von diesem Browser nicht unterstützt.',
+                        'error'
+                    );
                 }
             });
             
@@ -2273,18 +2714,30 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        alert('Bug-Meldung erfolgreich gesendet!');
+                        showToast(
+                            'Nachricht erfolgreich gesendet!',
+                            'Vielen Dank für deine Nachricht. Wir melden uns so schnell wie möglich bei dir.',
+                            'success'
+                        );
                         bugReportModal.hide();
                         form.reset();
                         document.getElementById('screenshotPreview').style.display = 'none';
                         document.getElementById('clearScreenshot').style.display = 'none';
                         document.getElementById('fileList').innerHTML = '';
                     } else {
-                        alert('Fehler: ' + data.error);
+                        showToast(
+                            'Fehler beim Senden',
+                            data.error || 'Es ist ein Fehler aufgetreten. Bitte versuche es erneut.',
+                            'error'
+                        );
                     }
                 })
                 .catch(error => {
-                    alert('Ein Fehler ist aufgetreten: ' + error.message);
+                    showToast(
+                        'Verbindungsfehler',
+                        'Es ist ein Fehler aufgetreten: ' + error.message,
+                        'error'
+                    );
                 });
             });
         });
@@ -3268,7 +3721,11 @@
                 
             } catch (error) {
                 console.error('Error answering global call:', error);
-                alert('Fehler beim Annehmen des Anrufs');
+                showToast(
+                    'Anruf-Fehler',
+                    'Fehler beim Annehmen des Anrufs',
+                    'error'
+                );
                 endGlobalCall();
             }
         }
@@ -3281,7 +3738,11 @@
                 // Check if already in call
                 if (globalIsCallActive) {
                     console.log('❌ Already in call, aborting');
-                    alert('Es läuft bereits ein Anruf');
+                    showToast(
+                        'Anruf läuft bereits',
+                        'Es läuft bereits ein Anruf. Bitte beende den aktuellen Anruf zuerst.',
+                        'error'
+                    );
                     return;
                 }
                 
@@ -3354,7 +3815,11 @@
                 
             } catch (error) {
                 console.error('Error starting global call:', error);
-                alert('Fehler beim Starten des Anrufs: ' + error.message);
+                showToast(
+                    'Anruf-Fehler',
+                    'Fehler beim Starten des Anrufs: ' + error.message,
+                    'error'
+                );
                 endGlobalCall();
             }
         }
@@ -3926,7 +4391,11 @@
         async function globalAcceptIncomingCall() {
             if (!globalIncomingCallData) {
                 console.error('No global incoming call data available');
-                alert('Fehler: Keine Anrufdaten verfügbar. Bitte versuchen Sie es erneut.');
+                showToast(
+                    'Anruf-Fehler',
+                    'Keine Anrufdaten verfügbar. Bitte versuche es erneut.',
+                    'error'
+                );
                 hideGlobalIncomingCall();
                 return;
             }
@@ -4014,7 +4483,11 @@
                 
             } catch (error) {
                 console.error('Error accepting global call:', error);
-                alert('Fehler beim Annehmen des Anrufs: ' + error.message);
+                showToast(
+                    'Anruf-Fehler',
+                    'Fehler beim Annehmen des Anrufs: ' + error.message,
+                    'error'
+                );
                 hideGlobalIncomingCall();
             }
         }

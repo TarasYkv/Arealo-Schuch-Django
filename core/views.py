@@ -110,8 +110,8 @@ def _get_available_apps():
                 'Team-Kollaboration (in Entwicklung)'
             ],
             'benefits': {
-                'Einfache Organisation': 'Behalten Sie alle Aufgaben und Projekte strukturiert im Überblick',
-                'Team-Koordination': 'Weisen Sie Aufgaben zu und verfolgen Sie den Fortschritt',
+                'Einfache Organisation': 'Behalte alle Aufgaben und Projekte strukturiert im Überblick',
+                'Team-Koordination': 'Weise Aufgaben zu und verfolge den Fortschritt',
                 'Beta-Features': 'Neue Funktionen werden kontinuierlich entwickelt und getestet',
                 'Benutzerfreundlich': 'Intuitive Bedienung ohne komplexe Einrichtung'
             },
@@ -122,7 +122,7 @@ def _get_available_apps():
             'icon': 'bi-building',
             'color': 'success',
             'app_url': '/organization/',
-            'short_desc': 'Organisieren Sie Termine, Notizen und Ideen zentral',
+            'short_desc': 'Organisiere Termine, Notizen und Ideen zentral',
             'features': [
                 'Notizen erstellen und verwalten',
                 'Kalender mit Terminerstellung',
@@ -132,7 +132,7 @@ def _get_available_apps():
             ],
             'benefits': {
                 'Zentrale Organisation': 'Alle wichtigen Informationen und Termine an einem Ort',
-                'Team-Kollaboration': 'Arbeiten Sie gemeinsam an Ideen und Projekten',
+                'Team-Kollaboration': 'Arbeite gemeinsam an Ideen und Projekten',
                 'Integrierte Kommunikation': 'Direct Calls und Zusammenarbeit möglich',
                 'Beta-Entwicklung': 'Ständig neue Features in der Entwicklungsphase'
             },
@@ -153,9 +153,9 @@ def _get_available_apps():
                 'KI-Transkription (in Entwicklung)'
             ],
             'benefits': {
-                'Sicheres Hosting': 'Ihre Videos sicher gespeichert und verfügbar',
+                'Sicheres Hosting': 'Deine Videos sicher gespeichert und verfügbar',
                 'Einfache Integration': 'Embed-Codes für nahtlose Website-Integration',
-                'Flexible Verwaltung': 'Organisieren Sie Videos nach Prioritäten',
+                'Flexible Verwaltung': 'Organisiere Videos nach Prioritäten',
                 'StreamRec Integration': 'Direkte Uploads aus der StreamRec App'
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
@@ -197,10 +197,10 @@ def _get_available_apps():
                 'Verkaufsanalysen und Kostentracking'
             ],
             'benefits': {
-                'Zentrale Verwaltung': 'Verwalten Sie mehrere Shopify-Shops von einer Plattform',
-                'SEO-Optimierung': 'Verbessern Sie Ihre Suchmaschinen-Rankings',
-                'Zeitersparnis': 'Automatisieren Sie wiederkehrende Shop-Management-Aufgaben',
-                'Kostenübersicht': 'Behalten Sie PayPal-Gebühren und andere Kosten im Blick'
+                'Zentrale Verwaltung': 'Verwalte mehrere Shopify-Shops von einer Plattform',
+                'SEO-Optimierung': 'Verbessere deine Suchmaschinen-Rankings',
+                'Zeitersparnis': 'Automatisiere wiederkehrende Shop-Management-Aufgaben',
+                'Kostenübersicht': 'Behalte PayPal-Gebühren und andere Kosten im Blick'
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         },
@@ -237,7 +237,7 @@ def _get_available_apps():
                 'Cloud-basierte Bildarchivierung'
             ],
             'benefits': {
-                'Zeitersparnis': 'Bearbeiten Sie Bilder 10x schneller',
+                'Zeitersparnis': 'Bearbeite Bilder 10x schneller',
                 'Professionelle Qualität': 'Studio-Qualität mit einem Klick'
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
@@ -254,8 +254,8 @@ def _get_available_apps():
                 'Multi-Account Management'
             ],
             'benefits': {
-                'Inbox Zero': 'Behalten Sie Ihre E-Mails unter Kontrolle',
-                'Maximale Effizienz': 'Sparen Sie täglich Stunden'
+                'Inbox Zero': 'Behalte deine E-Mails unter Kontrolle',
+                'Maximale Effizienz': 'Spare täglich Stunden'
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         },
@@ -271,7 +271,7 @@ def _get_available_apps():
                 'Mobile Learning'
             ],
             'benefits': {
-                'Flexible Weiterbildung': 'Lernen Sie in Ihrem Tempo',
+                'Flexible Weiterbildung': 'Lerne in deinem Tempo',
                 'Zertifiziert': 'Anerkannte Abschlüsse'
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
@@ -305,8 +305,8 @@ def _get_available_apps():
                 'Automatisches Targeting'
             ],
             'benefits': {
-                'ROI Maximum': 'Maximieren Sie Ihren Werbeerfolg',
-                'Volle Kontrolle': 'Behalten Sie den Überblick'
+                'ROI Maximum': 'Maximiere deinen Werbeerfolg',
+                'Volle Kontrolle': 'Behalte den Überblick'
             },
             'pricing': 'Kostenlos in der Beta-Phase - Jetzt registrieren und testen!'
         },
@@ -325,7 +325,7 @@ def _get_available_apps():
                 'Performance-Analytics (in Entwicklung)'
             ],
             'benefits': {
-                'Bessere Organisation': 'Alle Ihre KI-Prompts zentral verwaltet',
+                'Bessere Organisation': 'Alle deine KI-Prompts zentral verwaltet',
                 'Zeit sparen': 'Wiederverwendbare Prompt-Templates',
                 'Strukturiert arbeiten': 'Kategorien helfen beim schnellen Finden',
                 'Beta-Entwicklung': 'Neue Features kommen regelmäßig dazu'

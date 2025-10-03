@@ -71,8 +71,8 @@
                 <div class="col-lg-6">
                     <h1 class="display-4 fw-bold mb-4">Ihre digitale Büro-Suite</h1>
                     <p class="lead mb-4">
-                        Workloom vereint wichtige Business-Tools an einem Ort. 
-                        Sparen Sie Zeit und Kosten mit unserer Beta-Software 
+                        Workloom vereint wichtige Business-Tools an einem Ort.
+                        Sparen Sie Zeit und Kosten mit unserer Beta-Software
                         für Selbständige und kleine Unternehmen.
                     </p>
                     <div class="mb-4">
@@ -90,12 +90,18 @@
                         </div>
                     </div>
                     <div>
-                        <a href="{% url 'accounts:register' %}" class="btn btn-light btn-lg rounded-pill px-4 me-3">
-                            <i class="bi bi-rocket-takeoff me-2"></i>Kostenlos starten
-                        </a>
-                        <a href="{% url 'public_app_list' %}" class="btn btn-outline-light btn-lg rounded-pill px-4">
-                            <i class="bi bi-grid me-2"></i>Apps entdecken
-                        </a>
+                        {% if user.is_authenticated %}
+                            <a href="{% url 'public_app_list' %}" class="btn btn-light btn-lg rounded-pill px-4 me-3">
+                                <i class="bi bi-grid me-2"></i>Meine Apps
+                            </a>
+                        {% else %}
+                            <a href="{% url 'accounts:register' %}" class="btn btn-light btn-lg rounded-pill px-4 me-3">
+                                <i class="bi bi-rocket-takeoff me-2"></i>Kostenlos starten
+                            </a>
+                            <a href="{% url 'public_app_list' %}" class="btn btn-outline-light btn-lg rounded-pill px-4">
+                                <i class="bi bi-grid me-2"></i>Apps entdecken
+                            </a>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="col-lg-6 text-center">
@@ -172,62 +178,94 @@
             <!-- Top Featured Apps -->
             <div class="row g-4 mb-5">
                 {% for app_key, app_info in available_apps.items %}
-                    {% if forloop.counter <= 6 %}
-                    <div class="col-lg-4 col-md-6">
+                    <div class="col-lg-6 col-md-12">
                         <div class="card h-100 border-0 shadow-lg featured-app-card">
-                            <div class="card-header bg-gradient-{{ app_info.color }} text-white text-center py-4">
-                                <i class="{{ app_info.icon }}" style="font-size: 3.5rem;"></i>
-                                <h4 class="mt-3 mb-0 fw-bold">{{ app_info.name }}</h4>
+                            <div class="card-header bg-gradient-{{ app_info.color }} text-white text-center py-5">
+                                <i class="{{ app_info.icon }}" style="font-size: 4.5rem;"></i>
+                                <h3 class="mt-3 mb-0 fw-bold">{{ app_info.name }}</h3>
                             </div>
                             <div class="card-body p-4">
-                                <p class="card-text text-muted mb-3">{{ app_info.short_desc }}</p>
+                                <p class="card-text text-muted mb-4 fs-6">{{ app_info.short_desc }}</p>
 
-                                <div class="mb-3">
-                                    <h6 class="fw-bold text-primary mb-2">Top Features:</h6>
-                                    <ul class="list-unstyled">
-                                        {% for feature in app_info.features|slice:":3" %}
-                                        <li class="mb-1"><i class="bi bi-check-circle-fill text-success me-2"></i><small>{{ feature|truncatewords:8 }}</small></li>
-                                        {% endfor %}
-                                    </ul>
+                                <div class="mb-4">
+                                    <h6 class="fw-bold text-{{ app_info.color }} mb-3"><i class="bi bi-star-fill me-2"></i>Top Features:</h6>
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <ul class="list-unstyled feature-list">
+                                                {% for feature in app_info.features|slice:":6" %}
+                                                <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>{{ feature }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                {% if app_info.app_url %}
-                                <div class="d-grid mb-2">
-                                    {% if user.is_authenticated %}
-                                        <a href="{{ app_info.app_url }}" class="btn btn-{{ app_info.color }} btn-sm rounded-pill">
-                                            <i class="bi bi-arrow-right-circle me-1"></i>App öffnen
-                                        </a>
-                                    {% else %}
-                                        <a href="{% url 'accounts:login' %}?next={{ app_info.app_url }}" class="btn btn-{{ app_info.color }} btn-sm rounded-pill">
-                                            <i class="bi bi-box-arrow-in-right me-1"></i>Anmelden & öffnen
-                                        </a>
-                                    {% endif %}
+                                {% if app_info.benefits %}
+                                <div class="mb-4 benefits-section">
+                                    <h6 class="fw-bold text-{{ app_info.color }} mb-3"><i class="bi bi-trophy-fill me-2"></i>Ihre Vorteile:</h6>
+                                    <div class="row g-2">
+                                        {% for benefit_title, benefit_desc in app_info.benefits.items|slice:":2" %}
+                                        <div class="col-12">
+                                            <div class="benefit-card p-2 bg-light rounded">
+                                                <strong class="d-block text-{{ app_info.color }}">{{ benefit_title }}</strong>
+                                                <small class="text-muted">{{ benefit_desc|truncatewords:15 }}</small>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
                                 </div>
                                 {% endif %}
 
-                                <div class="d-grid">
-                                    <a href="{% url 'public_app_info' app_key %}" class="btn btn-outline-{{ app_info.color }} btn-sm rounded-pill">
-                                        <i class="bi bi-info-circle me-1"></i>Details & Features
-                                    </a>
-                                </div>
+                                {% if user.is_authenticated %}
+                                    {% if app_info.app_url %}
+                                    <div class="d-grid mb-2">
+                                        <a href="{{ app_info.app_url }}" class="btn btn-{{ app_info.color }} btn-sm rounded-pill">
+                                            <i class="bi bi-arrow-right-circle me-1"></i>App öffnen
+                                        </a>
+                                    </div>
+                                    {% endif %}
+                                    <div class="d-grid">
+                                        <a href="{% url 'public_app_info' app_key %}" class="btn btn-outline-{{ app_info.color }} btn-sm rounded-pill">
+                                            <i class="bi bi-info-circle me-1"></i>Details & Features
+                                        </a>
+                                    </div>
+                                {% else %}
+                                    <div class="d-grid mb-2">
+                                        <a href="{% url 'accounts:register' %}" class="btn btn-{{ app_info.color }} btn-sm rounded-pill">
+                                            <i class="bi bi-person-plus me-1"></i>Jetzt registrieren
+                                        </a>
+                                    </div>
+                                    <div class="d-grid">
+                                        <a href="{% url 'public_app_info' app_key %}" class="btn btn-outline-{{ app_info.color }} btn-sm rounded-pill">
+                                            <i class="bi bi-info-circle me-1"></i>Details & Features
+                                        </a>
+                                    </div>
+                                {% endif %}
                             </div>
+                            {% if not user.is_authenticated %}
                             <div class="card-footer bg-light text-center py-2">
                                 <small class="text-success fw-bold"><i class="bi bi-gift me-1"></i>Kostenlos für registrierte User</small>
                             </div>
+                            {% endif %}
                         </div>
                     </div>
-                    {% endif %}
                 {% endfor %}
             </div>
 
             <!-- Call to Action -->
             <div class="text-center">
-                <a href="{% url 'public_app_list' %}" class="btn btn-primary btn-lg rounded-pill px-5 me-3">
-                    <i class="bi bi-grid-3x3-gap me-2"></i>Alle Apps entdecken
-                </a>
-                <a href="{% url 'accounts:register' %}" class="btn btn-success btn-lg rounded-pill px-5">
-                    <i class="bi bi-rocket-takeoff me-2"></i>Kostenlos registrieren
-                </a>
+                {% if user.is_authenticated %}
+                    <a href="{% url 'public_app_list' %}" class="btn btn-primary btn-lg rounded-pill px-5">
+                        <i class="bi bi-grid-3x3-gap me-2"></i>Alle Apps anzeigen
+                    </a>
+                {% else %}
+                    <a href="{% url 'public_app_list' %}" class="btn btn-primary btn-lg rounded-pill px-5 me-3">
+                        <i class="bi bi-grid-3x3-gap me-2"></i>Alle Apps entdecken
+                    </a>
+                    <a href="{% url 'accounts:register' %}" class="btn btn-success btn-lg rounded-pill px-5">
+                        <i class="bi bi-rocket-takeoff me-2"></i>Kostenlos registrieren
+                    </a>
+                {% endif %}
             </div>
         </div>
     </section>
@@ -394,6 +432,7 @@
     </section>
 
     <!-- CTA Section -->
+    {% if not user.is_authenticated %}
     <section class="py-5 text-white" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
         <div class="container text-center">
             <h2 class="fw-bold mb-3">Bereit für Workloom?</h2>
@@ -413,16 +452,44 @@
             </div>
         </div>
     </section>
+    {% endif %}
 
     <style>
+        /* Apple-inspired App Cards */
         .featured-app-card {
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            border-radius: 20px;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 24px;
             overflow: hidden;
+            background: #fff;
         }
         .featured-app-card:hover {
-            transform: translateY(-10px) scale(1.02);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.2) !important;
+            transform: translateY(-12px);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.25) !important;
+        }
+
+        /* Feature List Styling */
+        .feature-list li {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #f0f0f0;
+            transition: all 0.2s ease;
+        }
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+        .feature-list li:hover {
+            padding-left: 0.5rem;
+            background-color: #f8f9fa;
+        }
+
+        /* Benefits Cards */
+        .benefit-card {
+            transition: all 0.3s ease;
+            border: 1px solid #e9ecef;
+        }
+        .benefit-card:hover {
+            transform: translateX(5px);
+            border-color: #dee2e6;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.08);
         }
         .bg-gradient-primary {
             background: linear-gradient(135deg, #5e72e4 0%, #825ee4 100%);
@@ -444,37 +511,69 @@
         }
         .featured-app-card .card-header {
             border: none;
+            background-size: cover;
+            position: relative;
+        }
+        .featured-app-card .card-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.05);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .featured-app-card:hover .card-header::before {
+            opacity: 1;
         }
         .featured-app-card .card-footer {
             border: none;
-            border-radius: 0 0 20px 20px;
+            border-radius: 0 0 24px 24px;
         }
-        
+
+        /* Button Enhancements */
+        .featured-app-card .btn {
+            font-weight: 600;
+            padding: 0.6rem 1.2rem;
+            transition: all 0.3s ease;
+        }
+        .featured-app-card .btn:hover {
+            transform: scale(1.05);
+        }
+
         /* Mobile Responsiveness */
         @media (max-width: 768px) {
-            .featured-app-card .card-header h4 {
-                font-size: 1.1rem;
+            .featured-app-card .card-header h3 {
+                font-size: 1.3rem;
             }
             .featured-app-card .card-header i {
-                font-size: 2.5rem !important;
+                font-size: 3rem !important;
             }
             .featured-app-card .card-text {
                 font-size: 0.9rem;
             }
-            .featured-app-card ul li small {
-                font-size: 0.8rem;
+            .feature-list li {
+                font-size: 0.85rem;
+            }
+            .benefit-card {
+                font-size: 0.85rem;
             }
         }
-        
+
         @media (max-width: 576px) {
             .featured-app-card {
-                margin-bottom: 1rem;
+                margin-bottom: 1.5rem;
             }
             .featured-app-card .card-body {
-                padding: 1rem !important;
+                padding: 1.5rem !important;
             }
             .featured-app-card .card-header {
-                padding: 1.5rem !important;
+                padding: 2rem !important;
+            }
+            .featured-app-card:hover {
+                transform: translateY(-5px);
             }
         }
         

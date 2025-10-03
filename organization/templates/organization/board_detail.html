@@ -6,110 +6,122 @@
 <div class="container-fluid mt-4">
     <div class="row">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1>{{ board.title }}</h1>
-                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
-                    <!-- Board Audio Button -->
-                    <button type="button" id="audio-toggle-btn" class="btn btn-sm btn-outline-success me-1" style="width: 120px; height: 38px; display: flex; align-items: center; justify-content: center;">
-                        🎤 <span id="audio-text" class="d-none d-sm-inline">Audio</span>
-                        <span id="audio-participants" class="badge bg-secondary ms-1" style="display: none; font-size: 0.65rem;">0</span>
-                    </button>
+            <div class="board-header-card mb-4">
+                <div class="board-header-content">
+                    <div class="board-title-section">
+                        <h1 class="board-main-title">
+                            <span class="board-title-icon">📋</span>
+                            {{ board.title }}
+                        </h1>
+                        {% if board.description %}
+                            <p class="board-description">{{ board.description }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="board-actions">
+                        <!-- Board Audio Button -->
+                        <button type="button" id="audio-toggle-btn" class="board-action-btn board-action-audio">
+                            <span class="action-icon">🎤</span>
+                            <span id="audio-text" class="action-text d-none d-md-inline">Audio</span>
+                            <span id="audio-participants" class="badge bg-secondary ms-1" style="display: none; font-size: 0.65rem;">0</span>
+                        </button>
 
-                    <!-- Mute Button (only visible when audio is active) -->
-                    <button type="button" id="mute-toggle-btn" class="btn btn-sm btn-outline-warning me-1" style="display: none; width: 120px; height: 38px;">
-                        🔇 <span id="mute-text" class="d-none d-sm-inline">Stumm</span>
-                    </button>
+                        <!-- Mute Button (only visible when audio is active) -->
+                        <button type="button" id="mute-toggle-btn" class="board-action-btn board-action-mute" style="display: none;">
+                            <span class="action-icon">🔇</span>
+                            <span id="mute-text" class="action-text d-none d-md-inline">Stumm</span>
+                        </button>
 
-                    <!-- Audio Participants List with Speaking Indicator -->
-                    <div id="audio-participants-list" class="d-inline-block me-1" style="display: none;">
-                        <div class="dropdown">
-                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="width: 120px; height: 38px; display: flex; align-items: center; justify-content: center;">
-                                <span id="active-speaker-name">👥 <span class="d-none d-sm-inline">Teiln.</span></span>
-                            </button>
-                            <div class="dropdown-menu" id="participants-dropdown" style="min-width: 200px;">
-                                <!-- Participants will be added here dynamically -->
+                        <!-- Audio Participants List with Speaking Indicator -->
+                        <div id="audio-participants-list" class="d-inline-block" style="display: none;">
+                            <div class="dropdown">
+                                <button class="board-action-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <span class="action-icon">👥</span>
+                                    <span id="active-speaker-name" class="action-text d-none d-md-inline">Teiln.</span>
+                                </button>
+                                <div class="dropdown-menu" id="participants-dropdown" style="min-width: 200px;">
+                                    <!-- Participants will be added here dynamically -->
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Mirror Button -->
-                    <button type="button" id="mirror-toggle-btn" class="btn btn-sm btn-outline-primary me-1" style="width: 120px; height: 38px; display: flex; align-items: center; justify-content: center;">
-                        🖥️ <span id="mirror-button-label" class="d-none d-sm-inline">Mirror</span>
-                    </button>
-                    <span id="mirror-active-indicator" class="badge bg-danger" style="display: none; font-size: 0.7rem; align-self: center;">LIVE</span>
-                    <span id="mirror-owner-info" class="text-muted small" style="display: none;"></span>
-
-                    {% if board.creator == request.user %}
-                        <button type="button" class="btn btn-sm btn-info me-1" data-bs-toggle="modal" data-bs-target="#inviteModal" style="width: 120px; height: 38px; display: flex; align-items: center; justify-content: center;">
-                            👥 <span class="d-none d-sm-inline">Einladen</span>
+                        <!-- Mirror Button -->
+                        <button type="button" id="mirror-toggle-btn" class="board-action-btn board-action-mirror">
+                            <span class="action-icon">🖥️</span>
+                            <span id="mirror-button-label" class="action-text d-none d-md-inline">Mirror</span>
                         </button>
-                    {% endif %}
-                    <a href="{% url 'organization:board_list' %}" class="btn btn-sm btn-secondary" style="width: 120px; height: 38px; display: flex; align-items: center; justify-content: center;">
-                        ↩️ <span class="d-none d-sm-inline">Zurück</span>
-                    </a>
+                        <span id="mirror-active-indicator" class="badge bg-danger ms-2" style="display: none; font-size: 0.7rem; align-self: center;">LIVE</span>
+                        <span id="mirror-owner-info" class="text-muted small" style="display: none;"></span>
+
+                        {% if board.creator == request.user %}
+                            <button type="button" class="board-action-btn board-action-invite" data-bs-toggle="modal" data-bs-target="#inviteModal">
+                                <span class="action-icon">👥</span>
+                                <span class="action-text d-none d-md-inline">Einladen</span>
+                            </button>
+                        {% endif %}
+                        <a href="{% url 'organization:board_list' %}" class="board-action-btn board-action-back">
+                            <span class="action-icon">↩️</span>
+                            <span class="action-text d-none d-md-inline">Zurück</span>
+                        </a>
+                    </div>
                 </div>
             </div>
-            
-            {% if board.description %}
-                <p class="text-muted mb-4">{{ board.description }}</p>
-            {% endif %}
         </div>
     </div>
     
     <div class="row">
         <div class="col-12 col-lg-2">
             <!-- Werkzeuge -->
-            <div class="card">
-                <div class="card-header d-lg-block d-none">
-                    <h5>🎨 Werkzeuge</h5>
+            <div class="card tool-card">
+                <div class="card-header tool-card-header">
+                    <h5><span class="tool-header-icon">🎨</span> <span class="tool-header-text">Werkzeuge</span></h5>
                 </div>
                 <div class="card-body p-2">
                     <div class="btn-group-vertical btn-group-horizontal-mobile w-100" role="group">
                         <button type="button" class="btn btn-outline-primary tool-btn active" data-tool="select">
-                            👆 Auswählen
+                            <span class="tool-icon">👆</span> <span class="tool-text">Auswählen</span>
                         </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="pen">
-                            ✏️ Stift
+                            <span class="tool-icon">✏️</span> <span class="tool-text">Stift</span>
                         </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="text">
-                            📝 Text
+                            <span class="tool-icon">📝</span> <span class="tool-text">Text</span>
                         </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="emoji">
-                            😀 Emoji
+                            <span class="tool-icon">😀</span> <span class="tool-text">Emoji</span>
                         </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="image">
-                            🖼️ Bild
+                            <span class="tool-icon">🖼️</span> <span class="tool-text">Bild</span>
                         </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="rectangle">
-                            ⬜ Rechteck
+                            <span class="tool-icon">⬜</span> <span class="tool-text">Rechteck</span>
                         </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="circle">
-                            ⭕ Kreis
+                            <span class="tool-icon">⭕</span> <span class="tool-text">Kreis</span>
                         </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="triangle">
-                            🔺 Dreieck
+                            <span class="tool-icon">🔺</span> <span class="tool-text">Dreieck</span>
                         </button>
                         <button type="button" class="btn btn-outline-primary tool-btn" data-tool="arrow">
-                            ➡️ Linie/Pfeil
+                            <span class="tool-icon">➡️</span> <span class="tool-text">Linie/Pfeil</span>
                         </button>
                     </div>
                     
-                    <hr>
-                    
-                    
-                    <hr>
+                    <hr style="margin: 1rem 0; border-color: rgba(255, 107, 53, 0.2);">
 
-                    <div class="d-grid gap-2 my-3">
-                        <button type="button" class="btn btn-warning btn-sm" id="clear-canvas" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
-                            🗑️ Canvas löschen
+                    <div class="d-grid gap-2 my-3 board-action-buttons">
+                        <button type="button" class="btn board-save-btn" id="save-board">
+                            <span class="btn-icon">💾</span>
+                            <span class="btn-text">Speichern</span>
                         </button>
 
-                        <button type="button" class="btn btn-success btn-sm" id="save-board" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
-                            💾 Speichern
+                        <button type="button" class="btn board-download-btn" id="download-board">
+                            <span class="btn-icon">📥</span>
+                            <span class="btn-text">Download JPG</span>
                         </button>
 
-                        <button type="button" class="btn btn-info btn-sm" id="download-board" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
-                            📥 Download JPG
+                        <button type="button" class="btn board-clear-btn" id="clear-canvas">
+                            <span class="btn-icon">🗑️</span>
+                            <span class="btn-text">Canvas löschen</span>
                         </button>
                     </div>
 
@@ -5839,34 +5851,295 @@ if (document.readyState === 'loading') {
     height: 40px;
 }
 
+/* Board Header Styling */
+.board-header-card {
+    background: linear-gradient(135deg, #ffd93d 0%, #ff6b35 50%, #f7931e 100%);
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 8px 30px rgba(255, 107, 53, 0.25);
+    color: white;
+}
+
+.board-header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+.board-title-section {
+    flex: 1;
+    min-width: 250px;
+}
+
+.board-main-title {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem 0;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.board-title-icon {
+    font-size: 2.2rem;
+}
+
+.board-description {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 1.05rem;
+    line-height: 1.5;
+}
+
+.board-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.board-action-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    padding: 0.6rem 1rem;
+    border-radius: 12px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    backdrop-filter: blur(10px);
+    text-decoration: none;
+}
+
+.board-action-btn:hover {
+    background: white;
+    color: #ff6b35;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.action-icon {
+    font-size: 1.2rem;
+}
+
+.action-text {
+    font-size: 0.9rem;
+}
+
+.board-action-audio:hover {
+    background: #28a745;
+    border-color: #28a745;
+    color: white;
+}
+
+.board-action-mirror:hover {
+    background: #007bff;
+    border-color: #007bff;
+    color: white;
+}
+
+.board-action-invite:hover {
+    background: #17a2b8;
+    border-color: #17a2b8;
+    color: white;
+}
+
+.board-action-back:hover {
+    background: #6c757d;
+    border-color: #6c757d;
+    color: white;
+}
+
+@media (max-width: 991.98px) {
+    .board-header-card {
+        padding: 1.5rem;
+    }
+
+    .board-main-title {
+        font-size: 1.5rem;
+    }
+
+    .board-title-icon {
+        font-size: 1.7rem;
+    }
+
+    .board-header-content {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1.5rem;
+    }
+
+    .board-actions {
+        justify-content: center;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .board-header-card {
+        padding: 1rem;
+    }
+
+    .board-main-title {
+        font-size: 1.3rem;
+        flex-wrap: wrap;
+    }
+
+    .action-text {
+        display: none !important;
+    }
+
+    .board-action-btn {
+        padding: 0.5rem 0.75rem;
+    }
+}
+
+/* Tool Card Styling */
+.tool-card {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(255, 107, 53, 0.15);
+    overflow: hidden;
+}
+
+.tool-card-header {
+    background: linear-gradient(135deg, #ffd93d 0%, #ff6b35 50%, #f7931e 100%);
+    color: white;
+    border: none;
+    padding: 1rem;
+}
+
+.tool-card-header h5 {
+    margin: 0;
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.tool-header-icon {
+    font-size: 1.3rem;
+}
+
+.tool-btn {
+    border-radius: 10px !important;
+    margin-bottom: 0.5rem;
+    transition: all 0.3s ease;
+    font-weight: 600;
+    padding: 0.75rem 1rem;
+}
+
+.tool-btn:hover {
+    transform: translateX(5px);
+    box-shadow: 0 4px 15px rgba(255, 107, 53, 0.2);
+}
+
+.tool-btn.active {
+    background: linear-gradient(135deg, #ffd93d 0%, #ff6b35 50%, #f7931e 100%);
+    border-color: #ff6b35;
+    color: white;
+}
+
+.tool-icon {
+    font-size: 1.2rem;
+    display: inline-block;
+}
+
+.tool-text {
+    margin-left: 0.5rem;
+}
+
+/* Board Action Buttons (Save, Download, Clear) */
+.board-action-buttons .btn {
+    border-radius: 10px;
+    font-weight: 600;
+    padding: 0.75rem;
+    border: none;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.board-action-buttons .btn-icon {
+    font-size: 1.2rem;
+}
+
+.board-save-btn {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+}
+
+.board-save-btn:hover {
+    background: linear-gradient(135deg, #20c997 0%, #28a745 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
+    color: white;
+}
+
+.board-download-btn {
+    background: linear-gradient(135deg, #17a2b8 0%, #1171ef 100%);
+    color: white;
+}
+
+.board-download-btn:hover {
+    background: linear-gradient(135deg, #1171ef 0%, #17a2b8 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(23, 162, 184, 0.4);
+    color: white;
+}
+
+.board-clear-btn {
+    background: linear-gradient(135deg, #ffc107 0%, #ff6b35 100%);
+    color: white;
+}
+
+.board-clear-btn:hover {
+    background: linear-gradient(135deg, #ff6b35 0%, #dc3545 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+    color: white;
+}
+
 /* Mobile responsive styles */
 @media (max-width: 991.98px) {
+    /* Show header on mobile too */
+    .tool-card-header {
+        display: block !important;
+    }
+
+    .tool-header-text {
+        display: none;
+    }
+
     /* Transform vertical button group to horizontal on mobile */
     .btn-group-horizontal-mobile {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: wrap !important;
-        gap: 4px !important;
+        gap: 6px !important;
     }
-    
+
     .btn-group-horizontal-mobile .tool-btn {
-        flex: 1 1 calc(20% - 4px) !important;
-        min-width: 60px !important;
-        padding: 8px 4px !important;
-        font-size: 12px !important;
-        border-radius: 6px !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
+        flex: 1 1 calc(33.33% - 6px) !important;
+        min-width: 80px !important;
+        padding: 10px 6px !important;
+        border-radius: 10px !important;
+        margin-bottom: 0 !important;
     }
-    
-    /* Hide text on very small screens, show only icons */
-    .btn-group-horizontal-mobile .tool-btn i {
+
+    .btn-group-horizontal-mobile .tool-btn .tool-icon {
+        font-size: 1.5rem !important;
         display: block !important;
-        margin-right: 0 !important;
-        font-size: 16px !important;
     }
-    
+
+    .btn-group-horizontal-mobile .tool-btn .tool-text {
+        display: none !important;
+    }
+
     /* Canvas container adjustments for mobile */
     #canvas-container {
         overflow-x: auto !important;
@@ -5874,24 +6147,24 @@ if (document.readyState === 'loading') {
         max-width: 100vw !important;
         padding: 10px !important;
     }
-    
+
     #drawing-canvas {
         max-width: 100% !important;
         height: auto !important;
         touch-action: none !important; /* Prevent page scrolling while drawing */
     }
-    
+
     /* Mobile card adjustments */
     .card-body {
         padding: 0.75rem !important;
     }
-    
+
     /* Smaller controls on mobile */
     .form-control, .form-select {
         font-size: 14px !important;
         padding: 6px 8px !important;
     }
-    
+
     .btn {
         font-size: 14px !important;
         padding: 6px 12px !important;
@@ -5901,20 +6174,20 @@ if (document.readyState === 'loading') {
 @media (max-width: 575.98px) {
     /* Even more compact on very small screens */
     .btn-group-horizontal-mobile .tool-btn {
-        flex: 1 1 calc(25% - 3px) !important;
-        padding: 6px 2px !important;
-        font-size: 0 !important; /* Hide text completely */
+        flex: 1 1 calc(33.33% - 4px) !important;
+        padding: 8px 4px !important;
+        min-width: 70px !important;
     }
-    
-    .btn-group-horizontal-mobile .tool-btn i {
-        font-size: 14px !important;
+
+    .btn-group-horizontal-mobile .tool-btn .tool-icon {
+        font-size: 1.3rem !important;
     }
-    
+
     /* Stack canvas below tools on very small screens */
     .row {
         margin: 0 !important;
     }
-    
+
     .col-12 {
         padding: 0.25rem !important;
     }

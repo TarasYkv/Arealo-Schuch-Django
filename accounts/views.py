@@ -122,7 +122,7 @@ def dashboard(request):
     app_definitions = {
         'chat': {
             'name': 'Chat System',
-            'description': 'Kommunizieren Sie direkt mit anderen Nutzern über unser integriertes Chat-System.',
+            'description': 'Kommuniziere direkt mit anderen Nutzern über unser integriertes Chat-System.',
             'icon': 'bi-chat-dots',
             'url': 'organization:chat_home',
             'color': 'bg-primary',
@@ -130,7 +130,7 @@ def dashboard(request):
         },
         'videos': {
             'name': 'Videos',
-            'description': 'Verwalten und teilen Sie Ihre Video-Inhalte sicher und effizient.',
+            'description': 'Verwalte und teile deine Video-Inhalte sicher und effizient.',
             'icon': 'bi-play-circle',
             'url': 'videos:list',
             'color': 'bg-danger',
@@ -154,7 +154,7 @@ def dashboard(request):
         },
         'wirtschaftlichkeitsrechner': {
             'name': 'Wirtschaftlichkeitsrechner',
-            'description': 'Berechnen Sie die Wirtschaftlichkeit Ihrer Projekte mit unserem professionellen Tool.',
+            'description': 'Berechne die Wirtschaftlichkeit deiner Projekte mit unserem professionellen Tool.',
             'icon': 'bi-calculator',
             'url': 'amortization_calculator:rechner_start',
             'color': 'bg-success',
@@ -162,7 +162,7 @@ def dashboard(request):
         },
         'sportplatz_konfigurator': {
             'name': 'Sportplatz-Konfigurator',
-            'description': 'Planen und konfigurieren Sie Sportplätze nach Ihren spezifischen Anforderungen.',
+            'description': 'Plane und konfiguriere Sportplätze nach deinen spezifischen Anforderungen.',
             'icon': 'bi-grid-3x3',
             'url': 'sportplatzApp:sportplatz_start',
             'color': 'bg-info',
@@ -170,7 +170,7 @@ def dashboard(request):
         },
         'pdf_suche': {
             'name': 'PDF-Suche',
-            'description': 'Durchsuchen Sie Ihre PDF-Dokumente schnell und effizient nach Inhalten.',
+            'description': 'Durchsuche deine PDF-Dokumente schnell und effizient nach Inhalten.',
             'icon': 'bi-file-pdf',
             'url': 'pdf_sucher:pdf_suche',
             'color': 'bg-danger',
@@ -178,7 +178,7 @@ def dashboard(request):
         },
         'ki_zusammenfassung': {
             'name': 'KI-Zusammenfassung',
-            'description': 'Lassen Sie wichtige Dokumente automatisch durch KI zusammenfassen.',
+            'description': 'Lass wichtige Dokumente automatisch durch KI zusammenfassen.',
             'icon': 'bi-robot',
             'url': 'pdf_sucher:document_list',
             'color': 'bg-secondary',
@@ -186,7 +186,7 @@ def dashboard(request):
         },
         'shopify': {
             'name': 'Shopify Integration',
-            'description': 'Verwalten Sie Ihre Shopify-Daten und synchronisieren Sie Produktinformationen.',
+            'description': 'Verwalte deine Shopify-Daten und synchronisiere Produktinformationen.',
             'icon': 'bi-shop',
             'url': 'shopify_manager:dashboard',
             'color': 'bg-success',
@@ -194,7 +194,7 @@ def dashboard(request):
         },
         'bilder': {
             'name': 'Bilder-Editor',
-            'description': 'Bearbeiten und optimieren Sie Bilder direkt in der Anwendung.',
+            'description': 'Bearbeite und optimiere Bilder direkt in der Anwendung.',
             'icon': 'bi-image',
             'url': 'image_editor:dashboard',
             'color': 'bg-info',
@@ -202,7 +202,7 @@ def dashboard(request):
         },
         'organisation': {
             'name': 'Organisation',
-            'description': 'Verwalten Sie Organisationsstrukturen und Zuständigkeiten.',
+            'description': 'Verwalte Organisationsstrukturen und Zuständigkeiten.',
             'icon': 'bi-building',
             'url': 'organization:dashboard',
             'color': 'bg-secondary',
@@ -218,7 +218,7 @@ def dashboard(request):
         },
         'todos': {
             'name': 'ToDos',
-            'description': 'Verwalten Sie Ihre Aufgaben und Projekte effizient.',
+            'description': 'Verwalte deine Aufgaben und Projekte effizient.',
             'icon': 'bi-check-square',
             'url': 'todos:home',
             'color': 'bg-primary',
@@ -226,7 +226,7 @@ def dashboard(request):
         },
         'editor': {
             'name': 'Content Editor',
-            'description': 'Bearbeiten Sie Inhalte und Seiten Ihrer Website.',
+            'description': 'Bearbeite Inhalte und Seiten deiner Website.',
             'icon': 'bi-pencil-square',
             'url': 'accounts:content_editor',
             'color': 'bg-warning',
@@ -234,7 +234,7 @@ def dashboard(request):
         },
         'bug_report': {
             'name': 'Bug Report',
-            'description': 'Melden Sie Fehler und Verbesserungsvorschläge.',
+            'description': 'Melde Fehler und Verbesserungsvorschläge.',
             'icon': 'bi-bug',
             'url': 'bug_report:submit_bug_report',
             'color': 'bg-danger',
@@ -242,10 +242,50 @@ def dashboard(request):
         },
         'payments': {
             'name': 'Zahlungen & Abos',
-            'description': 'Verwalten Sie Ihre Abonnements und Zahlungsinformationen.',
+            'description': 'Verwalte deine Abonnements und Zahlungsinformationen.',
             'icon': 'bi-credit-card',
             'url': 'payments:subscription_plans',
             'color': 'bg-success',
+            'category': 'management'
+        },
+        'loomline': {
+            'name': 'LoomLine',
+            'description': 'SEO Task Timeline - Tracking erledigter SEO-Aufgaben mit intelligentem Erinnerungssystem.',
+            'icon': 'bi-graph-up',
+            'url': 'loomline:dashboard',
+            'color': 'bg-info',
+            'category': 'tools'
+        },
+        'streamrec': {
+            'name': 'StreamRec Studio',
+            'description': 'Bildschirm- und Audio-Aufnahme für Content Creation direkt im Browser.',
+            'icon': 'bi-mic',
+            'url': 'streamrec:dashboard',
+            'color': 'bg-danger',
+            'category': 'media'
+        },
+        'fileshare': {
+            'name': 'FileShare',
+            'description': 'Sichere und einfache Dateifreigabe mit Passwortschutz und Ablaufdatum.',
+            'icon': 'bi-folder-symlink',
+            'url': 'fileshare:index',
+            'color': 'bg-warning',
+            'category': 'tools'
+        },
+        'promptpro': {
+            'name': 'PromptPro',
+            'description': 'KI-Prompt-Bibliothek und Kategorisierung für bessere Organisation.',
+            'icon': 'bi-collection',
+            'url': 'promptpro:prompt_list',
+            'color': 'bg-primary',
+            'category': 'ai'
+        },
+        'loomads': {
+            'name': 'LoomAds',
+            'description': 'Werbeanzeigen-Verwaltung und Ad-Zones für deine Plattform.',
+            'icon': 'bi-megaphone',
+            'url': 'loomads:dashboard',
+            'color': 'bg-secondary',
             'category': 'management'
         }
     }
@@ -3123,18 +3163,67 @@ def app_info(request, app_name):
             key_features=[],
             development_status='development'
         )
-    
+
+    # App-Definitionen für URL-Lookup
+    app_definitions = {
+        'chat': {
+            'url': 'chat:main',
+            'category': 'Kommunikation',
+        },
+        'todos': {
+            'url': 'todos:index',
+            'category': 'Tools',
+        },
+        'videos': {
+            'url': 'videos:dashboard',
+            'category': 'Medien',
+        },
+        'organization': {
+            'url': 'organization:dashboard',
+            'category': 'Organisation',
+        },
+        'loomline': {
+            'url': 'loomline:dashboard',
+            'category': 'SEO & Marketing',
+        },
+        'fileshare': {
+            'url': 'fileshare:index',
+            'category': 'Tools',
+        },
+        'promptpro': {
+            'url': 'promptpro:prompt_list',
+            'category': 'KI',
+        },
+        'loomads': {
+            'url': 'loomads:dashboard',
+            'category': 'Marketing',
+        }
+    }
+
+    # URL und Kategorie aus Definitionen holen
+    app_url = None
+    app_category = 'Tools'
+    if app_name in app_definitions:
+        url_name = app_definitions[app_name]['url']
+        app_category = app_definitions[app_name].get('category', 'Tools')
+        if url_name != '#':
+            try:
+                from django.urls import reverse
+                app_url = reverse(url_name)
+            except:
+                app_url = None
+
     # Feature Access Status prüfen
     feature_access = None
     try:
         feature_access = FeatureAccess.objects.get(app_name=app_name)
     except FeatureAccess.DoesNotExist:
         pass
-    
+
     # Aktuellen Zugriffsstatus ermitteln
     has_access = False
     access_message = "Zugriff nicht verfügbar"
-    
+
     if feature_access:
         has_access = feature_access.user_has_access(request.user)
         if feature_access.subscription_required == 'in_development':
@@ -3149,14 +3238,16 @@ def app_info(request, app_name):
             access_message = "Storage-Plan erforderlich"
         elif feature_access.subscription_required == 'blocked':
             access_message = "Aktuell nicht verfügbar"
-    
+
     context = {
         'app_info': app_info,
+        'app_url': app_url,
+        'app_category': app_category,
         'feature_access': feature_access,
         'has_access': has_access,
         'access_message': access_message,
     }
-    
+
     return render(request, 'accounts/app_info.html', context)
 
 
