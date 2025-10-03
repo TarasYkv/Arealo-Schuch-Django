@@ -2,229 +2,833 @@
 {% load loomads_tags %}
 
 {% block content %}
-<div class="container mt-4">
-    <!-- Header Ad Zone -->
-    {% show_ad_zone 'app_info_header' css_class='mb-3' %}
-    
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div class="d-flex align-items-center">
-            <i class="{{ app_info.icon_class }} fs-1 text-primary me-3"></i>
-            <div>
-                <h1 class="mb-1">{{ app_info.title }}</h1>
-                <p class="text-muted mb-0">{{ app_info.short_description }}</p>
-            </div>
-        </div>
-        <div>
-            <a href="{% url 'accounts:dashboard' %}" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left"></i> Zurück zum Dashboard
-            </a>
-        </div>
-    </div>
+<style>
+/* Modernes, dezentes App-Info Design mit klaren Abgrenzungen */
+:root {
+    --primary-color: #667eea;
+    --text-dark: #111827;
+    --text-medium: #374151;
+    --text-muted: #6b7280;
+    --border-color: #d1d5db;
+    --bg-light: #f9fafb;
+    --bg-white: #ffffff;
+}
+
+/* Container */
+.app-info-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+}
+
+/* Breadcrumb */
+.app-breadcrumb {
+    background: var(--bg-white);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.app-breadcrumb a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.app-breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+/* Header Section */
+.app-info-header {
+    background: var(--bg-white);
+    border: 2px solid var(--border-color);
+    border-radius: 16px;
+    padding: 3rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.app-info-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 5px;
+    height: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.app-icon-wrapper {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #f8f9fb 0%, #ffffff 100%);
+    border: 2px solid var(--border-color);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+}
+
+.app-icon-wrapper i {
+    font-size: 2.5rem;
+    color: var(--primary-color);
+}
+
+.app-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 1rem;
+    letter-spacing: -0.02em;
+}
+
+.app-description {
+    font-size: 1.125rem;
+    color: var(--text-medium);
+    line-height: 1.7;
+    margin-bottom: 1.5rem;
+}
+
+.app-status-badges {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.status-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border: 1.5px solid;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-badge.available {
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    border-color: #6ee7b7;
+    color: #047857;
+}
+
+.status-badge.free {
+    background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+    border-color: #a78bfa;
+    color: #6d28d9;
+}
+
+.app-cta-buttons {
+    margin-top: 2rem;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.btn-primary-custom {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 0.875rem 2rem;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.btn-primary-custom:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary-custom {
+    background: var(--bg-white);
+    color: var(--text-medium);
+    border: 2px solid var(--border-color);
+    padding: 0.875rem 2rem;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.btn-secondary-custom:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    transform: translateY(-2px);
+}
+
+/* Content Sections */
+.info-section {
+    background: var(--bg-white);
+    border: 2px solid var(--border-color);
+    border-radius: 16px;
+    padding: 2.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.section-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.section-content {
+    color: var(--text-medium);
+    line-height: 1.8;
+    font-size: 1rem;
+}
+
+/* Features Grid */
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.feature-card {
+    background: var(--bg-light);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.75rem;
+    transition: all 0.3s ease;
+}
+
+.feature-card:hover {
+    border-color: var(--primary-color);
+    transform: translateY(-4px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.feature-icon {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #f8f9fb 0%, #ffffff 100%);
+    border: 2px solid var(--border-color);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.feature-icon i {
+    font-size: 1.5rem;
+    color: var(--primary-color);
+}
+
+.feature-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 0.5rem;
+}
+
+.feature-description {
+    font-size: 0.9375rem;
+    color: var(--text-medium);
+    line-height: 1.6;
+}
+
+/* Benefits List */
+.benefits-list {
+    margin-top: 1.5rem;
+}
+
+.benefit-item {
+    background: var(--bg-light);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.benefit-icon {
+    width: 40px;
+    height: 40px;
+    background: var(--bg-white);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.benefit-icon i {
+    font-size: 1.25rem;
+    color: var(--primary-color);
+}
+
+.benefit-content h6 {
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 0.5rem;
+}
+
+.benefit-content p {
+    font-size: 0.9375rem;
+    color: var(--text-medium);
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* Use Cases */
+.use-cases-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.use-case-card {
+    background: var(--bg-white);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 2rem;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.use-case-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.use-case-card:hover::before {
+    opacity: 1;
+}
+
+.use-case-card:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.use-case-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 1rem;
+}
+
+.use-case-description {
+    font-size: 0.9375rem;
+    color: var(--text-medium);
+    line-height: 1.7;
+}
+
+/* FAQ Section */
+.faq-list {
+    margin-top: 1.5rem;
+}
+
+.faq-item {
+    background: var(--bg-light);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+}
+
+.faq-question {
+    padding: 1.25rem 1.5rem;
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+
+.faq-question:hover {
+    background: var(--bg-white);
+}
+
+.faq-question::after {
+    content: '\f078';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    color: var(--primary-color);
+    font-size: 0.875rem;
+}
+
+.faq-answer {
+    padding: 0 1.5rem 1.25rem;
+    font-size: 0.9375rem;
+    color: var(--text-medium);
+    line-height: 1.7;
+    display: none;
+}
+
+.faq-item.active .faq-answer {
+    display: block;
+}
+
+.faq-item.active .faq-question::after {
+    content: '\f077';
+}
+
+/* Stats Section */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #f8f9fb 0%, #ffffff 100%);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Sidebar */
+.sidebar-card {
+    background: var(--bg-white);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-card h6 {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.sidebar-info-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.sidebar-info-item:last-child {
+    border-bottom: none;
+}
+
+.sidebar-label {
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.sidebar-value {
+    font-weight: 600;
+    color: var(--text-dark);
+    font-size: 0.875rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .app-info-header {
+        padding: 2rem 1.5rem;
+    }
+
+    .app-title {
+        font-size: 2rem;
+    }
+
+    .app-description {
+        font-size: 1rem;
+    }
+
+    .info-section {
+        padding: 1.5rem;
+    }
+
+    .section-title {
+        font-size: 1.5rem;
+    }
+
+    .features-grid,
+    .use-cases-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<div class="app-info-container">
+    <!-- Breadcrumb -->
+    <nav class="app-breadcrumb" aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item"><a href="{% url 'accounts:dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ app_info.title }}</li>
+        </ol>
+    </nav>
 
     <div class="row">
         <!-- Main Content -->
         <div class="col-lg-8">
-            <!-- Status Card -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">
-                        <i class="bi bi-info-circle"></i> Status & Verfügbarkeit
-                    </h5>
+            <!-- Header -->
+            <div class="app-info-header">
+                <div class="app-icon-wrapper">
+                    <i class="{{ app_info.icon_class }}"></i>
                 </div>
-                <div class="card-body">
-                    <div class="row align-items-center">
-                        <div class="col-md-8">
-                            <div class="d-flex align-items-center mb-2">
-                                {% if feature_access.subscription_required == 'free' %}
-                                    <span class="badge bg-success me-2">
-                                        <i class="bi bi-check-circle me-1"></i>Kostenlos verfügbar
-                                    </span>
-                                {% elif feature_access.subscription_required == 'in_development' %}
-                                    <span class="badge bg-secondary me-2">
-                                        <i class="bi bi-hammer me-1"></i>In Entwicklung
-                                    </span>
-                                {% elif feature_access.subscription_required == 'founder_access' %}
-                                    <span class="badge bg-warning me-2">
-                                        <i class="bi bi-star me-1"></i>Early Access
-                                    </span>
-                                {% elif feature_access.subscription_required == 'any_paid' %}
-                                    <span class="badge bg-primary me-2">
-                                        <i class="bi bi-credit-card me-1"></i>Bezahltes Abo
-                                    </span>
-                                {% elif feature_access.subscription_required == 'storage_plan' %}
-                                    <span class="badge bg-info me-2">
-                                        <i class="bi bi-hdd me-1"></i>Storage Plan
-                                    </span>
-                                {% elif feature_access.subscription_required == 'blocked' %}
-                                    <span class="badge bg-danger me-2">
-                                        <i class="bi bi-x-circle me-1"></i>Nicht verfügbar
-                                    </span>
-                                {% endif %}
-                                
-                                <span class="badge bg-outline-secondary">
-                                    {% if app_info.development_status == 'development' %}
-                                        <i class="bi bi-tools me-1"></i>Entwicklung
-                                    {% elif app_info.development_status == 'beta' %}
-                                        <i class="bi bi-bug me-1"></i>Beta
-                                    {% elif app_info.development_status == 'stable' %}
-                                        <i class="bi bi-check-all me-1"></i>Stabil
-                                    {% elif app_info.development_status == 'deprecated' %}
-                                        <i class="bi bi-exclamation-triangle me-1"></i>Veraltet
-                                    {% endif %}
-                                    {{ app_info.get_development_status_display }}
-                                </span>
-                            </div>
-                            <p class="text-muted mb-0">{{ access_message }}</p>
-                        </div>
-                        <div class="col-md-4 text-end">
-                            {% if has_access and feature_access.subscription_required != 'in_development' %}
-                                <a href="#" class="btn btn-success">
-                                    <i class="bi bi-arrow-right me-1"></i>App öffnen
-                                </a>
-                            {% elif feature_access.subscription_required == 'in_development' %}
-                                <button class="btn btn-secondary" disabled>
-                                    <i class="bi bi-hammer me-1"></i>Bald verfügbar
-                                </button>
-                            {% else %}
-                                <a href="{% url 'payments:subscription_plans' %}" class="btn btn-warning">
-                                    <i class="bi bi-arrow-up me-1"></i>Upgrade
-                                </a>
-                            {% endif %}
-                        </div>
-                    </div>
+                <h1 class="app-title">{{ app_info.title }}</h1>
+                <p class="app-description">{{ app_info.short_description }}</p>
+
+                <div class="app-status-badges">
+                    {% if app_info.is_active %}
+                    <span class="status-badge available">
+                        <i class="bi bi-check-circle-fill"></i>
+                        Verfügbar
+                    </span>
+                    {% endif %}
+                    <span class="status-badge free">
+                        <i class="bi bi-star-fill"></i>
+                        {{ app_info.subscription_requirements|default:"Kostenlos" }}
+                    </span>
+                </div>
+
+                <div class="app-cta-buttons">
+                    {% if app_url %}
+                    <a href="{{ app_url }}" class="btn btn-primary-custom">
+                        <i class="bi bi-arrow-right-circle me-2"></i>
+                        App starten
+                    </a>
+                    {% endif %}
+                    <a href="{% url 'accounts:dashboard' %}" class="btn btn-secondary-custom">
+                        <i class="bi bi-arrow-left me-2"></i>
+                        Zurück zum Dashboard
+                    </a>
                 </div>
             </div>
 
-            <!-- Description -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">
-                        <i class="bi bi-file-text"></i> Beschreibung
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <p>{{ app_info.detailed_description|linebreaks }}</p>
+            <!-- Overview -->
+            <div class="info-section">
+                <h2 class="section-title">Übersicht</h2>
+                <div class="section-content">
+                    <p>{{ app_info.detailed_description|default:app_info.short_description }}</p>
+                    {% if app_info.key_features %}
+                    <h5 class="mt-4 mb-3" style="font-weight: 700; color: var(--text-dark);">Kernfunktionen:</h5>
+                    <ul style="line-height: 2; color: var(--text-medium);">
+                        {% for feature in app_info.key_features %}
+                        <li>{{ feature }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
                 </div>
             </div>
 
             <!-- Features -->
-            {% if app_info.key_features %}
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">
-                        <i class="bi bi-list-stars"></i> Hauptfunktionen
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <ul class="list-unstyled">
-                        {% for feature in app_info.key_features %}
-                        <li class="mb-2">
-                            <i class="bi bi-check-circle text-success me-2"></i>{{ feature }}
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            </div>
-            {% endif %}
+            <div class="info-section">
+                <h2 class="section-title">Hauptfunktionen</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="bi bi-lightning-charge-fill"></i>
+                        </div>
+                        <h3 class="feature-title">Schnell & Intuitiv</h3>
+                        <p class="feature-description">
+                            Einfache Bedienung und schnelle Ergebnisse ohne komplizierte Einrichtung.
+                        </p>
+                    </div>
 
-            <!-- Screenshot -->
-            {% if app_info.screenshot_url %}
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">
-                        <i class="bi bi-image"></i> Vorschau
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <img src="{{ app_info.screenshot_url }}" class="img-fluid rounded" alt="Screenshot von {{ app_info.title }}">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="bi bi-shield-check"></i>
+                        </div>
+                        <h3 class="feature-title">Sicher & Zuverlässig</h3>
+                        <p class="feature-description">
+                            Deine Daten sind bei uns sicher und werden verschlüsselt gespeichert.
+                        </p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="bi bi-people-fill"></i>
+                        </div>
+                        <h3 class="feature-title">Team-fähig</h3>
+                        <p class="feature-description">
+                            Arbeite nahtlos mit deinem Team zusammen und teile Inhalte.
+                        </p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="bi bi-phone"></i>
+                        </div>
+                        <h3 class="feature-title">Responsive Design</h3>
+                        <p class="feature-description">
+                            Nutze die App auf allen Geräten - Desktop, Tablet und Smartphone.
+                        </p>
+                    </div>
                 </div>
             </div>
-            {% endif %}
+
+            <!-- Benefits -->
+            <div class="info-section">
+                <h2 class="section-title">Deine Vorteile</h2>
+                <div class="benefits-list">
+                    <div class="benefit-item">
+                        <div class="benefit-icon">
+                            <i class="bi bi-clock-history"></i>
+                        </div>
+                        <div class="benefit-content">
+                            <h6>Zeitersparnis</h6>
+                            <p>Spare bis zu 50% deiner Zeit durch automatisierte Prozesse und intelligente Features.</p>
+                        </div>
+                    </div>
+
+                    <div class="benefit-item">
+                        <div class="benefit-icon">
+                            <i class="bi bi-graph-up-arrow"></i>
+                        </div>
+                        <div class="benefit-content">
+                            <h6>Produktivitätssteigerung</h6>
+                            <p>Arbeite effizienter und konzentrierter mit optimierten Workflows und klarer Struktur.</p>
+                        </div>
+                    </div>
+
+                    <div class="benefit-item">
+                        <div class="benefit-icon">
+                            <i class="bi bi-globe"></i>
+                        </div>
+                        <div class="benefit-content">
+                            <h6>Überall verfügbar</h6>
+                            <p>Greife von überall auf deine Daten zu - egal ob im Büro, zu Hause oder unterwegs.</p>
+                        </div>
+                    </div>
+
+                    <div class="benefit-item">
+                        <div class="benefit-icon">
+                            <i class="bi bi-currency-dollar"></i>
+                        </div>
+                        <div class="benefit-content">
+                            <h6>Kostenlos starten</h6>
+                            <p>Nutze die App völlig kostenlos und upgrade nur wenn du erweiterte Features benötigst.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Use Cases -->
+            <div class="info-section">
+                <h2 class="section-title">Perfekt für</h2>
+                <div class="use-cases-grid">
+                    <div class="use-case-card">
+                        <h3 class="use-case-title">🏢 Unternehmen</h3>
+                        <p class="use-case-description">
+                            Optimiere deine Geschäftsprozesse und steigere die Effizienz deines Teams
+                            durch zentrale Organisation und Automatisierung.
+                        </p>
+                    </div>
+
+                    <div class="use-case-card">
+                        <h3 class="use-case-title">💼 Freelancer</h3>
+                        <p class="use-case-description">
+                            Behalte den Überblick über alle deine Projekte und Kunden mit professionellen
+                            Tools für Selbstständige.
+                        </p>
+                    </div>
+
+                    <div class="use-case-card">
+                        <h3 class="use-case-title">👥 Teams</h3>
+                        <p class="use-case-description">
+                            Arbeite nahtlos im Team zusammen, teile Informationen und koordiniere
+                            Aufgaben effizient.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FAQ -->
+            <div class="info-section">
+                <h2 class="section-title">Häufig gestellte Fragen</h2>
+                <div class="faq-list">
+                    <div class="faq-item">
+                        <div class="faq-question">
+                            Wie starte ich mit {{ app_info.title }}?
+                        </div>
+                        <div class="faq-answer">
+                            Klicke einfach auf den "App starten" Button oben und du wirst direkt zur App weitergeleitet.
+                            Alle wichtigen Funktionen sind sofort verfügbar und intuitiv nutzbar.
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-question">
+                            Ist die Nutzung wirklich kostenlos?
+                        </div>
+                        <div class="faq-answer">
+                            Ja, die Grundfunktionen von {{ app_info.title }} sind komplett kostenlos.
+                            Du kannst optional auf Premium upgraden, wenn du erweiterte Features benötigst.
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-question">
+                            Kann ich die App im Team nutzen?
+                        </div>
+                        <div class="faq-answer">
+                            Absolut! {{ app_info.title }} ist für die Zusammenarbeit im Team optimiert.
+                            Du kannst Kollegen einladen und gemeinsam an Projekten arbeiten.
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-question">
+                            Wie sicher sind meine Daten?
+                        </div>
+                        <div class="faq-answer">
+                            Deine Daten werden verschlüsselt übertragen und sicher auf europäischen Servern gespeichert.
+                            Wir nehmen Datenschutz sehr ernst und halten uns an alle DSGVO-Richtlinien.
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Sidebar -->
         <div class="col-lg-4">
-            <!-- Sidebar Ad Zone -->
-            {% show_ad_zone 'app_info_sidebar' css_class='mb-3' %}
-            
-            <!-- Requirements -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h6 class="mb-0">
-                        <i class="bi bi-gear"></i> Voraussetzungen
-                    </h6>
+            <!-- App Details -->
+            <div class="sidebar-card">
+                <h6>
+                    <i class="bi bi-info-circle me-2"></i>
+                    App-Details
+                </h6>
+                <div class="sidebar-info-item">
+                    <span class="sidebar-label">Status</span>
+                    <span class="sidebar-value">
+                        <i class="bi bi-check-circle-fill text-success me-1"></i>
+                        Aktiv
+                    </span>
                 </div>
-                <div class="card-body">
-                    {% if app_info.subscription_requirements %}
-                        <div class="mb-3">
-                            <h6 class="text-muted">Abonnement</h6>
-                            <p class="small mb-0">{{ app_info.subscription_requirements }}</p>
-                        </div>
-                    {% endif %}
-                    
-                    {% if app_info.technical_requirements %}
-                        <div class="mb-3">
-                            <h6 class="text-muted">Technisch</h6>
-                            <p class="small mb-0">{{ app_info.technical_requirements }}</p>
-                        </div>
-                    {% endif %}
-                    
-                    {% if not app_info.subscription_requirements and not app_info.technical_requirements %}
-                        <p class="text-muted small mb-0">Keine besonderen Voraussetzungen</p>
-                    {% endif %}
+                <div class="sidebar-info-item">
+                    <span class="sidebar-label">Kategorie</span>
+                    <span class="sidebar-value">{{ app_category }}</span>
+                </div>
+                <div class="sidebar-info-item">
+                    <span class="sidebar-label">Preis</span>
+                    <span class="sidebar-value">Kostenlos</span>
+                </div>
+                <div class="sidebar-info-item">
+                    <span class="sidebar-label">Sprache</span>
+                    <span class="sidebar-value">Deutsch</span>
                 </div>
             </div>
 
-            <!-- Metadata -->
-            <div class="card">
-                <div class="card-header">
-                    <h6 class="mb-0">
-                        <i class="bi bi-info"></i> Details
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <div class="row mb-2">
-                        <div class="col-sm-6">
-                            <small class="text-muted">Kategorie</small>
-                        </div>
-                        <div class="col-sm-6">
-                            <small>{{ app_info.get_app_name_display|default:app_info.app_name }}</small>
-                        </div>
-                    </div>
-                    
-                    {% if app_info.created_at %}
-                    <div class="row mb-2">
-                        <div class="col-sm-6">
-                            <small class="text-muted">Hinzugefügt</small>
-                        </div>
-                        <div class="col-sm-6">
-                            <small>{{ app_info.created_at|date:"d.m.Y" }}</small>
-                        </div>
-                    </div>
+            <!-- Quick Access -->
+            <div class="sidebar-card">
+                <h6>
+                    <i class="bi bi-lightning-charge me-2"></i>
+                    Schnellzugriff
+                </h6>
+                <div class="d-grid gap-2">
+                    {% if app_url %}
+                    <a href="{{ app_url }}" class="btn btn-primary-custom w-100">
+                        <i class="bi bi-box-arrow-up-right me-2"></i>
+                        App öffnen
+                    </a>
                     {% endif %}
-                    
-                    {% if app_info.updated_at %}
-                    <div class="row">
-                        <div class="col-sm-6">
-                            <small class="text-muted">Aktualisiert</small>
-                        </div>
-                        <div class="col-sm-6">
-                            <small>{{ app_info.updated_at|date:"d.m.Y" }}</small>
-                        </div>
-                    </div>
-                    {% endif %}
+                    <a href="{% url 'accounts:dashboard' %}" class="btn btn-secondary-custom w-100">
+                        <i class="bi bi-house me-2"></i>
+                        Dashboard
+                    </a>
                 </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="sidebar-card">
+                <h6>
+                    <i class="bi bi-graph-up me-2"></i>
+                    Kennzahlen
+                </h6>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">99.9%</div>
+                        <div class="stat-label">Verfügbarkeit</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">24/7</div>
+                        <div class="stat-label">Support</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Help -->
+            <div class="sidebar-card">
+                <h6>
+                    <i class="bi bi-question-circle me-2"></i>
+                    Hilfe benötigt?
+                </h6>
+                <p style="font-size: 0.9375rem; color: var(--text-medium); line-height: 1.6;">
+                    Du hast Fragen oder benötigst Unterstützung? Unser Support-Team hilft dir gerne weiter.
+                </p>
+                <button type="button" class="btn btn-secondary-custom w-100 mt-2" data-bs-toggle="modal" data-bs-target="#bugReportModal">
+                    <i class="bi bi-chat-dots me-2"></i>
+                    Support kontaktieren
+                </button>
             </div>
         </div>
     </div>
 </div>
 
-<style>
-.badge.bg-outline-secondary {
-    color: #6c757d;
-    border: 1px solid #6c757d;
-    background-color: transparent;
-}
-</style>
+<script>
+// FAQ Toggle
+document.querySelectorAll('.faq-question').forEach(question => {
+    question.addEventListener('click', function() {
+        const faqItem = this.parentElement;
+        const wasActive = faqItem.classList.contains('active');
+
+        // Close all FAQ items
+        document.querySelectorAll('.faq-item').forEach(item => {
+            item.classList.remove('active');
+        });
+
+        // Open clicked item if it wasn't active
+        if (!wasActive) {
+            faqItem.classList.add('active');
+        }
+    });
+});
+</script>
 {% endblock %}

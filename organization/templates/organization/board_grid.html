@@ -1,54 +1,235 @@
+<style>
+.board-card {
+    border: none;
+    border-radius: 20px;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    position: relative;
+}
+
+.board-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 12px 35px rgba(255, 107, 53, 0.2);
+}
+
+.board-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 5px;
+    background: linear-gradient(135deg, #ffd93d 0%, #ff6b35 50%, #f7931e 100%);
+}
+
+.board-card-body {
+    padding: 1.5rem;
+}
+
+.board-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    color: #2d3748;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.board-owner-badge {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 0.7rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+.board-shared-badge {
+    background: linear-gradient(135deg, #2dce89 0%, #11cdef 100%);
+    color: white;
+    font-size: 0.7rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+.board-description {
+    color: #64748b;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+.board-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem;
+    background: #f8fafc;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+}
+
+.board-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #64748b;
+    font-size: 0.85rem;
+}
+
+.board-meta-item i {
+    color: #ff6b35;
+}
+
+.board-collaborators {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.collaborator-badge {
+    background: linear-gradient(135deg, #f7931e 0%, #ffd93d 100%);
+    color: white;
+    font-size: 0.75rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 15px;
+    font-weight: 500;
+}
+
+.board-footer-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 0;
+    border-top: 2px solid #f1f5f9;
+}
+
+.board-creator {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.board-creator-line {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #64748b;
+    font-size: 0.85rem;
+}
+
+.board-creator-line i {
+    color: #ff6b35;
+    width: 16px;
+}
+
+.board-status-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+.board-status-public {
+    background: linear-gradient(135deg, #2dce89 0%, #11cdef 100%);
+    color: white;
+}
+
+.board-status-private {
+    background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+    color: white;
+}
+
+.board-open-btn {
+    background: linear-gradient(135deg, #ffd93d 0%, #ff6b35 50%, #f7931e 100%);
+    border: none;
+    color: white;
+    font-weight: 600;
+    padding: 0.875rem 1.5rem;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
+}
+
+.board-open-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(255, 107, 53, 0.4);
+    color: white;
+}
+</style>
+
 <div class="row">
     {% for board in board_list %}
         <div class="col-md-6 col-lg-4 mb-4">
-            <div class="card h-100">
-                <div class="card-body d-flex flex-column">
-                    <h5 class="card-title">
+            <div class="card board-card h-100">
+                <div class="card-body board-card-body d-flex flex-column">
+                    <h5 class="board-title">
                         {{ board.title }}
                         {% if board.creator == request.user %}
-                            <span class="badge bg-primary">Eigenes</span>
+                            <span class="board-owner-badge">
+                                <i class="fas fa-crown"></i> Eigenes
+                            </span>
                         {% elif request.user in board.collaborators.all %}
-                            <span class="badge bg-success">Geteilt</span>
+                            <span class="board-shared-badge">
+                                <i class="fas fa-share-alt"></i> Geteilt
+                            </span>
                         {% endif %}
                     </h5>
+
                     {% if board.description %}
-                        <p class="card-text">{{ board.description|truncatechars:80 }}</p>
+                        <p class="board-description">{{ board.description|truncatechars:80 }}</p>
                     {% endif %}
-                    
-                    <div class="mb-2">
-                        <small class="text-muted">
-                            <i class="fas fa-ruler-combined"></i> 
-                            {{ board.width }} × {{ board.height }} px
-                        </small>
+
+                    <div class="board-meta">
+                        <div class="board-meta-item">
+                            <i class="fas fa-ruler-combined"></i>
+                            <span>{{ board.width }} × {{ board.height }} px</span>
+                        </div>
                     </div>
-                    
+
                     {% if board.collaborators.all %}
-                        <div class="mb-2">
-                            <small class="text-muted">
-                                <i class="fas fa-users"></i> Mitarbeiter: 
-                                {% for collaborator in board.collaborators.all %}
-                                    <span class="badge bg-light text-dark">{{ collaborator.username }}</span>
-                                {% endfor %}
-                            </small>
+                        <div class="board-collaborators">
+                            <div class="board-meta-item" style="width: 100%; margin-bottom: 0.5rem;">
+                                <i class="fas fa-users"></i>
+                                <span>Mitarbeiter:</span>
+                            </div>
+                            {% for collaborator in board.collaborators.all %}
+                                <span class="collaborator-badge">
+                                    <i class="fas fa-user"></i> {{ collaborator.username }}
+                                </span>
+                            {% endfor %}
                         </div>
                     {% endif %}
-                    
-                    <div class="d-flex justify-content-between align-items-center mt-auto">
-                        <small class="text-muted">
-                            <i class="fas fa-user"></i> {{ board.creator.username }}
-                            <br>
-                            <i class="fas fa-clock"></i> {{ board.updated_at|date:"d.m.Y H:i" }}
-                        </small>
+
+                    <div class="board-footer-info mt-auto">
+                        <div class="board-creator">
+                            <div class="board-creator-line">
+                                <i class="fas fa-user"></i>
+                                <span>{{ board.creator.username }}</span>
+                            </div>
+                            <div class="board-creator-line">
+                                <i class="fas fa-clock"></i>
+                                <span>{{ board.updated_at|date:"d.m.Y H:i" }}</span>
+                            </div>
+                        </div>
                         {% if board.is_public %}
-                            <span class="badge bg-success">Öffentlich</span>
+                            <span class="board-status-badge board-status-public">
+                                <i class="fas fa-globe"></i> Öffentlich
+                            </span>
                         {% else %}
-                            <span class="badge bg-secondary">Privat</span>
+                            <span class="board-status-badge board-status-private">
+                                <i class="fas fa-lock"></i> Privat
+                            </span>
                         {% endif %}
                     </div>
                 </div>
-                <div class="card-footer">
-                    <a href="{% url 'organization:board_detail' board.pk %}" class="btn btn-primary w-100">
-                        <i class="fas fa-paint-brush"></i> Board öffnen
+                <div class="card-footer bg-white border-0 p-3">
+                    <a href="{% url 'organization:board_detail' board.pk %}" class="btn board-open-btn w-100">
+                        <i class="fas fa-paint-brush me-2"></i>Board öffnen
                     </a>
                 </div>
             </div>
