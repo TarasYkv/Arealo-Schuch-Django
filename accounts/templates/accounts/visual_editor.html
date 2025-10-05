@@ -1225,7 +1225,12 @@ function updateStyle() {
 function saveElementChange(element) {
     // Create unique identifier for element
     const elementId = getElementIdentifier(element);
-    console.log('[Visual Editor] Saving change for element:', elementId);
+    const dataKey = element.getAttribute('data-edit-key') 
+        || element.getAttribute('data-content-key') 
+        || element.getAttribute('data-editable-key') 
+        || element.getAttribute('data-visual-editor-key') 
+        || '';
+    console.log('[Visual Editor] Saving change for element:', elementId, 'dataKey:', dataKey);
     
     // Store change
     if (!unsavedChanges[elementId]) {
@@ -1236,6 +1241,8 @@ function saveElementChange(element) {
         tagName: element.tagName,
         content: element.innerHTML,
         textContent: element.textContent,
+        dataKey: dataKey,
+        selector: elementId,
         attributes: {
             src: element.src || '',
             href: element.href || '',
@@ -1402,11 +1409,18 @@ function deleteElement() {
             console.log('[Visual Editor] Deleting element:', elementId, currentElement);
             
             // Store deletion in unsavedChanges
+            const deleteDataKey = currentElement.getAttribute('data-edit-key')
+                || currentElement.getAttribute('data-content-key')
+                || currentElement.getAttribute('data-editable-key')
+                || currentElement.getAttribute('data-visual-editor-key')
+                || '';
             unsavedChanges[elementId] = {
                 action: 'delete',
                 tagName: currentElement.tagName,
                 originalContent: currentElement.innerHTML,
-                originalTextContent: currentElement.textContent
+                originalTextContent: currentElement.textContent,
+                dataKey: deleteDataKey,
+                selector: elementId
             };
             
             // Remove element from DOM

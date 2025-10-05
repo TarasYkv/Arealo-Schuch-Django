@@ -23,18 +23,19 @@ def thumbnail_upload_path(instance, filename):
 
 class UserStorage(models.Model):
     """Track storage usage per user"""
-    # Storage tier options with prices
+    # Storage tier options with prices (MB -> Euro)
+    # Note: Detailed pricing (monthly/yearly) is managed in core.storage_service.StorageService
     STORAGE_TIERS = {
-        50: {'price': 0.00, 'name': 'Kostenlos'},      # 50MB = Free
-        1024: {'price': 1.99, 'name': '1GB Plan'},      # 1GB = 1.99€
-        2048: {'price': 2.99, 'name': '2GB Plan'},      # 2GB = 2.99€
-        5120: {'price': 6.99, 'name': '5GB Plan'},      # 5GB = 6.99€
-        10240: {'price': 9.99, 'name': '10GB Plan'},    # 10GB = 9.99€
+        100: {'price': 0.00, 'name': 'Kostenlos (100MB)'},    # 100MB = Free
+        1024: {'price': 2.99, 'name': '1GB Plan'},            # 1GB = 2.99€/Monat
+        3072: {'price': 4.99, 'name': '3GB Plan'},            # 3GB = 4.99€/Monat
+        5120: {'price': 7.99, 'name': '5GB Plan'},            # 5GB = 7.99€/Monat
+        10240: {'price': 9.99, 'name': '10GB Plan'},          # 10GB = 9.99€/Monat
     }
     
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     used_storage = models.BigIntegerField(default=0)  # in bytes
-    max_storage = models.BigIntegerField(default=52428800)  # 50MB default
+    max_storage = models.BigIntegerField(default=104857600)  # 100MB default (100 * 1024 * 1024)
     is_premium = models.BooleanField(default=False)
     
     # Grace period management
@@ -333,9 +334,9 @@ class Video(models.Model):
 
 class Subscription(models.Model):
     """Flexible subscription plans for storage"""
-    
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='subscriptions')
-    storage_limit_mb = models.IntegerField(default=50)  # Storage in MB (50, 1024, 2048, 5120, 10240)
+    storage_limit_mb = models.IntegerField(default=100)  # Storage in MB (100, 1024, 2048, 5120, 10240)
     price_monthly = models.DecimalField(max_digits=10, decimal_places=2)
     is_active = models.BooleanField(default=True)
     
@@ -355,7 +356,7 @@ class Subscription(models.Model):
     
     def get_plan_name(self):
         """Get human readable plan name"""
-        if self.storage_limit_mb == 50:
+        if self.storage_limit_mb <= 100:
             return "Kostenlos"
         elif self.storage_limit_mb >= 1024:
             gb = self.storage_limit_mb / 1024
@@ -369,8 +370,8 @@ class Subscription(models.Model):
     
     def is_free_plan(self):
         """Check if this is the free plan"""
-        return self.storage_limit_mb <= 50
-    
+        return self.storage_limit_mb <= 100
+
     def is_premium_plan(self):
         """Check if this is a premium plan"""
-        return self.storage_limit_mb > 50
+        return self.storage_limit_mb > 100

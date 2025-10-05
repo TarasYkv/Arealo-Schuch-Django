@@ -47,16 +47,21 @@ def apply_visual_edits_simple(context):
         
         for edit in edits:
             content_key = edit.content_key
+            dom_selector = getattr(edit, 'dom_selector', '') or ''
             
             if edit.content_type == 'text' and edit.text_content:
                 script = f'''
                 try {{
-                    var element = document.getElementById({json.dumps(content_key)});
+                    var selector = {json.dumps(dom_selector)};
+                    var element = selector ? findElementBySelector(selector) : null;
+                    if (!element) {{
+                        element = document.getElementById({json.dumps(content_key)});
+                    }}
                     if (element) {{
                         element.textContent = {json.dumps(edit.text_content)};
-                        console.log('✅ [Simple] Applied text edit:', {json.dumps(content_key)});
+                        console.log('✅ [Simple] Applied text edit:', selector || {json.dumps(content_key)});
                     }} else {{
-                        console.log('❌ [Simple] Element not found:', {json.dumps(content_key)});
+                        console.log('❌ [Simple] Element not found:', selector || {json.dumps(content_key)});
                     }}
                 }} catch(e) {{
                     console.error('Error applying text edit:', e);
@@ -67,12 +72,16 @@ def apply_visual_edits_simple(context):
             elif edit.content_type in ['html_block', 'ai_generated'] and edit.html_content:
                 script = f'''
                 try {{
-                    var element = document.getElementById({json.dumps(content_key)});
+                    var selector = {json.dumps(dom_selector)};
+                    var element = selector ? findElementBySelector(selector) : null;
+                    if (!element) {{
+                        element = document.getElementById({json.dumps(content_key)});
+                    }}
                     if (element) {{
                         element.innerHTML = {json.dumps(edit.html_content)};
-                        console.log('✅ [Simple] Applied HTML edit:', {json.dumps(content_key)});
+                        console.log('✅ [Simple] Applied HTML edit:', selector || {json.dumps(content_key)});
                     }} else {{
-                        console.log('❌ [Simple] Element not found:', {json.dumps(content_key)});
+                        console.log('❌ [Simple] Element not found:', selector || {json.dumps(content_key)});
                     }}
                 }} catch(e) {{
                     console.error('Error applying HTML edit:', e);
@@ -83,7 +92,29 @@ def apply_visual_edits_simple(context):
         if not scripts:
             return ''
             
-        script_content = '\n'.join(scripts)
+        helper_script = r'''
+            function findElementBySelector(selector) {
+                if (!selector) {
+                    return null;
+                }
+                try {
+                    if (/^\s*#[^\s]+/.test(selector)) {
+                        var byCssId = document.querySelector(selector);
+                        if (byCssId) {
+                            return byCssId;
+                        }
+                    }
+                    if (/^[A-Za-z0-9_-]+$/.test(selector)) {
+                        return document.getElementById(selector) || document.querySelector('#' + selector);
+                    }
+                    return document.querySelector(selector);
+                } catch (e) {
+                    console.warn('[Visual Editor Simple] Selector lookup failed for', selector, e);
+                    return null;
+                }
+            }
+        '''
+        script_content = helper_script + '\n'.join(scripts)
         
         return mark_safe(f'''
             <script type="text/javascript">

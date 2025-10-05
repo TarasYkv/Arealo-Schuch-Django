@@ -147,8 +147,13 @@ class StripeService:
                 stripe_subscription_id=stripe_subscription_id,
                 defaults=defaults
             )
-            
+
             logger.info(f"Synced subscription {stripe_subscription_id} for customer {customer.id}")
+
+            # Sync UserStorage if this is a storage plan
+            if plan.plan_type == 'storage' and subscription.is_active:
+                StripeService._sync_user_storage(customer.user, plan)
+
             return subscription
         except Exception as e:
             logger.error(f"Error syncing subscription {stripe_subscription_id}: {str(e)}")
@@ -195,6 +200,25 @@ class StripeService:
         except Exception as e:
             logger.error(f"Error syncing invoice {stripe_invoice_id}: {str(e)}")
             raise
+
+    @staticmethod
+    def _sync_user_storage(user, plan):
+        """
+        Sync UserStorage based on Subscription Plan
+        Called automatically when subscription is created/updated
+        """
+        try:
+            from core.storage_service import StorageService
+
+            # Upgrade/downgrade user storage to match plan
+            if plan.storage_mb:
+                StorageService.upgrade_user_storage(user, plan.storage_mb)
+                logger.info(
+                    f"Synced UserStorage for {user.username}: {plan.storage_mb}MB ({plan.name})"
+                )
+        except Exception as e:
+            logger.error(f"Error syncing UserStorage for {user.username}: {str(e)}")
+            # Don't raise - storage sync should not block subscription sync
     
     @staticmethod
     def cancel_subscription(subscription_id, at_period_end=True):

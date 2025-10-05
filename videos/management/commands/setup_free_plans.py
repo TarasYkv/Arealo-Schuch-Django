@@ -12,7 +12,7 @@ User = get_user_model()
 
 
 class Command(BaseCommand):
-    help = 'Set up free 50MB plans for all existing users who don\'t have UserStorage'
+    help = 'Set up free 100MB plans for all existing users who don\'t have UserStorage'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -38,7 +38,7 @@ class Command(BaseCommand):
                     user=user,
                     defaults={
                         'used_storage': 0,
-                        'max_storage': 52428800,  # 50MB
+                        'max_storage': 104857600,  # 100MB
                         'is_premium': False,
                     }
                 )

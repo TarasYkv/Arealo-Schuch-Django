@@ -1,0 +1,523 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Abonnement-Statistiken - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="display-5 fw-bold">
+                    <i class="fas fa-chart-line text-primary"></i>
+                    Abonnement-Statistiken
+                </h1>
+                <div>
+                    <a href="{% url 'payments:subscription_plans' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Zurück zu Plänen
+                    </a>
+                    <a href="/admin/payments/subscription/" class="btn btn-outline-primary" target="_blank">
+                        <i class="fas fa-cog"></i> Admin
+                    </a>
+                </div>
+            </div>
+            <p class="text-muted">Umfassende Übersicht über alle Abonnements und Umsätze</p>
+        </div>
+    </div>
+
+    <!-- Key Metrics Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid #0d6efd !important;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Aktive Abos</h6>
+                            <h2 class="mb-0 fw-bold text-primary">{{ total_active|intcomma }}</h2>
+                            <small class="text-muted">von {{ total_subscriptions|intcomma }} gesamt</small>
+                        </div>
+                        <div class="text-primary" style="font-size: 3rem; opacity: 0.2;">
+                            <i class="fas fa-users"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid #198754 !important;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Monatsumsatz</h6>
+                            <h2 class="mb-0 fw-bold text-success">{{ monthly_revenue|floatformat:2 }}€</h2>
+                            <small class="text-muted">von {{ paying_users }} zahlenden Usern</small>
+                        </div>
+                        <div class="text-success" style="font-size: 3rem; opacity: 0.2;">
+                            <i class="fas fa-euro-sign"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid #ffc107 !important;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Ø Abo-Dauer</h6>
+                            <h2 class="mb-0 fw-bold text-warning">{{ avg_duration_days }}</h2>
+                            <small class="text-muted">Tage (gekündigte Abos)</small>
+                        </div>
+                        <div class="text-warning" style="font-size: 3rem; opacity: 0.2;">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card border-0 shadow-sm h-100" style="border-left: 4px solid #dc3545 !important;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Churn Rate</h6>
+                            <h2 class="mb-0 fw-bold text-danger">{{ churn_rate }}%</h2>
+                            <small class="text-muted">Letzte 30 Tage</small>
+                        </div>
+                        <div class="text-danger" style="font-size: 3rem; opacity: 0.2;">
+                            <i class="fas fa-chart-line-down"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Revenue Details -->
+    <div class="row mb-4">
+        <div class="col-md-6 mb-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-money-bill-wave"></i> Umsatz-Details
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <p class="text-muted mb-1">Monatsumsatz</p>
+                            <h4 class="mb-0 text-success">{{ monthly_revenue|floatformat:2 }}€</h4>
+                        </div>
+                        <div class="col-6">
+                            <p class="text-muted mb-1">Progn. Jahresumsatz</p>
+                            <h4 class="mb-0 text-success">{{ projected_yearly_revenue|floatformat:2 }}€</h4>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-6">
+                            <p class="text-muted mb-1">Zahlende User</p>
+                            <h5 class="mb-0">{{ paying_users }}</h5>
+                        </div>
+                        <div class="col-6">
+                            <p class="text-muted mb-1">Ø Umsatz pro User</p>
+                            <h5 class="mb-0">{{ avg_revenue_per_user|floatformat:2 }}€</h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-pie"></i> Abo-Verteilung
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-6 text-center">
+                            <div class="display-6 fw-bold text-info">{{ workloom_active }}</div>
+                            <p class="text-muted mb-0">WorkLoom Founder</p>
+                        </div>
+                        <div class="col-6 text-center">
+                            <div class="display-6 fw-bold text-primary">{{ storage_active }}</div>
+                            <p class="text-muted mb-0">Storage Plans</p>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="progress" style="height: 30px;">
+                        {% widthratio workloom_active total_active 100 as workloom_percent %}
+                        {% widthratio storage_active total_active 100 as storage_percent %}
+                        <div class="progress-bar bg-info" role="progressbar" style="width: {{ workloom_percent }}%">
+                            {{ workloom_percent }}%
+                        </div>
+                        <div class="progress-bar bg-primary" role="progressbar" style="width: {{ storage_percent }}%">
+                            {{ storage_percent }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Storage Plans Distribution -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-database"></i> Storage Plans Verteilung
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if storage_distribution %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Plan</th>
+                                    <th>Preis</th>
+                                    <th>Anzahl</th>
+                                    <th>Umsatz</th>
+                                    <th>Anteil</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for plan in storage_distribution %}
+                                <tr>
+                                    <td><strong>{{ plan.plan__name }}</strong></td>
+                                    <td>{{ plan.plan__price|floatformat:2 }}€</td>
+                                    <td>{{ plan.count }}</td>
+                                    <td class="text-success fw-bold">
+                                        {% widthratio plan.plan__price 1 plan.count as revenue %}
+                                        {{ revenue|floatformat:2 }}€/Monat
+                                    </td>
+                                    <td>
+                                        {% widthratio plan.count storage_active 100 as percent %}
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar bg-primary" style="width: {{ percent }}%">
+                                                {{ percent }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center mb-0">Keine Storage Plans aktiv</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Timeline Charts -->
+    <div class="row mb-4">
+        <div class="col-md-6 mb-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar"></i> Neue Abos (letzte 6 Monate)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if new_subs_by_month %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Monat</th>
+                                    <th>Anzahl</th>
+                                    <th>Visualisierung</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in new_subs_by_month %}
+                                <tr>
+                                    <td>{{ entry.month|date:"M Y" }}</td>
+                                    <td class="fw-bold">{{ entry.count }}</td>
+                                    <td>
+                                        <div class="progress" style="height: 15px;">
+                                            {% widthratio entry.count 50 100 as bar_width %}
+                                            <div class="progress-bar bg-success" style="width: {{ bar_width }}%"></div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">Keine Daten verfügbar</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-line-down"></i> Kündigungen (letzte 6 Monate)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if cancellations_by_month %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Monat</th>
+                                    <th>Anzahl</th>
+                                    <th>Visualisierung</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in cancellations_by_month %}
+                                <tr>
+                                    <td>{{ entry.month|date:"M Y" }}</td>
+                                    <td class="fw-bold">{{ entry.count }}</td>
+                                    <td>
+                                        <div class="progress" style="height: 15px;">
+                                            {% widthratio entry.count 20 100 as bar_width %}
+                                            <div class="progress-bar bg-danger" style="width: {{ bar_width }}%"></div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">Keine Kündigungen</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trial Conversions & Activity Duration -->
+    <div class="row mb-4">
+        <div class="col-md-6 mb-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-hourglass-half"></i> Trial Conversions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <div class="display-4 fw-bold text-warning">{{ trial_conversion_rate }}%</div>
+                        <p class="text-muted">Conversion Rate</p>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-6 text-center">
+                            <h4 class="mb-0">{{ total_trials }}</h4>
+                            <p class="text-muted small">Trials gestartet</p>
+                        </div>
+                        <div class="col-6 text-center">
+                            <h4 class="mb-0 text-success">{{ converted_trials }}</h4>
+                            <p class="text-muted small">Zu Active konvertiert</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clock"></i> Durchschnittliche Nutzungsdauer
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="mb-2">
+                                <i class="fas fa-user-check fa-3x text-info"></i>
+                            </div>
+                            <h3 class="mb-0">{{ avg_active_duration_days }}</h3>
+                            <p class="text-muted small">Tage (Aktive Abos)</p>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-2">
+                                <i class="fas fa-user-times fa-3x text-secondary"></i>
+                            </div>
+                            <h3 class="mb-0">{{ avg_duration_days }}</h3>
+                            <p class="text-muted small">Tage (Gekündigte Abos)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Customers -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <h5 class="mb-0">
+                        <i class="fas fa-crown"></i> Top 10 Kunden (nach Umsatz)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if top_customers %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Plan</th>
+                                    <th>Monatlicher Umsatz</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for customer in top_customers %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td><strong>{{ customer.customer__user__username }}</strong></td>
+                                    <td>{{ customer.customer__user__email }}</td>
+                                    <td>{{ customer.plan__name }}</td>
+                                    <td class="text-success fw-bold">{{ customer.plan__price|floatformat:2 }}€</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center mb-0">Keine zahlenden Kunden</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="row mb-4">
+        <div class="col-md-6 mb-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-plus-circle"></i> Neueste Abonnements
+                    </h5>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    {% if recent_subscriptions %}
+                    <div class="list-group list-group-flush">
+                        {% for sub in recent_subscriptions %}
+                        <div class="list-group-item px-0">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>{{ sub.customer.user.username }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ sub.plan.name }}</small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-{{ sub.status|yesno:"success,warning,secondary" }}">
+                                        {{ sub.get_status_display }}
+                                    </span>
+                                    <br>
+                                    <small class="text-muted">{{ sub.created_at|date:"d.m.Y H:i" }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">Keine Daten</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-minus-circle"></i> Neueste Kündigungen
+                    </h5>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    {% if recent_cancellations_list %}
+                    <div class="list-group list-group-flush">
+                        {% for sub in recent_cancellations_list %}
+                        <div class="list-group-item px-0">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>{{ sub.customer.user.username }}</strong>
+                                    <br>
+                                    <small class="text-muted">{{ sub.plan.name }}</small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-danger">Gekündigt</span>
+                                    <br>
+                                    <small class="text-muted">{{ sub.canceled_at|date:"d.m.Y H:i" }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">Keine Kündigungen</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle"></i> Zusammenfassung
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <div class="text-center p-3 bg-light rounded">
+                                <h5 class="text-muted mb-2">Gesamt Abos</h5>
+                                <h2 class="mb-0">{{ total_subscriptions }}</h2>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="text-center p-3 bg-light rounded">
+                                <h5 class="text-muted mb-2">Aktiv</h5>
+                                <h2 class="mb-0 text-success">{{ total_active }}</h2>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="text-center p-3 bg-light rounded">
+                                <h5 class="text-muted mb-2">Gekündigt</h5>
+                                <h2 class="mb-0 text-danger">{{ total_canceled }}</h2>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="text-center p-3 bg-light rounded">
+                                <h5 class="text-muted mb-2">Retention Rate</h5>
+                                <h2 class="mb-0 text-primary">
+                                    {% widthratio total_active total_subscriptions 100 %}%
+                                </h2>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

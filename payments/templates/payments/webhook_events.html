@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Webhook Events - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="display-6 fw-bold">
+                    <i class="fas fa-bolt text-warning"></i> Stripe Webhook Events
+                </h1>
+                <a href="{% url 'payments:subscription_plans' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Gesamt Events</h6>
+                    <h2 class="mb-0 fw-bold">{{ total_count|intcomma }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm" style="border-left: 4px solid #198754 !important;">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Verarbeitet</h6>
+                    <h2 class="mb-0 fw-bold text-success">{{ processed_count|intcomma }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm" style="border-left: 4px solid #dc3545 !important;">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Fehlgeschlagen</h6>
+                    <h2 class="mb-0 fw-bold text-danger">{{ failed_count|intcomma }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Event Type</label>
+                    <select name="event_type" class="form-select">
+                        <option value="all" {% if event_type_filter == 'all' %}selected{% endif %}>Alle Event Types</option>
+                        {% for et in event_types %}
+                        <option value="{{ et }}" {% if event_type_filter == et %}selected{% endif %}>{{ et }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    <select name="processed" class="form-select">
+                        <option value="all" {% if processed_filter == 'all' %}selected{% endif %}>Alle</option>
+                        <option value="yes" {% if processed_filter == 'yes' %}selected{% endif %}>Verarbeitet</option>
+                        <option value="no" {% if processed_filter == 'no' %}selected{% endif %}>Fehlgeschlagen</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Suche</label>
+                    <input type="text" name="search" class="form-control" placeholder="Event ID, Type..." value="{{ search_query }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search"></i> Filtern
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Events Table -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">
+                <i class="fas fa-list"></i> Alle Events ({{ page_obj.paginator.count }})
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Zeitpunkt</th>
+                            <th>Event Type</th>
+                            <th>Event ID</th>
+                            <th>Status</th>
+                            <th>Fehler</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for event in page_obj %}
+                        <tr class="{% if not event.processed and event.processing_error %}table-danger{% endif %}">
+                            <td>
+                                {{ event.created_at|date:"d.m.Y H:i:s" }}
+                            </td>
+                            <td>
+                                <strong>{{ event.event_type }}</strong>
+                            </td>
+                            <td>
+                                <small class="font-monospace">{{ event.stripe_event_id|truncatechars:20 }}</small>
+                            </td>
+                            <td>
+                                {% if event.processed %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check"></i> OK
+                                </span>
+                                {% else %}
+                                    {% if event.processing_error %}
+                                    <span class="badge bg-danger">
+                                        <i class="fas fa-times"></i> Fehler
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="fas fa-clock"></i> Ausstehend
+                                    </span>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if event.processing_error %}
+                                <small class="text-danger">{{ event.processing_error|truncatechars:50 }}</small>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-info" onclick="showEventData('{{ event.id }}')">
+                                    <i class="fas fa-eye"></i> JSON
+                                </button>
+                                {% if event.stripe_event_id %}
+                                <a href="https://dashboard.stripe.com/events/{{ event.stripe_event_id }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-external-link-alt"></i>
+                                </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <!-- JSON Data Row (hidden by default) -->
+                        <tr id="event-data-{{ event.id }}" style="display: none;">
+                            <td colspan="6">
+                                <div class="p-3 bg-light">
+                                    <h6>Event Data (JSON):</h6>
+                                    <pre class="mb-0" style="max-height: 300px; overflow-y: auto;"><code>{{ event.data|safe }}</code></pre>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">
+                                Keine Webhook Events gefunden
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="card-footer">
+            <nav>
+                <ul class="pagination mb-0 justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if event_type_filter != 'all' %}&event_type={{ event_type_filter }}{% endif %}{% if processed_filter != 'all' %}&processed={{ processed_filter }}{% endif %}">Erste</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if event_type_filter != 'all' %}&event_type={{ event_type_filter }}{% endif %}{% if processed_filter != 'all' %}&processed={{ processed_filter }}{% endif %}">Zurück</a>
+                    </li>
+                    {% endif %}
+
+                    <li class="page-item active">
+                        <span class="page-link">
+                            Seite {{ page_obj.number }} von {{ page_obj.paginator.num_pages }}
+                        </span>
+                    </li>
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if event_type_filter != 'all' %}&event_type={{ event_type_filter }}{% endif %}{% if processed_filter != 'all' %}&processed={{ processed_filter }}{% endif %}">Weiter</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if event_type_filter != 'all' %}&event_type={{ event_type_filter }}{% endif %}{% if processed_filter != 'all' %}&processed={{ processed_filter }}{% endif %}">Letzte</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function showEventData(eventId) {
+    const row = document.getElementById('event-data-' + eventId);
+    if (row.style.display === 'none') {
+        row.style.display = 'table-row';
+    } else {
+        row.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}

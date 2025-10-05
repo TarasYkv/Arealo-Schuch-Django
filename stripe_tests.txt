@@ -1,0 +1,654 @@
+═══════════════════════════════════════════════════════════════════════
+  STRIPE INTEGRATION - VOLLSTÄNDIGE TEST-CHECKLISTE
+═══════════════════════════════════════════════════════════════════════
+
+📅 Erstellt: 2025-10-04
+🎯 Projekt: Stripe Payment Integration für Storage Plans & WorkLoom
+🔧 Umgebung: Sowohl TEST-Modus als auch LIVE-Modus testen
+
+═══════════════════════════════════════════════════════════════════════
+  📋 VORBEREITUNG - Vor dem Testen
+═══════════════════════════════════════════════════════════════════════
+
+[ ] 1. TEST-MODUS AKTIVIEREN
+    ────────────────────────────────────────────────────────────
+    → In .env: STRIPE_SECRET_KEY und STRIPE_PUBLISHABLE_KEY auf Test Keys setzen
+    → Stripe Dashboard: Toggle auf "Test mode" stellen
+    → Webhook-Endpoint für Test-Umgebung konfiguriert
+    → Server läuft: python manage.py runserver
+
+
+[ ] 2. DATENBANK VORBEREITEN
+    ────────────────────────────────────────────────────────────
+    → python manage.py makemigrations
+    → python manage.py migrate
+    → python manage.py setup_storage_plans --update
+    → python manage.py setup_workloom_plans
+    → Prüfen: /admin/payments/subscriptionplan/ - alle Pläne vorhanden?
+
+
+[ ] 3. TEST-BENUTZER ANLEGEN
+    ────────────────────────────────────────────────────────────
+    → 3-5 Test-User im Django Admin erstellen
+    → Verschiedene Email-Adressen verwenden
+    → Passwörter notieren für Login-Tests
+
+
+[ ] 4. STRIPE WEBHOOK EINRICHTEN (lokal testen)
+    ────────────────────────────────────────────────────────────
+    → Stripe CLI installieren: https://stripe.com/docs/stripe-cli
+    → Login: stripe login
+    → Webhook forwarding starten:
+      stripe listen --forward-to http://localhost:8000/payments/webhook/stripe/
+    → Webhook Secret aus Output notieren
+    → In .env eintragen: STRIPE_WEBHOOK_SECRET=whsec_...
+
+
+═══════════════════════════════════════════════════════════════════════
+  ✅ TEIL 1: WORKLOOM FOUNDER'S ACCESS (KOSTENLOS)
+═══════════════════════════════════════════════════════════════════════
+
+[ ] 1.1 AUTOMATISCHE AKTIVIERUNG BEI REGISTRIERUNG
+    ────────────────────────────────────────────────────────────
+    → Neuen User registrieren: /accounts/register/
+    → Nach Registrierung: /admin/payments/subscription/ öffnen
+    → ✓ Prüfen: Subscription für WorkLoom Founder's Access existiert
+    → ✓ Status: active
+    → ✓ Plan.price: 0.00€
+    → ✓ stripe_subscription_id: NULL (weil kostenlos)
+    → ✓ stripe_customer_id: NULL (weil kostenlos)
+
+
+[ ] 1.2 MANUELLES AKTIVIEREN FÜR BESTEHENDE USER
+    ────────────────────────────────────────────────────────────
+    → python manage.py activate_founder_access
+    → Output prüfen: Sollte "15 users activated" o.ä. zeigen
+    → /admin/payments/subscription/ prüfen
+    → ✓ Alle bestehenden User haben WorkLoom Access
+
+
+[ ] 1.3 PLANS-SEITE KORREKT ANZEIGEN
+    ────────────────────────────────────────────────────────────
+    → URL öffnen: /payments/plans/
+    → ✓ WorkLoom Section: NUR EINE CARD (nicht zwei)
+    → ✓ Text: "Kostenlos" (nicht "KOSTENLOS")
+    → ✓ Badge: "statt 24,99€" (nicht "statt 19,99€")
+    → ✓ KEIN Text: "3 Tage kostenlos testen"
+    → ✓ Button: "Jetzt kostenlos aktivieren"
+    → ✓ Wenn bereits aktiviert: Button "Aktueller Plan" (disabled)
+
+
+[ ] 1.4 KOSTENLOSE AKTIVIERUNG ÜBER BUTTON
+    ────────────────────────────────────────────────────────────
+    → Mit User einloggen, der KEIN WorkLoom hat
+    → /payments/plans/ öffnen
+    → "Jetzt kostenlos aktivieren" klicken
+    → ✓ KEIN Stripe Checkout Redirect
+    → ✓ Success-Message: "WorkLoom... erfolgreich aktiviert"
+    → ✓ Button ändert sich zu "Aktueller Plan"
+    → ✓ /admin/payments/subscription/ - Subscription erstellt
+
+
+═══════════════════════════════════════════════════════════════════════
+  ✅ TEIL 2: STORAGE PLANS - CHECKOUT FLOW
+═══════════════════════════════════════════════════════════════════════
+
+[ ] 2.1 1GB PLAN - MONATLICH
+    ────────────────────────────────────────────────────────────
+    → /payments/plans/ öffnen
+    → "1GB Plan (Monatlich)" - "Upgrade" Button klicken
+    → ✓ Redirect zu Stripe Checkout Page
+    → ✓ Preis korrekt: 2,99€/month
+    → ✓ Product Name: "1GB Plan (Monatlich)"
+    → Test-Kreditkarte eingeben: 4242 4242 4242 4242
+    → Ablaufdatum: 12/34, CVC: 123, PLZ: 12345
+    → ✓ Zahlung erfolgreich
+    → ✓ Redirect zurück zu /payments/plans/?success=true
+    → ✓ Success-Message angezeigt
+    → ✓ /admin/payments/subscription/ - Subscription erstellt
+    → ✓ stripe_subscription_id ausgefüllt
+    → ✓ stripe_customer_id ausgefüllt
+    → ✓ status: active
+    → ✓ /admin/videos/userstorage/ - storage_limit_mb auf 1024 gesetzt
+
+
+[ ] 2.2 3GB PLAN - MONATLICH
+    ────────────────────────────────────────────────────────────
+    → Gleicher Test wie 2.1, aber mit 3GB Plan
+    → ✓ Preis: 4,99€/month
+    → ✓ storage_limit_mb: 3072 (3GB)
+
+
+[ ] 2.3 5GB PLAN - MONATLICH
+    ────────────────────────────────────────────────────────────
+    → Gleicher Test wie 2.1, aber mit 5GB Plan
+    → ✓ Preis: 7,99€/month
+    → ✓ storage_limit_mb: 5120 (5GB)
+
+
+[ ] 2.4 10GB PLAN - MONATLICH
+    ────────────────────────────────────────────────────────────
+    → Gleicher Test wie 2.1, aber mit 10GB Plan
+    → ✓ Preis: 9,99€/month
+    → ✓ storage_limit_mb: 10240 (10GB)
+
+
+[ ] 2.5 1GB PLAN - JÄHRLICH
+    ────────────────────────────────────────────────────────────
+    → /payments/plans/ öffnen
+    → "1GB Plan (Jährlich)" - "Upgrade" Button
+    → ✓ Preis: 29,90€/year
+    → ✓ Intervall: year (im Stripe Checkout)
+    → ✓ Subscription wird korrekt erstellt
+
+
+[ ] 2.6 KOSTENLOSER PLAN IMMER AKTIV
+    ────────────────────────────────────────────────────────────
+    → /payments/plans/ öffnen
+    → "Kostenlos (100MB)" Card ansehen
+    → ✓ Button: "Immer aktiv (Kostenlos)" (disabled)
+    → ✓ Info-Text: "Automatisch für alle Nutzer verfügbar"
+    → ✓ Kein Upgrade-Button für diesen Plan
+
+
+═══════════════════════════════════════════════════════════════════════
+  ✅ TEIL 3: STORAGE TRACKING & QUOTA ENFORCEMENT
+═══════════════════════════════════════════════════════════════════════
+
+[ ] 3.1 STORAGE ANZEIGE AUF /payments/plans/
+    ────────────────────────────────────────────────────────────
+    → User mit verschiedenen Storage Limits testen
+    → ✓ Fortschrittsbalken zeigt korrekten Prozentsatz
+    → ✓ "X MB verwendet" korrekt
+    → ✓ "Y MB verfügbar" korrekt
+    → ✓ Farbe: Grün (<75%), Orange (75-90%), Rot (>90%)
+
+
+[ ] 3.2 FILE UPLOAD - UNTER QUOTA
+    ────────────────────────────────────────────────────────────
+    → User mit 100MB Free Plan einloggen
+    → /videos/ oder /fileshare/ öffnen
+    → Datei hochladen (z.B. 10MB)
+    → ✓ Upload erfolgreich
+    → ✓ /admin/core/storagelog/ - Log-Eintrag erstellt
+    → ✓ Aktion: "upload"
+    → ✓ Größe korrekt gespeichert
+
+
+[ ] 3.3 FILE UPLOAD - QUOTA ÜBERSCHRITTEN
+    ────────────────────────────────────────────────────────────
+    → User mit 100MB Free Plan
+    → Bereits 95MB verwendet
+    → Versuche 10MB Datei hochzuladen (würde 105MB ergeben)
+    → ✓ Upload wird ABGELEHNT
+    → ✓ Error-Message: "Speicher-Limit überschritten"
+    → ✓ Hinweis: "Upgrade für mehr Speicher"
+    → ✓ Datei wurde NICHT gespeichert
+
+
+[ ] 3.4 FILE DELETE - SPEICHER FREIGEBEN
+    ────────────────────────────────────────────────────────────
+    → Datei löschen
+    → ✓ /admin/core/storagelog/ - Log "delete" erstellt
+    → ✓ UserStorage.used_storage reduziert
+    → ✓ Fortschrittsbalken aktualisiert
+
+
+═══════════════════════════════════════════════════════════════════════
+  ✅ TEIL 4: SUBSCRIPTION MANAGEMENT
+═══════════════════════════════════════════════════════════════════════
+
+[ ] 4.1 UPGRADE VON 1GB ZU 3GB
+    ────────────────────────────────────────────────────────────
+    → User hat 1GB Plan aktiv
+    → /payments/plans/ öffnen
+    → "3GB Plan" - "Wechseln" Button klicken
+    → ✓ Stripe Checkout öffnet sich
+    → ✓ Zahlung abschließen
+    → ✓ Alte Subscription wird gekündigt (cancel_at_period_end)
+    → ✓ Neue Subscription wird erstellt
+    → ✓ storage_limit_mb auf 3072 gesetzt
+
+
+[ ] 4.2 DOWNGRADE VON 5GB ZU 1GB
+    ────────────────────────────────────────────────────────────
+    → User hat 5GB Plan aktiv
+    → /payments/plans/ - "1GB Plan" wählen
+    → ✓ Checkout Flow funktioniert
+    → ✓ Nach Wechsel: storage_limit_mb auf 1024
+    → ⚠️ Prüfen: Was passiert wenn user mehr als 1GB verwendet?
+      → Sollte Warnung anzeigen
+
+
+[ ] 4.3 SUBSCRIPTION KÜNDIGEN
+    ────────────────────────────────────────────────────────────
+    → User mit aktivem Storage Plan
+    → /payments/plans/ öffnen
+    → "Kündigen" Button klicken
+    → ✓ Modal öffnet sich mit Warnung
+    → ✓ Checkbox: "Ja, ich möchte kündigen"
+    → ✓ Checkbox muss aktiviert werden
+    → ✓ "Abonnement kündigen" Button klicken
+    → ✓ /admin/payments/subscription/ - cancel_at_period_end: True
+    → ✓ Plan bleibt bis current_period_end aktiv
+    → ✓ Nach Ablauf: status ändert zu "canceled"
+    → ✓ UserStorage fällt zurück auf 100MB
+
+
+[ ] 4.4 STRIPE CUSTOMER PORTAL
+    ────────────────────────────────────────────────────────────
+    → User mit aktivem Plan
+    → /payments/plans/ - "Stripe Portal öffnen" Button
+    → ✓ Redirect zu Stripe Customer Portal
+    → ✓ User kann:
+      - Zahlungsmethode ändern
+      - Rechnungen herunterladen
+      - Subscription kündigen
+    → Änderungen sollten via Webhook zurück synchronisiert werden
+
+
+═══════════════════════════════════════════════════════════════════════
+  ✅ TEIL 5: WEBHOOKS - EVENT HANDLING
+═══════════════════════════════════════════════════════════════════════
+
+[ ] 5.1 WEBHOOK: customer.subscription.created
+    ────────────────────────────────────────────────────────────
+    → Subscription via Checkout erstellen
+    → ✓ Webhook Event empfangen
+    → ✓ /admin/payments/webhookevent/ - Event logged
+    → ✓ processed: True
+    → ✓ Subscription in DB erstellt
+    → ✓ UserStorage.storage_limit_mb aktualisiert
+
+
+[ ] 5.2 WEBHOOK: customer.subscription.updated
+    ────────────────────────────────────────────────────────────
+    → Im Stripe Dashboard: Subscription manuell ändern
+      (z.B. Preis ändern, Plan wechseln)
+    → ✓ Webhook empfangen
+    → ✓ Event processed
+    → ✓ Subscription in DB aktualisiert
+
+
+[ ] 5.3 WEBHOOK: customer.subscription.deleted
+    ────────────────────────────────────────────────────────────
+    → Im Stripe Dashboard: Subscription manuell löschen
+    → ✓ Webhook empfangen
+    → ✓ Event processed
+    → ✓ Subscription.status = "canceled"
+    → ✓ UserStorage zurück auf 100MB
+
+
+[ ] 5.4 WEBHOOK: invoice.paid
+    ────────────────────────────────────────────────────────────
+    → Monatliche/jährliche Rechnung wird fällig
+    → ✓ Webhook empfangen
+    → ✓ Invoice in DB erstellt
+    → ✓ /admin/payments/invoice/ - Rechnung vorhanden
+    → ✓ Status: paid
+    → ✓ amount_paid korrekt
+
+
+[ ] 5.5 WEBHOOK: invoice.payment_failed
+    ────────────────────────────────────────────────────────────
+    → Test mit abgelaufener Karte oder declined payment
+    → Stripe CLI: stripe trigger invoice.payment_failed
+    → ✓ Webhook empfangen
+    → ✓ Event logged
+    → ✓ Subscription.status = "past_due"
+    → ⚠️ TODO: E-Mail Benachrichtigung an User?
+
+
+[ ] 5.6 WEBHOOK: checkout.session.completed
+    ────────────────────────────────────────────────────────────
+    → Checkout Flow abschließen
+    → ✓ Webhook empfangen
+    → ✓ Event processed
+    → ✓ Customer & Subscription erstellt
+
+
+[ ] 5.7 WEBHOOK SIGNATURE VERIFICATION
+    ────────────────────────────────────────────────────────────
+    → Webhook mit falscher Signature senden
+    → ✓ Request wird ABGELEHNT
+    → ✓ 400 Bad Request
+    → ✓ Error: "Invalid signature"
+
+
+═══════════════════════════════════════════════════════════════════════
+  ✅ TEIL 6: EMAIL BENACHRICHTIGUNGEN
+═══════════════════════════════════════════════════════════════════════
+
+[ ] 6.1 STORAGE QUOTA 75% WARNING
+    ────────────────────────────────────────────────────────────
+    → User erreicht 75% seiner Quota
+    → python manage.py check_storage_quotas
+    → ✓ E-Mail versendet
+    → ✓ Template: storage_75_warning
+    → ✓ Betreff: "Speicher zu 75% belegt"
+    → ✓ Inhalt: Upgrade-Link enthalten
+
+
+[ ] 6.2 STORAGE QUOTA 90% WARNING
+    ────────────────────────────────────────────────────────────
+    → User erreicht 90%
+    → python manage.py check_storage_quotas
+    → ✓ E-Mail versendet
+    → ✓ Dringlichkeit höher als 75% Mail
+
+
+[ ] 6.3 STORAGE QUOTA 100% EXCEEDED
+    ────────────────────────────────────────────────────────────
+    → User überschreitet Limit
+    → ✓ E-Mail versendet
+    → ✓ Warnung: Keine weiteren Uploads möglich
+    → ✓ Upgrade-Optionen angezeigt
+
+
+[ ] 6.4 EMAIL TEMPLATES TESTEN
+    ────────────────────────────────────────────────────────────
+    → python manage.py test_email_templates
+    → ✓ Alle 3 Storage-Benachrichtigungen werden versendet
+    → ✓ HTML-Version korrekt formatiert
+    → ✓ Text-Version lesbar
+    → ✓ Links funktionieren
+
+
+═══════════════════════════════════════════════════════════════════════
+  ✅ TEIL 7: EDGE CASES & ERROR HANDLING
+═══════════════════════════════════════════════════════════════════════
+
+[ ] 7.1 CHECKOUT ABBRECHEN
+    ────────────────────────────────────────────────────────────
+    → Checkout starten
+    → Auf "Zurück" klicken / Fenster schließen
+    → ✓ Keine fehlerhafte Subscription erstellt
+    → ✓ User kann erneut Checkout starten
+
+
+[ ] 7.2 DOPPELTER CHECKOUT KLICK
+    ────────────────────────────────────────────────────────────
+    → "Upgrade" Button mehrmals schnell klicken
+    → ✓ Nur EINE Checkout Session erstellt
+    → ✓ Keine Duplikate in Datenbank
+
+
+[ ] 7.3 ABGELAUFENE KREDITKARTE
+    ────────────────────────────────────────────────────────────
+    → Test Card: 4000 0000 0000 0341 (declined)
+    → Checkout versuchen
+    → ✓ Fehler von Stripe angezeigt
+    → ✓ User kann andere Karte versuchen
+
+
+[ ] 7.4 3D SECURE AUTHENTICATION
+    ────────────────────────────────────────────────────────────
+    → Test Card: 4000 0027 6000 3184 (requires 3DS)
+    → Checkout durchführen
+    → ✓ 3DS Modal öffnet sich
+    → ✓ Nach Bestätigung: Zahlung erfolgreich
+
+
+[ ] 7.5 WEBHOOK DELAYED/FAILED
+    ────────────────────────────────────────────────────────────
+    → Server temporär down während Checkout
+    → ✓ Stripe retry-Logik
+    → ✓ Webhook wird später erneut zugestellt
+    → ✓ Idempotenz: Event wird nur einmal verarbeitet
+
+
+[ ] 7.6 USER OHNE USERSTORAGE
+    ────────────────────────────────────────────────────────────
+    → User löscht UserStorage manuell aus DB
+    → /payments/plans/ aufrufen
+    → ✓ KEIN Server-Crash
+    → ✓ Automatisch neuer UserStorage mit 100MB erstellt
+
+
+═══════════════════════════════════════════════════════════════════════
+  ✅ TEIL 8: ADMIN INTERFACE
+═══════════════════════════════════════════════════════════════════════
+
+[ ] 8.1 SUBSCRIPTION ADMIN
+    ────────────────────────────────────────────────────────────
+    → /admin/payments/subscription/
+    → ✓ Alle Subscriptions sichtbar
+    → ✓ Filter: status, plan_type
+    → ✓ Search: username, email
+    → ✓ Details: stripe_subscription_id, current_period_end
+
+
+[ ] 8.2 STORAGE LOG ADMIN
+    ────────────────────────────────────────────────────────────
+    → /admin/core/storagelog/
+    → ✓ Alle Upload/Delete Actions geloggt
+    → ✓ Filter: user, action, app
+    → ✓ Suche nach Dateinamen
+
+
+[ ] 8.3 USER STORAGE ADMIN
+    ────────────────────────────────────────────────────────────
+    → /admin/videos/userstorage/
+    → ✓ Übersicht aller User mit Storage
+    → ✓ used_storage / storage_limit_mb
+    → ✓ Prozent-Anzeige
+    → ✓ Admin Actions: "Reset to 100MB", "Upgrade"
+
+
+[ ] 8.4 WEBHOOK EVENT ADMIN
+    ────────────────────────────────────────────────────────────
+    → /admin/payments/webhookevent/
+    → ✓ Alle Events geloggt
+    → ✓ processed = True/False
+    → ✓ Fehlerhafte Events hervorgehoben
+    → ✓ JSON Data einsehbar
+
+
+[ ] 8.5 INVOICE ADMIN
+    ────────────────────────────────────────────────────────────
+    → /admin/payments/invoice/
+    → ✓ Alle Rechnungen sichtbar
+    → ✓ Status: paid, open, void
+    → ✓ PDF Download-Link funktioniert
+
+
+═══════════════════════════════════════════════════════════════════════
+  ✅ TEIL 9: SUPERUSER DASHBOARD
+═══════════════════════════════════════════════════════════════════════
+
+[ ] 9.1 STORAGE TAB - ÜBERSICHT
+    ────────────────────────────────────────────────────────────
+    → /superconfig/ - "Storage & Subscriptions" Tab
+    → ✓ Statistiken angezeigt:
+      - Aktive Benutzer
+      - Gesamt-Speicher
+      - Premium Benutzer
+      - Monatlicher Umsatz
+
+
+[ ] 9.2 TOP STORAGE USERS
+    ────────────────────────────────────────────────────────────
+    → ✓ Liste der User mit höchstem Speicherverbrauch
+    → ✓ Sortierung nach used_storage
+
+
+[ ] 9.3 STORAGE BY APP
+    ────────────────────────────────────────────────────────────
+    → ✓ Breakdown: Videos, Fileshare, Streamrec
+    → ✓ Prozent-Anzeige
+
+
+[ ] 9.4 RECENT STORAGE LOGS
+    ────────────────────────────────────────────────────────────
+    → ✓ Letzte 10-20 Storage-Aktivitäten
+    → ✓ Upload/Delete Actions
+    → ✓ Timestamp
+
+
+[ ] 9.5 ADMIN QUICK LINKS
+    ────────────────────────────────────────────────────────────
+    → ✓ Button: "Subscriptions" → /admin/payments/subscription/
+    → ✓ Button: "Storage Logs" → /admin/core/storagelog/
+    → ✓ Button: "User Storage" → /admin/videos/userstorage/
+    → ✓ Button: "Webhook Events" → /admin/payments/webhookevent/
+    → ✓ Button: "Subscription Plans"
+    → ✓ Button: "Stripe Customers"
+    → ✓ Button: "Invoices"
+
+
+═══════════════════════════════════════════════════════════════════════
+  ✅ TEIL 10: PERFORMANCE & SECURITY
+═══════════════════════════════════════════════════════════════════════
+
+[ ] 10.1 CHECKOUT SESSION EXPIRATION
+    ────────────────────────────────────────────────────────────
+    → Checkout Session öffnen
+    → 24 Stunden warten (oder im Stripe Dashboard manuell ablaufen lassen)
+    → ✓ Session nicht mehr nutzbar
+    → ✓ User kann neue Session starten
+
+
+[ ] 10.2 CSRF PROTECTION
+    ────────────────────────────────────────────────────────────
+    → POST Request ohne CSRF Token an /payments/checkout/
+    → ✓ 403 Forbidden
+
+
+[ ] 10.3 UNAUTHORIZED ACCESS
+    ────────────────────────────────────────────────────────────
+    → Nicht eingeloggter User versucht /payments/checkout/
+    → ✓ Redirect zu Login
+    → ✓ Nach Login: Zurück zu /payments/plans/
+
+
+[ ] 10.4 SQL INJECTION SCHUTZ
+    ────────────────────────────────────────────────────────────
+    → Versuche SQL Injection in Plan ID
+    → ✓ Django ORM schützt automatisch
+    → ✓ Keine unerwarteten DB-Zugriffe
+
+
+[ ] 10.5 XSS SCHUTZ
+    ────────────────────────────────────────────────────────────
+    → User mit bösartigem Namen (z.B. <script>alert('XSS')</script>)
+    → /payments/plans/ öffnen
+    → ✓ Name wird escaped angezeigt
+    → ✓ Kein JavaScript ausgeführt
+
+
+[ ] 10.6 RATE LIMITING
+    ────────────────────────────────────────────────────────────
+    → Checkout 100x in kurzer Zeit aufrufen
+    → ✓ Nach X Anfragen: Rate Limit
+    → ⚠️ TODO: Rate Limiting implementieren?
+
+
+═══════════════════════════════════════════════════════════════════════
+  ✅ TEIL 11: LIVE-MODUS TESTS (NUR MIT ECHTEN KARTEN!)
+═══════════════════════════════════════════════════════════════════════
+
+⚠️  WICHTIG: Diese Tests NUR im Live-Modus durchführen!
+⚠️  Echte Zahlungen werden verarbeitet!
+
+[ ] 11.1 LIVE CHECKOUT MIT ECHTER KARTE
+    ────────────────────────────────────────────────────────────
+    → .env auf Live Keys umstellen
+    → Stripe Dashboard auf "Live mode"
+    → Test mit echter Kreditkarte (1€ Plan empfohlen)
+    → ✓ Zahlung erfolgreich
+    → ✓ Geld erscheint in Stripe Balance
+    → ✓ Subscription korrekt erstellt
+
+
+[ ] 11.2 LIVE WEBHOOK KONFIGURATION
+    ────────────────────────────────────────────────────────────
+    → Stripe Dashboard → Webhooks
+    → Endpoint: https://DEINE-DOMAIN.de/payments/webhook/stripe/
+    → ✓ Test-Event senden
+    → ✓ Response: 200 OK
+    → ✓ Event in DB gespeichert
+
+
+[ ] 11.3 ECHTE RECHNUNG DOWNLOAD
+    ────────────────────────────────────────────────────────────
+    → Nach erfolgreicher Zahlung
+    → /payments/plans/ - "Rechnungen anzeigen"
+    → ✓ PDF Download funktioniert
+    → ✓ Rechnung korrekt formatiert
+    → ✓ MwSt ausgewiesen (falls aktiviert)
+
+
+═══════════════════════════════════════════════════════════════════════
+  📊 TEST-STATISTIK & REPORTING
+═══════════════════════════════════════════════════════════════════════
+
+Nach Abschluss aller Tests ausfüllen:
+
+Datum Test-Durchführung: ___________________
+Tester: _____________________________________
+
+Ergebnisse:
+- Tests bestanden: ____ / 100+
+- Tests fehlgeschlagen: ____
+- Kritische Fehler: ____
+- Kleinere Bugs: ____
+
+Kritische Fehler (falls vorhanden):
+1. _______________________________________________
+2. _______________________________________________
+3. _______________________________________________
+
+Empfohlene Fixes vor Go-Live:
+1. _______________________________________________
+2. _______________________________________________
+3. _______________________________________________
+
+
+═══════════════════════════════════════════════════════════════════════
+  🔧 STRIPE CLI BEFEHLE FÜR TESTING
+═══════════════════════════════════════════════════════════════════════
+
+# Webhook Events lokal testen:
+stripe listen --forward-to http://localhost:8000/payments/webhook/stripe/
+
+# Spezifische Events triggern:
+stripe trigger checkout.session.completed
+stripe trigger customer.subscription.created
+stripe trigger customer.subscription.updated
+stripe trigger customer.subscription.deleted
+stripe trigger invoice.paid
+stripe trigger invoice.payment_failed
+
+# Logs anzeigen:
+stripe logs tail
+
+# Test-Produkte erstellen:
+stripe products create --name="Test Storage Plan"
+stripe prices create --product=prod_XXX --unit-amount=299 --currency=eur --recurring[interval]=month
+
+
+═══════════════════════════════════════════════════════════════════════
+  📚 NÜTZLICHE RESSOURCEN
+═══════════════════════════════════════════════════════════════════════
+
+Stripe Testing:
+  https://stripe.com/docs/testing
+  https://stripe.com/docs/billing/testing
+
+Webhook Testing:
+  https://stripe.com/docs/webhooks/test
+  https://stripe.com/docs/cli
+
+Fehlerbehandlung:
+  https://stripe.com/docs/error-handling
+
+Django Stripe Best Practices:
+  https://testdriven.io/blog/django-stripe-tutorial/
+
+
+═══════════════════════════════════════════════════════════════════════
+
+Letzte Aktualisierung: 2025-10-04
+Version: 1.0
+
+═══════════════════════════════════════════════════════════════════════

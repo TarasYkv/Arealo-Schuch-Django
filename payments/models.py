@@ -36,7 +36,7 @@ class SubscriptionPlan(models.Model):
 class Customer(models.Model):
     """Stripe customer data"""
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    stripe_customer_id = models.CharField(max_length=100, unique=True)
+    stripe_customer_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -58,10 +58,10 @@ class Subscription(models.Model):
     
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
     plan = models.ForeignKey(SubscriptionPlan, on_delete=models.CASCADE)
-    stripe_subscription_id = models.CharField(max_length=100, unique=True)
+    stripe_subscription_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
-    current_period_start = models.DateTimeField()
-    current_period_end = models.DateTimeField()
+    current_period_start = models.DateTimeField(null=True, blank=True)
+    current_period_end = models.DateTimeField(null=True, blank=True)
     trial_start = models.DateTimeField(null=True, blank=True)
     trial_end = models.DateTimeField(null=True, blank=True)
     cancel_at_period_end = models.BooleanField(default=False)

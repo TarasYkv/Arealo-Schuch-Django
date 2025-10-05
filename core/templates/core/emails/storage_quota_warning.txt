@@ -1,0 +1,53 @@
+{% if is_critical %}SPEICHERLIMIT ERREICHT!{% elif usage_percent >= 90 %}ACHTUNG: SPEICHER FAST VOLL!{% else %}Speicher-Benachrichtigung{% endif %}
+
+Hallo {{ user.get_full_name|default:user.username }},
+
+{% if is_critical %}
+Ihr Speicherlimit von {{ max_mb|floatformat:0 }} MB wurde überschritten!
+Neue Uploads sind nicht mehr möglich.
+{% elif usage_percent >= 90 %}
+Achtung: Ihr Speicher ist zu {{ usage_percent }}% belegt!
+Sie haben nur noch {{ max_mb|floatformat:0|add:"-"|add:used_mb|floatformat:0 }} MB verfügbaren Speicher.
+{% else %}
+Ihr Speicher ist zu {{ usage_percent }}% belegt.
+Bitte beachten Sie Ihre Speichernutzung.
+{% endif %}
+
+========================================
+IHRE SPEICHERNUTZUNG
+========================================
+
+Verwendet: {{ used_mb|floatformat:1 }} MB ({{ used_gb|floatformat:2 }} GB)
+Verfügbar: {{ max_mb|floatformat:0 }} MB ({{ max_gb|floatformat:2 }} GB)
+Aktueller Plan: {{ tier_name }}
+{% if current_price > 0 %}Preis: {{ current_price }}€/Monat{% endif %}
+
+Auslastung: {{ usage_percent|floatformat:1 }}%
+
+{% if by_app %}
+Speichernutzung pro App:
+{% for app, bytes in by_app.items %}  - {{ app|capfirst }}: {{ bytes|filesizeformat }}
+{% endfor %}
+{% endif %}
+
+========================================
+WAS KÖNNEN SIE TUN?
+========================================
+
+1. DATEIEN LÖSCHEN
+   Entfernen Sie ungenutzte Dateien um Speicher freizugeben
+
+2. UPGRADE DURCHFÜHREN
+   Erweitern Sie Ihren Speicherplan für mehr Platz
+   → {{ upgrade_url }}
+
+3. DATEIEN ARCHIVIEREN
+   Lagern Sie selten genutzte Dateien aus
+
+========================================
+
+Jetzt Speicher erweitern: {{ upgrade_url }}
+
+---
+Diese E-Mail wurde automatisch generiert.
+Bei Fragen kontaktieren Sie bitte unseren Support.

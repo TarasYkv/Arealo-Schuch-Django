@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load humanize %}
-{% load math_filters from core.templatetags %}
+{% load math_filters %}
 
 {% block title %}Abonnement Pläne - {{ block.super }}{% endblock %}
 
@@ -33,9 +33,9 @@
         <div class="col-12">
             <div class="text-center mb-5">
                 <h1 class="display-4 fw-bold text-primary mb-4">
-                    <i class="fas fa-crown"></i> Wählen Sie Ihren Plan
+                    <i class="fas fa-crown"></i> Wähle deinen Plan
                 </h1>
-                <p class="lead text-muted">Wählen Sie das Abonnement, das am besten zu Ihnen passt</p>
+                <p class="lead text-muted">Wähle das Abonnement, das am besten zu dir passt</p>
             </div>
         </div>
     </div>
@@ -48,7 +48,7 @@
                     <h4 class="mb-0">
                         <i class="fas fa-{% if all_user_subscriptions %}check-circle{% else %}info-circle{% endif %}"></i> 
                         {% if all_user_subscriptions %}
-                            Ihre aktiven Abonnements
+                            Deine aktiven Abonnements
                         {% else %}
                             Abonnement-Status
                         {% endif %}
@@ -134,7 +134,7 @@
                             <i class="fas fa-info-circle fa-3x text-warning mb-3"></i>
                             <h5>Keine aktiven Abonnements</h5>
                             <p class="text-muted mb-4">
-                                Sie haben derzeit keine aktiven Abonnements. Wählen Sie einen Plan unten aus, um zu starten.
+                                Du hast derzeit keine aktiven Abonnements. Wähle einen Plan unten aus, um zu starten.
                             </p>
                             <div class="d-flex flex-wrap justify-content-center gap-2">
                                 <span class="badge bg-light text-dark p-2">
@@ -158,7 +158,7 @@
             <div class="card shadow-sm">
                 <div class="card-header bg-light">
                     <h5 class="mb-0">
-                        <i class="fas fa-file-invoice"></i> Ihre Rechnungen
+                        <i class="fas fa-file-invoice"></i> Deine Rechnungen
                     </h5>
                 </div>
                 <div class="card-body">
@@ -207,7 +207,7 @@
                     <h3 class="mb-0">
                         <i class="fas fa-rocket"></i> WorkLoom - Premium Features
                     </h3>
-                    <p class="mb-0 mt-2">Schalten Sie alle Apps und Features frei</p>
+                    <p class="mb-0 mt-2">Schalte alle Apps und Features frei</p>
                     <small class="text-light d-block mt-2">
                         <i class="fas fa-info-circle"></i> Zugang zu Chat, Shopify Manager, Image Editor, Training Platform, ToDo Tools, PDF-Analyse, KI-Features und mehr. 
                         <strong>Hinweis:</strong> Das Schuch-App ist nicht enthalten und separat verfügbar.
@@ -220,11 +220,11 @@
                             <div class="row align-items-center">
                                 <div class="col-md-8">
                                     <h5 class="mb-2">
-                                        <i class="fas fa-bolt text-warning"></i> <strong>Limitiertes Angebot: Founder's Early Access</strong>
+                                        <i class="fas fa-gift text-success"></i> <strong>Limitiertes Angebot: Founder's Early Access</strong>
                                     </h5>
                                     <p class="mb-0 text-muted">
-                                        Sichern Sie sich <strong>ALLE Premium-Features</strong> zum Early-Access-Preis von nur <strong class="text-primary">9,99€</strong> statt <span class="text-decoration-line-through">19,99€</span>!
-                                        <span class="badge bg-danger">-50% Rabatt</span>
+                                        Sichere dir <strong>ALLE Premium-Features</strong> während der Early-Access-Phase <strong class="text-success">komplett KOSTENLOS</strong>!
+                                        <span class="badge bg-success">100% GRATIS</span>
                                     </p>
                                 </div>
                                 <div class="col-md-4 text-md-end mt-3 mt-md-0">
@@ -239,6 +239,7 @@
 
                     <div class="row justify-content-center">
                         {% for plan in workloom_plans %}
+                        {% if plan.interval == 'month' %}
                         <div class="col-xl-4 col-lg-6 col-md-8 mb-4">
                             <div class="card h-100 border-warning border-2 position-relative overflow-hidden founder-card">
                                 <div class="position-absolute top-0 end-0 bg-danger text-white px-3 py-1" style="transform: rotate(45deg); transform-origin: top right; right: -30px; top: 15px;">
@@ -256,13 +257,21 @@
                                 
                                 <div class="card-body text-center d-flex flex-column">
                                     <div class="mb-2">
+                                        {% if plan.price == 0 %}
+                                        <div class="display-6 fw-bold text-success mb-0">
+                                            Kostenlos
+                                        </div>
+                                        <small class="text-muted">Während Early Access Phase</small>
+                                        <span class="badge bg-success ms-2">statt 24,99€</span>
+                                        {% else %}
                                         <div class="display-6 fw-bold text-primary mb-0">
                                             {{ plan.price|floatformat:2 }}€
                                         </div>
                                         <small class="text-muted text-decoration-line-through">{{ plan.features.regular_price }}€</small>
                                         <span class="badge bg-danger ms-2">-50%</span>
+                                        {% endif %}
                                     </div>
-                                    <p class="text-muted mb-4">pro {{ plan.interval }}</p>
+                                    <p class="text-muted mb-4">{% if plan.price == 0 %}Early Access{% else %}pro {{ plan.interval }}{% endif %}</p>
 
                                     <ul class="list-unstyled flex-grow-1">
                                         <li class="mb-2">
@@ -284,10 +293,6 @@
                                         <li class="mb-2">
                                             <i class="fas fa-file-pdf text-success me-2"></i>
                                             PDF Analyse & KI-Tools
-                                        </li>
-                                        <li class="mb-2">
-                                            <i class="fas fa-crown text-warning me-2"></i>
-                                            <strong>3 Tage kostenlos testen</strong>
                                         </li>
                                         <li class="mb-2">
                                             <i class="fas fa-headset text-success me-2"></i>
@@ -313,13 +318,14 @@
                                         </div>
                                         {% else %}
                                         <button onclick="createCheckout({{ plan.id }})" class="btn btn-warning w-100">
-                                            <i class="fas fa-rocket"></i> 3 Tage kostenlos testen
+                                            <i class="fas fa-rocket"></i> Jetzt kostenlos aktivieren
                                         </button>
                                         {% endif %}
                                     </div>
                                 </div>
                             </div>
                         </div>
+                        {% endif %}
                         {% endfor %}
                     </div>
                 </div>
@@ -333,16 +339,68 @@
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-gradient text-white" style="background: linear-gradient(135deg, #36d1dc 0%, #5b86e5 100%);">
                     <h3 class="mb-0">
-                        <i class="fas fa-video"></i> Video-Speicherplatz
+                        <i class="fas fa-database"></i> Speicherplatz
                     </h3>
-                    <p class="mb-0 mt-2">Erweitern Sie Ihren Video-Speicherplatz</p>
+                    <p class="mb-0 mt-2">Für Videos, Fileshare, Streamrec & mehr</p>
                     <small class="text-light d-block mt-2">
-                        <i class="fas fa-info-circle"></i> Speichern Sie Ihre Videos sicher in der Cloud. 
-                        Hochladen, verwalten und teilen Sie Ihre Inhalte mit unbegrenzter Bandbreite. 
+                        <i class="fas fa-info-circle"></i> Speichere deine Dateien sicher in der Cloud.
+                        Hochladen, verwalten und teilen mit unbegrenzter Bandbreite.
                         Perfekt für Content Creator und Unternehmen.
                     </small>
                 </div>
                 <div class="card-body">
+                    <!-- Current Storage Usage -->
+                    <div class="card bg-light mb-4">
+                        <div class="card-body">
+                            <h5 class="mb-3">
+                                <i class="fas fa-chart-pie text-primary"></i> Deine aktuelle Speichernutzung
+                            </h5>
+
+                            <div class="row align-items-center">
+                                <div class="col-lg-9">
+                                    <div class="position-relative mb-2" style="height: 30px; background: #e9ecef; border-radius: 15px; overflow: hidden;">
+                                        <div class="position-absolute top-0 start-0 h-100 {% if usage_percentage >= 90 %}bg-danger{% elif usage_percentage >= 75 %}bg-warning{% else %}bg-success{% endif %}"
+                                             style="width: {{ usage_percentage|floatformat:0 }}%; transition: width 0.5s ease;"></div>
+                                        <div class="position-absolute top-50 start-50 translate-middle">
+                                            <strong class="text-dark">{{ usage_percentage|floatformat:1 }}%</strong>
+                                        </div>
+                                    </div>
+
+                                    <div class="d-flex justify-content-between text-muted small">
+                                        <span>
+                                            <strong class="text-dark">{{ used_storage_mb|floatformat:1 }} MB</strong> verwendet
+                                        </span>
+                                        <span>
+                                            <strong class="text-dark">{{ max_storage_mb|floatformat:0 }} MB</strong> verfügbar
+                                        </span>
+                                    </div>
+
+                                    {% if usage_percentage >= 75 %}
+                                    <div class="alert alert-{% if usage_percentage >= 90 %}danger{% else %}warning{% endif %} mt-3 mb-0 small">
+                                        <i class="fas fa-exclamation-triangle"></i>
+                                        {% if usage_percentage >= 90 %}
+                                            <strong>Speicher fast voll!</strong> Erweitere deinen Plan oder lösche ungenutzte Dateien.
+                                        {% else %}
+                                            <strong>Achtung:</strong> Dein Speicher ist zu {{ usage_percentage|floatformat:0 }}% belegt.
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="col-lg-3 text-center mt-3 mt-lg-0">
+                                    <div class="bg-white p-3 rounded shadow-sm mb-3">
+                                        <div class="display-6 fw-bold {% if usage_percentage >= 90 %}text-danger{% elif usage_percentage >= 75 %}text-warning{% else %}text-success{% endif %}">
+                                            {{ usage_percentage|floatformat:0 }}%
+                                        </div>
+                                        <small class="text-muted">belegt</small>
+                                    </div>
+                                    <button type="button" class="btn btn-primary btn-sm w-100" data-bs-toggle="modal" data-bs-target="#filesModal">
+                                        <i class="fas fa-folder-open me-1"></i> Dateien verwalten
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="row justify-content-center">
                         {% for plan in storage_plans %}
                         <div class="col-xl-4 col-lg-4 col-md-6 mb-4">
@@ -418,7 +476,7 @@
                                                     <i class="fas fa-times"></i> Kündigen
                                                 </button>
                                                 <small class="d-block text-muted mt-1">
-                                                    <i class="fas fa-info-circle"></i> Nach Kündigung: Zurück zum kostenlosen 50MB Plan
+                                                    <i class="fas fa-info-circle"></i> Nach Kündigung: Zurück zum kostenlosen 100MB Plan
                                                 </small>
                                                 {% endif %}
                                             </div>
@@ -442,6 +500,96 @@
             </div>
         </div>
     </div>
+
+    <!-- Admin Quick Links (nur für Superuser) -->
+    {% if user.is_superuser %}
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card shadow-sm" style="border-left: 4px solid #6f42c1;">
+                <div class="card-header" style="background: linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%); color: white;">
+                    <h5 class="mb-0">
+                        <i class="fas fa-shield-alt me-2"></i>
+                        Admin-Verwaltung
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">
+                        <i class="fas fa-info-circle"></i> Schnellzugriff auf wichtige Admin-Bereiche (nur für Administratoren)
+                    </p>
+
+                    <div class="row g-3">
+                        <div class="col-xl-3 col-lg-4 col-md-6">
+                            <a href="{% url 'payments:subscriptions_management' %}" class="btn btn-outline-primary w-100 py-3">
+                                <i class="fas fa-users-cog d-block mb-2" style="font-size: 2rem;"></i>
+                                <strong>Subscriptions</strong>
+                                <small class="d-block text-muted mt-1">Abonnements verwalten</small>
+                            </a>
+                        </div>
+                        <div class="col-xl-3 col-lg-4 col-md-6">
+                            <a href="{% url 'payments:storage_logs' %}" class="btn btn-outline-success w-100 py-3">
+                                <i class="fas fa-list-alt d-block mb-2" style="font-size: 2rem;"></i>
+                                <strong>Storage Logs</strong>
+                                <small class="d-block text-muted mt-1">Speicher-Aktivitäten</small>
+                            </a>
+                        </div>
+                        <div class="col-xl-3 col-lg-4 col-md-6">
+                            <a href="{% url 'payments:user_storage' %}" class="btn btn-outline-info w-100 py-3">
+                                <i class="fas fa-hdd d-block mb-2" style="font-size: 2rem;"></i>
+                                <strong>User Storage</strong>
+                                <small class="d-block text-muted mt-1">Speicher-Übersicht</small>
+                            </a>
+                        </div>
+                        <div class="col-xl-3 col-lg-4 col-md-6">
+                            <a href="{% url 'payments:webhook_events' %}" class="btn btn-outline-warning w-100 py-3">
+                                <i class="fas fa-bolt d-block mb-2" style="font-size: 2rem;"></i>
+                                <strong>Webhook Events</strong>
+                                <small class="d-block text-muted mt-1">Stripe Webhooks</small>
+                            </a>
+                        </div>
+                    </div>
+
+                    <hr class="my-3">
+
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <a href="{% url 'payments:subscription_statistics' %}" class="btn btn-sm btn-primary w-100">
+                                <i class="fas fa-chart-line me-2"></i>
+                                <strong>Statistiken</strong>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="/admin/payments/subscriptionplan/" class="btn btn-sm btn-outline-secondary w-100" target="_blank">
+                                <i class="fas fa-crown me-2"></i>
+                                Subscription Plans
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="/admin/payments/customer/" class="btn btn-sm btn-outline-secondary w-100" target="_blank">
+                                <i class="fas fa-user-tie me-2"></i>
+                                Stripe Customers
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="/admin/payments/invoice/" class="btn btn-sm btn-outline-secondary w-100" target="_blank">
+                                <i class="fas fa-file-invoice me-2"></i>
+                                Invoices
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mt-2">
+                        <div class="col-md-12">
+                            <a href="/admin/" class="btn btn-sm btn-outline-dark w-100" target="_blank">
+                                <i class="fas fa-cogs me-2"></i>
+                                Django Admin Dashboard
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <div class="row mt-5">
         <div class="col-12">
@@ -488,6 +636,125 @@
 </div>
 {% endif %}
 
+<!-- Files Management Modal -->
+<div class="modal fade" id="filesModal" tabindex="-1" aria-labelledby="filesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="filesModalLabel">
+                    <i class="fas fa-folder-open me-2"></i> Deine Dateien verwalten
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Loading State -->
+                <div id="filesLoading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Lädt...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Lade deine Dateien...</p>
+                </div>
+
+                <!-- Files Content -->
+                <div id="filesContent" style="display: none;">
+                    <!-- Summary Cards -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h3 class="mb-0" id="totalFilesCount">-</h3>
+                                    <small class="text-muted">Gesamt Dateien</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h3 class="mb-0 text-primary" id="totalStorageSize">-</h3>
+                                    <small class="text-muted">Gesamt Speicher</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h3 class="mb-0 text-success" id="availableStorage">-</h3>
+                                    <small class="text-muted">Verfügbar</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Files Table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Dateiname</th>
+                                    <th>App</th>
+                                    <th>Größe</th>
+                                    <th>Hochgeladen</th>
+                                    <th>Aktion</th>
+                                </tr>
+                            </thead>
+                            <tbody id="filesTableBody">
+                                <!-- Will be populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Empty State -->
+                <div id="filesEmpty" style="display: none;" class="text-center py-5">
+                    <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">Du hast noch keine Dateien hochgeladen.</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="filesError" style="display: none;" class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <span id="filesErrorMessage">Fehler beim Laden der Dateien.</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                <button type="button" class="btn btn-primary" onclick="loadUserFiles()">
+                    <i class="fas fa-sync-alt me-1"></i> Aktualisieren
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete File Confirmation Modal -->
+<div class="modal fade" id="deleteFileModal" tabindex="-1" aria-labelledby="deleteFileModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-danger text-white border-0">
+                <h5 class="modal-title" id="deleteFileModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i> Datei löschen
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="deleteFileModalBody">
+                <p>Möchtest du diese Datei wirklich löschen?</p>
+                <div class="alert alert-warning mb-0">
+                    <i class="fas fa-info-circle me-1"></i>
+                    <strong>Hinweis:</strong> Diese Aktion kann nicht rückgängig gemacht werden.
+                </div>
+            </div>
+            <div class="modal-footer border-0 bg-light" id="deleteFileModalFooter">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i> Abbrechen
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                    <i class="fas fa-trash me-1"></i> Löschen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // Subscription data from Django
 const subscriptionData = {
@@ -524,15 +791,15 @@ function showCancelModal(subscriptionType) {
     
     if (subData && subData.exists && subData.id) {
         modalBody.innerHTML = `
-            <p>Sind Sie sicher, dass Sie Ihr <strong>${subData.name}</strong> Abonnement kündigen möchten?</p>
-            
+            <p>Bist du sicher, dass du dein <strong>${subData.name}</strong> Abonnement kündigen möchtest?</p>
+
             <div class="alert alert-info">
                 <i class="fas fa-info-circle"></i> <strong>Wichtige Informationen:</strong>
                 <ul class="mb-0 mt-2">
-                    <li>Ihr Abonnement bleibt bis zum Ende der aktuellen Abrechnungsperiode aktiv</li>
-                    ${subscriptionType === 'storage' ? 
-                        '<li>Dateien, die das kostenlose 50MB-Limit überschreiten, werden nicht mehr zugänglich sein</li>' : 
-                        '<li>Sie verlieren den Zugang zu allen Features nach Ablauf</li>'
+                    <li>Dein Abonnement bleibt bis zum Ende der aktuellen Abrechnungsperiode aktiv</li>
+                    ${subscriptionType === 'storage' ?
+                        '<li>Dateien, die das kostenlose 100MB-Limit überschreiten, werden nicht mehr zugänglich sein</li>' :
+                        '<li>Du verlierst den Zugang zu allen Features nach Ablauf</li>'
                     }
                 </ul>
             </div>
@@ -596,6 +863,179 @@ async function createCheckout(planId) {
         console.error('Error:', error);
         alert('Error creating checkout session');
     }
+}
+
+// ===== Files Management =====
+
+// Load user files when modal is opened
+document.getElementById('filesModal')?.addEventListener('shown.bs.modal', function () {
+    loadUserFiles();
+});
+
+async function loadUserFiles() {
+    const loading = document.getElementById('filesLoading');
+    const content = document.getElementById('filesContent');
+    const empty = document.getElementById('filesEmpty');
+    const error = document.getElementById('filesError');
+
+    // Show loading
+    loading.style.display = 'block';
+    content.style.display = 'none';
+    empty.style.display = 'none';
+    error.style.display = 'none';
+
+    try {
+        const response = await fetch('{% url "payments:user_files_api" %}');
+        const data = await response.json();
+
+        if (data.success) {
+            const files = data.files;
+
+            if (files.length === 0) {
+                loading.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+
+            // Update summary
+            document.getElementById('totalFilesCount').textContent = data.total_files;
+
+            const totalMB = files.reduce((sum, f) => sum + (f.size / (1024 * 1024)), 0);
+            document.getElementById('totalStorageSize').textContent = totalMB.toFixed(2) + ' MB';
+
+            const usedMB = {{ used_storage_mb|default:0 }};
+            const maxMB = {{ max_storage_mb|default:100 }};
+            const available = maxMB - usedMB;
+            document.getElementById('availableStorage').textContent = available.toFixed(2) + ' MB';
+
+            // Populate table
+            const tbody = document.getElementById('filesTableBody');
+            tbody.innerHTML = '';
+
+            files.forEach(file => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <i class="fas fa-file me-2 text-muted"></i>
+                        <small>${file.filename}</small>
+                    </td>
+                    <td><span class="badge bg-secondary">${file.app}</span></td>
+                    <td>${file.size_display}</td>
+                    <td><small class="text-muted">${file.created_at}</small></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteFile('${file.id}', '${file.filename}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            loading.style.display = 'none';
+            content.style.display = 'block';
+        } else {
+            throw new Error('Failed to load files');
+        }
+    } catch (err) {
+        console.error('Error loading files:', err);
+        loading.style.display = 'none';
+        error.style.display = 'block';
+        document.getElementById('filesErrorMessage').textContent = 'Fehler beim Laden der Dateien: ' + err.message;
+    }
+}
+
+function deleteFile(logId, filename) {
+    // Update modal body with filename
+    const modalBody = document.getElementById('deleteFileModalBody');
+    modalBody.innerHTML = `
+        <p>Möchtest du die folgende Datei wirklich löschen?</p>
+        <div class="alert alert-light border">
+            <i class="fas fa-file me-2"></i>
+            <strong>${filename}</strong>
+        </div>
+        <div class="alert alert-warning mb-0">
+            <i class="fas fa-info-circle me-1"></i>
+            <strong>Hinweis:</strong> Diese Aktion kann nicht rückgängig gemacht werden.
+        </div>
+    `;
+
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('deleteFileModal'));
+    modal.show();
+
+    // Set up confirm button
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    confirmBtn.onclick = async function() {
+        // Disable button and show loading
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Löschen...';
+
+        try {
+            const response = await fetch('{% url "payments:delete_user_file_api" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ log_id: logId })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                modal.hide();
+                showSuccessToast('Datei erfolgreich gelöscht!');
+                setTimeout(() => {
+                    location.reload(); // Reload page to update storage stats
+                }, 1000);
+            } else {
+                modal.hide();
+                showErrorToast('Fehler beim Löschen: ' + (data.error || 'Unbekannter Fehler'));
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = '<i class="fas fa-trash me-1"></i> Löschen';
+            }
+        } catch (err) {
+            console.error('Error deleting file:', err);
+            modal.hide();
+            showErrorToast('Fehler beim Löschen der Datei');
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="fas fa-trash me-1"></i> Löschen';
+        }
+    };
+}
+
+function showSuccessToast(message) {
+    const toast = document.createElement('div');
+    toast.className = 'position-fixed top-0 end-0 p-3';
+    toast.style.zIndex = '9999';
+    toast.innerHTML = `
+        <div class="toast show bg-success text-white border-0 shadow-lg" role="alert">
+            <div class="toast-body d-flex align-items-center">
+                <i class="fas fa-check-circle me-2 fs-5"></i>
+                <div class="flex-grow-1">${message}</div>
+                <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+function showErrorToast(message) {
+    const toast = document.createElement('div');
+    toast.className = 'position-fixed top-0 end-0 p-3';
+    toast.style.zIndex = '9999';
+    toast.innerHTML = `
+        <div class="toast show bg-danger text-white border-0 shadow-lg" role="alert">
+            <div class="toast-body d-flex align-items-center">
+                <i class="fas fa-exclamation-circle me-2 fs-5"></i>
+                <div class="flex-grow-1">${message}</div>
+                <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 5000);
 }
 </script>
 {% endblock %}

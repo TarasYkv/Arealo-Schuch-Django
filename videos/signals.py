@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 @receiver(post_save, sender=User)
 def create_user_storage(sender, instance, created, **kwargs):
     """
-    Automatically create UserStorage with free 50MB plan for new users
+    Automatically create UserStorage with free 100MB plan for new users
     """
     if created:
         try:
@@ -25,13 +25,13 @@ def create_user_storage(sender, instance, created, **kwargs):
                 user=instance,
                 defaults={
                     'used_storage': 0,
-                    'max_storage': 52428800,  # 50MB in bytes
+                    'max_storage': 104857600,  # 100MB in bytes
                     'is_premium': False,
                 }
             )
-            
+
             if storage_created:
-                logger.info(f"Created free 50MB storage for new user: {instance.username}")
+                logger.info(f"Created free 100MB storage for new user: {instance.username}")
             
         except Exception as e:
             logger.error(f"Failed to create UserStorage for user {instance.username}: {str(e)}")
@@ -47,7 +47,7 @@ def ensure_user_storage_exists(sender, instance, **kwargs):
             user=instance,
             defaults={
                 'used_storage': 0,
-                'max_storage': 52428800,  # 50MB in bytes
+                'max_storage': 104857600,  # 100MB in bytes
                 'is_premium': False,
             }
         )
@@ -103,7 +103,7 @@ def update_storage_on_video_save(sender, instance, created, **kwargs):
         user_storage = UserStorage.objects.create(
             user=instance.user,
             used_storage=instance.file_size if instance.status == 'active' else 0,
-            max_storage=52428800,  # 50MB default
+            max_storage=104857600,  # 100MB default
             is_premium=False,
         )
         logger.info(f"Created UserStorage for user {instance.user.username} during video upload")
@@ -114,25 +114,25 @@ def update_storage_on_video_save(sender, instance, created, **kwargs):
 
 def reset_user_to_free_plan(user):
     """
-    Reset user to free 50MB plan (used when subscription ends)
+    Reset user to free 100MB plan (used when subscription ends)
     """
     try:
         user_storage, created = UserStorage.objects.get_or_create(
             user=user,
             defaults={
                 'used_storage': 0,
-                'max_storage': 52428800,  # 50MB
+                'max_storage': 104857600,  # 100MB
                 'is_premium': False,
             }
         )
-        
+
         if not created:
             # Reset to free plan
-            user_storage.max_storage = 52428800  # 50MB
+            user_storage.max_storage = 104857600  # 100MB
             user_storage.is_premium = False
             user_storage.save()
-            
-        logger.info(f"Reset user {user.username} to free 50MB plan")
+
+        logger.info(f"Reset user {user.username} to free 100MB plan")
         
         # Check if storage overage handling is needed
         if user_storage.is_storage_exceeded():

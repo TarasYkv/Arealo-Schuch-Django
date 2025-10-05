@@ -1,6 +1,7 @@
 import stripe
 import json
 import logging
+import os
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -19,39 +20,44 @@ logger = logging.getLogger(__name__)
 @login_required
 def subscription_plans(request):
     """Display available subscription plans"""
+    from core.storage_service import StorageService
+
     # Get all plans separated by type
     all_plans = SubscriptionPlan.objects.filter(is_active=True)
     workloom_plans = all_plans.filter(plan_type='founder_access')
     storage_plans = all_plans.filter(plan_type='storage').order_by('price')
     all_user_subscriptions = []
     user_invoices = []
-    
+
     try:
         customer = Customer.objects.get(user=request.user)
         all_user_subscriptions = Subscription.objects.filter(
             customer=customer,
             status__in=['active', 'trialing']
         ).select_related('plan')
-        
+
         # Get recent invoices for the user
         user_invoices = Invoice.objects.filter(
             customer=customer,
             status='paid'
         ).order_by('-created_at')[:12]  # Last 12 invoices (1 year)
-        
+
     except Customer.DoesNotExist:
         pass
-    
+
     # Separate subscriptions by type
     workloom_subscription = None
     storage_subscription = None
-    
+
     for sub in all_user_subscriptions:
         if sub.plan.plan_type == 'founder_access':
             workloom_subscription = sub
         elif sub.plan.plan_type == 'storage':
             storage_subscription = sub
-    
+
+    # Get user storage statistics
+    storage_stats = StorageService.get_usage_stats(request.user)
+
     context = {
         'workloom_plans': workloom_plans,
         'storage_plans': storage_plans,
@@ -59,6 +65,11 @@ def subscription_plans(request):
         'storage_subscription': storage_subscription,
         'all_user_subscriptions': all_user_subscriptions,
         'user_invoices': user_invoices,
+        # Storage stats
+        'used_storage_mb': storage_stats['used_mb'],
+        'max_storage_mb': storage_stats['max_mb'],
+        'usage_percentage': storage_stats['percentage'],
+        'storage_by_app': storage_stats['by_app'],
     }
     return render(request, 'payments/subscription_plans.html', context)
 
@@ -68,13 +79,53 @@ def create_checkout_session(request, plan_id):
     """Create Stripe checkout session"""
     if request.method == 'POST':
         try:
-            # Check if Stripe is properly configured
+            plan = get_object_or_404(SubscriptionPlan, id=plan_id, is_active=True)
+
+            # Handle FREE plans (no Stripe checkout needed)
+            if plan.price == 0:
+                # Create free subscription directly
+                from .models import Customer, Subscription
+
+                customer, _ = Customer.objects.get_or_create(
+                    user=request.user,
+                    defaults={'stripe_customer_id': None}
+                )
+
+                # Check if already subscribed
+                existing = Subscription.objects.filter(
+                    customer=customer,
+                    plan=plan,
+                    status='active'
+                ).exists()
+
+                if existing:
+                    return JsonResponse({
+                        'success': True,
+                        'message': 'Du hast diesen Plan bereits aktiviert!',
+                        'redirect_url': reverse('payments:subscription_plans')
+                    })
+
+                # Create free subscription
+                Subscription.objects.create(
+                    customer=customer,
+                    plan=plan,
+                    stripe_subscription_id=None,
+                    status='active',
+                    current_period_end=None,
+                    cancel_at_period_end=False,
+                )
+
+                messages.success(request, f'✅ {plan.name} erfolgreich aktiviert - komplett kostenlos!')
+                return JsonResponse({
+                    'success': True,
+                    'redirect_url': reverse('payments:subscription_plans')
+                })
+
+            # Check if Stripe is properly configured for paid plans
             if not settings.STRIPE_SECRET_KEY or settings.STRIPE_SECRET_KEY.startswith('sk_test_51234'):
                 return JsonResponse({
                     'error': 'Stripe ist noch nicht konfiguriert. Bitte setzen Sie echte Stripe API-Keys in der .env Datei.'
                 }, status=400)
-            
-            plan = get_object_or_404(SubscriptionPlan, id=plan_id, is_active=True)
             
             success_url = request.build_absolute_uri(reverse('payments:checkout_success'))
             cancel_url = request.build_absolute_uri(reverse('payments:subscription_plans'))
@@ -282,4 +333,875 @@ def subscription_status_api(request):
         return JsonResponse({
             'success': False,
             'error': 'Unable to load subscription status'
+        }, status=500)
+
+
+@login_required
+def subscription_statistics(request):
+    """
+    Subscription Statistics Dashboard
+    Nur für Superuser zugänglich
+    """
+    from django.contrib.auth.decorators import user_passes_test
+    from django.db.models import Count, Avg, Sum, Q, F
+    from django.db.models.functions import TruncMonth
+    from datetime import timedelta
+    from django.utils import timezone
+    from decimal import Decimal
+
+    # Nur Superuser dürfen diese Seite sehen
+    if not request.user.is_superuser:
+        messages.error(request, 'Zugriff verweigert. Diese Seite ist nur für Administratoren.')
+        return redirect('payments:subscription_plans')
+
+    # === GRUNDLEGENDE STATISTIKEN ===
+
+    # Alle Subscriptions
+    all_subscriptions = Subscription.objects.all()
+    active_subscriptions = all_subscriptions.filter(status__in=['active', 'trialing'])
+    canceled_subscriptions = all_subscriptions.filter(status='canceled')
+
+    total_subscriptions = all_subscriptions.count()
+    total_active = active_subscriptions.count()
+    total_canceled = canceled_subscriptions.count()
+
+    # Subscriptions nach Plan-Typ
+    workloom_subs = all_subscriptions.filter(plan__plan_type='founder_access')
+    storage_subs = all_subscriptions.filter(plan__plan_type='storage')
+
+    workloom_active = workloom_subs.filter(status__in=['active', 'trialing']).count()
+    storage_active = storage_subs.filter(status__in=['active', 'trialing']).count()
+
+    # === DURCHSCHNITTLICHE ABO-DAUER ===
+
+    # Für gekündigte Abos: Differenz zwischen created_at und canceled_at
+    canceled_with_dates = canceled_subscriptions.filter(
+        canceled_at__isnull=False,
+        created_at__isnull=False
+    )
+
+    avg_duration_days = None
+    if canceled_with_dates.exists():
+        durations = []
+        for sub in canceled_with_dates:
+            duration = (sub.canceled_at - sub.created_at).days
+            if duration > 0:  # Nur positive Werte
+                durations.append(duration)
+
+        if durations:
+            avg_duration_days = sum(durations) / len(durations)
+
+    # Für aktive Abos: Wie lange sind sie bereits aktiv?
+    active_durations = []
+    for sub in active_subscriptions.filter(created_at__isnull=False):
+        duration = (timezone.now() - sub.created_at).days
+        if duration >= 0:
+            active_durations.append(duration)
+
+    avg_active_duration_days = sum(active_durations) / len(active_durations) if active_durations else 0
+
+    # === UMSATZ-STATISTIKEN ===
+
+    # Bezahlte Abos (price > 0)
+    paid_active_subs = active_subscriptions.filter(plan__price__gt=0)
+
+    # Monatlicher Umsatz (nur monatliche Pläne)
+    monthly_revenue = paid_active_subs.filter(
+        plan__interval='month'
+    ).aggregate(
+        total=Sum('plan__price')
+    )['total'] or Decimal('0.00')
+
+    # Jährlicher Umsatz (Yearly plans / 12 für monatliche Rate)
+    yearly_revenue = paid_active_subs.filter(
+        plan__interval='year'
+    ).aggregate(
+        total=Sum('plan__price')
+    )['total'] or Decimal('0.00')
+
+    # Gesamter monatlicher Umsatz (monthly + yearly/12)
+    total_monthly_revenue = monthly_revenue + (yearly_revenue / 12 if yearly_revenue > 0 else Decimal('0.00'))
+
+    # Hochgerechneter Jahresumsatz
+    projected_yearly_revenue = total_monthly_revenue * 12
+
+    # Durchschnittlicher Umsatz pro zahlendem User
+    paying_users = paid_active_subs.values('customer').distinct().count()
+    avg_revenue_per_user = total_monthly_revenue / paying_users if paying_users > 0 else Decimal('0.00')
+
+    # === PLAN-VERTEILUNG ===
+
+    # Storage Plans Verteilung
+    storage_distribution = storage_active_subs = storage_subs.filter(
+        status__in=['active', 'trialing']
+    ).values(
+        'plan__name',
+        'plan__price'
+    ).annotate(
+        count=Count('id')
+    ).order_by('-count')
+
+    # === CHURN RATE (letzte 30 Tage) ===
+
+    thirty_days_ago = timezone.now() - timedelta(days=30)
+
+    # Abos die in den letzten 30 Tagen gekündigt wurden
+    recent_cancellations = canceled_subscriptions.filter(
+        canceled_at__gte=thirty_days_ago
+    ).count()
+
+    # Aktive Abos vor 30 Tagen (ungefähre Berechnung)
+    active_30_days_ago = active_subscriptions.filter(
+        created_at__lte=thirty_days_ago
+    ).count() + recent_cancellations
+
+    churn_rate = (recent_cancellations / active_30_days_ago * 100) if active_30_days_ago > 0 else 0
+
+    # === NEUE ABOS PRO MONAT ===
+
+    # Letzte 6 Monate
+    six_months_ago = timezone.now() - timedelta(days=180)
+
+    new_subs_by_month = all_subscriptions.filter(
+        created_at__gte=six_months_ago
+    ).annotate(
+        month=TruncMonth('created_at')
+    ).values('month').annotate(
+        count=Count('id')
+    ).order_by('month')
+
+    # === KÜNDIGUNGEN PRO MONAT ===
+
+    cancellations_by_month = canceled_subscriptions.filter(
+        canceled_at__gte=six_months_ago
+    ).annotate(
+        month=TruncMonth('canceled_at')
+    ).values('month').annotate(
+        count=Count('id')
+    ).order_by('month')
+
+    # === TOP KUNDEN (nach Umsatz) ===
+
+    top_customers = paid_active_subs.values(
+        'customer__user__username',
+        'customer__user__email',
+        'plan__name',
+        'plan__price'
+    ).order_by('-plan__price')[:10]
+
+    # === TRIAL CONVERSIONS ===
+
+    # Abos die mal trialing waren
+    trial_subs = all_subscriptions.filter(
+        Q(status='trialing') | Q(trial_start__isnull=False)
+    )
+
+    # Konvertierte Trials (von trialing zu active)
+    converted_trials = trial_subs.filter(status='active').count()
+    total_trials = trial_subs.count()
+
+    trial_conversion_rate = (converted_trials / total_trials * 100) if total_trials > 0 else 0
+
+    # === RECENT ACTIVITY ===
+
+    # Letzte 10 Subscriptions
+    recent_subscriptions = all_subscriptions.select_related(
+        'customer__user', 'plan'
+    ).order_by('-created_at')[:10]
+
+    # Letzte 10 Kündigungen
+    recent_cancellations_list = canceled_subscriptions.select_related(
+        'customer__user', 'plan'
+    ).order_by('-canceled_at')[:10]
+
+    # === CONTEXT ZUSAMMENSTELLEN ===
+
+    context = {
+        # Grundlegende Zahlen
+        'total_subscriptions': total_subscriptions,
+        'total_active': total_active,
+        'total_canceled': total_canceled,
+        'workloom_active': workloom_active,
+        'storage_active': storage_active,
+
+        # Durchschnittliche Dauer
+        'avg_duration_days': round(avg_duration_days) if avg_duration_days else 'N/A',
+        'avg_active_duration_days': round(avg_active_duration_days),
+
+        # Umsatz
+        'monthly_revenue': total_monthly_revenue,
+        'projected_yearly_revenue': projected_yearly_revenue,
+        'paying_users': paying_users,
+        'avg_revenue_per_user': avg_revenue_per_user,
+
+        # Verteilung
+        'storage_distribution': storage_distribution,
+
+        # Churn
+        'churn_rate': round(churn_rate, 2),
+        'recent_cancellations_count': recent_cancellations,
+
+        # Timeline
+        'new_subs_by_month': list(new_subs_by_month),
+        'cancellations_by_month': list(cancellations_by_month),
+
+        # Top Kunden
+        'top_customers': list(top_customers),
+
+        # Trials
+        'trial_conversion_rate': round(trial_conversion_rate, 2),
+        'total_trials': total_trials,
+        'converted_trials': converted_trials,
+
+        # Recent Activity
+        'recent_subscriptions': recent_subscriptions,
+        'recent_cancellations_list': recent_cancellations_list,
+    }
+
+    return render(request, 'payments/subscription_statistics.html', context)
+
+
+@login_required
+def subscriptions_management(request):
+    """
+    Subscriptions Management - Frontend View
+    Zeigt alle Subscriptions wie im Admin, aber im Frontend-Design
+    """
+    if not request.user.is_superuser:
+        messages.error(request, 'Zugriff verweigert.')
+        return redirect('payments:subscription_plans')
+
+    from django.db.models import Q
+
+    # Filter parameter
+    status_filter = request.GET.get('status', 'all')
+    plan_type_filter = request.GET.get('plan_type', 'all')
+    search_query = request.GET.get('search', '')
+
+    # Base queryset
+    subscriptions = Subscription.objects.select_related(
+        'customer__user', 'plan'
+    ).order_by('-created_at')
+
+    # Apply filters
+    if status_filter != 'all':
+        subscriptions = subscriptions.filter(status=status_filter)
+
+    if plan_type_filter != 'all':
+        subscriptions = subscriptions.filter(plan__plan_type=plan_type_filter)
+
+    if search_query:
+        subscriptions = subscriptions.filter(
+            Q(customer__user__username__icontains=search_query) |
+            Q(customer__user__email__icontains=search_query) |
+            Q(plan__name__icontains=search_query)
+        )
+
+    # Pagination
+    from django.core.paginator import Paginator
+    paginator = Paginator(subscriptions, 50)  # 50 per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Stats
+    total_count = subscriptions.count()
+    active_count = subscriptions.filter(status__in=['active', 'trialing']).count()
+    canceled_count = subscriptions.filter(status='canceled').count()
+
+    context = {
+        'page_obj': page_obj,
+        'status_filter': status_filter,
+        'plan_type_filter': plan_type_filter,
+        'search_query': search_query,
+        'total_count': total_count,
+        'active_count': active_count,
+        'canceled_count': canceled_count,
+    }
+
+    return render(request, 'payments/subscriptions_management.html', context)
+
+
+@login_required
+def storage_logs_view(request):
+    """
+    Storage Logs - Frontend View
+    Zeigt alle Storage Logs wie im Admin
+    """
+    if not request.user.is_superuser:
+        messages.error(request, 'Zugriff verweigert.')
+        return redirect('payments:subscription_plans')
+
+    from core.models import StorageLog
+    from django.db.models import Q
+
+    # Filter
+    action_filter = request.GET.get('action', 'all')
+    app_filter = request.GET.get('app', 'all')
+    search_query = request.GET.get('search', '')
+
+    # Base queryset
+    logs = StorageLog.objects.select_related('user').order_by('-created_at')
+
+    # Apply filters
+    if action_filter != 'all':
+        logs = logs.filter(action=action_filter)
+
+    if app_filter != 'all':
+        logs = logs.filter(app=app_filter)
+
+    if search_query:
+        logs = logs.filter(
+            Q(user__username__icontains=search_query) |
+            Q(user__email__icontains=search_query) |
+            Q(file_name__icontains=search_query)
+        )
+
+    # Pagination
+    from django.core.paginator import Paginator
+    paginator = Paginator(logs, 100)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Stats
+    total_count = logs.count()
+    upload_count = logs.filter(action='upload').count()
+    delete_count = logs.filter(action='delete').count()
+
+    # Total size
+    from django.db.models import Sum
+    total_uploaded = logs.filter(action='upload').aggregate(Sum('size_bytes'))['size_bytes__sum'] or 0
+    total_deleted = logs.filter(action='delete').aggregate(Sum('size_bytes'))['size_bytes__sum'] or 0
+
+    context = {
+        'page_obj': page_obj,
+        'action_filter': action_filter,
+        'app_filter': app_filter,
+        'search_query': search_query,
+        'total_count': total_count,
+        'upload_count': upload_count,
+        'delete_count': delete_count,
+        'total_uploaded_mb': total_uploaded / (1024 * 1024),
+        'total_deleted_mb': total_deleted / (1024 * 1024),
+    }
+
+    return render(request, 'payments/storage_logs.html', context)
+
+
+@login_required
+def user_storage_view(request):
+    """
+    User Storage Overview - Frontend View
+    Zeigt alle User Storage wie im Admin
+    """
+    if not request.user.is_superuser:
+        messages.error(request, 'Zugriff verweigert.')
+        return redirect('payments:subscription_plans')
+
+    from videos.models import UserStorage
+    from django.db.models import Q, F, Sum, Avg
+
+    # Filter
+    plan_filter = request.GET.get('plan', 'all')
+    search_query = request.GET.get('search', '')
+
+    # Base queryset
+    storages = UserStorage.objects.select_related('user').order_by('-used_storage')
+
+    # Apply filters
+    if plan_filter == 'free':
+        storages = storages.filter(max_storage=104857600)  # 100MB
+    elif plan_filter == 'premium':
+        storages = storages.filter(max_storage__gt=104857600)
+
+    if search_query:
+        storages = storages.filter(
+            Q(user__username__icontains=search_query) |
+            Q(user__email__icontains=search_query)
+        )
+
+    # Pagination
+    from django.core.paginator import Paginator
+    paginator = Paginator(storages, 50)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Stats
+    total_count = storages.count()
+    total_used = storages.aggregate(Sum('used_storage'))['used_storage__sum'] or 0
+    total_max = storages.aggregate(Sum('max_storage'))['max_storage__sum'] or 0
+    avg_usage = storages.aggregate(Avg('used_storage'))['used_storage__avg'] or 0
+
+    # Users over 75%
+    over_75_percent = storages.filter(
+        used_storage__gte=F('max_storage') * 0.75
+    ).count()
+
+    context = {
+        'page_obj': page_obj,
+        'plan_filter': plan_filter,
+        'search_query': search_query,
+        'total_count': total_count,
+        'total_used_gb': total_used / (1024 * 1024 * 1024),
+        'total_max_gb': total_max / (1024 * 1024 * 1024),
+        'avg_usage_mb': avg_usage / (1024 * 1024),
+        'over_75_percent': over_75_percent,
+    }
+
+    return render(request, 'payments/user_storage.html', context)
+
+
+@login_required
+def webhook_events_view(request):
+    """
+    Webhook Events - Frontend View
+    Zeigt alle Stripe Webhook Events
+    """
+    if not request.user.is_superuser:
+        messages.error(request, 'Zugriff verweigert.')
+        return redirect('payments:subscription_plans')
+
+    from django.db.models import Q
+
+    # Filter
+    event_type_filter = request.GET.get('event_type', 'all')
+    processed_filter = request.GET.get('processed', 'all')
+    search_query = request.GET.get('search', '')
+
+    # Base queryset
+    events = WebhookEvent.objects.order_by('-created_at')
+
+    # Apply filters
+    if event_type_filter != 'all':
+        events = events.filter(event_type=event_type_filter)
+
+    if processed_filter == 'yes':
+        events = events.filter(processed=True)
+    elif processed_filter == 'no':
+        events = events.filter(processed=False)
+
+    if search_query:
+        events = events.filter(
+            Q(stripe_event_id__icontains=search_query) |
+            Q(event_type__icontains=search_query)
+        )
+
+    # Pagination
+    from django.core.paginator import Paginator
+    paginator = Paginator(events, 50)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Stats
+    total_count = events.count()
+    processed_count = events.filter(processed=True).count()
+    failed_count = events.filter(processed=False).exclude(processing_error='').count()
+
+    # Event types
+    event_types = events.values_list('event_type', flat=True).distinct()
+
+    context = {
+        'page_obj': page_obj,
+        'event_type_filter': event_type_filter,
+        'processed_filter': processed_filter,
+        'search_query': search_query,
+        'total_count': total_count,
+        'processed_count': processed_count,
+        'failed_count': failed_count,
+        'event_types': list(event_types),
+    }
+
+    return render(request, 'payments/webhook_events.html', context)
+
+
+@login_required
+def user_files_api(request):
+    """
+    API endpoint for user's files
+    Returns list of all actually existing files (not deleted ones)
+    """
+    import os
+
+    files = []
+    totals = {}
+
+    # Videos
+    try:
+        from videos.models import Video
+        videos = Video.objects.filter(user=request.user, video_file__isnull=False)
+        video_total = 0
+        for video in videos:
+            if video.video_file and hasattr(video.video_file, 'size'):
+                size = video.video_file.size
+                video_total += size
+
+                # Use video title as filename, fallback to actual filename
+                display_filename = video.title if video.title else os.path.basename(video.video_file.name)
+                # Add .webm extension if title doesn't have an extension
+                if video.title and '.' not in display_filename:
+                    display_filename = f"{display_filename}.webm"
+
+                files.append({
+                    'id': f'video_{video.id}',
+                    'app': 'Videos',
+                    'app_name': 'videos',
+                    'filename': display_filename,
+                    'size': size,
+                    'size_display': f"{size/(1024*1024):.2f} MB" if size >= 1024*1024 else f"{size/1024:.2f} KB",
+                    'created_at': video.created_at.strftime('%d.%m.%Y %H:%M'),
+                    'metadata': {'video_id': video.id, 'title': video.title},
+                })
+        if video_total > 0:
+            totals['Videos'] = {'bytes': video_total, 'mb': video_total / (1024 * 1024)}
+    except Exception as e:
+        logger.error(f"Error loading videos: {e}")
+
+    # Fileshare
+    try:
+        from fileshare.models import TransferFile
+        fileshare_files = TransferFile.objects.filter(
+            transfer__sender=request.user,
+            file__isnull=False
+        ).select_related('transfer')
+        fileshare_total = 0
+        for fs_file in fileshare_files:
+            if fs_file.file and hasattr(fs_file.file, 'size'):
+                size = fs_file.file.size
+                fileshare_total += size
+                files.append({
+                    'id': f'fileshare_{fs_file.id}',
+                    'app': 'Fileshare',
+                    'app_name': 'fileshare',
+                    'filename': fs_file.original_filename or os.path.basename(fs_file.file.name),
+                    'size': size,
+                    'size_display': f"{size/(1024*1024):.2f} MB" if size >= 1024*1024 else f"{size/1024:.2f} KB",
+                    'created_at': fs_file.uploaded_at.strftime('%d.%m.%Y %H:%M'),
+                    'metadata': {'file_id': str(fs_file.id), 'transfer_id': fs_file.transfer.id},
+                })
+        if fileshare_total > 0:
+            totals['Fileshare'] = {'bytes': fileshare_total, 'mb': fileshare_total / (1024 * 1024)}
+    except Exception as e:
+        logger.error(f"Error loading fileshare files: {e}")
+
+    # Organization - Notes with images
+    try:
+        from organization.models import Note, BoardElement
+        from django.core.files.storage import default_storage
+        notes = Note.objects.filter(author=request.user, image__isnull=False)
+        org_total = 0
+        for note in notes:
+            if note.image and hasattr(note.image, 'size'):
+                size = note.image.size
+                org_total += size
+
+                # Generate readable filename from note title
+                original_filename = os.path.basename(note.image.name)
+                file_ext = os.path.splitext(original_filename)[1]  # Get extension (.jpg, .png, etc.)
+                display_filename = f"{note.title}{file_ext}" if note.title else original_filename
+
+                files.append({
+                    'id': f'note_{note.id}',
+                    'app': 'Organization',
+                    'app_name': 'organization',
+                    'filename': display_filename,
+                    'size': size,
+                    'size_display': f"{size/(1024*1024):.2f} MB" if size >= 1024*1024 else f"{size/1024:.2f} KB",
+                    'created_at': note.created_at.strftime('%d.%m.%Y %H:%M'),
+                    'metadata': {'note_id': note.id, 'title': note.title, 'file_type': 'note_image'},
+                })
+
+        # Organization - Board images
+        board_elements = BoardElement.objects.filter(
+            created_by=request.user,
+            element_type='image'
+        ).select_related('board')
+
+        for element in board_elements:
+            try:
+                element_data = element.data if isinstance(element.data, dict) else {}
+                image_url = element_data.get('url') or element_data.get('src')
+                if not image_url:
+                    continue
+
+                import re
+                match = re.search(r'board_images/[^/\s]+', image_url)
+                if not match:
+                    continue
+
+                file_path = match.group(0)
+                if default_storage.exists(file_path):
+                    size = default_storage.size(file_path)
+                    org_total += size
+
+                    # Generate readable filename from board title
+                    original_filename = os.path.basename(file_path)
+                    file_ext = os.path.splitext(original_filename)[1]  # Get extension
+                    display_filename = f"{element.board.title}-Bild{file_ext}" if element.board.title else original_filename
+
+                    files.append({
+                        'id': f'board_element_{element.id}',
+                        'app': 'Organization',
+                        'app_name': 'organization',
+                        'filename': display_filename,
+                        'size': size,
+                        'size_display': f"{size/(1024*1024):.2f} MB" if size >= 1024*1024 else f"{size/1024:.2f} KB",
+                        'created_at': element.created_at.strftime('%d.%m.%Y %H:%M'),
+                        'metadata': {
+                            'board_id': element.board.id,
+                            'board_title': element.board.title,
+                            'element_id': element.id,
+                            'file_type': 'board_image'
+                        },
+                    })
+            except Exception as e:
+                logger.error(f"Error processing board element {element.id}: {e}")
+                continue
+
+        if org_total > 0:
+            totals['Organization'] = {'bytes': org_total, 'mb': org_total / (1024 * 1024)}
+    except Exception as e:
+        logger.error(f"Error loading organization files: {e}")
+
+    # Chat attachments
+    try:
+        from chat.models import ChatMessageAttachment
+        attachments = ChatMessageAttachment.objects.filter(
+            message__sender=request.user,
+            file__isnull=False
+        ).select_related('message')
+        chat_total = 0
+        for attachment in attachments:
+            if attachment.file and hasattr(attachment.file, 'size'):
+                size = attachment.file.size
+                chat_total += size
+                files.append({
+                    'id': f'chat_{attachment.id}',
+                    'app': 'Chat',
+                    'app_name': 'chat',
+                    'filename': attachment.filename or os.path.basename(attachment.file.name),
+                    'size': size,
+                    'size_display': f"{size/(1024*1024):.2f} MB" if size >= 1024*1024 else f"{size/1024:.2f} KB",
+                    'created_at': attachment.uploaded_at.strftime('%d.%m.%Y %H:%M'),
+                    'metadata': {'attachment_id': attachment.id, 'message_id': attachment.message.id},
+                })
+        if chat_total > 0:
+            totals['Chat'] = {'bytes': chat_total, 'mb': chat_total / (1024 * 1024)}
+    except Exception as e:
+        logger.error(f"Error loading chat files: {e}")
+
+    # Streamrec - Audio and Video recordings (stored directly on filesystem)
+    try:
+        from django.conf import settings
+        from django.core.files.storage import default_storage
+        import glob
+        from datetime import datetime
+
+        user_prefix = f"{request.user.id}_"
+        streamrec_total = 0
+
+        # Process both audio and video recordings
+        recording_types = [
+            ('audio_recordings', 'audio'),
+            ('video_recordings', 'video')
+        ]
+
+        for dir_name, rec_type in recording_types:
+            rec_dir = os.path.join(settings.MEDIA_ROOT, dir_name)
+            if os.path.exists(rec_dir):
+                # Find all files for this user (format: {user_id}_{filename})
+                for file_path in glob.glob(os.path.join(rec_dir, f"{user_prefix}*")):
+                    try:
+                        size = os.path.getsize(file_path)
+                        streamrec_total += size
+
+                        # Extract filename without user prefix
+                        filename = os.path.basename(file_path)
+                        original_filename = filename[len(user_prefix):]
+
+                        # Get file modification time
+                        mtime = os.path.getmtime(file_path)
+                        created_at = datetime.fromtimestamp(mtime)
+
+                        files.append({
+                            'id': f'streamrec_{filename}',  # Use full filename as ID
+                            'app': 'Streamrec',
+                            'app_name': 'streamrec',
+                            'filename': original_filename,
+                            'size': size,
+                            'size_display': f"{size/(1024*1024):.2f} MB" if size >= 1024*1024 else f"{size/1024:.2f} KB",
+                            'created_at': created_at.strftime('%d.%m.%Y %H:%M'),
+                            'metadata': {'file_path': file_path, 'recording_type': rec_type},
+                        })
+                    except Exception as e:
+                        logger.error(f"Error processing streamrec file {file_path}: {e}")
+                        continue
+
+        if streamrec_total > 0:
+            totals['Streamrec'] = {'bytes': streamrec_total, 'mb': streamrec_total / (1024 * 1024)}
+    except Exception as e:
+        logger.error(f"Error loading streamrec files: {e}")
+
+    # Sort files by creation date (newest first)
+    files.sort(key=lambda x: x['created_at'], reverse=True)
+
+    return JsonResponse({
+        'success': True,
+        'files': files,
+        'totals': totals,
+        'total_files': len(files),
+    })
+
+
+@login_required
+@require_POST
+def delete_user_file_api(request):
+    """
+    API endpoint to delete a user file
+    Deletes the actual file and updates storage tracking
+    """
+    from core.storage_service import StorageService
+    from django.core.files.storage import default_storage
+    import re
+
+    try:
+        data = json.loads(request.body)
+        file_id = data.get('log_id')  # Actually file_id with format: app_objectid
+
+        if not file_id:
+            return JsonResponse({'success': False, 'error': 'Keine Datei-ID angegeben'}, status=400)
+
+        # Parse file_id to get app type and object id
+        parts = file_id.split('_', 1)
+        if len(parts) != 2:
+            return JsonResponse({'success': False, 'error': 'Ungültige Datei-ID'}, status=400)
+
+        app_type, object_id = parts
+        deleted = False
+
+        if app_type == 'video':
+            # Delete video file
+            from videos.models import Video
+            try:
+                video = Video.objects.get(id=int(object_id), user=request.user)
+                video.delete()  # Signals will handle storage tracking
+                deleted = True
+            except (Video.DoesNotExist, ValueError):
+                return JsonResponse({'success': False, 'error': 'Video nicht gefunden'}, status=404)
+
+        elif app_type == 'fileshare':
+            # Delete fileshare file
+            from fileshare.models import TransferFile
+            try:
+                # TransferFile uses UUID, not int
+                fs_file = TransferFile.objects.filter(
+                    id=object_id,
+                    transfer__sender=request.user
+                ).first()
+                if fs_file:
+                    fs_file.delete()  # Signals will handle storage tracking
+                    deleted = True
+                else:
+                    return JsonResponse({'success': False, 'error': 'Datei nicht gefunden'}, status=404)
+            except ValueError:
+                return JsonResponse({'success': False, 'error': 'Ungültige Datei-ID'}, status=400)
+
+        elif app_type == 'note':
+            # Delete note image
+            from organization.models import Note
+            try:
+                note = Note.objects.get(id=int(object_id), author=request.user)
+                if note.image:
+                    note.delete()  # Delete entire note (signals will track deletion)
+                    deleted = True
+                else:
+                    return JsonResponse({'success': False, 'error': 'Note hat kein Bild'}, status=400)
+            except (Note.DoesNotExist, ValueError):
+                return JsonResponse({'success': False, 'error': 'Notiz nicht gefunden'}, status=404)
+
+        elif app_type == 'board':
+            # Delete board element image
+            from organization.models import BoardElement
+            try:
+                element_id = object_id.replace('element_', '')
+                element = BoardElement.objects.get(id=int(element_id), created_by=request.user)
+                element.delete()  # Signals will handle storage tracking
+                deleted = True
+            except (BoardElement.DoesNotExist, ValueError):
+                return JsonResponse({'success': False, 'error': 'Board-Element nicht gefunden'}, status=404)
+
+        elif app_type == 'chat':
+            # Delete chat attachment
+            from chat.models import ChatMessageAttachment
+            try:
+                attachment = ChatMessageAttachment.objects.get(id=int(object_id), message__sender=request.user)
+                attachment.delete()  # Signals will handle storage tracking
+                deleted = True
+            except (ChatMessageAttachment.DoesNotExist, ValueError):
+                return JsonResponse({'success': False, 'error': 'Anhang nicht gefunden'}, status=404)
+
+        elif app_type == 'streamrec':
+            # Delete streamrec audio/video recording (direct filesystem file)
+            from django.conf import settings
+            from streamrec.storage_helpers import track_recording_deletion
+            try:
+                # object_id is the full filename (including user prefix)
+                # Try to find file in both audio and video directories
+                user_prefix = f"{request.user.id}_"
+
+                # Verify file belongs to user
+                if not object_id.startswith(user_prefix):
+                    return JsonResponse({'success': False, 'error': 'Keine Berechtigung'}, status=403)
+
+                file_path = None
+                recording_type = None
+
+                # Check both directories
+                for dir_name, rec_type in [('audio_recordings', 'audio'), ('video_recordings', 'video')]:
+                    check_path = os.path.join(settings.MEDIA_ROOT, dir_name, object_id)
+                    if os.path.exists(check_path):
+                        file_path = check_path
+                        recording_type = rec_type
+                        break
+
+                if file_path and os.path.exists(file_path):
+                    file_size = os.path.getsize(file_path)
+
+                    # Delete file
+                    os.remove(file_path)
+
+                    # Track deletion in storage system
+                    track_recording_deletion(
+                        request.user,
+                        file_size,
+                        object_id[len(user_prefix):],  # Remove user prefix
+                        recording_type=recording_type
+                    )
+
+                    deleted = True
+                else:
+                    return JsonResponse({'success': False, 'error': 'Datei nicht gefunden'}, status=404)
+            except Exception as e:
+                logger.error(f"Error deleting streamrec file: {e}")
+                return JsonResponse({'success': False, 'error': f'Fehler beim Löschen: {str(e)}'}, status=500)
+
+        else:
+            return JsonResponse({'success': False, 'error': f'Unbekannter App-Typ: {app_type}'}, status=400)
+
+        if deleted:
+            return JsonResponse({
+                'success': True,
+                'message': 'Datei erfolgreich gelöscht'
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': 'Datei konnte nicht gefunden oder gelöscht werden'
+            }, status=404)
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Ungültige Anfrage'}, status=400)
+    except Exception as e:
+        logger.error(f"Error deleting user file: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': f'Fehler beim Löschen: {str(e)}'
         }, status=500)

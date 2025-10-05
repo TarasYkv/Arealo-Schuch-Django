@@ -1,0 +1,524 @@
+═══════════════════════════════════════════════════════════════════════
+  PAYMENT & STORAGE INTEGRATION - TODO LISTE
+═══════════════════════════════════════════════════════════════════════
+
+📅 Erstellt: 2025-10-04
+🎯 Projekt: Stripe Payment Integration für Storage Plans
+🌐 Deployment: PythonAnywhere (siehe Abschnitt "PYTHONANYWHERE DEPLOYMENT")
+
+═══════════════════════════════════════════════════════════════════════
+  🔴 KRITISCH - Vor Go-Live erledigen
+═══════════════════════════════════════════════════════════════════════
+
+[ ] 1. STRIPE DASHBOARD - Products & Prices erstellen
+    ────────────────────────────────────────────────────────────
+    → Login: https://dashboard.stripe.com
+    → Navigation: Products → + Add Product
+
+    Folgende Produkte/Preise erstellen:
+
+    📦 KOSTENLOSER PLAN:
+       - Name: "100MB Kostenlos"
+       - Preis: 0,00€
+       - Interval: month
+       - → Price ID notieren!
+
+    💾 STORAGE PLÄNE (jeweils Monthly + Yearly):
+
+       1GB Plan:
+       - Name: "1GB Storage Plan"
+       - Preis Monthly: 2,99€/Monat
+       - Preis Yearly: 29,90€/Jahr
+       - → Beide Price IDs notieren!
+
+       3GB Plan:
+       - Name: "3GB Storage Plan"
+       - Preis Monthly: 4,99€/Monat
+       - Preis Yearly: 49,90€/Jahr
+       - → Beide Price IDs notieren!
+
+       5GB Plan:
+       - Name: "5GB Storage Plan"
+       - Preis Monthly: 7,99€/Monat
+       - Preis Yearly: 79,90€/Jahr
+       - → Beide Price IDs notieren!
+
+       10GB Plan:
+       - Name: "10GB Storage Plan"
+       - Preis Monthly: 9,99€/Monat
+       - Preis Yearly: 99,90€/Jahr
+       - → Beide Price IDs notieren!
+
+    🚀 WORKLOOM FOUNDER'S ACCESS:
+       ⚠️  HINWEIS: WorkLoom ist während Early Access KOSTENLOS!
+
+       → KEINE Stripe Products/Prices für WorkLoom erstellen
+       → Wird automatisch nach Registrierung aktiviert
+       → Kein Zahlungsmittel erforderlich
+
+       (Später bei kostenpflichtiger Phase können Products erstellt werden)
+
+
+[ ] 2. PRICE IDs IN CODE EINTRAGEN
+    ────────────────────────────────────────────────────────────
+    → Datei: payments/management/commands/setup_storage_plans.py
+    → Suche nach "price_XXX" Platzhaltern
+    → Trage echte Stripe Price IDs ein
+    → Command ausführen:
+      python manage.py setup_storage_plans
+
+
+[ ] 3. STRIPE WEBHOOK EINRICHTEN
+    ────────────────────────────────────────────────────────────
+    ⚠️  LOKAL vs. PYTHONANYWHERE - Unterschiedliche URLs!
+
+    LOKAL (für Entwicklung):
+    → URL: http://localhost:8000/payments/webhook/stripe/
+    → Mit Stripe CLI testen: stripe listen --forward-to localhost:8000/payments/webhook/stripe/
+
+    PYTHONANYWHERE (für Production):
+    → URL: https://USERNAME.pythonanywhere.com/payments/webhook/stripe/
+    → Siehe Abschnitt "B. STRIPE WEBHOOK URL" oben!
+
+    Webhook Konfiguration in Stripe:
+    → Stripe Dashboard → Developers → Webhooks
+    → "Add endpoint" klicken
+    → URL eingeben (siehe oben)
+    → Events auswählen:
+      ✓ customer.subscription.created
+      ✓ customer.subscription.updated
+      ✓ customer.subscription.deleted
+      ✓ invoice.paid
+      ✓ invoice.payment_failed
+      ✓ checkout.session.completed
+    → Webhook Signing Secret kopieren
+    → In .env eintragen: STRIPE_WEBHOOK_SECRET=whsec_...
+
+
+[ ] 4. LIVE STRIPE KEYS KONFIGURIEREN
+    ────────────────────────────────────────────────────────────
+    ⚠️  WICHTIG: Aktuell sind TEST-Keys aktiv!
+
+    → Stripe Dashboard → Developers → API keys
+    → "Live mode" Toggle aktivieren
+    → Publishable key kopieren → .env: STRIPE_PUBLISHABLE_KEY=pk_live_...
+    → Secret key kopieren → .env: STRIPE_SECRET_KEY=sk_live_...
+
+    ⚠️  SICHERHEIT:
+       - Niemals Secret Keys in Git committen!
+       - .env ist in .gitignore
+       - Keys regelmäßig rotieren
+
+
+═══════════════════════════════════════════════════════════════════════
+  🌐 PYTHONANYWHERE DEPLOYMENT - Besondere Hinweise
+═══════════════════════════════════════════════════════════════════════
+
+⚠️  WICHTIG: Diese App läuft aktuell LOKAL und wird auf PythonAnywhere deployed!
+Bei PythonAnywhere gibt es einige Besonderheiten zu beachten:
+
+
+[ ] A. PYTHONANYWHERE SETUP - Vor Stripe Konfiguration
+    ────────────────────────────────────────────────────────────
+    1. Code auf PythonAnywhere hochladen:
+       → Via Git: git clone https://github.com/... (empfohlen)
+       → Oder Upload über Files Tab
+
+    2. Virtual Environment erstellen:
+       → cd ~/PROJEKTNAME
+       → python3.10 -m venv venv
+       → source venv/bin/activate
+       → pip install -r requirements.txt
+
+    3. Database Setup (MySQL/PostgreSQL empfohlen):
+       ⚠️  SQLite hat Performance-Limitierungen bei PythonAnywhere!
+
+       → Databases Tab → MySQL → Create Database
+       → Database Name notieren (z.B. USERNAME$dbname)
+       → settings.py anpassen:
+         DATABASES = {
+             'default': {
+                 'ENGINE': 'django.db.backends.mysql',
+                 'NAME': 'USERNAME$dbname',
+                 'USER': 'USERNAME',
+                 'PASSWORD': 'YOUR_MYSQL_PASSWORD',
+                 'HOST': 'USERNAME.mysql.pythonanywhere-services.com',
+             }
+         }
+       → pip install mysqlclient
+       → python manage.py migrate
+
+    4. Static Files konfigurieren:
+       → python manage.py collectstatic
+       → Web Tab → Static files section:
+         URL: /static/
+         Directory: /home/USERNAME/PROJEKTNAME/staticfiles/
+
+    5. Environment Variables (.env):
+       ⚠️  KRITISCH: .env File NICHT in Git committen!
+
+       Option 1 - Via .env File (empfohlen):
+       → .env im Projekt-Root erstellen
+       → In WSGI Config File laden (siehe unten)
+
+       Option 2 - Via Environment Variables:
+       → Web Tab → Environment Variables (nur Paid Accounts)
+       → Oder in WSGI Config File hardcoden (NICHT empfohlen!)
+
+    6. WSGI Configuration File anpassen:
+       → Web Tab → WSGI configuration file
+       → Folgendes HINZUFÜGEN (am Anfang der Datei):
+
+       ```python
+       import os
+       import sys
+       from pathlib import Path
+       from dotenv import load_dotenv
+
+       # Projekt-Pfad
+       project_home = '/home/USERNAME/PROJEKTNAME'
+       if project_home not in sys.path:
+           sys.path.insert(0, project_home)
+
+       # .env File laden
+       env_path = Path(project_home) / '.env'
+       load_dotenv(dotenv_path=env_path)
+
+       # Django Settings
+       os.environ['DJANGO_SETTINGS_MODULE'] = 'Schuch.settings'
+       ```
+
+    7. Reload Web App:
+       → Web Tab → Reload Button (GRÜN)
+       → Nach JEDER Code-Änderung erforderlich!
+
+
+[ ] B. STRIPE WEBHOOK URL - PythonAnywhere Domain
+    ────────────────────────────────────────────────────────────
+    ⚠️  WICHTIG: Webhook URL muss auf PythonAnywhere zeigen!
+
+    → Deine PythonAnywhere Domain: https://USERNAME.pythonanywhere.com
+    → Webhook URL: https://USERNAME.pythonanywhere.com/payments/webhook/stripe/
+
+    → Stripe Dashboard → Developers → Webhooks
+    → "Add endpoint" klicken
+    → URL eingeben: https://USERNAME.pythonanywhere.com/payments/webhook/stripe/
+    → Events auswählen (siehe unten bei Punkt 3)
+
+    ✅ HTTPS ist AUTOMATISCH verfügbar für *.pythonanywhere.com Domains!
+       (Stripe erfordert HTTPS für Webhooks - bei PythonAnywhere kostenlos!)
+
+
+[ ] C. STRIPE KEYS IN .env AUF PYTHONANYWHERE
+    ────────────────────────────────────────────────────────────
+    → SSH/Console Tab → Bash console öffnen
+    → nano ~/PROJEKTNAME/.env
+    → Folgendes eintragen:
+
+    ```
+    STRIPE_PUBLISHABLE_KEY=pk_live_...
+    STRIPE_SECRET_KEY=sk_live_...
+    STRIPE_WEBHOOK_SECRET=whsec_...
+    ```
+
+    → Speichern: Strg+O, Enter, Strg+X
+    → Web App Reload!
+
+
+[ ] D. CRON JOBS - PythonAnywhere Schedule Tab
+    ────────────────────────────────────────────────────────────
+    ⚠️  Cron Jobs nur in PAID Accounts verfügbar!
+
+    → Schedule Tab → Create a new scheduled task
+    → Uhrzeit: 09:00
+    → Command:
+      /home/USERNAME/PROJEKTNAME/venv/bin/python /home/USERNAME/PROJEKTNAME/manage.py check_storage_quotas
+
+    Alternative für FREE Accounts:
+    → Manuell täglich ausführen
+    → Oder Celery Beat verwenden (komplexer)
+
+
+[ ] E. TESTING AUF PYTHONANYWHERE
+    ────────────────────────────────────────────────────────────
+    ⚠️  Stripe CLI funktioniert NICHT mit PythonAnywhere!
+       → Nur LIVE Webhooks testen möglich
+       → Teste zuerst im TEST Mode mit echten Stripe Test Events
+
+    1. Test Mode testen:
+       → Stripe Dashboard im Test Mode
+       → Test Cards verwenden (4242 4242 4242 4242)
+       → https://USERNAME.pythonanywhere.com/payments/plans/ aufrufen
+       → Checkout durchführen
+
+    2. Webhook Events prüfen:
+       → Stripe Dashboard → Events
+       → Bei Fehlern: Response Body anzeigen
+       → PythonAnywhere: Error log prüfen (Web Tab → Log files)
+
+    3. Live Mode aktivieren (nach erfolgreichem Test):
+       → .env auf Live Keys umstellen
+       → Web App Reload
+       → Webhook Endpoint in Stripe auf Live umstellen
+
+
+[ ] F. LOGS & DEBUGGING AUF PYTHONANYWHERE
+    ────────────────────────────────────────────────────────────
+    → Web Tab → Log files:
+      - Error log: Django Fehler & Exceptions
+      - Server log: HTTP Requests & Responses
+      - Access log: Alle HTTP Zugriffe
+
+    → Bei Webhook-Problemen:
+      1. Error log checken
+      2. Stripe Dashboard → Events → Failed events
+      3. Response Body analysieren
+
+    → Django Shell für Debugging:
+      $ cd ~/PROJEKTNAME
+      $ source venv/bin/activate
+      $ python manage.py shell
+
+
+[ ] G. WICHTIGE PYTHONANYWHERE LIMITS
+    ────────────────────────────────────────────────────────────
+    FREE Account:
+    - 1 Web App
+    - SQLite Database (langsamer)
+    - Keine Cron Jobs
+    - CPU: 100 Sekunden/Tag
+    - Keine Custom Domain
+
+    PAID Account ($5/Monat):
+    - Cron Jobs
+    - MySQL Database
+    - Mehr CPU
+    - Custom Domain möglich
+
+    ⚠️  Für Production: Paid Account empfohlen!
+
+
+[ ] H. DEPLOYMENT CHECKLIST
+    ────────────────────────────────────────────────────────────
+    ✓ Code auf PythonAnywhere hochgeladen
+    ✓ Virtual Environment erstellt & Dependencies installiert
+    ✓ Database konfiguriert (MySQL empfohlen)
+    ✓ python manage.py migrate ausgeführt
+    ✓ python manage.py collectstatic ausgeführt
+    ✓ .env File erstellt mit Stripe Keys
+    ✓ WSGI Config angepasst (dotenv laden)
+    ✓ Static Files Mapping konfiguriert
+    ✓ Web App Reload durchgeführt
+    ✓ Website erreichbar unter https://USERNAME.pythonanywhere.com
+    ✓ Stripe Webhook auf PythonAnywhere URL zeigt
+    ✓ Test-Checkout erfolgreich
+    ✓ Webhook Events werden empfangen
+    ✓ Cron Job für Storage Quota Check (falls Paid Account)
+
+
+═══════════════════════════════════════════════════════════════════════
+  🟡 WICHTIG - Automatisierung einrichten
+═══════════════════════════════════════════════════════════════════════
+
+[ ] 5. CRON JOB FÜR STORAGE QUOTA CHECKS
+    ────────────────────────────────────────────────────────────
+    Täglich um 9:00 Uhr Speicher-Quotas prüfen und Benachrichtigungen senden
+
+    ⚠️  LOKAL vs. PYTHONANYWHERE - Unterschiedliche Methoden!
+
+    LOKAL (für Entwicklung/Testing):
+    → Crontab bearbeiten: crontab -e
+    → Zeile hinzufügen:
+      0 9 * * * cd /pfad/zum/projekt && /pfad/zum/venv/bin/python manage.py check_storage_quotas
+
+    PYTHONANYWHERE (für Production):
+    → Siehe Abschnitt "D. CRON JOBS" oben!
+    → ⚠️  Nur in PAID Accounts verfügbar ($5/Monat)
+    → Schedule Tab verwenden statt crontab
+    → Komplette Pfade angeben: /home/USERNAME/PROJEKTNAME/venv/bin/python ...
+
+
+[ ] 6. EMAIL TEMPLATES TESTEN
+    ────────────────────────────────────────────────────────────
+    → Test-Command ausführen:
+      python manage.py test_email_templates
+
+    → Prüfen ob E-Mails ankommen für:
+      ✓ Storage Quota 75% Warning
+      ✓ Storage Quota 90% Warning
+      ✓ Storage Quota 100% Exceeded
+
+
+═══════════════════════════════════════════════════════════════════════
+  🟢 OPTIONAL - Verbesserungen & Testing
+═══════════════════════════════════════════════════════════════════════
+
+[ ] 7. END-TO-END TESTING
+    ────────────────────────────────────────────────────────────
+    ✓ Checkout Flow testen (mit Stripe Test Cards)
+    ✓ Subscription Upgrade testen
+    ✓ Subscription Downgrade testen
+    ✓ Subscription Cancellation testen
+    ✓ Webhook Events verifizieren
+    ✓ Storage Tracking testen (Upload/Delete)
+    ✓ Quota Warnings testen
+
+
+[ ] 8. MONITORING & ANALYTICS
+    ────────────────────────────────────────────────────────────
+    → Stripe Dashboard regelmäßig checken
+    → Storage Logs im Admin prüfen: /admin/core/storagelog/
+    → User Storage Dashboard: /admin/videos/userstorage/
+    → Webhook Events: /admin/payments/webhookevent/
+
+
+[ ] 9. DOKUMENTATION
+    ────────────────────────────────────────────────────────────
+    → User-Dokumentation schreiben:
+      - Wie funktionieren die Speicher-Pläne?
+      - Was passiert bei Quota-Überschreitung?
+      - Wie kann man upgraden/downgraden?
+
+    → Admin-Dokumentation:
+      - Wie werden Subscriptions verwaltet?
+      - Troubleshooting Guide
+      - FAQ für häufige Probleme
+
+
+[ ] 10. STRIPE TEST CARDS (für Testing)
+    ────────────────────────────────────────────────────────────
+    Erfolgreiche Zahlung:
+    - Karte: 4242 4242 4242 4242
+    - Ablauf: Beliebig (Zukunft)
+    - CVC: Beliebig
+    - PLZ: Beliebig
+
+    3D Secure (Authentication):
+    - Karte: 4000 0027 6000 3184
+
+    Fehlgeschlagen:
+    - Karte: 4000 0000 0000 0002
+
+    Mehr: https://stripe.com/docs/testing
+
+
+═══════════════════════════════════════════════════════════════════════
+  📋 VERFÜGBARE MANAGEMENT COMMANDS
+═══════════════════════════════════════════════════════════════════════
+
+✓ python manage.py upgrade_free_storage
+  → Upgraded alle 50MB Free Users auf 100MB (bereits ausgeführt!)
+
+✓ python manage.py setup_storage_plans
+  → Erstellt alle Subscription Plans in Datenbank
+
+✓ python manage.py check_storage_quotas [--dry-run]
+  → Prüft Speicher-Quotas und sendet Benachrichtigungen
+
+✓ python manage.py setup_free_plans [--fix-all]
+  → Erstellt UserStorage für User ohne Storage
+
+
+═══════════════════════════════════════════════════════════════════════
+  🔗 WICHTIGE URLS
+═══════════════════════════════════════════════════════════════════════
+
+Frontend (User):
+  /payments/plans/           → Subscription Plans Übersicht
+  /accounts/profil/          → User Profil mit Storage Info
+  /videos/storage/           → Storage Management
+  /accounts/abo/video/       → Video Subscription Management
+
+Admin:
+  /admin/payments/subscription/     → Subscriptions verwalten
+  /admin/core/storagelog/           → Storage Logs
+  /admin/videos/userstorage/        → User Storage Übersicht
+  /admin/payments/webhookevent/     → Webhook Events
+
+Stripe:
+  https://dashboard.stripe.com      → Stripe Dashboard
+
+
+═══════════════════════════════════════════════════════════════════════
+  ⚠️  WICHTIGE HINWEISE
+═══════════════════════════════════════════════════════════════════════
+
+1. SICHERHEIT:
+   - Stripe Secret Keys niemals in Code committen
+   - Webhook Signature immer verifizieren (bereits implementiert)
+   - SSL/HTTPS in Production zwingend erforderlich
+
+2. TESTING:
+   - Immer zuerst im Test Mode testen
+   - Stripe Test Cards verwenden
+   - Webhooks mit Stripe CLI testen: stripe listen --forward-to localhost:8000/payments/webhook/stripe/
+
+3. MONITORING:
+   - Webhook Events im Admin regelmäßig prüfen
+   - Failed Webhooks behandeln
+   - Storage Logs auf Anomalien prüfen
+
+4. SUPPORT:
+   - Bei Problemen: Stripe Dashboard → Events → Filter by failed
+   - Logs prüfen: tail -f logs/django.log
+   - Error Tracking einrichten (z.B. Sentry)
+
+
+═══════════════════════════════════════════════════════════════════════
+  ✅ BEREITS ERLEDIGT
+═══════════════════════════════════════════════════════════════════════
+
+✓ Storage Service implementiert (core/storage_service.py)
+✓ StorageLog Model erstellt
+✓ Storage Notifications implementiert
+✓ Webhook Integration für Subscription Sync
+✓ Admin Interface mit Statistiken
+✓ Signal-basiertes Tracking für Fileshare
+✓ View-basiertes Tracking für Streamrec
+✓ Subscription Plans Template erstellt
+✓ Dashboard Integration (Superconfig)
+✓ Email Templates (HTML + Text)
+✓ Management Commands
+✓ 50MB → 100MB Migration durchgeführt
+✓ Template-Tag-Fehler behoben
+✓ Sie → Du Form geändert
+✓ Preise korrigiert (2,99€, 4,99€, 7,99€, 9,99€)
+✓ 14 User auf 100MB upgraded
+
+
+═══════════════════════════════════════════════════════════════════════
+  📞 SUPPORT & RESSOURCEN
+═══════════════════════════════════════════════════════════════════════
+
+Stripe Docs:
+  https://stripe.com/docs
+  https://stripe.com/docs/payments/checkout
+  https://stripe.com/docs/billing/subscriptions/webhooks
+
+Django Stripe Integration:
+  https://testdriven.io/blog/django-stripe-tutorial/
+
+PythonAnywhere:
+  https://help.pythonanywhere.com/
+  https://help.pythonanywhere.com/pages/DeployExistingDjangoProject/
+  https://help.pythonanywhere.com/pages/ScheduledTasks/
+
+Bei Fragen:
+  - Stripe Support: https://support.stripe.com
+  - Django Docs: https://docs.djangoproject.com
+  - PythonAnywhere Forums: https://www.pythonanywhere.com/forums/
+
+
+═══════════════════════════════════════════════════════════════════════
+
+Letzte Aktualisierung: 2025-10-04
+Status: 🟡 Bereit für Stripe Dashboard Setup & PythonAnywhere Deployment
+
+Änderungen:
+- ✅ PythonAnywhere-spezifische Deployment-Hinweise hinzugefügt
+- ✅ WSGI Configuration, Static Files, MySQL Setup dokumentiert
+- ✅ Cron Jobs für Paid vs. Free Accounts
+- ✅ Webhook URLs für lokale & PythonAnywhere Umgebung
+- ✅ Logging & Debugging Guide
+
+═══════════════════════════════════════════════════════════════════════

@@ -26,7 +26,7 @@ class StorageSubscriptionSync:
     def get_storage_limit_from_subscription(subscription):
         """Get storage limit in bytes from Stripe subscription"""
         if not subscription:
-            return 50 * 1024 * 1024  # 50MB default for free users
+            return 100 * 1024 * 1024  # 100MB default for free users
         
         # Get storage from the subscription plan
         if subscription.plan.storage_mb:
@@ -36,7 +36,7 @@ class StorageSubscriptionSync:
         if subscription.plan.plan_type == 'storage':
             price = float(subscription.plan.price)
             if price == 0:
-                return 50 * 1024 * 1024  # 50MB
+                return 100 * 1024 * 1024  # 100MB
             elif price <= 2:
                 return 1024 * 1024 * 1024  # 1GB
             elif price <= 3:
@@ -56,7 +56,7 @@ class StorageSubscriptionSync:
                 user=user,
                 defaults={
                     'used_storage': 0,
-                    'max_storage': 52428800,  # 50MB default (free plan)
+                    'max_storage': 104857600,  # 100MB default (free plan)
                     'is_premium': False,
                 }
             )
@@ -99,7 +99,7 @@ class StorageSubscriptionSync:
                 user=user,
                 defaults={
                     'used_storage': 0,
-                    'max_storage': 52428800,  # 50MB default
+                    'max_storage': 104857600,  # 100MB default
                     'is_premium': False,
                 }
             )
@@ -176,7 +176,7 @@ class StorageSubscriptionSync:
                 'price': 0.00,
                 'currency': 'EUR',
                 'interval': 'month',
-                'storage_mb': 50,
+                'storage_mb': 100,
                 'status': 'active',
                 'current_period_end': None,
                 'cancel_at_period_end': False,

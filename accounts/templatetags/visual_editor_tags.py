@@ -105,32 +105,39 @@ def build_edit_script(edits, page_name):
     
     for edit in edits:
         content_key = edit.content_key
-        
-        # Different approaches based on content type and key
+        dom_selector = getattr(edit, 'dom_selector', '') or ''
+
         if edit.content_type == 'text' and edit.text_content:
-            # Text content replacement using smart content matching
             script = f'''
                 try {{
                     var applied = false;
-                    
-                    // Method 1: Try as ID first (even with underscores)
-                    var element = document.getElementById({json.dumps(content_key)});
-                    if (element) {{
-                        element.textContent = {json.dumps(edit.text_content)};
-                        console.log('✅ Applied text edit via ID:', {json.dumps(content_key)});
-                        applied = true;
+                    var selector = {json.dumps(dom_selector)};
+                    if (selector) {{
+                        var directElement = findElementBySelector(selector);
+                        if (directElement) {{
+                            directElement.textContent = {json.dumps(edit.text_content)};
+                            console.log('✅ Applied text edit via selector:', selector);
+                            applied = true;
+                        }}
                     }}
-                    
-                    // Method 2: Smart content replacement for complex selectors
+
+                    if (!applied) {{
+                        var element = document.getElementById({json.dumps(content_key)});
+                        if (element) {{
+                            element.textContent = {json.dumps(edit.text_content)};
+                            console.log('✅ Applied text edit via ID:', {json.dumps(content_key)});
+                            applied = true;
+                        }}
+                    }}
+
                     if (!applied) {{
                         applied = applyTextBySmartMatch({json.dumps(edit.text_content)}, {json.dumps(content_key)});
                     }}
-                    
-                    // Method 3: Aggressive fallback for very specific complex selectors
+
                     if (!applied && {json.dumps(content_key)}.includes('nth-child')) {{
                         applied = applyContentByComplexSelector({json.dumps(edit.text_content)}, {json.dumps(content_key)});
                     }}
-                    
+
                     if (!applied) {{
                         console.log('⚠️ Could not apply text edit for:', {json.dumps(content_key)});
                     }}
@@ -138,31 +145,38 @@ def build_edit_script(edits, page_name):
                     console.warn('Failed to apply text edit {content_key}:', e);
                 }}
             '''
-            
+
         elif edit.content_type in ['html_block', 'ai_generated'] and edit.html_content:
-            # HTML content replacement using smart content matching
             script = f'''
                 try {{
                     var applied = false;
-                    
-                    // Method 1: Try as ID first (even with underscores)
-                    var element = document.getElementById({json.dumps(content_key)});
-                    if (element) {{
-                        element.innerHTML = {json.dumps(edit.html_content)};
-                        console.log('✅ Applied HTML edit via ID:', {json.dumps(content_key)});
-                        applied = true;
+                    var selector = {json.dumps(dom_selector)};
+                    if (selector) {{
+                        var directElement = findElementBySelector(selector);
+                        if (directElement) {{
+                            directElement.innerHTML = {json.dumps(edit.html_content)};
+                            console.log('✅ Applied HTML edit via selector:', selector);
+                            applied = true;
+                        }}
                     }}
-                    
-                    // Method 2: Smart content replacement for complex selectors
+
+                    if (!applied) {{
+                        var element = document.getElementById({json.dumps(content_key)});
+                        if (element) {{
+                            element.innerHTML = {json.dumps(edit.html_content)};
+                            console.log('✅ Applied HTML edit via ID:', {json.dumps(content_key)});
+                            applied = true;
+                        }}
+                    }}
+
                     if (!applied) {{
                         applied = applyHtmlBySmartMatch({json.dumps(edit.html_content)}, {json.dumps(content_key)});
                     }}
-                    
-                    // Method 3: Aggressive fallback for very specific complex selectors
+
                     if (!applied && {json.dumps(content_key)}.includes('nth-child')) {{
                         applied = applyHtmlByComplexSelector({json.dumps(edit.html_content)}, {json.dumps(content_key)});
                     }}
-                    
+
                     if (!applied) {{
                         console.log('⚠️ Could not apply HTML edit for:', {json.dumps(content_key)});
                     }}
@@ -170,7 +184,7 @@ def build_edit_script(edits, page_name):
                     console.warn('Failed to apply HTML edit {content_key}:', e);
                 }}
             '''
-            
+
         else:
             continue
         
@@ -178,6 +192,29 @@ def build_edit_script(edits, page_name):
     
     # Add helper functions
     helper_script = '''
+        function findElementBySelector(selector) {
+            if (!selector) {
+                return null;
+            }
+            try {
+                if (/^\s*#[^\s]+/.test(selector)) {
+                    var byCssId = document.querySelector(selector);
+                    if (byCssId) {
+                        return byCssId;
+                    }
+                }
+
+                if (/^[A-Za-z0-9_-]+$/.test(selector)) {
+                    return document.getElementById(selector) || document.querySelector('#' + selector);
+                }
+
+                return document.querySelector(selector);
+            } catch (e) {
+                console.warn('Selector lookup failed for', selector, e);
+                return null;
+            }
+        }
+
         function applyTextBySmartMatch(newText, contentKey) {
             console.log('🔍 Trying smart text match for:', contentKey);
             
@@ -461,16 +498,21 @@ def build_delete_script(deleted_elements):
     
     for element in deleted_elements:
         content_key = element.content_key
-        
+        dom_selector = getattr(element, 'dom_selector', '') or ''
+
         script = f'''
             try {{
-                var element = document.getElementById({json.dumps(content_key)});
-                if (element) {{
-                    element.style.display = 'none';
-                    element.setAttribute('data-deleted', 'true');
-                    console.log('🗑️ Hidden deleted element:', {json.dumps(content_key)});
+                var selector = {json.dumps(dom_selector)};
+                var target = findElementBySelector(selector);
+                if (!target) {{
+                    target = document.getElementById({json.dumps(content_key)});
+                }}
+                if (target) {{
+                    target.style.display = 'none';
+                    target.setAttribute('data-deleted', 'true');
+                    console.log('🗑️ Hidden deleted element:', selector || {json.dumps(content_key)});
                 }} else {{
-                    console.log('❌ Deleted element not found:', {json.dumps(content_key)});
+                    console.log('❌ Deleted element not found:', selector || {json.dumps(content_key)});
                 }}
             }} catch(e) {{
                 console.error('Error hiding deleted element:', e);

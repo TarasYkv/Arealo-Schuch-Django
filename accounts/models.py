@@ -478,6 +478,8 @@ class EditableContent(models.Model):
     text_content = models.TextField(blank=True, verbose_name="Text Inhalt")
     html_content = models.TextField(blank=True, verbose_name="HTML Inhalt")
     css_content = models.TextField(blank=True, verbose_name="CSS Styles")
+    dom_selector = models.TextField(blank=True, default='', verbose_name="DOM Selector",
+                                   help_text="Original Selector aus dem Visual Editor für präzises Mapping")
     ai_prompt = models.TextField(blank=True, verbose_name="KI Prompt", 
                                help_text="Beschreibung für KI-generierte Inhalte")
     image_content = models.ImageField(upload_to='editable_content/', blank=True, null=True, 

@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Abonnements Verwaltung - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="display-6 fw-bold">
+                    <i class="fas fa-users-cog text-primary"></i>
+                    Abonnements Verwaltung
+                </h1>
+                <a href="{% url 'payments:subscription_plans' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm" style="border-left: 4px solid #0d6efd !important;">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Gesamt</h6>
+                    <h2 class="mb-0 fw-bold">{{ total_count|intcomma }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm" style="border-left: 4px solid #198754 !important;">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Aktiv</h6>
+                    <h2 class="mb-0 fw-bold text-success">{{ active_count|intcomma }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm" style="border-left: 4px solid #dc3545 !important;">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Gekündigt</h6>
+                    <h2 class="mb-0 fw-bold text-danger">{{ canceled_count|intcomma }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-select">
+                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Alle</option>
+                        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Aktiv</option>
+                        <option value="trialing" {% if status_filter == 'trialing' %}selected{% endif %}>Trialing</option>
+                        <option value="canceled" {% if status_filter == 'canceled' %}selected{% endif %}>Gekündigt</option>
+                        <option value="past_due" {% if status_filter == 'past_due' %}selected{% endif %}>Überfällig</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Plan-Typ</label>
+                    <select name="plan_type" class="form-select">
+                        <option value="all" {% if plan_type_filter == 'all' %}selected{% endif %}>Alle</option>
+                        <option value="founder_access" {% if plan_type_filter == 'founder_access' %}selected{% endif %}>WorkLoom</option>
+                        <option value="storage" {% if plan_type_filter == 'storage' %}selected{% endif %}>Storage</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Suche</label>
+                    <input type="text" name="search" class="form-control" placeholder="Username, Email, Plan..." value="{{ search_query }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search"></i> Filtern
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Subscriptions Table -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-list"></i> Alle Abonnements ({{ page_obj.paginator.count }})
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>User</th>
+                            <th>Plan</th>
+                            <th>Preis</th>
+                            <th>Status</th>
+                            <th>Erstellt</th>
+                            <th>Nächste Verlängerung</th>
+                            <th>Stripe</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sub in page_obj %}
+                        <tr>
+                            <td>
+                                <strong>{{ sub.customer.user.username }}</strong>
+                                <br>
+                                <small class="text-muted">{{ sub.customer.user.email }}</small>
+                            </td>
+                            <td>
+                                <strong>{{ sub.plan.name }}</strong>
+                                <br>
+                                <small class="text-muted">{{ sub.plan.get_plan_type_display }}</small>
+                            </td>
+                            <td>
+                                <strong>{{ sub.plan.price|floatformat:2 }}€</strong>
+                                <br>
+                                <small class="text-muted">/{{ sub.plan.interval }}</small>
+                            </td>
+                            <td>
+                                {% if sub.status == 'active' %}
+                                <span class="badge bg-success">Aktiv</span>
+                                {% elif sub.status == 'trialing' %}
+                                <span class="badge bg-warning text-dark">Testphase</span>
+                                {% elif sub.status == 'canceled' %}
+                                <span class="badge bg-danger">Gekündigt</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ sub.get_status_display }}</span>
+                                {% endif %}
+                                {% if sub.cancel_at_period_end %}
+                                <br><small class="text-danger">Endet bald</small>
+                                {% endif %}
+                            </td>
+                            <td>{{ sub.created_at|date:"d.m.Y H:i" }}</td>
+                            <td>
+                                {% if sub.current_period_end %}
+                                {{ sub.current_period_end|date:"d.m.Y" }}
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if sub.stripe_subscription_id %}
+                                <a href="https://dashboard.stripe.com/subscriptions/{{ sub.stripe_subscription_id }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-external-link-alt"></i>
+                                </a>
+                                {% else %}
+                                <span class="text-muted">Kostenlos</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">
+                                Keine Abonnements gefunden
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="card-footer">
+            <nav>
+                <ul class="pagination mb-0 justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if plan_type_filter != 'all' %}&plan_type={{ plan_type_filter }}{% endif %}">Erste</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if plan_type_filter != 'all' %}&plan_type={{ plan_type_filter }}{% endif %}">Zurück</a>
+                    </li>
+                    {% endif %}
+
+                    <li class="page-item active">
+                        <span class="page-link">
+                            Seite {{ page_obj.number }} von {{ page_obj.paginator.num_pages }}
+                        </span>
+                    </li>
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if plan_type_filter != 'all' %}&plan_type={{ plan_type_filter }}{% endif %}">Weiter</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter != 'all' %}&status={{ status_filter }}{% endif %}{% if plan_type_filter != 'all' %}&plan_type={{ plan_type_filter }}{% endif %}">Letzte</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

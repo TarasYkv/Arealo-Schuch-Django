@@ -11,6 +11,7 @@ from django.contrib.auth import get_user_model
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from datetime import timedelta
+from core.storage_service import StorageService
 from .models import (
     Note,
     Event,
@@ -705,6 +706,28 @@ def board_upload_image(request, pk):
     filename = f"board_images/{uuid.uuid4().hex}{ext}"
     saved_path = default_storage.save(filename, ContentFile(temp_data))
     image_url = default_storage.url(saved_path)
+
+    # Track storage usage
+    file_size = len(temp_data)
+    try:
+        StorageService.track_upload(
+            user=request.user,
+            file_size=file_size,
+            app_name='organization',
+            metadata={
+                'board_id': board.id,
+                'board_title': board.title,
+                'filename': filename,
+                'file_type': 'board_image',
+                'width': width,
+                'height': height,
+            }
+        )
+    except Exception as e:
+        # Log error but don't block upload
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to track board image upload: {str(e)}")
 
     board.updated_at = timezone.now()
     board.save(update_fields=['updated_at'])

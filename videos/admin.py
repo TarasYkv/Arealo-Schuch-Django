@@ -240,8 +240,8 @@ class UserStorageAdmin(admin.ModelAdmin):
                 reset_user_to_free_plan(storage.user)
                 count += 1
         
-        messages.warning(request, f'{count} Benutzer auf kostenlosen Plan zurückgesetzt (50MB). Grace Period gestartet falls nötig.')
-    reset_to_free_plan.short_description = 'Auf kostenlosen Plan zurücksetzen (50MB)'
+        messages.warning(request, f'{count} Benutzer auf kostenlosen Plan zurückgesetzt (100MB). Grace Period gestartet falls nötig.')
+    reset_to_free_plan.short_description = 'Auf kostenlosen Plan zurücksetzen (100MB)'
     
     def clear_overage_status(self, request, queryset):
         """Clear overage status for selected users"""

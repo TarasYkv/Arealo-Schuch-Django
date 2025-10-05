@@ -8,6 +8,7 @@ import json
 from bs4 import BeautifulSoup
 import os
 from django.conf import settings
+import hashlib
 
 @login_required
 def visual_editor(request):
@@ -41,6 +42,44 @@ def visual_editor(request):
     return render(request, 'accounts/visual_editor.html', context)
 
 
+def _normalize_selector(raw_selector):
+    """Remove editor-specific artifacts and normalize whitespace."""
+    if not isinstance(raw_selector, str):
+        return ''
+    selector = raw_selector.replace('.editable-highlight', '').replace('.element-selected', '')
+    selector = selector.replace('..', '.').replace('  ', ' ')
+    selector = selector.strip('. ')
+    selector = ' '.join(selector.split())
+    return selector
+
+
+def _resolve_content_identifiers(element_id, change_data):
+    """Determine stable content_key and DOM selector for an edited element."""
+    change_data = change_data or {}
+    raw_selector = change_data.get('selector') or element_id or ''
+    dom_selector = _normalize_selector(raw_selector)
+
+    data_key = (change_data.get('dataKey') or '').strip()
+    attributes = change_data.get('attributes') or {}
+    attr_id = ''
+    if isinstance(attributes, dict):
+        attr_id = (attributes.get('id') or '').strip()
+
+    if data_key:
+        content_key = data_key
+    elif attr_id:
+        content_key = attr_id
+    elif dom_selector and all(ch not in dom_selector for ch in (' ', '>', ':', '[', ']')):
+        content_key = dom_selector
+    else:
+        if not dom_selector:
+            return None, ''
+        hashed = hashlib.sha1(dom_selector.encode('utf-8')).hexdigest()[:12]
+        content_key = f'auto_{hashed}'
+
+    return content_key, dom_selector
+
+
 @login_required
 @require_http_methods(["POST"])
 def save_visual_changes(request):
@@ -54,25 +93,14 @@ def save_visual_changes(request):
         # Import models
         from accounts.models import EditableContent, PageSnapshot
         
-        # Save individual element changes
+        # Save individual element changes with stable selectors
         for element_id, change_data in changes.items():
-            # Clean up editor-specific classes from the selector
-            clean_id = element_id
-            # Remove editor-specific classes
-            clean_id = clean_id.replace('.editable-highlight', '')
-            clean_id = clean_id.replace('.element-selected', '')
-            # Clean up double dots or spaces
-            clean_id = clean_id.replace('..', '.').replace('  ', ' ')
-            # Strip trailing dots or spaces
-            clean_id = clean_id.strip('. ')
-            
-            # Extract content key from element identifier
-            content_key = clean_id.replace(' > ', '_').replace(':', '_')
-            
-            # Handle element deletion
+            content_key, dom_selector = _resolve_content_identifiers(element_id, change_data)
+            if not content_key:
+                continue
+
             if change_data.get('action') == 'delete':
-                # Mark element as deleted by setting is_active to False
-                content, created = EditableContent.objects.update_or_create(
+                EditableContent.objects.update_or_create(
                     user=request.user,
                     page=page,
                     content_key=content_key,
@@ -80,12 +108,12 @@ def save_visual_changes(request):
                         'content_type': 'delete_action',
                         'html_content': '',
                         'text_content': f'[DELETED: {change_data.get("tagName", "Unknown")}]',
+                        'dom_selector': dom_selector,
                         'is_active': False
                     }
                 )
             else:
-                # Create or update editable content
-                content, created = EditableContent.objects.update_or_create(
+                EditableContent.objects.update_or_create(
                     user=request.user,
                     page=page,
                     content_key=content_key,
@@ -93,6 +121,7 @@ def save_visual_changes(request):
                         'content_type': 'html_block',
                         'html_content': change_data.get('content', ''),
                         'text_content': change_data.get('textContent', ''),
+                        'dom_selector': dom_selector,
                         'is_active': True
                     }
                 )
@@ -130,23 +159,12 @@ def publish_visual_changes(request):
         
         # First, save all changes like save_visual_changes does
         for element_id, change_data in changes.items():
-            # Clean up editor-specific classes from the selector
-            clean_id = element_id
-            # Remove editor-specific classes
-            clean_id = clean_id.replace('.editable-highlight', '')
-            clean_id = clean_id.replace('.element-selected', '')
-            # Clean up double dots or spaces
-            clean_id = clean_id.replace('..', '.').replace('  ', ' ')
-            # Strip trailing dots or spaces
-            clean_id = clean_id.strip('. ')
-            
-            # Extract content key from element identifier
-            content_key = clean_id.replace(' > ', '_').replace(':', '_')
-            
-            # Handle element deletion in publish
+            content_key, dom_selector = _resolve_content_identifiers(element_id, change_data)
+            if not content_key:
+                continue
+
             if change_data.get('action') == 'delete':
-                # Mark element as deleted and published
-                content, created = EditableContent.objects.update_or_create(
+                EditableContent.objects.update_or_create(
                     user=request.user,
                     page=page,
                     content_key=content_key,
@@ -154,13 +172,13 @@ def publish_visual_changes(request):
                         'content_type': 'delete_action',
                         'html_content': '',
                         'text_content': f'[DELETED: {change_data.get("tagName", "Unknown")}]',
+                        'dom_selector': dom_selector,
                         'is_active': False,
-                        'is_published': True  # Mark as published immediately
+                        'is_published': True
                     }
                 )
             else:
-                # Create or update editable content and mark as published
-                content, created = EditableContent.objects.update_or_create(
+                EditableContent.objects.update_or_create(
                     user=request.user,
                     page=page,
                     content_key=content_key,
@@ -168,8 +186,9 @@ def publish_visual_changes(request):
                         'content_type': 'html_block',
                         'html_content': change_data.get('content', ''),
                         'text_content': change_data.get('textContent', ''),
+                        'dom_selector': dom_selector,
                         'is_active': True,
-                        'is_published': True  # Mark as published immediately
+                        'is_published': True
                     }
                 )
         

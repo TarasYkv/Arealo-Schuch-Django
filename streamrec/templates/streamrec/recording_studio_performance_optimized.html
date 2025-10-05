@@ -5200,18 +5200,16 @@ class StreamRecorderOptimized {
                     // Get custom title from input field
                     const customTitleInput = document.getElementById('customVideoTitle');
                     const customTitle = customTitleInput ? customTitleInput.value.trim() : '';
-                    const finalTitle = customTitle || `StreamRec Aufnahme ${new Date().toLocaleString('de-DE')}`;
-                    
-                    // Prepare upload data
+                    const finalFilename = customTitle ? `${customTitle}.webm` : `streamrec_${new Date().toISOString().replace(/[:.]/g, '-')}.webm`;
+
+                    // Prepare upload data for Streamrec API
                     const uploadData = {
-                        title: finalTitle,
-                        description: `Aufnahme erstellt mit StreamRec am ${new Date().toLocaleString('de-DE')}`,
                         video_data: base64Data,
-                        format: 'webm'
+                        filename: finalFilename
                     };
-                    
-                    // Upload to server
-                    const uploadResponse = await fetch('/videos/api/upload/', {
+
+                    // Upload to Streamrec server endpoint
+                    const uploadResponse = await fetch('/streamrec/api/save-video/', {
                         method: 'POST',
                         headers: {
                             'X-CSRFToken': this.getCSRFToken(),

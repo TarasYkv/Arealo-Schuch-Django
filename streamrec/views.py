@@ -35,17 +35,19 @@ def dashboard(request):
     }
     return render(request, 'streamrec/dashboard.html', context)
 
-@login_required 
+@login_required
 def recording_studio(request):
     """
     Performance Optimized Aufnahmestudio - Anti-Freeze Technology
     """
+    import time
     context = {
         'title': 'StreamRec - Studio',
         'max_duration_minutes': 3,
         'supported_formats': ['webm'],
         'canvas_aspect_ratio': '16:9',  # Default format
         'version': 'performance-optimized',
+        'cache_bust': int(time.time()),  # Cache-busting parameter
         'features': {
             'anti_freeze': ['Frame Skip Logic', 'Video Element Pooling', 'Smart Rendering'],
             'performance': ['Adaptive FPS', 'Memory Management', 'Error Recovery'],
@@ -180,40 +182,139 @@ def save_audio_recording(request):
         data = json.loads(request.body)
         audio_data = data.get('audio_data')
         filename = data.get('filename', 'recording.webm')
-        
+
         if not audio_data:
             return JsonResponse({
                 'success': False,
                 'error': 'Keine Audio-Daten erhalten'
             }, status=400)
-        
+
         # Decode base64 audio data
         if audio_data.startswith('data:'):
             audio_data = audio_data.split(',', 1)[1]
-        
+
         audio_bytes = base64.b64decode(audio_data)
-        
+        file_size = len(audio_bytes)
+
+        # Check storage quota BEFORE saving
+        from streamrec.storage_helpers import check_storage_quota, track_recording_upload
+        from core.storage_service import StorageQuotaExceeded
+
+        has_space, available, error_msg = check_storage_quota(request.user, file_size)
+        if not has_space:
+            return JsonResponse({
+                'success': False,
+                'error': f'Speicherlimit erreicht. {error_msg}',
+                'quota_exceeded': True
+            }, status=413)  # 413 Payload Too Large
+
         # Create media directory if it doesn't exist
         media_dir = os.path.join(settings.MEDIA_ROOT, 'audio_recordings')
         os.makedirs(media_dir, exist_ok=True)
-        
+
         # Save the file
         file_path = os.path.join(media_dir, f"{request.user.id}_{filename}")
         with open(file_path, 'wb') as f:
             f.write(audio_bytes)
-        
-        logger.info(f"Audio recording saved: {file_path}")
-        
+
+        # Track storage usage
+        try:
+            track_recording_upload(request.user, file_size, filename, recording_type='audio')
+        except StorageQuotaExceeded as e:
+            # Sollte nicht passieren da wir vorher geprüft haben, aber zur Sicherheit
+            os.remove(file_path)  # Datei wieder löschen
+            return JsonResponse({
+                'success': False,
+                'error': str(e),
+                'quota_exceeded': True
+            }, status=413)
+
+        logger.info(f"Audio recording saved: {file_path} ({file_size} bytes)")
+
         return JsonResponse({
             'success': True,
             'message': 'Audio-Aufnahme erfolgreich gespeichert',
             'filename': filename,
-            'file_size': len(audio_bytes)
+            'file_size': file_size
         })
-        
+
     except Exception as e:
         logger.error(f"Audio save error: {e}")
         return JsonResponse({
             'success': False,
             'error': 'Fehler beim Speichern der Audio-Aufnahme'
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def save_video_recording(request):
+    """
+    Save video recording to server
+    """
+    try:
+        data = json.loads(request.body)
+        video_data = data.get('video_data')
+        filename = data.get('filename', 'recording.webm')
+
+        if not video_data:
+            return JsonResponse({
+                'success': False,
+                'error': 'Keine Video-Daten erhalten'
+            }, status=400)
+
+        # Decode base64 video data
+        if video_data.startswith('data:'):
+            video_data = video_data.split(',', 1)[1]
+
+        video_bytes = base64.b64decode(video_data)
+        file_size = len(video_bytes)
+
+        # Check storage quota BEFORE saving
+        from streamrec.storage_helpers import check_storage_quota, track_recording_upload
+        from core.storage_service import StorageQuotaExceeded
+
+        has_space, available, error_msg = check_storage_quota(request.user, file_size)
+        if not has_space:
+            return JsonResponse({
+                'success': False,
+                'error': f'Speicherlimit erreicht. {error_msg}',
+                'quota_exceeded': True
+            }, status=413)  # 413 Payload Too Large
+
+        # Create media directory if it doesn't exist
+        media_dir = os.path.join(settings.MEDIA_ROOT, 'video_recordings')
+        os.makedirs(media_dir, exist_ok=True)
+
+        # Save the file
+        file_path = os.path.join(media_dir, f"{request.user.id}_{filename}")
+        with open(file_path, 'wb') as f:
+            f.write(video_bytes)
+
+        # Track storage usage
+        try:
+            track_recording_upload(request.user, file_size, filename, recording_type='video')
+        except StorageQuotaExceeded as e:
+            # Sollte nicht passieren da wir vorher geprüft haben, aber zur Sicherheit
+            os.remove(file_path)  # Datei wieder löschen
+            return JsonResponse({
+                'success': False,
+                'error': str(e),
+                'quota_exceeded': True
+            }, status=413)
+
+        logger.info(f"Video recording saved: {file_path} ({file_size} bytes)")
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Video-Aufnahme erfolgreich gespeichert',
+            'filename': filename,
+            'file_size': file_size
+        })
+
+    except Exception as e:
+        logger.error(f"Video save error: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Fehler beim Speichern der Video-Aufnahme'
         }, status=500)

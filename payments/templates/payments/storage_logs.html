@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Storage Logs - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-6 fw-bold">
+                <i class="fas fa-list-alt text-success"></i> Storage Logs
+            </h1>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted">Gesamt</h6>
+                    <h3 class="mb-0">{{ total_count|intcomma }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted">Uploads</h6>
+                    <h3 class="mb-0 text-success">{{ upload_count|intcomma }}</h3>
+                    <small>{{ total_uploaded_mb|floatformat:0 }} MB</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted">Deletes</h6>
+                    <h3 class="mb-0 text-danger">{{ delete_count|intcomma }}</h3>
+                    <small>{{ total_deleted_mb|floatformat:0 }} MB</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <select name="action" class="form-select">
+                        <option value="all">Alle Aktionen</option>
+                        <option value="upload" {% if action_filter == 'upload' %}selected{% endif %}>Uploads</option>
+                        <option value="delete" {% if action_filter == 'delete' %}selected{% endif %}>Deletes</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select name="app" class="form-select">
+                        <option value="all">Alle Apps</option>
+                        <option value="videos" {% if app_filter == 'videos' %}selected{% endif %}>Videos</option>
+                        <option value="fileshare" {% if app_filter == 'fileshare' %}selected{% endif %}>Fileshare</option>
+                        <option value="streamrec" {% if app_filter == 'streamrec' %}selected{% endif %}>Streamrec</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <input type="text" name="search" class="form-control" placeholder="User, Datei..." value="{{ search_query }}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100"><i class="fas fa-search"></i> Filtern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Logs Table -->
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Zeitpunkt</th>
+                            <th>User</th>
+                            <th>Aktion</th>
+                            <th>App</th>
+                            <th>Datei</th>
+                            <th>Größe</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in page_obj %}
+                        <tr>
+                            <td>{{ log.created_at|date:"d.m.Y H:i:s" }}</td>
+                            <td>{{ log.user.username }}</td>
+                            <td>
+                                {% if log.action == 'upload' %}
+                                <span class="badge bg-success">Upload</span>
+                                {% else %}
+                                <span class="badge bg-danger">Delete</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ log.get_app_name_display }}</td>
+                            <td><small>{{ log.metadata.filename|default:"-"|truncatechars:40 }}</small></td>
+                            <td>{{ log.size_bytes|filesizeformat }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="text-center text-muted">Keine Logs</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <div class="card-footer">
+            <nav><ul class="pagination mb-0 justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Zurück</a></li>
+                {% endif %}
+                <li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+                {% if page_obj.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Weiter</a></li>
+                {% endif %}
+            </ul></nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
