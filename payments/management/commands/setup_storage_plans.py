@@ -50,7 +50,7 @@ class Command(BaseCommand):
             # ========== 1GB PLAN ==========
             {
                 'name': '1GB Plan (Monatlich)',
-                'stripe_price_id': 'price_1gb_monthly',  # TODO: Aus Stripe Dashboard einfügen
+                'stripe_price_id': 'price_1SFWy7GDxp57VS6VwVP8wQrT',
                 'plan_type': 'storage',
                 'price': Decimal('2.99'),
                 'currency': 'EUR',
@@ -68,7 +68,7 @@ class Command(BaseCommand):
             # ========== 3GB PLAN ==========
             {
                 'name': '3GB Plan (Monatlich)',
-                'stripe_price_id': 'price_3gb_monthly',  # TODO: Aus Stripe Dashboard einfügen
+                'stripe_price_id': 'price_1SFX0rGDxp57VS6VZ8YPz7Yz',
                 'plan_type': 'storage',
                 'price': Decimal('4.99'),
                 'currency': 'EUR',
@@ -87,7 +87,7 @@ class Command(BaseCommand):
             # ========== 5GB PLAN ==========
             {
                 'name': '5GB Plan (Monatlich)',
-                'stripe_price_id': 'price_5gb_monthly',  # TODO: Aus Stripe Dashboard einfügen
+                'stripe_price_id': 'price_1SFX1lGDxp57VS6V7izvl53W',
                 'plan_type': 'storage',
                 'price': Decimal('7.99'),
                 'currency': 'EUR',
@@ -107,7 +107,7 @@ class Command(BaseCommand):
             # ========== 10GB PLAN ==========
             {
                 'name': '10GB Plan (Monatlich)',
-                'stripe_price_id': 'price_10gb_monthly',  # TODO: Aus Stripe Dashboard einfügen
+                'stripe_price_id': 'price_1SFX37GDxp57VS6VE0ftgaSj',
                 'plan_type': 'storage',
                 'price': Decimal('9.99'),
                 'currency': 'EUR',
