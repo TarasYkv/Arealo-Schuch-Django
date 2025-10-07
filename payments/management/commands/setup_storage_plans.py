@@ -27,7 +27,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         update_existing = options.get('update', False)
 
-        # Storage Plans - Monatlich & Jährlich
+        # Storage Plans - Nur Monatlich
         # WICHTIG: Stripe Price IDs müssen im Stripe Dashboard erstellt werden!
         plans = [
             # ========== KOSTENLOS ==========
@@ -47,7 +47,7 @@ class Command(BaseCommand):
                 'is_active': True,
             },
 
-            # ========== 1GB PLÄNE ==========
+            # ========== 1GB PLAN ==========
             {
                 'name': '1GB Plan (Monatlich)',
                 'stripe_price_id': 'price_1gb_monthly',  # TODO: Aus Stripe Dashboard einfügen
@@ -64,25 +64,8 @@ class Command(BaseCommand):
                 },
                 'is_active': True,
             },
-            {
-                'name': '1GB Plan (Jährlich)',
-                'stripe_price_id': 'price_1gb_yearly',  # TODO: Aus Stripe Dashboard einfügen
-                'plan_type': 'storage',
-                'price': Decimal('29.90'),
-                'currency': 'EUR',
-                'interval': 'year',
-                'storage_mb': 1024,
-                'features': {
-                    'storage': '1GB Speicher',
-                    'apps': 'Videos, Fileshare, Streamrec',
-                    'support': 'E-Mail Support',
-                    'analytics': 'Basis-Statistiken',
-                    'savings': '2 Monate gratis (vs. monatlich)'
-                },
-                'is_active': True,
-            },
 
-            # ========== 3GB PLÄNE ==========
+            # ========== 3GB PLAN ==========
             {
                 'name': '3GB Plan (Monatlich)',
                 'stripe_price_id': 'price_3gb_monthly',  # TODO: Aus Stripe Dashboard einfügen
@@ -100,26 +83,8 @@ class Command(BaseCommand):
                 },
                 'is_active': True,
             },
-            {
-                'name': '3GB Plan (Jährlich)',
-                'stripe_price_id': 'price_3gb_yearly',  # TODO: Aus Stripe Dashboard einfügen
-                'plan_type': 'storage',
-                'price': Decimal('49.90'),
-                'currency': 'EUR',
-                'interval': 'year',
-                'storage_mb': 3072,
-                'features': {
-                    'storage': '3GB Speicher',
-                    'apps': 'Videos, Fileshare, Streamrec',
-                    'support': 'E-Mail Support',
-                    'analytics': 'Erweiterte Statistiken',
-                    'priority': 'Höhere Upload-Priorität',
-                    'savings': '2 Monate gratis (vs. monatlich)'
-                },
-                'is_active': True,
-            },
 
-            # ========== 5GB PLÄNE ==========
+            # ========== 5GB PLAN ==========
             {
                 'name': '5GB Plan (Monatlich)',
                 'stripe_price_id': 'price_5gb_monthly',  # TODO: Aus Stripe Dashboard einfügen
@@ -138,27 +103,8 @@ class Command(BaseCommand):
                 },
                 'is_active': True,
             },
-            {
-                'name': '5GB Plan (Jährlich)',
-                'stripe_price_id': 'price_5gb_yearly',  # TODO: Aus Stripe Dashboard einfügen
-                'plan_type': 'storage',
-                'price': Decimal('79.90'),
-                'currency': 'EUR',
-                'interval': 'year',
-                'storage_mb': 5120,
-                'features': {
-                    'storage': '5GB Speicher',
-                    'apps': 'Videos, Fileshare, Streamrec',
-                    'support': 'Prioritäts-Support',
-                    'analytics': 'Erweiterte Statistiken',
-                    'priority': 'Höchste Upload-Priorität',
-                    'custom_branding': 'Custom Branding (optional)',
-                    'savings': '2 Monate gratis (vs. monatlich)'
-                },
-                'is_active': True,
-            },
 
-            # ========== 10GB PLÄNE ==========
+            # ========== 10GB PLAN ==========
             {
                 'name': '10GB Plan (Monatlich)',
                 'stripe_price_id': 'price_10gb_monthly',  # TODO: Aus Stripe Dashboard einfügen
@@ -176,27 +122,6 @@ class Command(BaseCommand):
                     'custom_branding': 'Full Custom Branding',
                     'api_access': 'API Zugriff',
                     'backup': 'Automatische Backups'
-                },
-                'is_active': True,
-            },
-            {
-                'name': '10GB Plan (Jährlich)',
-                'stripe_price_id': 'price_10gb_yearly',  # TODO: Aus Stripe Dashboard einfügen
-                'plan_type': 'storage',
-                'price': Decimal('99.90'),
-                'currency': 'EUR',
-                'interval': 'year',
-                'storage_mb': 10240,
-                'features': {
-                    'storage': '10GB Speicher',
-                    'apps': 'Videos, Fileshare, Streamrec',
-                    'support': 'VIP-Support',
-                    'analytics': 'Pro-Statistiken',
-                    'priority': 'Höchste Upload-Priorität',
-                    'custom_branding': 'Full Custom Branding',
-                    'api_access': 'API Zugriff',
-                    'backup': 'Automatische Backups',
-                    'savings': '2 Monate gratis (vs. monatlich)'
                 },
                 'is_active': True,
             },

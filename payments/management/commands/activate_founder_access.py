@@ -33,7 +33,7 @@ class Command(BaseCommand):
         )
         self.stdout.write('')
 
-        # Get the free WorkLoom plan
+        # Get the free WorkLoom Founder Access plan (monthly)
         founder_plan = SubscriptionPlan.objects.filter(
             plan_type='founder_access',
             price=0,
@@ -46,6 +46,12 @@ class Command(BaseCommand):
                 self.style.ERROR('❌ No free WorkLoom Founder Access plan found!')
             )
             self.stdout.write('   Run: python manage.py setup_workloom_plans')
+            self.stdout.write('')
+            self.stdout.write('   Expected plan:')
+            self.stdout.write('   - Name: WorkLoom Founder Access (Monatlich)')
+            self.stdout.write('   - Type: founder_access')
+            self.stdout.write('   - Price: 0.00€')
+            self.stdout.write('   - Interval: month')
             return
 
         self.stdout.write(f'📋 Found plan: {founder_plan.name} (0€/month)')

@@ -25,49 +25,19 @@ class Command(BaseCommand):
                 'interval': 'month',
                 'stripe_price_id': 'price_workloom_monthly_free',  # Platzhalter
                 'features': {
-                    'regular_price': '19.99',  # Regulärer Preis (später)
+                    'regular_price': '24.99',  # Regulärer Preis (später)
                     'all_features': True,
                     'apps': [
-                        'Chat',
-                        'Shopify Manager',
-                        'Image Editor',
-                        'Training Platform',
-                        'ToDo Tools',
-                        'PDF-Analyse',
-                        'KI-Features',
-                        'Social Media Planner',
-                        'Video Hosting',
-                        'File Share',
-                        'Stream Recorder'
+                        'ChatFlow Enterprise',
+                        'WorkSpace (Notizen, Kalender, Ideenboards)',
+                        'ShopifyFlow Manager',
+                        'ToDo Manager',
+                        'VideoFlow Hosting',
+                        'FileShare',
+                        'StreamRec Studio',
+                        'PromptPro (KI-Tools)'
                     ],
-                    'excluded': ['Schuch-App (separat erhältlich)']
-                },
-                'is_active': True,
-            },
-            {
-                'name': 'WorkLoom Founder Access (Jährlich)',
-                'plan_type': 'founder_access',
-                'price': Decimal('0.00'),  # KOSTENLOS während Early Access
-                'currency': 'EUR',
-                'interval': 'year',
-                'stripe_price_id': 'price_workloom_yearly_free',  # Platzhalter
-                'features': {
-                    'regular_price': '199.90',  # Regulärer Preis (später)
-                    'all_features': True,
-                    'apps': [
-                        'Chat',
-                        'Shopify Manager',
-                        'Image Editor',
-                        'Training Platform',
-                        'ToDo Tools',
-                        'PDF-Analyse',
-                        'KI-Features',
-                        'Social Media Planner',
-                        'Video Hosting',
-                        'File Share',
-                        'Stream Recorder'
-                    ],
-                    'excluded': ['Schuch-App (separat erhältlich)']
+                    'note': 'Video-Speicher separat erhältlich'
                 },
                 'is_active': True,
             },
