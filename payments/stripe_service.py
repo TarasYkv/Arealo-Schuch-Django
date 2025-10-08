@@ -150,8 +150,30 @@ class StripeService:
 
             logger.info(f"Synced subscription {stripe_subscription_id} for customer {customer.id}")
 
-            # Sync UserStorage if this is a storage plan
+            # Auto-cancel other storage subscriptions if this is a new active storage plan
             if plan.plan_type == 'storage' and subscription.is_active:
+                # Cancel all other active storage subscriptions for this user
+                other_storage_subs = Subscription.objects.filter(
+                    customer=customer,
+                    plan__plan_type='storage',
+                    status__in=['active', 'trialing']
+                ).exclude(id=subscription.id)
+
+                for old_sub in other_storage_subs:
+                    try:
+                        if old_sub.stripe_subscription_id:
+                            # Cancel in Stripe
+                            stripe.Subscription.delete(old_sub.stripe_subscription_id)
+                            logger.info(f"Auto-canceled old storage subscription {old_sub.stripe_subscription_id}")
+
+                        # Update in database
+                        old_sub.status = 'canceled'
+                        old_sub.canceled_at = timezone.now()
+                        old_sub.save()
+                    except Exception as e:
+                        logger.error(f"Error auto-canceling subscription {old_sub.id}: {str(e)}")
+
+                # Sync UserStorage with the new plan
                 StripeService._sync_user_storage(customer.user, plan)
 
             return subscription
