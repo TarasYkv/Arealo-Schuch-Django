@@ -50,7 +50,7 @@ class Command(BaseCommand):
             # ========== 1GB PLAN ==========
             {
                 'name': '1GB Plan (Monatlich)',
-                'stripe_price_id': 'price_1SFapA6igS8tyXfMIz3PmcuN',
+                'stripe_price_id': 'price_1SGN3eGDxp57VS6VQyvGHGn2',  # LIVE MODE
                 'plan_type': 'storage',
                 'price': Decimal('2.99'),
                 'currency': 'EUR',
@@ -68,7 +68,7 @@ class Command(BaseCommand):
             # ========== 3GB PLAN ==========
             {
                 'name': '3GB Plan (Monatlich)',
-                'stripe_price_id': 'price_1SFaph6igS8tyXfMh0ukkf60',
+                'stripe_price_id': 'price_1SGN3kGDxp57VS6VPhJgQE3h',  # LIVE MODE
                 'plan_type': 'storage',
                 'price': Decimal('4.99'),
                 'currency': 'EUR',
@@ -87,7 +87,7 @@ class Command(BaseCommand):
             # ========== 5GB PLAN ==========
             {
                 'name': '5GB Plan (Monatlich)',
-                'stripe_price_id': 'price_1SFaqL6igS8tyXfM67rCLUAH',
+                'stripe_price_id': 'price_1SGN3oGDxp57VS6VopcjCHYf',  # LIVE MODE
                 'plan_type': 'storage',
                 'price': Decimal('7.99'),
                 'currency': 'EUR',
@@ -107,7 +107,7 @@ class Command(BaseCommand):
             # ========== 10GB PLAN ==========
             {
                 'name': '10GB Plan (Monatlich)',
-                'stripe_price_id': 'price_1SFarW6igS8tyXfM9J4RkdCl',
+                'stripe_price_id': 'price_1SGN3rGDxp57VS6VhfjSuxZ5',  # LIVE MODE
                 'plan_type': 'storage',
                 'price': Decimal('9.99'),
                 'currency': 'EUR',
