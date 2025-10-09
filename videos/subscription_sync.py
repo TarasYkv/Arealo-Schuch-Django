@@ -46,7 +46,7 @@ class StorageSubscriptionSync:
             else:
                 return 10 * 1024 * 1024 * 1024  # 10GB
         
-        return 50 * 1024 * 1024  # Default fallback
+        return 100 * 1024 * 1024  # Default fallback (100MB free tier)
     
     @staticmethod
     def sync_user_storage(user):
