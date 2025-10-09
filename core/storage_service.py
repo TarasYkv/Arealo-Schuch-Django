@@ -252,16 +252,28 @@ class StorageService:
         """
         Upgraded User-Speicher auf neues Tier
 
+        Hinweis: Kostenpflichtige Pläne erhalten automatisch +100MB Basis-Speicher
+        - Kostenlos: 100MB
+        - 1GB Plan: 1024MB + 100MB = 1124MB
+        - 3GB Plan: 3072MB + 100MB = 3172MB
+        - etc.
+
         Args:
             user: User object
-            new_storage_mb: Neues Limit in MB
+            new_storage_mb: Neues Limit in MB (ohne Basis-Speicher)
 
         Returns:
             UserStorage object
         """
         storage = cls.get_or_create_user_storage(user)
 
-        new_bytes = new_storage_mb * 1024 * 1024
+        # Kostenpflichtige Pläne erhalten +100MB Basis-Speicher
+        if new_storage_mb > 100:
+            actual_storage_mb = new_storage_mb + 100
+        else:
+            actual_storage_mb = new_storage_mb
+
+        new_bytes = actual_storage_mb * 1024 * 1024
         old_mb = storage.max_storage / (1024 * 1024)
 
         storage.max_storage = new_bytes
@@ -269,7 +281,8 @@ class StorageService:
         storage.save(update_fields=['max_storage', 'is_premium', 'updated_at'])
 
         logger.info(
-            f"Upgraded storage for {user.username}: {old_mb}MB → {new_storage_mb}MB"
+            f"Upgraded storage for {user.username}: {old_mb}MB → {actual_storage_mb}MB "
+            f"(Plan: {new_storage_mb}MB + 100MB Basis)"
         )
 
         return storage
