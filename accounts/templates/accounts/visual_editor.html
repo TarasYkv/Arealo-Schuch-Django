@@ -955,6 +955,70 @@ body {
     <i class="bi bi-clock-history"></i> <span id="historyText">Änderung gespeichert</span>
 </div>
 
+<!-- Publish Confirmation Modal -->
+<div class="modal fade" id="publishModal" tabindex="-1" aria-labelledby="publishModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title" id="publishModalLabel">
+                    <i class="bi bi-cloud-upload"></i> Änderungen veröffentlichen
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning" style="background: #856404; border-color: #ffc107; color: #fff;">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Achtung:</strong> Diese Aktion überschreibt die aktuelle Live-Version der Seite.
+                </div>
+                <p>Möchten Sie alle Änderungen wirklich veröffentlichen?</p>
+                <p class="text-muted mb-0">
+                    <small><span id="publishChangeCount">0</span> Änderungen werden veröffentlicht.</small>
+                </p>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x"></i> Abbrechen
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmPublishBtn">
+                    <i class="bi bi-cloud-upload"></i> Jetzt veröffentlichen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Element Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title" id="deleteModalLabel">
+                    <i class="bi bi-trash"></i> Element löschen
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger" style="background: #721c24; border-color: #f5c6cb; color: #fff;">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Warnung:</strong> Dieser Vorgang kann nicht rückgängig gemacht werden.
+                </div>
+                <p>Möchten Sie dieses Element wirklich löschen?</p>
+                <p class="text-muted mb-0">
+                    <small>Element: <span id="deleteElementInfo">Nicht ausgewählt</span></small>
+                </p>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x"></i> Abbrechen
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                    <i class="bi bi-trash"></i> Löschen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% csrf_token %}
 
 <script>
@@ -1386,28 +1450,41 @@ function duplicateElement() {
 
 function deleteElement() {
     console.log('[Visual Editor] deleteElement() called, currentElement:', currentElement);
-    
+
     if (!currentElement) {
         console.log('[Visual Editor] No current element selected for deletion');
         showHistoryIndicator('Kein Element ausgewählt', 'warning');
         return;
     }
-    
+
     // Check if already being deleted (prevent double execution)
     if (currentElement.dataset.deleting === 'true') {
         console.log('[Visual Editor] Element already being deleted, skipping');
         return;
     }
-    
-    if (confirm('Möchten Sie dieses Element wirklich löschen?')) {
+
+    // Update modal with element info
+    const elementInfo = `${currentElement.tagName} - ${currentElement.textContent?.substring(0, 50) || 'Kein Text'}...`;
+    document.getElementById('deleteElementInfo').textContent = elementInfo;
+
+    // Show Bootstrap Modal
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    deleteModal.show();
+
+    // Set up confirm button handler (remove old handlers first)
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+    newConfirmBtn.addEventListener('click', function() {
         try {
             // Mark as being deleted to prevent double execution
             currentElement.dataset.deleting = 'true';
-            
+
             // Get element identifier before deleting
             const elementId = getElementIdentifier(currentElement);
             console.log('[Visual Editor] Deleting element:', elementId, currentElement);
-            
+
             // Store deletion in unsavedChanges
             const deleteDataKey = currentElement.getAttribute('data-edit-key')
                 || currentElement.getAttribute('data-content-key')
@@ -1422,18 +1499,18 @@ function deleteElement() {
                 dataKey: deleteDataKey,
                 selector: elementId
             };
-            
+
             // Remove element from DOM
             const parent = currentElement.parentNode;
             console.log('[Visual Editor] Removing element from parent:', parent);
-            
+
             // Add visual feedback before removal
             currentElement.style.opacity = '0.3';
             currentElement.style.border = '2px dashed red';
-            
+
             // Store reference to element before timeout
             const elementToDelete = currentElement;
-            
+
             setTimeout(() => {
                 // Check if element still exists before trying to remove
                 if (elementToDelete && elementToDelete.parentNode) {
@@ -1441,22 +1518,24 @@ function deleteElement() {
                 }
                 currentElement = null;
                 hideToolbar();
-                
+
                 // Update counters and show feedback
                 updateUnsavedCount();
                 updateDebugInfo();
                 showHistoryIndicator('Element gelöscht');
-                
+
                 console.log('[Visual Editor] Element deletion completed and stored:', unsavedChanges[elementId]);
             }, 200);
-            
+
+            // Hide modal
+            deleteModal.hide();
+
         } catch (error) {
             console.error('[Visual Editor] Error during element deletion:', error);
             showHistoryIndicator('Fehler beim Löschen', 'error');
+            deleteModal.hide();
         }
-    } else {
-        console.log('[Visual Editor] Element deletion cancelled by user');
-    }
+    });
 }
 
 // Test function for debugging
@@ -1982,28 +2061,44 @@ function publishChanges() {
     // Check both unsaved and saved changes
     const hasUnsavedChanges = Object.keys(unsavedChanges).length > 0;
     const hasSavedChanges = Object.keys(savedChanges).length > 0;
-    
+
     if (!hasUnsavedChanges && !hasSavedChanges) {
         showHistoryIndicator('Keine Änderungen zum Veröffentlichen', 'warning');
         return;
     }
-    
+
     // Combine unsaved and saved changes
     const allChanges = {...savedChanges, ...unsavedChanges};
-    
+    const changeCount = Object.keys(allChanges).length;
+
     console.log('[Visual Editor] Publishing changes:', allChanges);
-    
-    if (confirm('Möchten Sie alle Änderungen veröffentlichen? Dies überschreibt die aktuelle Live-Version.')) {
+
+    // Update modal with change count
+    document.getElementById('publishChangeCount').textContent = changeCount;
+
+    // Show Bootstrap Modal
+    const publishModal = new bootstrap.Modal(document.getElementById('publishModal'));
+    publishModal.show();
+
+    // Set up confirm button handler (remove old handlers first)
+    const confirmBtn = document.getElementById('confirmPublishBtn');
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+    newConfirmBtn.addEventListener('click', function() {
+        // Hide modal
+        publishModal.hide();
+
         // Show loading
         document.getElementById('loadingOverlay').style.display = 'flex';
-        
+
         // Prepare data with all changes
         const data = {
             page: currentPage,
             changes: allChanges,
             html: iframeDoc.documentElement.outerHTML
         };
-        
+
         // Send to publish endpoint
         fetch('{% url "accounts:publish_visual_changes" %}', {
             method: 'POST',
@@ -2021,7 +2116,7 @@ function publishChanges() {
                 savedChanges = {};
                 updateUnsavedCount();
                 showHistoryIndicator('Änderungen erfolgreich veröffentlicht!', 'success');
-                
+
                 // Refresh preview to show published changes
                 setTimeout(() => {
                     refreshPreview();
@@ -2037,7 +2132,7 @@ function publishChanges() {
         .finally(() => {
             document.getElementById('loadingOverlay').style.display = 'none';
         });
-    }
+    });
 }
 </script>
 {% endblock %}
