@@ -4,10 +4,12 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.contrib.sitemaps.views import sitemap
 
 # GEÄNDERT: Wir importieren jetzt aus unserer neuen 'core'-App
 from core import views as core_views
 from videos import views as video_views
+from core.sitemaps import sitemaps
 
 urlpatterns = [
     # GEÄNDERT: Der Pfad verweist jetzt auf die View in der core-App
@@ -58,6 +60,11 @@ urlpatterns = [
     path('fileshare/', include('fileshare.urls')),
     path('stats/', include('stats.urls')),
     path('page/<str:page_name>/', core_views.dynamic_page_view, name='dynamic_page'),
+
+    # SEO: Sitemap und robots.txt
+    path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
+    path('robots.txt', core_views.robots_txt, name='robots_txt'),
+
     path('admin/', admin.site.urls),
 ]
 

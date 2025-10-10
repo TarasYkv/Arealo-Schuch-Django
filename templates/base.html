@@ -10,7 +10,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token }}">
-    <title>{% block title %}Workloom{% endblock %}</title>
+    <title>{% block title %}{{ page_title|default:seo.default_title }}{% endblock %}</title>
     
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="{% static 'images/favicon.ico' %}">
@@ -1484,6 +1484,16 @@
     </style>
 
     {% block extra_css %}{% endblock %}
+
+    {# ========== SEO META TAGS ========== #}
+    {% block seo_meta_tags %}
+        {% include 'seo/meta_tags.html' %}
+    {% endblock %}
+
+    {# ========== SCHEMA.ORG STRUCTURED DATA ========== #}
+    {% block schema_org %}
+        {% include 'seo/schema_org.html' with schema_type="WebSite" %}
+    {% endblock %}
 </head>
 <body class="{% if user.is_authenticated and user.dark_mode %}bg-dark text-light{% else %}bg-light{% endif %}{% if user.is_authenticated and user.desktop_view %} force-desktop-view{% endif %}" data-user-authenticated="{% if user.is_authenticated %}true{% else %}false{% endif %}">
 

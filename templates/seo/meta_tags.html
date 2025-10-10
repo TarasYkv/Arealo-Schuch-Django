@@ -1,0 +1,46 @@
+{% comment %}
+SEO Meta Tags Template
+Wiederverwendbares Template für alle SEO-relevanten Meta-Tags
+
+Usage in anderen Templates:
+{% include 'seo/meta_tags.html' with page_title="Meine Seite" page_description="Beschreibung" %}
+
+Verfügbare Parameter:
+- page_title: Seitentitel (verwendet Default wenn nicht gesetzt)
+- page_description: Seitenbeschreibung
+- page_keywords: Keywords (optional)
+- page_image: OG Image URL (optional)
+- og_type: Open Graph Type (default: website)
+- robots: robots Meta Tag (default: index, follow)
+{% endcomment %}
+
+{# Basis Meta-Tags #}
+<meta name="description" content="{{ page_description|default:seo.default_description }}">
+<meta name="keywords" content="{{ page_keywords|default:seo.default_keywords }}">
+<meta name="author" content="{{ seo.site_name }}">
+<meta name="robots" content="{{ robots|default:seo.robots }}">
+<meta name="language" content="{{ seo.language }}">
+
+{# Canonical URL #}
+<link rel="canonical" href="{{ canonical_url|default:seo.canonical_url }}">
+
+{# Open Graph Meta Tags (Facebook, LinkedIn, etc.) #}
+<meta property="og:title" content="{{ page_title|default:seo.default_title }}">
+<meta property="og:description" content="{{ page_description|default:seo.default_description }}">
+<meta property="og:type" content="{{ og_type|default:seo.og_type }}">
+<meta property="og:url" content="{{ canonical_url|default:seo.canonical_url }}">
+<meta property="og:image" content="{{ page_image|default:seo.default_image }}">
+<meta property="og:site_name" content="{{ seo.site_name }}">
+<meta property="og:locale" content="de_DE">
+
+{# Twitter Card Meta Tags #}
+<meta name="twitter:card" content="{{ twitter_card|default:seo.twitter_card }}">
+<meta name="twitter:title" content="{{ page_title|default:seo.default_title }}">
+<meta name="twitter:description" content="{{ page_description|default:seo.default_description }}">
+<meta name="twitter:image" content="{{ page_image|default:seo.default_image }}">
+{% if seo.twitter_site %}<meta name="twitter:site" content="{{ seo.twitter_site }}">{% endif %}
+
+{# Additional SEO Meta Tags #}
+<meta name="theme-color" content="#667eea">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">

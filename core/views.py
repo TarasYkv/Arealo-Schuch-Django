@@ -390,3 +390,45 @@ def public_app_list(request):
 def redirect_to_organization_chat(request):
     """Redirect von /chat/ zu /organization/chat/"""
     return redirect('organization:chat_home')
+
+
+def robots_txt(request):
+    """
+    SEO: robots.txt für Suchmaschinen
+    Definiert welche Bereiche gecrawlt werden dürfen
+    """
+    from django.http import HttpResponse
+    from django.urls import reverse
+
+    lines = [
+        "User-agent: *",
+        "Allow: /",
+        "",
+        "# Hauptseiten",
+        "Allow: /",
+        "Allow: /apps/",
+        "Allow: /impressum/",
+        "Allow: /agb/",
+        "Allow: /datenschutz/",
+        "",
+        "# Tools",
+        "Allow: /beleuchtungsrechner/",
+        "Allow: /din-en-13201/",
+        "Allow: /licht/",
+        "",
+        "# Geschützte Bereiche - Kein Crawling",
+        "Disallow: /admin/",
+        "Disallow: /accounts/",
+        "Disallow: /organization/",
+        "Disallow: /chat/",
+        "Disallow: /videos/",
+        "Disallow: /api/",
+        "Disallow: /mail/",
+        "Disallow: /superconfig/",
+        "Disallow: /payments/",
+        "",
+        "# Sitemap",
+        f"Sitemap: {request.scheme}://{request.get_host()}/sitemap.xml",
+    ]
+
+    return HttpResponse("\n".join(lines), content_type="text/plain")

@@ -1,0 +1,92 @@
+{% comment %}
+Schema.org Structured Data Template
+Fügt strukturierte Daten für Suchmaschinen hinzu
+
+Usage:
+{% include 'seo/schema_org.html' with schema_type="WebSite" %}
+
+Verfügbare Schema Types:
+- WebSite (default)
+- Organization
+- WebPage
+- SoftwareApplication
+- BreadcrumbList
+{% endcomment %}
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  {% if schema_type == "Organization" %}
+  "@type": "Organization",
+  "name": "{{ seo.site_name }}",
+  "url": "{{ seo.site_protocol }}://{{ seo.site_domain }}",
+  "logo": "{{ seo.site_protocol }}://{{ seo.site_domain }}/static/images/workloom-logo.png",
+  "description": "{{ seo.default_description }}",
+  "address": {
+    "@type": "PostalAddress",
+    "addressCountry": "DE"
+  },
+  "contactPoint": {
+    "@type": "ContactPoint",
+    "contactType": "customer service",
+    "email": "kontakt@workloom.de"
+  },
+  "sameAs": [
+    {% comment %}
+    Hier können Social Media Profile hinzugefügt werden:
+    "https://www.linkedin.com/company/workloom",
+    "https://twitter.com/workloom"
+    {% endcomment %}
+  ]
+  {% elif schema_type == "SoftwareApplication" %}
+  "@type": "SoftwareApplication",
+  "name": "{{ app_name|default:'WorkLoom' }}",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web Browser",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "EUR"
+  },
+  "description": "{{ page_description|default:seo.default_description }}"
+  {% elif schema_type == "BreadcrumbList" and breadcrumbs %}
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {% for crumb in breadcrumbs %}
+    {
+      "@type": "ListItem",
+      "position": {{ forloop.counter }},
+      "name": "{{ crumb.name }}",
+      "item": "{{ seo.site_protocol }}://{{ seo.site_domain }}{{ crumb.url }}"
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ]
+  {% elif schema_type == "WebPage" %}
+  "@type": "WebPage",
+  "name": "{{ page_title|default:seo.default_title }}",
+  "description": "{{ page_description|default:seo.default_description }}",
+  "url": "{{ canonical_url|default:seo.canonical_url }}",
+  "inLanguage": "de-DE",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "{{ seo.site_name }}",
+    "url": "{{ seo.site_protocol }}://{{ seo.site_domain }}"
+  }
+  {% else %}
+  {# Default: WebSite #}
+  "@type": "WebSite",
+  "name": "{{ seo.site_name }}",
+  "url": "{{ seo.site_protocol }}://{{ seo.site_domain }}",
+  "description": "{{ seo.default_description }}",
+  "inLanguage": "de-DE",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": {
+      "@type": "EntryPoint",
+      "urlTemplate": "{{ seo.site_protocol }}://{{ seo.site_domain }}/search?q={search_term_string}"
+    },
+    "query-input": "required name=search_term_string"
+  }
+  {% endif %}
+}
+</script>
