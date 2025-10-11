@@ -82,7 +82,8 @@ urlpatterns = [
     path('visual-editor/preview/<str:page_name>/', views.preview_page, name='preview_page'),
     path('visual-editor/export/', views.export_page_changes, name='export_page_changes'),
     path('visual-editor/import/', views.import_page_changes, name='import_page_changes'),
-    
+    path('visual-editor/cleanup/', views.cleanup_editable_content, name='cleanup_editable_content'),
+
     # Site Discovery
     path('site/discover/', views.discover_site_structure, name='discover_site_structure'),
     path('site/page-info/', views.get_page_info, name='get_page_info'),

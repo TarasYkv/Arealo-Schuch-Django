@@ -460,6 +460,67 @@ def import_page_changes(request):
             'success': True,
             'message': f'{imported_count} Inhalte importiert'
         })
-        
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_http_methods(["POST"])
+def cleanup_editable_content(request):
+    """Clean up orphaned and deleted EditableContent entries"""
+    try:
+        from accounts.models import EditableContent
+
+        page = request.POST.get('page', 'startseite')
+
+        # Count deleted entries
+        deleted_entries = EditableContent.objects.filter(
+            user=request.user,
+            page=page,
+            is_active=False
+        )
+        deleted_count = deleted_entries.count()
+
+        # Delete them
+        deleted_entries.delete()
+
+        # Find duplicate entries (same content_key)
+        from django.db.models import Count
+        duplicates = EditableContent.objects.filter(
+            user=request.user,
+            page=page
+        ).values('content_key').annotate(
+            count=Count('id')
+        ).filter(count__gt=1)
+
+        duplicate_count = 0
+        for dup in duplicates:
+            # Keep the most recent one, delete others
+            entries = EditableContent.objects.filter(
+                user=request.user,
+                page=page,
+                content_key=dup['content_key']
+            ).order_by('-updated_at')
+
+            # Delete all but the first (most recent)
+            for entry in entries[1:]:
+                entry.delete()
+                duplicate_count += 1
+
+        # Count remaining entries
+        remaining_count = EditableContent.objects.filter(
+            user=request.user,
+            page=page
+        ).count()
+
+        return JsonResponse({
+            'success': True,
+            'deleted_count': deleted_count,
+            'duplicate_count': duplicate_count,
+            'remaining_count': remaining_count,
+            'message': f'{deleted_count} gelöschte und {duplicate_count} doppelte Einträge entfernt. {remaining_count} Einträge verbleiben.'
+        })
+
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})

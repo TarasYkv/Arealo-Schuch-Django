@@ -797,20 +797,35 @@ body {
                 
                 <div class="property-group">
                     <div class="property-group-title">Seiten-Einstellungen</div>
-                    
+
                     <div class="property-field">
                         <label class="property-label">SEO Titel</label>
-                        <input type="text" id="seoTitle" class="property-input" 
+                        <input type="text" id="seoTitle" class="property-input"
                                placeholder="Seitentitel">
                     </div>
-                    
+
                     <div class="property-field">
                         <label class="property-label">Meta-Beschreibung</label>
-                        <textarea id="metaDescription" class="property-textarea" 
+                        <textarea id="metaDescription" class="property-textarea"
                                   placeholder="Beschreibung der Seite..."></textarea>
                     </div>
                 </div>
-                
+
+                <div class="property-group">
+                    <div class="property-group-title">Datenbank-Verwaltung</div>
+
+                    <div class="property-field">
+                        <label class="property-label">Inhalts-Bereinigung</label>
+                        <p style="color: #969696; font-size: 12px; margin-bottom: 10px;">
+                            Entfernt gelöschte und doppelte Einträge aus der Datenbank für diese Seite.
+                        </p>
+                        <button class="btn-editor btn-secondary" onclick="cleanupDatabase()" style="width: 100%;">
+                            <i class="bi bi-trash"></i> Datenbank bereinigen
+                        </button>
+                        <div id="cleanupStats" style="margin-top: 10px; font-size: 12px; color: #969696;"></div>
+                    </div>
+                </div>
+
                 <div class="action-buttons">
                     <button class="btn-editor btn-primary" onclick="savePageSettings()">
                         <i class="bi bi-save"></i> Einstellungen speichern
@@ -2132,6 +2147,50 @@ function publishChanges() {
         .finally(() => {
             document.getElementById('loadingOverlay').style.display = 'none';
         });
+    });
+}
+
+// Database Cleanup Function
+function cleanupDatabase() {
+    if (!confirm('Möchten Sie gelöschte und doppelte Einträge wirklich aus der Datenbank entfernen?')) {
+        return;
+    }
+
+    // Show loading
+    const statsDiv = document.getElementById('cleanupStats');
+    statsDiv.innerHTML = '<i class="bi bi-hourglass-split"></i> Bereinigung läuft...';
+    statsDiv.style.color = '#007acc';
+
+    fetch('{% url "accounts:cleanup_editable_content" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: `page=${encodeURIComponent(currentPage)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            statsDiv.innerHTML = `
+                <div style="color: #28a745;">
+                    <i class="bi bi-check-circle"></i> Erfolgreich bereinigt!<br>
+                    <small>
+                        • ${data.deleted_count} gelöschte Einträge entfernt<br>
+                        • ${data.duplicate_count} Duplikate entfernt<br>
+                        • ${data.remaining_count} Einträge verbleiben
+                    </small>
+                </div>
+            `;
+            showHistoryIndicator(data.message, 'success');
+        } else {
+            statsDiv.innerHTML = `<div style="color: #c42e2e;"><i class="bi bi-x-circle"></i> Fehler: ${data.error}</div>`;
+            showHistoryIndicator('Fehler bei der Bereinigung', 'error');
+        }
+    })
+    .catch(error => {
+        statsDiv.innerHTML = `<div style="color: #c42e2e;"><i class="bi bi-x-circle"></i> Fehler: ${error.message}</div>`;
+        showHistoryIndicator('Fehler bei der Bereinigung', 'error');
     });
 }
 </script>
