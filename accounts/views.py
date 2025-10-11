@@ -7,7 +7,7 @@ from django.urls import reverse_lazy, reverse
 from django.views.generic import CreateView
 from django.views.decorators.http import require_http_methods
 from django.http import JsonResponse
-from django.db import models
+from django.db import models, transaction, IntegrityError
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
@@ -21,6 +21,30 @@ from .forms import CustomUserCreationForm, CustomAuthenticationForm, AmpelCatego
 from .models import CustomUser, AmpelCategory, CategoryKeyword, UserLoginHistory, EditableContent, CustomPage, SEOSettings, FeatureAccess, AppUsageTracking, AppInfo, ZohoAPISettings, AppPermission, UserAppPermission
 from naturmacher.models import APIBalance
 from videos.models import UserStorage as VideoUserStorage, Subscription as VideoSubscription
+
+
+def _cleanup_user_dependencies(user):
+    """Remove related objects that block hard deletes due to foreign key constraints."""
+    try:
+        VideoSubscription.objects.filter(user=user).delete()
+        VideoUserStorage.objects.filter(user=user).delete()
+    except Exception:
+        # Best effort cleanup – log but do not block the overall process
+        logger.exception("Fehler beim Löschen von Videodaten für %s", user)
+
+    try:
+        from payments.models import Customer, Subscription, Invoice, PaymentMethod
+    except Exception:
+        Customer = Subscription = Invoice = PaymentMethod = None
+
+    if Customer:
+        try:
+            PaymentMethod.objects.filter(customer__user=user).delete()
+            Invoice.objects.filter(customer__user=user).delete()
+            Subscription.objects.filter(customer__user=user).delete()
+            Customer.objects.filter(user=user).delete()
+        except Exception:
+            logger.exception("Fehler beim Löschen von Zahlungsdaten für %s", user)
 from .utils import redirect_with_params
 
 logger = logging.getLogger(__name__)
@@ -1830,8 +1854,21 @@ def user_permissions(request):
             elif action == 'delete_user':
                 if user.id != request.user.id:  # Prevent self-deletion
                     username = user.username
-                    user.delete()
-                    messages.success(request, f'Account von {username} wurde erfolgreich gelöscht.')
+                    try:
+                        with transaction.atomic():
+                            _cleanup_user_dependencies(user)
+                            user.delete()
+                        messages.success(request, f'Account von {username} wurde erfolgreich gelöscht.')
+                    except IntegrityError as exc:
+                        logger.exception("Integritätsfehler beim Löschen von %s", user)
+                        messages.error(
+                            request,
+                            'Account konnte wegen verknüpfter Daten nicht vollständig gelöscht werden. '
+                            'Bitte entfernen Sie zunächst abhängige Abonnements oder Speicherpläne.'
+                        )
+                    except Exception as exc:
+                        logger.exception("Fehler beim Löschen von %s", user)
+                        messages.error(request, f'Fehler beim Löschen von {username}: {exc}')
                 else:
                     messages.error(request, 'Sie können Ihren eigenen Account nicht löschen.')
                 
@@ -4007,7 +4044,8 @@ from .views_visual_editor import (
     save_element_style,
     preview_page,
     export_page_changes,
-    import_page_changes
+    import_page_changes,
+    cleanup_editable_content
 )
 
 # Import site discovery views
