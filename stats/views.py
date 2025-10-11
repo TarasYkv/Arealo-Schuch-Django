@@ -2,11 +2,14 @@ from django.shortcuts import render
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import user_passes_test
 from django.db.models import Count, Avg, Q
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 from datetime import timedelta, datetime
 from django.http import JsonResponse, HttpResponse
 import csv
 from django.template.loader import render_to_string
+import json
+from accounts.models import CustomUser, UserLoginHistory
 from .models import (
     PageVisit, UserSession, AdClick, DailyStats, PopularPage,
     RealTimeVisitor, ConversionFunnel, ConversionEvent, PerformanceMetric, ErrorLog, SearchQuery
@@ -98,6 +101,43 @@ def dashboard(request):
     # SEO Metrics
     seo_metrics = analyze_seo_metrics(last_7_days)
 
+    # User registrations & logins timeline
+    try:
+        selected_period = int(request.GET.get('user_period', 30))
+    except (TypeError, ValueError):
+        selected_period = 30
+    selected_period = max(7, min(selected_period, 180))
+
+    period_start = today - timedelta(days=selected_period - 1)
+
+    registration_qs = CustomUser.objects.filter(
+        date_joined__date__gte=period_start,
+        date_joined__date__lte=today
+    ).annotate(reg_date=TruncDate('date_joined'))
+
+    registration_counts = registration_qs.values('reg_date').annotate(total=Count('id'))
+    registration_map = {entry['reg_date']: entry['total'] for entry in registration_counts}
+
+    login_qs = UserLoginHistory.objects.filter(
+        login_time__date__gte=period_start,
+        login_time__date__lte=today
+    ).annotate(login_date=TruncDate('login_time'))
+
+    login_counts = login_qs.values('login_date').annotate(total=Count('id'))
+    login_map = {entry['login_date']: entry['total'] for entry in login_counts}
+
+    timeline_labels = []
+    registrations_per_day = []
+    logins_per_day = []
+
+    current_date = period_start
+    while current_date <= today:
+        label = current_date.strftime('%d.%m.%Y')
+        timeline_labels.append(label)
+        registrations_per_day.append(registration_map.get(current_date, 0))
+        logins_per_day.append(login_map.get(current_date, 0))
+        current_date += timedelta(days=1)
+
     context = {
         'today_visits': today_visits,
         'today_unique_visitors': today_unique_visitors,
@@ -122,6 +162,11 @@ def dashboard(request):
         'geographic_stats': geographic_stats,
         'bounce_rate_stats': bounce_rate_stats,
         'seo_metrics': seo_metrics,
+        'user_activity_labels': json.dumps(timeline_labels),
+        'user_registration_counts': json.dumps(registrations_per_day),
+        'user_login_counts': json.dumps(logins_per_day),
+        'user_activity_period_options': [7, 14, 30, 60, 90, 120, 180],
+        'user_activity_selected_period': selected_period,
     }
 
     return render(request, 'stats/dashboard.html', context)

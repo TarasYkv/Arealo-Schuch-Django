@@ -440,6 +440,32 @@
                 </div>
             </div>
 
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="chart-card">
+                        <div class="chart-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+                            <h5 class="mb-0"><i class="bi bi-people me-2"></i>👥 Nutzerentwicklung</h5>
+                            <form method="get" class="d-flex align-items-center gap-2 ms-auto">
+                                <label for="userPeriodSelect" class="mb-0 small text-muted">Zeitraum</label>
+                                <select id="userPeriodSelect" name="user_period" class="form-select form-select-sm" onchange="this.form.submit()">
+                                    {% for option in user_activity_period_options %}
+                                    <option value="{{ option }}" {% if option == user_activity_selected_period %}selected{% endif %}>Letzte {{ option }} Tage</option>
+                                    {% endfor %}
+                                </select>
+                                {% for key, value in request.GET.items %}
+                                    {% if key != 'user_period' %}
+                                        <input type="hidden" name="{{ key }}" value="{{ value }}">
+                                    {% endif %}
+                                {% endfor %}
+                            </form>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="userActivityChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Traffic Sources -->
             {% if traffic_sources %}
             <div class="row">
@@ -1500,6 +1526,83 @@
                 }
             });
         });
+
+    // Nutzerentwicklung (Registrierungen & Logins)
+    (function() {
+        const element = document.getElementById('userActivityChart');
+        if (!element || typeof Chart === 'undefined') {
+            return;
+        }
+
+        const labels = {{ user_activity_labels|default:'[]'|safe }};
+        const registrationCounts = {{ user_registration_counts|default:'[]'|safe }};
+        const loginCounts = {{ user_login_counts|default:'[]'|safe }};
+
+        const ctx = element.getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Registrierungen',
+                        data: registrationCounts,
+                        borderColor: '#4e73df',
+                        backgroundColor: 'rgba(78, 115, 223, 0.15)',
+                        tension: 0.35,
+                        fill: true,
+                        borderWidth: 2,
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                    },
+                    {
+                        label: 'Logins',
+                        data: loginCounts,
+                        borderColor: '#1cc88a',
+                        backgroundColor: 'rgba(28, 200, 138, 0.15)',
+                        tension: 0.35,
+                        fill: true,
+                        borderWidth: 2,
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            title: (items) => items[0]?.label || '',
+                            label: (context) => `${context.dataset.label}: ${context.parsed.y}`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            autoSkip: true,
+                            maxTicksLimit: 10,
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                }
+            }
+        });
+    })();
 
     // Traffic Sources Chart
     {% if traffic_sources %}
