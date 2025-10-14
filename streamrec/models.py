@@ -121,7 +121,6 @@ class UserPreferences(models.Model):
     # UI preferences
     show_notifications = models.BooleanField(default=True)
     auto_save_settings = models.BooleanField(default=True)
-    dark_mode = models.BooleanField(default=False)
     
     # Advanced settings
     auto_start_composition = models.BooleanField(default=True)

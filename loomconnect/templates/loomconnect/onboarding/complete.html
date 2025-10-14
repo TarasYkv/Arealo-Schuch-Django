@@ -1,0 +1,222 @@
+{% extends 'loomconnect/base_loomconnect.html' %}
+{% load static %}
+
+{% block title %}Willkommen bei LoomConnect!{% endblock %}
+
+{% block loomconnect_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <!-- Progress - All Completed -->
+        <div class="onboarding-progress mb-5">
+            <div class="onboarding-step completed">
+                <div class="onboarding-step-circle"><i class="bi bi-check"></i></div>
+                <small>Start</small>
+            </div>
+            <div class="onboarding-step completed">
+                <div class="onboarding-step-circle"><i class="bi bi-check"></i></div>
+                <small>Skills</small>
+            </div>
+            <div class="onboarding-step completed">
+                <div class="onboarding-step-circle"><i class="bi bi-check"></i></div>
+                <small>Level</small>
+            </div>
+            <div class="onboarding-step completed">
+                <div class="onboarding-step-circle"><i class="bi bi-check"></i></div>
+                <small>Bedarfe</small>
+            </div>
+            <div class="onboarding-step completed">
+                <div class="onboarding-step-circle"><i class="bi bi-check"></i></div>
+                <small>Verfügbarkeit</small>
+            </div>
+            <div class="onboarding-step completed">
+                <div class="onboarding-step-circle"><i class="bi bi-check"></i></div>
+                <small>Profil</small>
+            </div>
+        </div>
+
+        <div class="loomconnect-card text-center" style="padding: 60px 40px;">
+            <!-- Success Animation -->
+            <div class="mb-4" style="font-size: 6rem;">
+                🎉
+            </div>
+
+            <!-- Congrats Message -->
+            <h1 class="mb-3" style="background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                Glückwunsch, {{ user.first_name|default:user.username }}!
+            </h1>
+            <p class="lead text-muted mb-4">
+                Dein LoomConnect-Profil ist jetzt vollständig
+            </p>
+
+            <!-- Profile Summary -->
+            <div class="row g-3 mb-5 text-start">
+                <div class="col-md-4">
+                    <div class="loomconnect-card" style="padding: 20px; background: rgba(102, 126, 234, 0.05);">
+                        <div class="text-center">
+                            <div style="font-size: 2.5rem;">⭐</div>
+                            <div class="stats-number">{{ skills_count }}</div>
+                            <div class="stats-label">Skills hinzugefügt</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="loomconnect-card" style="padding: 20px; background: rgba(102, 126, 234, 0.05);">
+                        <div class="text-center">
+                            <div style="font-size: 2.5rem;">🔍</div>
+                            <div class="stats-number">{{ needs_count }}</div>
+                            <div class="stats-label">Bedarfe definiert</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="loomconnect-card" style="padding: 20px; background: rgba(102, 126, 234, 0.05);">
+                        <div class="text-center">
+                            <div style="font-size: 2.5rem;">🚀</div>
+                            <div class="stats-number">{{ potential_matches }}</div>
+                            <div class="stats-label">Potenzielle Matches</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- What's Next -->
+            <div class="mb-5 text-start">
+                <h4 class="mb-4 text-center">Was kannst du jetzt tun?</h4>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <a href="{% url 'loomconnect:discover' %}" class="text-decoration-none">
+                            <div class="loomconnect-card" style="padding: 24px; height: 100%; transition: all 0.3s;">
+                                <div class="d-flex align-items-start gap-3">
+                                    <div style="font-size: 2.5rem;">🔍</div>
+                                    <div>
+                                        <h5 class="mb-2">User entdecken</h5>
+                                        <p class="text-muted small mb-0">
+                                            Finde Leute mit passenden Skills oder die deine Hilfe brauchen
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <a href="{% url 'loomconnect:feed' %}" class="text-decoration-none">
+                            <div class="loomconnect-card" style="padding: 24px; height: 100%; transition: all 0.3s;">
+                                <div class="d-flex align-items-start gap-3">
+                                    <div style="font-size: 2.5rem;">📰</div>
+                                    <div>
+                                        <h5 class="mb-2">Feed durchstöbern</h5>
+                                        <p class="text-muted small mb-0">
+                                            Schau dir Posts von anderen Usern an und tausche dich aus
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <a href="{% url 'loomconnect:post_create' %}" class="text-decoration-none">
+                            <div class="loomconnect-card" style="padding: 24px; height: 100%; transition: all 0.3s;">
+                                <div class="d-flex align-items-start gap-3">
+                                    <div style="font-size: 2.5rem;">✍️</div>
+                                    <div>
+                                        <h5 class="mb-2">Ersten Post erstellen</h5>
+                                        <p class="text-muted small mb-0">
+                                            Teile dein Wissen oder stelle eine Frage an die Community
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <a href="{% url 'loomconnect:my_profile' %}" class="text-decoration-none">
+                            <div class="loomconnect-card" style="padding: 24px; height: 100%; transition: all 0.3s;">
+                                <div class="d-flex align-items-start gap-3">
+                                    <div style="font-size: 2.5rem;">👤</div>
+                                    <div>
+                                        <h5 class="mb-2">Profil anschauen</h5>
+                                        <p class="text-muted small mb-0">
+                                            Sieh dir dein fertiges Profil an und optimiere es weiter
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tips -->
+            <div class="alert alert-info text-start mb-4">
+                <h6 class="mb-2">
+                    <i class="bi bi-lightbulb"></i> Tipps für den Start:
+                </h6>
+                <ul class="mb-0 small">
+                    <li>Füge ein Profilbild hinzu, um mehr Vertrauen zu schaffen</li>
+                    <li>Sei aktiv im Feed und kommentiere Posts von anderen</li>
+                    <li>Sende Connect-Anfragen an passende User</li>
+                    <li>Aktualisiere deine Skills regelmäßig</li>
+                    <li>Sammle Karma-Punkte durch hilfreiche Beiträge</li>
+                </ul>
+            </div>
+
+            <!-- CTA -->
+            <div>
+                <a href="{% url 'loomconnect:dashboard' %}" class="btn loomconnect-btn loomconnect-btn-primary btn-lg">
+                    Zum Dashboard <i class="bi bi-arrow-right ms-2"></i>
+                </a>
+            </div>
+
+            <!-- Fun Fact -->
+            <div class="mt-4">
+                <small class="text-muted">
+                    🎯 Du bist jetzt Teil von {{ total_users }} aktiven LoomConnect-Usern!
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .loomconnect-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--loomconnect-hover-shadow);
+    }
+</style>
+
+<script>
+    // Confetti Animation (optional)
+    setTimeout(() => {
+        // Simple confetti effect using emoji
+        const confettiEmojis = ['🎉', '🎊', '✨', '🌟', '⭐', '💫'];
+        for (let i = 0; i < 20; i++) {
+            setTimeout(() => {
+                const confetti = document.createElement('div');
+                confetti.textContent = confettiEmojis[Math.floor(Math.random() * confettiEmojis.length)];
+                confetti.style.position = 'fixed';
+                confetti.style.left = Math.random() * 100 + '%';
+                confetti.style.top = '-50px';
+                confetti.style.fontSize = '2rem';
+                confetti.style.zIndex = '9999';
+                confetti.style.pointerEvents = 'none';
+                confetti.style.animation = 'fall 3s linear forwards';
+                document.body.appendChild(confetti);
+
+                setTimeout(() => confetti.remove(), 3000);
+            }, i * 100);
+        }
+    }, 500);
+
+    // CSS Animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes fall {
+            to {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+</script>
+{% endblock %}

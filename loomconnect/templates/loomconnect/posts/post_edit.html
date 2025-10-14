@@ -1,0 +1,82 @@
+{% extends 'loomconnect/base_loomconnect.html' %}
+{% load static %}
+
+{% block title %}Post bearbeiten - LoomConnect{% endblock %}
+
+{% block loomconnect_content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="loomconnect-card">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="bi bi-pencil"></i> Post bearbeiten</h2>
+                <a href="{% url 'loomconnect:post_detail' object.pk %}" class="btn btn-sm loomconnect-btn loomconnect-btn-outline">
+                    <i class="bi bi-arrow-left"></i> Zurück
+                </a>
+            </div>
+
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {{ form.non_field_errors }}
+                </div>
+                {% endif %}
+
+                <div class="mb-3">
+                    <label class="form-label">{{ form.post_type.label }}</label>
+                    {{ form.post_type }}
+                    {% if form.post_type.errors %}
+                    <div class="text-danger small mt-1">{{ form.post_type.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">{{ form.content.label }}</label>
+                    {{ form.content }}
+                    {% if form.content.errors %}
+                    <div class="text-danger small mt-1">{{ form.content.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">{{ form.image.label }}</label>
+                    {% if object.image %}
+                    <div class="mb-2">
+                        <img src="{{ object.image.url }}" alt="Aktuelles Bild" class="img-thumbnail" style="max-width: 200px;">
+                        <small class="text-muted d-block">Aktuelles Bild</small>
+                    </div>
+                    {% endif %}
+                    {{ form.image }}
+                    {% if form.image.errors %}
+                    <div class="text-danger small mt-1">{{ form.image.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.visibility.id_for_label }}" class="form-label">{{ form.visibility.label }}</label>
+                    {{ form.visibility }}
+                    {% if form.visibility.errors %}
+                    <div class="text-danger small mt-1">{{ form.visibility.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-4">
+                    <label for="{{ form.skills_input.id_for_label }}" class="form-label">{{ form.skills_input.label }}</label>
+                    {{ form.skills_input }}
+                    {% if form.skills_input.errors %}
+                    <div class="text-danger small mt-1">{{ form.skills_input.errors }}</div>
+                    {% endif %}
+                    <small class="text-muted d-block mt-1">{{ form.skills_input.help_text }}</small>
+                </div>
+
+                <div class="d-grid">
+                    <button type="submit" class="btn loomconnect-btn loomconnect-btn-primary">
+                        <i class="bi bi-check-circle"></i> Änderungen speichern
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends 'loomconnect/base_loomconnect.html' %}
+{% load static %}
+
+{% block title %}Anfragen - LoomConnect{% endblock %}
+
+{% block loomconnect_content %}
+<div class="row">
+    <!-- Main Content -->
+    <div class="col-lg-8 mb-4">
+        <div class="loomconnect-card loomconnect-section-2">
+            <h2 class="mb-4">
+                <i class="bi bi-inbox"></i> Verbindungsanfragen
+            </h2>
+
+            {% if pending_requests %}
+                {% for request in pending_requests %}
+                <div class="loomconnect-card mb-3" style="padding: 20px;">
+                    <div class="d-flex align-items-center gap-3">
+                        <a href="{% url 'loomconnect:profile' request.from_profile.user.username %}">
+                            {% if request.from_profile.avatar %}
+                                <img src="{{ request.from_profile.avatar.url }}" alt="{{ request.from_profile.user.username }}" class="profile-avatar-small">
+                            {% else %}
+                                <div class="profile-avatar-small bg-gradient d-flex align-items-center justify-content-center text-white" style="background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary));">
+                                    <i class="bi bi-person-fill"></i>
+                                </div>
+                            {% endif %}
+                        </a>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">
+                                <a href="{% url 'loomconnect:profile' request.from_profile.user.username %}" class="text-decoration-none">
+                                    {{ request.from_profile.user.get_full_name|default:request.from_profile.user.username }}
+                                </a>
+                            </h6>
+                            <p class="text-muted small mb-0">@{{ request.from_profile.user.username }}</p>
+                            {% if request.message %}
+                            <p class="small mt-2 mb-0">{{ request.message }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'loomconnect:accept_request' request.id %}" class="btn loomconnect-btn loomconnect-btn-primary btn-sm">
+                                <i class="bi bi-check-circle"></i> Annehmen
+                            </a>
+                            <a href="{% url 'loomconnect:decline_request' request.id %}" class="btn loomconnect-btn loomconnect-btn-outline btn-sm">
+                                <i class="bi bi-x-circle"></i> Ablehnen
+                            </a>
+                        </div>
+                    </div>
+                    <div class="text-muted small mt-2">
+                        <i class="bi bi-clock"></i> {{ request.created_at|timesince }} ago
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">
+                        <i class="bi bi-inbox"></i>
+                    </div>
+                    <h5>Keine ausstehenden Anfragen</h5>
+                    <p class="text-muted">Du hast aktuell keine neuen Verbindungsanfragen</p>
+                    <a href="{% url 'loomconnect:discover' %}" class="btn loomconnect-btn loomconnect-btn-primary mt-2">
+                        <i class="bi bi-compass"></i> User entdecken
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right Sidebar - Info -->
+    <div class="col-lg-4">
+        <div class="loomconnect-card loomconnect-section-1">
+            <h6 class="mb-3">
+                <i class="bi bi-info-circle"></i> Info
+            </h6>
+            <p class="small text-muted mb-3">
+                Hier siehst du alle Verbindungsanfragen, die andere User dir gesendet haben.
+            </p>
+            <div class="stats-card mb-3">
+                <div class="stats-number">{{ pending_requests.count }}</div>
+                <div class="stats-label">Ausstehende Anfragen</div>
+            </div>
+            <hr>
+            <div class="d-grid gap-2">
+                <a href="{% url 'loomconnect:connections' %}" class="btn loomconnect-btn loomconnect-btn-outline btn-sm">
+                    <i class="bi bi-people"></i> Meine Connections
+                </a>
+                <a href="{% url 'loomconnect:discover' %}" class="btn loomconnect-btn loomconnect-btn-outline btn-sm">
+                    <i class="bi bi-compass"></i> User entdecken
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

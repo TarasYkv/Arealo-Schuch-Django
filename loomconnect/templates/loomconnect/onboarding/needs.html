@@ -1,0 +1,184 @@
+{% extends 'loomconnect/base_loomconnect.html' %}
+{% load static %}
+
+{% block title %}Deine Bedarfe - LoomConnect{% endblock %}
+
+{% block loomconnect_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <!-- Progress -->
+        <div class="onboarding-progress mb-5">
+            <div class="onboarding-step completed">
+                <div class="onboarding-step-circle"><i class="bi bi-check"></i></div>
+                <small>Start</small>
+            </div>
+            <div class="onboarding-step completed">
+                <div class="onboarding-step-circle"><i class="bi bi-check"></i></div>
+                <small>Skills</small>
+            </div>
+            <div class="onboarding-step completed">
+                <div class="onboarding-step-circle"><i class="bi bi-check"></i></div>
+                <small>Level</small>
+            </div>
+            <div class="onboarding-step active">
+                <div class="onboarding-step-circle">3</div>
+                <small>Bedarfe</small>
+            </div>
+            <div class="onboarding-step">
+                <div class="onboarding-step-circle">4</div>
+                <small>Verfügbarkeit</small>
+            </div>
+            <div class="onboarding-step">
+                <div class="onboarding-step-circle">5</div>
+                <small>Profil</small>
+            </div>
+        </div>
+
+        <div class="loomconnect-card">
+            <h2 class="mb-2">Wobei brauchst du Hilfe?</h2>
+            <p class="text-muted mb-4">Wähle Skills aus, bei denen du Unterstützung suchst</p>
+
+            <form method="post">
+                {% csrf_token %}
+
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    {{ form.errors }}
+                </div>
+                {% endif %}
+
+                <!-- Need Categories -->
+                {% for category in categories %}
+                <div class="mb-4">
+                    <h5 class="mb-3">
+                        <i class="bi bi-folder2-open"></i> {{ category.name }}
+                    </h5>
+                    <div class="row g-2">
+                        {% for skill in category.skills.all %}
+                        <div class="col-md-3 col-sm-4 col-6">
+                            <div class="form-check">
+                                <input class="form-check-input need-checkbox"
+                                       type="checkbox"
+                                       name="needs"
+                                       value="{{ skill.id }}"
+                                       id="need_{{ skill.id }}">
+                                <label class="form-check-label w-100" for="need_{{ skill.id }}">
+                                    <div class="skill-badge-outline w-100 text-center" style="cursor: pointer;">
+                                        {{ skill.name }}
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <hr class="my-4">
+                {% endfor %}
+
+                <!-- Custom Need -->
+                <div class="mt-4">
+                    <h5 class="mb-3">
+                        <i class="bi bi-plus-circle"></i> Eigenen Bedarf hinzufügen
+                    </h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            {{ form.custom_need_name.label_tag }}
+                            {{ form.custom_need_name }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.custom_need_category.label_tag }}
+                            {{ form.custom_need_category }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Need Details Section -->
+                <div class="mt-4" id="need-details-section" style="display: none;">
+                    <h5 class="mb-3">
+                        <i class="bi bi-pencil"></i> Beschreibe deine Bedarfe (optional)
+                    </h5>
+                    <div id="need-descriptions">
+                        <!-- Dynamically filled via JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Selected Counter -->
+                <div class="alert alert-info mt-4">
+                    <i class="bi bi-info-circle"></i>
+                    Du hast <strong id="selected-count">0</strong> Bedarfe ausgewählt
+                </div>
+
+                <!-- Navigation -->
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{% url 'loomconnect:onboarding_level' %}" class="btn loomconnect-btn loomconnect-btn-outline">
+                        <i class="bi bi-arrow-left"></i> Zurück
+                    </a>
+                    <button type="submit" class="btn loomconnect-btn loomconnect-btn-primary">
+                        Weiter <i class="bi bi-arrow-right ms-2"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    const checkboxes = document.querySelectorAll('.need-checkbox');
+    const counter = document.getElementById('selected-count');
+    const detailsSection = document.getElementById('need-details-section');
+    const descriptionsContainer = document.getElementById('need-descriptions');
+
+    function updateCounter() {
+        const checkedBoxes = document.querySelectorAll('.need-checkbox:checked');
+        counter.textContent = checkedBoxes.length;
+
+        // Show/hide details section
+        if (checkedBoxes.length > 0) {
+            detailsSection.style.display = 'block';
+            updateDescriptionFields(checkedBoxes);
+        } else {
+            detailsSection.style.display = 'none';
+        }
+    }
+
+    function updateDescriptionFields(checkedBoxes) {
+        descriptionsContainer.innerHTML = '';
+
+        checkedBoxes.forEach(checkbox => {
+            const label = document.querySelector(`label[for="${checkbox.id}"]`);
+            const skillName = label.textContent.trim();
+
+            const fieldHTML = `
+                <div class="mb-3">
+                    <label class="form-label">
+                        <span class="skill-badge-outline">${skillName}</span> - Was genau brauchst du?
+                    </label>
+                    <textarea class="form-control"
+                              name="need_desc_${checkbox.value}"
+                              rows="2"
+                              placeholder="Kurze Beschreibung deines Bedarfs..."></textarea>
+                </div>
+            `;
+            descriptionsContainer.insertAdjacentHTML('beforeend', fieldHTML);
+        });
+    }
+
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', function() {
+            updateCounter();
+
+            // Visual feedback
+            const badge = this.parentElement.querySelector('.skill-badge-outline');
+            if (this.checked) {
+                badge.style.background = 'var(--loomconnect-primary)';
+                badge.style.color = 'white';
+            } else {
+                badge.style.background = 'transparent';
+                badge.style.color = 'var(--loomconnect-primary)';
+            }
+        });
+    });
+
+    updateCounter();
+</script>
+{% endblock %}

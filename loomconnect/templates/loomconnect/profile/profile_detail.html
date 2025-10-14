@@ -1,0 +1,303 @@
+{% extends 'loomconnect/base_loomconnect.html' %}
+{% load static %}
+
+{% block title %}{{ profile_user.get_full_name|default:profile_user.username }} - LoomConnect{% endblock %}
+
+{% block loomconnect_content %}
+<div class="row">
+    <!-- Profile Header -->
+    <div class="col-12 mb-4">
+        <div class="loomconnect-card" style="background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary)); color: white; position: relative; overflow: hidden;">
+            <div style="position: absolute; top: 0; right: 0; opacity: 0.1; font-size: 15rem; line-height: 1;">
+                👤
+            </div>
+            <div class="row align-items-center" style="position: relative; z-index: 1;">
+                <div class="col-auto">
+                    {% if profile_user.connect_profile.avatar %}
+                        <img src="{{ profile_user.connect_profile.avatar.url }}" alt="{{ profile_user.username }}" style="width: 120px; height: 120px; border-radius: 50%; border: 4px solid white; object-fit: cover;">
+                    {% else %}
+                        <div style="width: 120px; height: 120px; border-radius: 50%; border: 4px solid white; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-person-fill" style="font-size: 3rem;"></i>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="col">
+                    <h2 class="mb-1">{{ profile_user.get_full_name|default:profile_user.username }}</h2>
+                    <p class="mb-2 opacity-75">@{{ profile_user.username }}</p>
+                    <div class="d-flex gap-3 mb-3">
+                        <div>
+                            <strong>{{ user_skills_count }}</strong> Skills
+                        </div>
+                        <div>
+                            <strong>{{ connections_count }}</strong> Connections
+                        </div>
+                        <div>
+                            <strong>{{ profile_user.connect_profile.karma_score }}</strong> Karma
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        {% if is_connected %}
+                            <button class="btn btn-light btn-sm" disabled>
+                                <i class="bi bi-check-circle"></i> Verbunden
+                            </button>
+                        {% elif has_pending_request %}
+                            <button class="btn btn-light btn-sm" disabled>
+                                <i class="bi bi-clock"></i> Anfrage ausstehend
+                            </button>
+                        {% else %}
+                            <a href="{% url 'loomconnect:send_request' profile_user.username %}" class="btn btn-light btn-sm">
+                                <i class="bi bi-person-plus"></i> Verbinden
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Left Column - About & Skills -->
+    <div class="col-lg-8 mb-4">
+        <!-- Bio -->
+        {% if profile_user.connect_profile.bio %}
+        <div class="loomconnect-card mb-4">
+            <h5 class="mb-3"><i class="bi bi-person-lines-fill"></i> Über {{ profile_user.first_name|default:profile_user.username }}</h5>
+            <p style="white-space: pre-line;">{{ profile_user.connect_profile.bio }}</p>
+
+            {% if profile_user.connect_profile.location %}
+            <div class="text-muted mt-3">
+                <i class="bi bi-geo-alt"></i> {{ profile_user.connect_profile.location }}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Skills -->
+        <div class="loomconnect-card mb-4">
+            <h5 class="mb-3"><i class="bi bi-star-fill"></i> Skills</h5>
+
+            {% if user_skills %}
+                <div class="row g-3">
+                    {% for user_skill in user_skills %}
+                    <div class="col-md-6">
+                        <div class="loomconnect-card" style="padding: 16px; background: rgba(102, 126, 234, 0.03);">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <span class="skill-badge">{{ user_skill.skill.name }}</span>
+                                <span class="badge" style="background: var(--loomconnect-secondary);">{{ user_skill.get_level_display }}</span>
+                            </div>
+                            {% if user_skill.years_experience %}
+                            <div class="small text-muted">
+                                <i class="bi bi-clock-history"></i> {{ user_skill.years_experience }} Jahr{% if user_skill.years_experience != 1 %}e{% endif %} Erfahrung
+                            </div>
+                            {% endif %}
+                            {% if user_skill.description %}
+                            <p class="small mt-2 mb-0">{{ user_skill.description }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-muted">Noch keine Skills hinzugefügt</p>
+            {% endif %}
+        </div>
+
+        <!-- Needs -->
+        {% if user_needs %}
+        <div class="loomconnect-card mb-4">
+            <h5 class="mb-3"><i class="bi bi-search"></i> Sucht Hilfe bei</h5>
+
+            <div class="row g-3">
+                {% for need in user_needs %}
+                <div class="col-md-6">
+                    <div class="loomconnect-card" style="padding: 16px; background: rgba(102, 126, 234, 0.03);">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="skill-badge-outline">{{ need.skill.name }}</span>
+                            <span class="badge bg-secondary">{{ need.get_urgency_display }}</span>
+                        </div>
+                        {% if need.description %}
+                        <p class="small mt-2 mb-0">{{ need.description }}</p>
+                        {% endif %}
+
+                        <!-- Show "I can help" button if user has this skill -->
+                        {% if can_help_with.0 == need.skill.id %}
+                        <div class="mt-2">
+                            <a href="{% url 'loomconnect:send_request' profile_user.username %}" class="btn btn-sm loomconnect-btn loomconnect-btn-primary">
+                                <i class="bi bi-hand-thumbs-up"></i> Ich kann helfen!
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Recent Posts -->
+        {% if user_posts %}
+        <div class="loomconnect-card mb-4">
+            <h5 class="mb-3"><i class="bi bi-chat-dots"></i> Letzte Posts</h5>
+
+            {% for post in user_posts %}
+            <div class="post-card mb-3">
+                <div class="post-content">
+                    <p class="mb-2">{{ post.content|truncatewords:30 }}</p>
+                    {% if post.related_skills.exists %}
+                    <div>
+                        {% for skill in post.related_skills.all|slice:":3" %}
+                        <span class="skill-badge">{{ skill.name }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="post-actions">
+                    <span class="post-action"><i class="bi bi-heart"></i> {{ post.likes.count }}</span>
+                    <span class="post-action"><i class="bi bi-chat"></i> {{ post.comments.count }}</span>
+                    <a href="{% url 'loomconnect:post_detail' post.id %}" class="btn btn-sm btn-link">Details</a>
+                </div>
+            </div>
+            {% endfor %}
+
+            {% if user_posts.count > 3 %}
+            <div class="text-center">
+                <a href="{% url 'loomconnect:feed' %}?user={{ profile_user.username }}" class="btn btn-sm loomconnect-btn loomconnect-btn-outline">
+                    Alle Posts ansehen
+                </a>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Right Column - Stats & Info -->
+    <div class="col-lg-4">
+        <!-- Quick Actions -->
+        {% if not is_connected and not has_pending_request %}
+        <div class="loomconnect-card mb-4" style="background: rgba(102, 126, 234, 0.05); border: 2px solid var(--loomconnect-primary);">
+            <h6 class="mb-3">
+                <i class="bi bi-lightning-charge"></i> Mit {{ profile_user.first_name|default:profile_user.username }} verbinden?
+            </h6>
+            <p class="small text-muted mb-3">
+                Sendet eine Connect-Anfrage und öffne nach Bestätigung einen Chat.
+            </p>
+            <a href="{% url 'loomconnect:send_request' profile_user.username %}" class="btn loomconnect-btn loomconnect-btn-primary w-100">
+                <i class="bi bi-person-plus"></i> Jetzt verbinden
+            </a>
+        </div>
+        {% endif %}
+
+        <!-- Stats Card -->
+        <div class="loomconnect-card mb-4">
+            <h6 class="mb-3"><i class="bi bi-graph-up"></i> Statistiken</h6>
+
+            <div class="stats-card mb-2">
+                <div class="stats-number">{{ profile_user.connect_profile.karma_score }}</div>
+                <div class="stats-label">Karma-Punkte</div>
+            </div>
+
+            <div class="row g-2">
+                <div class="col-6">
+                    <div class="stats-card">
+                        <div class="stats-number" style="font-size: 1.5rem;">{{ user_skills_count }}</div>
+                        <div class="stats-label">Skills</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="stats-card">
+                        <div class="stats-number" style="font-size: 1.5rem;">{{ connections_count }}</div>
+                        <div class="stats-label">Connections</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="stats-card">
+                        <div class="stats-number" style="font-size: 1.5rem;">{{ user_posts.count }}</div>
+                        <div class="stats-label">Posts</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="stats-card">
+                        <div class="stats-number" style="font-size: 1.5rem;">{{ profile_views }}</div>
+                        <div class="stats-label">Besuche</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Availability -->
+        <div class="loomconnect-card mb-4">
+            <h6 class="mb-3"><i class="bi bi-clock"></i> Verfügbarkeit</h6>
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="small text-muted">Status:</span>
+                <span class="badge" style="background: var(--loomconnect-success);">{{ profile_user.connect_profile.get_availability_display }}</span>
+            </div>
+            <div class="d-flex align-items-center justify-content-between">
+                <span class="small text-muted">Online:</span>
+                {% if profile_user.connect_profile.show_online_status %}
+                    <span class="small">
+                        {% if is_online %}
+                            <span style="color: var(--loomconnect-success);">● Jetzt online</span>
+                        {% else %}
+                            <span class="text-muted">Vor {{ profile_user.connect_profile.last_seen|timesince }}</span>
+                        {% endif %}
+                    </span>
+                {% else %}
+                    <span class="small text-muted">Verborgen</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Common Skills -->
+        {% if common_skills %}
+        <div class="loomconnect-card mb-4">
+            <h6 class="mb-3"><i class="bi bi-diagram-3"></i> Gemeinsame Skills</h6>
+            <div class="d-flex flex-wrap gap-1">
+                {% for skill in common_skills %}
+                <span class="skill-badge">{{ skill.name }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Mutual Connections -->
+        {% if mutual_connections %}
+        <div class="loomconnect-card mb-4">
+            <h6 class="mb-3"><i class="bi bi-people"></i> Gemeinsame Connections</h6>
+            {% for mutual in mutual_connections|slice:":3" %}
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <a href="{% url 'loomconnect:profile' mutual.username %}" class="d-flex align-items-center gap-2 text-decoration-none">
+                    {% if mutual.connect_profile.avatar %}
+                        <img src="{{ mutual.connect_profile.avatar.url }}" alt="{{ mutual.username }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                    {% else %}
+                        <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary)); display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-person-fill text-white" style="font-size: 0.875rem;"></i>
+                        </div>
+                    {% endif %}
+                    <span class="small">{{ mutual.get_full_name|default:mutual.username }}</span>
+                </a>
+            </div>
+            {% endfor %}
+            {% if mutual_connections.count > 3 %}
+            <div class="small text-muted mt-2">
+                und {{ mutual_connections.count|add:"-3" }} weitere
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Account Info -->
+        <div class="loomconnect-card">
+            <h6 class="mb-3"><i class="bi bi-info-circle"></i> Informationen</h6>
+            <div class="small">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Mitglied seit:</span>
+                    <span>{{ profile_user.date_joined|date:"d.m.Y" }}</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span class="text-muted">Zuletzt aktiv:</span>
+                    <span>{{ profile_user.connect_profile.last_seen|timesince }} ago</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

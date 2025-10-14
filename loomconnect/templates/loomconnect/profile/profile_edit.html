@@ -1,0 +1,140 @@
+{% extends 'loomconnect/base_loomconnect.html' %}
+{% load static %}
+
+{% block title %}Profil bearbeiten - LoomConnect{% endblock %}
+
+{% block loomconnect_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="loomconnect-card loomconnect-section-2">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="bi bi-pencil"></i> Profil bearbeiten</h2>
+                <a href="{% url 'loomconnect:my_profile' %}" class="btn loomconnect-btn loomconnect-btn-outline">
+                    <i class="bi bi-arrow-left"></i> Zurück zum Profil
+                </a>
+            </div>
+
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {{ form.non_field_errors }}
+                </div>
+                {% endif %}
+
+                <!-- Avatar -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-image"></i> {{ form.avatar.label }}
+                    </label>
+
+                    {% if user.connect_profile.avatar %}
+                    <div class="mb-3">
+                        <img src="{{ user.connect_profile.avatar.url }}" alt="Aktuelles Profilbild" class="profile-avatar">
+                        <p class="small text-muted mt-2">Aktuelles Profilbild</p>
+                    </div>
+                    {% endif %}
+
+                    {{ form.avatar }}
+                    {% if form.avatar.errors %}
+                    <div class="text-danger small mt-1">{{ form.avatar.errors }}</div>
+                    {% endif %}
+                    <small class="text-muted d-block mt-1">
+                        Akzeptierte Formate: JPG, PNG, GIF (max. 5 MB)
+                    </small>
+                </div>
+
+                <!-- Bio -->
+                <div class="mb-4">
+                    <label for="{{ form.bio.id_for_label }}" class="form-label fw-bold">
+                        <i class="bi bi-chat-text"></i> {{ form.bio.label }}
+                    </label>
+                    {{ form.bio }}
+                    {% if form.bio.errors %}
+                    <div class="text-danger small mt-1">{{ form.bio.errors }}</div>
+                    {% endif %}
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <small class="text-muted">
+                            <i class="bi bi-lightbulb"></i> Erzähle anderen über dich, deine Interessen und Ziele
+                        </small>
+                        <small class="text-muted">
+                            <span id="bio-count">{{ form.bio.value|length|default:0 }}</span> / 500 Zeichen
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Privacy Settings -->
+                <div class="mb-4">
+                    <h5 class="mb-3">
+                        <i class="bi bi-shield-check"></i> Privatsphäre
+                    </h5>
+
+                    <!-- Public Profile -->
+                    <div class="form-check mb-3 p-3 rounded loomconnect-section-1">
+                        {{ form.is_public }}
+                        <label class="form-check-label" for="{{ form.is_public.id_for_label }}">
+                            <strong>{{ form.is_public.label }}</strong>
+                            <br>
+                            <small class="text-muted">
+                                Wenn aktiviert, kann dein Profil von allen Usern gesehen werden.
+                                Ansonsten nur von deinen Connections.
+                            </small>
+                        </label>
+                        {% if form.is_public.errors %}
+                        <div class="text-danger small mt-1">{{ form.is_public.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Online Status -->
+                    <div class="form-check mb-3 p-3 rounded loomconnect-section-1">
+                        {{ form.show_online_status }}
+                        <label class="form-check-label" for="{{ form.show_online_status.id_for_label }}">
+                            <strong>{{ form.show_online_status.label }}</strong>
+                            <br>
+                            <small class="text-muted">
+                                Zeige anderen, wann du zuletzt online warst
+                            </small>
+                        </label>
+                        {% if form.show_online_status.errors %}
+                        <div class="text-danger small mt-1">{{ form.show_online_status.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Submit Buttons -->
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn loomconnect-btn loomconnect-btn-primary">
+                        <i class="bi bi-check-circle"></i> Änderungen speichern
+                    </button>
+                    <a href="{% url 'loomconnect:my_profile' %}" class="btn loomconnect-btn loomconnect-btn-outline">
+                        <i class="bi bi-x-circle"></i> Abbrechen
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Bio Character Counter
+    const bioTextarea = document.getElementById('{{ form.bio.id_for_label }}');
+    const bioCount = document.getElementById('bio-count');
+
+    function updateBioCounter() {
+        const length = bioTextarea.value.length;
+        bioCount.textContent = length;
+
+        if (length > 450) {
+            bioCount.style.color = 'var(--bs-warning)';
+        } else if (length >= 500) {
+            bioCount.style.color = 'var(--bs-danger)';
+        } else {
+            bioCount.style.color = 'inherit';
+        }
+    }
+
+    bioTextarea.addEventListener('input', updateBioCounter);
+    updateBioCounter();
+</script>
+{% endblock %}

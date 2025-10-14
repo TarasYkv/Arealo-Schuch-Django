@@ -6,7 +6,7 @@ Trackt File-Uploads und Deletions im globalen Storage-System
 
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from .models import ChatMessageAttachment
+from .models import ChatMessageAttachment, ChatMessage
 from core.storage_service import StorageService
 import logging
 
@@ -70,3 +70,17 @@ def track_chat_attachment_deletion(sender, instance, **kwargs):
             )
         except Exception as e:
             logger.error(f"Failed to track chat attachment deletion: {str(e)}")
+
+
+@receiver(post_save, sender=ChatMessage)
+def send_loomconnect_message_notification(sender, instance, created, **kwargs):
+    """
+    Send email notification for new chat messages in LoomConnect connections
+    """
+    if created and instance.sender:
+        try:
+            # Import here to avoid circular imports
+            from loomconnect.signals import send_new_message_email
+            send_new_message_email(instance)
+        except Exception as e:
+            logger.error(f"Failed to send LoomConnect message notification: {str(e)}")

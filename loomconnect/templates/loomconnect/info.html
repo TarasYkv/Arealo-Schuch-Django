@@ -1,0 +1,490 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}LoomConnect - Skill-Matching & Networking | WorkLoom{% endblock %}
+
+{% block meta_description %}LoomConnect ist die Plattform für Skill-Matching und professionelles Networking. Finde Experten, teile dein Wissen und baue wertvolle Connections auf. Kostenlos für alle WorkLoom-Nutzer.{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --loomconnect-primary: #667eea;
+        --loomconnect-secondary: #764ba2;
+        --loomconnect-accent: #f093fb;
+    }
+
+    .loomconnect-hero {
+        background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary));
+        color: white;
+        padding: 100px 0;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .loomconnect-hero::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 500px;
+        height: 500px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 50%;
+        transform: translate(30%, -30%);
+    }
+
+    .feature-card {
+        background: white;
+        border-radius: 16px;
+        padding: 32px;
+        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.1);
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+
+    .feature-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 40px rgba(102, 126, 234, 0.2);
+    }
+
+    .feature-icon {
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary));
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 2rem;
+        margin-bottom: 20px;
+    }
+
+    .benefit-item {
+        display: flex;
+        align-items-start;
+        gap: 16px;
+        padding: 20px;
+        background: rgba(102, 126, 234, 0.03);
+        border-radius: 12px;
+        margin-bottom: 16px;
+    }
+
+    .benefit-icon {
+        width: 40px;
+        height: 40px;
+        background: var(--loomconnect-primary);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        flex-shrink: 0;
+    }
+
+    .cta-section {
+        background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary));
+        color: white;
+        padding: 80px 0;
+        margin-top: 80px;
+    }
+
+    .stat-card {
+        text-align: center;
+        padding: 30px;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+
+    .stat-number {
+        font-size: 3rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .stat-label {
+        color: #6c757d;
+        margin-top: 8px;
+    }
+
+    [data-theme="dark"] .feature-card {
+        background: rgba(33, 37, 41, 0.95);
+    }
+
+    [data-theme="dark"] .stat-card {
+        background: rgba(33, 37, 41, 0.95);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="loomconnect-hero">
+    <div class="container" style="position: relative; z-index: 1;">
+        <div class="row align-items-center">
+            <div class="col-lg-6 mb-5 mb-lg-0">
+                <h1 class="display-3 fw-bold mb-4">
+                    Finde Experten.<br>
+                    Teile dein Wissen.<br>
+                    Vernetze dich.
+                </h1>
+                <p class="lead mb-4">
+                    LoomConnect ist die intelligente Skill-Matching-Plattform für professionelles Networking.
+                    Zeige, was du kannst und finde genau die richtigen Leute für deine Projekte.
+                </p>
+                <div class="d-flex gap-3">
+                    {% if user.is_authenticated %}
+                        <a href="{% url 'loomconnect:dashboard' %}" class="btn btn-light btn-lg">
+                            <i class="bi bi-grid-3x3"></i> Zum Dashboard
+                        </a>
+                    {% else %}
+                        <a href="{% url 'accounts:login' %}" class="btn btn-light btn-lg">
+                            Jetzt starten <i class="bi bi-arrow-right ms-2"></i>
+                        </a>
+                        <a href="#features" class="btn btn-outline-light btn-lg">
+                            Mehr erfahren
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-lg-6 text-center">
+                <div style="font-size: 15rem; opacity: 0.9;">
+                    🤝
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats Section -->
+<section class="py-5" style="background: #f8f9fa;">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-number">{{ total_users|default:"1000+" }}</div>
+                    <div class="stat-label">Aktive User</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-number">{{ total_skills|default:"500+" }}</div>
+                    <div class="stat-label">Skills</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-number">{{ total_connections|default:"5000+" }}</div>
+                    <div class="stat-label">Connections</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-number">{{ total_matches|default:"10k+" }}</div>
+                    <div class="stat-label">Erfolgreiche Matches</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="py-5" id="features">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="display-5 fw-bold mb-3">Was macht LoomConnect besonders?</h2>
+            <p class="lead text-muted">Alle Features, die du für erfolgreiches Networking brauchst</p>
+        </div>
+
+        <div class="row g-4 mb-5">
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon">🎯</div>
+                    <h4>Smart Skill-Matching</h4>
+                    <p class="text-muted">
+                        Intelligente Algorithmen finden automatisch die perfekten Matches zwischen deinen Skills
+                        und den Bedarfen anderer User.
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon">💬</div>
+                    <h4>Direkter Austausch</h4>
+                    <p class="text-muted">
+                        Vernetze dich über Connect-Requests oder schreibe direkt. Integrierter Chat macht
+                        Kommunikation einfach und schnell.
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon">📰</div>
+                    <h4>Interaktiver Feed</h4>
+                    <p class="text-muted">
+                        Teile dein Wissen in Posts, stelle Fragen, diskutiere mit der Community
+                        und baue deine Reichweite auf.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mb-5">
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon">⭐</div>
+                    <h4>Karma-System</h4>
+                    <p class="text-muted">
+                        Sammle Karma-Punkte durch hilfreiche Beiträge und erfolgreiche Connections.
+                        Zeige deine Expertise und baue Vertrauen auf.
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon">🔍</div>
+                    <h4>Erweiterte Suche</h4>
+                    <p class="text-muted">
+                        Finde gezielt nach Skills, Verfügbarkeit, Location und mehr. Filtere und sortiere
+                        nach deinen Bedürfnissen.
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h4>Detaillierte Profile</h4>
+                    <p class="text-muted">
+                        Zeige deine Skills mit Levels, Erfahrungsjahren und Beschreibungen.
+                        Gib an, wobei du Hilfe brauchst.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- How It Works -->
+<section class="py-5" style="background: #f8f9fa;">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="display-5 fw-bold mb-3">So funktioniert's</h2>
+            <p class="lead text-muted">In 3 einfachen Schritten zum Erfolg</p>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="text-center">
+                    <div class="feature-icon mx-auto">1️⃣</div>
+                    <h4 class="mt-3">Profil erstellen</h4>
+                    <p class="text-muted">
+                        Durchlaufe das 5-minütige Onboarding und füge deine Skills, Erfahrungen
+                        und Bedarfe hinzu.
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center">
+                    <div class="feature-icon mx-auto">2️⃣</div>
+                    <h4 class="mt-3">Matches finden</h4>
+                    <p class="text-muted">
+                        Entdecke User, die deine Skills brauchen oder dir bei deinen Projekten
+                        helfen können.
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center">
+                    <div class="feature-icon mx-auto">3️⃣</div>
+                    <h4 class="mt-3">Vernetzen & Austauschen</h4>
+                    <p class="text-muted">
+                        Sende Connect-Requests, öffne Chats und tausche dich über gemeinsame
+                        Projekte aus.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Benefits Section -->
+<section class="py-5">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6 mb-5 mb-lg-0">
+                <h2 class="display-5 fw-bold mb-4">Warum LoomConnect?</h2>
+                <p class="lead text-muted mb-4">
+                    LoomConnect ist mehr als nur eine Networking-Plattform
+                </p>
+
+                <div class="benefit-item">
+                    <div class="benefit-icon">
+                        <i class="bi bi-check-lg"></i>
+                    </div>
+                    <div>
+                        <h5>Komplett kostenlos</h5>
+                        <p class="text-muted mb-0">
+                            Alle Features ohne versteckte Kosten. Teil deines WorkLoom-Zugangs.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="benefit-item">
+                    <div class="benefit-icon">
+                        <i class="bi bi-check-lg"></i>
+                    </div>
+                    <div>
+                        <h5>Qualitätsvolle Matches</h5>
+                        <p class="text-muted mb-0">
+                            Intelligente Algorithmen sorgen für relevante und passende Vorschläge.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="benefit-item">
+                    <div class="benefit-icon">
+                        <i class="bi bi-check-lg"></i>
+                    </div>
+                    <div>
+                        <h5>Datenschutz & Sicherheit</h5>
+                        <p class="text-muted mb-0">
+                            Deine Daten bleiben bei dir. Volle Kontrolle über deine Sichtbarkeit.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="benefit-item">
+                    <div class="benefit-icon">
+                        <i class="bi bi-check-lg"></i>
+                    </div>
+                    <div>
+                        <h5>Integration mit WorkLoom</h5>
+                        <p class="text-muted mb-0">
+                            Nahtlose Verbindung mit Chat, Projekten und anderen WorkLoom-Tools.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="text-center" style="font-size: 20rem; opacity: 0.9;">
+                    🌟
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="cta-section">
+    <div class="container text-center">
+        <h2 class="display-4 fw-bold mb-4">
+            Bereit, durchzustarten?
+        </h2>
+        <p class="lead mb-5">
+            Werde Teil der LoomConnect-Community und finde deine perfekten Matches
+        </p>
+        {% if user.is_authenticated %}
+            <a href="{% url 'loomconnect:dashboard' %}" class="btn btn-light btn-lg">
+                <i class="bi bi-grid-3x3"></i> Zum Dashboard
+            </a>
+        {% else %}
+            <a href="{% url 'accounts:register' %}" class="btn btn-light btn-lg">
+                Kostenlos registrieren <i class="bi bi-arrow-right ms-2"></i>
+            </a>
+            <div class="mt-3">
+                <small class="opacity-75">Bereits registriert? <a href="{% url 'accounts:login' %}" class="text-white"><u>Jetzt einloggen</u></a></small>
+            </div>
+        {% endif %}
+    </div>
+</section>
+
+<!-- FAQ Section -->
+<section class="py-5">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="display-5 fw-bold mb-3">Häufige Fragen</h2>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="accordion" id="faqAccordion">
+                    <div class="accordion-item mb-3" style="border-radius: 12px; border: 1px solid rgba(102, 126, 234, 0.2);">
+                        <h3 class="accordion-header">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                                Ist LoomConnect wirklich kostenlos?
+                            </button>
+                        </h3>
+                        <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                Ja, LoomConnect ist zu 100% kostenlos für alle WorkLoom-Nutzer. Es gibt keine versteckten Kosten
+                                oder Premium-Features. Alle Funktionen stehen dir vollständig zur Verfügung.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item mb-3" style="border-radius: 12px; border: 1px solid rgba(102, 126, 234, 0.2);">
+                        <h3 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                                Wie funktioniert das Skill-Matching?
+                            </button>
+                        </h3>
+                        <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                Unser intelligenter Algorithmus vergleicht deine Skills mit den Bedarfen anderer User und umgekehrt.
+                                Du erhältst automatisch Vorschläge für passende Matches basierend auf Skills, Level und Verfügbarkeit.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item mb-3" style="border-radius: 12px; border: 1px solid rgba(102, 126, 234, 0.2);">
+                        <h3 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                                Was sind Karma-Punkte?
+                            </button>
+                        </h3>
+                        <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                Karma-Punkte sind ein Reputationssystem. Du verdienst Karma durch hilfreiche Posts, erfolgreiche
+                                Connections und aktive Teilnahme in der Community. Höheres Karma bedeutet mehr Vertrauen und Sichtbarkeit.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item mb-3" style="border-radius: 12px; border: 1px solid rgba(102, 126, 234, 0.2);">
+                        <h3 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq4">
+                                Kann ich mein Profil privat schalten?
+                            </button>
+                        </h3>
+                        <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                Ja, du hast volle Kontrolle über deine Privatsphäre. Du kannst dein Profil auf privat setzen,
+                                deinen Online-Status verbergen und einzelne Informationen ausblenden.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item" style="border-radius: 12px; border: 1px solid rgba(102, 126, 234, 0.2);">
+                        <h3 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq5">
+                                Wie unterscheidet sich LoomConnect von LinkedIn?
+                            </button>
+                        </h3>
+                        <div id="faq5" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                LoomConnect fokussiert sich auf aktives Skill-Matching und direkte Zusammenarbeit, nicht auf
+                                Jobsuche oder Recruiting. Es ist speziell für WorkLoom-User optimiert und vollständig integriert
+                                mit anderen Platform-Features wie Chat und Projekten.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

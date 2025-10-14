@@ -291,6 +291,74 @@ class TriggerManager:
                     'priority': 'Priorität',
                     'assigner_name': 'Name des Zuweisenden'
                 }
+            },
+
+            # LoomConnect triggers
+            {
+                'key': 'loomconnect_new_match',
+                'name': 'LoomConnect: Neues Match',
+                'description': 'Benachrichtigung über ein neues Skill-Match',
+                'category': 'custom',
+                'variables': {
+                    'user_name': 'Name des Empfängers',
+                    'match_username': 'Username des Matches',
+                    'match_name': 'Name des Matches',
+                    'match_bio': 'Bio des Matches',
+                    'match_skills': 'Skills des Matches',
+                    'match_profile_url': 'Link zum Profil',
+                    'common_skills': 'Gemeinsame Skills',
+                    'match_score': 'Match-Score (Prozent)',
+                    'site_url': 'Website-URL'
+                }
+            },
+            {
+                'key': 'loomconnect_new_message',
+                'name': 'LoomConnect: Neue Nachricht',
+                'description': 'Benachrichtigung über eine neue Chat-Nachricht',
+                'category': 'custom',
+                'variables': {
+                    'user_name': 'Name des Empfängers',
+                    'sender_username': 'Username des Absenders',
+                    'sender_name': 'Name des Absenders',
+                    'message_preview': 'Nachrichten-Vorschau',
+                    'chat_room_name': 'Chat-Raum Name',
+                    'chat_url': 'Link zum Chat',
+                    'unread_count': 'Anzahl ungelesener Nachrichten',
+                    'site_url': 'Website-URL'
+                }
+            },
+            {
+                'key': 'loomconnect_weekly_digest',
+                'name': 'LoomConnect: Wöchentliche Zusammenfassung',
+                'description': 'Wöchentlicher Überblick über Aktivitäten und Matches',
+                'category': 'custom',
+                'variables': {
+                    'user_name': 'Name des Empfängers',
+                    'week_start': 'Wochenstart',
+                    'week_end': 'Wochenende',
+                    'new_matches_count': 'Anzahl neuer Matches',
+                    'new_messages_count': 'Anzahl neuer Nachrichten',
+                    'profile_views_count': 'Anzahl Profil-Aufrufe',
+                    'new_connections_count': 'Anzahl neuer Verbindungen',
+                    'top_matches': 'Top Matches der Woche',
+                    'dashboard_url': 'Link zum Dashboard',
+                    'site_url': 'Website-URL'
+                }
+            },
+            {
+                'key': 'loomconnect_connection_accepted',
+                'name': 'LoomConnect: Verbindung akzeptiert',
+                'description': 'Benachrichtigung wenn eine Connect-Anfrage akzeptiert wurde',
+                'category': 'custom',
+                'variables': {
+                    'user_name': 'Name des Empfängers',
+                    'accepter_username': 'Username des Akzeptierenden',
+                    'accepter_name': 'Name des Akzeptierenden',
+                    'accepter_bio': 'Bio des Akzeptierenden',
+                    'chat_url': 'Link zum Chat',
+                    'profile_url': 'Link zum Profil',
+                    'site_url': 'Website-URL'
+                }
             }
         ]
         

@@ -1,0 +1,102 @@
+{% extends 'loomconnect/base_loomconnect.html' %}
+{% load static %}
+
+{% block title %}Story von {{ story.profile.user.username }} - LoomConnect{% endblock %}
+
+{% block loomconnect_content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="loomconnect-card">
+            <!-- Back Button -->
+            <div class="mb-4">
+                <a href="{% url 'loomconnect:stories' %}" class="btn btn-sm loomconnect-btn loomconnect-btn-outline">
+                    <i class="bi bi-arrow-left"></i> Zurück zu Stories
+                </a>
+            </div>
+
+            <!-- Author Header -->
+            <div class="d-flex align-items-start gap-3 mb-4">
+                {% if story.profile.avatar %}
+                <img src="{{ story.profile.avatar.url }}" alt="{{ story.profile.user.username }}"
+                     class="rounded-circle" style="width: 60px; height: 60px; object-fit: cover;">
+                {% else %}
+                <div class="rounded-circle d-flex align-items-center justify-content-center"
+                     style="width: 60px; height: 60px; background: var(--loomconnect-primary); color: white; font-size: 24px; font-weight: bold;">
+                    {{ story.profile.user.username|slice:":1"|upper }}
+                </div>
+                {% endif %}
+
+                <div class="flex-grow-1">
+                    <h5 class="mb-1">
+                        <a href="{% url 'loomconnect:profile' story.profile.user.username %}"
+                           class="text-decoration-none text-body">
+                            {{ story.profile.user.get_full_name|default:story.profile.user.username }}
+                        </a>
+                    </h5>
+                    <small class="text-muted">@{{ story.profile.user.username }}</small>
+                    <div class="mt-1">
+                        <small class="text-muted">{{ story.created_at|date:"d.m.Y H:i" }} Uhr</small>
+                        <span class="badge bg-primary ms-2">{{ story.get_story_type_display }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Image if exists -->
+            {% if story.image %}
+            <div class="mb-4">
+                <img src="{{ story.image.url }}" alt="Story"
+                     class="img-fluid rounded" style="width: 100%; max-height: 500px; object-fit: contain; background: #000;">
+            </div>
+            {% endif %}
+
+            <!-- Content -->
+            <div class="mb-4">
+                <p class="fs-5 mb-0" style="white-space: pre-wrap;">{{ story.content }}</p>
+            </div>
+
+            <!-- Stats -->
+            <div class="d-flex justify-content-between align-items-center py-3"
+                 style="border-top: 1px solid rgba(255,255,255,0.1); border-bottom: 1px solid rgba(255,255,255,0.1);">
+                <div>
+                    <i class="bi bi-eye"></i>
+                    <span class="ms-1">{{ story.views_count }} Ansichten</span>
+                </div>
+                <div>
+                    {% if story.is_active %}
+                    <small class="text-success">
+                        <i class="bi bi-check-circle-fill"></i> Aktiv bis {{ story.expires_at|date:"H:i" }} Uhr
+                    </small>
+                    {% else %}
+                    <small class="text-danger">
+                        <i class="bi bi-x-circle-fill"></i> Abgelaufen
+                    </small>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="d-flex gap-2 mt-4">
+                <a href="{% url 'loomconnect:profile' story.profile.user.username %}"
+                   class="btn loomconnect-btn loomconnect-btn-outline flex-grow-1">
+                    <i class="bi bi-person"></i> Zum Profil
+                </a>
+                {% if story.profile.user != request.user %}
+                <a href="{% url 'loomconnect:send_request' story.profile.user.username %}"
+                   class="btn loomconnect-btn loomconnect-btn-primary flex-grow-1">
+                    <i class="bi bi-person-plus"></i> Verbinden
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Info Box -->
+        <div class="loomconnect-card mt-3">
+            <small class="text-muted">
+                <i class="bi bi-info-circle"></i>
+                Stories werden nach 24 Stunden automatisch gelöscht.
+                Erstellt am {{ story.created_at|date:"d.m.Y" }} um {{ story.created_at|date:"H:i" }} Uhr.
+            </small>
+        </div>
+    </div>
+</div>
+{% endblock %}

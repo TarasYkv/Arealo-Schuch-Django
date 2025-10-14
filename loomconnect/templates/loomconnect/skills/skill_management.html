@@ -1,0 +1,94 @@
+{% extends 'loomconnect/base_loomconnect.html' %}
+{% load static %}
+
+{% block title %}Meine Skills - LoomConnect{% endblock %}
+
+{% block loomconnect_content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="bi bi-star-fill"></i> Meine Skills</h1>
+            <a href="{% url 'loomconnect:add_skill' %}" class="btn loomconnect-btn loomconnect-btn-primary">
+                <i class="bi bi-plus-circle"></i> Neuer Skill
+            </a>
+        </div>
+
+        {% if my_skills %}
+        <div class="row g-4">
+            {% for user_skill in my_skills %}
+            <div class="col-md-6 col-lg-4">
+                <div class="loomconnect-card h-100">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <span class="badge bg-secondary mb-2">{{ user_skill.skill.category.name }}</span>
+                            <h5 class="mb-1">{{ user_skill.skill.name }}</h5>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-link text-muted" type="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots-vertical"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'loomconnect:edit_skill' user_skill.pk %}">
+                                        <i class="bi bi-pencil"></i> Bearbeiten
+                                    </a>
+                                </li>
+                                <li>
+                                    <form method="post" action="{% url 'loomconnect:delete_skill' user_skill.pk %}" style="margin: 0;">
+                                        {% csrf_token %}
+                                        <button type="submit" class="dropdown-item text-danger" onclick="return confirm('Skill wirklich entfernen?')">
+                                            <i class="bi bi-trash"></i> Löschen
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <small class="text-muted">Level:</small>
+                        <div class="progress mb-2" style="height: 8px;">
+                            {% if user_skill.level == 'anfaenger' %}
+                            <div class="progress-bar bg-info" style="width: 25%"></div>
+                            {% elif user_skill.level == 'fortgeschritten' %}
+                            <div class="progress-bar bg-primary" style="width: 50%"></div>
+                            {% elif user_skill.level == 'experte' %}
+                            <div class="progress-bar bg-success" style="width: 75%"></div>
+                            {% else %}
+                            <div class="progress-bar bg-warning" style="width: 100%"></div>
+                            {% endif %}
+                        </div>
+                        <small><strong>{{ user_skill.get_level_display }}</strong></small>
+                        {% if user_skill.years_experience %}
+                        <small class="text-muted"> • {{ user_skill.years_experience }} Jahre Erfahrung</small>
+                        {% endif %}
+                    </div>
+
+                    {% if user_skill.description %}
+                    <p class="text-muted small mb-3">{{ user_skill.description|truncatewords:20 }}</p>
+                    {% endif %}
+
+                    <div class="d-flex gap-2 mt-auto">
+                        {% if user_skill.is_offering %}
+                        <span class="badge bg-success"><i class="bi bi-hand-thumbs-up"></i> Biete Hilfe an</span>
+                        {% else %}
+                        <span class="badge bg-secondary"><i class="bi bi-eye-slash"></i> Nur für mich</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="loomconnect-card text-center py-5">
+            <i class="bi bi-star" style="font-size: 48px; color: var(--loomconnect-primary);"></i>
+            <h4 class="mt-3">Noch keine Skills vorhanden</h4>
+            <p class="text-muted mb-4">Füge deine ersten Skills hinzu, um von anderen gefunden zu werden!</p>
+            <a href="{% url 'loomconnect:add_skill' %}" class="btn loomconnect-btn loomconnect-btn-primary">
+                <i class="bi bi-plus-circle"></i> Ersten Skill hinzufügen
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

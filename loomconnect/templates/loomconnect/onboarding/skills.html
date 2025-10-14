@@ -1,0 +1,155 @@
+{% extends 'loomconnect/base_loomconnect.html' %}
+{% load static %}
+
+{% block title %}Skills auswählen - LoomConnect{% endblock %}
+
+{% block loomconnect_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <!-- Progress -->
+        <div class="onboarding-progress mb-5">
+            <div class="onboarding-step completed">
+                <div class="onboarding-step-circle"><i class="bi bi-check"></i></div>
+                <small>Start</small>
+            </div>
+            <div class="onboarding-step active">
+                <div class="onboarding-step-circle">1</div>
+                <small>Skills</small>
+            </div>
+            <div class="onboarding-step">
+                <div class="onboarding-step-circle">2</div>
+                <small>Level</small>
+            </div>
+            <div class="onboarding-step">
+                <div class="onboarding-step-circle">3</div>
+                <small>Bedarfe</small>
+            </div>
+            <div class="onboarding-step">
+                <div class="onboarding-step-circle">4</div>
+                <small>Verfügbarkeit</small>
+            </div>
+            <div class="onboarding-step">
+                <div class="onboarding-step-circle">5</div>
+                <small>Profil</small>
+            </div>
+        </div>
+
+        <div class="loomconnect-card">
+            <h2 class="mb-2">Was kannst du?</h2>
+            <p class="text-muted mb-4">Wähle bis zu 10 Skills aus, die du beherrschst</p>
+
+            <form method="post">
+                {% csrf_token %}
+
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    {{ form.errors }}
+                </div>
+                {% endif %}
+
+                <!-- Skill Categories -->
+                {% for category in categories %}
+                <div class="mb-4">
+                    <h5 class="mb-3">
+                        <i class="bi bi-folder2-open"></i> {{ category.name }}
+                    </h5>
+                    <div class="row g-2">
+                        {% for skill in category.skills.all %}
+                        <div class="col-md-3 col-sm-4 col-6">
+                            <div class="form-check">
+                                <input class="form-check-input skill-checkbox"
+                                       type="checkbox"
+                                       name="skills"
+                                       value="{{ skill.id }}"
+                                       id="skill_{{ skill.id }}">
+                                <label class="form-check-label w-100" for="skill_{{ skill.id }}">
+                                    <div class="skill-badge-outline w-100 text-center" style="cursor: pointer;">
+                                        {{ skill.name }}
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <hr class="my-4">
+                {% endfor %}
+
+                <!-- Custom Skill -->
+                <div class="mt-4">
+                    <h5 class="mb-3">
+                        <i class="bi bi-plus-circle"></i> Eigenen Skill hinzufügen
+                    </h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            {{ form.custom_skill_name.label_tag }}
+                            {{ form.custom_skill_name }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.custom_skill_category.label_tag }}
+                            {{ form.custom_skill_category }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Selected Counter -->
+                <div class="alert alert-info mt-4">
+                    <i class="bi bi-info-circle"></i>
+                    Du hast <strong id="selected-count">0</strong> von maximal 10 Skills ausgewählt
+                </div>
+
+                <!-- Navigation -->
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{% url 'loomconnect:onboarding_welcome' %}" class="btn loomconnect-btn loomconnect-btn-outline">
+                        <i class="bi bi-arrow-left"></i> Zurück
+                    </a>
+                    <button type="submit" class="btn loomconnect-btn loomconnect-btn-primary">
+                        Weiter <i class="bi bi-arrow-right ms-2"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Track selected skills
+    const checkboxes = document.querySelectorAll('.skill-checkbox');
+    const counter = document.getElementById('selected-count');
+    const maxSkills = 10;
+
+    function updateCounter() {
+        const checked = document.querySelectorAll('.skill-checkbox:checked').length;
+        counter.textContent = checked;
+
+        // Disable unchecked boxes if limit reached
+        checkboxes.forEach(cb => {
+            if (!cb.checked && checked >= maxSkills) {
+                cb.disabled = true;
+                cb.parentElement.style.opacity = '0.5';
+            } else if (cb.disabled) {
+                cb.disabled = false;
+                cb.parentElement.style.opacity = '1';
+            }
+        });
+    }
+
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', updateCounter);
+
+        // Visual feedback
+        cb.addEventListener('change', function() {
+            const badge = this.parentElement.querySelector('.skill-badge-outline');
+            if (this.checked) {
+                badge.classList.remove('skill-badge-outline');
+                badge.classList.add('skill-badge');
+            } else {
+                badge.classList.remove('skill-badge');
+                badge.classList.add('skill-badge-outline');
+            }
+        });
+    });
+
+    updateCounter();
+</script>
+{% endblock %}

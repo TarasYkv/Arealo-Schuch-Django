@@ -40,8 +40,8 @@ class RecordingSessionAdmin(admin.ModelAdmin):
 
 @admin.register(UserPreferences) 
 class UserPreferencesAdmin(admin.ModelAdmin):
-    list_display = ['user', 'default_video_quality', 'preferred_layout', 'dark_mode', 'updated_at']
-    list_filter = ['default_video_quality', 'dark_mode', 'auto_save_settings', 'analytics_enabled']
+    list_display = ['user', 'default_video_quality', 'preferred_layout', 'updated_at']
+    list_filter = ['default_video_quality', 'auto_save_settings', 'analytics_enabled']
     search_fields = ['user__username', 'user__email']
     
     fieldsets = [
@@ -49,7 +49,7 @@ class UserPreferencesAdmin(admin.ModelAdmin):
             'fields': ['user', 'default_video_quality', 'default_audio_quality']
         }),
         ('Layout & UI', {
-            'fields': ['preferred_layout', 'show_notifications', 'dark_mode', 'auto_save_settings']
+            'fields': ['preferred_layout', 'show_notifications', 'auto_save_settings']
         }),
         ('Advanced Settings', {
             'fields': ['auto_start_composition', 'include_system_audio', 'preferred_format']

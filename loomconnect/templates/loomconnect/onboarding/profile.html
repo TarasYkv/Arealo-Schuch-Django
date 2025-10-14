@@ -1,0 +1,226 @@
+{% extends 'loomconnect/base_loomconnect.html' %}
+{% load static %}
+
+{% block title %}Dein Profil - LoomConnect{% endblock %}
+
+{% block loomconnect_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <!-- Progress -->
+        <div class="onboarding-progress mb-5">
+            <div class="onboarding-step completed">
+                <div class="onboarding-step-circle"><i class="bi bi-check"></i></div>
+                <small>Start</small>
+            </div>
+            <div class="onboarding-step completed">
+                <div class="onboarding-step-circle"><i class="bi bi-check"></i></div>
+                <small>Skills</small>
+            </div>
+            <div class="onboarding-step completed">
+                <div class="onboarding-step-circle"><i class="bi bi-check"></i></div>
+                <small>Level</small>
+            </div>
+            <div class="onboarding-step completed">
+                <div class="onboarding-step-circle"><i class="bi bi-check"></i></div>
+                <small>Bedarfe</small>
+            </div>
+            <div class="onboarding-step completed">
+                <div class="onboarding-step-circle"><i class="bi bi-check"></i></div>
+                <small>Verfügbarkeit</small>
+            </div>
+            <div class="onboarding-step active">
+                <div class="onboarding-step-circle">5</div>
+                <small>Profil</small>
+            </div>
+        </div>
+
+        <div class="loomconnect-card">
+            <h2 class="mb-2">Vervollständige dein Profil</h2>
+            <p class="text-muted mb-4">Fast geschafft! Noch ein paar Details zu dir</p>
+
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    {% for field, errors in form.errors.items %}
+                        {% for error in errors %}
+                            <div>{{ field }}: {{ error }}</div>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Avatar Upload -->
+                <div class="mb-4 text-center">
+                    <label class="form-label fw-bold d-block">Profilbild</label>
+                    <div class="mb-3">
+                        <div id="avatar-preview" class="profile-avatar mx-auto mb-3 bg-gradient d-flex align-items-center justify-content-center text-white"
+                             style="background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary)); width: 120px; height: 120px;">
+                            <i class="bi bi-person-fill" style="font-size: 3rem;"></i>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-center gap-2">
+                        <label for="id_avatar" class="btn loomconnect-btn loomconnect-btn-outline btn-sm">
+                            <i class="bi bi-upload"></i> Bild hochladen
+                        </label>
+                        {{ form.avatar }}
+                    </div>
+                    <small class="text-muted d-block mt-2">JPG, PNG oder GIF (max. 5 MB)</small>
+                </div>
+
+                <!-- Bio -->
+                <div class="mb-4">
+                    <label for="{{ form.bio.id_for_label }}" class="form-label fw-bold">
+                        <i class="bi bi-person-lines-fill"></i> {{ form.bio.label }}
+                    </label>
+                    {{ form.bio }}
+                    <small class="text-muted">
+                        <span id="bio-count">0</span> / 500 Zeichen
+                    </small>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            💡 Tipp: Erzähle kurz über dich, deine Interessen und was dich motiviert
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Location (optional) -->
+                <div class="mb-4">
+                    <label for="{{ form.location.id_for_label }}" class="form-label fw-bold">
+                        <i class="bi bi-geo-alt"></i> Standort (optional)
+                    </label>
+                    {{ form.location }}
+                    <small class="text-muted d-block mt-1">
+                        Hilft anderen, lokale Connections zu finden
+                    </small>
+                </div>
+
+                <!-- Website/Social Links (optional) -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-link-45deg"></i> Links (optional)
+                    </label>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-globe"></i></span>
+                                {{ form.website }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-linkedin"></i></span>
+                                {{ form.linkedin }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Privacy Settings -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-shield-lock"></i> Privatsphäre
+                    </label>
+                    <div class="loomconnect-card" style="padding: 16px; background: rgba(102, 126, 234, 0.05);">
+                        <div class="form-check mb-2">
+                            {{ form.is_public }}
+                            <label class="form-check-label" for="{{ form.is_public.id_for_label }}">
+                                <strong>{{ form.is_public.label }}</strong>
+                                <div class="small text-muted">Andere können dein Profil finden und deine Skills sehen</div>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            {{ form.show_online_status }}
+                            <label class="form-check-label" for="{{ form.show_online_status.id_for_label }}">
+                                <strong>{{ form.show_online_status.label }}</strong>
+                                <div class="small text-muted">Zeigt anderen, wann du online bist</div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notification Preferences (optional) -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-bell"></i> Benachrichtigungen
+                    </label>
+                    <div class="form-check mb-2">
+                        {{ form.notify_new_matches }}
+                        <label class="form-check-label" for="{{ form.notify_new_matches.id_for_label }}">
+                            {{ form.notify_new_matches.label }}
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        {{ form.notify_messages }}
+                        <label class="form-check-label" for="{{ form.notify_messages.id_for_label }}">
+                            {{ form.notify_messages.label }}
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        {{ form.notify_weekly_digest }}
+                        <label class="form-check-label" for="{{ form.notify_weekly_digest.id_for_label }}">
+                            {{ form.notify_weekly_digest.label }}
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Info Box -->
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle"></i>
+                    Fast fertig! Nach dem Speichern kannst du sofort loslegen und dich vernetzen.
+                </div>
+
+                <!-- Navigation -->
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{% url 'loomconnect:onboarding_availability' %}" class="btn loomconnect-btn loomconnect-btn-outline">
+                        <i class="bi bi-arrow-left"></i> Zurück
+                    </a>
+                    <button type="submit" class="btn loomconnect-btn loomconnect-btn-primary btn-lg">
+                        Profil erstellen <i class="bi bi-check2-circle ms-2"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Avatar Preview
+    const avatarInput = document.getElementById('id_avatar');
+    const avatarPreview = document.getElementById('avatar-preview');
+
+    avatarInput.style.display = 'none';
+
+    avatarInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                avatarPreview.innerHTML = `<img src="${e.target.result}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Bio Character Counter
+    const bioTextarea = document.getElementById('id_bio');
+    const bioCount = document.getElementById('bio-count');
+
+    function updateBioCount() {
+        const length = bioTextarea.value.length;
+        bioCount.textContent = length;
+
+        if (length > 450) {
+            bioCount.style.color = 'var(--bs-warning)';
+        } else if (length >= 500) {
+            bioCount.style.color = 'var(--bs-danger)';
+        } else {
+            bioCount.style.color = 'inherit';
+        }
+    }
+
+    bioTextarea.addEventListener('input', updateBioCount);
+    updateBioCount();
+</script>
+{% endblock %}

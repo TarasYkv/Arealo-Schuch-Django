@@ -307,6 +307,27 @@ body.bg-dark #layoutControls .form-control {
     border-color: #6c757d !important;
     color: #ffffff !important;
 }
+
+/* Drag & Drop Styles */
+.stream-thumbnail {
+    transition: all 0.2s ease;
+}
+
+.stream-thumbnail.drag-over {
+    border: 2px solid #0d6efd !important;
+    box-shadow: 0 0 10px rgba(13, 110, 253, 0.5);
+    transform: scale(1.05);
+}
+
+.stream-thumbnail:active {
+    cursor: grabbing !important;
+}
+
+/* Layer badge styling */
+.stream-thumbnail .badge {
+    font-size: 0.65rem;
+    padding: 0.2rem 0.4rem;
+}
 </style>
 {% endblock %}
 
@@ -593,6 +614,12 @@ body.bg-dark #layoutControls .form-control {
                                 Noch keine Streams erfasst
                             </div>
                         </div>
+                        <div id="dragDropHint" class="alert alert-dark mt-2" style="display: none;">
+                            <small>
+                                <i class="fas fa-hand-paper me-1"></i>
+                                <strong>Drag & Drop:</strong> Verschieben Sie Thumbnails, um die Ebenen-Reihenfolge zu ändern (links=hinten, rechts=vorne)
+                            </small>
+                        </div>
                     </div>
                 </div>
 
@@ -711,12 +738,6 @@ body.bg-dark #layoutControls .form-control {
                                 Benachrichtigungen anzeigen
                             </label>
                         </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="darkMode">
-                            <label class="form-check-label" for="darkMode">
-                                Dunkler Modus (experimentell)
-                            </label>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -743,6 +764,8 @@ console.log('🚀 StreamRec Enhanced Version (Server-Ready) wird geladen...');
 class StreamRecorder {
     constructor() {
         this.streams = new Map();
+        this.streamOrder = []; // Tracks order of streams for z-index (left=back, right=front)
+        this.streamPositions = new Map(); // Stores position/size for each stream in free layout
         this.canvas = null;
         this.ctx = null;
         this.isComposing = false;
@@ -754,7 +777,8 @@ class StreamRecorder {
         this.recordingStartTime = null;
         this.recordingTimer = null;
         this.maxDuration = 180000; // 3 minutes
-        
+        this.draggedThumbnail = null;
+
         this.init();
     }
 
@@ -804,9 +828,8 @@ class StreamRecorder {
             if (!this.isComposing) {
                 this.startComposition();
             }
-            // Active State aktualisieren
-            document.querySelectorAll('#layoutChips [data-layout]').forEach(el => el.classList.remove('active'));
-            btn.classList.add('active');
+            // Active State aktualisieren - refresh chips to ensure correct highlighting
+            this.refreshLayoutChips();
         });
 
         // Recording buttons
@@ -826,7 +849,7 @@ class StreamRecorder {
                 systemAudio: document.getElementById('systemAudio')?.checked,
                 autoSave: document.getElementById('autoSave')?.checked,
                 showNotifications: document.getElementById('showNotifications')?.checked,
-                darkMode: document.getElementById('darkMode')?.checked
+                darkMode: false
             };
             try {
                 localStorage.setItem('streamrec-settings', JSON.stringify(settings));
@@ -900,6 +923,7 @@ class StreamRecorder {
             });
 
             this.streams.set('camera', stream);
+            this.streamOrder.push('camera'); // Add to order
             this.updateStatus('camera', 'Aktiv', 'success');
             this.updateButtons('camera', true);
             this.addStreamThumbnail('camera', stream);
@@ -936,6 +960,7 @@ class StreamRecorder {
             });
 
             this.streams.set('screen', stream);
+            this.streamOrder.push('screen'); // Add to order
             this.updateStatus('screen', 'Aktiv', 'success');
             this.updateButtons('screen', true);
             this.addStreamThumbnail('screen', stream);
@@ -970,6 +995,7 @@ class StreamRecorder {
                 audio: true
             });
             this.streams.set(key, stream);
+            this.streamOrder.push(key); // Add to order
             this.addStreamThumbnail(key, stream);
             if (!this.isComposing) this.startComposition();
             this.updateActiveStreamsCount();
@@ -993,6 +1019,8 @@ class StreamRecorder {
         if (stream) {
             stream.getTracks().forEach(t => t.stop());
             this.streams.delete(key);
+            this.streamOrder = this.streamOrder.filter(k => k !== key); // Remove from order
+            this.streamPositions.delete(key); // Remove position data
             this.removeStreamThumbnail(key);
             this.updateActiveStreamsCount();
             this.refreshLayoutChips?.();
@@ -1025,7 +1053,7 @@ class StreamRecorder {
 
     renderCurrentLayout() {
         const streams = Array.from(this.streams.entries());
-        
+
         switch (this.currentLayout) {
             case 'pip':
                 this.renderPictureInPicture(streams);
@@ -1047,6 +1075,9 @@ class StreamRecorder {
                 break;
             case 'fullscreen':
                 this.renderFullscreen(streams);
+                break;
+            case 'free':
+                this.renderFreeLayout(streams);
                 break;
             default:
                 this.renderPictureInPicture(streams);
@@ -1190,10 +1221,164 @@ class StreamRecorder {
         });
     }
 
+    renderFreeLayout(streams) {
+        // Render streams based on streamOrder (left to right = back to front)
+        // Use streamOrder if available, otherwise use streams as they are
+        const orderedKeys = this.streamOrder.length > 0 ? this.streamOrder : Array.from(this.streams.keys());
+
+        orderedKeys.forEach(key => {
+            const stream = this.streams.get(key);
+            if (!stream) return;
+
+            const video = this.getVideoElement(key, stream);
+            if (!video || video.readyState < 2) return;
+
+            // Get position/size for this stream (defaults if not set)
+            const pos = this.streamPositions.get(key) || this.getDefaultPosition(key);
+
+            // Draw video at specified position
+            this.drawVideoContain(video, pos.x, pos.y, pos.width, pos.height);
+
+            // Optional: Draw border to show bounds
+            this.ctx.strokeStyle = '#ffffff';
+            this.ctx.lineWidth = 2;
+            this.ctx.strokeRect(pos.x, pos.y, pos.width, pos.height);
+        });
+    }
+
+    getDefaultPosition(streamKey) {
+        // Default positions for free layout
+        const index = Array.from(this.streams.keys()).indexOf(streamKey);
+        const offset = index * 50; // Offset each stream slightly
+
+        return {
+            x: 50 + offset,
+            y: 50 + offset,
+            width: 300,
+            height: 200
+        };
+    }
+
+    updateStreamPosition(streamKey, x, y, width, height) {
+        this.streamPositions.set(streamKey, { x, y, width, height });
+    }
+
     applyLayout(layout) {
         this.currentLayout = layout;
         this.showNotification('info', 'Layout geändert', `${layout} Layout aktiviert`);
         console.log(`📐 Layout angewendet: ${layout}`);
+
+        // Update Layout Manager with controls based on layout
+        if (layout === 'free') {
+            this.renderFreeLayoutControls();
+        } else {
+            this.clearLayoutControls();
+        }
+    }
+
+    renderFreeLayoutControls() {
+        const container = document.getElementById('layoutControls');
+        if (!container) return;
+
+        let html = `
+            <h5 class="text-gradient mb-4">
+                <i class="fas fa-th-large me-2"></i>
+                Layout Manager - Freies Layout
+                <span class="badge bg-primary ms-2">Phase 2</span>
+            </h5>
+            <div class="alert alert-info mb-3">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Tipp:</strong> Verschieben Sie die Thumbnails unten per Drag & Drop, um die Ebenen-Reihenfolge zu ändern (links=hinten, rechts=vorne).
+            </div>`;
+
+        this.streamOrder.forEach((key, index) => {
+            const pos = this.streamPositions.get(key) || this.getDefaultPosition(key);
+            const streamName = key === 'camera' ? 'Kamera' : key.includes('screen') ? 'Bildschirm' : key;
+
+            html += `
+                <div class="stream-control card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title">
+                            <span class="badge bg-secondary me-2">${index + 1}</span>
+                            ${streamName}
+                        </h6>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="form-label small">X Position</label>
+                                <input type="range" class="form-range" min="0" max="${this.canvas.width - 100}"
+                                       value="${pos.x}" data-stream="${key}" data-prop="x">
+                                <small class="text-muted" id="pos-x-${key}">${pos.x}px</small>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small">Y Position</label>
+                                <input type="range" class="form-range" min="0" max="${this.canvas.height - 100}"
+                                       value="${pos.y}" data-stream="${key}" data-prop="y">
+                                <small class="text-muted" id="pos-y-${key}">${pos.y}px</small>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small">Breite</label>
+                                <input type="range" class="form-range" min="100" max="${this.canvas.width}"
+                                       value="${pos.width}" data-stream="${key}" data-prop="width">
+                                <small class="text-muted" id="pos-width-${key}">${pos.width}px</small>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small">Höhe</label>
+                                <input type="range" class="form-range" min="100" max="${this.canvas.height}"
+                                       value="${pos.height}" data-stream="${key}" data-prop="height">
+                                <small class="text-muted" id="pos-height-${key}">${pos.height}px</small>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="window.streamRecorder.resetStreamPosition('${key}')">
+                                <i class="fas fa-undo me-1"></i>Zurücksetzen
+                            </button>
+                        </div>
+                    </div>
+                </div>`;
+        });
+
+        container.innerHTML = html;
+
+        // Add event listeners to all range inputs
+        container.querySelectorAll('input[type="range"]').forEach(input => {
+            input.addEventListener('input', (e) => {
+                const streamKey = e.target.dataset.stream;
+                const prop = e.target.dataset.prop;
+                const value = parseInt(e.target.value);
+
+                // Update position
+                const pos = this.streamPositions.get(streamKey) || this.getDefaultPosition(streamKey);
+                pos[prop] = value;
+                this.streamPositions.set(streamKey, pos);
+
+                // Update display
+                const display = document.getElementById(`pos-${prop}-${streamKey}`);
+                if (display) display.textContent = `${value}px`;
+            });
+        });
+    }
+
+    clearLayoutControls() {
+        const container = document.getElementById('layoutControls');
+        if (!container) return;
+
+        container.innerHTML = `
+            <h5 class="text-gradient mb-4">
+                <i class="fas fa-th-large me-2"></i>
+                Layout Manager
+                <span class="badge bg-primary ms-2">Phase 2</span>
+            </h5>
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                Wechseln Sie zum <strong>Freien Layout</strong>, um individuelle Stream-Positionen einzustellen.
+            </div>`;
+    }
+
+    resetStreamPosition(streamKey) {
+        const defaultPos = this.getDefaultPosition(streamKey);
+        this.streamPositions.set(streamKey, defaultPos);
+        this.renderFreeLayoutControls();
+        this.showNotification('info', 'Position zurückgesetzt', `${streamKey} wurde auf Standardposition zurückgesetzt`);
     }
 
     // Dynamische Anzeige der Layout-Vorlagen basierend auf Stream-Anzahl
@@ -1202,27 +1387,37 @@ class StreamRecorder {
         if (!container) return;
         const count = this.streams.size;
         let layouts = [];
-        if (count <= 1) {
-            layouts = [ { id: 'fullscreen', name: 'Vollbild' } ];
-        } else if (count === 2) {
-            layouts = [ { id: 'side', name: 'Nebeneinander' }, { id: 'pip', name: 'PiP' }, { id: 'stack', name: 'Gestapelt' } ];
-        } else if (count === 3) {
-            layouts = [
-                { id: 'stack', name: 'Gestapelt' },
-                { id: 'threeCols', name: '3 Spalten' },
-                { id: 'leftBigRight2', name: 'Links groß, rechts 2' },
-                { id: 'pip', name: 'PiP' }
-            ];
-        } else { // 4 oder mehr
-            layouts = [
-                { id: 'grid2x2', name: '2×2 Raster' },
-                { id: 'threeCols', name: '3 Spalten' },
-                { id: 'stack', name: 'Gestapelt' },
-                { id: 'pip', name: 'PiP' }
-            ];
+
+        // Freies Layout ist immer verfügbar wenn Streams vorhanden sind
+        if (count > 0) {
+            layouts.push({ id: 'free', name: '🎨 Frei', title: 'Freies Layout - Streams individuell positionieren' });
         }
+
+        if (count <= 1) {
+            layouts.push({ id: 'fullscreen', name: 'Vollbild' });
+        } else if (count === 2) {
+            layouts.push({ id: 'side', name: 'Nebeneinander' });
+            layouts.push({ id: 'pip', name: 'PiP' });
+            layouts.push({ id: 'stack', name: 'Gestapelt' });
+        } else if (count === 3) {
+            layouts.push({ id: 'stack', name: 'Gestapelt' });
+            layouts.push({ id: 'threeCols', name: '3 Spalten' });
+            layouts.push({ id: 'leftBigRight2', name: 'Links groß, rechts 2' });
+            layouts.push({ id: 'pip', name: 'PiP' });
+        } else { // 4 oder mehr
+            layouts.push({ id: 'grid2x2', name: '2×2 Raster' });
+            layouts.push({ id: 'threeCols', name: '3 Spalten' });
+            layouts.push({ id: 'stack', name: 'Gestapelt' });
+            layouts.push({ id: 'pip', name: 'PiP' });
+        }
+
         container.innerHTML = layouts.map(l => `
-            <button type="button" class="btn btn-sm ${this.currentLayout===l.id?'btn-primary':'btn-outline-primary'}" data-layout="${l.id}">${l.name}</button>
+            <button type="button"
+                    class="btn btn-sm ${this.currentLayout===l.id?'btn-primary':'btn-outline-primary'}"
+                    data-layout="${l.id}"
+                    ${l.title ? `title="${l.title}"` : ''}>
+                ${l.name}
+            </button>
         `).join('');
     }
 
@@ -1576,12 +1771,17 @@ class StreamRecorder {
     addStreamThumbnail(type, stream) {
         const container = document.getElementById('streamThumbnails');
         const noStreamsMsg = document.getElementById('noStreamsMessage');
+        const dragDropHint = document.getElementById('dragDropHint');
         if (noStreamsMsg) noStreamsMsg.style.display = 'none';
+        if (dragDropHint && this.streams.size >= 1) dragDropHint.style.display = 'block';
 
         const thumbnailDiv = document.createElement('div');
         thumbnailDiv.id = `thumbnail-${type}`;
         thumbnailDiv.className = 'stream-thumbnail position-relative';
-        
+        thumbnailDiv.draggable = true;
+        thumbnailDiv.dataset.streamKey = type;
+        thumbnailDiv.style.cursor = 'grab';
+
         const video = document.createElement('video');
         video.srcObject = stream;
         video.autoplay = true;
@@ -1591,14 +1791,117 @@ class StreamRecorder {
         video.style.height = '60px';
         video.style.objectFit = 'cover';
         video.className = 'rounded border';
-        
+        video.style.pointerEvents = 'none'; // Prevent video from interfering with drag
+
         const label = document.createElement('small');
         label.className = 'position-absolute bottom-0 start-0 bg-primary text-white px-1 rounded-end';
-        label.textContent = type === 'camera' ? 'Kamera' : 'Bildschirm';
-        
+        label.textContent = type === 'camera' ? 'Kamera' : type.includes('screen') ? 'Bildschirm' : type;
+        label.style.pointerEvents = 'none'; // Prevent label from interfering with drag
+
+        // Layer indicator badge (shows position in stack)
+        const layerBadge = document.createElement('span');
+        layerBadge.className = 'position-absolute top-0 end-0 badge bg-secondary m-1';
+        layerBadge.id = `layer-badge-${type}`;
+        layerBadge.textContent = this.streamOrder.indexOf(type) + 1;
+        layerBadge.title = 'Ebene (links=hinten, rechts=vorne)';
+        layerBadge.style.pointerEvents = 'none';
+
         thumbnailDiv.appendChild(video);
         thumbnailDiv.appendChild(label);
+        thumbnailDiv.appendChild(layerBadge);
+
+        // Add drag event listeners
+        thumbnailDiv.addEventListener('dragstart', (e) => this.handleDragStart(e));
+        thumbnailDiv.addEventListener('dragend', (e) => this.handleDragEnd(e));
+        thumbnailDiv.addEventListener('dragover', (e) => this.handleDragOver(e));
+        thumbnailDiv.addEventListener('drop', (e) => this.handleDrop(e));
+
         if (container) container.appendChild(thumbnailDiv);
+        this.updateLayerBadges();
+    }
+
+    handleDragStart(e) {
+        this.draggedThumbnail = e.target;
+        e.target.style.opacity = '0.5';
+        e.target.style.cursor = 'grabbing';
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', e.target.innerHTML);
+    }
+
+    handleDragEnd(e) {
+        e.target.style.opacity = '1';
+        e.target.style.cursor = 'grab';
+        // Remove all drag-over classes
+        document.querySelectorAll('.stream-thumbnail').forEach(thumb => {
+            thumb.classList.remove('drag-over');
+        });
+    }
+
+    handleDragOver(e) {
+        if (e.preventDefault) e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+
+        const target = e.target.closest('.stream-thumbnail');
+        if (target && target !== this.draggedThumbnail) {
+            target.classList.add('drag-over');
+        }
+        return false;
+    }
+
+    handleDrop(e) {
+        if (e.stopPropagation) e.stopPropagation();
+        e.preventDefault();
+
+        const target = e.target.closest('.stream-thumbnail');
+        if (this.draggedThumbnail && target && this.draggedThumbnail !== target) {
+            // Get keys
+            const draggedKey = this.draggedThumbnail.dataset.streamKey;
+            const targetKey = target.dataset.streamKey;
+
+            // Reorder streamOrder
+            const draggedIndex = this.streamOrder.indexOf(draggedKey);
+            const targetIndex = this.streamOrder.indexOf(targetKey);
+
+            if (draggedIndex !== -1 && targetIndex !== -1) {
+                // Remove dragged item
+                this.streamOrder.splice(draggedIndex, 1);
+                // Insert at new position
+                const newTargetIndex = this.streamOrder.indexOf(targetKey);
+                this.streamOrder.splice(newTargetIndex, 0, draggedKey);
+
+                // Reorder DOM elements
+                const container = document.getElementById('streamThumbnails');
+                const allThumbs = Array.from(container.querySelectorAll('.stream-thumbnail'));
+
+                // Sort thumbnails based on streamOrder
+                allThumbs.sort((a, b) => {
+                    const aKey = a.dataset.streamKey;
+                    const bKey = b.dataset.streamKey;
+                    return this.streamOrder.indexOf(aKey) - this.streamOrder.indexOf(bKey);
+                });
+
+                // Re-append in correct order
+                allThumbs.forEach(thumb => container.appendChild(thumb));
+
+                // Update layer badges
+                this.updateLayerBadges();
+
+                this.showNotification('info', 'Reihenfolge geändert', `${draggedKey} verschoben. Ebenen aktualisiert (links=hinten, rechts=vorne)`);
+                console.log('🔄 Stream-Reihenfolge:', this.streamOrder);
+            }
+        }
+
+        target?.classList.remove('drag-over');
+        return false;
+    }
+
+    updateLayerBadges() {
+        this.streamOrder.forEach((key, index) => {
+            const badge = document.getElementById(`layer-badge-${key}`);
+            if (badge) {
+                badge.textContent = index + 1;
+            }
+        });
     }
 
     removeStreamThumbnail(type) {
@@ -1606,12 +1909,21 @@ class StreamRecorder {
         if (thumbnail) {
             thumbnail.remove();
         }
-        
+
         const container = document.getElementById('streamThumbnails');
         const noStreamsMsg = document.getElementById('noStreamsMessage');
-        
-        if (container && noStreamsMsg && container.children.length === 1) {
-            noStreamsMsg.style.display = 'block';
+        const dragDropHint = document.getElementById('dragDropHint');
+
+        // Check if only the noStreamsMessage is left (or dragDropHint)
+        const streamThumbs = container?.querySelectorAll('.stream-thumbnail');
+        if (streamThumbs && streamThumbs.length === 0) {
+            if (noStreamsMsg) noStreamsMsg.style.display = 'block';
+            if (dragDropHint) dragDropHint.style.display = 'none';
+        }
+
+        // Update free layout controls if active
+        if (this.currentLayout === 'free') {
+            this.renderFreeLayoutControls();
         }
     }
 
@@ -1643,6 +1955,8 @@ class StreamRecorder {
         if (stream) {
             stream.getTracks().forEach(track => track.stop());
             this.streams.delete('camera');
+            this.streamOrder = this.streamOrder.filter(k => k !== 'camera'); // Remove from order
+            this.streamPositions.delete('camera'); // Remove position data
             this.updateStatus('camera', 'Nicht aktiv', 'muted');
             this.updateButtons('camera', false);
             this.removeStreamThumbnail('camera');
@@ -1659,6 +1973,8 @@ class StreamRecorder {
         if (stream) {
             stream.getTracks().forEach(track => track.stop());
             this.streams.delete('screen');
+            this.streamOrder = this.streamOrder.filter(k => k !== 'screen'); // Remove from order
+            this.streamPositions.delete('screen'); // Remove position data
             this.updateStatus('screen', 'Nicht aktiv', 'muted');
             this.updateButtons('screen', false);
             this.removeStreamThumbnail('screen');
@@ -1696,7 +2012,6 @@ class StreamRecorder {
                 document.getElementById('systemAudio').checked = settings.systemAudio ?? true;
                 document.getElementById('autoSave').checked = settings.autoSave ?? true;
                 document.getElementById('showNotifications').checked = settings.showNotifications ?? true;
-                document.getElementById('darkMode').checked = settings.darkMode ?? false;
             }
         } catch (e) {
             console.warn('Settings load error:', e);
@@ -1706,11 +2021,7 @@ class StreamRecorder {
     applyUserSettings(settings) {
         // Apply settings to the app
         this.userSettings = settings;
-        if (settings.darkMode) {
-            document.body.setAttribute('data-theme', 'dark');
-        } else {
-            document.body.removeAttribute('data-theme');
-        }
+        document.body.removeAttribute('data-theme');
         console.log('Settings applied:', settings);
     }
 

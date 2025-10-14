@@ -1,0 +1,208 @@
+{% extends 'loomconnect/base_loomconnect.html' %}
+{% load static %}
+
+{% block title %}Meine Verbindungen - LoomConnect{% endblock %}
+
+{% block loomconnect_content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1><i class="bi bi-people-fill"></i> Meine Verbindungen</h1>
+                <p class="text-muted mb-0">{{ connections|length }} {% if connections|length == 1 %}Verbindung{% else %}Verbindungen{% endif %}</p>
+            </div>
+            <a href="{% url 'loomconnect:discover' %}" class="btn loomconnect-btn loomconnect-btn-primary">
+                <i class="bi bi-search"></i> Neue Leute entdecken
+            </a>
+        </div>
+
+        {% if connections %}
+        <div class="row g-4">
+            {% for connection in connections %}
+                {% if connection.profile_1 == profile %}
+                    {% with other_profile=connection.profile_2 %}
+                    <div class="col-md-6 col-lg-4">
+                        <div class="loomconnect-card h-100">
+                            <div class="d-flex align-items-start gap-3 mb-3">
+                                {% if other_profile.avatar %}
+                                <img src="{{ other_profile.avatar.url }}" alt="{{ other_profile.user.username }}"
+                                     class="rounded-circle" style="width: 60px; height: 60px; object-fit: cover;">
+                                {% else %}
+                                <div class="rounded-circle d-flex align-items-center justify-content-center"
+                                     style="width: 60px; height: 60px; background: var(--loomconnect-primary); color: white; font-size: 24px; font-weight: bold;">
+                                    {{ other_profile.user.username|slice:":1"|upper }}
+                                </div>
+                                {% endif %}
+
+                                <div class="flex-grow-1">
+                                    <h5 class="mb-1">
+                                        <a href="{% url 'loomconnect:profile' other_profile.user.username %}"
+                                           class="text-decoration-none text-body">
+                                            {{ other_profile.user.get_full_name|default:other_profile.user.username }}
+                                        </a>
+                                    </h5>
+                                    <small class="text-muted">@{{ other_profile.user.username }}</small>
+                                    {% if other_profile.location %}
+                                    <div class="mt-1">
+                                        <small class="text-muted"><i class="bi bi-geo-alt"></i> {{ other_profile.location }}</small>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            {% if other_profile.bio %}
+                            <p class="text-muted small mb-3">{{ other_profile.bio|truncatewords:20 }}</p>
+                            {% endif %}
+
+                            <div class="d-flex gap-2 align-items-center mb-3">
+                                <span class="badge bg-primary">
+                                    <i class="bi bi-star"></i> {{ other_profile.userskill_set.count }} Skills
+                                </span>
+                                <span class="badge bg-secondary">
+                                    <i class="bi bi-trophy"></i> {{ other_profile.karma_score }} Karma
+                                </span>
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'loomconnect:profile' other_profile.user.username %}"
+                                   class="btn btn-sm loomconnect-btn loomconnect-btn-outline flex-grow-1">
+                                    <i class="bi bi-person"></i> Profil
+                                </a>
+                                {% if connection.chat_room %}
+                                <a href="{% url 'chat:detail' connection.chat_room.id %}"
+                                   class="btn btn-sm loomconnect-btn loomconnect-btn-primary flex-grow-1">
+                                    <i class="bi bi-chat"></i> Chat
+                                </a>
+                                {% endif %}
+                            </div>
+
+                            <div class="mt-3 pt-3" style="border-top: 1px solid rgba(255,255,255,0.1);">
+                                <small class="text-muted">
+                                    <i class="bi bi-calendar"></i> Verbunden seit {{ connection.created_at|date:"d.m.Y" }}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endwith %}
+                {% else %}
+                    {% with other_profile=connection.profile_1 %}
+                    <div class="col-md-6 col-lg-4">
+                        <div class="loomconnect-card h-100">
+                            <div class="d-flex align-items-start gap-3 mb-3">
+                                {% if other_profile.avatar %}
+                                <img src="{{ other_profile.avatar.url }}" alt="{{ other_profile.user.username }}"
+                                     class="rounded-circle" style="width: 60px; height: 60px; object-fit: cover;">
+                                {% else %}
+                                <div class="rounded-circle d-flex align-items-center justify-content-center"
+                                     style="width: 60px; height: 60px; background: var(--loomconnect-primary); color: white; font-size: 24px; font-weight: bold;">
+                                    {{ other_profile.user.username|slice:":1"|upper }}
+                                </div>
+                                {% endif %}
+
+                                <div class="flex-grow-1">
+                                    <h5 class="mb-1">
+                                        <a href="{% url 'loomconnect:profile' other_profile.user.username %}"
+                                           class="text-decoration-none text-body">
+                                            {{ other_profile.user.get_full_name|default:other_profile.user.username }}
+                                        </a>
+                                    </h5>
+                                    <small class="text-muted">@{{ other_profile.user.username }}</small>
+                                    {% if other_profile.location %}
+                                    <div class="mt-1">
+                                        <small class="text-muted"><i class="bi bi-geo-alt"></i> {{ other_profile.location }}</small>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            {% if other_profile.bio %}
+                            <p class="text-muted small mb-3">{{ other_profile.bio|truncatewords:20 }}</p>
+                            {% endif %}
+
+                            <div class="d-flex gap-2 align-items-center mb-3">
+                                <span class="badge bg-primary">
+                                    <i class="bi bi-star"></i> {{ other_profile.userskill_set.count }} Skills
+                                </span>
+                                <span class="badge bg-secondary">
+                                    <i class="bi bi-trophy"></i> {{ other_profile.karma_score }} Karma
+                                </span>
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'loomconnect:profile' other_profile.user.username %}"
+                                   class="btn btn-sm loomconnect-btn loomconnect-btn-outline flex-grow-1">
+                                    <i class="bi bi-person"></i> Profil
+                                </a>
+                                {% if connection.chat_room %}
+                                <a href="{% url 'chat:detail' connection.chat_room.id %}"
+                                   class="btn btn-sm loomconnect-btn loomconnect-btn-primary flex-grow-1">
+                                    <i class="bi bi-chat"></i> Chat
+                                </a>
+                                {% endif %}
+                            </div>
+
+                            <div class="mt-3 pt-3" style="border-top: 1px solid rgba(255,255,255,0.1);">
+                                <small class="text-muted">
+                                    <i class="bi bi-calendar"></i> Verbunden seit {{ connection.created_at|date:"d.m.Y" }}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endwith %}
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <div class="mt-5">
+            <nav aria-label="Pagination">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1">Erste</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    <li class="page-item active">
+                        <span class="page-link">
+                            Seite {{ page_obj.number }} von {{ page_obj.paginator.num_pages }}
+                        </span>
+                    </li>
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Letzte</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="loomconnect-card text-center py-5">
+            <i class="bi bi-people" style="font-size: 48px; color: var(--loomconnect-primary);"></i>
+            <h4 class="mt-3">Noch keine Verbindungen</h4>
+            <p class="text-muted mb-4">
+                Entdecke andere User und vernetze dich mit Leuten, die deine Skills benötigen
+                oder die dir bei deinen Projekten helfen können!
+            </p>
+            <a href="{% url 'loomconnect:discover' %}" class="btn loomconnect-btn loomconnect-btn-primary">
+                <i class="bi bi-search"></i> Jetzt Leute entdecken
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

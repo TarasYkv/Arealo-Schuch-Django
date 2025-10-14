@@ -1,0 +1,237 @@
+{% extends 'loomconnect/base_loomconnect.html' %}
+{% load static %}
+
+{% block title %}Neuer Post - LoomConnect{% endblock %}
+
+{% block loomconnect_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="loomconnect-card">
+            <h2 class="mb-4">
+                <i class="bi bi-plus-circle"></i> Neuen Post erstellen
+            </h2>
+
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    <strong>Fehler beim Erstellen:</strong>
+                    <ul class="mb-0">
+                        {% for field, errors in form.errors.items %}
+                            {% for error in errors %}
+                                <li>{{ field }}: {{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <!-- Post Type -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-tag"></i> {{ form.post_type.label }}
+                    </label>
+                    <div class="row g-2">
+                        {% for value, label in form.post_type.field.choices %}
+                        <div class="col-md-3 col-6">
+                            <input type="radio"
+                                   class="btn-check"
+                                   name="post_type"
+                                   id="type_{{ forloop.counter }}"
+                                   value="{{ value }}"
+                                   {% if form.post_type.value == value %}checked{% endif %}>
+                            <label class="btn loomconnect-btn-outline w-100" for="type_{{ forloop.counter }}">
+                                {% if value == 'frage' %}❓
+                                {% elif value == 'tipp' %}💡
+                                {% elif value == 'diskussion' %}💬
+                                {% elif value == 'projekt' %}🚀
+                                {% elif value == 'sonstiges' %}📝
+                                {% endif %}
+                                <div class="small mt-1">{{ label }}</div>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="mb-4">
+                    <label for="{{ form.content.id_for_label }}" class="form-label fw-bold">
+                        <i class="bi bi-chat-text"></i> {{ form.content.label }}
+                    </label>
+                    {{ form.content }}
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <small class="text-muted">
+                            <i class="bi bi-lightbulb"></i> Sei präzise und beschreibe dein Anliegen klar
+                        </small>
+                        <small class="text-muted">
+                            <span id="content-count">0</span> / 2000 Zeichen
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Image Upload -->
+                <div class="mb-4">
+                    <label for="{{ form.image.id_for_label }}" class="form-label fw-bold">
+                        <i class="bi bi-image"></i> {{ form.image.label }}
+                    </label>
+                    {{ form.image }}
+                    <small class="text-muted d-block mt-1">
+                        Optional: Lade ein Bild hoch, um deinen Post visuell zu unterstützen
+                    </small>
+                </div>
+
+                <!-- Visibility -->
+                <div class="mb-4">
+                    <label for="{{ form.visibility.id_for_label }}" class="form-label fw-bold">
+                        <i class="bi bi-eye"></i> {{ form.visibility.label }}
+                    </label>
+                    {{ form.visibility }}
+                    <small class="text-muted d-block mt-1">
+                        Bestimme, wer deinen Post sehen kann
+                    </small>
+                </div>
+
+                <!-- Location (only visible when "local" is selected) -->
+                <div class="mb-4" id="location-field" style="display: none;">
+                    <label for="{{ form.location.id_for_label }}" class="form-label fw-bold">
+                        <i class="bi bi-geo-alt"></i> {{ form.location.label }}
+                    </label>
+                    {{ form.location }}
+                    <small class="text-muted d-block mt-1">
+                        Gib deinen Standort ein, um den Post nur für User aus deiner Umgebung sichtbar zu machen
+                    </small>
+                </div>
+
+                <!-- Related Skills -->
+                <div class="mb-4">
+                    <label for="{{ form.skills_input.id_for_label }}" class="form-label fw-bold">
+                        <i class="bi bi-tags"></i> {{ form.skills_input.label }}
+                    </label>
+                    {{ form.skills_input }}
+                    <small class="text-muted d-block mt-1">
+                        {{ form.skills_input.help_text }}
+                    </small>
+                </div>
+
+                <!-- Preview Section -->
+                <div class="mb-4">
+                    <h6 class="mb-3">
+                        <i class="bi bi-eye"></i> Vorschau
+                    </h6>
+                    <div class="post-card">
+                        <div class="post-header">
+                            {% if user.connect_profile.avatar %}
+                                <img src="{{ user.connect_profile.avatar.url }}" alt="{{ user.username }}" class="profile-avatar-small">
+                            {% else %}
+                                <div class="profile-avatar-small bg-gradient d-flex align-items-center justify-content-center text-white" style="background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary));">
+                                    <i class="bi bi-person-fill"></i>
+                                </div>
+                            {% endif %}
+                            <div class="flex-grow-1">
+                                <strong>{{ user.get_full_name|default:user.username }}</strong>
+                                <div class="small text-muted">
+                                    Jetzt • <span id="preview-type" class="badge" style="background: var(--loomconnect-primary);">Frage</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="post-content">
+                            <p id="preview-content" class="mb-2 text-muted fst-italic">Dein Post-Inhalt erscheint hier...</p>
+                            <div id="preview-skills"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit -->
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'loomconnect:feed' %}" class="btn loomconnect-btn loomconnect-btn-outline">
+                        <i class="bi bi-x"></i> Abbrechen
+                    </a>
+                    <button type="submit" class="btn loomconnect-btn loomconnect-btn-primary">
+                        <i class="bi bi-send"></i> Post veröffentlichen
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .btn-check:checked + .loomconnect-btn-outline {
+        background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary));
+        color: white !important;
+        border-color: var(--loomconnect-primary);
+    }
+
+</style>
+
+<script>
+    // Content Counter
+    const contentTextarea = document.getElementById('id_content');
+    const contentCount = document.getElementById('content-count');
+    const previewContent = document.getElementById('preview-content');
+
+    function updateContentCounter() {
+        const length = contentTextarea.value.length;
+        contentCount.textContent = length;
+
+        if (length > 1800) {
+            contentCount.style.color = 'var(--bs-warning)';
+        } else if (length >= 2000) {
+            contentCount.style.color = 'var(--bs-danger)';
+        } else {
+            contentCount.style.color = 'inherit';
+        }
+
+        // Update preview
+        if (contentTextarea.value.trim()) {
+            previewContent.textContent = contentTextarea.value;
+            previewContent.classList.remove('text-muted', 'fst-italic');
+        } else {
+            previewContent.textContent = 'Dein Post-Inhalt erscheint hier...';
+            previewContent.classList.add('text-muted', 'fst-italic');
+        }
+    }
+
+    contentTextarea.addEventListener('input', updateContentCounter);
+    updateContentCounter();
+
+    // Post Type Preview
+    const typeRadios = document.querySelectorAll('input[name="post_type"]');
+    const previewType = document.getElementById('preview-type');
+
+    const typeLabels = {
+        'frage': 'Frage',
+        'tipp': 'Tipp',
+        'diskussion': 'Diskussion',
+        'projekt': 'Projekt',
+        'sonstiges': 'Sonstiges'
+    };
+
+    typeRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            previewType.textContent = typeLabels[this.value] || 'Sonstiges';
+        });
+    });
+
+    // Location Field Toggle
+    function toggleLocationField() {
+        const visibilitySelect = document.getElementById('id_visibility');
+        const locationField = document.getElementById('location-field');
+
+        if (visibilitySelect && locationField) {
+            if (visibilitySelect.value === 'local') {
+                locationField.style.display = 'block';
+            } else {
+                locationField.style.display = 'none';
+            }
+        }
+    }
+
+    // Call on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        toggleLocationField();
+    });
+</script>
+{% endblock %}

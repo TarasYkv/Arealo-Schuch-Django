@@ -1,0 +1,275 @@
+{% extends 'loomconnect/base_loomconnect.html' %}
+{% load static %}
+{% load loomads_tags %}
+
+{% block title %}LoomConnect Dashboard{% endblock %}
+
+{% block loomconnect_content %}
+<div class="row">
+    <!-- Main Content -->
+    <div class="col-lg-8 mb-4">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Dashboard</h2>
+            {% if pending_requests > 0 %}
+                <a href="{% url 'loomconnect:request_inbox' %}" class="btn btn-sm loomconnect-btn loomconnect-btn-primary position-relative">
+                    <i class="bi bi-envelope"></i> Anfragen
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                        {{ pending_requests }}
+                    </span>
+                </a>
+            {% endif %}
+        </div>
+
+        <!-- LoomAds Top Banner -->
+        {% show_ad_zone 'loomconnect_feed_top' %}
+
+        <!-- Welcome Message -->
+        <div class="loomconnect-card mb-4">
+            <h4>👋 Willkommen zurück, {{ user.first_name|default:user.username }}!</h4>
+            <p class="text-muted mb-0">Hier ist deine Übersicht über deine Aktivitäten.</p>
+        </div>
+
+        <!-- Pending Requests -->
+        {% if pending_requests > 0 %}
+        <div class="alert alert-info d-flex align-items-center mb-4" role="alert">
+            <i class="bi bi-info-circle-fill me-2"></i>
+            <div>
+                Du hast <strong>{{ pending_requests }}</strong> neue Connect-Anfrage{% if pending_requests > 1 %}n{% endif %}!
+                <a href="{% url 'loomconnect:request_inbox' %}" class="alert-link">Jetzt ansehen</a>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Potential Matches -->
+        {% if potential_matches %}
+        <div class="loomconnect-card mb-4">
+            <h5 class="mb-3">
+                <i class="bi bi-stars"></i> Perfekte Matches für dich
+            </h5>
+            <p class="text-muted small">Basierend auf deinen Skills finden wir diese User, die deine Hilfe brauchen:</p>
+
+            {% for match in potential_matches %}
+            <div class="profile-card mb-2">
+                <a href="{% url 'loomconnect:profile' match.user.username %}" class="text-decoration-none flex-grow-1 d-flex align-items-center gap-3">
+                    {% if match.user.connect_profile.avatar %}
+                        <img src="{{ match.user.connect_profile.avatar.url }}" alt="{{ match.user.username }}" class="profile-avatar-small">
+                    {% else %}
+                        <div class="profile-avatar-small bg-gradient d-flex align-items-center justify-content-center text-white" style="background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary));">
+                            <i class="bi bi-person-fill"></i>
+                        </div>
+                    {% endif %}
+                    <div class="flex-grow-1">
+                        <strong>{{ match.user.get_full_name|default:match.user.username }}</strong>
+                        <div class="small text-muted">Sucht Hilfe bei: <span class="skill-badge-outline">{{ match.skill.name }}</span></div>
+                        <div class="small text-muted mt-1">{{ match.description|truncatewords:10 }}</div>
+                    </div>
+                </a>
+                <a href="{% url 'loomconnect:send_request' match.user.username %}" class="btn btn-sm loomconnect-btn loomconnect-btn-primary">
+                    <i class="bi bi-person-plus"></i>
+                </a>
+            </div>
+            {% endfor %}
+
+            <div class="text-center mt-3">
+                <a href="{% url 'loomconnect:discover' %}" class="btn btn-sm loomconnect-btn loomconnect-btn-outline">
+                    Mehr entdecken <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Recent Posts -->
+        {% if recent_posts %}
+        <div class="loomconnect-card mb-4">
+            <h5 class="mb-3">
+                <i class="bi bi-clock-history"></i> Deine letzten Posts
+            </h5>
+
+            {% for post in recent_posts %}
+            <div class="post-card mb-3">
+                <div class="post-header">
+                    {% if user.connect_profile.avatar %}
+                        <img src="{{ user.connect_profile.avatar.url }}" alt="{{ user.username }}" class="profile-avatar-small">
+                    {% else %}
+                        <div class="profile-avatar-small bg-gradient d-flex align-items-center justify-content-center text-white" style="background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary));">
+                            <i class="bi bi-person-fill"></i>
+                        </div>
+                    {% endif %}
+                    <div class="flex-grow-1">
+                        <strong>{{ user.get_full_name|default:user.username }}</strong>
+                        <div class="small text-muted">{{ post.created_at|timesince }} ago</div>
+                    </div>
+                </div>
+                <div class="post-content">
+                    <p class="mb-2">{{ post.content|truncatewords:30 }}</p>
+                    {% if post.related_skills.exists %}
+                    <div>
+                        {% for skill in post.related_skills.all|slice:":3" %}
+                        <span class="skill-badge">{{ skill.name }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="post-actions">
+                    <span class="post-action">
+                        <i class="bi bi-heart"></i> {{ post.likes.count }}
+                    </span>
+                    <span class="post-action">
+                        <i class="bi bi-chat"></i> {{ post.comments.count }}
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+
+            <div class="text-center">
+                <a href="{% url 'loomconnect:feed' %}" class="btn btn-sm loomconnect-btn loomconnect-btn-outline">
+                    Zum Feed <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+        {% else %}
+        <div class="loomconnect-card mb-4">
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <i class="bi bi-chat-dots"></i>
+                </div>
+                <h5>Noch keine Posts</h5>
+                <p class="text-muted">Erstelle deinen ersten Post und teile dein Wissen!</p>
+                <a href="{% url 'loomconnect:post_create' %}" class="btn loomconnect-btn loomconnect-btn-primary mt-2">
+                    <i class="bi bi-plus-circle"></i> Ersten Post erstellen
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Right Sidebar - Profile, Skills & Needs -->
+    <div class="col-lg-4">
+        <!-- Profile Summary -->
+        <div class="loomconnect-card loomconnect-section-1 mb-4">
+            <div class="text-center mb-3">
+                {% if profile.avatar %}
+                    <img src="{{ profile.avatar.url }}" alt="{{ user.username }}" class="profile-avatar mb-3">
+                {% else %}
+                    <div class="profile-avatar mb-3 mx-auto bg-gradient d-flex align-items-center justify-content-center text-white" style="background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary));">
+                        <i class="bi bi-person-fill" style="font-size: 2rem;"></i>
+                    </div>
+                {% endif %}
+                <h5 class="mb-1">{{ user.get_full_name|default:user.username }}</h5>
+                <p class="text-muted small">@{{ user.username }}</p>
+            </div>
+
+            <!-- Stats -->
+            <div class="row g-2 mb-3">
+                <div class="col-6">
+                    <div class="stats-card">
+                        <div class="stats-number">{{ my_skills.count }}</div>
+                        <div class="stats-label">Skills</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="stats-card">
+                        <div class="stats-number">{{ my_connections }}</div>
+                        <div class="stats-label">Connections</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-2 mb-3">
+                <div class="col-6">
+                    <div class="stats-card">
+                        <div class="stats-number">{{ my_needs.count }}</div>
+                        <div class="stats-label">Needs</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="stats-card">
+                        <div class="stats-number">{{ profile.karma_score }}</div>
+                        <div class="stats-label">Karma</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="d-grid gap-2">
+                <a href="{% url 'loomconnect:my_profile' %}" class="btn loomconnect-btn loomconnect-btn-outline btn-sm">
+                    <i class="bi bi-person"></i> Mein Profil
+                </a>
+                <a href="{% url 'loomconnect:post_create' %}" class="btn loomconnect-btn loomconnect-btn-primary btn-sm">
+                    <i class="bi bi-plus-circle"></i> Neuer Post
+                </a>
+            </div>
+        </div>
+
+        <!-- LoomAds Sidebar -->
+        <div class="mb-4">
+            {% show_ad_zone 'loomconnect_sidebar' %}
+        </div>
+        <!-- My Skills -->
+        <div class="loomconnect-card mb-4">
+            <h6 class="mb-3">
+                <i class="bi bi-star-fill"></i> Meine Skills
+            </h6>
+            {% if my_skills %}
+                <div class="d-flex flex-wrap gap-1">
+                    {% for user_skill in my_skills|slice:":5" %}
+                    <span class="skill-badge">{{ user_skill.skill.name }}</span>
+                    {% endfor %}
+                </div>
+                <a href="{% url 'loomconnect:skills_management' %}" class="btn btn-sm btn-link w-100 mt-2">
+                    Alle verwalten <i class="bi bi-arrow-right"></i>
+                </a>
+            {% else %}
+                <p class="text-muted small">Noch keine Skills hinzugefügt</p>
+                <a href="{% url 'loomconnect:add_skill' %}" class="btn btn-sm loomconnect-btn loomconnect-btn-outline w-100">
+                    <i class="bi bi-plus-circle"></i> Skills hinzufügen
+                </a>
+            {% endif %}
+        </div>
+
+        <!-- My Needs -->
+        <div class="loomconnect-card mb-4">
+            <h6 class="mb-3">
+                <i class="bi bi-search"></i> Was ich suche
+            </h6>
+            {% if my_needs %}
+                <div class="d-flex flex-wrap gap-1">
+                    {% for need in my_needs|slice:":5" %}
+                    <span class="skill-badge-outline">{{ need.skill.name }}</span>
+                    {% endfor %}
+                </div>
+                <a href="{% url 'loomconnect:needs_management' %}" class="btn btn-sm btn-link w-100 mt-2">
+                    Alle verwalten <i class="bi bi-arrow-right"></i>
+                </a>
+            {% else %}
+                <p class="text-muted small">Noch keine Bedarfe hinzugefügt</p>
+                <a href="{% url 'loomconnect:add_need' %}" class="btn btn-sm loomconnect-btn loomconnect-btn-outline w-100">
+                    <i class="bi bi-plus-circle"></i> Bedarf hinzufügen
+                </a>
+            {% endif %}
+        </div>
+
+        <!-- Quick Links -->
+        <div class="loomconnect-card">
+            <h6 class="mb-3">
+                <i class="bi bi-compass"></i> Entdecken
+            </h6>
+            <div class="d-grid gap-2">
+                <a href="{% url 'loomconnect:feed' %}" class="btn btn-sm loomconnect-btn loomconnect-btn-outline text-start">
+                    <i class="bi bi-rss-fill"></i> Feed
+                </a>
+                <a href="{% url 'loomconnect:discover' %}" class="btn btn-sm loomconnect-btn loomconnect-btn-outline text-start">
+                    <i class="bi bi-search"></i> User entdecken
+                </a>
+                <a href="{% url 'loomconnect:connections' %}" class="btn btn-sm loomconnect-btn loomconnect-btn-outline text-start">
+                    <i class="bi bi-people-fill"></i> Meine Connections
+                </a>
+                <a href="{% url 'loomconnect:stories' %}" class="btn btn-sm loomconnect-btn loomconnect-btn-outline text-start">
+                    <i class="bi bi-clock-history"></i> Stories
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

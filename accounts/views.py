@@ -110,10 +110,6 @@ def dashboard(request):
         enable_ai_expansion = request.POST.get('enable_ai_keyword_expansion') == 'on'
         request.user.enable_ai_keyword_expansion = enable_ai_expansion
         
-        # Toggle für Dark Mode
-        dark_mode = request.POST.get('dark_mode') == 'on'
-        request.user.dark_mode = dark_mode
-        
         request.user.save()
         
         # Feedback-Nachrichten
@@ -128,12 +124,6 @@ def dashboard(request):
             messages.warning(request, 'KI-Keyword-Erweiterung ist nur mit benutzerdefinierten Kategorien verfügbar.')
         elif not enable_ai_expansion:
             messages.info(request, 'KI-Keyword-Erweiterung wurde deaktiviert.')
-        
-        # Dark Mode Feedback
-        if dark_mode:
-            messages.success(request, 'Dunkles Design wurde aktiviert.')
-        else:
-            messages.info(request, 'Helles Design wurde aktiviert.')
         
         return redirect('accounts:dashboard')
     
@@ -356,28 +346,9 @@ def dashboard(request):
         'categories': categories,
         'use_custom_categories': request.user.use_custom_categories,
         'enable_ai_keyword_expansion': request.user.enable_ai_keyword_expansion,
-        'dark_mode': request.user.dark_mode,
         'available_apps': available_apps,
     }
     return render(request, 'accounts/dashboard.html', context)
-
-
-@login_required
-def toggle_dark_mode(request):
-    """Universelle View für Dark Mode Toggle von überall."""
-    if request.method == 'POST':
-        dark_mode = request.POST.get('dark_mode') == 'on'
-        request.user.dark_mode = dark_mode
-        request.user.save()
-        
-        if dark_mode:
-            messages.success(request, 'Dunkles Design wurde aktiviert.')
-        else:
-            messages.info(request, 'Helles Design wurde aktiviert.')
-    
-    # Redirect zurück zur vorherigen Seite oder Dashboard
-    next_url = request.POST.get('next') or request.GET.get('next') or 'accounts:dashboard'
-    return redirect(next_url)
 
 
 @login_required

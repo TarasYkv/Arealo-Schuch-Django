@@ -1,0 +1,438 @@
+{% extends 'loomconnect/base_loomconnect.html' %}
+{% load static %}
+{% load loomads_tags %}
+
+{% block title %}Feed - LoomConnect{% endblock %}
+
+{% block loomconnect_content %}
+<div class="row">
+    <!-- Main Content - Feed -->
+    <div class="col-lg-8 mb-4">
+        <!-- LoomAds Top Banner -->
+        {% show_ad_zone 'loomconnect_feed_top' %}
+
+        <!-- Create Post Box -->
+        <div class="loomconnect-card loomconnect-section-2 mb-4">
+            <div class="d-flex align-items-center gap-3">
+                {% if user.connect_profile.avatar %}
+                    <img src="{{ user.connect_profile.avatar.url }}" alt="{{ user.username }}" class="profile-avatar-small">
+                {% else %}
+                    <div class="profile-avatar-small bg-gradient d-flex align-items-center justify-content-center text-white" style="background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary));">
+                        <i class="bi bi-person-fill"></i>
+                    </div>
+                {% endif %}
+                <a href="{% url 'loomconnect:post_create' %}" class="form-control" style="cursor: pointer; border-radius: 24px; background: rgba(102, 126, 234, 0.05);">
+                    Was möchtest du teilen?
+                </a>
+            </div>
+        </div>
+
+        <!-- Feed Posts -->
+        {% if posts %}
+            {% for post in posts %}
+            <div class="post-card mb-4">
+                <!-- Shared Post Indicator -->
+                {% if post.shared_from %}
+                <div style="padding: 8px 16px; background: rgba(102, 126, 234, 0.05); border-bottom: 1px solid var(--loomconnect-card-border);">
+                    <small class="text-muted">
+                        <i class="bi bi-repeat"></i>
+                        <strong>{{ post.author.user.get_full_name|default:post.author.user.username }}</strong> hat dies geteilt
+                    </small>
+                </div>
+                {% endif %}
+
+                <!-- Post Header -->
+                <div class="post-header">
+                    <a href="{% url 'loomconnect:profile' post.shared_from.author.user.username|default:post.author.user.username %}" class="d-flex align-items-center gap-3 text-decoration-none flex-grow-1">
+                        {% if post.shared_from %}
+                            {% if post.shared_from.author.avatar %}
+                                <img src="{{ post.shared_from.author.avatar.url }}" alt="{{ post.shared_from.author.user.username }}" class="profile-avatar-small">
+                            {% else %}
+                                <div class="profile-avatar-small bg-gradient d-flex align-items-center justify-content-center text-white" style="background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary));">
+                                    <i class="bi bi-person-fill"></i>
+                                </div>
+                            {% endif %}
+                        {% elif post.author.avatar %}
+                            <img src="{{ post.author.avatar.url }}" alt="{{ post.author.user.username }}" class="profile-avatar-small">
+                        {% else %}
+                            <div class="profile-avatar-small bg-gradient d-flex align-items-center justify-content-center text-white" style="background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary));">
+                                <i class="bi bi-person-fill"></i>
+                            </div>
+                        {% endif %}
+                        <div class="flex-grow-1">
+                            <strong>
+                                {% if post.shared_from %}
+                                    {{ post.shared_from.author.user.get_full_name|default:post.shared_from.author.user.username }}
+                                {% else %}
+                                    {{ post.author.user.get_full_name|default:post.author.user.username }}
+                                {% endif %}
+                            </strong>
+                            <div class="small text-muted">
+                                {% if post.shared_from %}
+                                    {{ post.shared_from.created_at|timesince }} ago
+                                    {% if post.shared_from.post_type %} • <span class="badge" style="background: var(--loomconnect-primary);">{{ post.shared_from.get_post_type_display }}</span>{% endif %}
+                                {% else %}
+                                    {{ post.created_at|timesince }} ago
+                                    {% if post.post_type %} • <span class="badge" style="background: var(--loomconnect-primary);">{{ post.get_post_type_display }}</span>{% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </a>
+                    {% if post.author.user == user and not post.shared_from %}
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-link text-muted" data-bs-toggle="dropdown">
+                            <i class="bi bi-three-dots"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{% url 'loomconnect:post_edit' post.id %}"><i class="bi bi-pencil"></i> Bearbeiten</a></li>
+                            <li><a class="dropdown-item text-danger" href="{% url 'loomconnect:post_delete' post.id %}"><i class="bi bi-trash"></i> Löschen</a></li>
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Post Content -->
+                <div class="post-content">
+                    <p style="white-space: pre-line;">{{ post.content }}</p>
+
+                    {% if post.image %}
+                    <div class="mb-3">
+                        <img src="{{ post.image.url }}" alt="Post Bild" class="img-fluid rounded" style="max-width: 100%; height: auto;">
+                    </div>
+                    {% endif %}
+
+                    {% if post.related_skills.exists %}
+                    <div class="mb-2">
+                        {% for skill in post.related_skills.all %}
+                        <span class="skill-badge">{{ skill.name }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Post Actions -->
+                <div class="post-actions">
+                    <span class="post-action {% if user in post.likes.all %}active{% endif %}"
+                          id="like-btn-{{ post.id }}"
+                          onclick="likePost('{{ post.id }}')"
+                          style="cursor: pointer;">
+                        <i class="bi bi-heart{% if user in post.likes.all %}-fill{% endif %}"></i>
+                        <span id="like-count-{{ post.id }}">{{ post.likes.count }}</span>
+                    </span>
+                    <span class="post-action"
+                          onclick="showCommentModal('{{ post.id }}')"
+                          style="cursor: pointer;">
+                        <i class="bi bi-chat"></i> <span id="comment-count-{{ post.id }}">{{ post.comments.count }}</span>
+                    </span>
+                    <span class="post-action"
+                          onclick="sharePost('{{ post.id }}')"
+                          style="cursor: pointer;">
+                        <i class="bi bi-share"></i>
+                    </span>
+                </div>
+
+                <!-- Recent Comments Preview -->
+                {% if post.comments.count > 0 %}
+                <div style="border-top: 1px solid var(--loomconnect-card-border); padding: 12px 16px;">
+                    {% for comment in post.comments.all|slice:":2" %}
+                    <div class="d-flex gap-2 mb-2">
+                        {% if comment.author.connect_profile.avatar %}
+                            <img src="{{ comment.author.connect_profile.avatar.url }}" alt="{{ comment.author.username }}" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover;">
+                        {% else %}
+                            <div style="width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary)); display: flex; align-items: center; justify-content: center;">
+                                <i class="bi bi-person-fill text-white" style="font-size: 0.75rem;"></i>
+                            </div>
+                        {% endif %}
+                        <div class="flex-grow-1">
+                            <div>
+                                <strong class="small">{{ comment.author.get_full_name|default:comment.author.username }}</strong>
+                                <span class="small text-muted">{{ comment.content|truncatewords:15 }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% if post.comments.count > 2 %}
+                    <a href="{% url 'loomconnect:post_detail' post.id %}" class="small text-muted">
+                        Alle {{ post.comments.count }} Kommentare anzeigen
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <nav aria-label="Feed pagination">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Zurück</a>
+                    </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">Weiter</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <i class="bi bi-chat-dots"></i>
+                </div>
+                <h5>Noch keine Posts im Feed</h5>
+                <p class="text-muted">Sei der Erste und erstelle einen Post!</p>
+                <a href="{% url 'loomconnect:post_create' %}" class="btn loomconnect-btn loomconnect-btn-primary mt-2">
+                    <i class="bi bi-plus-circle"></i> Post erstellen
+                </a>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Right Sidebar - Filters, Trending & Suggestions -->
+    <div class="col-lg-4">
+        <!-- Filters -->
+        <div class="loomconnect-card loomconnect-section-1 mb-4">
+            <h6 class="mb-3">
+                <i class="bi bi-funnel"></i> Filter
+            </h6>
+
+            <form method="get" action="{% url 'loomconnect:feed' %}">
+                <!-- Skill Filter -->
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Nach Skill</label>
+                    <select name="skill" class="form-select form-select-sm">
+                        <option value="">Alle Skills</option>
+                        {% for skill in all_skills %}
+                        <option value="{{ skill.id }}" {% if request.GET.skill == skill.id|stringformat:"s" %}selected{% endif %}>
+                            {{ skill.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Post Type Filter -->
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Typ</label>
+                    <select name="type" class="form-select form-select-sm">
+                        <option value="">Alle</option>
+                        <option value="frage" {% if request.GET.type == 'frage' %}selected{% endif %}>Fragen</option>
+                        <option value="tipp" {% if request.GET.type == 'tipp' %}selected{% endif %}>Tipps</option>
+                        <option value="diskussion" {% if request.GET.type == 'diskussion' %}selected{% endif %}>Diskussionen</option>
+                        <option value="projekt" {% if request.GET.type == 'projekt' %}selected{% endif %}>Projekte</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn loomconnect-btn loomconnect-btn-primary btn-sm w-100">
+                    <i class="bi bi-search"></i> Filtern
+                </button>
+                <a href="{% url 'loomconnect:feed' %}" class="btn btn-sm btn-link w-100">Filter zurücksetzen</a>
+            </form>
+        </div>
+
+        <!-- LoomAds Sidebar -->
+        <div class="mb-4">
+            {% show_ad_zone 'loomconnect_sidebar' %}
+        </div>
+
+        <!-- Trending Skills -->
+        <div class="loomconnect-card loomconnect-section-2 mb-4">
+            <h6 class="mb-3">
+                <i class="bi bi-fire"></i> Trending Skills
+            </h6>
+            {% if trending_skills %}
+                <div class="d-flex flex-wrap gap-1">
+                    {% for skill in trending_skills|slice:":8" %}
+                    <a href="{% url 'loomconnect:feed' %}?skill={{ skill.id }}" class="skill-badge-outline text-decoration-none">
+                        {{ skill.name }}
+                    </a>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-muted small">Noch keine Daten verfügbar</p>
+            {% endif %}
+        </div>
+
+        <!-- Suggested Users -->
+        <div class="loomconnect-card loomconnect-section-3 mb-4">
+            <h6 class="mb-3">
+                <i class="bi bi-person-plus"></i> Vorschläge für dich
+            </h6>
+            {% if suggested_users %}
+                {% for suggested in suggested_users|slice:":4" %}
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <a href="{% url 'loomconnect:profile' suggested.username %}" class="d-flex align-items-center gap-2 flex-grow-1 text-decoration-none">
+                        {% if suggested.connect_profile.avatar %}
+                            <img src="{{ suggested.connect_profile.avatar.url }}" alt="{{ suggested.username }}" class="profile-avatar-small">
+                        {% else %}
+                            <div class="profile-avatar-small bg-gradient d-flex align-items-center justify-content-center text-white" style="background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary));">
+                                <i class="bi bi-person-fill"></i>
+                            </div>
+                        {% endif %}
+                        <div>
+                            <strong class="small">{{ suggested.get_full_name|default:suggested.username }}</strong>
+                            <div class="small text-muted">@{{ suggested.username }}</div>
+                        </div>
+                    </a>
+                    <a href="{% url 'loomconnect:send_request' suggested.username %}" class="btn btn-sm loomconnect-btn loomconnect-btn-outline">
+                        <i class="bi bi-person-plus"></i>
+                    </a>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-muted small">Keine Vorschläge verfügbar</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Comment Modal -->
+<div class="modal fade" id="commentModal" tabindex="-1" aria-labelledby="commentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" style="background: var(--loomconnect-card-bg); border: 1px solid var(--loomconnect-card-border);">
+            <div class="modal-header" style="border-bottom: 1px solid var(--loomconnect-card-border);">
+                <h5 class="modal-title" id="commentModalLabel">
+                    <i class="bi bi-chat-dots"></i> Kommentar hinzufügen
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <textarea id="commentInput" class="form-control" rows="4" placeholder="Was möchtest du sagen?" style="resize: vertical;"></textarea>
+                <div id="commentError" class="text-danger mt-2" style="display: none;"></div>
+            </div>
+            <div class="modal-footer" style="border-top: 1px solid var(--loomconnect-card-border);">
+                <button type="button" class="btn btn-sm loomconnect-btn loomconnect-btn-outline" data-bs-dismiss="modal">
+                    Abbrechen
+                </button>
+                <button type="button" class="btn btn-sm loomconnect-btn loomconnect-btn-primary" onclick="submitComment()">
+                    <i class="bi bi-send"></i> Absenden
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentPostId = null;
+
+function showCommentModal(postId) {
+    currentPostId = postId;
+    document.getElementById('commentInput').value = '';
+    document.getElementById('commentError').style.display = 'none';
+
+    const modal = new bootstrap.Modal(document.getElementById('commentModal'));
+    modal.show();
+}
+
+function submitComment() {
+    const content = document.getElementById('commentInput').value.trim();
+
+    if (!content) {
+        const errorDiv = document.getElementById('commentError');
+        errorDiv.textContent = 'Bitte gib einen Kommentar ein.';
+        errorDiv.style.display = 'block';
+        return;
+    }
+
+    if (!currentPostId) {
+        return;
+    }
+
+    const csrftoken = getCookie('csrftoken');
+
+    fetch(`/connect/posts/${currentPostId}/comment/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content: content })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('commentModal'));
+            modal.hide();
+
+            // Update comment count
+            const commentCount = document.getElementById(`comment-count-${currentPostId}`);
+            if (commentCount) {
+                commentCount.textContent = parseInt(commentCount.textContent) + 1;
+            }
+
+            // Show success message
+            alert('Kommentar erfolgreich hinzugefügt!');
+
+            // Reload page to show new comment
+            window.location.reload();
+        } else {
+            const errorDiv = document.getElementById('commentError');
+            errorDiv.textContent = 'Fehler beim Absenden. Bitte versuche es erneut.';
+            errorDiv.style.display = 'block';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        const errorDiv = document.getElementById('commentError');
+        errorDiv.textContent = 'Fehler beim Absenden. Bitte versuche es erneut.';
+        errorDiv.style.display = 'block';
+    });
+}
+
+function sharePost(postId) {
+    if (confirm('Möchtest du diesen Beitrag wirklich teilen? Er wird in deinem Feed erscheinen.')) {
+        const csrftoken = getCookie('csrftoken');
+
+        fetch(`/connect/posts/${postId}/share/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken,
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Beitrag erfolgreich geteilt!');
+                window.location.reload();
+            } else {
+                alert('Fehler beim Teilen. ' + (data.error || 'Bitte versuche es erneut.'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Fehler beim Teilen. Bitte versuche es erneut.');
+        });
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+
+{% endblock %}

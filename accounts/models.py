@@ -46,9 +46,6 @@ class CustomUser(AbstractUser):
     can_manage_app_permissions = models.BooleanField(default=False, verbose_name="Darf App-Freigaben verwalten",
                                                    help_text="Erlaubt dem Benutzer das App-Freigabe Tab zu sehen und zu verwalten")
     
-    # Design-Einstellungen
-    dark_mode = models.BooleanField(default=False, verbose_name="Dunkles Design aktivieren")
-
     # Chat E-Mail-Benachrichtigungen
     enable_chat_email_notifications = models.BooleanField(default=True, verbose_name="Chat E-Mail-Benachrichtigungen",
                                                          help_text="E-Mail erhalten bei ungelesenen Nachrichten nach 5 Minuten")
@@ -193,7 +190,8 @@ class AppPermission(models.Model):
         ('streamrec', 'StreamRec'),
         ('promptpro', 'PromptPro'),
         ('fileshare', 'FileShare'),
-        
+        ('loomconnect', 'LoomConnect'),
+
         # Schuch Tools
         ('schuch', 'Schuch'),
         ('schuch_dashboard', 'Schuch Dashboard'),

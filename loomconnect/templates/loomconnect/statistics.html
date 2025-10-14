@@ -1,0 +1,254 @@
+{% extends 'loomconnect/base_loomconnect.html' %}
+{% load static %}
+
+{% block title %}LoomConnect Statistiken - Admin{% endblock %}
+
+{% block loomconnect_content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="bi bi-bar-chart-fill"></i> LoomConnect Statistiken</h1>
+            <span class="badge bg-danger">Superuser Only</span>
+        </div>
+
+        <!-- Global Stats Cards -->
+        <div class="row g-4 mb-5">
+            <div class="col-md-3">
+                <div class="loomconnect-card text-center">
+                    <div style="font-size: 48px; color: var(--loomconnect-primary); font-weight: bold;">
+                        {{ stats.total_profiles }}
+                    </div>
+                    <div class="text-muted">Gesamt Profile</div>
+                    <small class="text-success">{{ stats.active_profiles }} aktiv</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="loomconnect-card text-center">
+                    <div style="font-size: 48px; color: var(--loomconnect-secondary); font-weight: bold;">
+                        {{ stats.total_connections }}
+                    </div>
+                    <div class="text-muted">Verbindungen</div>
+                    <small class="text-muted">Ø {{ stats.avg_connections_per_user|floatformat:1 }} pro User</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="loomconnect-card text-center">
+                    <div style="font-size: 48px; color: #e74c3c; font-weight: bold;">
+                        {{ stats.total_skills }}
+                    </div>
+                    <div class="text-muted">User-Skills</div>
+                    <small class="text-muted">Ø {{ stats.avg_skills_per_user|floatformat:1 }} pro User</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="loomconnect-card text-center">
+                    <div style="font-size: 48px; color: #f39c12; font-weight: bold;">
+                        {{ stats.total_needs }}
+                    </div>
+                    <div class="text-muted">Gesuchte Skills</div>
+                    <small class="text-muted">{{ stats.total_posts }} Posts</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Stats -->
+        <div class="row g-4">
+            <!-- Popular Skills -->
+            <div class="col-md-6">
+                <div class="loomconnect-card">
+                    <h3 class="mb-3"><i class="bi bi-star-fill"></i> Top 10 Skills</h3>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Skill</th>
+                                    <th>Anzahl</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for skill in stats.popular_skills %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>{{ skill.skill__name }}</td>
+                                    <td><span class="badge bg-primary">{{ skill.count }}</span></td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted">Keine Daten</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Popular Categories -->
+            <div class="col-md-6">
+                <div class="loomconnect-card">
+                    <h3 class="mb-3"><i class="bi bi-folder-fill"></i> Top Kategorien</h3>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Kategorie</th>
+                                    <th>Skills</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for category in stats.popular_categories %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>{{ category.name }}</td>
+                                    <td><span class="badge bg-secondary">{{ category.skill_count }}</span></td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted">Keine Daten</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Users -->
+            <div class="col-md-6">
+                <div class="loomconnect-card">
+                    <h3 class="mb-3"><i class="bi bi-people-fill"></i> Aktivste User (Verbindungen)</h3>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Username</th>
+                                    <th>Verbindungen</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in stats.active_users %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>
+                                        <a href="{% url 'loomconnect:profile' user.profile_1__user__username %}" class="text-decoration-none">
+                                            @{{ user.profile_1__user__username }}
+                                        </a>
+                                    </td>
+                                    <td><span class="badge bg-success">{{ user.connection_count }}</span></td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted">Keine Daten</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Connections -->
+            <div class="col-md-6">
+                <div class="loomconnect-card">
+                    <h3 class="mb-3"><i class="bi bi-link-45deg"></i> Neueste Verbindungen</h3>
+                    <div class="list-group list-group-flush">
+                        {% for connection in recent_connections %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>{{ connection.profile_1.user.username }}</strong>
+                                    <i class="bi bi-arrow-left-right"></i>
+                                    <strong>{{ connection.profile_2.user.username }}</strong>
+                                </div>
+                                <small class="text-muted">{{ connection.created_at|timesince }}</small>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="list-group-item text-center text-muted">
+                            Keine Verbindungen
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Profiles -->
+            <div class="col-12">
+                <div class="loomconnect-card">
+                    <h3 class="mb-3"><i class="bi bi-person-plus-fill"></i> Neueste Profile</h3>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Email</th>
+                                    <th>Registriert</th>
+                                    <th>Onboarding</th>
+                                    <th>Öffentlich</th>
+                                    <th>Karma</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for profile in recent_profiles %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'loomconnect:profile' profile.user.username %}" class="text-decoration-none">
+                                            @{{ profile.user.username }}
+                                        </a>
+                                    </td>
+                                    <td>{{ profile.user.email }}</td>
+                                    <td>{{ profile.created_at|date:"d.m.Y H:i" }}</td>
+                                    <td>
+                                        {% if profile.onboarding_completed %}
+                                        <span class="badge bg-success">Abgeschlossen</span>
+                                        {% else %}
+                                        <span class="badge bg-warning">Offen</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if profile.is_public %}
+                                        <i class="bi bi-eye-fill text-success"></i>
+                                        {% else %}
+                                        <i class="bi bi-eye-slash-fill text-muted"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td><span class="badge bg-primary">{{ profile.karma_score }}</span></td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">Keine Profile</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="mt-5">
+            <div class="loomconnect-card">
+                <h3 class="mb-3"><i class="bi bi-gear-fill"></i> Quick Actions</h3>
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="/admin/loomconnect/" class="btn loomconnect-btn loomconnect-btn-primary">
+                        <i class="bi bi-gear"></i> Django Admin
+                    </a>
+                    <a href="{% url 'loomconnect:dashboard' %}" class="btn loomconnect-btn loomconnect-btn-outline">
+                        <i class="bi bi-house"></i> Dashboard
+                    </a>
+                    <a href="/admin/email_templates/emailtemplate/" class="btn loomconnect-btn loomconnect-btn-outline">
+                        <i class="bi bi-envelope"></i> Email Templates
+                    </a>
+                    <a href="/admin/email_templates/emailtrigger/" class="btn loomconnect-btn loomconnect-btn-outline">
+                        <i class="bi bi-lightning"></i> Email Triggers
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

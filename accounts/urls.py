@@ -17,7 +17,6 @@ urlpatterns = [
     path('password-reset-confirm/<uidb64>/<token>/', views.CustomPasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path('password-reset/complete/', views.CustomPasswordResetCompleteView.as_view(), name='password_reset_complete'),
     path('dashboard/', views.dashboard, name='dashboard'),
-    path('toggle-dark-mode/', views.toggle_dark_mode, name='toggle_dark_mode'),
     path('toggle-desktop-view/', views.toggle_desktop_view, name='toggle_desktop_view'),
     # path('api-keys/', views.manage_api_keys, name='manage_api_keys'),  # DEPRECATED: Ersetzt durch neue-api-einstellungen
     path('api-einstellungen/', views.api_settings_view, name='api_settings'),

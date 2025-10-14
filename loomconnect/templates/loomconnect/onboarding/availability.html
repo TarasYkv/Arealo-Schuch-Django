@@ -1,0 +1,182 @@
+{% extends 'loomconnect/base_loomconnect.html' %}
+{% load static %}
+
+{% block title %}Verfügbarkeit - LoomConnect{% endblock %}
+
+{% block loomconnect_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <!-- Progress -->
+        <div class="onboarding-progress mb-5">
+            <div class="onboarding-step completed">
+                <div class="onboarding-step-circle"><i class="bi bi-check"></i></div>
+                <small>Start</small>
+            </div>
+            <div class="onboarding-step completed">
+                <div class="onboarding-step-circle"><i class="bi bi-check"></i></div>
+                <small>Skills</small>
+            </div>
+            <div class="onboarding-step completed">
+                <div class="onboarding-step-circle"><i class="bi bi-check"></i></div>
+                <small>Level</small>
+            </div>
+            <div class="onboarding-step completed">
+                <div class="onboarding-step-circle"><i class="bi bi-check"></i></div>
+                <small>Bedarfe</small>
+            </div>
+            <div class="onboarding-step active">
+                <div class="onboarding-step-circle">4</div>
+                <small>Verfügbarkeit</small>
+            </div>
+            <div class="onboarding-step">
+                <div class="onboarding-step-circle">5</div>
+                <small>Profil</small>
+            </div>
+        </div>
+
+        <div class="loomconnect-card">
+            <h2 class="mb-2">Wann bist du verfügbar?</h2>
+            <p class="text-muted mb-4">Teile uns mit, wie viel Zeit du investieren möchtest</p>
+
+            <form method="post">
+                {% csrf_token %}
+
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    {{ form.errors }}
+                </div>
+                {% endif %}
+
+                <!-- Availability -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">{{ form.availability.label }}</label>
+                    <div class="row g-3">
+                        {% for value, label in form.availability.field.choices %}
+                        <div class="col-md-6">
+                            <input type="radio"
+                                   class="btn-check"
+                                   name="availability"
+                                   id="availability_{{ forloop.counter }}"
+                                   value="{{ value }}"
+                                   {% if form.availability.value == value %}checked{% endif %}>
+                            <label class="btn loomconnect-btn-outline w-100 text-start"
+                                   for="availability_{{ forloop.counter }}"
+                                   style="padding: 20px; height: 100%;">
+                                <div class="d-flex align-items-center">
+                                    <div class="me-3" style="font-size: 2rem;">
+                                        {% if value == 'vollzeit' %}⏰
+                                        {% elif value == 'teilzeit' %}🕐
+                                        {% elif value == 'gelegentlich' %}📅
+                                        {% elif value == 'flexibel' %}🔄
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <strong>{{ label }}</strong>
+                                        <div class="small text-muted mt-1">
+                                            {% if value == 'vollzeit' %}
+                                                Mehr als 30 Stunden pro Woche
+                                            {% elif value == 'teilzeit' %}
+                                                10-30 Stunden pro Woche
+                                            {% elif value == 'gelegentlich' %}
+                                                Weniger als 10 Stunden pro Woche
+                                            {% elif value == 'flexibel' %}
+                                                Abhängig vom Projekt
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Preferred Contact Times -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-clock"></i> Bevorzugte Kontaktzeiten (optional)
+                    </label>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="contact_time_morning" id="morning">
+                                <label class="form-check-label" for="morning">
+                                    🌅 Morgens (6-12 Uhr)
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="contact_time_afternoon" id="afternoon">
+                                <label class="form-check-label" for="afternoon">
+                                    ☀️ Mittags (12-18 Uhr)
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="contact_time_evening" id="evening">
+                                <label class="form-check-label" for="evening">
+                                    🌙 Abends (18-24 Uhr)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Response Time -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-reply"></i> Wie schnell antwortest du normalerweise?
+                    </label>
+                    <select name="response_time" class="form-select">
+                        <option value="sofort">Innerhalb von Stunden</option>
+                        <option value="tag" selected>Innerhalb eines Tages</option>
+                        <option value="tage">Innerhalb weniger Tage</option>
+                        <option value="woche">Innerhalb einer Woche</option>
+                    </select>
+                </div>
+
+                <!-- Additional Notes -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">
+                        <i class="bi bi-chat-text"></i> Zusätzliche Hinweise (optional)
+                    </label>
+                    <textarea class="form-control"
+                              name="availability_notes"
+                              rows="3"
+                              placeholder="z.B. Verfügbar nur am Wochenende, Urlaubszeiten, besondere Präferenzen..."></textarea>
+                </div>
+
+                <!-- Info Box -->
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    Diese Angaben helfen anderen, dich besser einzuschätzen. Du kannst sie jederzeit in deinem Profil ändern.
+                </div>
+
+                <!-- Navigation -->
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{% url 'loomconnect:onboarding_needs' %}" class="btn loomconnect-btn loomconnect-btn-outline">
+                        <i class="bi bi-arrow-left"></i> Zurück
+                    </a>
+                    <button type="submit" class="btn loomconnect-btn loomconnect-btn-primary">
+                        Weiter <i class="bi bi-arrow-right ms-2"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .btn-check:checked + .loomconnect-btn-outline {
+        background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary));
+        color: white !important;
+        border-color: var(--loomconnect-primary);
+    }
+
+    .btn-check:checked + .loomconnect-btn-outline .text-muted {
+        color: rgba(255,255,255,0.8) !important;
+    }
+</style>
+{% endblock %}

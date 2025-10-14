@@ -1,0 +1,125 @@
+{% extends 'loomconnect/base_loomconnect.html' %}
+{% load static %}
+
+{% block title %}Skill-Level festlegen - LoomConnect{% endblock %}
+
+{% block loomconnect_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <!-- Progress -->
+        <div class="onboarding-progress mb-5">
+            <div class="onboarding-step completed">
+                <div class="onboarding-step-circle"><i class="bi bi-check"></i></div>
+                <small>Start</small>
+            </div>
+            <div class="onboarding-step completed">
+                <div class="onboarding-step-circle"><i class="bi bi-check"></i></div>
+                <small>Skills</small>
+            </div>
+            <div class="onboarding-step active">
+                <div class="onboarding-step-circle">2</div>
+                <small>Level</small>
+            </div>
+            <div class="onboarding-step">
+                <div class="onboarding-step-circle">3</div>
+                <small>Bedarfe</small>
+            </div>
+            <div class="onboarding-step">
+                <div class="onboarding-step-circle">4</div>
+                <small>Verfügbarkeit</small>
+            </div>
+            <div class="onboarding-step">
+                <div class="onboarding-step-circle">5</div>
+                <small>Profil</small>
+            </div>
+        </div>
+
+        <div class="loomconnect-card">
+            <h2 class="mb-2">Wie gut beherrschst du deine Skills?</h2>
+            <p class="text-muted mb-4">Gib für jeden Skill an, wie erfahren du bist</p>
+
+            <form method="post">
+                {% csrf_token %}
+
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    {{ form.errors }}
+                </div>
+                {% endif %}
+
+                <!-- Skill Level Cards -->
+                <div class="row g-3">
+                    {% for field in form %}
+                        {% if 'skill_' in field.name and '_level' in field.name %}
+                        <div class="col-md-6">
+                            <div class="loomconnect-card" style="padding: 20px;">
+                                <h6 class="mb-3">
+                                    <span class="skill-badge">{{ field.label }}</span>
+                                </h6>
+
+                                <!-- Level Selector -->
+                                <div class="btn-group w-100" role="group">
+                                    {% for choice in field.field.choices %}
+                                    <input type="radio"
+                                           class="btn-check"
+                                           name="{{ field.name }}"
+                                           id="{{ field.name }}_{{ forloop.counter }}"
+                                           value="{{ choice.0 }}"
+                                           {% if field.value == choice.0 %}checked{% endif %}>
+                                    <label class="btn loomconnect-btn-outline"
+                                           for="{{ field.name }}_{{ forloop.counter }}"
+                                           style="border-radius: 0; padding: 10px 8px; font-size: 0.875rem;">
+                                        {{ choice.1 }}
+                                    </label>
+                                    {% endfor %}
+                                </div>
+
+                                <!-- Experience Years -->
+                                {% for exp_field in form %}
+                                    {% if exp_field.name == field.name|cut:'_level'|add:'_years' %}
+                                    <div class="mt-3">
+                                        <label class="form-label small">{{ exp_field.label }}</label>
+                                        {{ exp_field }}
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                <!-- Info Box -->
+                <div class="alert alert-info mt-4">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Level-Erklärung:</strong>
+                    <ul class="mb-0 mt-2 small">
+                        <li><strong>Anfänger:</strong> Grundkenntnisse, wenig praktische Erfahrung</li>
+                        <li><strong>Fortgeschritten:</strong> Solide Kenntnisse, regelmäßige Praxis</li>
+                        <li><strong>Experte:</strong> Tiefes Verständnis, umfangreiche Erfahrung</li>
+                        <li><strong>Profi:</strong> Meisterhafte Beherrschung, kann andere unterrichten</li>
+                    </ul>
+                </div>
+
+                <!-- Navigation -->
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{% url 'loomconnect:onboarding_skills' %}" class="btn loomconnect-btn loomconnect-btn-outline">
+                        <i class="bi bi-arrow-left"></i> Zurück
+                    </a>
+                    <button type="submit" class="btn loomconnect-btn loomconnect-btn-primary">
+                        Weiter <i class="bi bi-arrow-right ms-2"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .btn-check:checked + .loomconnect-btn-outline {
+        background: linear-gradient(135deg, var(--loomconnect-primary), var(--loomconnect-secondary));
+        color: white !important;
+        border-color: var(--loomconnect-primary);
+    }
+</style>
+{% endblock %}

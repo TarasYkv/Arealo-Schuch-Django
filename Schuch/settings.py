@@ -82,6 +82,7 @@ INSTALLED_APPS = [
     'lighting_classification',
     'loomline',
     'fileshare',
+    'loomconnect',
     'stats',
 ]
 

@@ -1,0 +1,67 @@
+{% extends 'loomconnect/base_loomconnect.html' %}
+{% load static %}
+
+{% block title %}Bedarf bearbeiten - LoomConnect{% endblock %}
+
+{% block loomconnect_content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="loomconnect-card">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="bi bi-pencil"></i> Bedarf bearbeiten</h2>
+                <a href="{% url 'loomconnect:needs_management' %}" class="btn btn-sm loomconnect-btn loomconnect-btn-outline">
+                    <i class="bi bi-arrow-left"></i> Zurück
+                </a>
+            </div>
+
+            <div class="mb-4 p-3" style="background: var(--loomconnect-card-bg); border-radius: 8px; border-left: 4px solid var(--loomconnect-primary);">
+                <small class="text-muted">Bearbeite Bedarf</small>
+                <h5 class="mb-0">{{ object.skill.name }}</h5>
+                <small class="text-muted">{{ object.skill.category.name }}</small>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {{ form.non_field_errors }}
+                </div>
+                {% endif %}
+
+                <div class="mb-3">
+                    <label class="form-label">{{ form.description.label }}</label>
+                    {{ form.description }}
+                    {% if form.description.errors %}
+                    <div class="text-danger small mt-1">{{ form.description.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">{{ form.urgency.label }}</label>
+                    {{ form.urgency }}
+                    {% if form.urgency.errors %}
+                    <div class="text-danger small mt-1">{{ form.urgency.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-4">
+                    <div class="form-check">
+                        {{ form.is_active }}
+                        <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                            {{ form.is_active.label }}
+                        </label>
+                    </div>
+                    <small class="text-muted">Inaktive Bedarfe werden anderen nicht angezeigt</small>
+                </div>
+
+                <div class="d-grid">
+                    <button type="submit" class="btn loomconnect-btn loomconnect-btn-primary">
+                        <i class="bi bi-check-circle"></i> Änderungen speichern
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
