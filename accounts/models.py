@@ -471,8 +471,8 @@ class EditableContent(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='editable_contents')
     page = models.CharField(max_length=50, verbose_name="Seite")
     content_type = models.CharField(max_length=50, choices=CONTENT_TYPE_CHOICES, verbose_name="Inhaltstyp")
-    content_key = models.CharField(max_length=100, verbose_name="Inhalt Schlüssel", 
-                                  help_text="Eindeutige Bezeichnung für diesen Inhalt")
+    content_key = models.CharField(max_length=500, verbose_name="Inhalt Schlüssel",
+                                  help_text="Eindeutige Bezeichnung für diesen Inhalt (DOM-Selektor kann sehr lang sein)")
     text_content = models.TextField(blank=True, verbose_name="Text Inhalt")
     html_content = models.TextField(blank=True, verbose_name="HTML Inhalt")
     css_content = models.TextField(blank=True, verbose_name="CSS Styles")

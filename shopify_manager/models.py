@@ -145,7 +145,7 @@ class ShopifyProduct(models.Model):
     seo_description = models.TextField(max_length=160, blank=True, help_text="SEO Beschreibung (max. 160 Zeichen)")
     
     # Bilder
-    featured_image_url = models.URLField(blank=True, help_text="Haupt-Produktbild URL")
+    featured_image_url = models.URLField(max_length=2048, blank=True, help_text="Haupt-Produktbild URL")
     featured_image_alt = models.CharField(max_length=255, blank=True, help_text="Alt-Text für Hauptbild")
     
     # Preise
@@ -447,7 +447,7 @@ class ShopifyProductImage(models.Model):
     """Zusätzliche Produktbilder"""
     product = models.ForeignKey(ShopifyProduct, on_delete=models.CASCADE, related_name='images')
     shopify_image_id = models.CharField(max_length=50, help_text="Shopify Image ID")
-    image_url = models.URLField(help_text="Bild URL")
+    image_url = models.URLField(max_length=2048, help_text="Bild URL")
     alt_text = models.CharField(max_length=255, blank=True, null=True, help_text="Alt-Text")
     position = models.PositiveIntegerField(default=1, help_text="Reihenfolge der Bilder")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -647,7 +647,7 @@ class ShopifyBlogPost(models.Model):
     seo_description = models.TextField(max_length=160, blank=True, help_text="SEO Beschreibung (max. 160 Zeichen)")
     
     # Bilder
-    featured_image_url = models.URLField(blank=True, help_text="Haupt-Bild URL")
+    featured_image_url = models.URLField(max_length=2048, blank=True, help_text="Haupt-Bild URL")
     featured_image_alt = models.CharField(max_length=255, blank=True, help_text="Alt-Text für Hauptbild")
     
     # Tags
@@ -1322,7 +1322,7 @@ class ShopifyCollection(models.Model):
     seo_description = models.TextField(max_length=160, blank=True, help_text="SEO Beschreibung (max. 160 Zeichen)")
     
     # Bilder
-    image_url = models.URLField(blank=True, help_text="Kategorie-Bild URL")
+    image_url = models.URLField(max_length=2048, blank=True, help_text="Kategorie-Bild URL")
     image_alt = models.CharField(max_length=255, blank=True, help_text="Alt-Text für Kategorie-Bild")
     
     # Sortierung und Sichtbarkeit
