@@ -25,7 +25,7 @@ def seo_defaults(request):
             'default_title': 'WorkLoom - Digitale Tools für effizientes Arbeiten',
             'default_description': 'WorkLoom bietet professionelle digitale Tools und Lösungen für Beleuchtungsplanung, Projektmanagement und mehr. Effizient, sicher und benutzerfreundlich.',
             'default_keywords': 'WorkLoom, Beleuchtungsrechner, Projektmanagement, digitale Tools, Beleuchtungsplanung, DIN EN 13201',
-            'default_image': f"{protocol}://{request.get_host()}/static/images/workloom-og-image.png",
+            'default_image': f"{protocol}://{request.get_host()}/media/workloom_icon.png",
             'og_type': 'website',
             'twitter_card': 'summary_large_image',
             'twitter_site': '@workloom',  # Anpassen wenn vorhanden
