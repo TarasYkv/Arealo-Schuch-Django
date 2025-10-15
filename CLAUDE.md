@@ -108,6 +108,39 @@
   - `/api/v0/user/TarasYuzkiv/files/` - Datei-Uploads
 - **Wichtig:** API-Key nicht committen, bleibt in `.env`
 
+#### PythonAnywhere SSH (✅ Verfügbar - Bezahlter Account)
+- **Zugang:** SSH-Zugriff für direktes Deployment
+- **Host:** `ssh.pythonanywhere.com`
+- **User:** `TarasYuzkiv`
+- **Verwendung:**
+  ```bash
+  # SSH-Verbindung herstellen
+  ssh TarasYuzkiv@ssh.pythonanywhere.com
+
+  # Deployment ausführen
+  cd ~/Arealo-Schuch-Django
+  git pull origin master
+  python manage.py migrate
+  python manage.py collectstatic --noinput
+  touch /var/www/www_workloom_de_wsgi.py
+  ```
+- **Vorteil:** Direkter, interaktiver Zugriff auf Server-Console
+
+#### GitHub Token (✅ Konfiguriert)
+- **Token:** In `.env` als `GH_TOKEN` gespeichert
+- **Zweck:** Authentifizierung für GitHub API-Zugriffe
+- **Verwendung:**
+  ```bash
+  # GitHub API-Calls mit Token
+  export GH_TOKEN=$(grep GH_TOKEN .env | cut -d'=' -f2)
+  curl -H "Authorization: token $GH_TOKEN" https://api.github.com/...
+
+  # Oder mit gh CLI
+  gh auth login --with-token <<< "$GH_TOKEN"
+  ```
+- **Berechtigungen:** Repo-Zugriff, Issues, Pull Requests
+- **Wichtig:** Token nicht committen, bleibt in `.env`
+
 ### Deployment Workflow:
 1. **Lokal:** Änderungen testen und committen
 2. **GitHub:** `git push origin master`
