@@ -76,6 +76,44 @@
 - Email Templates sind datenbankbasiert über Trigger-System
 - SMTP-Konfiguration lädt aus Datenbank, nicht aus Django Settings
 
+### MCP Server & Tools:
+
+#### Chrome DevTools MCP (✅ Installiert)
+- **Zweck:** Browser-Automatisierung, Performance-Analyse, Debugging
+- **Konfiguration:** `~/.claude.json` - nutzt Windows Chrome über WSL2
+- **Verwendung:**
+  ```
+  - Webseiten im echten Browser öffnen und analysieren
+  - Browser-Console-Fehler in Echtzeit sehen
+  - Performance-Traces aufzeichnen (Core Web Vitals)
+  - Network-Requests analysieren (404, 500, API-Fehler)
+  - Screenshots erstellen (Desktop/Mobile)
+  - SEO & Meta-Daten validieren
+  ```
+- **Tools verfügbar:** `mcp__chrome-devtools__*` (nach Claude Code Neustart)
+- **Hinweis:** Für volle Funktionalität Chrome mit `--remote-debugging-port=9222` starten
+
+#### PythonAnywhere API (✅ Konfiguriert)
+- **API-Key:** In `.env` als `pythonanywhereApiKey` gespeichert
+- **Zweck:** Direkter Server-Zugriff für Deployments und Management
+- **Verwendung:**
+  ```bash
+  # Beispiel: Deployment-Script auf Server ausführen
+  curl -H "Authorization: Token $pythonanywhereApiKey" \
+       https://www.pythonanywhere.com/api/v0/user/TarasYuzkiv/...
+  ```
+- **Endpoints:**
+  - `/api/v0/user/TarasYuzkiv/consoles/` - Console-Management
+  - `/api/v0/user/TarasYuzkiv/webapps/` - Web-App Reload
+  - `/api/v0/user/TarasYuzkiv/files/` - Datei-Uploads
+- **Wichtig:** API-Key nicht committen, bleibt in `.env`
+
+### Deployment Workflow:
+1. **Lokal:** Änderungen testen und committen
+2. **GitHub:** `git push origin master`
+3. **PythonAnywhere:** Via API oder Console `./deploy_mysql.sh` ausführen
+4. **Web-App:** Automatisch neu laden nach Deployment
+
 ---
 
 ## ❌ Anti-Pattern vermeiden
