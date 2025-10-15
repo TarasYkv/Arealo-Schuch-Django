@@ -143,6 +143,8 @@ if os.getenv('DB_ENGINE') == 'mysql':
                 'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
                 'charset': 'utf8mb4',
             },
+            # Connection Pooling: Connections 10 Minuten wiederverwenden
+            'CONN_MAX_AGE': 600,
         }
     }
 else:
@@ -151,6 +153,7 @@ else:
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
+            'CONN_MAX_AGE': 600,
         }
     }
 
