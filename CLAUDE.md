@@ -93,48 +93,10 @@
 - **Tools verfügbar:** `mcp__chrome-devtools__*` (nach Claude Code Neustart)
 - **Hinweis:** Für volle Funktionalität Chrome mit `--remote-debugging-port=9222` starten
 
-#### PythonAnywhere API (✅ Konfiguriert)
-- **API-Key:** In `.env` als `pythonanywhereApiKey` gespeichert
-- **Zweck:** Direkter Server-Zugriff für Deployments und Management
-- **Verwendung:**
-  ```bash
-  # Beispiel: Deployment-Script auf Server ausführen
-  curl -H "Authorization: Token $pythonanywhereApiKey" \
-       https://www.pythonanywhere.com/api/v0/user/TarasYuzkiv/...
-  ```
-- **Endpoints:**
-  - `/api/v0/user/TarasYuzkiv/consoles/` - Console-Management
-  - `/api/v0/user/TarasYuzkiv/webapps/` - Web-App Reload
-  - `/api/v0/user/TarasYuzkiv/files/` - Datei-Uploads
-- **Wichtig:** API-Key nicht committen, bleibt in `.env`
-
-#### PythonAnywhere SSH MCP (✅ Installiert - BEVORZUGTE METHODE)
-- **Zugang:** SSH-Zugriff via MCP für direktes Deployment
-- **Konfiguration:** `~/.claude.json` - SSH MCP Server
-- **Installation:**
-  ```bash
-  claude mcp add pythonanywhere-ssh npx ssh-mcp -- \
-    --host ssh.pythonanywhere.com \
-    --user TarasYuzkiv \
-    --port 22
-  ```
-- **Verwendung via Claude Code:**
-  - Nach Neustart: Tools `mcp__pythonanywhere-ssh__*` verfügbar
-  - Direktes Deployment über natürliche Sprache
-  - Automatische SSH-Verbindung und Command-Execution
-- **Manueller SSH-Zugang:**
-  ```bash
-  # SSH-Verbindung herstellen
-  ssh TarasYuzkiv@ssh.pythonanywhere.com
-
-  # Deployment ausführen
-  cd ~/Arealo-Schuch-Django
-  git pull origin master
-  python manage.py migrate --noinput
-  python manage.py collectstatic --noinput
-  touch /var/www/www_workloom_de_wsgi.py
-  ```
-- **Vorteil:** Schnellster und zuverlässigster Deployment-Weg!
+#### PythonAnywhere (⚠️ NICHT AKTIV - Nur lokale Entwicklung)
+- **Status:** Server-Deployment ist pausiert
+- **Aktueller Workflow:** Nur lokale Entwicklung auf WSL2
+- **Hinweis:** PythonAnywhere API und SSH MCP sind konfiguriert aber werden nicht verwendet
 
 #### GitHub Token (✅ Konfiguriert)
 - **Token:** In `.env` als `GH_TOKEN` gespeichert
@@ -151,39 +113,54 @@
 - **Berechtigungen:** Repo-Zugriff, Issues, Pull Requests
 - **Wichtig:** Token nicht committen, bleibt in `.env`
 
-### Deployment Workflow:
+### Lokaler Entwicklungs-Workflow:
 
-#### Methode 1: SSH MCP (✅ EMPFOHLEN - Nach Claude Code Neustart)
-1. **Lokal:** Änderungen testen und committen
-2. **GitHub:** `git push origin master`
-3. **Claude Code:** Einfach sagen: "Deploy to PythonAnywhere via SSH"
-   - Automatische SSH-Verbindung
-   - Git Pull, Migrations, Collectstatic
-   - WSGI Reload
+#### Umgebung:
+- **System:** WSL2 (Ubuntu) auf Windows
+- **Datenbank:** MySQL lokal (localhost:3306)
+- **Python:** Lokale venv in `/mnt/c/Users/taras.yuzkiv/PycharmProjects/Arealo-Schuch/venv`
+- **Server:** Django Development Server (`python manage.py runserver`)
 
-#### Methode 2: PythonAnywhere API (Funktioniert aktuell)
-1. **Lokal:** Änderungen testen und committen
-2. **GitHub:** `git push origin master`
-3. **API Console:**
+#### Standard-Workflow:
+1. **Änderungen implementieren**
    ```bash
-   # Via Console Commands
-   cd /home/TarasYuzkiv/Arealo-Schuch-Django
-   git fetch origin && git reset --hard origin/master
-   python manage.py migrate --noinput
-   python manage.py collectstatic --noinput
-   touch /var/www/www_workloom_de_wsgi.py
+   # Virtuelle Umgebung aktivieren (falls nötig)
+   source venv/bin/activate
+
+   # Code ändern und testen
+   python manage.py runserver
    ```
 
-#### Methode 3: Manuelles SSH (Fallback)
-```bash
-ssh TarasYuzkiv@ssh.pythonanywhere.com
-cd ~/Arealo-Schuch-Django && ./deploy_mysql.sh
-```
+2. **Datenbank-Änderungen**
+   ```bash
+   # Migrations erstellen
+   python manage.py makemigrations
+
+   # Migrations anwenden
+   python manage.py migrate
+   ```
+
+3. **Testen**
+   ```bash
+   # Tests ausführen (falls vorhanden)
+   python manage.py test
+
+   # Manuelles Testen im Browser
+   http://localhost:8000
+   ```
+
+4. **Git Commit**
+   ```bash
+   git add .
+   git commit -m "Beschreibung der Änderungen"
+   git push origin master
+   ```
 
 **Wichtige Hinweise:**
-- Nach Deployment **immer** WSGI reload: `touch /var/www/www_workloom_de_wsgi.py`
-- Bei MySQL Connection Errors: WSGI reload hilft (CONN_MAX_AGE=600)
-- Migrations-Konflikte: `python manage.py makemigrations --merge --noinput`
+- **KEIN automatisches Deployment** - nur lokale Entwicklung
+- MySQL läuft lokal, nicht auf Server
+- Bei DB-Problemen: `python manage.py migrate --run-syncdb`
+- Statische Dateien: `python manage.py collectstatic` nur bei Bedarf
 
 ---
 
