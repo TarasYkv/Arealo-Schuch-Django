@@ -93,10 +93,12 @@
 - **Tools verfügbar:** `mcp__chrome-devtools__*` (nach Claude Code Neustart)
 - **Hinweis:** Für volle Funktionalität Chrome mit `--remote-debugging-port=9222` starten
 
-#### PythonAnywhere (⚠️ NICHT AKTIV - Nur lokale Entwicklung)
-- **Status:** Server-Deployment ist pausiert
-- **Aktueller Workflow:** Nur lokale Entwicklung auf WSL2
-- **Hinweis:** PythonAnywhere API und SSH MCP sind konfiguriert aber werden nicht verwendet
+#### PythonAnywhere SSH (✅ AKTIV - Production Deployment)
+- **Status:** SSH-Deployment voll funktionsfähig
+- **Workflow:** Lokale Entwicklung → Git Push → SSH Deploy
+- **Geschwindigkeit:** 30 Sekunden (10-30x schneller als API)
+- **Verwendung:** Für alle Server-Deployments
+- **Hinweis:** API als Fallback verfügbar, aber SSH bevorzugt
 
 #### GitHub Token (✅ Konfiguriert)
 - **Token:** In `.env` als `GH_TOKEN` gespeichert
@@ -157,10 +159,108 @@
    ```
 
 **Wichtige Hinweise:**
-- **KEIN automatisches Deployment** - nur lokale Entwicklung
-- MySQL läuft lokal, nicht auf Server
+- MySQL läuft lokal (localhost:3306) für Entwicklung
 - Bei DB-Problemen: `python manage.py migrate --run-syncdb`
 - Statische Dateien: `python manage.py collectstatic` nur bei Bedarf
+
+---
+
+## 🚀 Server-Deployment via SSH (PythonAnywhere)
+
+### SSH-Verbindung (✅ Aktiv & Schnell):
+```bash
+ssh TarasYuzkiv@ssh.pythonanywhere.com
+```
+
+### Standard-Deployment (Empfohlen):
+
+**1. Lokal: Code committen & pushen**
+```bash
+# Änderungen stagen
+git add <geänderte-dateien>
+
+# Commit mit aussagekräftiger Message
+git commit -m "Feature: Beschreibung der Änderung
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+
+# Push zu GitHub
+git push origin master
+```
+
+**2. Server: Via SSH deployen (⚡ 30 Sekunden)**
+```bash
+ssh TarasYuzkiv@ssh.pythonanywhere.com << 'EOF'
+cd ~/Arealo-Schuch-Django
+
+# Code aktualisieren
+git pull origin master
+
+# Migrations anwenden (falls vorhanden)
+python manage.py migrate --noinput
+
+# Static Files sammeln (falls geändert)
+python manage.py collectstatic --noinput
+
+# WSGI neu laden (WICHTIG!)
+touch /var/www/www_workloom_de_wsgi.py
+
+echo "✓ Deployment abgeschlossen!"
+EOF
+```
+
+**3. Verifizierung**
+```bash
+# Optional: Django Check ausführen
+ssh TarasYuzkiv@ssh.pythonanywhere.com "cd ~/Arealo-Schuch-Django && python manage.py check --deploy"
+
+# Website testen
+# https://www.workloom.de
+```
+
+### Schnell-Deployment (One-Liner):
+```bash
+# Nur Code-Änderungen (keine DB/Static)
+ssh TarasYuzkiv@ssh.pythonanywhere.com "cd ~/Arealo-Schuch-Django && git pull && touch /var/www/www_workloom_de_wsgi.py"
+```
+
+### Deployment mit TodoWrite-Tracking:
+Für komplexe Deployments immer Todo-Liste verwenden:
+1. Git Status prüfen und Änderungen commiten
+2. Änderungen zu GitHub pushen
+3. Via SSH auf Server deployen
+4. Server-Deployment verifizieren
+
+### Wichtige Deployment-Regeln:
+- ✅ **Immer SSH verwenden** (10-30x schneller als API)
+- ✅ **WSGI reload nicht vergessen** (`touch /var/www/www_workloom_de_wsgi.py`)
+- ✅ **Migrations prüfen** vor Deployment
+- ✅ **Django Check** nach größeren Änderungen
+- ⚠️ **Server-DB ist MySQL** (nicht SQLite)
+- ⚠️ **Python 3.13** auf Server (lokal 3.12)
+
+### Troubleshooting:
+```bash
+# Fehlende Dependencies installieren
+ssh TarasYuzkiv@ssh.pythonanywhere.com "pip install <package> --user"
+
+# Django Shell auf Server
+ssh TarasYuzkiv@ssh.pythonanywhere.com "cd ~/Arealo-Schuch-Django && python manage.py shell"
+
+# Logs prüfen
+ssh TarasYuzkiv@ssh.pythonanywhere.com "tail -50 /var/log/www.workloom.de.error.log"
+```
+
+### Server-Umgebung:
+- **Host:** ssh.pythonanywhere.com
+- **User:** TarasYuzkiv
+- **Projekt-Pfad:** ~/Arealo-Schuch-Django
+- **WSGI-Pfad:** /var/www/www_workloom_de_wsgi.py
+- **Datenbank:** MySQL (TarasYuzkiv$workloom)
+- **Python:** 3.13 (virtualenv: arealo-venv)
+- **Domain:** https://www.workloom.de
 
 ---
 
