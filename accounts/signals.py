@@ -77,9 +77,9 @@ def send_welcome_email(sender, instance, created, **kwargs):
             from django.urls import reverse
             from django.conf import settings
             import logging
-            
+
             logger = logging.getLogger(__name__)
-            
+
             # Bereite Benutzerdaten für die E-Mail vor
             context_data = {
                 'user_name': instance.get_full_name() or instance.username,
@@ -99,7 +99,7 @@ def send_welcome_email(sender, instance, created, **kwargs):
                     'Organisationstools: Notizen, Boards, Termine'
                 ]
             }
-            
+
             # Verwende das neue Trigger-System
             results = trigger_manager.fire_trigger(
                 trigger_key='user_registration',
@@ -107,18 +107,68 @@ def send_welcome_email(sender, instance, created, **kwargs):
                 recipient_email=instance.email,
                 recipient_name=instance.get_full_name() or instance.username
             )
-            
+
             # Prüfe Ergebnis
             if results and any(result['success'] for result in results):
                 logger.info(f"Welcome email sent successfully via trigger system to {instance.email}")
             else:
                 logger.warning(f"Welcome email trigger failed for {instance.email}")
-                
+
         except Exception as e:
             # Fehler beim E-Mail-Versand sollen die Registrierung nicht blockieren
             import logging
             logger = logging.getLogger(__name__)
             logger.error(f"Error sending welcome email to {instance.email}: {str(e)}")
+
+
+@receiver(post_save, sender=User)
+def activate_default_subscriptions(sender, instance, created, **kwargs):
+    """
+    Aktiviert automatisch die Standard-Pläne für neue Benutzer:
+    - WorkLoom Founder Access (Monatlich) - ID 1
+    - Kostenlos (100MB) Storage - ID 3
+    """
+    if created:  # Nur bei neuen Benutzern
+        try:
+            from payments.models import Subscription, SubscriptionPlan, Customer
+            import logging
+
+            logger = logging.getLogger(__name__)
+
+            # Erstelle oder hole Customer für diesen User
+            customer, customer_created = Customer.objects.get_or_create(
+                user=instance,
+                defaults={'stripe_customer_id': None}
+            )
+
+            if customer_created:
+                logger.info(f"Created Customer for user {instance.username}")
+
+            # IDs der Standard-Pläne
+            default_plan_ids = [1, 3]  # Founder Access + Free Storage
+
+            for plan_id in default_plan_ids:
+                try:
+                    plan = SubscriptionPlan.objects.get(id=plan_id, is_active=True)
+
+                    # Prüfe ob Subscription bereits existiert
+                    if not Subscription.objects.filter(customer=customer, plan=plan).exists():
+                        Subscription.objects.create(
+                            customer=customer,
+                            plan=plan,
+                            status='active',
+                            current_period_start=timezone.now(),
+                            stripe_subscription_id=f'free_{plan.id}_{instance.id}'  # Dummy ID für kostenlose Pläne
+                        )
+                        logger.info(f"Auto-activated plan '{plan.name}' for user {instance.username}")
+
+                except SubscriptionPlan.DoesNotExist:
+                    logger.warning(f"Default plan ID {plan_id} not found for user {instance.username}")
+
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error activating default subscriptions for {instance.username}: {str(e)}")
 
 
 def get_client_ip(request):
