@@ -311,7 +311,7 @@ class OnboardingCompleteView(LoomConnectAccessMixin, View):
 # ==========================================
 
 class DashboardView(LoomConnectAccessMixin, View):
-    """LoomConnect Dashboard - Übersicht"""
+    """LoomConnect Dashboard - Aktivitäten & Feed Übersicht"""
     template_name = 'loomconnect/dashboard.html'
 
     def get(self, request):
@@ -321,37 +321,50 @@ class DashboardView(LoomConnectAccessMixin, View):
         if not profile.onboarding_completed:
             return redirect('loomconnect:onboarding_welcome')
 
-        # Stats
-        my_skills = UserSkill.objects.filter(profile=profile).select_related('skill')
-        my_needs = UserNeed.objects.filter(profile=profile, is_active=True).select_related('skill')
+        # Connection count für Stats
         my_connections = Connection.objects.filter(
             Q(profile_1=profile) | Q(profile_2=profile)
         ).count()
+
+        # Pending requests count
         pending_requests = ConnectRequest.objects.filter(
             to_profile=profile,
             status='pending'
         ).count()
 
-        # Recent Activities
-        recent_posts = ConnectPost.objects.filter(
-            author=profile
-        ).order_by('-created_at')[:3]
+        # Feed Posts von Connections (nicht eigene Posts)
+        my_connection_profiles = Connection.objects.filter(
+            Q(profile_1=profile) | Q(profile_2=profile)
+        ).values_list('profile_1_id', 'profile_2_id')
+
+        connection_profile_ids = set()
+        for p1, p2 in my_connection_profiles:
+            connection_profile_ids.add(p1)
+            connection_profile_ids.add(p2)
+        connection_profile_ids.discard(profile.id)
+
+        feed_posts = ConnectPost.objects.filter(
+            author_id__in=connection_profile_ids
+        ).select_related('author', 'author__user').prefetch_related(
+            'related_skills', 'comments', 'likes'
+        ).order_by('-created_at')[:5]
 
         # Suggested Matches (Skills die ich biete vs. Needs von anderen)
-        my_skill_ids = my_skills.values_list('skill_id', flat=True)
+        my_skill_ids = UserSkill.objects.filter(
+            profile=profile,
+            is_offering=True
+        ).values_list('skill_id', flat=True)
+
         potential_matches = UserNeed.objects.filter(
             skill_id__in=my_skill_ids,
             is_active=True
         ).exclude(profile=profile).select_related('profile', 'profile__user', 'skill')[:5]
 
-
         context = {
             'profile': profile,
-            'my_skills': my_skills,
-            'my_needs': my_needs,
             'my_connections': my_connections,
             'pending_requests': pending_requests,
-            'recent_posts': recent_posts,
+            'feed_posts': feed_posts,
             'potential_matches': potential_matches,
         }
 
