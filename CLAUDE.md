@@ -76,6 +76,47 @@
 - Email Templates sind datenbankbasiert über Trigger-System
 - SMTP-Konfiguration lädt aus Datenbank, nicht aus Django Settings
 
+### Projektstruktur:
+
+Das Projekt ist aufgeräumt und organisiert in einer klaren Struktur:
+
+```
+Root-Verzeichnis (nur Essentielles):
+├── manage.py, run_asgi.py              # Django Core
+├── deploy.sh, deploy_mysql.sh          # Deployment-Scripts
+├── requirements.txt                     # Python Dependencies
+├── CLAUDE.md, README.md                # Haupt-Dokumentation
+├── LOOMCONNECT.md, SEO.md             # Feature-Dokumentation
+├── venv/                               # Python Virtual Environment (lokal)
+└── [Django Apps]                       # Alle Django Apps (accounts, core, etc.)
+
+docs/
+├── archive/       # Veraltete Dokumentation & Feature-Implementierungen
+│   ├── Feature-spezifische READMEs
+│   ├── Issue-Analysen & Fix-Guides
+│   └── Implementierungs-Dokumentation
+├── scripts/       # Setup & Utility Scripts
+│   ├── Setup-Scripts (create_*, setup_*, oauth_*)
+│   ├── Modernisierungs-Scripts
+│   └── Debug/Test-Utilities
+├── setup/         # Setup-Guides & Anleitungen
+│   ├── Deployment-Anleitungen
+│   ├── Service-Setup (Email, KI, WebSocket, etc.)
+│   └── Server-Konfiguration
+└── reference/     # Technische Referenzen & Spezifikationen
+    └── LDT-Dateien, PDFs, Standards
+
+.claude/           # Claude Code Konfiguration (BEHALTEN)
+.gitignore         # Git Ignore Rules
+```
+
+**Wichtige Hinweise:**
+- **Root sauber halten:** Nur essenzielle Dateien im Root-Verzeichnis
+- **Dokumentation archivieren:** Alte/veraltete Docs nach `docs/archive/`
+- **Scripts organisieren:** Utility-Scripts nach `docs/scripts/`
+- **Setup-Guides:** Alle Anleitungen in `docs/setup/`
+- **Claude-Konfiguration:** `.claude/` Verzeichnis NICHT löschen (enthält wichtige Einstellungen)
+
 ### MCP Server & Tools:
 
 #### Chrome DevTools MCP (✅ Installiert)
